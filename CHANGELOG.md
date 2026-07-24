@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **LSP Layered Exclusion & Asset Resolution (`LSP-FIX-002`)**: Enforced `LayeredExclusionManager` filtering in `LanguageServer._is_within_domain()` and `_build_vsm_sync()` so configured `excluded_dirs` are respected in editor sessions. Registered static HTML and media assets in VSM during initialization to eliminate false-positive `Z101` broken link errors on asset references.
+- **LSP Workspace Initialization Sync (`LSP-FIX-003`)**: Added initial workspace analysis and `zenzic/dqsUpdate` JSON-RPC broadcast upon receiving the `initialized` notification, ensuring editor DQS widgets reflect repository quality state prior to explicit `textDocument/didOpen` events.
+
 ## [0.24.1] - 2026-07-24
 
 ### Fixed
