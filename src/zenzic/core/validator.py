@@ -564,8 +564,8 @@ def _find_cycles_iterative(adj: dict[Path, set[Path]]) -> frozenset[str]:
                     adj.setdefault(nbr, set())
                 if color[nbr] == GREY:  # back edge → cycle
                     idx = path.index(nbr)
-                    in_cycle.update(str(p) for p in path[idx:])
-                    in_cycle.add(str(nbr))
+                    in_cycle.update(p.as_posix() for p in path[idx:])
+                    in_cycle.add(nbr.as_posix())
                 elif color[nbr] == WHITE:
                     color[nbr] = GREY
                     stack.append((nbr, iter(adj.get(nbr, set()))))
