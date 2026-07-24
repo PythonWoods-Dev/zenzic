@@ -19,10 +19,18 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.discovery import build_content_mounts
 from zenzic.models.diagnostics import ZenzicDiagnostic
+
+
+def _uri_to_path(uri: str) -> Path:
+    """Convert a file:// URI to a cross-platform pathlib.Path."""
+    parsed = urlsplit(uri)
+    return Path(url2pathname(parsed.path))
 
 
 _log = logging.getLogger(__name__)
@@ -357,13 +365,12 @@ class VirtualBufferOverlay:
 
     def update(self, uri: str, content: str) -> None:
         """Register or refresh an in-memory buffer, updating anchors."""
-        from urllib.parse import unquote
 
         from zenzic.core.validator import anchors_in_file
 
         self.buffers[uri] = content
         if uri.startswith("file://"):
-            path = Path(unquote(uri[7:])).resolve()
+            path = _uri_to_path(uri).resolve()
             self.anchors_cache[path] = anchors_in_file(content)
 
     def register_file_links(self, path: Path, content: str) -> None:
@@ -372,11 +379,9 @@ class VirtualBufferOverlay:
 
     def remove(self, uri: str) -> None:
         """Evict a buffer."""
-        from urllib.parse import unquote
-
         self.buffers.pop(uri, None)
         if uri.startswith("file://"):
-            path = Path(unquote(uri[7:])).resolve()
+            path = _uri_to_path(uri).resolve()
             self.anchors_cache.pop(path, None)
 
     def dependents_of(self, canonical_url: str) -> frozenset[Path]:

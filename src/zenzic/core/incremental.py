@@ -180,7 +180,7 @@ class IncrementalAnalysisEngine:
         if changed_uris is None:
             # Full read
             for md_file in iter_markdown_sources(self.docs_root, self.config, exclusion_manager):
-                uri = f"file://{md_file.resolve()}"
+                uri = md_file.resolve().as_uri()
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
                 else:
@@ -280,7 +280,7 @@ class IncrementalAnalysisEngine:
             if path not in self.md_contents_cache:
                 continue
             text = self.md_contents_cache[path]
-            uri = f"file://{path}"
+            uri = path.as_uri()
             typed_diags = self._analyze_file(vsm, path, text)
 
             # Store diagnostics on the VSM route (Mirror Law)

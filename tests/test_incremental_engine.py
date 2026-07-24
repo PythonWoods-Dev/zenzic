@@ -71,12 +71,14 @@ def test_engine_incremental_returns_only_affected(tmp_path: Path) -> None:
     engine.process_changes(vsm, overlay)  # Full sync
 
     # Modify only file a.md
-    uri_a = f"file://{(docs_dir / 'a.md').resolve()}"
+    uri_a = (docs_dir / "a.md").resolve().as_uri()
     overlay.update(uri_a, "# Modified Alpha\nNew text.")
     results = engine.process_changes(vsm, overlay, {uri_a})
 
     # Only a.md (and its dependents, if any) should be in results
-    returned_filenames = {Path(uri[7:]).name for uri in results}
+    from zenzic.lsp.server import uri_to_path
+
+    returned_filenames = {uri_to_path(uri).name for uri in results}
     assert "a.md" in returned_filenames, "Modified file must be in results"
 
 
@@ -91,14 +93,14 @@ def test_engine_cross_file_anchor_invalidation(tmp_path: Path) -> None:
     results = engine.process_changes(vsm, overlay)  # Full sync
 
     # Confirm no Z102 initially for a.md
-    uri_a = f"file://{(docs_dir / 'a.md').resolve()}"
+    uri_a = (docs_dir / "a.md").resolve().as_uri()
     initial_diags = results.get(uri_a, [])
     assert not any(d.code == "Z102" for d in initial_diags), (
         "a.md should have no Z102 before anchor removal"
     )
 
     # Remove the '#target' anchor from b.md
-    uri_b = f"file://{(docs_dir / 'b.md').resolve()}"
+    uri_b = (docs_dir / "b.md").resolve().as_uri()
     overlay.update(uri_b, "No heading here.")
     results = engine.process_changes(vsm, overlay, {uri_b})
 
@@ -190,7 +192,7 @@ def test_engine_latency_benchmark(tmp_path: Path) -> None:
 
     # Single file patch
     target = docs_dir / "file_0.md"
-    uri_target = f"file://{target.resolve()}"
+    uri_target = target.resolve().as_uri()
     overlay.update(uri_target, "# Modified Heading 0\nNew text.")
 
     start = time.perf_counter()
@@ -213,7 +215,7 @@ def test_engine_virtual_route_for_out_of_bounds(tmp_path: Path) -> None:
     # Simulate an open buffer outside docs_root
     external_file = tmp_path / "README.md"
     external_file.write_text("# External\nSome text.", encoding="utf-8")
-    uri_ext = f"file://{external_file.resolve()}"
+    uri_ext = external_file.resolve().as_uri()
     overlay.update(uri_ext, "# External\nSome text.")
 
     engine.process_changes(vsm, overlay)
@@ -243,7 +245,7 @@ def test_engine_deleted_file_route_removal(tmp_path: Path) -> None:
     assert any("b.md" in s for s in b_sources), "b.md must have a route after full sync"
 
     # Simulate deletion of b.md
-    uri_b = f"file://{(docs_dir / 'b.md').resolve()}"
+    uri_b = (docs_dir / "b.md").resolve().as_uri()
     engine.remove_file_cache((docs_dir / "b.md").resolve())
     engine.process_changes(vsm, overlay, {uri_b})
 
