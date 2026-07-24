@@ -33,6 +33,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
+from urllib.request import url2pathname
 
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
@@ -59,6 +60,12 @@ from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import BaseAdapter
     from zenzic.models.config import ZenzicConfig
+
+
+def _uri_to_path(uri: str) -> Path:
+    """Convert a file:// URI to a cross-platform pathlib.Path."""
+    parsed = urlsplit(uri)
+    return Path(url2pathname(parsed.path))
 
 
 class IncrementalAnalysisEngine:
@@ -173,7 +180,7 @@ class IncrementalAnalysisEngine:
         if changed_uris is None:
             # Full read
             for md_file in iter_markdown_sources(self.docs_root, self.config, exclusion_manager):
-                uri = f"file://{md_file.resolve()}"
+                uri = md_file.resolve().as_uri()
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
                 else:
@@ -204,12 +211,12 @@ class IncrementalAnalysisEngine:
                         self.md_contents_cache[resolved_path] = ""
 
             # Process open buffers not already cached (virtual or out-of-bounds)
-            from urllib.parse import unquote
-
             for buf_uri, buf_text in overlay.buffers.items():
                 if buf_uri.startswith("file://"):
-                    buf_path = Path(unquote(buf_uri[7:])).resolve()
+                    buf_path = _uri_to_path(buf_uri).resolve()
                     if buf_path.suffix.lower() not in DOC_SUFFIXES:
+                        continue
+                    if exclusion_manager.should_exclude_file(buf_path, self.docs_root):
                         continue
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
@@ -217,13 +224,13 @@ class IncrementalAnalysisEngine:
                         files_to_process.add(buf_path)
         else:
             # Incremental read
-            from urllib.parse import unquote
-
             for uri in changed_uris:
                 if not uri.startswith("file://"):
                     continue
-                path = Path(unquote(uri[7:])).resolve()
+                path = _uri_to_path(uri).resolve()
                 if path.suffix.lower() not in DOC_SUFFIXES:
+                    continue
+                if exclusion_manager.should_exclude_file(path, self.docs_root):
                     continue
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
@@ -273,7 +280,7 @@ class IncrementalAnalysisEngine:
             if path not in self.md_contents_cache:
                 continue
             text = self.md_contents_cache[path]
-            uri = f"file://{path}"
+            uri = path.as_uri()
             typed_diags = self._analyze_file(vsm, path, text)
 
             # Store diagnostics on the VSM route (Mirror Law)

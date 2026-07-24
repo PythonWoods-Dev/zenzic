@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.24.4] - 2026-07-24
+
+### Fixed
+
+- **LSP User Exclusion Enforcement (`LSP-FIX-007`)**: Strictly enforced `LayeredExclusionManager` filtering across full workspace sync and incremental file events in the LSP server and `IncrementalAnalysisEngine`, eliminating false-positive diagnostics on user-excluded directories (e.g. `excluded_dirs`).
+
 ## [0.24.3] - 2026-07-24
 
 ### Fixed

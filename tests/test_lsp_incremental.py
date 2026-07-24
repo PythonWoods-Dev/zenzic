@@ -64,7 +64,7 @@ def test_cross_file_link_invalidation(tmp_path: Path) -> None:
     )
 
     # Simulate didChange: B loses its '#target' anchor
-    uri_b = f"file://{file_b.resolve()}"
+    uri_b = file_b.resolve().as_uri()
     server.overlay.update(uri_b, "No heading here.")  # type: ignore[union-attr]
     server._sync_workspace_and_publish({uri_b})  # type: ignore[union-attr]
 
@@ -91,7 +91,7 @@ def test_incremental_latency_large_workspace(tmp_path: Path) -> None:
 
     # Single file patch
     target = docs_dir / "file_0.md"
-    uri_target = f"file://{target.resolve()}"
+    uri_target = target.resolve().as_uri()
     server.overlay.update(uri_target, "# Modified Heading 0\nNew text.")  # type: ignore[union-attr]
 
     start = time.perf_counter()
