@@ -26,7 +26,7 @@ jobs:
       matrix:
         # Pillar Matrix: test the boundaries (Floor/Peak) on Linux
         # and use a stable anchor for Windows/macOS.
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.14"]
         # include:
         #   - os: windows-latest
