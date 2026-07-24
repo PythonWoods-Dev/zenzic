@@ -247,6 +247,8 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
         ".temp",
         "tmp",
         "mutants",
+        "out",
+        ".vscode-test",
     }
 )
 

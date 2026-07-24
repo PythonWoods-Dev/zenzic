@@ -12,7 +12,8 @@ import time
 import traceback
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
@@ -26,6 +27,12 @@ from zenzic.models.diagnostics import (
     ZenzicDiagnostic,
 )
 from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap, build_vsm
+
+
+def uri_to_path(uri: str) -> Path:
+    """Convert a file:// URI to a cross-platform pathlib.Path."""
+    parsed = urlsplit(uri)
+    return Path(url2pathname(parsed.path))
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -186,6 +193,21 @@ class LanguageServer:
         if incremental_uris:
             self._sync_workspace_and_publish(incremental_uris)
 
+    def _resolve_docs_root(self) -> Path:
+        """Resolve docs_root with fallback to repo_root when docs/ doesn't exist.
+
+        Single Source of Truth for docs_root resolution across all LSP server
+        operations.  The fallback only triggers when the configured ``docs_dir``
+        does not exist on disk — an LSP-specific convenience for unconfigured
+        workspaces.
+        """
+        assert self.repo_root is not None
+        assert self.config is not None
+        docs_root = (self.repo_root / self.config.docs_dir).resolve()
+        if not docs_root.is_dir():
+            docs_root = self.repo_root.resolve()
+        return docs_root
+
     def _build_vsm_sync(self) -> None:
         """Synchronously build the initial VSM and instantiate the engine."""
         if not self.repo_root:
@@ -197,7 +219,7 @@ class LanguageServer:
         if not self.rule_engine:
             self.rule_engine = _build_rule_engine(self.config)
 
-        docs_root = self.repo_root / self.config.docs_dir
+        docs_root = self._resolve_docs_root()
         if not self.exclusion_mgr:
             self.exclusion_mgr = LayeredExclusionManager(
                 self.config, repo_root=self.repo_root, docs_root=docs_root
@@ -246,9 +268,7 @@ class LanguageServer:
         """Return True if the URI has a supported documentation file extension (DOC_SUFFIXES)."""
         if not uri:
             return False
-        parsed = urlsplit(uri)
-        path_str = unquote(parsed.path) if parsed.scheme else unquote(uri)
-        return Path(path_str).suffix.lower() in DOC_SUFFIXES
+        return uri_to_path(uri).suffix.lower() in DOC_SUFFIXES
 
     def _is_within_domain(self, uri: str) -> bool:
         """Return True if the URI is within the configured documentation domain and not excluded."""
@@ -259,18 +279,14 @@ class LanguageServer:
             if not self.config:
                 self.config, _ = ZenzicConfig.load(self.repo_root)
 
-            docs_root = (self.repo_root / self.config.docs_dir).resolve()
-            if not docs_root.is_dir():
-                docs_root = self.repo_root.resolve()
+            docs_root = self._resolve_docs_root()
 
             if not self.exclusion_mgr:
                 self.exclusion_mgr = LayeredExclusionManager(
                     self.config, repo_root=self.repo_root, docs_root=docs_root
                 )
 
-            parsed = urlsplit(uri)
-            path_str = unquote(parsed.path) if parsed.scheme else unquote(uri)
-            path = Path(path_str).resolve()
+            path = uri_to_path(uri).resolve()
 
             # Enforce LayeredExclusionManager (Layer 3 User Exclusions & Guardrails)
             if self.exclusion_mgr.should_exclude_file(path, docs_root):
@@ -308,9 +324,7 @@ class LanguageServer:
                 or not self._is_within_domain(uri)
             ):
                 continue
-            from urllib.parse import unquote
-
-            file_path = Path(unquote(uri[7:])).resolve()
+            file_path = uri_to_path(uri).resolve()
 
             if change_type in (1, 2):  # Created or Changed
                 try:
@@ -343,7 +357,7 @@ class LanguageServer:
             assert msg_id is not None
             root_uri = params.get("rootUri")
             if root_uri and root_uri.startswith("file://"):
-                self.repo_root = Path(root_uri[7:])
+                self.repo_root = uri_to_path(root_uri)
             elif params.get("workspaceFolders"):
                 first_ws = params["workspaceFolders"][0]
                 if first_ws.get("uri", "").startswith("file://"):
@@ -418,8 +432,11 @@ class LanguageServer:
         elif method == "textDocument/codeAction":
             self._handle_code_action(params, msg_id)
         elif method == "textDocument/didClose":
-            # Memory Hygiene: purge the document state entirely
-            pass
+            uri = params.get("textDocument", {}).get("uri", "")
+            self.documents.did_close(params)
+            self.dirty_documents.pop(uri, None)
+            if self.overlay:
+                self.overlay.remove(uri)
 
     def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
         """Run validation incrementally via the decoupled engine.
@@ -437,7 +454,7 @@ class LanguageServer:
         if not self.rule_engine:
             self.rule_engine = _build_rule_engine(self.config)
 
-        docs_root = repo_root / self.config.docs_dir if self.repo_root else Path("/_zenzic_virtual")
+        docs_root = self._resolve_docs_root() if self.repo_root else Path("/_zenzic_virtual")
 
         if not self.adapter:
             self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
@@ -516,11 +533,9 @@ class LanguageServer:
         line = pos.get("line", 0)
         char = pos.get("character", 0)
 
-        docs_root = self.repo_root / self.config.docs_dir
+        docs_root = self._resolve_docs_root()
         try:
-            from urllib.parse import unquote
-
-            rel = Path(unquote(uri[7:])).resolve().relative_to(docs_root.resolve()).as_posix()
+            rel = uri_to_path(uri).resolve().relative_to(docs_root.resolve()).as_posix()
         except ValueError:
             self.send_response(msg_id, result=None)
             return
@@ -590,9 +605,7 @@ class LanguageServer:
             content = self.documents.documents[uri]
         elif uri.startswith("file://"):
             try:
-                from urllib.parse import unquote
-
-                content = Path(unquote(uri[7:])).resolve().read_text(encoding="utf-8")
+                content = uri_to_path(uri).resolve().read_text(encoding="utf-8")
             except OSError:
                 content = None
 
