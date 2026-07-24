@@ -16,7 +16,8 @@ from typing import Any, Final, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
-from zenzic.core import regex as re
+import zenzic.core.regex as re
+from zenzic.core.regex import RegexPattern
 from zenzic.core.ui import ZenzicPalette
 
 
@@ -534,12 +535,12 @@ class ZenzicConfig(BaseModel):
         ),
     )
     # Pre-compiled regex patterns (not serializable, runtime only)
-    placeholder_patterns_compiled: list[re.RegexPattern] = Field(
+    placeholder_patterns_compiled: list[RegexPattern] = Field(
         default_factory=list,
         exclude=True,
         repr=False,
     )
-    forbidden_patterns_compiled: re.RegexPattern | None = Field(
+    forbidden_patterns_compiled: RegexPattern | None = Field(
         default=None,
         exclude=True,
         repr=False,

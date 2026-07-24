@@ -945,3 +945,104 @@ def test_lsp_relative_link_normalization_no_z101(tmp_path) -> None:
     # Assert no Z101 (broken link) finding was emitted
     z101_diags = [d for d in diags if d.code == "Z101"]
     assert len(z101_diags) == 0
+
+
+def test_lsp_workspace_initialization_emits_initial_dqs(tmp_path) -> None:
+    """Verify that initialized handler triggers workspace sync and emits initial DQS update without opening files."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    index_md = docs_dir / "index.md"
+    index_md.write_text("# Home\nWelcome home.\n")
+
+    stdin = io.BytesIO()
+    stdout = io.BytesIO()
+    server = LanguageServer(stdin=stdin, stdout=stdout)
+
+    init_msg = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"rootUri": f"file://{tmp_path.resolve()}"},
+    }
+    initialized_msg = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+
+    server.handle_message(init_msg)
+    server.handle_message(initialized_msg)
+
+    stdout.seek(0)
+    raw_output = stdout.read().decode("utf-8")
+
+    assert "zenzic/dqsUpdate" in raw_output
+    assert server.vsm is not None
+    assert server.engine is not None
+
+
+def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
+    """Verify that files inside excluded_dirs (from .zenzic.toml) are dropped by LSP handlers and produce 0 diagnostics."""
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/tutorials/examples"]\n')
+
+    docs_dir = tmp_path / "docs"
+    ex_dir = docs_dir / "tutorials" / "examples"
+    ex_dir.mkdir(parents=True, exist_ok=True)
+
+    ex_file = ex_dir / "z501-placeholder.md"
+    ex_file.write_text("# Malformed Example\n[Bad link](http://broken-domain-999.invalid)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    ex_uri = f"file://{ex_file.resolve()}"
+    assert not server._is_within_domain(ex_uri)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {"uri": ex_uri, "text": ex_file.read_text(encoding="utf-8")}
+            },
+        }
+    )
+
+    # Document was dropped by domain / exclusion gate
+    assert ex_uri not in server.documents.documents
+
+
+def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
+    """Verify that links to static HTML assets register in VSM and do not produce Z101 diagnostics."""
+    docs_dir = tmp_path / "docs"
+    assets_dir = docs_dir / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+
+    html_asset = assets_dir / "diagram.html"
+    html_asset.write_text("<html><body>Diagram</body></html>")
+
+    source_md = docs_dir / "index.md"
+    source_md.write_text("# Home\n[See Diagram](./assets/diagram.html)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    source_uri = f"file://{source_md.resolve()}"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {"uri": source_uri, "text": source_md.read_text(encoding="utf-8")}
+            },
+        }
+    )
+
+    assert server.vsm is not None
+    assert server.engine is not None
+    assert server.overlay is not None
+
+    results = server.engine.process_changes(server.vsm, server.overlay, {source_uri})
+    diags = results.get(source_uri, [])
+
+    z101_diags = [d for d in diags if d.code == "Z101"]
+    assert len(z101_diags) == 0

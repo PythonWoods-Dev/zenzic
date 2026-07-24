@@ -15,7 +15,7 @@ from typing import Any, BinaryIO, TypedDict, cast
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core.adapters import BaseAdapter, get_adapter
-from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources
+from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
@@ -52,6 +52,7 @@ class LanguageServer:
         # Phase 2: Diagnostic Engine
         self.config: ZenzicConfig | None = None
         self.rule_engine: AdaptiveRuleEngine | None = None
+        self.exclusion_mgr: LayeredExclusionManager | None = None
 
         # Phase 3: Debounce
         self.dirty_documents: dict[str, float] = {}
@@ -197,16 +198,30 @@ class LanguageServer:
             self.rule_engine = _build_rule_engine(self.config)
 
         docs_root = self.repo_root / self.config.docs_dir
-        exclusion_mgr = LayeredExclusionManager(
-            self.config, repo_root=self.repo_root, docs_root=docs_root
-        )
+        if not self.exclusion_mgr:
+            self.exclusion_mgr = LayeredExclusionManager(
+                self.config, repo_root=self.repo_root, docs_root=docs_root
+            )
 
         md_contents: dict[Path, str] = {}
-        for md_file in iter_markdown_sources(docs_root, self.config, exclusion_mgr):
+        for md_file in iter_markdown_sources(docs_root, self.config, self.exclusion_mgr):
             try:
                 md_contents[md_file.resolve()] = md_file.read_text(encoding="utf-8")
             except OSError:
                 continue
+
+        # Register static asset files (HTML, images, etc.) present in docs_root into VSM
+        if docs_root.is_dir():
+            for file_path in walk_files(
+                docs_root, set(self.config.excluded_dirs), self.exclusion_mgr, self.config
+            ):
+                if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
+                    continue
+                if self.exclusion_mgr.should_exclude_file(file_path, docs_root):
+                    continue
+                resolved_path = file_path.resolve()
+                if resolved_path not in md_contents:
+                    md_contents[resolved_path] = ""
 
         self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
         self.vsm = build_vsm(self.adapter, docs_root, md_contents, repo_root=self.repo_root)
@@ -236,7 +251,7 @@ class LanguageServer:
         return Path(path_str).suffix.lower() in DOC_SUFFIXES
 
     def _is_within_domain(self, uri: str) -> bool:
-        """Return True if the URI is within the configured documentation domain."""
+        """Return True if the URI is within the configured documentation domain and not excluded."""
         if not uri or self.repo_root is None:
             return True
 
@@ -248,9 +263,18 @@ class LanguageServer:
             if not docs_root.is_dir():
                 docs_root = self.repo_root.resolve()
 
+            if not self.exclusion_mgr:
+                self.exclusion_mgr = LayeredExclusionManager(
+                    self.config, repo_root=self.repo_root, docs_root=docs_root
+                )
+
             parsed = urlsplit(uri)
             path_str = unquote(parsed.path) if parsed.scheme else unquote(uri)
             path = Path(path_str).resolve()
+
+            # Enforce LayeredExclusionManager (Layer 3 User Exclusions & Guardrails)
+            if self.exclusion_mgr.should_exclude_file(path, docs_root):
+                return False
 
             if path.is_relative_to(docs_root):
                 return True
@@ -361,6 +385,7 @@ class LanguageServer:
                     }
                 )
                 self._build_vsm_sync()
+                self._sync_workspace_and_publish()
         elif method == "workspace/didChangeWatchedFiles":
             self._handle_file_changes(params.get("changes", []))
         elif method == "shutdown":

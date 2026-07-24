@@ -11,7 +11,8 @@ Import the incremental analysis engine::
     from zenzic.core import IncrementalAnalysisEngine
 """
 
-from zenzic.core.incremental import IncrementalAnalysisEngine
+from typing import TYPE_CHECKING, Any
+
 from zenzic.core.resolver import (
     AnchorMissing,
     FileNotFound,
@@ -20,6 +21,18 @@ from zenzic.core.resolver import (
     Resolved,
     ResolveOutcome,
 )
+
+
+if TYPE_CHECKING:
+    from zenzic.core.incremental import IncrementalAnalysisEngine
+
+
+def __getattr__(name: str) -> Any:
+    if name == "IncrementalAnalysisEngine":
+        from zenzic.core.incremental import IncrementalAnalysisEngine
+
+        return IncrementalAnalysisEngine
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [

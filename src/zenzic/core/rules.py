@@ -1376,20 +1376,21 @@ class VSMBrokenLinkRule(BaseRule):
                     )
                 )
             elif route.status == "ORPHAN_BUT_EXISTING":
-                violations.append(
-                    Violation(
-                        file_path=file_path,
-                        line_no=lineno,
-                        code="Z103",
-                        message=(
-                            f"'{url}' resolves to '{target_url}' which exists on disk "
-                            f"but is not in the site navigation (ORPHAN_LINK). "
-                            "Readers cannot reach this page via the nav tree."
-                        ),
-                        level="warning",
-                        context=raw_line,
+                if Path(route.source).suffix.lower() in (".md", ".mdx"):
+                    violations.append(
+                        Violation(
+                            file_path=file_path,
+                            line_no=lineno,
+                            code="Z103",
+                            message=(
+                                f"'{url}' resolves to '{target_url}' which exists on disk "
+                                f"but is not in the site navigation (ORPHAN_LINK). "
+                                "Readers cannot reach this page via the nav tree."
+                            ),
+                            level="warning",
+                            context=raw_line,
+                        )
                     )
-                )
             elif route.status not in ("REACHABLE",):
                 violations.append(
                     Violation(
@@ -1468,9 +1469,10 @@ class VSMBrokenLinkRule(BaseRule):
                 return None
             path = rel if rel != "." else ""
 
-        # Strip .md suffix if present
-        if path.endswith(".md"):
-            path = path[:-3]
+        # Strip .md, .mdx, .html, .htm suffix if present
+        ext = Path(path).suffix.lower()
+        if ext in (".md", ".mdx", ".html", ".htm"):
+            path = path[: -len(ext)]
 
         # index is the directory itself
         parts = [p for p in path.split("/") if p]

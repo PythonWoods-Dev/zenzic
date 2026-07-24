@@ -155,7 +155,7 @@ class IncrementalAnalysisEngine:
         Returns:
             Mapping of file URI to list of ``ZenzicDiagnostic`` instances.
         """
-        from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources
+        from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
         from zenzic.core.exclusion import LayeredExclusionManager
 
         # Force full sync on first invocation
@@ -185,6 +185,23 @@ class IncrementalAnalysisEngine:
                 self.md_contents_cache[path] = text
                 self.anchors_cache[path] = anchors_in_file(text)
                 files_to_process.add(path)
+
+            # Static asset files (HTML, images, etc.) under docs_root
+            if self.docs_root.is_dir():
+                for file_path in walk_files(
+                    self.docs_root, set(self.config.excluded_dirs), exclusion_manager, self.config
+                ):
+                    if (
+                        file_path.is_dir()
+                        or file_path.is_symlink()
+                        or file_path.suffix in DOC_SUFFIXES
+                    ):
+                        continue
+                    if exclusion_manager.should_exclude_file(file_path, self.docs_root):
+                        continue
+                    resolved_path = file_path.resolve()
+                    if resolved_path not in self.md_contents_cache:
+                        self.md_contents_cache[resolved_path] = ""
 
             # Process open buffers not already cached (virtual or out-of-bounds)
             from urllib.parse import unquote
