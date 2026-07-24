@@ -164,9 +164,9 @@ def check_links(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     t0 = time.monotonic()
 
@@ -326,9 +326,9 @@ def check_orphans(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
@@ -444,9 +444,9 @@ def check_snippets(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     t0 = time.monotonic()
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
@@ -584,9 +584,9 @@ def check_references(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
@@ -764,9 +764,9 @@ def check_assets(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     t0 = time.monotonic()
     unused = find_unused_assets(
@@ -884,9 +884,9 @@ def check_placeholders(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     t0 = time.monotonic()
     raw_findings, _ = scan_docs_references(
@@ -1144,9 +1144,9 @@ def _to_findings(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     for err in results.link_errors:
         findings.append(

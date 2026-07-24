@@ -1661,7 +1661,7 @@ async def validate_links_async(
                     )
                 case Resolved(target=resolved_target):
                     # ── CIRCULAR_LINK: resolved target is part of a link cycle ─
-                    if str(resolved_target) in cycle_registry:
+                    if resolved_target.as_posix() in cycle_registry:
                         internal_errors.append(
                             LinkError(
                                 file_path=md_file,
