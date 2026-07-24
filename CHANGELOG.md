@@ -15,6 +15,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Windows Path Parity (CLI & Core)**: Fixed test suite regressions on Windows by ensuring strictly POSIX path comparisons (`.as_posix()`) in CLI JSON report rendering (`_shared.py`) and topological graph traversal (`cycle_registry`).
 - **LSP `docs_root` Fallback**: Centralized `docs_root` resolution in the LSP server to safely fall back to the repository root when the configured `docs/` directory is missing, fixing a silent failure (DQS 100/100) on Zero-Config repositories.
 - **Zero-Config System Guardrails**: Elevated common build directories (`out`, `.vscode-test`) to Layer 1 `SYSTEM_EXCLUDED_DIRS` to ensure safety across VS Code extension codebases regardless of `.gitignore` state.
 - **LSP Memory Leak**: Implemented missing `didClose` handler to explicitly purge documents from `VirtualBufferOverlay`, avoiding unbounded memory growth during long-lived VS Code sessions.
