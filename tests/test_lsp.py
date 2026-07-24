@@ -1046,3 +1046,44 @@ def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
 
     z101_diags = [d for d in diags if d.code == "Z101"]
     assert len(z101_diags) == 0
+
+
+def test_lsp_enforces_user_excluded_dirs(tmp_path) -> None:
+    """Verify that opening a file inside an excluded_dirs path (from .zenzic.toml) emits 0 diagnostics."""
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text('excluded_dirs = ["examples"]\n')
+
+    docs_dir = tmp_path / "docs"
+    examples_dir = docs_dir / "examples"
+    examples_dir.mkdir(parents=True, exist_ok=True)
+
+    ex_file = examples_dir / "sample.md"
+    ex_file.write_text("# Bad Page\n[broken](missing.md)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+
+    ex_uri = ex_file.resolve().as_uri()
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {"uri": ex_uri, "text": ex_file.read_text(encoding="utf-8")}
+            },
+        }
+    )
+
+    assert ex_uri not in server.documents.documents
+
+    if server.vsm is None:
+        server._build_vsm_sync()
+
+    assert server.vsm is not None
+    assert server.engine is not None
+    assert server.overlay is not None
+
+    results = server.engine.process_changes(server.vsm, server.overlay, None)
+    diags = results.get(ex_uri, [])
+    assert len(diags) == 0

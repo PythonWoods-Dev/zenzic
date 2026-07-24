@@ -361,7 +361,7 @@ class LanguageServer:
             elif params.get("workspaceFolders"):
                 first_ws = params["workspaceFolders"][0]
                 if first_ws.get("uri", "").startswith("file://"):
-                    self.repo_root = Path(first_ws["uri"][7:])
+                    self.repo_root = uri_to_path(first_ws["uri"])
 
             self.send_response(
                 msg_id,
@@ -455,6 +455,11 @@ class LanguageServer:
             self.rule_engine = _build_rule_engine(self.config)
 
         docs_root = self._resolve_docs_root() if self.repo_root else Path("/_zenzic_virtual")
+
+        if not self.exclusion_mgr and self.repo_root:
+            self.exclusion_mgr = LayeredExclusionManager(
+                self.config, repo_root=self.repo_root, docs_root=docs_root
+            )
 
         if not self.adapter:
             self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
