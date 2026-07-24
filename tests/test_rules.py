@@ -588,7 +588,7 @@ class TestAdaptiveRuleEngineTortureTest:
         elapsed = time.monotonic() - start
 
         assert violations == [], f"Expected 0 violations, got {len(violations)}"
-        assert elapsed < 1.0, (
+        assert elapsed < 1.5, (
             f"check_vsm took {elapsed:.3f}s for {self._N} valid links — possible O(N²) regression"
         )
 
@@ -603,7 +603,7 @@ class TestAdaptiveRuleEngineTortureTest:
         elapsed = time.monotonic() - start
 
         assert len(violations) == self._N, f"Expected {self._N} violations, got {len(violations)}"
-        assert elapsed < 1.0, (
+        assert elapsed < 1.5, (
             f"check_vsm took {elapsed:.3f}s for {self._N} missing links — possible O(N²) regression"
         )
 

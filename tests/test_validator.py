@@ -1366,8 +1366,8 @@ class TestFindCyclesIterative:
         b = Path("/docs/b.md")
         adj: dict[Path, set[Path]] = {a: {b}, b: {a}}
         result = _find_cycles_iterative(adj)
-        assert str(a) in result
-        assert str(b) in result
+        assert a.as_posix() in result
+        assert b.as_posix() in result
 
     def test_linear_chain_no_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1381,7 +1381,7 @@ class TestFindCyclesIterative:
         a = Path("/docs/a.md")
         adj: dict[Path, set[Path]] = {a: {a}}
         result = _find_cycles_iterative(adj)
-        assert str(a) in result
+        assert a.as_posix() in result
 
     def test_three_node_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1389,9 +1389,9 @@ class TestFindCyclesIterative:
         c = Path("/docs/c.md")
         adj: dict[Path, set[Path]] = {a: {b}, b: {c}, c: {a}}
         result = _find_cycles_iterative(adj)
-        assert str(a) in result
-        assert str(b) in result
-        assert str(c) in result
+        assert a.as_posix() in result
+        assert b.as_posix() in result
+        assert c.as_posix() in result
 
     def test_isolated_nodes_no_cycle(self) -> None:
         a = Path("/docs/a.md")

@@ -981,9 +981,9 @@ def _scan_single_file(
         if getattr(config, "governance", None):
             repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
             try:
-                rel_path = str(md_file.relative_to(repo_root))
+                rel_path = md_file.relative_to(repo_root).as_posix()
             except ValueError:
-                rel_path = str(md_file)
+                rel_path = md_file.as_posix()
 
             if config.governance.per_file_ignores:
                 import fnmatch

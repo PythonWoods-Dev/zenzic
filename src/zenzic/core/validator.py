@@ -564,8 +564,8 @@ def _find_cycles_iterative(adj: dict[Path, set[Path]]) -> frozenset[str]:
                     adj.setdefault(nbr, set())
                 if color[nbr] == GREY:  # back edge → cycle
                     idx = path.index(nbr)
-                    in_cycle.update(str(p) for p in path[idx:])
-                    in_cycle.add(str(nbr))
+                    in_cycle.update(p.as_posix() for p in path[idx:])
+                    in_cycle.add(nbr.as_posix())
                 elif color[nbr] == WHITE:
                     color[nbr] = GREY
                     stack.append((nbr, iter(adj.get(nbr, set()))))
@@ -1661,7 +1661,7 @@ async def validate_links_async(
                     )
                 case Resolved(target=resolved_target):
                     # ── CIRCULAR_LINK: resolved target is part of a link cycle ─
-                    if str(resolved_target) in cycle_registry:
+                    if resolved_target.as_posix() in cycle_registry:
                         internal_errors.append(
                             LinkError(
                                 file_path=md_file,

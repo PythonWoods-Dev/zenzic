@@ -223,9 +223,9 @@ def _output_check_all_json_findings(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(repo_root))
+            return path.relative_to(repo_root).as_posix()
         except ValueError:
-            return str(path)
+            return path.as_posix()
 
     allowed_keys = {(f.rel_path, f.line_no, f.code) for f in all_findings}
 
