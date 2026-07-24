@@ -254,7 +254,7 @@ def test_zero_config_security_invariant(tmp_path) -> None:
     import io
 
     # Create an empty workspace (no .zenzic.toml)
-    workspace_uri = f"file://{tmp_path.as_posix()}"
+    workspace_uri = tmp_path.as_uri()
     file_uri = f"{workspace_uri}/leaked.md"
 
     # Leak an AWS key and an empty link
@@ -349,7 +349,7 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
-            "params": {"rootUri": f"file://{tmp_path}"},
+            "params": {"rootUri": tmp_path.as_uri()},
         }
         req_initialized = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
         # Open index.md
@@ -357,7 +357,7 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
             "jsonrpc": "2.0",
             "method": "textDocument/didOpen",
             "params": {
-                "textDocument": {"uri": f"file://{index_md}", "text": "[broken link](missing.md)"}
+                "textDocument": {"uri": index_md.as_uri(), "text": "[broken link](missing.md)"}
             },
         }
 
@@ -408,7 +408,7 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
             "params": {
                 "changes": [
                     {
-                        "uri": f"file://{missing_md}",
+                        "uri": missing_md.as_uri(),
                         "type": 1,  # Created
                     }
                 ]
@@ -648,9 +648,9 @@ def test_is_supported_doc_uri() -> None:
 def test_lsp_drops_non_markdown_did_open(tmp_path) -> None:
     """Verify that textDocument/didOpen for non-markdown files (OWNERS, yaml, txt) is dropped."""
     server = LanguageServer()
-    owners_uri = f"file://{tmp_path}/i18n/OWNERS"
-    yaml_uri = f"file://{tmp_path}/config.yaml"
-    md_uri = f"file://{tmp_path}/docs/index.md"
+    owners_uri = (tmp_path / "i18n" / "OWNERS").as_uri()
+    yaml_uri = (tmp_path / "config.yaml").as_uri()
+    md_uri = (tmp_path / "docs" / "index.md").as_uri()
 
     # Non-markdown files must be dropped
     server.handle_message(
@@ -689,16 +689,16 @@ def test_is_within_domain(tmp_path) -> None:
     """Verify _is_within_domain respects repo_root and docs_dir boundaries."""
     server = LanguageServer()
     # Null workspace allows any file
-    assert server._is_within_domain(f"file://{tmp_path}/README.md") is True
+    assert server._is_within_domain((tmp_path / "README.md").as_uri()) is True
 
     # Active workspace with default docs_dir="docs"
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     server.repo_root = tmp_path
 
-    assert server._is_within_domain(f"file://{docs_dir}/index.md") is True
-    assert server._is_within_domain(f"file://{tmp_path}/README.md") is False
-    assert server._is_within_domain(f"file://{tmp_path}/other/page.md") is False
+    assert server._is_within_domain((docs_dir / "index.md").as_uri()) is True
+    assert server._is_within_domain((tmp_path / "README.md").as_uri()) is False
+    assert server._is_within_domain((tmp_path / "other" / "page.md").as_uri()) is False
 
 
 def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
@@ -716,8 +716,8 @@ def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     server = LanguageServer()
     server.repo_root = tmp_path
 
-    in_uri = f"file://{in_bounds_md.resolve()}"
-    out_uri = f"file://{out_bounds_md.resolve()}"
+    in_uri = in_bounds_md.resolve().as_uri()
+    out_uri = out_bounds_md.resolve().as_uri()
 
     # Out-of-bounds .md file must be dropped
     server.handle_message(
@@ -753,7 +753,7 @@ def test_lsp_code_action_z121(tmp_path) -> None:
     out_stream = io.BytesIO()
     server.stdout = out_stream
 
-    doc_uri = f"file://{tmp_path}/docs/index.md"
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
     doc_text = "<a>Link without href</a>\n"
 
     # Open document
@@ -821,7 +821,7 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
     out_stream = io.BytesIO()
     server.stdout = out_stream
 
-    doc_uri = f"file://{tmp_path}/docs/index.md"
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
     server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -924,7 +924,7 @@ def test_lsp_relative_link_normalization_no_z101(tmp_path) -> None:
     # Trigger full workspace sync
     server._build_vsm_sync()
 
-    source_uri = f"file://{source_md.resolve()}"
+    source_uri = source_md.resolve().as_uri()
     server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -962,7 +962,7 @@ def test_lsp_workspace_initialization_emits_initial_dqs(tmp_path) -> None:
         "jsonrpc": "2.0",
         "id": 1,
         "method": "initialize",
-        "params": {"rootUri": f"file://{tmp_path.resolve()}"},
+        "params": {"rootUri": tmp_path.resolve().as_uri()},
     }
     initialized_msg = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
 
@@ -993,7 +993,7 @@ def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
     server.repo_root = tmp_path
     server._build_vsm_sync()
 
-    ex_uri = f"file://{ex_file.resolve()}"
+    ex_uri = ex_file.resolve().as_uri()
     assert not server._is_within_domain(ex_uri)
 
     server.handle_message(
@@ -1026,7 +1026,7 @@ def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
     server.repo_root = tmp_path
     server._build_vsm_sync()
 
-    source_uri = f"file://{source_md.resolve()}"
+    source_uri = source_md.resolve().as_uri()
     server.handle_message(
         {
             "jsonrpc": "2.0",
