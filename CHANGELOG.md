@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.24.5] - 2026-07-25
+
+### Fixed
+
+- **Exclusion Path Normalization (`LSP-FIX-008`)**: Hardened the `LayeredExclusionManager` to correctly normalize absolute URIs from the LSP server into repo-relative paths before evaluating `.gitignore` and `.zenzic.toml` exclusion rules. This eradicates false-positive diagnostics on user-excluded directories (e.g., `docs/tutorials/examples`) when opened in VS Code.
+
 ## [0.24.4] - 2026-07-24
 
 ### Fixed
