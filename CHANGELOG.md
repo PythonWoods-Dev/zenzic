@@ -11,7 +11,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.24.5] - 2026-07-25
+## [0.25.0] - 2026-07-25
+
+### Added
+
+- **Adapter-Driven Config Hot-Reloading (`LSP-FIX-009`)**: Added `@property watched_config_files` to `BaseAdapter` contract. The LSP server now dynamically watches framework configuration files (e.g. `mkdocs.yml`, `zensical.toml`) and hot-reloads the Virtual Site Map (VSM) on changes without requiring an LSP server restart.
+- **Consolidated Developer & User Troubleshooting (`DOCS-IA-004`)**: Created dedicated Diátaxis-compliant troubleshooting guides in `docs/how-to/troubleshooting.md` and `docs/developers/how-to/troubleshooting.md`.
+
+### Fixed
+
+- **Centralized Core Governance (`LSP-FIX-009`)**: Extracted `directory_policies` and `per_file_ignores` filtering into `zenzic.core.governance` and integrated them directly into `IncrementalAnalysisEngine._analyze_file`, achieving 100% diagnostic determinism between CLI and VS Code.
 
 ## [0.24.5] - 2026-07-25
 

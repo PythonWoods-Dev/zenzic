@@ -33,11 +33,47 @@ auditable for contributors and downstream users.
 
 ## Three-Phase Pipeline {#three-phase-pipeline}
 
-The core analysis engine operates as a **Three-Phase Pipeline** over the documentation file set. Each phase has a distinct responsibility and runs in deterministic order.
+The core analysis engine operates as a **Three-Phase Pipeline** over the documentation file set. Each phase has a distinct responsibility and runs in deterministic order:
 
-<div className="zz-figure">
-  <!-- [Image: light/dark themed diagram] -->
-</div>
+```mermaid
+flowchart TD
+    subgraph Client ["Client Entrypoint Layer"]
+        A["CLI Command (zenzic check/score)"] --> D["Analysis Controller"]
+        B["Language Server Protocol (zenzic lsp)"] --> D
+        C["GitHub Action Wrapper"] --> A
+    end
+
+    subgraph Scope ["Layered Exclusion & Engine Resolution"]
+        D --> E["LayeredExclusionManager (.gitignore, .zenzic.toml)"]
+        E --> F["BaseAdapter (MkDocs / Zensical Topology)"]
+        F --> G["Virtual Site Map (VSM) Graph"]
+    end
+
+    subgraph Analysis ["Incremental Analysis Engine (Pass 1 - 3)"]
+        G --> H["Pass 1: Harvest & Credential Scan (RE2)"]
+        H --> I["Pass 2: AST Link & Reference Graph Resolution"]
+        I --> J["Pass 3: Integrity Scoring & Governance Audit"]
+    end
+
+    subgraph Output ["Deterministic Reporter & Gate"]
+        J --> K{"Validation Gate Evaluation"}
+        K -->|Clean / Warnings| L["Exit 0 (Success)"]
+        K -->|DQS / Link Errors| M["Exit 1 (Gate Failure)"]
+        K -->|Z201 Credential Leak| N["Exit 2 (Fatal Security Breach)"]
+        K -->|Z202 Path Traversal| O["Exit 3 (Boundary Security Violation)"]
+        K --> P["SARIF / JSON / GitHub Annotations Output"]
+    end
+```
+
+!!! note "ADR-075 Invariant: Radical Unawareness"
+    The Zenzic core engine remains radically unaware of CI platform details or GitHub API transports. `IncrementalAnalysisEngine` handles all analysis natively, ensuring local execution and CI runs share 100% logic parity.
+
+!!! note "ADR-078-STRICT Invariant: BaseAdapter Contract"
+    All engine adapters subclass `BaseAdapter` and expose `@property watched_config_files` to enable dynamic LSP topology hot-reloading when configuration files mutate.
+
+!!! note "ADR-084 Invariant: Centralized Core Governance"
+    `directory_policies` and `per_file_ignores` are evaluated centrally in `zenzic.core.governance` to ensure bit-for-bit parity between CLI and LSP verification suites.
+
 
 ### Pass 1 -- Harvest and Credential Scan {#pass-1}
 

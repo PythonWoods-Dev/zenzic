@@ -123,3 +123,8 @@ class BaseAdapter(ABC):
     @abstractmethod
     def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
         """Return project-owned absolute URL prefixes (for Z105 allowlisting)."""
+
+    @property
+    def watched_config_files(self) -> frozenset[str]:
+        """Return the configuration filenames that trigger a VSM rebuild in LSP mode."""
+        return frozenset()

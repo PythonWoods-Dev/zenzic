@@ -128,29 +128,7 @@ Canonical inline syntax:
 
 ## 6) Common Zenzic Blocks
 
-### Z105 Path Safety Breach
-
-Symptom:
-
-- Zenzic blocks a relative traversal path and reports a path safety breach.
-
-Standard resolution:
-
-- Prefer absolute site-root paths (for example `/blog/post-slug`) over
-  multi-level relative traversals.
-
-Validated exception:
-
-- Use inline suppression only when the traversal is reviewed and intentional.
-
-```html
-<!-- * zenzic:ignore: Z105 - validated cross-section bridge * -->
-[Jump to appendix](../../appendix/reference.md)
-```
-
----
-
----
+> This section has moved — see [Developer Troubleshooting](./troubleshooting.md#common-zenzic-blocks).
 
 ## 7) Shared Sovereign Verification Model (Family Repositories)
 

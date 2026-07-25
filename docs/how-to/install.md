@@ -15,91 +15,59 @@ in local development, as a pre-commit hook, in CI pipelines, or for one-off audi
 
 ---
 
-## Install
+## Installation Options
 
-Ensure you have Python 3.10 or higher installed.
+Ensure Python 3.10 or higher is installed on your system. Select your preferred installation method:
 
-### Ephemeral — no installation required {#install-ephemeral}
+=== "uv (Recommended)"
 
-### uv
+    !!! tip "Zero Environment Contamination"
+        We strongly recommend using `uv` or `uvx` to execute Zenzic in isolated environments without dependency conflicts.
 
-```bash
-uvx zenzic check all
-```
+    **Global Binary Install:**
+    ```bash title="Terminal"
+    uv tool install zenzic
+    zenzic check all
+    ```
 
-`uvx` resolves and runs Zenzic from PyPI in a throwaway environment. Nothing is installed on
-your system. The right choice for one-off audits, `git hooks`, and CI jobs where you want to
-avoid pinning a dev dependency.
+    **Ephemeral Execution (Zero Installation):**
+    ```bash title="Terminal"
+    uvx zenzic check all
+    ```
 
-### pip
+    **Project Dev Dependency:**
+    ```bash title="Terminal"
+    uv add --dev zenzic
+    uvx zenzic check all
+    ```
 
-```bash
-pip install zenzic
-zenzic check all
-```
+=== "pip"
 
-Standard installation into the active environment. Use inside a virtual environment to keep
-your system Python clean.
+    **Virtual Environment Install:**
+    ```bash title="Terminal"
+    python -m venv .venv
+    source .venv/bin/activate   # Windows: .venv\Scripts\activate
+    pip install zenzic
+    zenzic check all
+    ```
 
-### Execute from GitHub (No installation) {#install-github}
+    **User Global Install:**
+    ```bash title="Terminal"
+    pip install --user zenzic
+    zenzic check all
+    ```
 
-If you want to run Zenzic against a repository without installing it locally, you can execute it directly from the GitHub repository using `uvx`. This is useful for testing Zenzic on a project or using it as a distributed CLI tool.
+=== "Git Source Execution"
 
-```bash
-uvx --from git+https://github.com/PythonWoods/zenzic zenzic .
-```
+    Execute directly from GitHub without local installation:
+    ```bash title="Terminal"
+    uvx --from git+https://github.com/PythonWoods/zenzic zenzic .
+    ```
 
-You can also pin to a specific version tag for deterministic execution:
-
-```bash
-uvx --from git+https://github.com/PythonWoods/zenzic@<version> zenzic .
-```
-
-### Global tool — available in every project {#install-global}
-
-### uv
-
-```bash
-uv tool install zenzic
-zenzic check all
-```
-
-Install once, use in any project. The binary is available on your `PATH` without activating
-a virtual environment.
-
-### pip
-
-```bash
-python -m venv ~/.local/zenzic-env
-source ~/.local/zenzic-env/bin/activate   # Windows: .venv\Scripts\activate
-pip install zenzic
-```
-
-Install into a dedicated virtual environment, then add the `bin/` directory to your `PATH`.
-
-### Project dev dependency — version pinned per project {#install-dev-dependency}
-
-### uv
-
-```bash
-uv add --dev zenzic
-uvx zenzic check all
-```
-
-Installs Zenzic into the project's virtual environment and pins the version in `uv.lock`.
-The right choice for team projects where everyone must use the same version, and for CI
-pipelines that install project dependencies before running checks.
-
-### pip
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install zenzic
-zenzic check all
-```
-
-Standard dev-dependency pattern with a project-local virtual environment.
+    Pin to a specific version tag for deterministic execution:
+    ```bash title="Terminal"
+    uvx --from git+https://github.com/PythonWoods/zenzic@v0.25.0 zenzic .
+    ```
 
 ### Static analysis only — no build runtime required {#lean-agnostic}
 
@@ -109,10 +77,11 @@ text. It does **not** execute the build engine or its plugins.
 Do **not** install MkDocs, Material for MkDocs, or any build plugin in your linting
 environment. They are not needed. The linting environment has one dependency: `zenzic`.
 
-```bash
-# Lint any MkDocs project — no extras needed
+```bash title="Terminal"
+# Audit any project without build dependencies
 uvx zenzic check all
 ```
+
 
 !!! note "Third-party engine adapters"
     Third-party adapters (e.g. a hypothetical `zenzic-hugo-adapter`) are separate

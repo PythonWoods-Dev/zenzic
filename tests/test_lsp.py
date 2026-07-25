@@ -1114,10 +1114,7 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
 
     # Configure repo with a full-depth exclusion path
     config_file = tmp_path / ".zenzic.toml"
-    config_file.write_text(
-        'docs_dir = "docs"\n'
-        'excluded_dirs = ["docs/tutorials/examples"]\n'
-    )
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/tutorials/examples"]\n')
 
     # Create the excluded file tree
     excluded_dir = tmp_path / "docs" / "tutorials" / "examples" / "z5xx-content"
@@ -1201,3 +1198,107 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
         "LSP-FIX-008 path normalisation regression."
     )
 
+
+def test_lsp_directory_policies_applied_in_analysis(tmp_path) -> None:
+    """LSP-FIX-009: governance.directory_policies must filter diagnostics in LSP mode.
+
+    Setup:
+        - .zenzic.toml specifies [governance.directory_policies]
+          "docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]
+        - File contains frontmatter delimiter error (Z506) and invalid snippet syntax (Z503).
+    """
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text(
+        'docs_dir = "docs"\n'
+        "[governance.directory_policies]\n"
+        '"docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]\n'
+    )
+
+    sample_dir = tmp_path / "docs" / "tutorials" / "examples" / "z5xx-content"
+    sample_dir.mkdir(parents=True, exist_ok=True)
+    sample_file = sample_dir / "z506-malformed-frontmatter.md"
+    sample_file.write_text("-\ntitle: Malformed\n---\n```python\ndef bad_syntax(\n```\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    sample_uri = sample_file.resolve().as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": sample_uri,
+                    "text": sample_file.read_text(encoding="utf-8"),
+                }
+            },
+        }
+    )
+
+    assert server.engine is not None
+    assert server.vsm is not None
+    assert server.overlay is not None
+
+    results = server.engine.process_changes(server.vsm, server.overlay, {sample_uri})
+    diags = results.get(sample_uri, [])
+
+    # Assert Z506 and Z503 findings were filtered out by directory_policies
+    policy_diags = [d for d in diags if d.code in ("Z506", "Z503")]
+    assert len(policy_diags) == 0, f"Expected 0 Z506/Z503 diagnostics, got {policy_diags}"
+
+
+def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
+    """LSP-FIX-009: modifying a watched adapter config file triggers hot-reload and VSM rebuild.
+
+    Setup:
+        - mkdocs.yml initially contains only index.md in nav.
+        - page2.md exists on disk and is linked from index.md, emitting Z103 (orphan).
+        - Updating mkdocs.yml to include page2.md triggers hot-reload and clears Z103.
+    """
+    mkdocs_file = tmp_path / "mkdocs.yml"
+    mkdocs_file.write_text("site_name: TestSite\nnav:\n  - Home: index.md\n")
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    index_md = docs_dir / "index.md"
+    index_md.write_text("# Home\n[Link](./page2.md)\n")
+
+    page2_md = docs_dir / "page2.md"
+    page2_md.write_text("# Page 2\nContent.\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    assert server.adapter is not None
+    assert "mkdocs.yml" in server.adapter.watched_config_files
+
+    index_uri = index_md.resolve().as_uri()
+    results = server.engine.process_changes(server.vsm, server.overlay, {index_uri})
+    diags = results.get(index_uri, [])
+    z103_before = [d for d in diags if d.code == "Z103"]
+    assert len(z103_before) == 1, "Expected Z103 before mkdocs.yml update"
+
+    # Update mkdocs.yml to add page2.md to nav
+    mkdocs_file.write_text("site_name: TestSite\nnav:\n  - Home: index.md\n  - Page 2: page2.md\n")
+
+    # Send didChangeWatchedFiles for mkdocs.yml
+    mkdocs_uri = mkdocs_file.resolve().as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {"changes": [{"uri": mkdocs_uri, "type": 2}]},
+        }
+    )
+
+    # Re-evaluate index.md
+    assert server.engine is not None
+    assert server.vsm is not None
+    results_after = server.engine.process_changes(server.vsm, server.overlay, {index_uri})
+    diags_after = results_after.get(index_uri, [])
+    z103_after = [d for d in diags_after if d.code == "Z103"]
+    assert len(z103_after) == 0, "Z103 should be cleared after hot-reloading mkdocs.yml nav"

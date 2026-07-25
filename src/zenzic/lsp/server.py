@@ -308,8 +308,41 @@ class LanguageServer:
 
         return False
 
+    def _is_config_file_change(self, uri: str) -> bool:
+        """Return True if *uri* corresponds to a watched Zenzic or Adapter configuration file."""
+        if not uri or not uri.startswith("file://"):
+            return False
+        try:
+            file_path = uri_to_path(uri)
+            filename = file_path.name
+        except Exception:
+            return False
+
+        if filename in (".zenzic.toml", ".zenzic.local.toml"):
+            return True
+        if self.adapter and filename in self.adapter.watched_config_files:
+            return True
+        return False
+
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
-        """Incrementally update file caches and trigger revalidation."""
+        """Incrementally update file caches and trigger revalidation, hot-reloading config on changes."""
+        # Hot-reload configuration if any watched config file changed
+        if any(self._is_config_file_change(change.get("uri", "")) for change in changes):
+            from zenzic.core.adapters._factory import clear_adapter_cache
+
+            clear_adapter_cache()
+            if self.repo_root:
+                self.config, _ = ZenzicConfig.load(self.repo_root)
+            else:
+                self.config = ZenzicConfig()
+            self.exclusion_mgr = None
+            self.adapter = None
+            self.engine = None
+            self.vsm = None
+            self._build_vsm_sync()
+            self._sync_workspace_and_publish()
+            return
+
         if self.vsm is None or not self.adapter or not self.config:
             return
 
@@ -382,24 +415,35 @@ class LanguageServer:
 
         elif method == "initialized":
             if self.repo_root:
+                self._build_vsm_sync()
+                watchers: list[dict[str, str]] = [
+                    {"globPattern": "**/*.md"},
+                    {"globPattern": "**/*.mdx"},
+                    {"globPattern": "**/.zenzic.toml"},
+                    {"globPattern": "**/.zenzic.local.toml"},
+                ]
+                if self.adapter:
+                    for cfg_file in self.adapter.watched_config_files:
+                        watchers.append({"globPattern": f"**/{cfg_file}"})
+
                 self.send_message(
                     {
                         "jsonrpc": "2.0",
-                        "id": "watch-md",
+                        "id": "watch-files",
                         "method": "client/registerCapability",
                         "params": {
                             "registrations": [
                                 {
-                                    "id": "watch-md",
+                                    "id": "watch-files",
                                     "method": "workspace/didChangeWatchedFiles",
-                                    "registerOptions": {"watchers": [{"globPattern": "**/*.md"}]},
+                                    "registerOptions": {"watchers": watchers},
                                 }
                             ]
                         },
                     }
                 )
-                self._build_vsm_sync()
                 self._sync_workspace_and_publish()
+
         elif method == "workspace/didChangeWatchedFiles":
             self._handle_file_changes(params.get("changes", []))
         elif method == "shutdown":

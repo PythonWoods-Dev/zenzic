@@ -17,46 +17,46 @@ Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communi
 └─────────────────────────┘                          └──────────────────────────────┘
 ```
 
+!!! important "Minimum Core Version Requirement"
+    The VS Code Extension requires **Zenzic Core v0.25.0 or higher** installed on your system or active virtual environment.
+
 ## Requirements & Baseline
 
-- **Zenzic Core**: v0.23.1 or higher installed on your system or virtual environment.
-- **VS Code**: v1.125.0 or higher.
+- **Zenzic Core**: `v0.25.0` or higher installed on your system or virtual environment.
+- **VS Code**: `v1.125.0` or higher.
 
-## Installation
+## Installation & Setup
 
-### 1. Install the Core Engine
+=== "VS Code Extension Marketplace"
 
-The VS Code extension requires the Zenzic Python core binary to perform analysis:
+    Search for **Zenzic** in the VS Code Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`), or run:
+    ```bash title="Terminal"
+    code --install-extension pythonwoods.zenzic-vscode
+    ```
 
-```bash
-uv tool install --force zenzic
-```
+=== "Zenzic Core Installation"
 
-Alternatively, install via `pip` or inside your active virtual environment:
+    Ensure the Zenzic Python binary is installed locally:
+    ```bash title="Terminal"
+    # Recommended: Global binary via uv
+    uv tool install --force zenzic
 
-```bash
-pip install zenzic
-```
-
-### 2. Install the Extension
-
-Search for **Zenzic** in the VS Code Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`), or install via the VS Code CLI:
-
-```bash
-code --install-extension pythonwoods.zenzic-vscode
-```
+    # Alternative: Standard pip install
+    pip install zenzic
+    ```
 
 ## Configuration
 
 The extension automatically discovers `zenzic` in standard `$PATH` directories and user bin locations (`~/.local/bin`, `~/.cargo/bin`, `~/.uv/bin`).
 
-If you use a custom virtual environment or isolated installation, configure `zenzic.executablePath` in your VS Code `settings.json`:
+If you use a custom virtual environment or isolated installation, configure `zenzic.executablePath` in your workspace `settings.json`:
 
-```json
+```json title=".vscode/settings.json"
 {
   "zenzic.executablePath": "${workspaceFolder}/.venv/bin/zenzic"
 }
 ```
+
 
 ### Supported Settings
 
@@ -71,35 +71,4 @@ To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
 - **File Extensions**: The extension and Language Server exclusively target Markdown (`.md`) and MDX (`.mdx`) files. Non-documentation files (e.g. `OWNERS`, `.gitignore`, `config.yaml`) are automatically filtered out.
 - **Configured Domain**: Only files residing within the configured `docs_dir` (default: `docs/`) or `extra_content_roots` are evaluated. Out-of-bounds files in the workspace (such as root `README.md` when `docs_dir = "docs"`) produce zero diagnostics.
 
-## Troubleshooting
-
-### `Zenzic: Not Found (ENOENT)`
-
-**Symptom:** Status bar shows `$(error) Zenzic: Not Found` or prompt reads *Zenzic binary not found*.
-
-**Cause:** The `zenzic` executable is not installed or not present in system `$PATH` / standard user directories (`~/.local/bin`, `~/.uv/bin`).
-
-**Resolution:**
-
-1. Install Zenzic globally via `uv tool install zenzic`.
-2. Or configure `zenzic.executablePath` in VS Code settings with the full path to your virtual environment binary (e.g., `/home/user/project/.venv/bin/zenzic`).
-
-### `Zenzic: Outdated Core`
-
-**Symptom:** Status bar shows `$(error) Zenzic: Outdated Core` or notification requests upgrading.
-
-**Cause:** The installed Zenzic Core binary version is lower than the required minimum baseline (`v0.23.1`).
-
-**Resolution:** Update the Zenzic executable to the latest version:
-
-```bash
-uv tool install --force zenzic
-```
-
-### Server Version Check Errors
-
-**Symptom:** Notification reads *Could not verify Zenzic Core version*.
-
-**Cause:** Executing `zenzic --version` returned an error or non-zero exit code.
-
-**Resolution:** Verify that `zenzic --version` runs cleanly in your terminal and check permissions on `zenzic.executablePath`.
+> **Having issues?** See the [Troubleshooting Guide](../how-to/troubleshooting.md#editor-integration).

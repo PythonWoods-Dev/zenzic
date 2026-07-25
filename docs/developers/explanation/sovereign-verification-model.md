@@ -1,97 +1,73 @@
 ---
-
 sidebar_position: 6
-description: "Family-wide nox/just/CI contract for deterministic local/CI parity and fail-closed core resolution."
+description: "Sovereign Verification Model architecture contract — deterministic local/CI parity, zero-network execution, and immutable commit SHA pinning."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Shared Sovereign Verification Model
+# Sovereign Verification Model & Zero-Network Parity
 
-This page defines the shared verification contract used across the zenzic family
-repositories (`zenzic`, `zenzic-doc`, `zenzic-action`).
+Local environment drift and unpinned network dependencies compromise software supply chain security. When local development suites and CI/CD pipelines use different resolution mechanisms or fetch floating dependencies from remote package indexes, quality gates lose determinism and security assurances fail.
 
-The intent is operational determinism: local and CI must run the same logic
-against the same core semantics.
+Zenzic enforces the **Sovereign Verification Model**. This architecture contract mandates zero-network execution, fail-closed resolution topology, and 100% operational parity between local developer environments and CI/CD quality gates.
 
 ---
 
-## 1) Why this model exists
+## Core Resolution Topology
 
-- Prevent local/CI behavioral drift.
-- Prevent stale published-core execution in repository quality gates.
-- Keep contributor expectations explicit, auditable, and stable over time.
+The following diagram illustrates how Zenzic resolves the sovereign core engine path across local environments and CI pipelines:
 
-This model is mandatory for repository gates (not optional guidance).
+```mermaid
+flowchart TD
+    A["Execution Trigger (just verify / CI Gate)"] --> B{"Is ZENZIC_CORE_PATH Set?"}
+    B -->|Yes| C["1. Use Explicit Path Override"]
+    B -->|No| D{"Does ./_zenzic_core Exist?"}
+    D -->|Yes| E["2. Use CI Topology Path"]
+    D -->|No| F{"Does ../zenzic Exist?"}
+    F -->|Yes| G["3. Use Sibling Topology Path"]
+    F -->|No| H["FAIL-CLOSED STOP (Exit 1)\nPyPI Network Fallback Prohibited"]
 
----
-
-## 2) Core Resolution Contract
-
-Resolution order is sovereign and deterministic:
-
-1. Explicit override: `ZENZIC_CORE_PATH`
-2. CI topology: `./_zenzic_core`
-3. Sibling development topology: `../zenzic`
-
-Validation rule:
-
-- Every candidate path must contain `src/zenzic`.
-
-Fail-closed rule:
-
-- If no candidate is valid, verification stops with an explicit error.
-- PyPI fallback is prohibited in repository quality gates.
+    C & E & G --> I{"Contains src/zenzic?"}
+    I -->|Yes| J["Execute Sovereign Local Core Engine"]
+    I -->|No| H
+```
 
 ---
 
-## 3) CI Topology Contract
+## Core Architectural Invariants
 
-CI workflows must:
+`Zero-Network Execution`
+: Quality gate verification strictly forbids fetching unverified packages or network binaries during execution. All dependencies are statically linked or pre-built.
 
-1. Resolve branch parity against the core repository (target branch first,
-   fallback to `main` only when target branch does not exist in core).
-2. Checkout core to `./_zenzic_core`.
-3. Run the same verification entrypoint used locally (`just verify`).
+`Sovereign Resolution Order`
+: Core resolution follows an immutable 3-step hierarchy (`ZENZIC_CORE_PATH` → `./_zenzic_core` → `../zenzic`).
 
-Recommended explicitness:
+`Fail-Closed Stop`
+: If no valid local core directory containing `src/zenzic` is located, verification halts immediately with a fatal error. Automatic PyPI fallback is strictly prohibited.
 
-- Export `ZENZIC_CORE_PATH=_zenzic_core` in the verify step environment.
-- For repositories with non-homonymous branch naming, set
-  `ZENZIC_CORE_REF` as an explicit CI override.
-- Governed override metadata is mandatory when `ZENZIC_CORE_REF` is used:
-  `ZENZIC_CORE_REF_TICKET`, `ZENZIC_CORE_REF_REASON`,
-  `ZENZIC_CORE_REF_APPROVER`, `ZENZIC_CORE_REF_EXPIRES_ON`.
-- Fail-closed applies to every override path: missing metadata, malformed
-  expiry date, expired override, or non-existent branch in core must stop CI.
+`Immutable SHA Pinning (ADR-089)`
+: All GitHub Action workflows and submodules pin core dependencies by immutable commit SHA digest (`# x-zenzic-core-pin @ <sha>`), preventing supply chain tampering.
 
 ---
 
-## 4) Layer Responsibilities
+## Verification Layer Contracts
 
-| Layer | Required behavior | Non-negotiable invariant |
-|---|---|---|
-| `justfile` | Primary operator entrypoint (`check`, `verify`) | Uses sovereign resolution order and fail-closed stop |
-| `noxfile.py` | Deterministic automation wrapper for sessions | Uses the same sovereign order as `justfile` |
-| `.github/workflows/*.yml` | Shared execution topology | Checks out `_zenzic_core` before running verify |
-| `release-contracts` recipe | Drift guard | Rejects PyPI fallback patterns and auto-tagging in release paths |
+The Sovereign Verification Model distributes verification responsibilities across distinct operational layers:
 
----
-
-## 5) Contributor Runbook
-
-For the step-by-step setup procedure on how to configure your local workspace and run the verification suite, see the [Contributor Runbook in the Release Protocol](../how-to/release-governance-protocol.md#contributor-runbook-local-setup).
+| Layer | Entrypoint | Non-Negotiable Invariant |
+| :--- | :--- | :--- |
+| **Operator Layer** | `justfile` (`just verify`) | Executes sovereign resolution order; halts on fail-closed condition |
+| **Automation Layer** | `noxfile.py` | Enforces isolated Python sessions using local core source tree |
+| **CI Topology Layer** | `.github/workflows/*.yml` | Checks out `_zenzic_core` at target SHA before executing verification |
+| **Release Contract** | `release-contracts` recipe | Rejects PyPI fallback patterns and unversioned floating tags |
 
 ---
 
-## 6) Anti-Drift Policy
+## Anti-Drift Policy
 
-The following are prohibited in repository quality gates:
+The following practices are **strictly prohibited** in Zenzic quality gates:
 
-- `uvx zenzic@...` fallback as a substitute for local core semantics.
-- Temporary config workarounds used to mask core-version drift.
-- Divergent local and CI verification entrypoints.
-
-Temporary compatibility shims are allowed only as short-lived transitions and
-must be removed once structural parity is restored.
+- `uvx zenzic@...` remote network execution inside repository-internal quality gates.
+- Ad-hoc local configuration edits used to bypass structural checks.
+- Divergent execution scripts between local developer workstations and CI runners.
