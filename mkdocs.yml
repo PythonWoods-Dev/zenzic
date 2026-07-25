@@ -34,9 +34,11 @@ nav:
       - Quick Start Tutorial: tutorials/first-audit.md
       - Install & First Run: how-to/install.md
       - Configuration Setup: how-to/initialize-configuration.md
-      - CI/CD Integration: how-to/configure-ci-cd.md
-    - VS Code Extension (ZLS LSP):
-      - Editor Overview & Setup: editor/vscode.md
+    - Delivery Mechanisms:
+      - VS Code Extension (LSP): editor/vscode.md
+      - GitHub Action (CI/CD): how-to/configure-ci-cd.md
+      - GitHub Action Reference: reference/zenzic-action.md
+
 
     - How-to Guides:
       - Manage Technical Debt: how-to/handle-technical-debt.md

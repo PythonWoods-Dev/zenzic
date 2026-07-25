@@ -36,6 +36,13 @@
 /developers/how-to/adapter-examples                      /developers/how-to/implement-adapter/ 301
 /explanation/scoring-design                              /explanation/scoring-system/ 301
 /explanation/scoring-design/                             /explanation/scoring-system/ 301
+/vscode                                                  /editor/vscode/ 301
+/vscode/                                                 /editor/vscode/ 301
+/action                                                  /reference/zenzic-action/ 301
+/action/                                                 /reference/zenzic-action/ 301
+/github-action                                          /reference/zenzic-action/ 301
+/github-action/                                         /reference/zenzic-action/ 301
+
 
 
 # ─── LAYER 3: BLOG CANONICAL SLUGS ───────────────────────────────────────────
