@@ -18,10 +18,13 @@ from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
 from zenzic.core.exclusion import translate_glob_to_re2
 from zenzic.models.config import ZenzicConfig
 
+
 T = TypeVar("T")
 
 
-def _extract_code_and_rel_path(finding: Any, repo_root: Path | None = None, docs_root: Path | None = None) -> tuple[str, str, str | None]:
+def _extract_code_and_rel_path(
+    finding: Any, repo_root: Path | None = None, docs_root: Path | None = None
+) -> tuple[str, str, str | None]:
     """Extract (code, rel_path, docs_rel) from any finding object (Finding, RuleFinding, or ZenzicDiagnostic)."""
     code = getattr(finding, "code", None) or getattr(finding, "rule_id", "")
     code = str(code).upper().strip()
@@ -77,13 +80,16 @@ def apply_per_file_ignores(
 
     filtered: list[T] = []
     for finding in findings:
-        code, rel_path, docs_rel = _extract_code_and_rel_path(finding, repo_root=repo_root, docs_root=docs_root)
+        code, rel_path, docs_rel = _extract_code_and_rel_path(
+            finding, repo_root=repo_root, docs_root=docs_root
+        )
         if code in NON_SUPPRESSIBLE_CODES:
             filtered.append(finding)
             continue
 
         suppressed = any(
-            (fnmatch(rel_path, pattern) or (docs_rel is not None and fnmatch(docs_rel, pattern))) and code in codes
+            (fnmatch(rel_path, pattern) or (docs_rel is not None and fnmatch(docs_rel, pattern)))
+            and code in codes
             for pattern, codes in normalized_map.items()
         )
         if suppressed:
@@ -125,7 +131,9 @@ def apply_directory_policies(
 
     filtered: list[T] = []
     for finding in findings:
-        code, rel_path, docs_rel = _extract_code_and_rel_path(finding, repo_root=repo_root, docs_root=docs_root)
+        code, rel_path, docs_rel = _extract_code_and_rel_path(
+            finding, repo_root=repo_root, docs_root=docs_root
+        )
         if code in NON_SUPPRESSIBLE_CODES:
             filtered.append(finding)
             continue
@@ -146,7 +154,9 @@ def apply_directory_policies(
             if audit_mode:
                 msg = getattr(finding, "message", None)
                 if msg and dataclasses.is_dataclass(finding) and not isinstance(finding, type):
-                    filtered.append(dataclasses.replace(finding, message=f"[POLICY_EXEMPTION] {msg}"))
+                    filtered.append(
+                        dataclasses.replace(finding, message=f"[POLICY_EXEMPTION] {msg}")
+                    )
 
                 else:
                     filtered.append(finding)

@@ -602,7 +602,6 @@ class MkDocsAdapter(BaseAdapter):
         """Return MkDocs configuration filenames for LSP hot-reloading."""
         return frozenset({"mkdocs.yml", "mkdocs.yaml"})
 
-
     # ── VSM integration ────────────────────────────────────────────────────────
 
     def _map_url(self, rel: Path) -> str:

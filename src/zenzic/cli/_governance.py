@@ -4,10 +4,8 @@
 
 from __future__ import annotations
 
-import dataclasses
 import sys
 from dataclasses import dataclass, field
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
@@ -381,5 +379,3 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
 
     audit_mode = get_sovereign_context().force_audit
     return apply_directory_policies(findings, config, audit_mode=audit_mode)
-
-

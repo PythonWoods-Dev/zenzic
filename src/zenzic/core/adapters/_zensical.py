@@ -307,7 +307,6 @@ class ZensicalAdapter(BaseAdapter):
             return frozenset({"mkdocs.yml", "mkdocs.yaml"})
         return frozenset({"zensical.toml"})
 
-
     # ── VSM integration ────────────────────────────────────────────────────────
 
     def _map_url(self, rel: Path) -> str:

@@ -19,4 +19,3 @@ This page is a troubleshooting guide for the most common configuration problems.
 ## Troubleshooting Matrix
 
 > **Having issues?** See the [Troubleshooting Guide](troubleshooting.md#configuration).
-

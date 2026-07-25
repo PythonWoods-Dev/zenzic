@@ -1114,10 +1114,7 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
 
     # Configure repo with a full-depth exclusion path
     config_file = tmp_path / ".zenzic.toml"
-    config_file.write_text(
-        'docs_dir = "docs"\n'
-        'excluded_dirs = ["docs/tutorials/examples"]\n'
-    )
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/tutorials/examples"]\n')
 
     # Create the excluded file tree
     excluded_dir = tmp_path / "docs" / "tutorials" / "examples" / "z5xx-content"
@@ -1213,21 +1210,14 @@ def test_lsp_directory_policies_applied_in_analysis(tmp_path) -> None:
     config_file = tmp_path / ".zenzic.toml"
     config_file.write_text(
         'docs_dir = "docs"\n'
-        '[governance.directory_policies]\n'
+        "[governance.directory_policies]\n"
         '"docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]\n'
     )
 
     sample_dir = tmp_path / "docs" / "tutorials" / "examples" / "z5xx-content"
     sample_dir.mkdir(parents=True, exist_ok=True)
     sample_file = sample_dir / "z506-malformed-frontmatter.md"
-    sample_file.write_text(
-        "-\n"
-        "title: Malformed\n"
-        "---\n"
-        "```python\n"
-        "def bad_syntax(\n"
-        "```\n"
-    )
+    sample_file.write_text("-\ntitle: Malformed\n---\n```python\ndef bad_syntax(\n```\n")
 
     server = LanguageServer()
     server.repo_root = tmp_path
@@ -1268,11 +1258,7 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
         - Updating mkdocs.yml to include page2.md triggers hot-reload and clears Z103.
     """
     mkdocs_file = tmp_path / "mkdocs.yml"
-    mkdocs_file.write_text(
-        "site_name: TestSite\n"
-        "nav:\n"
-        "  - Home: index.md\n"
-    )
+    mkdocs_file.write_text("site_name: TestSite\nnav:\n  - Home: index.md\n")
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
@@ -1297,12 +1283,7 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
     assert len(z103_before) == 1, "Expected Z103 before mkdocs.yml update"
 
     # Update mkdocs.yml to add page2.md to nav
-    mkdocs_file.write_text(
-        "site_name: TestSite\n"
-        "nav:\n"
-        "  - Home: index.md\n"
-        "  - Page 2: page2.md\n"
-    )
+    mkdocs_file.write_text("site_name: TestSite\nnav:\n  - Home: index.md\n  - Page 2: page2.md\n")
 
     # Send didChangeWatchedFiles for mkdocs.yml
     mkdocs_uri = mkdocs_file.resolve().as_uri()
@@ -1310,9 +1291,7 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
         {
             "jsonrpc": "2.0",
             "method": "workspace/didChangeWatchedFiles",
-            "params": {
-                "changes": [{"uri": mkdocs_uri, "type": 2}]
-            },
+            "params": {"changes": [{"uri": mkdocs_uri, "type": 2}]},
         }
     )
 
@@ -1323,5 +1302,3 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
     diags_after = results_after.get(index_uri, [])
     z103_after = [d for d in diags_after if d.code == "Z103"]
     assert len(z103_after) == 0, "Z103 should be cleared after hot-reloading mkdocs.yml nav"
-
-

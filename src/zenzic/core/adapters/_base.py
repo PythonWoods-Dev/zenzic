@@ -128,4 +128,3 @@ class BaseAdapter(ABC):
     def watched_config_files(self) -> frozenset[str]:
         """Return the configuration filenames that trigger a VSM rebuild in LSP mode."""
         return frozenset()
-

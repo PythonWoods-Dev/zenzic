@@ -22,7 +22,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Centralized Core Governance (`LSP-FIX-009`)**: Extracted `directory_policies` and `per_file_ignores` filtering into `zenzic.core.governance` and integrated them directly into `IncrementalAnalysisEngine._analyze_file`, achieving 100% diagnostic determinism between CLI and VS Code.
 
-
 ## [0.24.5] - 2026-07-25
 
 ### Fixed

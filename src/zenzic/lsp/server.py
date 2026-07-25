@@ -329,6 +329,7 @@ class LanguageServer:
         # Hot-reload configuration if any watched config file changed
         if any(self._is_config_file_change(change.get("uri", "")) for change in changes):
             from zenzic.core.adapters._factory import clear_adapter_cache
+
             clear_adapter_cache()
             if self.repo_root:
                 self.config, _ = ZenzicConfig.load(self.repo_root)
@@ -341,7 +342,6 @@ class LanguageServer:
             self._build_vsm_sync()
             self._sync_workspace_and_publish()
             return
-
 
         if self.vsm is None or not self.adapter or not self.config:
             return

@@ -106,7 +106,6 @@ Returns the set of framework configuration filenames (e.g., `mkdocs.yml`, `zensi
 
 ---
 
-
 ## `zenzic.rules` — Plugin SDK Façade
 
 `zenzic.rules` is the stable, canonical entry point for plugin authors. It re-exports classes and helpers from `zenzic.core.rules`.

@@ -71,6 +71,4 @@ To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
 - **File Extensions**: The extension and Language Server exclusively target Markdown (`.md`) and MDX (`.mdx`) files. Non-documentation files (e.g. `OWNERS`, `.gitignore`, `config.yaml`) are automatically filtered out.
 - **Configured Domain**: Only files residing within the configured `docs_dir` (default: `docs/`) or `extra_content_roots` are evaluated. Out-of-bounds files in the workspace (such as root `README.md` when `docs_dir = "docs"`) produce zero diagnostics.
 
-
 > **Having issues?** See the [Troubleshooting Guide](../how-to/troubleshooting.md#editor-integration).
-
