@@ -178,7 +178,9 @@ explanation/brand-history.md:22 [Z601] [POLICY_EXEMPTION] Brand obsolescence: 'L
 blog/2026-05-24-log-v080.md:1 [Z601] [POLICY_EXEMPTION] Brand obsolescence: 'LegacyReleaseCodename'
 ```
 
-Security findings (Z201–Z204) **always bypass directory policies** unconditionally — they cannot be exempted regardless of any TOML configuration.
+!!! danger "Inviolable Security Surface (Z201–Z205)"
+    Security findings (**Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**) unconditionally bypass all directory policies, per-file ignores, and inline comments. They are non-suppressible security facts that trigger exit codes 2 and 3 regardless of any TOML configuration.
+
 
 ---
 

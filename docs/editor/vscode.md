@@ -17,46 +17,46 @@ Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communi
 └─────────────────────────┘                          └──────────────────────────────┘
 ```
 
+!!! important "Minimum Core Version Requirement"
+    The VS Code Extension requires **Zenzic Core v0.25.0 or higher** installed on your system or active virtual environment.
+
 ## Requirements & Baseline
 
-- **Zenzic Core**: v0.23.1 or higher installed on your system or virtual environment.
-- **VS Code**: v1.125.0 or higher.
+- **Zenzic Core**: `v0.25.0` or higher installed on your system or virtual environment.
+- **VS Code**: `v1.125.0` or higher.
 
-## Installation
+## Installation & Setup
 
-### 1. Install the Core Engine
+=== "VS Code Extension Marketplace"
 
-The VS Code extension requires the Zenzic Python core binary to perform analysis:
+    Search for **Zenzic** in the VS Code Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`), or run:
+    ```bash title="Terminal"
+    code --install-extension pythonwoods.zenzic-vscode
+    ```
 
-```bash
-uv tool install --force zenzic
-```
+=== "Zenzic Core Installation"
 
-Alternatively, install via `pip` or inside your active virtual environment:
+    Ensure the Zenzic Python binary is installed locally:
+    ```bash title="Terminal"
+    # Recommended: Global binary via uv
+    uv tool install --force zenzic
 
-```bash
-pip install zenzic
-```
-
-### 2. Install the Extension
-
-Search for **Zenzic** in the VS Code Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`), or install via the VS Code CLI:
-
-```bash
-code --install-extension pythonwoods.zenzic-vscode
-```
+    # Alternative: Standard pip install
+    pip install zenzic
+    ```
 
 ## Configuration
 
 The extension automatically discovers `zenzic` in standard `$PATH` directories and user bin locations (`~/.local/bin`, `~/.cargo/bin`, `~/.uv/bin`).
 
-If you use a custom virtual environment or isolated installation, configure `zenzic.executablePath` in your VS Code `settings.json`:
+If you use a custom virtual environment or isolated installation, configure `zenzic.executablePath` in your workspace `settings.json`:
 
-```json
+```json title=".vscode/settings.json"
 {
   "zenzic.executablePath": "${workspaceFolder}/.venv/bin/zenzic"
 }
 ```
+
 
 ### Supported Settings
 

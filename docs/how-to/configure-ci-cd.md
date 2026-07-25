@@ -78,9 +78,14 @@ Each individual check command returns a uniform findings structure:
 }
 ```
 
-Exit codes are preserved in JSON mode: exit 0 when only warnings are found,
-exit 1 on errors (or warnings under `--strict`), exit 2 on credential scanner findings,
-exit 3 on path traversal guard — the same contract as terminal output.
+!!! danger "Exit Code Contract (ADR-075)"
+    - **Exit 0**: Clean run (or warnings only without `--strict`).
+    - **Exit 1**: Quality gate errors or hard link failures.
+    - **Exit 2**: Credential scanner breach (Z201 — non-suppressible).
+    - **Exit 3**: Path traversal security violation (Z202/Z203 — non-suppressible).
+
+Exit codes are preserved in JSON and SARIF modes, maintaining strict contract parity between terminal and CI/CD pipelines.
+
 
 ---
 
