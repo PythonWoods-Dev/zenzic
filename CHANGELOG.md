@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-07-25
+
 ### Added
 
 - **Adapter-Driven Config Hot-Reloading (`LSP-FIX-009`)**: Added `@property watched_config_files` to `BaseAdapter` contract. The LSP server now dynamically watches framework configuration files (e.g. `mkdocs.yml`, `zensical.toml`) and hot-reloads the Virtual Site Map (VSM) on changes without requiring an LSP server restart.
