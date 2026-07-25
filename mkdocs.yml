@@ -30,9 +30,29 @@ nav:
   - Home: index.md
 
   - User Documentation:
-    - Tutorials:
-      - tutorials/first-audit.md
-      - Examples:
+    - Getting Started:
+      - Quick Start Tutorial: tutorials/first-audit.md
+      - Install & First Run: how-to/install.md
+      - Configuration Setup: how-to/initialize-configuration.md
+      - CI/CD Integration: how-to/configure-ci-cd.md
+      - VS Code Extension: editor/vscode.md
+    - How-to Guides:
+      - Manage Technical Debt: how-to/handle-technical-debt.md
+      - Add Custom Rules: how-to/add-custom-rules.md
+      - Configure Adapters: how-to/configure-adapter.md
+      - Privacy Gate: how-to/configure-privacy-gate.md
+      - Configuration Strategy: how-to/configuration-strategy.md
+      - Cross-Site Links: how-to/manage-cross-site-links.md
+      - Engine Migration: how-to/migrate-engines.md
+      - Use Brand System: how-to/use-brand-system.md
+      - Workflow Integration: how-to/workflow-integration.md
+      - Configure Social Metadata: how-to/configure-social-metadata.md
+      - Add Status Badges: how-to/add-badges.md
+      - Troubleshooting: how-to/troubleshooting.md
+    - Rule Reference & Catalog:
+      - Finding Codes Index: reference/finding-codes.md
+      - Core Rule Checks: reference/checks.md
+      - Interactive Rule Examples:
         - tutorials/examples/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md
         - tutorials/examples/z1xx-links/z101-broken-links.md
@@ -70,57 +90,38 @@ nav:
         - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
         - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
         - tutorials/examples/z6xx-brand/z603-dead-suppression.md
-    - How-to Guides:
-      - how-to/install.md
-      - how-to/initialize-configuration.md
-      - how-to/configure-ci-cd.md
-      - how-to/add-badges.md
-      - how-to/handle-technical-debt.md
-      - how-to/add-custom-rules.md
-      - how-to/configure-adapter.md
-      - how-to/configure-privacy-gate.md
-      - how-to/configuration-strategy.md
-      - how-to/manage-cross-site-links.md
-      - how-to/migrate-engines.md
-      - how-to/use-brand-system.md
-      - how-to/workflow-integration.md
-      - how-to/configure-social-metadata.md
-      - how-to/troubleshooting.md
-    - Editor Integration:
-      - editor/vscode.md
-    - Reference:
-      - reference/index.md
-      - reference/finding-codes.md
-      - reference/checks.md
-      - reference/cli.md
-      - reference/configuration-reference.md
-      - reference/scoring-algorithm.md
-      - reference/suppression-policy.md
-      - reference/engines.md
-      - reference/advanced-features.md
-      - reference/api-json.md
-      - reference/brand-kit.md
-      - reference/brand-system.md
-      - reference/glossary.md
-      - reference/zenzic-action.md
-    - Explanation:
-      - explanation/why-zenzic.md
-      - explanation/architecture.md
-      - explanation/language-server-architecture.md
-      - explanation/core-mechanics.md
-      - explanation/scoring-design.md
-      - explanation/scoring-system.md
-      - explanation/discovery.md
-      - explanation/configuration-loading.md
-      - explanation/exclusion-design.md
-      - explanation/structural-integrity.md
-      - explanation/engine-migration-design.md
-      - explanation/the-zenzic-trinity.md
-      - explanation/github-action-internals.md
-      - explanation/privacy-gate.md
-      - explanation/mineral-path.md
-      - explanation/brand-philosophy.md
-      - explanation/community-index.md
+    - Technical Reference:
+      - CLI Specification: reference/cli.md
+      - Configuration Schema: reference/configuration-reference.md
+      - Suppression Policy: reference/suppression-policy.md
+      - DQS Scoring Algorithm: reference/scoring-algorithm.md
+      - Engine Adapters: reference/engines.md
+      - Advanced Features: reference/advanced-features.md
+      - JSON & SARIF API: reference/api-json.md
+      - Brand Kit: reference/brand-kit.md
+      - Brand System: reference/brand-system.md
+      - Glossary: reference/glossary.md
+      - GitHub Action Reference: reference/zenzic-action.md
+      - Reference Index: reference/index.md
+    - Core Architecture:
+      - Why Zenzic: explanation/why-zenzic.md
+      - System Architecture: explanation/architecture.md
+      - Language Server Architecture: explanation/language-server-architecture.md
+      - Core Mechanics: explanation/core-mechanics.md
+      - Scoring Design: explanation/scoring-design.md
+      - Scoring System: explanation/scoring-system.md
+      - Discovery Engine: explanation/discovery.md
+      - Configuration Loading: explanation/configuration-loading.md
+      - Exclusion Design: explanation/exclusion-design.md
+      - Structural Integrity: explanation/structural-integrity.md
+      - Engine Migration Design: explanation/engine-migration-design.md
+      - The Zenzic Trinity: explanation/the-zenzic-trinity.md
+      - GitHub Action Internals: explanation/github-action-internals.md
+      - Privacy Gate: explanation/privacy-gate.md
+      - Mineral Path: explanation/mineral-path.md
+      - Brand Philosophy: explanation/brand-philosophy.md
+      - Community Index: explanation/community-index.md
+
 
   - Developer Documentation:
     - developers/index.md

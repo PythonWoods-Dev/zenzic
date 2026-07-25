@@ -12,91 +12,122 @@ Complete reference for every Zenzic command, flag, and exit code.
 
 ---
 
-## Checks
+## Command Specification Matrix
 
-```bash
-# Individual checks
-zenzic check links        # Internal links; add --strict for external HTTP validation
-zenzic check orphans      # Pages on disk missing from nav
-zenzic check snippets     # Python code blocks that fail to compile
-zenzic check placeholders # Stub pages: low word count or forbidden patterns
-zenzic check assets       # Media files not referenced by any page
-zenzic check references   # Reference-style links + credential scanner (credential detection)
+Select a command tab to view its execution flags, default behaviors, and usage examples:
 
-# All checks in sequence
-# The `check all` command executes all validation suites and returns a binary pass/fail exit code.
-# In contrast, the `score` command computes a weighted numeric quality score (0-100) with a per-category breakdown.
-zenzic check all                    # Run all checks
-zenzic check all --audit            # Sovereign Audit: ignore inline + per-file suppressions
-zenzic check all --strict           # Also validate external URLs; treat warnings as errors
-zenzic check all --format json      # Machine-readable output
-zenzic check all --format github-annotations # GitHub Actions annotations format
-zenzic check all --ci               # CI shorthand: sets --strict, --no-header, and --format github-annotations
-zenzic check all --no-header        # Suppress the ASCII art header
-zenzic check all --only Z104,Z101   # Filter findings to only output specific Z-Codes
-zenzic check all --exit-zero        # Report issues but always exit 0
-zenzic check all --quiet            # Minimal one-line output for pre-commit and CI hooks
-zenzic check all --engine mkdocs    # Override detected build engine adapter
-zenzic check all --offline          # Force flat URL resolution (e.g. for USB / intranet builds)
-zenzic check links --show-info      # Show info-level findings (e.g. circular links)
-```
+=== "zenzic check"
 
-All `check` sub-commands accept an optional `PATH` argument to scope the check to a specific
-directory or project. Zenzic loads the config from the target, not the caller's CWD
-(sovereign root semantics — identical to `check all`):
+    Run full or targeted static analysis checks across the workspace:
 
-```bash
-zenzic check links   ../other-project        # check links in a sibling project
-zenzic check orphans content/                # check orphans in a sub-directory
-zenzic check assets  /abs/path/to/docs       # absolute path also accepted
-zenzic check all     /abs/path/to/docs       # all checks on a remote project
-```
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--strict` | `-s` | `false` | Promotes warnings to blocking errors (Exit 1). Enables external HTTP link verification. |
+    | `--ci` | — | `false` | CI pipeline shorthand: applies `--strict`, `--no-header`, and `--format github-annotations`. |
+    | `--audit` | `-a` | `false` | Sovereign Audit Mode: ignores inline (`zenzic:ignore`) and per-file suppressions. |
+    | `--only` | — | `None` | Discards all findings except specified Z-Codes (e.g. `--only Z104,Z201`). |
+    | `--format` | `-f` | `text` | Output format: `text`, `json`, `sarif`, or `github-annotations`. |
+    | `--save` | — | `None` | Saves formatted report to specified output path. |
+    | `--exit-zero` | — | `false` | Forces Exit 0 exit code (except non-suppressible security findings Z2xx). |
+    | `--show-info` | — | `false` | Surfaces info-level structural telemetry findings (e.g. Z106 circular links). |
+    | `--quiet` | `-q` | `false` | Minimal output mode for pre-commit and CI hooks. |
+    | `--offline` | — | `false` | Forces flat `.html` URL slug resolution for offline/intranet distribution. |
 
-### Sovereign Audit Mode (`--audit`)
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Execute full validation suite
+    zenzic check all
 
-`--audit` activates the Truth-Seeker posture for `zenzic check all`.
+    # Run sovereign audit mode ignoring suppressions
+    zenzic check all --audit
 
-- Inline suppressions (`zenzic:ignore`) are ignored.
-- Config suppressions (`[governance].per_file_ignores`) are ignored.
-- Non-suppressible security findings remain non-negotiable.
+    # Export SARIF results for GitHub Code Scanning
+    zenzic check all --format sarif --save zenzic-results.sarif
+    ```
 
-This mode reveals the unsweetened debt surface of a repository and is intended
-for governance reviews and release hardening.
+=== "zenzic score"
 
-```bash
-zenzic check all
-zenzic check all --audit
-```
+    Compute the weighted Document Quality Score (DQS 0–100) and category breakdown:
 
-The footer prints active suppression counts in both runs; with `--audit` it
-also prints how many active suppression directives were bypassed.
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--fail-under` | — | `0` | Minimum required score. Fails quality gate (Exit 1) if score falls below threshold. |
+    | `--stamp` | — | `false` | Updates README.md status badge with the newly computed DQS score. |
+    | `--format` | `-f` | `text` | Output format: `text` or `json`. |
+    | `--strict` | `-s` | `false` | Includes external HTTP link validation in score calculation. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Compute score and display category breakdown
+    zenzic score
+
+    # Enforce score floor in CI
+    zenzic score --fail-under 95
+
+    # Stamp status badge into README.md
+    zenzic score --stamp
+    ```
+
+=== "zenzic diff"
+
+    Evaluate score delta and finding changes against a stored baseline file:
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--base` | `-b` | `.zenzic-score.json` | Path to stored baseline score snapshot file. |
+    | `--format` | `-f` | `text` | Output format: `text` or `json`. |
+    | `--strict` | `-s` | `false` | Promotes warnings to errors during differential audit. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Compare current score against baseline snapshot
+    zenzic diff --base .zenzic-score.json
+    ```
+
+=== "zenzic explain"
+
+    Inspect finding code details, remediation guides, and configuration origin genealogy:
+
+    | Parameter / Flag | Description |
+    | :--- | :--- |
+    | `CODE` | Target Z-Code (e.g. `Z101`, `Z201`, `Z601`). |
+    | `config` | Explains active `.zenzic.toml` values and file origin genealogy. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Explain rule specification and remediation
+    zenzic explain Z104
+
+    # Display active configuration genealogy
+    zenzic config explain
+    ```
+
+=== "zenzic init"
+
+    Scaffold a new `.zenzic.toml` configuration file:
+
+    | Flag | Default | Description |
+    | :--- | :---: | :--- |
+    | `--force` | `false` | Overwrites existing `.zenzic.toml` (Atomic safety protection prevents accidental overwrite by default). |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Bootstrap configuration scaffold
+    zenzic init
+    ```
+
+=== "zenzic lsp"
+
+    Start the Language Server Protocol (ZLS) server over `stdio`:
+
+    | Communication Protocol | Client Compatibility | Description |
+    | :--- | :--- | :--- |
+    | `JSON-RPC 2.0 (stdio)` | VS Code, Neovim, Emacs, Zed | Language server process executed by editor extension infrastructure. |
 
 ---
 
-## Introspection & Guard
+## Shared Execution Flags
 
-```bash
-zenzic config explain            # Show active values with source (global/local/default)
-zenzic guard scan --staged       # Fast staged-file Secret Guard for pre-commit
-zenzic guard scan docs/          # Scan a custom directory
-zenzic guard init                # Install zenzic-guard in .pre-commit-hooks.yaml
-```
-
-`zenzic config explain` is source-truth oriented: each field reports both the
-active value and its origin, including local override semantics from
-`.zenzic.local.toml`.
-
----
-
-## Editor Integration
-
-```bash
-zenzic lsp                       # Start the Zenzic Language Server (ZLS) over stdio
-```
-
-The `zenzic lsp` command initializes the Zenzic Language Server (ZLS). It communicates via the standard JSON-RPC 2.0 protocol over standard input/output (`stdio`), making it directly compatible with editor clients (like VS Code, Neovim, etc.) without requiring an intermediary network port.
-
-*Note: This command is intended to be executed by your editor's LSP client infrastructure, not interactively via the terminal.*
 
 ## Global flags {#global-flags}
 
