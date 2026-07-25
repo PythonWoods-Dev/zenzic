@@ -45,78 +45,94 @@ SPDX-License-Identifier: Apache-2.0
 
 ---
 
-## ⚡ Try it now — Zero Installation
+**Treat your Markdown documentation like production code.**
 
-Analyzing documentation graphs? Run instant security and topological analysis using [`uv`][uv]:
-
-```bash
-uvx zenzic check all ./your-folder
-```
-
-Zenzic identifies your engine via its configuration files or defaults to **Standalone Mode**
-when analyzing documentation graphs — providing immediate SAST protection for links, credentials, and
-graph integrity.
+Zenzic detects broken links, orphaned pages, credential leaks, and structural integrity issues before they reach production.
 
 ---
 
-## 🚀 Quick Start
+## ⚡ Unified Ecosystem Platform
 
-```bash
-pip install zenzic
-cd my-docs-repo
-zenzic init       # Establish the workspace boundary (creates .zenzic.toml)
-zenzic check all  # Analyze documentation graphs in current directory
-```
+Zenzic is a unified, deterministic platform structured into three primary delivery mechanisms:
 
-## 🧠 Key Capabilities
-
-### 1. Security Scanning (SAST)
-
-- **Z2xx Rules**: Hardened Static Application Security Testing for documentation graphs.
-- **Credential Leaks (Z201)**: Hardcoded tokens, API keys, and secret patterns detected before reaching PRs.
-- **Path Traversal Guard (Z202 / Z203)**: Non-suppressible filesystem boundary security checks; fatal exit codes (exits 2/3) survive `fail-on-error: false`.
-
-### 2. Graph Topology Analysis
-
-- **Virtual Site Map (VSM)**: Comprehensive $O(N)$ topological modeling of documentation graphs.
-- **Cross-File Link Resolution**: Validates anchor boundaries and cross-document dependencies.
-- **Orphan Pages & Dead Navigation**: Flags unlinked graph nodes, missing directory indices, and unreachable content.
-
-### 3. Deterministic CI/CD Enforcement
-
-- **Zero-DBT Quality Gate**: Bit-for-bit identical findings across all execution environments.
-- **Frozen Contracts**: `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and standardized SARIF output.
-- **Inspect-First Workflow**: Query live code semantics with `zenzic inspect codes`.
-
-📖 [Full docs →][docs-home] · 🏅 [Badges][docs-badges] · 🔄 [CI/CD guide][docs-cicd]
+- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, and Virtual Site Map (VSM) topology analyzer.
+- **[VS Code Extension][zenzic-vscode]**: Real-time LSP client offering sub-50ms inline diagnostics, Quick Fixes, and DQS scoring.
+- **[GitHub Action][zenzic-action]**: Zero-config CI/CD quality gate with SARIF upload and PR annotations.
 
 ---
 
-## ⚙️ Commands Overview
+## 🚀 Deterministic 3-Step Quickstart (< 60 Seconds)
+
+Experience zero-config topological failure detection in under 60 seconds:
+
+```bash
+# Step 1: Install Zenzic CLI
+uv tool install zenzic
+
+# Step 2: Initialize workspace and create a broken link
+zenzic init
+mkdir -p docs
+echo "[broken](missing.md)" > docs/index.md
+
+# Step 3: Run full documentation graph analysis
+zenzic check all
+```
+
+**Expected Output:**
+
+```text
+docs/index.md:1  [Z104]  'missing.md' resolves to nowhere — the target file does not exist.
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+```
+
+### Next Steps: Real-Time Feedback
+
+To eliminate the latency between authoring a defect and discovering it, install the [Zenzic VS Code Extension][zenzic-vscode] for real-time inline diagnostics and automated Quick Fixes.
+
+---
+
+## 🛡️ Why Zenzic?
+
+### Determinism
+
+Every Zenzic run is a pure function of its inputs. Given the same repository state and `.zenzic.toml`, the output — finding codes, severity levels, exit code, SARIF structure — is **bit-for-bit identical** across machines, platforms, and time. There are no probabilistic judgements, no LLM sampling, and no network-dependent results injected into the analysis path.
+
+| Property | Guarantee |
+| :--- | :--- |
+| Same inputs → same output | ✅ Always |
+| RE2-backed regex engine | ✅ No backtracking, no catastrophic matching |
+| Frozen finding codes | ✅ `FROZEN_CODES` set; never renamed or silently retired |
+| Reproducible CI artefacts | ✅ Identical SARIF across runner OS and time |
+
+### Documentation Security (SAST)
+
+Zenzic treats documentation as a **security surface**. The tiered code model enforces a hard boundary between quality findings (suppressible, exit 1) and security findings (non-suppressible, exit 2 / 3):
+
+- **Z201 — Credential Scanner:** Hardcoded tokens, API keys, and secret patterns detected before they reach a PR.
+- **Z202 / Z203 — Path Traversal Guard:** Filesystem boundary violations caught at the scan boundary.
+- **Suppression CAP:** A configurable ceiling on the total number of active `zenzic:ignore` suppressions. Exceeding it blocks the build.
+
+### Zero Hallucinations
+
+Zenzic reports only what is **statically verifiable** in the repository at scan time. It never infers intent or approximates link validity. Every finding is a falsifiable, reproducible fact.
+
+---
+
+## 🧠 Key Capabilities & Commands
 
 | Command | Purpose |
 | :--- | :--- |
 | `zenzic init` | Scaffold workspace configuration (`.zenzic.toml`) |
 | `zenzic check all [PATH]` | Full documentation audit — links, credentials, orphans |
-| `zenzic score [--fail-under N] [--stamp]` | Compute the Documentation Quality Score (0–100) |
+| `zenzic score [--stamp]` | Compute the Documentation Quality Score (0–100) |
 | `zenzic diff [--base PATH]` | Detect debt regression against a saved baseline |
-| `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (fatal on security findings: exit 2) |
+| `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (fatal on security findings) |
 | `zenzic inspect codes` | Query live error-code semantics and suppressibility |
 
----
+### Headless Data Pipeline (SARIF Output)
 
-> 🚀 **CI/CD Ready:** Use the [Official Zenzic Action](https://github.com/PythonWoods/zenzic-action) to run Zenzic in GitHub Actions — findings surface directly in Code Scanning, PR annotations, and the Security tab.
->
-> ```yaml
-> - uses: PythonWoods/zenzic-action@v2
->   with:
->     format: sarif
->     upload-sarif: "true"
-> ```
-
-### 📊 Headless Data Pipeline (SARIF Output)
-
-Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Results Interchange Format) JSON, ensuring seamless integration with modern CI dashboards and scanning services:
+Zenzic Core is headless and emits standardized **SARIF** JSON, ensuring seamless integration with modern CI dashboards:
 
 ```json
 {
@@ -131,27 +147,11 @@ Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Result
           "rules": [
             {
               "id": "Z101",
-              "name": "BrokenLink",
-              "shortDescription": { "text": "Broken documentation link" }
+              "name": "BrokenLink"
             }
           ]
         }
-      },
-      "results": [
-        {
-          "ruleId": "Z101",
-          "level": "error",
-          "message": { "text": "Broken documentation link — ./setup.md#prerequisites" },
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": { "uri": "docs/getting-started.md" },
-                "region": { "startLine": 23 }
-              }
-            }
-          ]
-        }
-      ]
+      }
     }
   ]
 }
@@ -171,25 +171,9 @@ See the [Adapter API][docs-arch] for the plugin interface. Third-party adapters 
 
 ---
 
-## 📝 IDE Integration
+## 🔄 CI/CD & Responsibility Matrix (ADR-075)
 
-Zenzic provides a Language Server Protocol (LSP) backend via the `zenzic lsp` command, bringing real-time structural analysis and error reporting directly into your editor.
-
-> **Note:** The official VS Code extension is currently in Private Beta and will be released to the Microsoft Marketplace soon.
-
----
-
-## ⚙️ Configuration
-
-Zero-config by default. See the [Configuration Guide][docs-home] for the full `.zenzic.toml` schema and `pyproject.toml` embedding.
-
-```bash
-zenzic init        # Generate .zenzic.toml with auto-detected values
-```
-
----
-
-## 🔄 CI/CD Integration
+Zenzic Core is **radically unaware** of any CI platform. Platform-specific behaviour — GitHub Annotations, Code Scanning upload, PR decoration — is the sole responsibility of the [Zenzic Action][zenzic-action].
 
 ```yaml
 - uses: PythonWoods/zenzic-action@v2
@@ -198,76 +182,21 @@ zenzic init        # Generate .zenzic.toml with auto-detected values
     upload-sarif: "true"
 ```
 
-For zero-install `uvx` integration and regression gates, see the [CI/CD guide][docs-cicd].
-
----
-
-## 🧩 Ecosystem & CI Integration
-
-### Responsibility Matrix: Core vs Action
-
-Zenzic Core is **radically unaware** of any CI platform. It produces portable, self-contained artefacts (SARIF, JSON, text) via a stable exit-code contract. Platform-specific behaviour — GitHub Annotations, Code Scanning upload, PR decoration — is the sole responsibility of the [Zenzic Action][zenzic-action].
-
 | Concern | Zenzic Core | [Zenzic Action][zenzic-action] |
 | :--- | :---: | :---: |
-| Link validation (Z1xx) | ✅ | — |
-| Credential scanner (Z2xx) | ✅ | — |
-| Topology / orphan detection (Z3xx–Z6xx) | ✅ | — |
-| SARIF / JSON / text output | ✅ | — |
-| Exit-code contract (0 / 1 / 2 / 3) | ✅ | enforced |
+| Link & Topology validation | ✅ | Executes Core |
+| Credential scanner (Z2xx) | ✅ | Executes Core |
+| Exit-code contract (0/1/2/3) | ✅ | Enforced |
 | GitHub Annotations (`::error::`) | — | ✅ |
 | Code Scanning SARIF upload | — | ✅ |
 | PR inline diff annotations | — | ✅ |
-| DQS regression blocking (`zenzic diff`) | — | ✅ |
-| Sovereign nightly audit (`--audit`) | — | ✅ |
-| GitLab / Bitbucket / other CI adapters | — | future adapters |
-
-> **Design law (ADR-075):** logic that maps Zenzic output to a CI platform's native format must live in the Adapter, never in the Core. Exit codes 2 and 3 propagate unchanged through every adapter — they are never remapped or suppressed.
 
 ---
 
-## 🛡️ Why Zenzic?
-
-### Determinism
-
-Every Zenzic run is a pure function of its inputs. Given the same repository state and `.zenzic.toml`, the output — finding codes, severity levels, exit code, SARIF structure — is **bit-for-bit identical** across machines, platforms, and time. There are no probabilistic judgements, no sampling, and no network-dependent results injected into the analysis path.
-
-| Property | Guarantee |
-| :--- | :--- |
-| Same inputs → same output | ✅ Always |
-| RE2-backed regex engine | ✅ No backtracking, no catastrophic matching |
-| Frozen finding codes | ✅ `FROZEN_CODES` set; never renamed or silently retired |
-| Reproducible CI artefacts | ✅ Identical SARIF across runner OS and time |
-
-### Documentation Security
-
-Zenzic treats documentation as a **security surface**, not just a quality metric. The tiered code model enforces a hard boundary between quality findings (suppressible, exit 1) and security findings (non-suppressible, exit 2 / 3):
-
-- **Z201 — Credential Scanner:** hardcoded tokens, API keys, and secret patterns detected before they reach a PR.
-- **Z202 / Z203 — Path Traversal Guard:** filesystem boundary violations caught at the scan boundary — `fail-on-error: false` has zero effect.
-- **Suppression CAP:** a configurable ceiling on the total number of active `zenzic:ignore` suppressions. Exceeding it blocks the build, preventing systematic suppression debt from accumulating silently.
-
-### Zero Hallucinations
-
-Zenzic reports only what is **statically verifiable** in the repository at scan time. It never:
-
-- infers intent or "probable" correctness from surrounding context,
-- approximates link validity without a deterministic check,
-- emits a finding it cannot reproduce on a re-run with identical inputs.
-
-This makes every Zenzic finding a **falsifiable, reproducible fact** — suitable as audit evidence, not just developer feedback.
-
----
-
-## 📦 Installation
-
-> 🏗️ **Monorepo Architecture**: Zenzic contains its own documentation portal. To develop locally, install the documentation toolchain with `uv sync --extra docs`.
+## 📦 Installation & Upgrading
 
 ```bash
-# Zero-install, one-shot audit (recommended for CI and exploration)
-uvx zenzic check all ./docs
-
-# Global CLI tool
+# Global CLI tool (Recommended)
 uv tool install zenzic
 
 # Pinned dev dependency
@@ -276,8 +205,6 @@ uv add --dev zenzic
 # pip
 pip install zenzic
 ```
-
-### Upgrading Zenzic
 
 If you installed Zenzic globally via `uv`, you must explicitly request an upgrade to fetch the latest deterministic engine:
 
@@ -293,13 +220,13 @@ uvx zenzic@0.25.0 check all
 
 ---
 
-## 📖 Documentation
+## 📖 Documentation & Support
 
 | Area | URL | Audience |
 | :--- | :--- | :--- |
 | 👤 User Guide | [zenzic.dev][docs-home] | Install, configure, CI/CD, finding codes |
-| 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapters, ADRs, CLI architecture, mutation testing |
-| 🛡️ Security | [Engineering Ledger][docs-eng-ledger] · [SECURITY.md][security] | Security reviewer |
+| 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapters, ADRs, CLI architecture |
+| 🛡️ Security | [SECURITY.md][security] | Security reviewer |
 
 ---
 
@@ -317,9 +244,7 @@ A [`CITATION.cff`][citation-cff] is present at the root. Click **"Cite this repo
 
 ## 📄 License
 
-Apache-2.0 — see [LICENSE][license].
-
-This project strictly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Apache-2.0 — see [LICENSE][license]. This project strictly adheres to Semantic Versioning.
 
 ---
 
@@ -342,14 +267,11 @@ This project strictly adheres to [Semantic Versioning](https://semver.org/spec/v
 
 [mkdocs]:            https://www.mkdocs.org/
 [zensical]:          https://zensical.org/
-[uv]:                https://docs.astral.sh/uv/
+[zenzic-vscode]:     https://marketplace.visualstudio.com/items?itemName=pythonwoods.zenzic-vscode
 [zenzic-action]:     https://github.com/PythonWoods/zenzic-action
 [docs-home]:         https://zenzic.dev/
-[docs-badges]:       https://zenzic.dev/how-to/add-badges/
-[docs-cicd]:         https://zenzic.dev/how-to/configure-ci-cd/
 [docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
-[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/adr-vault
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff
