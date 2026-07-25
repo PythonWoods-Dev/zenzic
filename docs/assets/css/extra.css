@@ -116,17 +116,18 @@
   --md-default-bg-color--light: #161b22;
   --md-default-bg-color--lighter: #1c2128;
   --md-default-bg-color--lightest: #21262d;
-  --md-accent-fg-color: #4f46e5;
-  --md-accent-fg-color--transparent: #4f46e51a;
+  --md-accent-fg-color: #818cf8;
+  --md-accent-fg-color--transparent: #818cf81a;
   --md-typeset-a-color: #38bdf8;
   --md-code-bg-color: #161b22;
 
-  /* Zenzic custom tokens */
-  --zz-muted-color: #484f58;
-  --zz-muted-color-hover: #8b949e;
-  --zz-border-subtle: #21262d;
+  /* Zenzic custom tokens (WCAG AA Compliant) */
+  --zz-muted-color: #8b949e;
+  --zz-muted-color-hover: #c9d1d9;
+  --zz-border-subtle: #30363d;
   --zz-transition-fast: 0.15s ease;
 }
+
 
 /* ── Light mode tokens ────────────────────────────────────────────────────── */
 
