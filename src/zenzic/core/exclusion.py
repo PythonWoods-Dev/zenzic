@@ -241,6 +241,24 @@ class LayeredExclusionManager:
         """Return True if a file should be excluded from scanning.
 
         Full 5-layer evaluation for individual files.
+
+        Path normalisation (LSP-FIX-008):
+            The incoming *file_path* may be either an absolute path (from the
+            LSP server, which resolves URIs to ``Path`` objects) or a relative
+            path (from the CLI ``os.walk`` loop).  To guarantee deterministic
+            exclusion results regardless of the caller, a single canonical
+            ``eval_path`` is derived at the L2-VCS / L3-Config boundary:
+
+            1. If *file_path* is absolute and inside ``self._repo_root``, it
+               is made repo-relative — the authoritative form for VCS patterns
+               and full-depth config exclusions.
+            2. Otherwise the docs-relative *rel_path* is used as fallback.
+
+            All L2 VCS and L3 Config path-prefix checks operate on
+            ``eval_str`` (the ``as_posix()`` of ``eval_path``), so patterns
+            such as ``docs/tutorials/examples`` match correctly even when the
+            caller passes an absolute path like
+            ``/repo/docs/tutorials/examples/file.md``.
         """
         filename = file_path.name
         try:
@@ -256,7 +274,7 @@ class LayeredExclusionManager:
         ):
             return True
 
-        # L1: System guardrails — check path components
+        # L1: System guardrails — check path components (docs-relative scope)
         for part in Path(rel_path).parts[:-1]:  # directories only, not filename
             if part in self._system_dirs:
                 return True
@@ -266,27 +284,43 @@ class LayeredExclusionManager:
             if any(p.match(filename) for p in self._config_included_patterns):
                 return False
 
-        # L2 forced: included_dirs
+        # L2 forced: included_dirs (docs-relative scope)
         for part in Path(rel_path).parts[:-1]:
             if part in self._config_included_dirs:
                 return False
 
-        # L4: CLI --exclude-dir (check path components)
+        # L4: CLI --exclude-dir (docs-relative scope)
         for part in Path(rel_path).parts[:-1]:
             if part in self._cli_exclude_dirs:
                 return True
 
-        # L4: CLI --include-dir (check path components)
+        # L4: CLI --include-dir (docs-relative scope)
         for part in Path(rel_path).parts[:-1]:
             if part in self._cli_include_dirs:
                 return False
 
-        # L2 VCS: .gitignore patterns
+        # ── Path normalisation for L2-VCS and L3-Config checks ──────────────
+        # Derive a repo-relative path so that absolute paths delivered by the
+        # LSP server produce the same exclusion result as CLI-relative paths.
+        # Priority: repo-relative > docs-relative > filename-only.
+        try:
+            eval_path = (
+                file_path.relative_to(self._repo_root)
+                if (file_path.is_absolute() and self._repo_root is not None)
+                else Path(rel_path)
+            )
+        except ValueError:
+            # file_path is absolute but outside the repo — fall back to docs-relative
+            eval_path = Path(rel_path)
+
+        eval_str = eval_path.as_posix()
+
+        # L2 VCS: .gitignore patterns (evaluated against repo-relative path)
         if self._vcs_pathspec is not None:
-            if self._vcs_pathspec.match_file(rel_path):
+            if self._vcs_pathspec.match_file(eval_str):
                 return True
 
-        # L3: Config excluded_file_patterns
+        # L3: Config excluded_file_patterns (filename match — path-independent)
         if self._config_excluded_patterns:
             for p, original_str in self._config_excluded_patterns:
                 if p.match(filename):
@@ -294,21 +328,18 @@ class LayeredExclusionManager:
                         self._global_tracker.mark_excluded_file_pattern_used(original_str)
                     return True
 
-        # L3: Config excluded_dirs (check path components against basename)
-        for part in Path(rel_path).parts[:-1]:
+        # L3: Config excluded_dirs — individual component match (e.g. "examples")
+        for part in eval_path.parts[:-1]:
             if part in self._config_excluded_dirs:
                 return True
 
-        # L3: Config excluded_dirs (check full repo-relative paths)
-        if self._repo_root:
-            try:
-                repo_rel = file_path.relative_to(self._repo_root).as_posix()
-                repo_rel_path = Path(repo_rel)
-                for parent in repo_rel_path.parents:
-                    if parent.as_posix() in self._config_excluded_dirs:
-                        return True
-            except ValueError:
-                pass
+        # L3: Config excluded_dirs — full-depth prefix match
+        # Handles patterns like "docs/tutorials/examples" which are repo-relative
+        # and thus never matched by a single-component scan.
+        for i in range(1, len(eval_path.parts)):
+            prefix = "/".join(eval_path.parts[:i])
+            if prefix in self._config_excluded_dirs:
+                return True
 
         # L7: Default — included
         return False

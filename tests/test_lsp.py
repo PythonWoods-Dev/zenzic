@@ -1087,3 +1087,117 @@ def test_lsp_enforces_user_excluded_dirs(tmp_path) -> None:
     results = server.engine.process_changes(server.vsm, server.overlay, None)
     diags = results.get(ex_uri, [])
     assert len(diags) == 0
+
+
+def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None:
+    """LSP-FIX-008: absolute file:// URI inside an excluded_dirs path must produce 0 diagnostics.
+
+    Regression test for the false-positive bug where the LSP server passed an
+    absolute ``Path`` to ``LayeredExclusionManager.should_exclude_file`` but the
+    method only matched docs-relative path components, causing excluded files to
+    escape the exclusion gate and receive spurious diagnostics.
+
+    Setup:
+        - ``.zenzic.toml`` declares ``excluded_dirs = ["docs/tutorials/examples"]``
+          (repo-relative, full-depth pattern).
+        - ``docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md``
+          contains intentionally malformed content that would trigger findings
+          if analysed.
+
+    Acceptance criterion:
+        Opening the file via ``textDocument/didOpen`` with an absolute
+        ``file://`` URI must result in the server dropping the document (domain
+        gate) and publishing exactly **0 diagnostics** for that URI.
+    """
+    import io
+    import json
+
+    # Configure repo with a full-depth exclusion path
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text(
+        'docs_dir = "docs"\n'
+        'excluded_dirs = ["docs/tutorials/examples"]\n'
+    )
+
+    # Create the excluded file tree
+    excluded_dir = tmp_path / "docs" / "tutorials" / "examples" / "z5xx-content"
+    excluded_dir.mkdir(parents=True, exist_ok=True)
+
+    excluded_file = excluded_dir / "z506-malformed-frontmatter.md"
+    excluded_file.write_text(
+        "---\n"
+        "title\n"  # malformed frontmatter — would trigger Z506 if analysed
+        "---\n"
+        "[Broken link](absolutely-missing-target.md)\n"  # would trigger Z101
+    )
+
+    # Also create a valid in-bounds file so docs_root is non-empty
+    docs_dir = tmp_path / "docs"
+    index_md = docs_dir / "index.md"
+    index_md.write_text("# Home\nWelcome.\n")
+
+    def encode_rpc(msg: dict) -> bytes:
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
+        return header + body
+
+    excluded_uri = excluded_file.resolve().as_uri()
+    workspace_uri = tmp_path.resolve().as_uri()
+
+    req_init = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"rootUri": workspace_uri},
+    }
+    req_initialized = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+    req_open = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {
+                "uri": excluded_uri,
+                "text": excluded_file.read_text(encoding="utf-8"),
+            }
+        },
+    }
+    req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
+
+    in_stream = io.BytesIO()
+    in_stream.write(encode_rpc(req_init))
+    in_stream.write(encode_rpc(req_initialized))
+    in_stream.write(encode_rpc(req_open))
+    in_stream.write(encode_rpc(req_exit))
+    in_stream.seek(0)
+
+    out_stream = io.BytesIO()
+    server = LanguageServer(stdin=in_stream, stdout=out_stream)
+    server.serve()
+
+    # Gate 1: domain check must have dropped the document
+    assert excluded_uri not in server.documents.documents, (
+        "Excluded file must be dropped by _is_within_domain before entering DocumentManager"
+    )
+
+    # Gate 2: no diagnostics must have been published for the excluded URI
+    out_stream.seek(0)
+    output = out_stream.read()
+
+    diag_count_for_excluded = 0
+    for part in output.split(b"\r\n\r\n"):
+        if b"publishDiagnostics" not in part:
+            continue
+        body_str = part.split(b"Content-Length")[0]
+        try:
+            resp = json.loads(body_str.decode("utf-8"))
+            if resp.get("method") == "textDocument/publishDiagnostics":
+                if resp["params"]["uri"] == excluded_uri:
+                    diag_count_for_excluded += len(resp["params"]["diagnostics"])
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    assert diag_count_for_excluded == 0, (
+        f"Expected 0 diagnostics for excluded URI, got {diag_count_for_excluded}. "
+        "LSP-FIX-008 path normalisation regression."
+    )
+
