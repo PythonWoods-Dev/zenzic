@@ -359,9 +359,21 @@ incorrect results:
     like `_category_.json` with `"link": {"type": "generated-index"}`).  Never
     raise — return `False` on any I/O failure.
 
+11. `get_link_scheme_bypasses()` must return a `frozenset[str]` of scheme names
+
+    (without the trailing colon) — never `None`, never raise.  Return
+    `frozenset()` if your engine has no special link-scheme bypass requirement.
+
+12. `watched_config_files` must return a `frozenset[str]` of configuration
+
+    filenames (e.g. `{"mkdocs.yml", "mkdocs.yaml"}`) that dictate documentation
+    structure for LSP hot-reloading — never `None`, never raise.
+
+---
+
 ### LSP Hot-Reloading (`watched_config_files`)
 
-To support real-time updates in the Zenzic Language Server (VS Code), your adapter must declare which configuration files dictate the documentation structure (e.g., navigation trees). 
+To support real-time updates in the Zenzic Language Server (VS Code), your adapter must declare which configuration files dictate the documentation structure (e.g., navigation trees).
 
 When these files are modified by the user, the LSP server will automatically re-instantiate your adapter and rebuild the Virtual Site Map, clearing stale diagnostics like `Z103` (Orphan Link).
 
@@ -375,11 +387,6 @@ def watched_config_files(self) -> frozenset[str]:
 ```
 
 If your adapter does not rely on external configuration files (like the `StandaloneAdapter`), return an empty `frozenset()`.
-
-11. `get_link_scheme_bypasses()` must return a `frozenset[str]` of scheme names
-
-    (without the trailing colon) — never `None`, never raise.  Return
-    `frozenset()` if your engine has no special link-scheme bypass requirement.
 
 ---
 
