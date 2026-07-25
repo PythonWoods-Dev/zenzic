@@ -71,35 +71,6 @@ To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
 - **File Extensions**: The extension and Language Server exclusively target Markdown (`.md`) and MDX (`.mdx`) files. Non-documentation files (e.g. `OWNERS`, `.gitignore`, `config.yaml`) are automatically filtered out.
 - **Configured Domain**: Only files residing within the configured `docs_dir` (default: `docs/`) or `extra_content_roots` are evaluated. Out-of-bounds files in the workspace (such as root `README.md` when `docs_dir = "docs"`) produce zero diagnostics.
 
-## Troubleshooting
 
-### `Zenzic: Not Found (ENOENT)`
+> **Having issues?** See the [Troubleshooting Guide](../how-to/troubleshooting.md#editor-integration).
 
-**Symptom:** Status bar shows `$(error) Zenzic: Not Found` or prompt reads *Zenzic binary not found*.
-
-**Cause:** The `zenzic` executable is not installed or not present in system `$PATH` / standard user directories (`~/.local/bin`, `~/.uv/bin`).
-
-**Resolution:**
-
-1. Install Zenzic globally via `uv tool install zenzic`.
-2. Or configure `zenzic.executablePath` in VS Code settings with the full path to your virtual environment binary (e.g., `/home/user/project/.venv/bin/zenzic`).
-
-### `Zenzic: Outdated Core`
-
-**Symptom:** Status bar shows `$(error) Zenzic: Outdated Core` or notification requests upgrading.
-
-**Cause:** The installed Zenzic Core binary version is lower than the required minimum baseline (`v0.23.1`).
-
-**Resolution:** Update the Zenzic executable to the latest version:
-
-```bash
-uv tool install --force zenzic
-```
-
-### Server Version Check Errors
-
-**Symptom:** Notification reads *Could not verify Zenzic Core version*.
-
-**Cause:** Executing `zenzic --version` returned an error or non-zero exit code.
-
-**Resolution:** Verify that `zenzic --version` runs cleanly in your terminal and check permissions on `zenzic.executablePath`.

@@ -85,6 +85,7 @@ nav:
       - how-to/use-brand-system.md
       - how-to/workflow-integration.md
       - how-to/configure-social-metadata.md
+      - how-to/troubleshooting.md
     - Editor Integration:
       - editor/vscode.md
     - Reference:
@@ -135,6 +136,7 @@ nav:
       - developers/how-to/write-a-check.md
       - developers/how-to/write-plugin.md
       - developers/how-to/write-ast-rule.md
+      - developers/how-to/troubleshooting.md
     - Reference:
       - developers/reference/adapter-api.md
       - developers/reference/adapter-examples.md
