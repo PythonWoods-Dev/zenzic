@@ -367,129 +367,19 @@ def build_cap_exceeded_sarif_payload(
 
 
 def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
-    """Filter findings using governance.per_file_ignores patterns.
-
-    Security constraint
-    -------------------
-    Findings whose code is in ``NON_SUPPRESSIBLE_CODES`` (credential and path
-    traversal findings) are always forwarded unchanged; they cannot be silenced
-    by ``per_file_ignores`` or any governance mechanism.
-
-    Sovereign audit
-    ---------------
-    When the Sovereign Audit context is active (``--audit`` flag) the entire
-    filter is bypassed: all findings are returned verbatim so reviewers see the
-    complete picture.
-
-    Args:
-        findings:  List of :class:`~zenzic.models.output.Finding` instances
-                   produced by the current scan.
-        config:    Loaded :class:`~zenzic.models.config.ZenzicConfig`; the
-                   ``governance.per_file_ignores`` mapping is read from here.
-
-    Returns:
-        A filtered list of :class:`~zenzic.models.output.Finding` instances
-        with suppressed entries removed.
-    """
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+    """Filter findings using governance.per_file_ignores patterns (ADR-084)."""
+    from zenzic.core.governance import apply_per_file_ignores
 
     if get_sovereign_context().force_audit:
         return findings
-
-    if not config.governance.per_file_ignores:
-        return findings
-
-    normalized_map: dict[str, set[str]] = {}
-    for pattern, codes in config.governance.per_file_ignores.items():
-        if not isinstance(pattern, str) or not isinstance(codes, list):
-            continue
-        normalized_codes = {
-            str(code).upper().strip()
-            for code in codes
-            if isinstance(code, str) and str(code).upper().startswith("Z")
-        }
-        if normalized_codes:
-            normalized_map[pattern] = normalized_codes
-
-    if not normalized_map:
-        return findings
-
-    filtered: list[Finding] = []
-    for finding in findings:
-        code = finding.code.upper().strip()
-        if code in NON_SUPPRESSIBLE_CODES:
-            filtered.append(finding)
-            continue
-
-        suppressed = any(
-            fnmatch(finding.rel_path, pattern) and code in codes
-            for pattern, codes in normalized_map.items()
-        )
-        if suppressed:
-            continue
-        filtered.append(finding)
-    return filtered
+    return apply_per_file_ignores(findings, config)
 
 
 def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
-    """Filter or label findings using governance.directory_policies patterns (ADR-084).
-
-    In normal mode, matched findings are silently dropped with ZERO suppression
-    debt cost.  In --audit (sovereign) mode, they are kept but prefixed with
-    ``[POLICY_EXEMPTION]`` so reviewers can see what is strategically exempt.
-    Security findings (NON_SUPPRESSIBLE_CODES) always bypass this filter.
-    """
-    import zenzic.core.regex as re
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
-    from zenzic.core.exclusion import translate_glob_to_re2
-
-    if not config.governance.directory_policies:
-        return findings
-
-    normalized_map: list[tuple[Any, set[str], str]] = []
-    for pattern, codes in config.governance.directory_policies.items():
-        if not isinstance(pattern, str) or not isinstance(codes, list):
-            continue
-        normalized_codes = {
-            str(code).upper().strip()
-            for code in codes
-            if isinstance(code, str) and str(code).upper().startswith("Z")
-        }
-        if normalized_codes:
-            try:
-                regex_str = translate_glob_to_re2(pattern)
-                compiled = re.compile(regex_str)
-                normalized_map.append((compiled, normalized_codes, pattern))
-            except Exception:
-                pass
-
-    if not normalized_map:
-        return findings
+    """Filter or label findings using governance.directory_policies patterns (ADR-084)."""
+    from zenzic.core.governance import apply_directory_policies
 
     audit_mode = get_sovereign_context().force_audit
-    filtered: list[Finding] = []
-    for finding in findings:
-        code = finding.code.upper().strip()
-        if code in NON_SUPPRESSIBLE_CODES:
-            filtered.append(finding)
-            continue
-        is_exempt = False
-        for compiled, rule_codes, original_pattern in normalized_map:
-            if bool(compiled.fullmatch(finding.rel_path)) and code in rule_codes:
-                is_exempt = True
-                tracker = getattr(config, "_global_tracker", None)
-                if tracker:
-                    tracker.mark_directory_policy_used(original_pattern, code)
-                break
-        if is_exempt:
-            if audit_mode:
-                filtered.append(
-                    dataclasses.replace(
-                        finding,
-                        message=f"[POLICY_EXEMPTION] {finding.message}",
-                    )
-                )
-            # else: silently drop (zero debt)
-        else:
-            filtered.append(finding)
-    return filtered
+    return apply_directory_policies(findings, config, audit_mode=audit_mode)
+
+

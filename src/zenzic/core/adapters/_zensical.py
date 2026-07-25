@@ -300,6 +300,14 @@ class ZensicalAdapter(BaseAdapter):
             return frozenset({"mkdocs.yml"})
         return frozenset({"zensical.toml"})
 
+    @property
+    def watched_config_files(self) -> frozenset[str]:
+        """Return Zensical configuration filenames for LSP hot-reloading."""
+        if self._config_source == "mkdocs":
+            return frozenset({"mkdocs.yml", "mkdocs.yaml"})
+        return frozenset({"zensical.toml"})
+
+
     # ── VSM integration ────────────────────────────────────────────────────────
 
     def _map_url(self, rel: Path) -> str:

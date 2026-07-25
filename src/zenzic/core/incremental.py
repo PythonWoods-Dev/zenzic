@@ -462,8 +462,14 @@ class IncrementalAnalysisEngine:
         # Dead suppression detection
         findings.extend(tracker.get_dead_suppressions())
 
+        # Apply Governance filters (per_file_ignores and directory_policies) — DRY LSP Governance
+        from zenzic.core.governance import apply_directory_policies, apply_per_file_ignores
+        findings = apply_per_file_ignores(findings, self.config, repo_root=self.repo_root, docs_root=self.docs_root)
+        findings = apply_directory_policies(findings, self.config, repo_root=self.repo_root, docs_root=self.docs_root)
+
         # Convert findings to strictly typed ZenzicDiagnostic instances
         return self._findings_to_diagnostics(text, findings)
+
 
     def _findings_to_diagnostics(
         self, text: str, findings: list[RuleFinding]

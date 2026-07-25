@@ -100,7 +100,12 @@ Returns a set of engine-specific URI schemes (e.g., `pathname`) to bypass the va
 
 Constructs and returns routing metadata, including the canonical URL and route status (`REACHABLE`, `ORPHAN_BUT_EXISTING`, or `IGNORED`), for a given relative source file path.
 
+#### `watched_config_files` (Property `-> frozenset[str]`)
+
+Returns the set of framework configuration filenames (e.g., `mkdocs.yml`, `zensical.toml`) that dictate documentation structure. The Zenzic Language Server watches these files to trigger real-time VSM hot-reloading.
+
 ---
+
 
 ## `zenzic.rules` — Plugin SDK Façade
 

@@ -142,6 +142,12 @@ class MyEngineAdapter(BaseAdapter):
         """Return engine-owned metadata files to ignore in findings."""
         return frozenset({"myengine.toml"})
 
+    @property
+    def watched_config_files(self) -> frozenset[str]:
+        """Return configuration filenames that trigger a VSM rebuild in LSP mode."""
+        return frozenset({"myengine.toml"})
+
+
     def provides_index(self, directory_path: Path) -> bool:
         """Return whether this engine serves an index page for the directory."""
         index_rel = (directory_path / "index.md").as_posix().lstrip("/")
@@ -352,6 +358,23 @@ incorrect results:
     the directory (e.g. via `index.md`, `README.md`, or a dynamic config entry
     like `_category_.json` with `"link": {"type": "generated-index"}`).  Never
     raise — return `False` on any I/O failure.
+
+### LSP Hot-Reloading (`watched_config_files`)
+
+To support real-time updates in the Zenzic Language Server (VS Code), your adapter must declare which configuration files dictate the documentation structure (e.g., navigation trees). 
+
+When these files are modified by the user, the LSP server will automatically re-instantiate your adapter and rebuild the Virtual Site Map, clearing stale diagnostics like `Z103` (Orphan Link).
+
+You must implement the `watched_config_files` property to return a `frozenset` of filenames:
+
+```python
+@property
+def watched_config_files(self) -> frozenset[str]:
+    """Return the configuration files that trigger a VSM rebuild in LSP mode."""
+    return frozenset({"my-framework.yml", "my-framework.json"})
+```
+
+If your adapter does not rely on external configuration files (like the `StandaloneAdapter`), return an empty `frozenset()`.
 
 11. `get_link_scheme_bypasses()` must return a `frozenset[str]` of scheme names
 

@@ -597,6 +597,12 @@ class MkDocsAdapter(BaseAdapter):
             names.add(".pages")
         return frozenset(names)
 
+    @property
+    def watched_config_files(self) -> frozenset[str]:
+        """Return MkDocs configuration filenames for LSP hot-reloading."""
+        return frozenset({"mkdocs.yml", "mkdocs.yaml"})
+
+
     # ── VSM integration ────────────────────────────────────────────────────────
 
     def _map_url(self, rel: Path) -> str:
