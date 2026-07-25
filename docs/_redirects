@@ -34,6 +34,9 @@
 /developers/explanation/adr-zero-subprocesses            /developers/explanation/adr-vault/records/adr-002-zero-subprocesses/ 301
 /developers/how-to/adapter-examples/                     /developers/how-to/implement-adapter/ 301
 /developers/how-to/adapter-examples                      /developers/how-to/implement-adapter/ 301
+/explanation/scoring-design                              /explanation/scoring-system/ 301
+/explanation/scoring-design/                             /explanation/scoring-system/ 301
+
 
 # ─── LAYER 3: BLOG CANONICAL SLUGS ───────────────────────────────────────────
 /blog/welcome                                 /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
