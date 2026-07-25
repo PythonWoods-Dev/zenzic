@@ -35,7 +35,9 @@ nav:
       - Install & First Run: how-to/install.md
       - Configuration Setup: how-to/initialize-configuration.md
       - CI/CD Integration: how-to/configure-ci-cd.md
-      - VS Code Extension: editor/vscode.md
+    - VS Code Extension (ZLS LSP):
+      - Editor Overview & Setup: editor/vscode.md
+
     - How-to Guides:
       - Manage Technical Debt: how-to/handle-technical-debt.md
       - Add Custom Rules: how-to/add-custom-rules.md

@@ -23,7 +23,7 @@ In this section, we guide you through our processes.
 
 <div class="grid cards" markdown>
 
-- <Icon name="bug" /> &nbsp;
+- :material-bug-outline: &nbsp;
 
     __Something is not working?__
 
@@ -33,9 +33,9 @@ In this section, we guide you through our processes.
 
     ---
 
-    <Icon name="arrow-right" /> [Report a bug][report a bug]
+    :material-arrow-right: [Report a bug][report a bug]
 
-- <Icon name="file-pen-line" /> &nbsp;
+- :material-file-document-edit-outline: &nbsp;
 
     __Missing information in our docs?__
 
@@ -46,9 +46,9 @@ In this section, we guide you through our processes.
 
     ---
 
-    <Icon name="arrow-right" /> [Report a docs issue][report a docs issue]
+    :material-arrow-right: [Report a docs issue][report a docs issue]
 
-- <Icon name="sparkles" /> &nbsp;
+- :material-sparkles: &nbsp;
 
     __Want to submit an idea?__
 
@@ -58,7 +58,7 @@ In this section, we guide you through our processes.
 
     ---
 
-    <Icon name="arrow-right" /> [Request a change][request a change]
+    :material-arrow-right: [Request a change][request a change]
 
 </div>
 
@@ -66,7 +66,7 @@ In this section, we guide you through our processes.
 
 <div class="grid cards" markdown>
 
-- <Icon name="git-pull-request" /> &nbsp;
+- :octicons-git-pull-request-16: &nbsp;
 
     __Want to contribute to the code?__
 
@@ -76,9 +76,10 @@ In this section, we guide you through our processes.
 
     ---
 
-    <Icon name="arrow-right" /> [Make a pull request][make a pull request]
+    :material-arrow-right: [Make a pull request][make a pull request]
 
 </div>
+
 
   [report a bug]: report-a-bug.md
   [report a docs issue]: report-a-docs-issue.md

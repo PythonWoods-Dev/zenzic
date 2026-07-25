@@ -19,47 +19,48 @@ ecosystem tools referenced in this documentation are third-party projects.
 
 <div class="grid cards" markdown>
 
-- <Icon name="lightbulb" /> &nbsp; __Philosophy__
+- :material-lightbulb-outline: &nbsp; __Philosophy__
 
     ---
 
     The design philosophy and long-term direction behind Zenzic.
 
-    [<Icon name="arrow-right" /> Read](../explanation/privacy-gate.md)
+    [:material-arrow-right: Read](../explanation/privacy-gate.md)
 
-- <Icon name="scale" /> &nbsp; __License__
+- :material-scale-balance: &nbsp; __License__
 
     ---
 
     Apache-2.0 — free to use, modify, and distribute.
 
-    [<Icon name="arrow-right" /> Read](#license)
+    [:material-arrow-right: Read](#license)
 
-- <Icon name="palette" /> &nbsp; __Brand Kit__
+- :material-palette: &nbsp; __Brand Kit__
 
     ---
 
     Logos, badges, and visual identity guidelines.
 
-    [<Icon name="arrow-right" /> Read](../reference/brand-kit.md)
+    [:material-arrow-right: Read](../reference/brand-kit.md)
 
-- <Icon name="github" /> &nbsp; __Repository__
+- :octicons-mark-github-16: &nbsp; __Repository__
 
     ---
 
     Source code, issues, and releases on GitHub.
 
-    [<Icon name="arrow-right" /> Open](https://github.com/PythonWoods/zenzic)
+    [:material-arrow-right: Open](https://github.com/PythonWoods/zenzic)
 
-- <Icon name="history" /> &nbsp; __Changelog__
+- :material-history: &nbsp; __Changelog__
 
     ---
 
     Full release history with version-by-version notes.
 
-    [<Icon name="arrow-right" /> Read](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
+    [:material-arrow-right: Read](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
 
 </div>
+
 
 ## License {#license}
 

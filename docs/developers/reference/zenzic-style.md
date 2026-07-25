@@ -27,7 +27,7 @@ Navigation cards orient. They do **not** replace the sidebar.
 
 Every card in a `<div class="grid cards" markdown>` block must have exactly:
 
-1. An **icon** (`<Icon name="..." />` — see §3).
+1. An **icon** (`:material-*: / :octicons-*:` — see §3).
 2. A **bold title**.
 3. A **description** of at most two lines.
 4. A **single action link** using the arrow prefix.
@@ -35,93 +35,50 @@ Every card in a `<div class="grid cards" markdown>` block must have exactly:
 ### Canonical example
 
 ```markdown
-
-- <Icon name="play" /> &nbsp; **User Guide**
+- :material-play: &nbsp; **User Guide**
 
     Everything you need to install, configure, and integrate Zenzic into
     your CI/CD workflow.
 
-    [<Icon name="arrow-right" /> Explore the Guide](../../../how-to/install.md)
+    [:material-arrow-right: Explore the Guide](../../../how-to/install.md)
 ```
 
 ### Forbidden patterns
 
 | Pattern | Why |
 | :--- | :--- |
+| React JSX `<Icon name="..." />` | **Strictly Forbidden.** Unrendered HTML tag in Material for MkDocs. |
 | Horizontal link chains (`·`-separated) | Creates a wall of text; impossible to scan |
 | Nested `<li>` lists inside a card | Breaks card height uniformity |
 | `---` separators inside a card | Adds visual noise without information gain |
 | Cards with zero action links | Dead-end; the user has nowhere to go |
 
-### Exception
-
-**Presentation cards** (e.g., homepage "Zenzic in Action" demos) may omit
-the action link because their purpose is visual demonstration, not navigation.
-They must still receive the card CSS (border, hover, transition).
-
 ---
 
-## 2. Admonition Taxonomy {#admonition-taxonomy}
+## 3. Iconography Law (Material for MkDocs) {#iconography}
 
-Each admonition type has one — and only one — semantic role.
+### Native Emoji & Icon Shortcodes
 
-| Type | Role | When to use |
-| :--- | :--- | :--- |
-| `:::tip` | **Quick Win** | One-liner commands the reader can run immediately |
-| `:::info` | **Zenzic Output** | CLI output blocks and Zenzic report samples |
-| `:::danger` | **Security Gate** | Exit Code 2 (credentials) and Exit Code 3 (path traversal) only |
-| `:::warning` | **Design Constraint** | Architectural rules, contributor policies, "use sparingly" caveats |
-| `:::note` | **Clarification** | Engine-specific facts, contributor onboarding, multi-step guidance |
-| `:::info` | **Cross-Reference Bridge** | Links from the current section to the next actionable step |
-| `:::info` | **Community CTA** | Engagement calls ("Help us grow", "Join the discussion") |
-| `:::note` | **Philosophy** | Project vision, design manifesto, Zenzic standards |
+Every icon in the documentation MUST be rendered using native Material for MkDocs shortcodes:
 
-### Enforcement
-
-If a block does not fit any category above, rewrite it as prose. Admonitions
-are not decoration.
-
----
-
-## 3. Iconography Law (ZRT-DOC-003) {#iconography}
-
-### The `<Icon />` Component
-
-Every icon in the documentation must be rendered with:
-
-```html
-<Icon name="icon-name" />
+```markdown
+:material-icon-name:
+:octicons-icon-name-16:
 ```
 
-Optional size override (default is `1.15em`, inherits from surrounding text):
-
-```html
-<Icon name="shield-check" size={20} />
-```
-
-All icon names follow the [Lucide icon set](https://lucide.dev/icons/) naming
-convention (lowercase, hyphen-separated).
-
-### Hierarchy
-
-| Priority | Set | Syntax | Notes |
-| :---: | :--- | :--- | :--- |
-| 1 | **Lucide** | `<Icon name="play" />` | All UI and navigation icons |
+Examples:
+- `:material-bug-outline:`
+- `:material-file-document-edit-outline:`
+- `:material-sparkles:`
+- `:octicons-git-pull-request-16:`
+- `:material-arrow-right:`
 
 ### Rules
 
-- **Semantic consistency:** if an icon represents "Contribute" on one page, it
+- **Strict No-JSX Rule**: React JSX `<Icon name="..." />` tags are strictly forbidden and will be flagged by linting.
+- **Semantic consistency**: If an icon represents "Contribute" on one page, it must be the same icon on every page.
+- **Uniform syntax**: Every icon in a card grid uses native `:material-*: / :octicons-*:` shortcodes.
 
-  must be the same icon on every page.
-
-- **Uniform syntax:** every icon in a card grid uses `<Icon name="..." />`.
-
-  No mixing of syntaxes or icon sets.
-
-- **Tree-shaking contract:** before using a new icon name, add it to the
-
-  explicit `iconsMap` in `src/components/Icon.tsx`. Unregistered names render
-  a red placeholder and emit a `console.warn`.
 
 ---
 
@@ -230,7 +187,8 @@ Before submitting a PR, verify:
 
 - [ ] Every card grid follows §1 (single action link).
 - [ ] Every admonition matches its §2 role.
-- [ ] All icons use `<Icon name="..." />` — no `:lucide-*:`, `:octicons-*:`, or `:material-*:` shortcodes remain (§3).
+- [ ] All icons use native `:material-*: / :octicons-*:` shortcodes — no React JSX `<Icon />` tags remain.
+
 - [ ] Any new icon name is registered in `src/components/Icon.tsx` (§3).
 - [ ] Cross-referenced H2/H3 headings have explicit `{#id}` (§4). No anchors on H1.
 - [ ] No naked code fences exist (§5).

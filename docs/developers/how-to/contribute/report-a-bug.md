@@ -68,9 +68,10 @@ the issue.
 
 | <!-- * * --> | Example |
 | -------- | ------- |
-| <Icon name="check" /> __Clear__ | `validate_same_page_anchors` raises false positive on auto-generated headings |
-| <Icon name="x" /> __Unclear__ | Anchor validation doesn't work |
-| <Icon name="x" /> __Useless__ | Help |
+| :material-check: __Clear__ | `validate_same_page_anchors` raises false positive on auto-generated headings |
+| :material-close: __Unclear__ | Anchor validation doesn't work |
+| :material-close: __Useless__ | Help |
+
 
 ### Context <small>optional</small> {#context}
 
