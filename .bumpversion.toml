@@ -72,8 +72,9 @@ replace = "- [ ] `pyproject.toml` version matches the tag (`{new_version}`)"
 
 [[tool.bumpversion.files]]
 filename = "RELEASE.md"
-search = "git tag v{current_version}"
-replace = "git tag v{new_version}"
+search = 'git tag -s -S -m "Release v{current_version}" v{current_version}'
+replace = 'git tag -s -S -m "Release v{new_version}" v{new_version}'
+
 
 [[tool.bumpversion.files]]
 filename = "RELEASE.md"

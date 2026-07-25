@@ -53,8 +53,9 @@ git checkout main
 git pull origin main
 
 # 3. Tag the main branch and push
-git tag v0.25.0
+git tag -s -S -m "Release v0.25.0" v0.25.0
 git push origin main --tags
+
 ```
 
 - [ ] Create GitHub Release from the tag, using the `## [0.25.0]` CHANGELOG section as the release body.
