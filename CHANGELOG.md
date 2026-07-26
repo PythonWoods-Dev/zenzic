@@ -11,6 +11,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **CLI `--json` Shorthand Alias (`ECOSYSTEM-FEAT-002`)**: Added `--json` flag to `zenzic score` as an ergonomic shorthand for `--format json`. Emits a single deterministic `ScoreReport` JSON object on `stdout` without rich terminal formatting, designed for programmatic consumers and editor integrations.
+
+### Documentation
+
+- **CLI Reference Mirror Law Realignment (`ADR-020`)**: Updated `docs/reference/cli.md` with `--json` flag specifications, complete `zenzic score` flag table, and JSON Output Schema documentation.
+- **Roadmap Realignment (`ROADMAP-ALIGN-004`)**: Realigned `ROADMAP.md` to establish `[v0.26]` as *DQS Workspace UI*, shifting subsequent platform milestones (`v0.27`–`v0.30`).
+
 ## [0.25.4] - 2026-07-26
 
 ### Fixed
