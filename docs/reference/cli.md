@@ -128,7 +128,6 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 ## Shared Execution Flags
 
-
 ## Global flags {#global-flags}
 
 These flags control Zenzic's signal-to-noise profile across routine scans, CI gates,

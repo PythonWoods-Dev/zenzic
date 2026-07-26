@@ -69,11 +69,13 @@ class BaseAdapter(ABC):
 If you maintain a custom third-party adapter subclassing `BaseAdapter`:
 
 1. Update your class definition to override `watched_config_files`:
+
    ```python
    @property
    def watched_config_files(self) -> frozenset[str]:
        return frozenset({"my-framework.config.json"})
    ```
+
 2. First-party adapters (`MkDocsAdapter`, `ZensicalAdapter`) have been updated natively.
 
 ---

@@ -22,7 +22,7 @@ Zenzic is structured across three independent, dedicated repositories:
 
 **If you want to contribute to the core analysis engine** (new checks, adapters, bug fixes, CLI features, or performance improvements) — you are in the right place!
 
-> **Brand System** — The visual identity and color palette reference live at  
+> **Brand System** — The visual identity and color palette reference live at
 > <https://zenzic.dev/assets/brand/zenzic-brand-system.html>
 
 ---

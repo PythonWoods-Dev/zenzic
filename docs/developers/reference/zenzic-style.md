@@ -67,6 +67,7 @@ Every icon in the documentation MUST be rendered using native Material for MkDoc
 ```
 
 Examples:
+
 - `:material-bug-outline:`
 - `:material-file-document-edit-outline:`
 - `:material-sparkles:`
@@ -78,7 +79,6 @@ Examples:
 - **Strict No-JSX Rule**: React JSX `<Icon name="..." />` tags are strictly forbidden and will be flagged by linting.
 - **Semantic consistency**: If an icon represents "Contribute" on one page, it must be the same icon on every page.
 - **Uniform syntax**: Every icon in a card grid uses native `:material-*: / :octicons-*:` shortcodes.
-
 
 ---
 

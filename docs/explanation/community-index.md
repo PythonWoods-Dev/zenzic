@@ -61,7 +61,6 @@ ecosystem tools referenced in this documentation are third-party projects.
 
 </div>
 
-
 ## License {#license}
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

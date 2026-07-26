@@ -17,7 +17,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Path Traversal Security Parity (`LSP-FIX-012`)**: Hardened `Z202`/`Z203` path traversal evaluation in `IncrementalAnalysisEngine._run_urp_checks()` by replacing absolute OS filesystem depth checks (`len(path.parents)`) with `docs_root`-boundary escape detection (`os.path.normpath` + `is_relative_to(resolved_docs_root)`). This guarantees 100% security parity between CLI and LSP mode.
 
-
 ## [0.25.1] - 2026-07-26
 
 ### Added
@@ -28,7 +27,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **Inline HTML Suppression LSP Parity (`LSP-FIX-011`)**: Updated `IncrementalAnalysisEngine._run_urp_checks()` to pass the active `SuppressionTracker` when evaluating Polyglot Extractor nodes. Suppressed HTML elements (`data-zenzic-ignore`) are now correctly marked as consumed, eliminating spurious `Z603` (Dead Suppression) warnings in editor sessions.
-
 
 ## [0.25.0] - 2026-07-25
 

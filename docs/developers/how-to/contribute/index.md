@@ -80,7 +80,6 @@ In this section, we guide you through our processes.
 
 </div>
 
-
   [report a bug]: report-a-bug.md
   [report a docs issue]: report-a-docs-issue.md
   [request a change]: request-a-change.md

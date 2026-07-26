@@ -223,9 +223,7 @@ def _extract_blog_dir_zensical(doc_config: dict[str, Any]) -> str | None:
             elif isinstance(item, dict):
                 for name, cfg in item.items():
                     if name in ("blog", "material/blog"):
-                        blog_dir = (
-                            cfg.get("blog_dir", "blog") if isinstance(cfg, dict) else "blog"
-                        )
+                        blog_dir = cfg.get("blog_dir", "blog") if isinstance(cfg, dict) else "blog"
                         return f"{blog_dir.strip('/')}/posts"
     return None
 
@@ -325,9 +323,7 @@ class ZensicalAdapter(BaseAdapter):
 
     def get_metadata_files(self) -> frozenset[str]:
         """Engine configuration and infrastructure asset files excluded from Z405/Z903."""
-        names: set[str] = (
-            {"mkdocs.yml"} if self._config_source == "mkdocs" else {"zensical.toml"}
-        )
+        names: set[str] = {"mkdocs.yml"} if self._config_source == "mkdocs" else {"zensical.toml"}
         config_assets = _extract_config_declared_assets(self._zensical_config)
         names.update(config_assets)
         return frozenset(names)
@@ -385,7 +381,11 @@ class ZensicalAdapter(BaseAdapter):
             return "REACHABLE"
 
         # 4. Listed in nav or locale shadow
-        if not self._has_explicit_nav or rel_posix in nav_paths or self.is_shadow_of_nav_page(rel, nav_paths):
+        if (
+            not self._has_explicit_nav
+            or rel_posix in nav_paths
+            or self.is_shadow_of_nav_page(rel, nav_paths)
+        ):
             return "REACHABLE"
 
         # 5. Blog plugin dynamic routes
@@ -393,7 +393,6 @@ class ZensicalAdapter(BaseAdapter):
             return "REACHABLE"
 
         return "ORPHAN_BUT_EXISTING"
-
 
     def get_nav_paths(self) -> frozenset[str]:
         """Return ``.md`` paths from ``[project].nav`` in ``zensical.toml``.
