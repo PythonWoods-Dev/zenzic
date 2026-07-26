@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-07-26
+
 ### Added
 
 - **CLI `--json` Shorthand Alias (`ECOSYSTEM-FEAT-002`)**: Added `--json` flag to `zenzic score` as an ergonomic shorthand for `--format json`. Emits a single deterministic `ScoreReport` JSON object on `stdout` without rich terminal formatting, designed for programmatic consumers and editor integrations.
