@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **LSP DQS Determinism & Severity Parity (`LSP-FIX-014`)**: Deprecated misleading DQS Status Bar notification emission in `server.py` to preserve the Determinism invariant between incremental LSP mode (which observes topological findings only) and CLI batch mode. Filtered `INFO`-level findings (e.g. Z106) at the transport boundary in `incremental.py` to prevent PROBLEMS panel pollution.
+
 ## [0.25.3] - 2026-07-26
 
 ### Added

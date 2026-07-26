@@ -494,6 +494,13 @@ class IncrementalAnalysisEngine:
         typed_diags: list[ZenzicDiagnostic] = []
 
         for f in findings:
+            # Severity parity (LSP-FIX-014): drop INFO-level findings at the
+            # transport boundary.  INFO findings (e.g. Z106 non-HTTP scheme hints)
+            # carry no actionable remediation and would flood the VS Code PROBLEMS
+            # panel with noise.  The authoritative record of INFO findings is the
+            # CLI report; the LSP surface is reserved for errors and warnings only.
+            if getattr(f, "severity", "error") == "info":
+                continue
             line_no = max(0, f.line_no - 1)
             matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
 
