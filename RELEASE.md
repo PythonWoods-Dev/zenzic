@@ -53,7 +53,7 @@ git checkout main
 git pull origin main
 
 # 3. Tag the main branch and push
-git tag -s -S -m "Release v0.25.3" v0.25.3
+git tag -s -m "Release v0.25.3" v0.25.3
 git push origin main --tags
 
 ```
