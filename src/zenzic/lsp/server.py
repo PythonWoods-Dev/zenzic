@@ -548,27 +548,13 @@ class LanguageServer:
                 }
             )
 
-        # Calculate global DQS from VSM state and emit zenzic/dqsUpdate notification
-        findings_counts: dict[str, int] = {}
-        for route in self.vsm.values():
-            for diag in route.diagnostics:
-                findings_counts[diag.code] = findings_counts.get(diag.code, 0) + 1
-
-        from zenzic.core.scorer import compute_score
-
-        score_report = compute_score(findings_counts)
-
-        self.send_message(
-            {
-                "jsonrpc": "2.0",
-                "method": "zenzic/dqsUpdate",
-                "params": {
-                    "score": score_report.score,
-                    "base_score": 100,
-                    "penalties": 100 - score_report.score,
-                },
-            }
-        )
+        # DQS emission intentionally removed (LSP-FIX-014).
+        # The LSP operates in incremental mode and only sees topological findings
+        # (Z1xx/Z4xx). Content findings (Z5xx) on closed files are never analysed,
+        # so any DQS computed here would be non-deterministically lower than the
+        # CLI batch score. Emitting a misleading score violates the Determinism
+        # invariant. The authoritative DQS is produced exclusively by the CLI
+        # (`zenzic check all --strict`) in CI/CD batch mode.
 
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
         if msg_id is None or self.vsm is None or not self.repo_root or not self.config:

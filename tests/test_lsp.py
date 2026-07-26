@@ -869,7 +869,15 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
 
 
 def test_lsp_dqs_update_notification(tmp_path) -> None:
-    """Verify _sync_workspace_and_publish emits zenzic/dqsUpdate custom LSP notification."""
+    """Verify _sync_workspace_and_publish does NOT emit zenzic/dqsUpdate (LSP-FIX-014).
+
+    The LSP operates in incremental mode and only observes topological findings
+    (Z1xx/Z4xx).  Content findings (Z5xx) on closed files are never analysed,
+    so any DQS computed here would be non-deterministically lower than the CLI
+    batch score.  Emitting a misleading score violates the Determinism invariant;
+    the notification is therefore intentionally suppressed (LSP-FIX-014).
+    The authoritative DQS is produced exclusively by `zenzic check all --strict`.
+    """
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     in_bounds_md = docs_dir / "index.md"
@@ -886,24 +894,9 @@ def test_lsp_dqs_update_notification(tmp_path) -> None:
 
     out_stream.seek(0)
     raw_output = out_stream.read().decode("utf-8")
-    assert "zenzic/dqsUpdate" in raw_output
 
-    # Find the zenzic/dqsUpdate message
-    dqs_msg = None
-    for chunk in raw_output.split("\r\n\r\n"):
-        if "zenzic/dqsUpdate" in chunk:
-            lines = chunk.strip().splitlines()
-            for line_str in lines:
-                if line_str.startswith("{"):
-                    dqs_msg = json.loads(line_str)
-                    break
-
-    assert dqs_msg is not None
-    assert dqs_msg["method"] == "zenzic/dqsUpdate"
-    assert "score" in dqs_msg["params"]
-    assert "base_score" in dqs_msg["params"]
-    assert "penalties" in dqs_msg["params"]
-    assert dqs_msg["params"]["base_score"] == 100
+    # Determinism invariant: the misleading partial DQS notification must NOT be emitted.
+    assert "zenzic/dqsUpdate" not in raw_output
 
 
 def test_lsp_relative_link_normalization_no_z101(tmp_path) -> None:
@@ -947,8 +940,15 @@ def test_lsp_relative_link_normalization_no_z101(tmp_path) -> None:
     assert len(z101_diags) == 0
 
 
-def test_lsp_workspace_initialization_emits_initial_dqs(tmp_path) -> None:
-    """Verify that initialized handler triggers workspace sync and emits initial DQS update without opening files."""
+def test_lsp_workspace_initialization_does_not_emit_dqs(tmp_path) -> None:
+    """Verify that the initialized handler triggers workspace sync but does NOT emit DQS (LSP-FIX-014).
+
+    The LSP computes DQS only from in-memory VSM topological findings (Z1xx/Z4xx).
+    Content findings (Z5xx) on closed files are excluded, making the score
+    non-deterministically lower than the CLI batch score.  Displaying a misleading
+    score violates the Determinism invariant.  The authoritative DQS is produced
+    exclusively by `zenzic check all --strict` in CI/CD batch mode.
+    """
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
     index_md = docs_dir / "index.md"
@@ -972,7 +972,9 @@ def test_lsp_workspace_initialization_emits_initial_dqs(tmp_path) -> None:
     stdout.seek(0)
     raw_output = stdout.read().decode("utf-8")
 
-    assert "zenzic/dqsUpdate" in raw_output
+    # Determinism invariant: the misleading partial DQS notification must NOT be emitted.
+    assert "zenzic/dqsUpdate" not in raw_output
+    # Workspace state must still be correctly initialised.
     assert server.vsm is not None
     assert server.engine is not None
 
