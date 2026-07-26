@@ -15,7 +15,7 @@ categories:
 
 Zenzic v0.24.0 marks the transition from passive static validation to interactive, editor-native remediation. This release introduces LSP Code Actions for automated Quick Fixes, real-time Documentation Quality Score (DQS) streaming to the editor status bar, and critical URI normalization bugfixes.
 
-![Zenzic Release Trilogy: v0.24, v0.25, v0.26](../../assets/images/blog/launch_trilogy_v24_v25_v26.jpg)
+![Zenzic v0.24.0 Interactive Intelligence Launch](../../assets/images/blog/launch_v0240.jpg)
 
 <!-- more -->
 
