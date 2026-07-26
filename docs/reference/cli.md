@@ -54,7 +54,13 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--fail-under` | — | `0` | Minimum required score. Fails quality gate (Exit 1) if score falls below threshold. |
     | `--stamp` | — | `false` | Updates README.md status badge with the newly computed DQS score. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
+    | `--json` | — | `false` | Shorthand for `--format json`. Suppresses all rich/text output and emits a single JSON object on `stdout`. Preferred for programmatic consumers (e.g., editor integrations, shell scripts). |
     | `--strict` | `-s` | `false` | Includes external HTTP link validation in score calculation. |
+    | `--breakdown` | — | `false` | Expands category breakdown showing individual Z-Codes and transparent penalty math. |
+    | `--save` | — | `false` | Saves score snapshot to `.zenzic-score.json` for use with `zenzic diff`. |
+    | `--check-stamp` | — | `false` | Verifies badge stamp files contain the current score URL. Exits 1 if any badge is stale. |
+    | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
+    | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -66,7 +72,45 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Stamp status badge into README.md
     zenzic score --stamp
+
+    # Emit machine-readable JSON for programmatic consumers (editor integrations, scripts)
+    zenzic score --json
+
+    # Equivalent long form
+    zenzic score --format json
     ```
+
+    ??? info "JSON Output Schema (`--json`)"
+        When `--json` (or `--format json`) is passed, the command emits a single JSON
+        object on `stdout` with no rich/text output. Suitable for piping to `jq` or
+        parsing in editor extensions.
+
+        ```json
+        {
+          "project": "<project-name>",
+          "score": 98,
+          "threshold": 0,
+          "status": "success",
+          "timestamp": "2026-07-26T16:49:29+00:00",
+          "categories": [
+            { "name": "structural", "weight": 0.30, "issues": 0, "category_score": 1.0,
+              "contribution": 0.30, "raw_penalty": 0, "is_capped": false },
+            { "name": "navigation", "weight": 0.25, "issues": 0, "category_score": 1.0,
+              "contribution": 0.25, "raw_penalty": 0, "is_capped": false },
+            { "name": "content",    "weight": 0.20, "issues": 0, "category_score": 1.0,
+              "contribution": 0.20, "raw_penalty": 0, "is_capped": false },
+            { "name": "brand",      "weight": 0.25, "issues": 0, "category_score": 1.0,
+              "contribution": 0.25, "raw_penalty": 0, "is_capped": false }
+          ],
+          "suppression_count": 2,
+          "suppression_cap": 30,
+          "suppression_debt_pts": 2,
+          "debt_status": "MANAGED DEBT"
+        }
+        ```
+
+        Possible values of `status`: `success`, `failing` (score < `fail_under`),
+        `security_breach` (Z2xx finding detected).
 
 === "zenzic diff"
 

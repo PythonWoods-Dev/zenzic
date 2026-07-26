@@ -30,7 +30,6 @@ Before advancing the core feature set, the following infrastructural and validat
 *Completing the diagnostic-to-remediation loop within the IDE.*
 
 - **VS Code Code Actions (Quick Fixes):** Implement `textDocument/codeAction` via LSP to allow users to instantly apply deterministic fixes (e.g., `Z121`, `Z603`) directly from the editor.
-- **DQS Workspace UI:** Bring the Document Quality Score (DQS) into the authoring environment via a dedicated VS Code sidebar panel, providing global repository state without leaving the editor.
 
 ### [v0.25] — LSP Stabilization & Hot-Reloading
 
@@ -40,7 +39,13 @@ Before advancing the core feature set, the following infrastructural and validat
 - **Adapter-Driven Config Hot-Reloading:** Enable real-time VSM topology rebuilds in VS Code when engine configuration files (e.g., `mkdocs.yml`, `zensical.toml`) change, without requiring an LSP server restart.
 - **BaseAdapter Contract Hardening:** Expose `watched_config_files` on the `BaseAdapter` interface to preserve Adapter Neutrality across third-party engines.
 
-### [v0.26] — Deterministic Quality Platform
+### [v0.26] — DQS Workspace UI
+
+*Bringing the global Documentation Quality Score into the authoring environment via an asynchronous, deterministic CLI execution bridge.*
+
+- **Asynchronous CLI Execution Bridge:** Restore DQS visualization in the VS Code Status Bar via `child_process.execFile` calling `zenzic score --json`, guaranteeing 100% mathematical parity with CI/CD without blocking LSP performance.
+
+### [v0.27] — Deterministic Quality Platform
 
 *Evolving from a strict validator to a comprehensive quality governance engine.*
 
@@ -49,7 +54,7 @@ Before advancing the core feature set, the following infrastructural and validat
 - **Semantic Readability Metrics:** Extend Zenzic beyond structural validation into content quality (e.g., deterministic Flesch-Kincaid scoring) while maintaining the static analysis paradigm.
 - **Configuration Validation Engine:** Reduce operational errors by establishing a single source of truth for configuration schemas across the CLI, VS Code, and documentation.
 
-### [v0.27] — Governance & Extensibility
+### [v0.28] — Governance & Extensibility
 
 *Opening the engine to enterprise policies and custom integrations.*
 
@@ -58,7 +63,7 @@ Before advancing the core feature set, the following infrastructural and validat
 - **SARIF Enterprise Integration:** Enhance security and compliance integrations for enterprise dashboards.
 - **Zenzic Audit Mode:** High-value enterprise reporting mode requiring stable DQS, Policy Engine, and SARIF outputs.
 
-### [v0.28] — Ecosystem Expansion
+### [v0.29] — Ecosystem Expansion
 
 *Expanding the perimeter to external frameworks.*
 
@@ -66,7 +71,7 @@ Before advancing the core feature set, the following infrastructural and validat
 - **Sphinx & Hugo Adapters:** Extend open-source compatibility following the stabilization of the `BaseAdapter` contract.
 - **Multi-Repository Documentation Graph:** Advanced feature to analyze documentation spanning multiple repositories, requiring full maturity of the VSM and artifact composition.
 
-### [v0.29] — Operational Excellence
+### [v0.30] — Operational Excellence
 
 *Advanced observability and developer experience.*
 

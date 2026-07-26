@@ -233,8 +233,21 @@ def score(
         "--breakdown",
         help="Explode scoring categories showing individual occurred Z-Codes and transparent math.",
     ),
+    json_flag: bool = typer.Option(
+        False,
+        "--json",
+        help=(
+            "Shorthand for --format json. Suppresses all rich/text output and emits a single "
+            "JSON object on stdout. Intended for programmatic consumers (e.g., editor integrations)."
+        ),
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
+    # ECOSYSTEM-FEAT-002: --json is a shorthand alias for --format json.
+    # Programmatic consumers (e.g., editor integrations) should prefer this flag
+    # over --format json for ergonomic clarity.
+    if json_flag:
+        output_format = "json"
     if ci:
         no_header = True
 
