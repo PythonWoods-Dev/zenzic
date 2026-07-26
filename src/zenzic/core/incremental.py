@@ -672,20 +672,39 @@ class IncrementalAnalysisEngine:
 
             parsed = urlsplit(url)
 
-            # Z202 / Z203
-            if "../" in url and url.count("../") > len(path.parents):
-                _intent = _classify_traversal_intent(url)
-                findings.append(
-                    RuleFinding(
-                        path,
-                        lineno,
-                        "Z203" if _intent == "suspicious" else "Z202",
-                        f"Path traversal escape detected: '{url}'",
-                        severity="error",
-                        matched_line=raw_line,
+            # Z202 / Z203 — Path Traversal Detection
+            if "../" in url:
+                try:
+                    resolved_docs_root = self.docs_root.resolve()
+                    source_dir = path.parent.resolve()
+                    target_str = os.path.normpath(str(source_dir / parsed.path))
+                    target_path = Path(target_str)
+                    if not target_path.is_relative_to(resolved_docs_root):
+                        _intent = _classify_traversal_intent(url)
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z203" if _intent == "suspicious" else "Z202",
+                                f"Path traversal escape detected: '{url}'",
+                                severity="error",
+                                matched_line=raw_line,
+                            )
+                        )
+                        continue
+                except Exception:
+                    _intent = _classify_traversal_intent(url)
+                    findings.append(
+                        RuleFinding(
+                            path,
+                            lineno,
+                            "Z203" if _intent == "suspicious" else "Z202",
+                            f"Path traversal escape detected: '{url}'",
+                            severity="error",
+                            matched_line=raw_line,
+                        )
                     )
-                )
-                continue
+                    continue
 
             # Z105 / Z203
             elif parsed.path.startswith("/"):
