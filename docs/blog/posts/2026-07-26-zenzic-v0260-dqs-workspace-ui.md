@@ -15,6 +15,8 @@ categories:
 
 Zenzic v0.26.0 introduces the **Asynchronous CLI Execution Bridge**, bringing the global Documentation Quality Score (DQS) into the editor authoring environment while enforcing 100% mathematical determinism between terminal runs and VS Code status bar indicators.
 
+![Zenzic Release Trilogy: v0.24, v0.25, v0.26](../../assets/images/blog/launch_trilogy_v24_v25_v26.jpg)
+
 <!-- more -->
 
 ## Reconciling Editor Performance with Global Scoring
