@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-07-26
+
 ### Added
 
 - **Adapter-Level `material/blog` Plugin Recognition (`LSP-FIX-011`)**: Extended `MkDocsAdapter` to automatically detect the `material/blog` plugin and classify all posts under `<blog_dir>/posts/` as `REACHABLE` routes in the Virtual Site Map (VSM).
