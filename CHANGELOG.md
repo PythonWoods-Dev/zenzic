@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-07-26
+
+### Added
+
+- **Adapter-Level `material/blog` Plugin Recognition (`LSP-FIX-011`)**: Extended `MkDocsAdapter` to automatically detect the `material/blog` plugin and classify all posts under `<blog_dir>/posts/` as `REACHABLE` routes in the Virtual Site Map (VSM).
+- **Directory Nav Path Resolution (`LSP-FIX-011`)**: Updated `MkDocsAdapter.get_nav_paths()` to expand trailing-slash directory entries (e.g. `blog/`) to their implicit `index.md` target (`blog/index.md`), eliminating false-positive `Z402` (Unlisted Page) findings for plugin index pages.
+
+### Fixed
+
+- **Inline HTML Suppression LSP Parity (`LSP-FIX-011`)**: Updated `IncrementalAnalysisEngine._run_urp_checks()` to pass the active `SuppressionTracker` when evaluating Polyglot Extractor nodes. Suppressed HTML elements (`data-zenzic-ignore`) are now correctly marked as consumed, eliminating spurious `Z603` (Dead Suppression) warnings in editor sessions.
+
+
 ## [0.25.0] - 2026-07-25
 
 ### Added

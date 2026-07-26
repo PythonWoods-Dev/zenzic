@@ -224,7 +224,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.25.0"  # release sync
+  zenzic_version: "0.25.1"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic
