@@ -84,39 +84,80 @@ def _load_zensical_config(repo_root: Path) -> dict[str, Any]:
         return {}
 
 
-# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+# ── Infrastructure asset path extraction (Z404 & Z405) ──────────────────────
 
 _IMAGE_EXT_RE_ZENSICAL = re.compile(r"\.(?:png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
 
 
-def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
-    """Check that theme assets declared in ``zensical.toml`` exist on disk.
+def _extract_config_declared_assets(doc_config: dict[str, Any]) -> set[str]:
+    """Extract theme favicon, logo, extra_css, extra_javascript relative asset paths."""
+    assets: set[str] = set()
 
-    Checks ``[project].favicon`` and ``[project].logo`` (file-path values only).
-    Both fields are resolved relative to ``[project].docs_dir`` (default: ``docs/``).
+    # Native zensical.toml format
+    project = doc_config.get("project") or {}
+    if isinstance(project, dict):
+        for key in ("favicon", "logo"):
+            val = project.get(key)
+            if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
+                assets.add(val.lstrip("/"))
+
+    # mkdocs.yml format (compat mode)
+    theme = doc_config.get("theme") or {}
+    if isinstance(theme, dict):
+        for key in ("favicon", "logo"):
+            val = theme.get(key)
+            if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
+                assets.add(val.lstrip("/"))
+
+    for key in ("extra_css", "extra_javascript"):
+        items = doc_config.get(key) or []
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, str) and not item.startswith(("http://", "https://")):
+                    assets.add(item.lstrip("/"))
+
+    return assets
+
+
+def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
+    """Check that theme assets declared in ``zensical.toml`` or ``mkdocs.yml`` exist on disk.
+
+    Checks ``favicon`` and ``logo`` (file-path values only).
+    Both fields are resolved relative to ``docs_dir`` (default: ``docs/``).
 
     Args:
-        repo_root: Repository root (parent of ``zensical.toml``).
+        repo_root: Repository root (parent of config file).
 
     Returns:
         List of ``(rel_path, message)`` tuples for each missing asset.
         Empty list when all referenced assets exist or the config is absent.
     """
-    zensical_cfg = _load_zensical_config(repo_root)
-    if not zensical_cfg:
+    config_file = find_zensical_config(repo_root)
+    if config_file is not None:
+        cfg = _load_zensical_config(repo_root)
+        config_src = "zensical"
+    elif find_mkdocs_config_file(repo_root) is not None:
+        cfg = load_mkdocs_config(repo_root)
+        config_src = "mkdocs"
+    else:
         return []
 
-    project = zensical_cfg.get("project") or {}
-    if not isinstance(project, dict):
-        return []
-
-    docs_dir = str(project.get("docs_dir") or "docs")
-    docs_root = repo_root / docs_dir
+    if config_src == "zensical":
+        project = cfg.get("project") or {}
+        docs_dir = str(project.get("docs_dir") or "docs") if isinstance(project, dict) else "docs"
+        docs_root = repo_root / docs_dir
+        theme_dict = project if isinstance(project, dict) else {}
+    else:
+        docs_dir = str(cfg.get("docs_dir") or "docs")
+        docs_root = repo_root / docs_dir
+        theme_dict = cfg.get("theme") or {}
+        if not isinstance(theme_dict, dict):
+            theme_dict = {}
 
     issues: list[tuple[str, str]] = []
 
     for field_key in ("favicon", "logo"):
-        value = project.get(field_key)
+        value = theme_dict.get(field_key)
         if not value or not isinstance(value, str):
             continue
         if not _IMAGE_EXT_RE_ZENSICAL.search(value):
@@ -128,7 +169,7 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
                 (
                     rel,
                     f"{field_key} asset not found on disk: '{rel}' "
-                    f"(declared as [project].{field_key}: '{value}' in zensical.toml) [Z404]",
+                    f"(declared as {field_key}: '{value}') [Z404]",
                 )
             )
 
@@ -141,6 +182,7 @@ def _extract_nav_paths(items: object) -> set[str]:
     Handles nav variants used by both ``zensical.toml`` and ``mkdocs.yml``:
 
     * Plain string: ``"page.md"``
+    * Directory entry: ``"section/"`` → expands to ``"section/index.md"``
     * Titled page: ``{"Title" = "page.md"}``
     * Section:      ``{"Section" = ["page.md", …]}``
     * External URL: ``{"GitHub" = "https://…"}``  — skipped.
@@ -155,6 +197,8 @@ def _extract_nav_paths(items: object) -> set[str]:
     if isinstance(items, str):
         if items.endswith(".md"):
             paths.add(items.lstrip("/"))
+        elif items.endswith("/"):
+            paths.add(f"{items.lstrip('/')}index.md")
         return paths
 
     if isinstance(items, dict):
@@ -169,6 +213,23 @@ def _extract_nav_paths(items: object) -> set[str]:
     return paths
 
 
+def _extract_blog_dir_zensical(doc_config: dict[str, Any]) -> str | None:
+    """Extract blog posts prefix when a blog plugin is active in Zensical/MkDocs config."""
+    plugins = doc_config.get("plugins") or []
+    if isinstance(plugins, list):
+        for item in plugins:
+            if isinstance(item, str) and item in ("blog", "material/blog"):
+                return "blog/posts"
+            elif isinstance(item, dict):
+                for name, cfg in item.items():
+                    if name in ("blog", "material/blog"):
+                        blog_dir = (
+                            cfg.get("blog_dir", "blog") if isinstance(cfg, dict) else "blog"
+                        )
+                        return f"{blog_dir.strip('/')}/posts"
+    return None
+
+
 # ── Adapter ───────────────────────────────────────────────────────────────────
 
 
@@ -178,27 +239,6 @@ class ZensicalAdapter(BaseAdapter):
     The adapter can be constructed from native ``zensical.toml`` config or from
     ``mkdocs.yml`` input while preserving Zensical routing/classification logic.
     Navigation is read from ``[project].nav`` (native) or ``nav`` (compat).
-
-    Native ``zensical.toml`` example::
-
-        [project]
-        site_name = "My Docs"
-        nav = [
-            "index.md",
-            {"Guide" = "guide.md"},
-            {"API" = ["api/index.md", {"Endpoints" = "api/endpoints.md"}]},
-        ]
-
-    Locale information is sourced from ``[build_context]`` in ``.zenzic.toml``
-    (the :class:`~zenzic.models.config.BuildContext`).  Zensical does not yet
-    expose its own i18n configuration in ``zensical.toml``; when it does, this
-    adapter will be updated to read it directly.
-
-    Args:
-        context: Build context from ``.zenzic.toml``.
-        docs_root: Resolved absolute path to the ``docs/`` directory.
-        zensical_config: Parsed config payload from the active input source.
-        config_source: Internal source marker (``"zensical"`` or ``"mkdocs"``).
     """
 
     def __init__(
@@ -230,6 +270,8 @@ class ZensicalAdapter(BaseAdapter):
         self._nav_paths: frozenset[str] = frozenset(_extract_nav_paths(_raw_nav))
         # True only when the user supplied an explicit, non-empty nav list.
         self._has_explicit_nav: bool = bool(_raw_nav)
+        self._blog_posts_prefix: str | None = _extract_blog_dir_zensical(self._zensical_config)
+
         # Offline Mode Tactical Fix
         if context.offline_mode:
             self._use_directory_urls = False
@@ -256,20 +298,7 @@ class ZensicalAdapter(BaseAdapter):
         anchors_cache: dict[Path, set[str]],
         docs_root: Path,
     ) -> bool:
-        """Return ``True`` if an anchor miss should be suppressed via i18n fallback.
-
-        Locale configuration is sourced from ``BuildContext`` (``.zenzic.toml``).
-
-        Args:
-            resolved_file: Absolute path of the locale file whose anchor set
-                does not contain *anchor*.
-            anchor: Fragment identifier that was not found (without ``#``).
-            anchors_cache: Pre-built ``Path`` → anchor slug set mapping.
-            docs_root: Resolved absolute ``docs/`` root.
-
-        Returns:
-            ``True`` if the anchor exists in the default-locale equivalent file.
-        """
+        """Return ``True`` if an anchor miss should be suppressed via i18n fallback."""
         if not self._fallback_to_default:
             return False
         default_file = remap_to_default_locale(resolved_file, docs_root, self._locale_dirs)
@@ -295,10 +324,13 @@ class ZensicalAdapter(BaseAdapter):
         return True
 
     def get_metadata_files(self) -> frozenset[str]:
-        """Engine configuration files excluded from Z903."""
-        if self._config_source == "mkdocs":
-            return frozenset({"mkdocs.yml"})
-        return frozenset({"zensical.toml"})
+        """Engine configuration and infrastructure asset files excluded from Z405/Z903."""
+        names: set[str] = (
+            {"mkdocs.yml"} if self._config_source == "mkdocs" else {"zensical.toml"}
+        )
+        config_assets = _extract_config_declared_assets(self._zensical_config)
+        names.update(config_assets)
+        return frozenset(names)
 
     @property
     def watched_config_files(self) -> frozenset[str]:
@@ -312,32 +344,14 @@ class ZensicalAdapter(BaseAdapter):
     def _map_url(self, rel: Path) -> str:
         """Map a physical source path to its Zensical canonical URL.
 
-        Zensical always serves clean directory-style URLs.  Both ``index.md``
-        and ``README.md`` collapse to the parent directory URL (Zensical treats
-        ``README.md`` as an implicit index).
-
-        With ``use_directory_urls = true`` (default)::
-
-            page.md        → /page/
-            dir/index.md   → /dir/
-            dir/README.md  → /dir/   (same URL → CONFLICT if both exist)
-            index.md       → /
-
-        With ``use_directory_urls = false``::
-
-            page.md        → /page.html
-            dir/index.md   → /dir/index.html
-            index.md       → /index.html
-
-        Files inside ``_private``-prefixed path segments are mapped normally
-        here; ``_classify_route()`` marks them ``IGNORED``.
-
-        Args:
-            rel: Path of the source file relative to ``docs_root``.
-
-        Returns:
-            Canonical URL string with leading slash.
+        Non-Markdown asset files (e.g. ``.png``, ``.webp``, ``.svg``) preserve
+        their exact relative path and file extension.
         """
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "/" + rel.as_posix()
+
         if not self._use_directory_urls:
             # Flat URL mode: preserve suffix, no directory collapsing.
             return "/" + rel.as_posix()
@@ -353,28 +367,33 @@ class ZensicalAdapter(BaseAdapter):
         return "/" + "/".join(parts) + "/"
 
     def _classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
-        """Classify a Zensical route by filesystem and nav rules.
+        """Classify a Zensical route by filesystem, asset type, and nav rules."""
+        from zenzic.core.discovery import DOC_SUFFIXES
 
-        Priority chain:
+        rel_posix = rel.as_posix()
 
-        1. ``IGNORED`` — any path segment starts with ``_``.
-        2. ``ORPHAN_BUT_EXISTING`` — an explicit ``[project].nav`` is defined
-           in ``zensical.toml`` and *rel* is not listed in it.  The file is
-           served (Zensical is filesystem-based) but is not sidebar-navigable.
-        3. ``REACHABLE`` — all other files when no explicit nav is declared.
-
-        Args:
-            rel:       Source path relative to ``docs_root``.
-            nav_paths: Frozenset of nav-listed paths from ``get_nav_paths()``.
-
-        Returns:
-            ``'IGNORED'``, ``'ORPHAN_BUT_EXISTING'``, or ``'REACHABLE'``.
-        """
+        # 1. Private directory segments starting with '_'
         if any(part.startswith("_") for part in rel.parts):
             return "IGNORED"
-        if self._has_explicit_nav and rel.as_posix() not in nav_paths:
-            return "ORPHAN_BUT_EXISTING"
-        return "REACHABLE"
+
+        # 2. Non-Markdown static assets are served directly — always REACHABLE
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "REACHABLE"
+
+        # 3. Root/directory index pages (index.md or README.md at root)
+        if rel_posix in ("index.md", "README.md"):
+            return "REACHABLE"
+
+        # 4. Listed in nav or locale shadow
+        if not self._has_explicit_nav or rel_posix in nav_paths or self.is_shadow_of_nav_page(rel, nav_paths):
+            return "REACHABLE"
+
+        # 5. Blog plugin dynamic routes
+        if self._blog_posts_prefix and rel_posix.startswith(f"{self._blog_posts_prefix}/"):
+            return "REACHABLE"
+
+        return "ORPHAN_BUT_EXISTING"
+
 
     def get_nav_paths(self) -> frozenset[str]:
         """Return ``.md`` paths from ``[project].nav`` in ``zensical.toml``.
