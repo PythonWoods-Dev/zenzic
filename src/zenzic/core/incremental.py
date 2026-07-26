@@ -457,7 +457,7 @@ class IncrementalAnalysisEngine:
             )
 
         # URP Checks
-        findings.extend(self._run_urp_checks(vsm, path, text))
+        findings.extend(self._run_urp_checks(vsm, path, text, tracker=tracker))
 
         # Dead suppression detection
         findings.extend(tracker.get_dead_suppressions())
@@ -532,6 +532,7 @@ class IncrementalAnalysisEngine:
         vsm: VirtualSiteMap,
         path: Path,
         text: str,
+        tracker: SuppressionTracker | None = None,
     ) -> list[RuleFinding]:
         """Run the Uniform Resolver Pipeline checks on a single file.
 
@@ -541,6 +542,13 @@ class IncrementalAnalysisEngine:
             vsm: The active Virtual Site Map instance.
             path: Resolved absolute path of the file.
             text: Raw Markdown content.
+            tracker: Active :class:`~zenzic.core.suppressions.SuppressionTracker`
+                for this file.  When provided and a Polyglot Extractor node has
+                ``node.suppressed = True``, the corresponding
+                ``DATA-ZENZIC-IGNORE`` directive is marked ``consumed`` so that
+                :meth:`~zenzic.core.suppressions.SuppressionTracker.get_dead_suppressions`
+                does not emit Z603 for an inline suppression that correctly
+                silenced a URP finding (parity with ``validator.py`` CLI path).
 
         Returns:
             List of ``RuleFinding`` instances.
@@ -633,6 +641,17 @@ class IncrementalAnalysisEngine:
                         match_text=node.raw_tag,
                     )
                 )
+
+            # Mirror validator.py lines 1391-1400: when data-zenzic-ignore is
+            # present on the node, the CLI marks the corresponding directive as
+            # consumed so that get_dead_suppressions() does not fire Z603.
+            # Without this branch the LSP would emit Z603 for every suppressed
+            # HTML node because the directive is never consumed here.
+            if node.suppressed and tracker is not None:
+                for d in tracker.directives:
+                    if d.line_no == node.line_no and d.code == "DATA-ZENZIC-IGNORE":
+                        d.consumed = True
+                        break
 
         # Markdown Links
         local_anchors = self.anchors_cache.get(path, set())

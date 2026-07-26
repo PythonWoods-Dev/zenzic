@@ -350,6 +350,35 @@ def _extract_i18n_fallback_to_default(doc_config: dict[str, Any]) -> bool:
     return True
 
 
+def _extract_blog_dir(doc_config: dict[str, Any]) -> str | None:
+    """Return the blog posts prefix when the ``material/blog`` plugin is active.
+
+    The ``material/blog`` plugin (``mkdocs-material``) dynamically generates
+    all routes under ``<blog_dir>/posts/`` at build time — these files are
+    **never** listed in the static ``nav:`` section of ``mkdocs.yml``.  The
+    MkDocs adapter must treat them as ``REACHABLE`` rather than
+    ``ORPHAN_BUT_EXISTING``; otherwise Zenzic raises Z103 for every internal
+    link that targets a blog post.
+
+    Args:
+        doc_config: Parsed ``mkdocs.yml`` config dict.
+
+    Returns:
+        The relative ``<blog_dir>/posts/`` prefix (e.g. ``"blog/posts"``) when
+        the blog plugin is active; ``None`` when the plugin is absent.
+    """
+    for name, blog_cfg in _iter_plugins(doc_config):
+        # Accept both short form ``blog`` and fully-qualified ``material/blog``.
+        if name not in ("blog", "material/blog"):
+            continue
+        blog_dir = blog_cfg.get("blog_dir", "blog") if isinstance(blog_cfg, dict) else "blog"
+        # Normalise: strip leading/trailing slashes so the prefix is always
+        # a plain relative posix string like "blog/posts".
+        blog_dir = blog_dir.strip("/")
+        return f"{blog_dir}/posts"
+    return None
+
+
 def _validate_i18n_fallback_config(doc_config: dict[str, Any]) -> None:
     """Raise ConfigurationError when fallback_to_default is true but no default locale exists.
 
@@ -473,6 +502,12 @@ class MkDocsAdapter(BaseAdapter):
         # must treat locale index pages as REACHABLE without nav evidence.
         self._reconfigure_material: bool = _extract_i18n_reconfigure_material(self._doc_config)
 
+        # When the material/blog plugin is active, every .md file under
+        # <blog_dir>/posts/ is a live, published route generated dynamically by
+        # the plugin — not a static nav entry.  Store the posts prefix so that
+        # _classify_route() can recognise and mark them REACHABLE.
+        self._blog_posts_prefix: str | None = _extract_blog_dir(self._doc_config)
+
         # Emit a UX hint when the config is redundant: reconfigure_material
         # auto-generates the switcher, so extra.alternate is both unnecessary
         # and harmful (it competes with the plugin and can hide the switcher).
@@ -575,10 +610,25 @@ class MkDocsAdapter(BaseAdapter):
         return _extract_i18n_locale_patterns(self._doc_config)
 
     def get_nav_paths(self) -> frozenset[str]:
-        """Return ``.md`` paths listed in the nav, relative to ``docs_root``."""
+        """Return ``.md`` paths listed in the nav, relative to ``docs_root``.
+
+        MkDocs resolves directory nav entries (e.g. ``blog/``) to their
+        implicit ``index.md`` (e.g. ``blog/index.md``) at build time.  We
+        mirror that resolution here so that plugin-managed index pages such as
+        ``blog/index.md`` are correctly classified as ``REACHABLE`` instead of
+        ``ORPHAN_BUT_EXISTING``.
+        """
         raw: set[str] = set()
         _collect_nav_paths(self._doc_config.get("nav"), raw)
-        return frozenset(p.lstrip("/") for p in raw if p.endswith(".md"))
+        nav_paths: set[str] = set()
+        for p in raw:
+            p = p.lstrip("/")
+            if p.endswith(".md"):
+                nav_paths.add(p)
+            elif p.endswith("/"):
+                # MkDocs resolves 'section/' → 'section/index.md' automatically.
+                nav_paths.add(f"{p}index.md")
+        return frozenset(nav_paths)
 
     def has_engine_config(self) -> bool:
         """``True`` when ``mkdocs.yml`` was found on disk **or** locales were declared.
@@ -657,6 +707,10 @@ class MkDocsAdapter(BaseAdapter):
            This check fires only when rules 0-2 have not already resolved the
            status, so an explicit nav entry for ``it/index.md`` is never
            overridden.
+        3b. ``material/blog`` plugin active and file is under ``<blog_dir>/posts/``
+            → ``REACHABLE``.  Blog posts are dynamically indexed by the plugin and
+            are never listed in the static ``nav:``; they are published, reachable
+            pages and must not be classified as orphans.
         4. Otherwise → ``ORPHAN_BUT_EXISTING``.
 
         Args:
@@ -696,6 +750,11 @@ class MkDocsAdapter(BaseAdapter):
             parts = rel.parts
             if len(parts) == 2 and parts[0] in self._locale_dirs:  # e.g. it/index.md
                 return "REACHABLE"
+
+        # material/blog plugin: every .md under <blog_dir>/posts/ is a live,
+        # dynamically-indexed page — never listed in nav: but always REACHABLE.
+        if self._blog_posts_prefix and rel_posix.startswith(f"{self._blog_posts_prefix}/"):
+            return "REACHABLE"
 
         return "ORPHAN_BUT_EXISTING"
 

@@ -50,7 +50,6 @@ excluded_file_patterns = []
 
 [governance.directory_policies]
 "docs/assets/**" = ["Z405"]
-"docs/blog/**" = ["Z402", "Z101"]
 "docs/favicon.ico" = ["Z405"]
 "docs/blog/rss.xsl" = ["Z405"]
 "docs/tutorials/examples/z1xx-links/**" = ["Z107"]
