@@ -127,8 +127,7 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 
 
 _MARKDOWN_ASSET_LINK_RE = re.compile(
-    r"\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>|<a.*?href=[\"'](.*?)[\"'].*?>|^\s*\[[^\]]+\]:\s*(\S+)",
-    re.MULTILINE,
+    r"\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>|<a.*?href=[\"'](.*?)[\"'].*?>"
 )
 # Inline code span — erased before link extraction to avoid false positives.
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
@@ -334,6 +333,9 @@ def _visible_word_count(text: str) -> int:
 def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     """Pure function: extract normalised asset paths referenced in markdown text.
 
+    Delegates AST Reference Link Definition parsing ([label]: dest) and HTML node
+    extraction to PolyglotExtractor.
+
     Args:
         text: Raw markdown content.
         page_dir: POSIX directory of the page relative to docs root (e.g. ``"guide"``).
@@ -342,9 +344,36 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     Returns:
         Set of normalised asset paths relative to docs root.
     """
+    from zenzic.core.validator import PolyglotExtractor
+
+    extractor = PolyglotExtractor()
     referenced: set[str] = set()
+
+    # 1. AST Reference Link Definitions ([label]: dest) from PolyglotExtractor
+    for ref_node in extractor.extract_ref_defs(text):
+        url = ref_node.dest
+        if not url or url.startswith(("http://", "https://", "data:", "#")):
+            continue
+        clean_url = unquote(url.split("?")[0].split("#")[0])
+        base = page_dir if page_dir else "."
+        normalized = posixpath.normpath(posixpath.join(base, clean_url))
+        if not normalized.startswith(".."):
+            referenced.add(normalized)
+
+    # 2. Native HTML tags (<a>, <img>) from PolyglotExtractor
+    for html_node in extractor.extract(text):
+        html_url: str | None = html_node.href
+        if not html_url or html_url.startswith(("http://", "https://", "data:", "#")):
+            continue
+        clean_url = unquote(html_url.split("?")[0].split("#")[0])
+        base = page_dir if page_dir else "."
+        normalized = posixpath.normpath(posixpath.join(base, clean_url))
+        if not normalized.startswith(".."):
+            referenced.add(normalized)
+
+    # 3. Standard inline markdown links [text](url)
     for match in _MARKDOWN_ASSET_LINK_RE.finditer(text):
-        url = match.group(1) or match.group(2) or match.group(3) or match.group(4)
+        url = match.group(1) or match.group(2) or match.group(3)
         if not url or url.startswith(("http://", "https://", "data:", "#")):
             continue
         clean_url = unquote(url.split("?")[0].split("#")[0])
