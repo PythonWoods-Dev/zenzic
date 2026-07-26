@@ -12,11 +12,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ## [0.25.3] - 2026-07-26
+
 ### Added
 
 - **AST Reference Link Definition Extraction (`CORE-FIX-001`)**: Upgraded `PolyglotExtractor` to natively extract Markdown Reference Link Definitions (`[label]: dest`) with CommonMark §4.7 first-definition-wins semantics and full code fence masking (`_mask_fences`), eliminating false-positive `Z405` (Unused Asset) findings.
 - **Zensical Framework Feature Parity (`ADAPTER-002`/`ADAPTER-003`)**: Upgraded `ZensicalAdapter` with preserved static asset URL mapping, route classification for root/directory index pages (`index.md`) and dynamic blog routes (`<blog_dir>/posts/`), and theme asset metadata extraction (`favicon`, `logo`, `extra_css`, `extra_javascript`).
-
 
 ## [0.25.2] - 2026-07-26
 
