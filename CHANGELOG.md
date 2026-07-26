@@ -12,7 +12,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ## [0.25.3] - 2026-07-26
-
 ### Added
 
 - **AST Reference Link Definition Extraction (`CORE-FIX-001`)**: Upgraded `PolyglotExtractor` to natively extract Markdown Reference Link Definitions (`[label]: dest`) with CommonMark §4.7 first-definition-wins semantics and full code fence masking (`_mask_fences`), eliminating false-positive `Z405` (Unused Asset) findings.
