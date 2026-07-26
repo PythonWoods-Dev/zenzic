@@ -127,7 +127,8 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 
 
 _MARKDOWN_ASSET_LINK_RE = re.compile(
-    r"\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>|<a.*?href=[\"'](.*?)[\"'].*?>"
+    r"\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>|<a.*?href=[\"'](.*?)[\"'].*?>|^\s*\[[^\]]+\]:\s*(\S+)",
+    re.MULTILINE,
 )
 # Inline code span — erased before link extraction to avoid false positives.
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
@@ -373,7 +374,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
 
     # 3. Standard inline markdown links [text](url)
     for match in _MARKDOWN_ASSET_LINK_RE.finditer(text):
-        url = match.group(1) or match.group(2) or match.group(3)
+        url = match.group(1) or match.group(2) or match.group(3) or match.group(4)
         if not url or url.startswith(("http://", "https://", "data:", "#")):
             continue
         clean_url = unquote(url.split("?")[0].split("#")[0])
