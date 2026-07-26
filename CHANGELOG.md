@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Path Traversal Security Parity (`LSP-FIX-012`)**: Hardened `Z202`/`Z203` path traversal evaluation in `IncrementalAnalysisEngine._run_urp_checks()` by replacing absolute OS filesystem depth checks (`len(path.parents)`) with `docs_root`-boundary escape detection (`os.path.normpath` + `is_relative_to(resolved_docs_root)`). This guarantees 100% security parity between CLI and LSP mode.
+
+
 ## [0.25.1] - 2026-07-26
 
 ### Added
