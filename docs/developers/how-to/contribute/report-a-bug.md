@@ -72,7 +72,6 @@ the issue.
 | :material-close: __Unclear__ | Anchor validation doesn't work |
 | :material-close: __Useless__ | Help |
 
-
 ### Context <small>optional</small> {#context}
 
 Provide additional context to help us understand what you were trying to

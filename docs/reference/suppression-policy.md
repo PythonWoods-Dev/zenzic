@@ -19,23 +19,23 @@ Zenzic replaces unmonitored ignore tags with a **Managed Technical Debt Governan
 
 <div class="grid cards" markdown>
 
--   :material-shield-check:{ .lg .middle } **Managed Technical Debt (Clean/Bounded)**
+- :material-shield-check:{ .lg .middle } **Managed Technical Debt (Clean/Bounded)**
 
     ---
 
-    - Explicitly declared exceptions with audit trails
-    - Bounded by the strict `suppression_cap` ceiling
-    - Emits `[MANAGED DEBT]` audit status in CLI & CI
-    - Deducts Quality Score points to reflect true visibility
+  - Explicitly declared exceptions with audit trails
+  - Bounded by the strict `suppression_cap` ceiling
+  - Emits `[MANAGED DEBT]` audit status in CLI & CI
+  - Deducts Quality Score points to reflect true visibility
 
--   :material-alert-decagram:{ .lg .middle } **Uncontrolled Architectural Drift**
+- :material-alert-decagram:{ .lg .middle } **Uncontrolled Architectural Drift**
 
     ---
 
-    - Unmonitored ignore tags scattered across codebases
-    - Hidden security vulnerabilities (credentials, path traversals)
-    - Zero audit trails or visibility into debt growth
-    - Causes silent PR breakages and customer-facing 404s
+  - Unmonitored ignore tags scattered across codebases
+  - Hidden security vulnerabilities (credentials, path traversals)
+  - Zero audit trails or visibility into debt growth
+  - Causes silent PR breakages and customer-facing 404s
 
 </div>
 

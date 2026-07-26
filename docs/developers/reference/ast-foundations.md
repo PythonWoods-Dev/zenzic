@@ -17,23 +17,23 @@ Zenzic replaces text matching with a **Lossless Abstract Syntax Tree (AST) Compi
 
 <div class="grid cards" markdown>
 
--   :material-text-search:{ .lg .middle } **Unstructured Text Linter**
+- :material-text-search:{ .lg .middle } **Unstructured Text Linter**
 
     ---
 
-    - Treats Markdown as plain text regex lines
-    - Cannot verify cross-file link targets or heading anchors
-    - Fails to track directory indexes or navigation topology
-    - Produces false positives and non-reproducible runs
+  - Treats Markdown as plain text regex lines
+  - Cannot verify cross-file link targets or heading anchors
+  - Fails to track directory indexes or navigation topology
+  - Produces false positives and non-reproducible runs
 
--   :material-graph-outline:{ .lg .middle } **Zenzic Topological Graph Engine**
+- :material-graph-outline:{ .lg .middle } **Zenzic Topological Graph Engine**
 
     ---
 
-    - Compiles Lossless ASTs and computes a Directed Graph (VSM)
-    - Verifies link targets, anchor references, and nav contracts statically
-    - Enforces hard security boundaries (SAST credential scanner)
-    - Delivers 100% bit-for-bit deterministic execution across platforms
+  - Compiles Lossless ASTs and computes a Directed Graph (VSM)
+  - Verifies link targets, anchor references, and nav contracts statically
+  - Enforces hard security boundaries (SAST credential scanner)
+  - Delivers 100% bit-for-bit deterministic execution across platforms
 
 </div>
 

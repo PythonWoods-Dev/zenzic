@@ -57,7 +57,6 @@ If you use a custom virtual environment or isolated installation, configure `zen
 }
 ```
 
-
 ### Supported Settings
 
 | Setting | Type | Default | Description |

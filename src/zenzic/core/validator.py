@@ -270,11 +270,21 @@ class HtmlNodeInfo:
     raw_tag: str
 
 
+@dataclass
+class ReferenceLinkNode:
+    """Nodo estratto dal PolyglotExtractor per una definizione di link di riferimento ([label]: dest)."""
+
+    label: str
+    dest: str
+    line_no: int
+    raw: str
+
+
 class PolyglotExtractor:
-    """Estrattore a due stadi per tag HTML nativi in sorgente Markdown/MDX.
+    """Estrattore a due stadi per tag HTML nativi e definizioni di riferimento Markdown.
 
     Implementa la **Uniform Resolver Pipeline** (URP) di Zenzic v0.17.0:
-    la forma sintattica (Markdown vs HTML) è un dettaglio di trasporto;
+    la forma sintattica (Markdown vs HTML vs Reference Defs) è un dettaglio di trasporto;
     l'analisi avviene sul valore risolto del puntamento.
 
     **Invarianti (ADR-075 / ADR-020):**
@@ -282,8 +292,7 @@ class PolyglotExtractor:
     * Complessità O(N): RE2/DFA-pure, nessun backtracking, nessun subprocess.
     * Z205 (FORBIDDEN_SCHEME) è verificato **prima** di ``data-zenzic-ignore``
       (sicurezza ha precedenza assoluta sulla soppressione).
-    * Supporta tag ``<a>`` e ``<img>``.
-    * Il carattere ``>`` non è ammesso nei valori degli attributi (chiude il tag).
+    * Supporta tag ``<a>``, ``<img>`` e definizioni di riferimento Markdown (CommonMark §4.7).
     * Fence-skipping obbligatorio: i blocchi ``code``/``pre`` vengono oscurati
       prima dell'estrazione per evitare falsi positivi in esempi di codice.
     """
@@ -306,6 +315,39 @@ class PolyglotExtractor:
             # Calcolare line_no dal testo originale (non mascherato)
             line_no = text[: m.start()].count("\n") + 1
             nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
+        return nodes
+
+    def extract_ref_defs(self, text: str) -> list[ReferenceLinkNode]:
+        """Estrae tutte le definizioni di link di riferimento ([label]: dest) fuori dai blocchi di codice.
+
+        Implementa CommonMark §4.7 Reference Link Definition parsing via PolyglotExtractor.
+        Fence-skipping obbligatorio tramite _mask_fences() e _mask_comments().
+        First-definition-wins per la risoluzione dei duplicati.
+        """
+        masked = self._mask_fences(self._mask_comments(text))
+        nodes: list[ReferenceLinkNode] = []
+        seen_labels: set[str] = set()
+
+        for lineno, line in enumerate(masked.splitlines(), start=1):
+            m = _REF_DEF_RE.match(line)
+            if not m:
+                continue
+            label = m.group(1)
+            if label.startswith("^"):
+                continue
+            norm_label = label.lower().strip()
+            if norm_label in seen_labels:
+                continue
+            seen_labels.add(norm_label)
+            dest = m.group(2).strip()
+            nodes.append(
+                ReferenceLinkNode(
+                    label=norm_label,
+                    dest=dest,
+                    line_no=lineno,
+                    raw=line,
+                )
+            )
         return nodes
 
     def _mask_comments(self, text: str) -> str:

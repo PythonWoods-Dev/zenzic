@@ -74,7 +74,6 @@ flowchart TD
 !!! note "ADR-084 Invariant: Centralized Core Governance"
     `directory_policies` and `per_file_ignores` are evaluated centrally in `zenzic.core.governance` to ensure bit-for-bit parity between CLI and LSP verification suites.
 
-
 ### Pass 1 -- Harvest and Credential Scan {#pass-1}
 
 Pass 1 reads every `.md` and `.md` file under `docs/` and performs three coordinated operations:

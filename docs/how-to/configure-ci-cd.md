@@ -61,7 +61,6 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
 
 === "GitHub Action Wrapper (Recommended)"
 
-
     The official [`PythonWoods/zenzic-action`](https://github.com/PythonWoods/zenzic-action) provides zero-config integration with automatic SARIF upload:
 
     ```yaml title=".github/workflows/zenzic.yml"

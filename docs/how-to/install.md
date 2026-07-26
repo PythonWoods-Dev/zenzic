@@ -82,7 +82,6 @@ environment. They are not needed. The linting environment has one dependency: `z
 uvx zenzic check all
 ```
 
-
 !!! note "Third-party engine adapters"
     Third-party adapters (e.g. a hypothetical `zenzic-hugo-adapter`) are separate
     installable packages — not extras of `zenzic` itself. No extra is required for

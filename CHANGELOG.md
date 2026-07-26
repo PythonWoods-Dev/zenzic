@@ -11,12 +11,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.25.3] - 2026-07-26
+
+### Added
+
+- **AST Reference Link Definition Extraction (`CORE-FIX-001`)**: Upgraded `PolyglotExtractor` to natively extract Markdown Reference Link Definitions (`[label]: dest`) with CommonMark §4.7 first-definition-wins semantics and full code fence masking (`_mask_fences`), eliminating false-positive `Z405` (Unused Asset) findings.
+- **Zensical Framework Feature Parity (`ADAPTER-002`/`ADAPTER-003`)**: Upgraded `ZensicalAdapter` with preserved static asset URL mapping, route classification for root/directory index pages (`index.md`) and dynamic blog routes (`<blog_dir>/posts/`), and theme asset metadata extraction (`favicon`, `logo`, `extra_css`, `extra_javascript`).
+
+
 ## [0.25.2] - 2026-07-26
 
 ### Fixed
 
 - **Path Traversal Security Parity (`LSP-FIX-012`)**: Hardened `Z202`/`Z203` path traversal evaluation in `IncrementalAnalysisEngine._run_urp_checks()` by replacing absolute OS filesystem depth checks (`len(path.parents)`) with `docs_root`-boundary escape detection (`os.path.normpath` + `is_relative_to(resolved_docs_root)`). This guarantees 100% security parity between CLI and LSP mode.
-
 
 ## [0.25.1] - 2026-07-26
 
@@ -28,7 +35,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **Inline HTML Suppression LSP Parity (`LSP-FIX-011`)**: Updated `IncrementalAnalysisEngine._run_urp_checks()` to pass the active `SuppressionTracker` when evaluating Polyglot Extractor nodes. Suppressed HTML elements (`data-zenzic-ignore`) are now correctly marked as consumed, eliminating spurious `Z603` (Dead Suppression) warnings in editor sessions.
-
 
 ## [0.25.0] - 2026-07-25
 
