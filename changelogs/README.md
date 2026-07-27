@@ -18,7 +18,10 @@ For the current release history, see the [main Changelog](../CHANGELOG.md).
 | v0.8.x | Basalt | 2026-05-15 to 2026-05-30 | [v0.8.md](./v0.8.md) |
 | v0.9.x | Graphite | 2026-05-31 to 2026-06-05 | [v0.9.md](./v0.9.md) |
 | v0.10.x | Magnetite | 2026-06-06 to 2026-06-09 | [v0.10.md](./v0.10.md) |
-| v0.11.x | TBD | 2026-06-10 → active | [main CHANGELOG](../CHANGELOG.md) |
+| v0.11.x | TBD | 2026-06-10 to 2026-06-10 | [v0.11.md](./v0.11.md) |
+| v0.24.x | — | 2026-07-24 to 2026-07-25 | [v0.24.x.md](./v0.24.x.md) |
+| v0.25.x | — | 2026-07-25 to 2026-07-26 | [v0.25.x.md](./v0.25.x.md) |
+| v0.26.x | — | 2026-07-26 → active | [main CHANGELOG](../CHANGELOG.md) |
 
 Archives follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 All dates are git-tag verified for v0.4.0-rc2 and later.
