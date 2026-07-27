@@ -329,6 +329,11 @@ class ZensicalAdapter(BaseAdapter):
         return frozenset(names)
 
     @property
+    def use_directory_urls(self) -> bool:
+        """Return Zensical URL mode (directory URLs or flat URLs)."""
+        return self._use_directory_urls
+
+    @property
     def watched_config_files(self) -> frozenset[str]:
         """Return Zensical configuration filenames for LSP hot-reloading."""
         if self._config_source == "mkdocs":

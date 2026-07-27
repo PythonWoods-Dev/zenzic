@@ -99,10 +99,13 @@ class ResolutionContext:
     Attributes:
         docs_root: Absolute path to the ``docs/`` directory.
         source_file: Absolute path of the Markdown file currently being checked.
+        use_directory_urls: Whether canonicalization should follow directory URLs
+            (``/page/``) or flat file URLs (``/page.html`` for HTML pages).
     """
 
     docs_root: Path
     source_file: Path
+    use_directory_urls: bool = True
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -1356,6 +1359,7 @@ class VSMBrokenLinkRule(BaseRule):
                 url,
                 source_dir=context.source_file.parent if context else None,
                 docs_root=context.docs_root if context else None,
+                use_directory_urls=context.use_directory_urls if context else True,
             )
             if target_url is None:
                 continue
@@ -1414,6 +1418,7 @@ class VSMBrokenLinkRule(BaseRule):
         href: str,
         source_dir: Path | None = None,
         docs_root: Path | None = None,
+        use_directory_urls: bool = True,
     ) -> str | None:
         """Convert a relative Markdown href to a canonical URL string.
 
@@ -1439,6 +1444,9 @@ class VSMBrokenLinkRule(BaseRule):
                         Required for correct ``..``-relative resolution.
             docs_root:  Absolute path to the docs root directory.
                         Required for context-aware boundary checking.
+            use_directory_urls: Canonical URL mode. ``True`` keeps directory-style
+                        routes (``/page/``). ``False`` keeps flat file routes
+                        for HTML/HTM links (``/page.html``).
 
         Returns:
             Canonical URL string (leading and trailing ``/``), or ``None``.
@@ -1469,21 +1477,30 @@ class VSMBrokenLinkRule(BaseRule):
                 return None
             path = rel if rel != "." else ""
 
-        # Strip .md, .mdx, .html, .htm suffix if present
-        ext = Path(path).suffix.lower()
-        if ext in (".md", ".mdx", ".html", ".htm"):
-            path = path[: -len(ext)]
+        from zenzic.core.discovery import DOC_SUFFIXES
 
-        # index is the directory itself
+        # Keep static assets at their exact path (no trailing slash rewrite).
+        ext = Path(path).suffix.lower()
+        is_asset = bool(ext) and ext not in DOC_SUFFIXES and ext not in (".html", ".htm")
+
+        # Strip document suffixes so internal links normalize to canonical routes.
+        if ext in DOC_SUFFIXES or (use_directory_urls and ext in (".html", ".htm")):
+            path = path[: -len(ext)]
+            ext = ""
+
+        # index and README map to the directory route in directory-URL mode.
         parts = [p for p in path.split("/") if p]
         if not parts:
             return "/"
-        if parts[-1] == "index":
+        if use_directory_urls and parts[-1] in ("index", "README"):
             parts = parts[:-1]
         if not parts:
             return "/"
 
-        return "/" + "/".join(parts) + "/"
+        out = "/" + "/".join(parts)
+        if use_directory_urls and not is_asset:
+            out += "/"
+        return out
 
 
 # ─── Plugin discovery ─────────────────────────────────────────────────────────

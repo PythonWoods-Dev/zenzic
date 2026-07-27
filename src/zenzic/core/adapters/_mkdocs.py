@@ -648,6 +648,13 @@ class MkDocsAdapter(BaseAdapter):
         return frozenset(names)
 
     @property
+    def use_directory_urls(self) -> bool:
+        """Return MkDocs URL mode from config/offline context."""
+        if getattr(self._context, "offline_mode", False):
+            return False
+        return bool(self._doc_config.get("use_directory_urls", True))
+
+    @property
     def watched_config_files(self) -> frozenset[str]:
         """Return MkDocs configuration filenames for LSP hot-reloading."""
         return frozenset({"mkdocs.yml", "mkdocs.yaml"})

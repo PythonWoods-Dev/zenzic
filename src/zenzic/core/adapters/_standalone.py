@@ -66,6 +66,11 @@ class StandaloneAdapter(BaseAdapter):
         """StandaloneAdapter has no engine config file."""
         return frozenset()
 
+    @property
+    def use_directory_urls(self) -> bool:
+        """Standalone mode defaults to directory-style canonical URLs."""
+        return True
+
     def _map_url(self, rel: Path) -> str:
         """Filesystem-derived clean URL — same rule as Zensical."""
         stem = rel.with_suffix("")

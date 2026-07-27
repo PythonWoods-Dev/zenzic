@@ -104,6 +104,10 @@ Constructs and returns routing metadata, including the canonical URL and route s
 
 Returns the set of framework configuration filenames (e.g., `mkdocs.yml`, `zensical.toml`) that dictate documentation structure. The Zenzic Language Server watches these files to trigger real-time VSM hot-reloading.
 
+#### `use_directory_urls` (Property `-> bool`)
+
+Declares the adapter routing mode for canonical page URLs. Return `True` for directory-style URLs (`/page/`), and `False` for flat HTML-style URLs (`/page.html`). The incremental engine forwards this value to VSM link canonicalization.
+
 ---
 
 ## `zenzic.rules` — Plugin SDK Façade

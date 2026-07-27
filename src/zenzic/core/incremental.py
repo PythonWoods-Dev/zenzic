@@ -114,7 +114,14 @@ class IncrementalAnalysisEngine:
         self.repo_root = repo_root
         self.md_contents_cache: dict[Path, str] = {}
         self.anchors_cache: dict[Path, set[str]] = {}
+        self._use_directory_urls: bool = self._resolve_use_directory_urls()
         self._initialized: bool = False
+
+    def _resolve_use_directory_urls(self) -> bool:
+        """Resolve canonical URL mode through the public adapter contract."""
+        if self.adapter is None:
+            return True
+        return self.adapter.use_directory_urls
 
     # ── Cache management API ──────────────────────────────────────────────────
 
@@ -442,7 +449,11 @@ class IncrementalAnalysisEngine:
         findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
         # VSM-aware Rules
-        context = ResolutionContext(docs_root=self.docs_root, source_file=path)
+        context = ResolutionContext(
+            docs_root=self.docs_root,
+            source_file=path,
+            use_directory_urls=self._use_directory_urls,
+        )
         findings.extend(self.rule_engine.run_vsm(path, text, vsm, self.anchors_cache, context))
 
         # Snippet Checks
