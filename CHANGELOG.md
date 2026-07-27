@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-07-27
+
 ### Fixed
 
 - **MkDocs Static Asset Route Parity (`CORE-FIX-002`)**: Hardened `MkDocsAdapter._map_url()` to preserve exact canonical paths for non-document assets (`.jpg`, `.png`, `.css`, etc.) by bypassing `use_directory_urls` for files whose suffix is outside `DOC_SUFFIXES`. This eliminates false-positive `Z101` findings for linked static assets in MkDocs repositories.
