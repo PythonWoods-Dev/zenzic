@@ -33,12 +33,15 @@ Zenzic v0.26.0 solves this fundamental architectural challenge by establishing a
 ## Architectural Invariants Preserved
 
 ### 1. Absolute Determinism
+
 Because the status bar indicator is powered directly by `zenzic score --json`, the score displayed inside VS Code is **mathematically identical** to the score computed by GitHub Actions and CI/CD pipelines.
 
 ### 2. Radical Unawareness (ADR-075)
+
 The Python Core remains completely unaware of its consumer. When invoked with `--json`, `zenzic score` writes a single, structured JSON payload to `stdout` and exits cleanly. It contains zero editor-specific or transport-specific logic.
 
 ### 3. Thin Client Architecture
+
 The TypeScript extension performs no scoring calculations. It simply parses the JSON response and updates the status bar item (`$(dashboard) Zenzic DQS: 98/100`) and detailed breakdown tooltips.
 
 ---
@@ -126,9 +129,11 @@ Zenzic v0.26.0 contributes a new command to VS Code:
 ## Upgrade Guide
 
 ### Core Engine & CLI
+
 ```bash
 uv tool install --force zenzic
 ```
 
 ### VS Code Extension
+
 Update to version `0.26.0` from the VS Code Marketplace or reload your editor workspace.

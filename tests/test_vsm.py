@@ -174,16 +174,14 @@ class TestMkDocsAdapterMapUrl:
         """use_directory_urls=True must not affect non-Markdown asset routing."""
         a = self._make_adapter({"use_directory_urls": True})
         assert (
-            a.get_route_info(Path("blog/posts/photo.jpg")).canonical_url
-            == "/blog/posts/photo.jpg"
+            a.get_route_info(Path("blog/posts/photo.jpg")).canonical_url == "/blog/posts/photo.jpg"
         )
 
     def test_asset_exact_path_even_when_use_directory_urls_false(self) -> None:
         """use_directory_urls=False must not affect non-Markdown asset routing."""
         a = self._make_adapter({"use_directory_urls": False})
         assert (
-            a.get_route_info(Path("blog/posts/photo.jpg")).canonical_url
-            == "/blog/posts/photo.jpg"
+            a.get_route_info(Path("blog/posts/photo.jpg")).canonical_url == "/blog/posts/photo.jpg"
         )
 
 
