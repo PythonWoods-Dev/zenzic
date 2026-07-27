@@ -665,6 +665,9 @@ class MkDocsAdapter(BaseAdapter):
         * ``index.md``          → ``/``           (root)
         * ``page.md`` (no-dir)  → ``/page.html``
 
+        Non-Markdown static assets (e.g. ``.jpg``, ``.png``, ``.css``) are
+        served at their exact path — ``use_directory_urls`` does not apply.
+
         The Double-Index case (``index.md`` **and** ``README.md`` coexist in
         the same directory) produces two routes with the identical URL, which
         ``_detect_collisions()`` will mark as ``CONFLICT``.
@@ -675,6 +678,11 @@ class MkDocsAdapter(BaseAdapter):
         Returns:
             Canonical URL string (always starts and ends with ``/``).
         """
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "/" + rel.as_posix()
+
         if getattr(self._context, "offline_mode", False):
             use_dir = False
         else:
