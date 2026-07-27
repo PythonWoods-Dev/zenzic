@@ -17,6 +17,8 @@ With v0.17.0, HTML links and images are analyzed by the same validation pipeline
 
 <!-- more -->
 
+![Zenzic v0.17.0: HTML Validation in Markdown Documents](../../assets/images/blog/zenzic-v0170-html-validation.webp)
+
 ## The Uniform Resolver Pipeline (URP)
 
 To support HTML validation while preserving the existing architecture, we introduced the **Uniform Resolver Pipeline (URP)**.

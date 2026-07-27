@@ -22,6 +22,8 @@ Today, we are eliminating the latency between authoring a defect and discovering
 
 <!-- more -->
 
+![Shift-Left to the Keystroke: The Zenzic VS Code Extension](../../assets/images/blog/zenzic-vs-code-extension.webp)
+
 ## The Thin Client Architecture
 
 Most documentation linters suffer from architectural bloat, bundling heavy Node.js parsers or embedding redundant logic directly into the editor extension. This leads to high memory consumption and fragmented rule sets where the editor behaves differently than the CI pipeline.
