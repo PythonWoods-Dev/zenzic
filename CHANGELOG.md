@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Extensionless Asset Resolution**: Fixed a bug in `VSMBrokenLinkRule._to_canonical_url` where extensionless files (e.g., `LICENSE`, `Makefile`) incorrectly received a trailing slash when `use_directory_urls` was active, causing false-positive `Z101` findings.
+
 ## [0.26.1] - 2026-07-27
 
 ### Added

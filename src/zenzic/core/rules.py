@@ -1587,7 +1587,9 @@ class VSMBrokenLinkRule(BaseRule):
 
         # Keep static assets at their exact path (no trailing slash rewrite).
         ext = Path(path).suffix.lower()
-        is_asset = bool(ext) and ext not in DOC_SUFFIXES and ext not in (".html", ".htm")
+        is_asset = (bool(ext) and ext not in DOC_SUFFIXES and ext not in (".html", ".htm")) or (
+            not ext and Path(path).name not in ("index", "README")
+        )
 
         # Strip document suffixes so internal links normalize to canonical routes.
         if ext in DOC_SUFFIXES or (use_directory_urls and ext in (".html", ".htm")):

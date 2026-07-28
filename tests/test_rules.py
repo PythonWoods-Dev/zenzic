@@ -1527,6 +1527,10 @@ class TestToCanonicalUrlMutantKill:
 
     # ── rstrip("/") kills ────────────────────────────────────────────────────
 
+    def test_extensionless_static_asset_no_trailing_slash(self) -> None:
+        """Extensionless files like LICENSE must resolve without trailing slash."""
+        assert self._url("LICENSE") == "/LICENSE"
+
     def test_trailing_slash_is_stripped_before_processing(self) -> None:
         """rstrip(None) / lstrip("/") / rstrip("XX/XX") mutants leave a trailing slash
         that would produce "//guide//" or cause wrong path splits."""
