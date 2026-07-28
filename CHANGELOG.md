@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **LSP State Hygiene (`LSP-FIX-015`)**: Eradicated "ghost diagnostics" by ensuring the LSP server explicitly sends an empty diagnostics array (`[]`) to VS Code when a file is deleted, clearing the PROBLEMS panel.
+- **Code Action Routing (`LSP-FIX-016`)**: Fixed a routing bug in the LSP server that prevented Quick Fixes for `Z108` (Empty Link Text) and `Z505` (Untagged Code Block) from appearing in the editor.
+- **Z603 Parity (`LSP-FIX-015`)**: Ensured HTML comment suppressions (`<!-- zenzic:ignore -->`) are correctly evaluated for "dead" status in the LSP engine.
+
 ## [0.26.2] - 2026-07-28
 
 ### Fixed
