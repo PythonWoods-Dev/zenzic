@@ -28,11 +28,9 @@ jobs:
         # and use a stable anchor for Windows/macOS.
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.14"]
-        # include:
-        #   - os: windows-latest
-        #     python-version: "3.12"
-        #   - os: macos-latest
-        #     python-version: "3.12"
+        exclude:
+          - os: windows-latest
+            python-version: "3.14"
 
     steps:
       - name: Checkout Repository
