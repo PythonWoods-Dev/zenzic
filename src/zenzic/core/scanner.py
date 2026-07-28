@@ -19,7 +19,8 @@ import posixpath
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
+
 
 from zenzic.core import regex as re
 from zenzic.core.credentials import (
@@ -38,7 +39,8 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.validator import LinkValidator
+from zenzic.core.validator import LinkValidator, PolyglotExtractor
+
 from zenzic.models.config import (
     ZenzicConfig,
 )
@@ -162,8 +164,15 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
     """
     start = search_from.resolve() if search_from is not None else Path.cwd().resolve()
     for candidate in [start, *start.parents]:
-        if (candidate / ".git").is_dir() or (candidate / ".zenzic.toml").is_file():
+        if (
+            (candidate / ".git").is_dir()
+            or (candidate / ".zenzic.toml").is_file()
+            or (candidate / "zensical.toml").is_file()
+            or (candidate / "mkdocs.yml").is_file()
+        ):
             return candidate
+
+
 
     if fallback_to_cwd:
         return start
@@ -1064,6 +1073,182 @@ def _scan_single_file(
     return report, secure_scanner
 
 
+def _run_vsm_and_urp_pass(
+    reports: list[IntegrityReport],
+    md_files: list[Path],
+    docs_root: Path,
+    config: ZenzicConfig,
+    rule_engine: AdaptiveRuleEngine | None,
+    locale_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
+    repo_root: Path | None = None,
+    static_assets: set[Path] | None = None,
+) -> None:
+    """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
+    from zenzic.core.adapter import get_adapter
+    from zenzic.core.incremental import IncrementalAnalysisEngine
+    from zenzic.core.rules import AdaptiveRuleEngine, ResolutionContext, RuleFinding, VSMBrokenLinkRule
+    from zenzic.core.validator import (
+        InMemoryPathResolver,
+        LinkInfo,
+        PolyglotExtractor,
+        Resolved,
+        _build_link_graph,
+        _find_cycles_iterative,
+        anchors_in_file,
+    )
+    from zenzic.models.vsm import build_vsm
+
+    if not rule_engine:
+        rule_engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+
+    if repo_root is None:
+        repo_root = find_repo_root(fallback_to_cwd=True, search_from=docs_root)
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    anchors_cache: dict[Path, set[str]] = {}
+    md_contents: dict[Path, str] = {}
+    for f in md_files:
+        if f.is_file():
+            try:
+                text = f.read_text(encoding="utf-8")
+                md_contents[f] = text
+                anchors_cache[f] = anchors_in_file(text)
+            except OSError:
+                pass
+
+    vsm = build_vsm(
+        adapter,
+        docs_root,
+        md_contents,
+        anchors_cache=anchors_cache,
+        extra_content_roots=content_roots,
+        repo_root=repo_root,
+        static_assets=static_assets,
+    )
+
+    links_cache: dict[Path, list[LinkInfo]] = {
+        f: [
+            LinkInfo(
+                url=item.url,
+                lineno=item.line_no,
+                col_start=item.col_start,
+                match_text=item.raw_text,
+            )
+            for item in PolyglotExtractor().extract_all_links(text)
+            if item.node_type != "ref_def" and not item.suppressed
+        ]
+        for f, text in md_contents.items()
+    }
+    resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache, repo_root=repo_root)
+
+
+    link_graph = _build_link_graph(links_cache, resolver, frozenset(md_contents.keys()))
+
+    cycle_nodes = set(_find_cycles_iterative(link_graph))
+
+    inc_engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_root, repo_root)
+    inc_engine.anchors_cache = anchors_cache
+
+    use_dir_urls = getattr(config, "use_directory_urls", True)
+
+    for r in reports:
+        if not r.file_path.is_file():
+            continue
+
+
+        try:
+            text = r.file_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        extracted_links = PolyglotExtractor().extract_all_links(text)
+        context = ResolutionContext(
+            docs_root=docs_root,
+            source_file=r.file_path,
+            use_directory_urls=use_dir_urls,
+            config=config,
+            adapter=adapter,
+        )
+
+
+        vsm_findings = rule_engine.run_vsm(
+            r.file_path, text, vsm, anchors_cache, context, extracted_links=extracted_links
+        )
+        urp_findings = inc_engine._run_urp_checks(
+            vsm, r.file_path, text, tracker=r.suppression_tracker, extracted_links=extracted_links, resolver=resolver
+        )
+
+        if r.suppression_tracker is not None:
+            active_vsm = [
+                f for f in vsm_findings
+                if not r.suppression_tracker.is_suppressed(f.line_no, f.rule_id)
+            ]
+            active_urp = [
+                f for f in urp_findings
+                if not r.suppression_tracker.is_suppressed(f.line_no, f.rule_id)
+            ]
+        else:
+            active_vsm = vsm_findings
+            active_urp = urp_findings
+
+        r.rule_findings.extend(active_vsm)
+        r.rule_findings.extend(active_urp)
+
+        if cycle_nodes and r.file_path in links_cache:
+            for link in links_cache[r.file_path]:
+                if not link.url.startswith(("http://", "https://", "mailto:", "#")):
+                    match resolver.resolve(r.file_path, link.url):
+                        case Resolved(target=target):
+                            if target.as_posix() in cycle_nodes:
+                                if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(link.lineno, "Z106"):
+                                    r.rule_findings.append(
+                                        RuleFinding(
+                                            r.file_path,
+                                            link.lineno,
+                                            "Z106",
+                                            f"'{link.url}' is part of a circular link cycle",
+                                            severity="error",
+                                            matched_line="",
+                                            col_start=link.col_start,
+                                            match_text=link.match_text,
+                                        )
+                                    )
+
+    if config.absolute_path_allowlist:
+        used_allowlist: set[str] = set()
+        for f, text in md_contents.items():
+            for link in PolyglotExtractor().extract_all_links(text):
+                if link.url.startswith("/"):
+                    for prefix in config.absolute_path_allowlist:
+                        if link.url.startswith(prefix):
+                            used_allowlist.add(prefix)
+        unused = set(config.absolute_path_allowlist) - used_allowlist
+        if unused and reports:
+            config_file = repo_root / ".zenzic.toml"
+            target_path = (
+                config.origin_file
+                if config.origin_file is not None
+                else (config_file if config_file.is_file() else reports[0].file_path)
+            )
+            for entry in sorted(unused):
+                reports[0].rule_findings.append(
+                    RuleFinding(
+                        target_path,
+                        1,
+                        "Z110",
+                        f"{target_path.name}:1: Stale absolute_path_allowlist entry '{entry}': no link matched this prefix across all scanned files",
+                        severity="warning",
+                    )
+                )
+
+
+
+
+
+
+
 def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
@@ -1242,7 +1427,8 @@ def scan_docs_references(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
     *,
-    config: ZenzicConfig,
+    repo_root: Path | None = None,
+    config: ZenzicConfig | None = None,
     validate_links: bool = False,
     workers: int | None = 1,
     verbose: bool = False,
@@ -1250,6 +1436,7 @@ def scan_docs_references(
     content_roots: list[Path] | None = None,
     show_progress: bool = False,
 ) -> tuple[list[IntegrityReport], list[str]]:
+
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
     This is the single unified entry point for all scan modes.  The engine
@@ -1322,6 +1509,13 @@ def scan_docs_references(
 
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
+
+    static_assets: set[Path] = set()
+    if docs_root.is_dir():
+        for fpath in walk_files(docs_root, set(config.excluded_dirs), exclusion_manager, config):
+            if fpath.suffix.lower() not in DOC_SUFFIXES and not fpath.is_symlink():
+                if not exclusion_manager.should_exclude_file(fpath, docs_root):
+                    static_assets.add(fpath)
 
     # Build locale path remap: actual_abs_path → virtual_path_under_docs_root.
     # virtual_path = docs_root / locale_name / rel_within_locale
@@ -1447,6 +1641,19 @@ def scan_docs_references(
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
+            _run_vsm_and_urp_pass(
+                reports,
+                md_files,
+                docs_root,
+                config,
+                rule_engine,
+                repo_root=repo_root,
+                locale_roots=locale_roots,
+                content_roots=content_roots,
+                static_assets=static_assets,
+            )
+
+
             # Remap locale file paths to their logical display paths.
             if _locale_path_remap:
                 for _r in reports:
@@ -1477,10 +1684,22 @@ def scan_docs_references(
                 _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)
                 if secure_scanner_b is not None:
                     secure_scanners_b.append(secure_scanner_b)
-            _resolved_repo_root = find_repo_root(search_from=docs_root)
+            _resolved_repo_root = find_repo_root(fallback_to_cwd=True, search_from=docs_root)
             validator_b = LinkValidator(config, _resolved_repo_root)
             for scanner in secure_scanners_b:
                 validator_b.register_from_map(scanner.ref_map, scanner.file_path)
+            for r in reports:
+                if not r.security_findings and r.file_path.is_file():
+                    try:
+                        text = r.file_path.read_text(encoding="utf-8")
+                        for link in PolyglotExtractor().extract_all_links(text):
+                            if not link.suppressed:
+                                parsed = urlsplit(link.url)
+                                if parsed.scheme in ("http", "https"):
+                                    validator_b.register(link.url, r.file_path, link.line_no)
+                    except OSError:
+                        pass
+
             return reports, validator_b.validate()
 
         # Sequential path — zero overhead, full O(N) link-validation support.
@@ -1495,7 +1714,21 @@ def scan_docs_references(
             if progress and task_id is not None:
                 progress.advance(task_id)
 
+        _run_vsm_and_urp_pass(
+            reports_seq,
+            md_files,
+            docs_root,
+            config,
+            rule_engine,
+            repo_root=repo_root,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
+            static_assets=static_assets,
+        )
+
+
         elapsed_seq = time.monotonic() - _t0
+
         if verbose:
             _emit_telemetry(
                 mode="Sequential",
@@ -1517,10 +1750,22 @@ def scan_docs_references(
 
         # Phase B — global URL deduplication and async HTTP validation.
         # Uses the already-populated ref_maps from Phase A — no second file read.
-        _resolved_repo_root = find_repo_root(search_from=docs_root)
+        _resolved_repo_root = find_repo_root(fallback_to_cwd=True, search_from=docs_root)
         validator_seq = LinkValidator(config, _resolved_repo_root)
         for scanner in secure_scanners_seq:
             validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
+        for r in reports_seq:
+            if not r.security_findings and r.file_path.is_file():
+                try:
+                    text = r.file_path.read_text(encoding="utf-8")
+                    for link in PolyglotExtractor().extract_all_links(text):
+                        if not link.suppressed:
+                            parsed = urlsplit(link.url)
+                            if parsed.scheme in ("http", "https"):
+                                validator_seq.register(link.url, r.file_path, link.line_no)
+                except OSError:
+                    pass
+
         # Remap locale file paths to their logical display paths.
         if _locale_path_remap:
             for _r in reports_seq:

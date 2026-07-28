@@ -484,6 +484,13 @@ class TestVSMBrokenLinkRule:
         assert "missing" in violations[0].message
         assert "missing.md" in violations[0].context
 
+    def test_html_broken_link_emits_violation(self) -> None:
+        violations = self._run('<a href="missing.html">HTML link</a>', {})
+        assert len(violations) == 1
+        assert violations[0].code == "Z101"
+        assert "missing" in violations[0].message
+
+
     # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
 
     def test_orphan_link_emits_z002_warning(self) -> None:

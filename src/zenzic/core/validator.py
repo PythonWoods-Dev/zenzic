@@ -52,6 +52,7 @@ import yaml
 
 from zenzic.core import regex as re
 from zenzic.core.adapter import get_adapter
+from zenzic.core.ast import ExtractedLink
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
     build_content_mounts,
@@ -223,7 +224,8 @@ _POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
 _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
 
 # Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
-_POLY_FENCE_RE: re.RegexPattern = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
+_POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.*)$")
+
 
 # HTML and MDX Comment Regex Patterns for masking
 _POLY_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
@@ -349,6 +351,96 @@ class PolyglotExtractor:
                 )
             )
         return nodes
+
+    def extract_inline_links(self, text: str) -> list[ExtractedLink]:
+        """Extract standard Markdown inline links ([text](url)) and images (![alt](url)).
+
+        Fences, HTML/MDX comments, and inline code spans are masked out prior to extraction
+        to avoid false positives in code examples. Optional link titles are stripped.
+
+        Args:
+            text: Raw markdown content.
+
+        Returns:
+            List of :class:`ExtractedLink` with node_type="inline" or "image".
+        """
+        masked = self._mask_fences(self._mask_comments(text))
+        results: list[ExtractedLink] = []
+
+        for lineno, line in enumerate(masked.splitlines(), start=1):
+            clean = self._mask_inline_code(line)
+            for m in _MARKDOWN_LINK_RE.finditer(clean):
+                raw = m.group(1).strip()
+                if not raw:
+                    continue
+                url = _TITLE_STRIP_RE.sub("", raw).strip()
+                if url:
+                    is_img = m.group(0).startswith("!")
+                    node_type = "image" if is_img else "inline"
+                    results.append(
+                        ExtractedLink(
+                            url=url,
+                            line_no=lineno,
+                            is_html=False,
+                            node_type=node_type,
+                            raw_text=m.group(0),
+                            col_start=m.start(),
+                        )
+                    )
+        return results
+
+    def extract_all_links(self, text: str) -> list[ExtractedLink]:
+        """Single source of truth for extracting all link candidate nodes from Markdown & HTML.
+
+        Aggregates:
+        1. HTML tag href/src attributes (<a>, <img>) from `extract(...)`
+        2. Reference link definitions ([label]: dest) from `extract_ref_defs(...)`
+        3. Inline Markdown links ([text](url), ![alt](url)) from `extract_inline_links(...)`
+
+        Args:
+            text: Raw markdown/HTML text.
+
+        Returns:
+            Flat, ordered list of :class:`ExtractedLink` objects sorted by line_no and col_start.
+        """
+        extracted: list[ExtractedLink] = []
+
+        # 1. HTML nodes
+        for html_node in self.extract(text):
+            if html_node.href is not None and not html_node.is_missing_href:
+                extracted.append(
+                    ExtractedLink(
+                        url=html_node.href,
+                        line_no=html_node.line_no,
+                        is_html=True,
+                        node_type=f"html_{html_node.tag}",
+                        raw_text=html_node.raw_tag,
+                        col_start=0,
+                        suppressed=html_node.suppressed,
+                        html_node=html_node,
+                    )
+                )
+
+        # 2. Reference definitions
+        for ref_node in self.extract_ref_defs(text):
+            extracted.append(
+                ExtractedLink(
+                    url=ref_node.dest,
+                    line_no=ref_node.line_no,
+                    is_html=False,
+                    node_type="ref_def",
+                    raw_text=ref_node.raw,
+                    col_start=0,
+                )
+            )
+
+        # 3. Inline Markdown links and images
+        extracted.extend(self.extract_inline_links(text))
+
+        # Deterministic ordering by line number and column position
+        extracted.sort(key=lambda item: (item.line_no, item.col_start))
+        return extracted
+
 
     def _mask_comments(self, text: str) -> str:
         """Mask HTML and MDX comments with spaces of equal length to preserve offsets."""
@@ -646,13 +738,27 @@ def _index_file_for_validation(args: tuple[Path, str]) -> _ValidationPayload:
     """
     md_file, content = args
     ref_map = _build_ref_map(content)
-    all_links = extract_links(content) + extract_ref_links(content, ref_map)
+    extractor = PolyglotExtractor()
+    extracted = extractor.extract_all_links(content)
+
+    links = [
+        LinkInfo(
+            url=link.url,
+            lineno=link.line_no,
+            col_start=link.col_start,
+            match_text=link.raw_text,
+        )
+        for link in extracted
+        if link.node_type != "ref_def" and not link.suppressed
+    ] + extract_ref_links(content, ref_map)
+
     return _ValidationPayload(
         file_path=md_file,
         anchors=anchors_in_file(content),
-        links=all_links,
+        links=links,
         source_lines=content.splitlines(),
     )
+
 
 
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
@@ -661,10 +767,8 @@ def _index_file_for_validation(args: tuple[Path, str]) -> _ValidationPayload:
 def extract_links(text: str) -> list[LinkInfo]:
     """Extract ``[text](url)`` and ``![alt](url)`` links from raw Markdown.
 
-    Skips content inside fenced code blocks (````` ``` ````` / ``~~~``) and
-    inline code spans (`` ` `` ) so that example links in documentation are
-    never mistaken for real targets.  Optional link titles (``"title"`` /
-    ``'title'``) are stripped so callers receive clean URL strings.
+    .. deprecated:: 0.26.1
+       Use :meth:`PolyglotExtractor.extract_all_links` or :meth:`PolyglotExtractor.extract_inline_links` instead.
 
     Args:
         text: Raw markdown content.
@@ -672,42 +776,18 @@ def extract_links(text: str) -> list[LinkInfo]:
     Returns:
         List of :class:`LinkInfo` with URL, line number, column, and match text.
     """
-    results: list[LinkInfo] = []
-    in_block = False
+    extractor = PolyglotExtractor()
+    inline_links = extractor.extract_inline_links(text)
+    return [
+        LinkInfo(
+            url=link.url,
+            lineno=link.line_no,
+            col_start=link.col_start,
+            match_text=link.raw_text,
+        )
+        for link in inline_links
+    ]
 
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-
-        # ── Fenced code block boundary tracking ──────────────────────────────
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
-            continue  # always skip lines inside a fenced block
-
-        # ── Inline code: blank out `...` spans to prevent false matches ───────
-        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
-
-        for m in _MARKDOWN_LINK_RE.finditer(clean):
-            raw = m.group(1).strip()
-            if not raw:
-                continue
-            # Strip optional title portion: url "title" or url 'title'
-            url = _TITLE_STRIP_RE.sub("", raw).strip()
-            if url:
-                results.append(
-                    LinkInfo(
-                        url=url,
-                        lineno=lineno,
-                        col_start=m.start(),
-                        match_text=m.group(0),
-                    )
-                )
-
-    return results
 
 
 def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
@@ -1038,6 +1118,9 @@ async def _check_external_links(
                 return_exceptions=True,
             )
 
+
+
+
             for url, result in zip(urls_to_check, results, strict=True):
                 if result is None:
                     continue
@@ -1061,40 +1144,9 @@ async def _check_external_links(
 # ─── Main link validator ──────────────────────────────────────────────────────
 
 
-async def validate_links_async(
-    docs_root: Path,
-    exclusion_manager: LayeredExclusionManager,
-    *,
-    repo_root: Path,
-    config: ZenzicConfig,
-    strict: bool = False,
-    structured: bool = False,
-    locale_roots: list[tuple[Path, str]] | None = None,
-    check_external: bool = True,
-    trackers: dict[Path, SuppressionTracker] | None = None,
-) -> list[str] | list[LinkError]:
-    """Native link validator — no subprocesses, no MkDocs dependency.
+# validate_links_async eradicated in CORE-REFACTOR-003-TRUE-URP-UNIFICATION.
 
-    Args:
-        docs_root: Resolved path to the documentation root.
-        exclusion_manager: Layered exclusion manager (mandatory).
-        repo_root: Repository root directory.
-        config: Zenzic configuration model.
-        strict: When True, also validate external HTTP/HTTPS links.
-        structured: When True, return list[LinkError] instead of list[str].
-        locale_roots: Optional list of (locale_root, locale_name) pairs from the
-            adapter's ``get_locale_source_roots()`` — when provided, i18n
-            translation files are included in both the anchor index and link
-            validation pass so that broken anchors in translated pages are caught.
-        check_external: When False, skip Pass 3 (HTTP HEAD requests) even if
-            ``strict`` is True. Designed for air-gapped / offline environments.
-            Credential scanner (Z201) is never affected — it operates on raw file content.
 
-    Returns:
-        list[str] or list[LinkError]; empty when all links pass.
-    """
-    if not docs_root.is_dir():
-        return []
 
     # ── Instantiate the build-engine adapter (locale-aware path resolution) ──
     adapter = get_adapter(config.build_context, docs_root, repo_root)
@@ -1235,6 +1287,7 @@ async def validate_links_async(
         anchors_cache=anchors_cache,
         extra_content_roots=extra_content_roots,
         repo_root=repo_root,
+        static_assets={Path(p) for p in known_assets},
     )
 
     # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────
@@ -1931,43 +1984,6 @@ def check_nav_contract(
     return errors
 
 
-def validate_links(
-    docs_root: Path,
-    exclusion_manager: LayeredExclusionManager,
-    *,
-    repo_root: Path,
-    config: ZenzicConfig,
-    strict: bool = False,
-    check_external: bool = True,
-) -> list[str]:
-    """Synchronous wrapper around :func:`validate_links_async`.
-
-    Args:
-        docs_root: Resolved path to the documentation root.
-        exclusion_manager: Layered exclusion manager (mandatory).
-        repo_root: Repository root directory.
-        config: Zenzic configuration model.
-        strict: Include external HTTP/HTTPS link checks.
-        check_external: When False, skip Pass 3 HTTP HEAD requests (CEO-252).
-
-    Returns:
-        Sorted list of human-readable error strings.
-    """
-    result = asyncio.run(
-        validate_links_async(
-            docs_root,
-            exclusion_manager,
-            repo_root=repo_root,
-            config=config,
-            strict=strict,
-            structured=False,
-            check_external=check_external,
-        )
-    )
-    assert isinstance(result, list)
-    return result  # type: ignore[return-value]
-
-
 def validate_links_structured(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
@@ -1979,36 +1995,98 @@ def validate_links_structured(
     check_external: bool = True,
     trackers: dict[Path, SuppressionTracker] | None = None,
 ) -> list[LinkError]:
-    """Synchronous wrapper that returns rich :class:`LinkError` objects.
+    """Unified link validation entry point using scan_docs_references and URP rules."""
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.scanner import scan_docs_references
 
-    Args:
-        docs_root: Resolved path to the documentation root.
-        exclusion_manager: Layered exclusion manager (mandatory).
-        repo_root: Repository root directory.
-        config: Zenzic configuration model.
-        strict: Include external HTTP/HTTPS link checks.
-        locale_roots: Optional list of (locale_root, locale_name) pairs — when
-            provided, i18n translation files are included in link validation.
-        check_external: When False, skip Pass 3 HTTP HEAD requests (CEO-252).
+    if locale_roots is None:
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+        locale_roots = adapter.get_locale_source_roots(repo_root)
 
-    Returns:
-        Sorted list of LinkError objects; empty when all links pass.
-    """
-    result = asyncio.run(
-        validate_links_async(
-            docs_root,
-            exclusion_manager,
-            repo_root=repo_root,
-            config=config,
-            strict=strict,
-            structured=True,
-            locale_roots=locale_roots,
-            check_external=check_external,
-            trackers=trackers,
-        )
+    reports, ext_errors = scan_docs_references(
+        docs_root,
+        exclusion_manager,
+        repo_root=repo_root,
+        config=config,
+        validate_links=strict and check_external,
+        locale_roots=locale_roots,
     )
-    assert isinstance(result, list)
-    return result  # type: ignore[return-value]
+
+
+
+    link_errors: list[LinkError] = []
+    link_codes = {
+        "Z101",
+        "Z102",
+        "Z103",
+        "Z104",
+        "Z105",
+        "Z106",
+        "Z108",
+        "Z110",
+        "Z118",
+        "Z120",
+        "Z121",
+        "Z122",
+        "Z123",
+        "Z124",
+        "Z202",
+        "Z203",
+        "Z205",
+    }
+
+    for report in reports:
+        for rf in report.rule_findings:
+            if rf.rule_id in link_codes:
+                link_errors.append(
+                    LinkError(
+                        file_path=rf.file_path,
+                        line_no=rf.line_no,
+                        message=rf.message,
+                        source_line=rf.matched_line,
+                        error_type=rf.rule_id,
+                        col_start=rf.col_start,
+                        match_text=rf.match_text,
+                    )
+                )
+
+
+
+
+    for ext_msg in ext_errors:
+        link_errors.append(
+            LinkError(
+                file_path=docs_root,
+                line_no=0,
+                message=ext_msg,
+                source_line="",
+                error_type="Z101",
+            )
+        )
+    return link_errors
+
+
+def validate_links(
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    repo_root: Path,
+    config: ZenzicConfig,
+    strict: bool = False,
+    check_external: bool = True,
+) -> list[str]:
+    """Synchronous wrapper returning flat error messages."""
+    errors = validate_links_structured(
+        docs_root,
+        exclusion_manager,
+        repo_root=repo_root,
+        config=config,
+        strict=strict,
+        check_external=check_external,
+    )
+    return sorted([str(e) for e in errors])
+
+
 
 
 # ─── Decoupled URP for Language Server (In-Memory) ────────────────────────────
@@ -2211,7 +2289,22 @@ class LinkValidator:
         """
         if not url.startswith(("http://", "https://")):
             return
+        # ── Z118 exclusion tracking ──────────────────────────────────────────────
+        # If the URL matches a prefix declared in excluded_external_urls, mark the
+        # exclusion as "used" on the GlobalUsageTracker so it is not later flagged
+        # as stale (Z118), and skip HTTP validation for this URL.
+        # This mirrors the identical filter that validate_links_async used to apply
+        # before the URP unification removed that code path.
+        excluded = getattr(self._config, "excluded_external_urls", None) or []
+        if excluded:
+            global_tracker = getattr(self._config, "_global_tracker", None)
+            for prefix in excluded:
+                if url.startswith(prefix):
+                    if global_tracker:
+                        global_tracker.mark_excluded_external_url_used(prefix)
+                    return  # do not schedule for HTTP validation
         self._registrations.setdefault(url, []).append((source, line_no))
+
 
     def register_from_map(self, ref_map: ReferenceMap, file_path: Path) -> None:
         """Register all HTTP/HTTPS URLs found in a :class:`ReferenceMap`.

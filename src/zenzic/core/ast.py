@@ -80,3 +80,21 @@ class StrongNode(InlineNode):
     """A strongly emphasized inline element **text** or __text__."""
 
     marker: str = "**"
+
+
+@dataclass(frozen=True)
+class ExtractedLink:
+    """Unified node representing any link candidate extracted from Markdown or HTML content.
+
+    Captures Markdown inline links, Markdown reference links/definitions, and HTML href/src attributes.
+    """
+
+    url: str
+    line_no: int
+    is_html: bool
+    node_type: str
+    raw_text: str = ""
+    col_start: int = 0
+    suppressed: bool = False
+    html_node: Any | None = None
+

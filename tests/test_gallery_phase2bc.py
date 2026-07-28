@@ -97,15 +97,17 @@ class TestZ104FileNotFound:
         assert errors == 1
         assert warnings == 0
 
-    def test_z104_finding_code_is_z104(self) -> None:
+    def test_z104_finding_code_is_z101(self) -> None:
+        # Per CORE-REFACTOR-005, missing markdown link targets are uniformly Z101
         findings, _, _ = _run("z104")
         codes = [f.code for f in findings]
-        assert "Z104" in codes
+        assert "Z101" in codes
 
     def test_z104_finding_message_contains_missing_path(self) -> None:
         findings, _, _ = _run("z104")
-        z104_msgs = [f.message for f in findings if f.code == "Z104"]
-        assert any("api/reference.md" in m for m in z104_msgs)
+        z101_msgs = [f.message for f in findings if f.code == "Z101"]
+        assert any("api/reference.md" in m or "api/reference" in m for m in z101_msgs)
+
 
     def test_z104_expected_pass_false(self) -> None:
         assert _GALLERY["z104"].expected_pass is False

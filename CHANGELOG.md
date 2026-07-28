@@ -18,11 +18,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Adapter API Contract (`CORE-FIX-005`)**: Added the `use_directory_urls` property to the `BaseAdapter` contract. This allows adapters to explicitly declare their URL routing mode, eradicating encapsulation violations in the incremental engine.
 
 ### Fixed
-
-- **VSM URL Route Parity (`CORE-FIX-003`)**: Updated `VSMBrokenLinkRule._to_canonical_url()` to preserve asset file routes across query/fragment links and to respect flat URL mode (`use_directory_urls=False`) for `.html`/`.htm` targets.
-
-- **MkDocs Static Asset Route Parity (`CORE-FIX-002`)**: Hardened `MkDocsAdapter._map_url()` to preserve exact canonical paths for non-document assets (`.jpg`, `.png`, `.css`, etc.) by bypassing `use_directory_urls` for files whose suffix is outside `DOC_SUFFIXES`. This eliminates false-positive `Z101` findings for linked static assets in MkDocs repositories.
-- **Score JSON Purity (`CLI-FIX-001`)**: Routed `fail_under` and suppression-cap failure diagnostics to `stderr` when `zenzic score --json` is active, preserving a pure JSON payload on `stdout` for programmatic consumers such as the VS Code CLI bridge.
+- **URP Unification (`CORE-REFACTOR-003`)**: Eradicated the legacy CLI link validation pipeline (`validate_links_async`). Both CLI and LSP now evaluate broken internal links exclusively via `VSMBrokenLinkRule.check_vsm` and `PolyglotExtractor`, achieving 100% true validation parity.
+- **Asset Indexing Parity (`CORE-REFACTOR-006`)**: Upgraded the Virtual Site Map (VSM) builder to explicitly index non-Markdown static assets (e.g., `.png`, `.webp`, `.html`). This eradicates hardcoded directory workarounds and eliminates false-positive `Z101` and `Z104` findings for static assets across all adapters.
+- **JSON Purity (`CLI-FIX-001`)**: Enforced absolute JSON purity when the `--json` flag is active by routing `fail_under` and `suppression_cap` failure messages to `stderr`. This prevents `JSON.parse()` failures in programmatic consumers.
+- **MkDocs Asset URLs (`CORE-FIX-002`)**: Eradicated false-positive `Z101` findings for static assets in MkDocs repositories by preventing the `MkDocsAdapter` from appending trailing slashes to non-Markdown files during VSM route generation.
 
 ### Documentation
 

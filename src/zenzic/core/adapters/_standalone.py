@@ -73,6 +73,11 @@ class StandaloneAdapter(BaseAdapter):
 
     def _map_url(self, rel: Path) -> str:
         """Filesystem-derived clean URL — same rule as Zensical."""
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "/" + rel.as_posix()
+
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:

@@ -737,6 +737,11 @@ class MkDocsAdapter(BaseAdapter):
         """
         rel_posix = rel.as_posix()
 
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "REACHABLE"
+
         # When no nav is declared in mkdocs.yml, MkDocs auto-includes every
         # page — equivalent to every file being REACHABLE.  Only README.md
         # is still excluded (MkDocs never auto-promotes it).

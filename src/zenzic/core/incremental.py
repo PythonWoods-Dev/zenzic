@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
 
+from zenzic.core.ast import ExtractedLink
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     ResolutionContext,
@@ -202,6 +203,7 @@ class IncrementalAnalysisEngine:
                 files_to_process.add(path)
 
             # Static asset files (HTML, images, etc.) under docs_root
+            self.static_assets_cache: set[Path] = set()
             if self.docs_root.is_dir():
                 for file_path in walk_files(
                     self.docs_root, set(self.config.excluded_dirs), exclusion_manager, self.config
@@ -214,9 +216,7 @@ class IncrementalAnalysisEngine:
                         continue
                     if exclusion_manager.should_exclude_file(file_path, self.docs_root):
                         continue
-                    resolved_path = file_path.resolve()
-                    if resolved_path not in self.md_contents_cache:
-                        self.md_contents_cache[resolved_path] = ""
+                    self.static_assets_cache.add(file_path.resolve())
 
             # Process open buffers not already cached (virtual or out-of-bounds)
             for buf_uri, buf_text in overlay.buffers.items():
@@ -254,6 +254,7 @@ class IncrementalAnalysisEngine:
                 self.md_contents_cache,
                 anchors_cache=self.anchors_cache,
                 repo_root=self.repo_root,
+                static_assets=getattr(self, "static_assets_cache", None),
             )
             # Transfer topology into the provided VSM instance
             vsm.clear()
@@ -445,6 +446,9 @@ class IncrementalAnalysisEngine:
 
         tracker = SuppressionTracker(path, text)
 
+        # Extracted Link Candidates (URP Front-End)
+        extracted_links = PolyglotExtractor().extract_all_links(text)
+
         # Atomic Rules
         findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
@@ -454,7 +458,11 @@ class IncrementalAnalysisEngine:
             source_file=path,
             use_directory_urls=self._use_directory_urls,
         )
-        findings.extend(self.rule_engine.run_vsm(path, text, vsm, self.anchors_cache, context))
+        findings.extend(
+            self.rule_engine.run_vsm(
+                path, text, vsm, self.anchors_cache, context, extracted_links=extracted_links
+            )
+        )
 
         # Snippet Checks
         for s_err in check_snippet_content(text, path, self.config):
@@ -469,7 +477,10 @@ class IncrementalAnalysisEngine:
             )
 
         # URP Checks
-        findings.extend(self._run_urp_checks(vsm, path, text, tracker=tracker))
+        findings.extend(
+            self._run_urp_checks(vsm, path, text, tracker=tracker, extracted_links=extracted_links)
+        )
+
 
         # Dead suppression detection
         findings.extend(tracker.get_dead_suppressions())
@@ -552,25 +563,13 @@ class IncrementalAnalysisEngine:
         path: Path,
         text: str,
         tracker: SuppressionTracker | None = None,
+        extracted_links: list[ExtractedLink] | None = None,
+        resolver: Any = None,
     ) -> list[RuleFinding]:
+
         """Run the Uniform Resolver Pipeline checks on a single file.
 
         Covers: Z120, Z121, Z122, Z123, Z124, Z205, Z102, Z105, Z202, Z203.
-
-        Args:
-            vsm: The active Virtual Site Map instance.
-            path: Resolved absolute path of the file.
-            text: Raw Markdown content.
-            tracker: Active :class:`~zenzic.core.suppressions.SuppressionTracker`
-                for this file.  When provided and a Polyglot Extractor node has
-                ``node.suppressed = True``, the corresponding
-                ``DATA-ZENZIC-IGNORE`` directive is marked ``consumed`` so that
-                :meth:`~zenzic.core.suppressions.SuppressionTracker.get_dead_suppressions`
-                does not emit Z603 for an inline suppression that correctly
-                silenced a URP finding (parity with ``validator.py`` CLI path).
-
-        Returns:
-            List of ``RuleFinding`` instances.
         """
         findings: list[RuleFinding] = []
         lines = text.splitlines()
@@ -661,18 +660,16 @@ class IncrementalAnalysisEngine:
                     )
                 )
 
-            # Mirror validator.py lines 1391-1400: when data-zenzic-ignore is
-            # present on the node, the CLI marks the corresponding directive as
-            # consumed so that get_dead_suppressions() does not fire Z603.
-            # Without this branch the LSP would emit Z603 for every suppressed
-            # HTML node because the directive is never consumed here.
             if node.suppressed and tracker is not None:
                 for d in tracker.directives:
                     if d.line_no == node.line_no and d.code == "DATA-ZENZIC-IGNORE":
                         d.consumed = True
                         break
 
-        # Markdown Links
+        # Extracted Link Candidates (Markdown, HTML href/src, Ref Defs)
+        if extracted_links is None:
+            extracted_links = PolyglotExtractor().extract_all_links(text)
+
         local_anchors = self.anchors_cache.get(path, set())
         _bypass_schemes = (
             "mailto:",
@@ -685,7 +682,14 @@ class IncrementalAnalysisEngine:
             "https://",
         )
 
-        for url, lineno, raw_line in _extract_inline_links_with_lines(text):
+        for link in extracted_links:
+            if link.suppressed:
+                continue
+
+            url = link.url
+            lineno = link.line_no
+            raw_line = link.raw_text
+
             if url.startswith(_bypass_schemes) or url == "#":
                 continue
 
@@ -705,7 +709,7 @@ class IncrementalAnalysisEngine:
                                 path,
                                 lineno,
                                 "Z203" if _intent == "suspicious" else "Z202",
-                                f"Path traversal escape detected: '{url}'",
+                                f"'{url}' resolves outside the docs directory",
                                 severity="error",
                                 matched_line=raw_line,
                             )
@@ -718,7 +722,7 @@ class IncrementalAnalysisEngine:
                             path,
                             lineno,
                             "Z203" if _intent == "suspicious" else "Z202",
-                            f"Path traversal escape detected: '{url}'",
+                            f"'{url}' resolves outside the docs directory",
                             severity="error",
                             matched_line=raw_line,
                         )
@@ -740,17 +744,56 @@ class IncrementalAnalysisEngine:
                         )
                     )
                 else:
-                    findings.append(
-                        RuleFinding(
-                            path,
-                            lineno,
-                            "Z105",
-                            f"Absolute path '{url}' found.",
-                            severity="error",
-                            matched_line=raw_line,
-                        )
+                    allowlist = tuple(
+                        list(self.adapter.get_absolute_url_prefixes())
+                        + list(self.config.absolute_path_allowlist)
                     )
+                    if not any(url.startswith(p) for p in allowlist if p):
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z105",
+                                f"absolute path '{url}' found",
+                                severity="error",
+                                matched_line=raw_line,
+                            )
+                        )
                 continue
+
+
+
+            # Non-markdown asset validation (Z104)
+            url_clean = url.split("?")[0].split("#")[0].lower()
+            is_asset = (
+                link.node_type in ("image", "html_img")
+                or any(url_clean.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".pdf", ".zip", ".tar.gz", ".html"))
+            )
+            if is_asset:
+                if self.config.excluded_build_artifacts:
+                    import fnmatch
+                    if any(fnmatch.fnmatch(url, pat) for pat in self.config.excluded_build_artifacts):
+                        continue
+
+                rel_url = unquote(parsed.path)
+                target_path = (path.parent / rel_url).resolve()
+                if not target_path.is_file():
+                    if self.adapter.resolve_asset(target_path, self.docs_root) is None:
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z104",
+                                f"'{rel_url}' not found in docs",
+                                severity="error",
+                                matched_line=raw_line,
+                                col_start=link.col_start,
+                                match_text=link.raw_text,
+                            )
+                        )
+                continue
+
+
 
             # Z102 (Local and Cross-file)
             if parsed.fragment:
@@ -780,18 +823,21 @@ class IncrementalAnalysisEngine:
                         route = None
 
                     if route is not None and anchor not in route.anchors:
-                        findings.append(
-                            RuleFinding(
-                                path,
-                                lineno,
-                                "Z102",
-                                f"anchor '#{anchor}' not found in '{parsed.path}'",
-                                severity="error",
-                                matched_line=raw_line,
+                        # Check adapter i18n anchor fallback
+                        if not self.adapter.resolve_anchor(target_path, anchor, self.anchors_cache, self.docs_root):
+                            findings.append(
+                                RuleFinding(
+                                    path,
+                                    lineno,
+                                    "Z102",
+                                    f"anchor '#{anchor}' not found in '{parsed.path}'",
+                                    severity="error",
+                                    matched_line=raw_line,
+                                )
                             )
-                        )
 
         return findings
+
 
 
 # ── Module-level pure functions ───────────────────────────────────────────────

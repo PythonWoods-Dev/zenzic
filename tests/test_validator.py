@@ -10,8 +10,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core.ast import ExtractedLink
 from zenzic.core.validator import (
     _MAX_CONCURRENT_REQUESTS,
+    PolyglotExtractor,
     _build_ref_map,
     _classify_traversal_intent,
     _find_cycles_iterative,
@@ -97,6 +99,63 @@ class TestExtractLinks:
     )
     def test_various_fence_styles_ignored(self, content: str) -> None:
         assert extract_links(content) == []
+
+
+class TestPolyglotUnifiedExtractor:
+    """Tests for PolyglotExtractor.extract_all_links and unified link extraction."""
+
+    def test_extract_all_links_mixed_sources(self) -> None:
+        doc = (
+            "# Document Title\n"
+            "\n"
+            "Here is an [inline link](https://example.com/a.md).\n"
+            '<a href="https://example.com/b.html">HTML link</a>\n'
+            "\n"
+            "![an image](assets/pic.png)\n"
+            "\n"
+            "[ref_alias]: https://example.com/c.md\n"
+        )
+        extractor = PolyglotExtractor()
+        all_links = extractor.extract_all_links(doc)
+
+        assert len(all_links) == 4
+
+        # Verify links ordered deterministically by line number
+        assert all_links[0].url == "https://example.com/a.md"
+        assert all_links[0].line_no == 3
+        assert all_links[0].is_html is False
+        assert all_links[0].node_type == "inline"
+
+        assert all_links[1].url == "https://example.com/b.html"
+        assert all_links[1].line_no == 4
+        assert all_links[1].is_html is True
+        assert all_links[1].node_type == "html_a"
+
+        assert all_links[2].url == "assets/pic.png"
+        assert all_links[2].line_no == 6
+        assert all_links[2].is_html is False
+        assert all_links[2].node_type == "image"
+
+        assert all_links[3].url == "https://example.com/c.md"
+        assert all_links[3].line_no == 8
+        assert all_links[3].is_html is False
+        assert all_links[3].node_type == "ref_def"
+
+    def test_extract_all_links_skips_code_fences(self) -> None:
+        doc = (
+            "```markdown\n"
+            "[example](https://example.com/inside-fence.md)\n"
+            '<a href="https://example.com/inside-html.html">inside</a>\n'
+            "```\n"
+            "[real](https://example.com/outside.md)\n"
+        )
+        extractor = PolyglotExtractor()
+        all_links = extractor.extract_all_links(doc)
+
+        assert len(all_links) == 1
+        assert all_links[0].url == "https://example.com/outside.md"
+        assert all_links[0].line_no == 5
+
 
 
 # ─── slug_heading (pure) ──────────────────────────────────────────────────────
