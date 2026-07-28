@@ -11,7 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Suppression Code Actions (`LSP-FEAT-003`)**: The LSP server now dynamically generates "Suppress this finding" Code Actions for all suppressible diagnostics. Clicking the action automatically injects the correct `<!-- zenzic:ignore:ZXXX -->` comment above the offending line. This feature is strictly disabled for `NON_SUPPRESSIBLE_CODES` (Z2xx Security findings) to enforce the security gate.
+
 ### Fixed
+
 - **LSP State Hygiene (`LSP-FIX-015`)**: Eradicated "ghost diagnostics" by ensuring the LSP server explicitly sends an empty diagnostics array (`[]`) to VS Code when a file is deleted, clearing the PROBLEMS panel.
 - **Code Action Routing (`LSP-FIX-016`)**: Fixed a routing bug in the LSP server that prevented Quick Fixes for `Z108` (Empty Link Text) and `Z505` (Untagged Code Block) from appearing in the editor.
 - **Z603 Parity (`LSP-FIX-015`)**: Ensured HTML comment suppressions (`<!-- zenzic:ignore -->`) are correctly evaluated for "dead" status in the LSP engine.
