@@ -816,6 +816,74 @@ def test_lsp_code_action_z505(tmp_path) -> None:
     assert "```text" in edits[0]["newText"]
 
 
+def test_lsp_code_action_z108(tmp_path) -> None:
+    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z108 fix."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "[](https://example.com)\n"
+
+    # Open document
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    # Request code action for Z108 diagnostic
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 23},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 23},
+                            },
+                            "code": "Z108",
+                            "source": "Zenzic",
+                            "message": "[Z108] Link text is empty or contains only whitespace",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    assert "Content-Length:" in raw_output
+    body_str = raw_output.split("\r\n\r\n")[1]
+    response = json.loads(body_str)
+
+    assert response["id"] == 101
+    actions = response["result"]
+    assert len(actions) == 1
+    action = actions[0]
+    assert action["title"] == "Fix Z108: Inject placeholder link text ('TODO')"
+    assert action["kind"] == "quickfix"
+    assert doc_uri in action["edit"]["changes"]
+    edits = action["edit"]["changes"][doc_uri]
+    assert len(edits) == 1
+    assert "[TODO](https://example.com)" in edits[0]["newText"]
+
+
 def test_lsp_code_action_unfixable(tmp_path) -> None:
     """Verify textDocument/codeAction returns empty list for unfixable diagnostics."""
     server = LanguageServer()
