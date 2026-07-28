@@ -748,14 +748,14 @@ def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     assert in_uri in server.dirty_documents
 
 
-def test_lsp_code_action_z121(tmp_path) -> None:
-    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z121 fix."""
+def test_lsp_code_action_z505(tmp_path) -> None:
+    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z505 fix."""
     server = LanguageServer()
     out_stream = io.BytesIO()
     server.stdout = out_stream
 
     doc_uri = (tmp_path / "docs" / "index.md").as_uri()
-    doc_text = "<a>Link without href</a>\n"
+    doc_text = "```\ncode\n```\n"
 
     # Open document
     server.handle_message(
@@ -769,7 +769,7 @@ def test_lsp_code_action_z121(tmp_path) -> None:
     out_stream.seek(0)
     out_stream.truncate(0)
 
-    # Request code action for Z121 diagnostic
+    # Request code action for Z505 diagnostic
     server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -779,18 +779,18 @@ def test_lsp_code_action_z121(tmp_path) -> None:
                 "textDocument": {"uri": doc_uri},
                 "range": {
                     "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 24},
+                    "end": {"line": 0, "character": 3},
                 },
                 "context": {
                     "diagnostics": [
                         {
                             "range": {
                                 "start": {"line": 0, "character": 0},
-                                "end": {"line": 0, "character": 24},
+                                "end": {"line": 0, "character": 3},
                             },
-                            "code": "Z121",
+                            "code": "Z505",
                             "source": "Zenzic",
-                            "message": "[Z121] Missing or empty href attribute",
+                            "message": "[Z505] Fenced code block has no language specifier",
                         }
                     ]
                 },
@@ -808,12 +808,12 @@ def test_lsp_code_action_z121(tmp_path) -> None:
     actions = response["result"]
     assert len(actions) == 1
     action = actions[0]
-    assert action["title"] == 'Fix Z121: Inject placeholder href="#"'
+    assert action["title"] == "Fix Z505: Inject language specifier ('text')"
     assert action["kind"] == "quickfix"
     assert doc_uri in action["edit"]["changes"]
     edits = action["edit"]["changes"][doc_uri]
     assert len(edits) == 1
-    assert '<a href="#">' in edits[0]["newText"]
+    assert "```text" in edits[0]["newText"]
 
 
 def test_lsp_code_action_unfixable(tmp_path) -> None:

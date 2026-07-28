@@ -675,9 +675,9 @@ class LanguageServer:
         from zenzic.core.mutator import (
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
-            HtmlMissingHrefMutation,
             Mutation,
             Mutator,
+            UntaggedCodeBlockMutation,
         )
         from zenzic.core.parser import parse, serialize
 
@@ -698,16 +698,16 @@ class LanguageServer:
             mutations: list[Mutation] = []
             title_desc = ""
 
-            if code == "Z121":
-                mutations.append(HtmlMissingHrefMutation())
-                title_desc = 'Inject placeholder href="#"'
+            if code == "Z505":
+                mutations.append(UntaggedCodeBlockMutation())
+                title_desc = "Inject language specifier ('text')"
             elif code == "Z603":
                 line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
                 mutations.append(DeadSuppressionMutation({line_no}))
                 title_desc = "Remove dead inline suppression"
             elif code == "Z108":
                 mutations.append(EmptyLinkTextMutation())
-                title_desc = "Inject placeholder link text"
+                title_desc = "Inject placeholder link text ('TODO')"
             else:
                 continue
 

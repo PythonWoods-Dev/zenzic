@@ -670,3 +670,44 @@ class TestObfuscateSecretMutantKill:
             raw = "A" * n
             result = _obfuscate_secret(raw)
             assert len(result) == n, f"len mismatch for n={n}: {result!r}"
+
+
+# ─── CORE-FEAT-001: Remediation Expansion Verification ───────────────────────
+
+
+class TestRemediationExpansion:
+    """CORE-FEAT-001: Verification of Atomic Mutator refinement and remediation expansion."""
+
+    def test_z121_is_not_fixable(self) -> None:
+        """Z121 (missing href) requires human context and must NOT be marked fixable."""
+        from zenzic.core.codes import CODE_DEFINITIONS
+
+        assert not CODE_DEFINITIONS["Z121"].fixable
+
+    def test_z505_is_fixable_and_injects_text(self) -> None:
+        """Z505 (untagged code block) is fixable and injects 'text' specifier."""
+        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.mutator import Mutator, UntaggedCodeBlockMutation
+        from zenzic.core.parser import parse, serialize
+
+        assert CODE_DEFINITIONS["Z505"].fixable
+
+        untagged = "```\ndef foo():\n    pass\n```\n"
+        ast = parse(untagged)
+        new_ast, changed = Mutator([UntaggedCodeBlockMutation()]).mutate(ast)
+        assert changed
+        assert serialize(new_ast) == "```text\ndef foo():\n    pass\n```\n"
+
+    def test_z108_is_fixable_and_injects_todo(self) -> None:
+        """Z108 (empty link text) is fixable and injects 'TODO' placeholder."""
+        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.mutator import EmptyLinkTextMutation, Mutator
+        from zenzic.core.parser import parse, serialize
+
+        assert CODE_DEFINITIONS["Z108"].fixable
+
+        empty_link = "[](https://zenzic.dev)\n"
+        ast = parse(empty_link)
+        new_ast, changed = Mutator([EmptyLinkTextMutation()]).mutate(ast)
+        assert changed
+        assert serialize(new_ast) == "[TODO](https://zenzic.dev)\n"

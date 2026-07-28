@@ -79,7 +79,7 @@ def test_formatted_empty_link_validation_and_mutation() -> None:
         assert changed, f"Expected mutator to change: {text}"
 
         serialized = serialize(new_ast)
-        assert serialized == "[MISSING LINK LABEL](url)", f"Got: {serialized}"
+        assert serialized == "[TODO](url)", f"Got: {serialized}"
 
 
 def test_polyglot_extractor_comment_masking() -> None:

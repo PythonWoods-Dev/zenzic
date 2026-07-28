@@ -177,24 +177,31 @@ class MyAwesomeRule(BaseASTRule):
     assert "AWESOME-101" in rule_ids
 
 
-def test_autofix_z121_and_z603(tmp_path: Path) -> None:
-    """Test autofixes for missing/empty href (Z121) and dead suppression (Z603)."""
-    from zenzic.core.mutator import DeadSuppressionMutation, HtmlMissingHrefMutation, Mutator
+def test_autofix_z505_z108_z603(tmp_path: Path) -> None:
+    """Test autofixes for untagged code blocks (Z505), empty link text (Z108), and dead suppression (Z603)."""
+    from zenzic.core.mutator import (
+        DeadSuppressionMutation,
+        EmptyLinkTextMutation,
+        Mutator,
+        UntaggedCodeBlockMutation,
+    )
     from zenzic.core.parser import parse, serialize
 
-    # 1. Z121 Auto-Fix tests
-    z121_inputs = [
-        '<a id="ok">test</a>',
-        '<a href="">test</a>',
-        '<a href=" ">test</a>',
-    ]
-    mutator_z121 = Mutator([HtmlMissingHrefMutation()])
-    for inp in z121_inputs:
-        ast = parse(inp)
-        new_ast, changed = mutator_z121.mutate(ast)
-        assert changed
-        res = serialize(new_ast)
-        assert 'href="#"' in res
+    # 1. Z505 Auto-Fix tests
+    z505_input = "```\nprint('hello')\n```\n"
+    mutator_z505 = Mutator([UntaggedCodeBlockMutation()])
+    ast505 = parse(z505_input)
+    new_ast505, changed505 = mutator_z505.mutate(ast505)
+    assert changed505
+    assert serialize(new_ast505) == "```text\nprint('hello')\n```\n"
+
+    # 2. Z108 Auto-Fix tests
+    z108_input = "[](https://example.com)\n"
+    mutator_z108 = Mutator([EmptyLinkTextMutation()])
+    ast108 = parse(z108_input)
+    new_ast108, changed108 = mutator_z108.mutate(ast108)
+    assert changed108
+    assert serialize(new_ast108) == "[TODO](https://example.com)\n"
 
     # 2. Z603 Auto-Fix tests (Dead suppression)
     text_with_dead = (

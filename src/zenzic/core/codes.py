@@ -184,7 +184,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z105": CodeDefinition("error", 2.0, "structural"),  # ABSOLUTE_PATH
     "Z106": CodeDefinition("note", 0.0, None),  # CIRCULAR_LINK    — informational
     "Z107": CodeDefinition("error", 1.0, "structural"),  # CIRCULAR_ANCHOR
-    "Z108": CodeDefinition("error", 1.0, "structural"),  # EMPTY_LINK_TEXT
+    "Z108": CodeDefinition("error", 1.0, "structural", fixable=True),  # EMPTY_LINK_TEXT
     "Z109": CodeDefinition("error", 3.0, "structural"),  # EXTERNAL_LINK_BROKEN
     "Z110": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY
     "Z111": CodeDefinition(
@@ -203,7 +203,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     # Z120/Z122 are warnings; Z121/Z124 are errors (exit 1); Z123 is informational.
     # All Z12x codes are suppressible via data-zenzic-ignore (-1.0 pts DQS each).
     "Z120": CodeDefinition("warning", 1.0, "html_hygiene"),  # UNKNOWN_HTML_ATTRIBUTE
-    "Z121": CodeDefinition("error", 1.0, "structural", fixable=True),  # MISSING_OR_EMPTY_HREF
+    "Z121": CodeDefinition("error", 1.0, "structural"),  # MISSING_OR_EMPTY_HREF
     "Z122": CodeDefinition("warning", 1.0, "html_hygiene"),  # JUMP_LINK_DETECTED
     "Z123": CodeDefinition("note", 0.0, None),  # NON_HTTP_SCHEME — informational
     "Z124": CodeDefinition("error", 1.0, "structural"),  # OPAQUE_HTML_CONTEXT
@@ -233,7 +233,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
     "Z503": CodeDefinition("warning", 10.0, "content"),  # SNIPPET_ERROR
     "Z504": CodeDefinition("warning", 0.0, None),  # QUALITY_REGRESSION — governance gate
-    "Z505": CodeDefinition("warning", 1.0, "content"),  # UNTAGGED_CODE_BLOCK
+    "Z505": CodeDefinition("warning", 1.0, "content", fixable=True),  # UNTAGGED_CODE_BLOCK
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
