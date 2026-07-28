@@ -66,8 +66,18 @@ class StandaloneAdapter(BaseAdapter):
         """StandaloneAdapter has no engine config file."""
         return frozenset()
 
+    @property
+    def use_directory_urls(self) -> bool:
+        """Standalone mode defaults to directory-style canonical URLs."""
+        return True
+
     def _map_url(self, rel: Path) -> str:
         """Filesystem-derived clean URL — same rule as Zensical."""
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "/" + rel.as_posix()
+
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:

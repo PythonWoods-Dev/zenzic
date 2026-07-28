@@ -648,6 +648,13 @@ class MkDocsAdapter(BaseAdapter):
         return frozenset(names)
 
     @property
+    def use_directory_urls(self) -> bool:
+        """Return MkDocs URL mode from config/offline context."""
+        if getattr(self._context, "offline_mode", False):
+            return False
+        return bool(self._doc_config.get("use_directory_urls", True))
+
+    @property
     def watched_config_files(self) -> frozenset[str]:
         """Return MkDocs configuration filenames for LSP hot-reloading."""
         return frozenset({"mkdocs.yml", "mkdocs.yaml"})
@@ -665,6 +672,9 @@ class MkDocsAdapter(BaseAdapter):
         * ``index.md``          → ``/``           (root)
         * ``page.md`` (no-dir)  → ``/page.html``
 
+        Non-Markdown static assets (e.g. ``.jpg``, ``.png``, ``.css``) are
+        served at their exact path — ``use_directory_urls`` does not apply.
+
         The Double-Index case (``index.md`` **and** ``README.md`` coexist in
         the same directory) produces two routes with the identical URL, which
         ``_detect_collisions()`` will mark as ``CONFLICT``.
@@ -675,6 +685,11 @@ class MkDocsAdapter(BaseAdapter):
         Returns:
             Canonical URL string (always starts and ends with ``/``).
         """
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "/" + rel.as_posix()
+
         if getattr(self._context, "offline_mode", False):
             use_dir = False
         else:
@@ -721,6 +736,11 @@ class MkDocsAdapter(BaseAdapter):
             ``RouteStatus`` literal (never ``'CONFLICT'``).
         """
         rel_posix = rel.as_posix()
+
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        if rel.suffix.lower() not in DOC_SUFFIXES:
+            return "REACHABLE"
 
         # When no nav is declared in mkdocs.yml, MkDocs auto-includes every
         # page — equivalent to every file being REACHABLE.  Only README.md

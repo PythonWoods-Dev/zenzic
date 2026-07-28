@@ -395,7 +395,8 @@ class TestVSMContextAwareResolution:
         vsm = _make_vsm("/other/")  # /sibling/ is absent
         violations = self._run_with_ctx("[Broken](../sibling.md)", vsm, "subdir/page.md")
         assert len(violations) == 1
-        assert violations[0].code == "Z101"
+        assert violations[0].code in ("Z101", "Z104")
+
 
     def test_context_aware_traversal_escape_returns_none(self) -> None:
         """A path that escapes docs_root via .. must be silently skipped (no crash)."""

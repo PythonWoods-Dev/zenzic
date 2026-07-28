@@ -629,7 +629,8 @@ def score(
         _shared.console.print(f"[{ZenzicPalette.SUCCESS}][SUCCESS] All badges are current.[/]")
 
     if effective_threshold > 0 and report.score < effective_threshold:
-        _shared.console.print(
+        _fail_console = _shared.stderr_console if output_format == "json" else _shared.console
+        _fail_console.print(
             "\n[red]FAILED:[/] "
             f"Quality Score ({report.score}) is below the configured 'fail_under' "
             f"threshold ({effective_threshold})."
@@ -637,7 +638,8 @@ def score(
         raise typer.Exit(1)
 
     if report.suppression_count > report.suppression_cap:
-        _shared.console.print(
+        _fail_console = _shared.stderr_console if output_format == "json" else _shared.console
+        _fail_console.print(
             f"\n[red]FAILED:[/] suppression cap exceeded "
             f"({report.suppression_count}/{report.suppression_cap}). "
             f"Update governance.suppression_cap in .zenzic.toml if intentional."
@@ -1601,7 +1603,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.26.0"]
+dependencies = ["zenzic>=0.26.1"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"

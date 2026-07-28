@@ -142,6 +142,7 @@ def build_vsm(
     anchors_cache: dict[Path, set[str]] | None = None,
     extra_content_roots: list[Path] | None = None,
     repo_root: Path | None = None,
+    static_assets: Iterable[Path] | set[Path] | list[Path] | None = None,
 ) -> VirtualSiteMap:
     """Build the Virtual Site Map from a pre-loaded file map.
 
@@ -171,10 +172,13 @@ def build_vsm(
         extra_content_roots: Optional external markdown roots injected by caller.
         repo_root:           Optional repository root used for stable prefix
                      derivation when building external content mounts.
+        static_assets:       Optional collection of non-Markdown static asset Paths.
 
     Returns:
         ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
     """
+    from typing import Iterable
+
     ac = anchors_cache or {}
     extra_mounts = build_content_mounts(list(extra_content_roots or []), repo_root=repo_root)
 
@@ -210,6 +214,37 @@ def build_vsm(
             anchors=set(ac.get(abs_path, set())),
         )
         routes.append(route)
+
+    if static_assets:
+        for abs_path in static_assets:
+            if abs_path in md_contents:
+                continue
+            if abs_path.is_relative_to(docs_root):
+                rel = abs_path.relative_to(docs_root)
+            else:
+                matched_root = None
+                for root, prefix in extra_mounts:
+                    if abs_path.is_relative_to(root):
+                        matched_root = (root, prefix)
+                        break
+                if matched_root is None:
+                    continue
+                root, prefix = matched_root
+                inner = abs_path.relative_to(root)
+                rel = (Path(prefix) / inner) if prefix else inner
+            rel_posix = rel.as_posix()
+
+            meta = adapter.get_route_info(rel)
+            url = meta.canonical_url
+            status = meta.status
+
+            route = Route(
+                url=url,
+                source=rel_posix,
+                status=status,
+                anchors=set(),
+            )
+            routes.append(route)
 
     if hasattr(adapter, "get_virtual_routes"):
         for vr in adapter.get_virtual_routes(md_contents):

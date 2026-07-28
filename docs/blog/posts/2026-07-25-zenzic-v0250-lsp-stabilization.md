@@ -15,7 +15,7 @@ categories:
 
 Zenzic v0.25.0 stabilizes the Language Server Protocol (LSP) integration, guaranteeing strict diagnostic parity between CLI and editor sessions. This release introduces centralized core governance evaluation, adapter-driven configuration hot-reloading for live VSM updates, and an updated `BaseAdapter` contract.
 
-![Zenzic v0.25.0 LSP Stabilization Launch](../../assets/images/blog/launch_v0250.jpg)
+![Zenzic v0.25.0: LSP Stabilization & Adapter-Driven Hot-Reloading](../../assets/images/blog/launch_v0250.webp)
 
 <!-- more -->
 

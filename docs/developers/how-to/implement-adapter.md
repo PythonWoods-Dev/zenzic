@@ -42,6 +42,19 @@ An adapter answers questions for each docs tree through a single API surface:
 | `has_engine_config()` | Was a build-engine config file found on disk? (Controls orphan check activation.) |
 | `provides_index(directory_path)` | Does this directory have an engine-provided landing page? (Controls `MISSING_DIRECTORY_INDEX` emission.) |
 
+### URL Routing Mode (`use_directory_urls`)
+
+To ensure the core engine correctly resolves relative links to HTML files, your adapter must declare its routing mode.
+
+If your framework generates directory-style URLs (e.g., `file.md` becomes `/file/index.html` served at `/file/`), return `True`. If it generates flat files (e.g., `file.md` becomes `/file.html`), return `False`.
+
+```python
+@property
+def use_directory_urls(self) -> bool:
+    """Return True if the framework uses directory URLs, False for flat URLs."""
+    return True
+```
+
 ---
 
 ## Step 1 — Create the Adapter Class

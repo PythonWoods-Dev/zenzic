@@ -232,7 +232,7 @@ class LanguageServer:
             except OSError:
                 continue
 
-        # Register static asset files (HTML, images, etc.) present in docs_root into VSM
+        static_assets: set[Path] = set()
         if docs_root.is_dir():
             for file_path in walk_files(
                 docs_root, set(self.config.excluded_dirs), self.exclusion_mgr, self.config
@@ -241,12 +241,16 @@ class LanguageServer:
                     continue
                 if self.exclusion_mgr.should_exclude_file(file_path, docs_root):
                     continue
-                resolved_path = file_path.resolve()
-                if resolved_path not in md_contents:
-                    md_contents[resolved_path] = ""
+                static_assets.add(file_path.resolve())
 
         self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
-        self.vsm = build_vsm(self.adapter, docs_root, md_contents, repo_root=self.repo_root)
+        self.vsm = build_vsm(
+            self.adapter,
+            docs_root,
+            md_contents,
+            repo_root=self.repo_root,
+            static_assets=static_assets,
+        )
         assert self.vsm is not None
         self.overlay = VirtualBufferOverlay(self.vsm)
         # Populate overlay with currently open documents

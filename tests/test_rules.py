@@ -484,6 +484,13 @@ class TestVSMBrokenLinkRule:
         assert "missing" in violations[0].message
         assert "missing.md" in violations[0].context
 
+    def test_html_broken_link_emits_violation(self) -> None:
+        violations = self._run('<a href="missing.html">HTML link</a>', {})
+        assert len(violations) == 1
+        assert violations[0].code == "Z101"
+        assert "missing" in violations[0].message
+
+
     # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
 
     def test_orphan_link_emits_z002_warning(self) -> None:
@@ -1505,9 +1512,18 @@ class TestToCanonicalUrlMutantKill:
     _RULE = VSMBrokenLinkRule()
 
     def _url(
-        self, href: str, source_dir: Path | None = None, docs_root: Path | None = None
+        self,
+        href: str,
+        source_dir: Path | None = None,
+        docs_root: Path | None = None,
+        use_directory_urls: bool = True,
     ) -> str | None:
-        return self._RULE._to_canonical_url(href, source_dir, docs_root)
+        return self._RULE._to_canonical_url(
+            href,
+            source_dir,
+            docs_root,
+            use_directory_urls=use_directory_urls,
+        )
 
     # ── rstrip("/") kills ────────────────────────────────────────────────────
 
@@ -1563,6 +1579,26 @@ class TestToCanonicalUrlMutantKill:
         """'a/b/index.md' → '/a/b/' — kills parts[:-1] → parts[:+1] mutant."""
         result = self._url("a/b/index.md")
         assert result == "/a/b/"
+
+    def test_static_asset_path_keeps_exact_suffix_without_trailing_slash(self) -> None:
+        """Static assets are file routes and must not be canonicalized as directory URLs."""
+        result = self._url("assets/logo.png")
+        assert result == "/assets/logo.png"
+
+    def test_html_path_still_normalizes_to_directory_route(self) -> None:
+        """HTML page links should normalize to the same canonical route as .md pages."""
+        result = self._url("guide/install.html")
+        assert result == "/guide/install/"
+
+    def test_asset_with_query_and_fragment_keeps_file_route(self) -> None:
+        """Query strings and fragments must not break asset suffix detection."""
+        result = self._url("assets/image.webp?v=1#hero")
+        assert result == "/assets/image.webp"
+
+    def test_html_path_preserves_extension_when_directory_urls_disabled(self) -> None:
+        """Flat URL mode must keep .html extension and avoid trailing slash."""
+        result = self._url("guide/install.html", use_directory_urls=False)
+        assert result == "/guide/install.html"
 
     # ── source_dir / docs_root logic kills ───────────────────────────────────
 

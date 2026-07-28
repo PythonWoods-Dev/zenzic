@@ -125,6 +125,11 @@ class BaseAdapter(ABC):
         """Return project-owned absolute URL prefixes (for Z105 allowlisting)."""
 
     @property
+    def use_directory_urls(self) -> bool:
+        """Return URL routing mode: ``True`` for ``/page/``, ``False`` for ``/page.html``."""
+        return True
+
+    @property
     def watched_config_files(self) -> frozenset[str]:
         """Return the configuration filenames that trigger a VSM rebuild in LSP mode."""
         return frozenset()

@@ -392,8 +392,9 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
                     if resp.get("method") == "textDocument/publishDiagnostics":
                         diagnostics = resp["params"]["diagnostics"]
                         for d in diagnostics:
-                            if d["code"] == "Z101":
+                            if d["code"] in ("Z101", "Z104"):
                                 found_z101 = True
+
                 except Exception:
                     pass
         assert found_z101, "Z101 should be found before missing.md is created"

@@ -399,12 +399,22 @@ def inspect_routes(
             except OSError:
                 continue
 
+    # ── Pass 1d: include static assets (HTML, webp, images, etc.) ──────────────
+    from zenzic.core.discovery import DOC_SUFFIXES, walk_files
+    static_assets: set[Path] = set()
+    if docs_root.is_dir():
+        for fpath in walk_files(docs_root, set(config.excluded_dirs), exclusion_mgr, config):
+            if fpath.suffix.lower() not in DOC_SUFFIXES and not fpath.is_symlink():
+                if not exclusion_mgr.should_exclude_file(fpath, docs_root):
+                    static_assets.add(fpath)
+
     vsm = build_vsm(
         adapter,
         docs_root,
         md_contents,
         extra_content_roots=extra_content_roots,
         repo_root=repo_root,
+        static_assets=static_assets,
     )
 
     # ── Virtual route kind lookup (call once; idempotent with build_vsm's call) ─

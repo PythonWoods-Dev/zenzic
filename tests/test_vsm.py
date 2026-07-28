@@ -157,6 +157,33 @@ class TestMkDocsAdapterMapUrl:
         a = self._make_adapter({"use_directory_urls": False})
         assert a.get_route_info(Path("guide/index.md")).canonical_url == "/guide.html"
 
+    def test_jpg_asset_preserves_exact_path(self) -> None:
+        """Static assets must not receive use_directory_urls transformation (Z101 fix)."""
+        a = self._make_adapter()
+        assert a.get_route_info(Path("blog/posts/hero.jpg")).canonical_url == "/blog/posts/hero.jpg"
+
+    def test_png_asset_preserves_exact_path(self) -> None:
+        a = self._make_adapter()
+        assert a.get_route_info(Path("assets/logo.png")).canonical_url == "/assets/logo.png"
+
+    def test_css_asset_preserves_exact_path(self) -> None:
+        a = self._make_adapter()
+        assert a.get_route_info(Path("assets/style.css")).canonical_url == "/assets/style.css"
+
+    def test_asset_exact_path_even_when_use_directory_urls_true(self) -> None:
+        """use_directory_urls=True must not affect non-Markdown asset routing."""
+        a = self._make_adapter({"use_directory_urls": True})
+        assert (
+            a.get_route_info(Path("blog/posts/photo.jpg")).canonical_url == "/blog/posts/photo.jpg"
+        )
+
+    def test_asset_exact_path_even_when_use_directory_urls_false(self) -> None:
+        """use_directory_urls=False must not affect non-Markdown asset routing."""
+        a = self._make_adapter({"use_directory_urls": False})
+        assert (
+            a.get_route_info(Path("blog/posts/photo.jpg")).canonical_url == "/blog/posts/photo.jpg"
+        )
+
 
 # ─── MkDocsAdapter.classify_route ────────────────────────────────────────────
 

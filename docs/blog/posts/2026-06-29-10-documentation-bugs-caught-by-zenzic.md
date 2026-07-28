@@ -21,6 +21,8 @@ Here are 10 subtle, frustrating, and downright dangerous documentation bugs that
 
 <!-- more -->
 
+![10 Documentation Bugs Caught by Zenzic](../../assets/images/blog/10-documentation-bugs-caught-by-zenzic.webp)
+
 ## 1. The "Ghost Anchor" (Z102)
 
 You update a heading from `## Setup Environment` to `## Environment Setup`. Congratulations, the content is better! But somewhere in another file, a link points to `[Setup](#setup-environment)`.

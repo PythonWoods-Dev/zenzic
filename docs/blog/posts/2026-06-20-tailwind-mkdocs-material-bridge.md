@@ -13,6 +13,8 @@ Running Tailwind CSS components inside a MkDocs Material documentation site intr
 
 <!-- more -->
 
+![The Tailwind/MkDocs Material Bridge: A Surgical CSS Pattern](../../assets/images/blog/tailwind-mkdocs-material-bridge.webp)
+
 ## The Failure Mode
 
 MkDocs Material applies `font-size: 125%` to the `<html>` element globally. This is a deliberate, documented accessibility decision: it scales the effective base unit from `16px` to `20px`, which improves legibility for users with larger system font preferences.

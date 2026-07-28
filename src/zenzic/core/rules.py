@@ -99,10 +99,20 @@ class ResolutionContext:
     Attributes:
         docs_root: Absolute path to the ``docs/`` directory.
         source_file: Absolute path of the Markdown file currently being checked.
+        use_directory_urls: Whether canonicalization should follow directory URLs
+            (``/page/``) or flat file URLs (``/page.html`` for HTML pages).
+        adapter: Optional build-engine adapter (e.g. MkDocsAdapter).  Used for
+            locale-fallback resolution and asset lookups in the URP pass.
+        config: Optional ZenzicConfig instance.  Forwarded from the scanner
+            to rules that need config-level context (e.g. locale fallback flag).
     """
 
     docs_root: Path
     source_file: Path
+    use_directory_urls: bool = True
+    adapter: Any = None
+    config: Any = None
+
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -618,6 +628,8 @@ class AdaptiveRuleEngine:
         vsm: VSM,
         anchors_cache: dict[Path, set[str]],
         context: ResolutionContext | None = None,
+        *,
+        extracted_links: Any = None,
     ) -> list[RuleFinding]:
         """Run VSM-aware rules against *text* and the pre-built routing table.
 
@@ -1037,6 +1049,16 @@ class BrandObsolescenceRule(BaseRule):
 
 # Inline links: [text](url) and images ![alt](url)
 _INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
+# HTML href/src attributes: <a href="url"> and <img src="url">
+_HTML_HREF_RE = re.compile(
+    r"""<(?:a|img|link)\b[^>]*?\b(?:href|src)=["'][^"']*["'][^>]*>""",
+    re.IGNORECASE,
+)
+_HTML_HREF_ATTR_RE = re.compile(r"""\b(?:href|src)=["']([^"']+)["']""", re.IGNORECASE)
+# Reference link definition: [id]: url
+_REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
+
+
 # Fenced code block fence marker
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 # Inline code spans — erased before link extraction to avoid false positives
@@ -1046,7 +1068,8 @@ _TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
 
 
 def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
-    """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link.
+    """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link
+    and HTML anchor/image element found in *text*.
 
     Skips fenced code blocks and inline code spans.  Pure function — no I/O.
 
@@ -1069,6 +1092,7 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
                 in_block = False
             continue
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+        # Markdown inline/image links
         for m in _INLINE_LINK_RE.finditer(clean):
             raw = m.group(1).strip()
             if not raw:
@@ -1076,7 +1100,22 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
             url = _TITLE_STRIP_RE.sub("", raw).strip()
             if url:
                 results.append((url, lineno, line.strip()))
+        # HTML href/src attributes (<a href>, <img src>)
+        for tag_m in _HTML_HREF_RE.finditer(clean):
+            for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
+                url = attr_m.group(1).strip()
+                if url:
+                    results.append((url, lineno, line.strip()))
+        # Markdown reference definitions: [id]: url
+        m_ref = _REF_DEF_RE.match(line)
+        if m_ref:
+            raw = m_ref.group(1).strip()
+            if raw:
+                url = _TITLE_STRIP_RE.sub("", raw).strip()
+                if url:
+                    results.append((url, lineno, line.strip()))
     return results
+
 
 
 class CredentialScannerRule(BaseRule):
@@ -1342,7 +1381,33 @@ class VSMBrokenLinkRule(BaseRule):
             if url.startswith("#"):
                 continue  # same-page anchor — handled separately
 
+            # Skip static media and non-markdown assets (handled by URP asset checks)
+            url_clean = url.split("?")[0].split("#")[0].lower()
+            if (
+                any(
+                    url_clean.endswith(ext)
+                    for ext in (
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".gif",
+                        ".webp",
+                        ".svg",
+                        ".ico",
+                        ".pdf",
+                        ".zip",
+                        ".tar.gz",
+                        ".xml",
+                        ".css",
+                        ".json",
+                    )
+                )
+            ):
+                continue
+
+
             from zenzic.core.validator import _classify_traversal_intent
+
 
             if _classify_traversal_intent(url) == "suspicious":
                 continue
@@ -1356,17 +1421,56 @@ class VSMBrokenLinkRule(BaseRule):
                 url,
                 source_dir=context.source_file.parent if context else None,
                 docs_root=context.docs_root if context else None,
+                use_directory_urls=context.use_directory_urls if context else True,
             )
             if target_url is None:
                 continue
 
             route = vsm.get(target_url)
+            if route is None and context and context.use_directory_urls:
+                # ── HTML-asset VSM fallback (CORE-FIX-006 restoration) ──────────────
+                # _to_canonical_url strips .html/.htm when use_directory_urls=True,
+                # producing a directory-style URL (e.g. /assets/brand/logo/).
+                # Static HTML assets are keyed in the VSM *with* the extension
+                # (e.g. /assets/brand/logo.html).  Recover the original extension
+                # from the raw href and retry the lookup before emitting Z101.
+                _raw_href_clean = url.split("?")[0].split("#")[0]
+                _raw_ext = Path(_raw_href_clean).suffix.lower()
+                if _raw_ext in (".html", ".htm") and target_url.endswith("/"):
+                    _asset_url = target_url.rstrip("/") + _raw_ext
+                    route = vsm.get(_asset_url)
+
+            if route is None and context and context.source_file and context.docs_root:
+                # ── Locale fallback ────────────────────────────────────────────────
+                try:
+                    rel = context.source_file.relative_to(context.docs_root)
+                    if len(rel.parts) > 1:
+                        locale = rel.parts[0]
+                        if target_url.startswith(f"/{locale}/"):
+                            default_target_url = target_url[len(f"/{locale}") :]
+                            fallback_route = vsm.get(default_target_url)
+                            if fallback_route is not None:
+                                is_fallback_on = True
+                                if context.adapter is not None:
+                                    is_fallback_on = getattr(context.adapter, "_fallback_to_default", True)
+                                elif context.config is not None:
+                                    is_fallback_on = getattr(context.config.build_context, "fallback_to_default", True)
+                                if is_fallback_on:
+                                    route = fallback_route
+                except Exception:
+                    pass
+
             if route is None:
+                # Z101 is the canonical code for any link target absent from the VSM.
+                # No disk I/O: VSMBrokenLinkRule is a pure-function rule that ONLY
+                # consults the vsm dict (CORE-REFACTOR-005 invariant).
+                # Z104 (FILE_NOT_FOUND) is reserved for static-asset checks in
+                # IncrementalAnalysisEngine._run_urp_checks.
                 violations.append(
                     Violation(
                         file_path=file_path,
                         line_no=lineno,
-                        code=self.rule_id,
+                        code=self.rule_id,  # Z101
                         message=(
                             f"'{url}' resolves to '{target_url}' which is not in the "
                             "Virtual Site Map — the target file may not exist"
@@ -1375,6 +1479,9 @@ class VSMBrokenLinkRule(BaseRule):
                         context=raw_line,
                     )
                 )
+
+
+
             elif route.status == "ORPHAN_BUT_EXISTING":
                 if Path(route.source).suffix.lower() in (".md", ".mdx"):
                     violations.append(
@@ -1384,14 +1491,16 @@ class VSMBrokenLinkRule(BaseRule):
                             code="Z103",
                             message=(
                                 f"'{url}' resolves to '{target_url}' which exists on disk "
-                                f"but is not in the site navigation (ORPHAN_LINK). "
+                                "but is not in the site navigation "
+                                "(ORPHAN_LINK / UNREACHABLE_LINK). "
                                 "Readers cannot reach this page via the nav tree."
                             ),
                             level="warning",
                             context=raw_line,
                         )
                     )
-            elif route.status not in ("REACHABLE",):
+
+            elif route.status not in ("REACHABLE", "CONFLICT"):
                 violations.append(
                     Violation(
                         file_path=file_path,
@@ -1407,6 +1516,7 @@ class VSMBrokenLinkRule(BaseRule):
                     )
                 )
 
+
         return violations
 
     def _to_canonical_url(
@@ -1414,6 +1524,7 @@ class VSMBrokenLinkRule(BaseRule):
         href: str,
         source_dir: Path | None = None,
         docs_root: Path | None = None,
+        use_directory_urls: bool = True,
     ) -> str | None:
         """Convert a relative Markdown href to a canonical URL string.
 
@@ -1439,6 +1550,9 @@ class VSMBrokenLinkRule(BaseRule):
                         Required for correct ``..``-relative resolution.
             docs_root:  Absolute path to the docs root directory.
                         Required for context-aware boundary checking.
+            use_directory_urls: Canonical URL mode. ``True`` keeps directory-style
+                        routes (``/page/``). ``False`` keeps flat file routes
+                        for HTML/HTM links (``/page.html``).
 
         Returns:
             Canonical URL string (leading and trailing ``/``), or ``None``.
@@ -1469,21 +1583,30 @@ class VSMBrokenLinkRule(BaseRule):
                 return None
             path = rel if rel != "." else ""
 
-        # Strip .md, .mdx, .html, .htm suffix if present
-        ext = Path(path).suffix.lower()
-        if ext in (".md", ".mdx", ".html", ".htm"):
-            path = path[: -len(ext)]
+        from zenzic.core.discovery import DOC_SUFFIXES
 
-        # index is the directory itself
+        # Keep static assets at their exact path (no trailing slash rewrite).
+        ext = Path(path).suffix.lower()
+        is_asset = bool(ext) and ext not in DOC_SUFFIXES and ext not in (".html", ".htm")
+
+        # Strip document suffixes so internal links normalize to canonical routes.
+        if ext in DOC_SUFFIXES or (use_directory_urls and ext in (".html", ".htm")):
+            path = path[: -len(ext)]
+            ext = ""
+
+        # index and README map to the directory route in directory-URL mode.
         parts = [p for p in path.split("/") if p]
         if not parts:
             return "/"
-        if parts[-1] == "index":
+        if use_directory_urls and parts[-1] in ("index", "README"):
             parts = parts[:-1]
         if not parts:
             return "/"
 
-        return "/" + "/".join(parts) + "/"
+        out = "/" + "/".join(parts)
+        if use_directory_urls and not is_asset:
+            out += "/"
+        return out
 
 
 # ─── Plugin discovery ─────────────────────────────────────────────────────────
