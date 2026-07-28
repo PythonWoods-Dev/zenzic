@@ -63,6 +63,14 @@ If you use a custom virtual environment or isolated installation, configure `zen
 |---|---|---|---|
 | `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. |
 
+## Inline Diagnostics & Code Actions
+
+The extension exposes real-time LSP diagnostics directly in the PROBLEMS panel and editor margin.
+
+Zenzic provides automated Quick Fixes for specific structural and content findings (e.g., injecting placeholder text for empty links `Z108`, adding language tags to code blocks `Z505`, and removing dead suppressions `Z603`).
+
+In addition, Zenzic offers automated "Suppress this finding" Code Actions (`<!-- zenzic:ignore:ZXXX -->`) for all suppressible diagnostics. Hovering over a finding allows you to insert an inline suppression directive on the line above with a single click. To enforce security governance, suppression Code Actions are intentionally disabled for Security findings (`Z2xx`), which must be remediated at the source.
+
 ## Domain Boundaries & Supported Files
 
 To uphold **Domain-Aware Discovery** and **Radical Unawareness**:

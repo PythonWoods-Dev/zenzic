@@ -1,22 +1,20 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
-name: Zenzic Docs CodeQL
+name: Zenzic Core CodeQL
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
     paths:
       - 'src/**'
-      - 'scripts/**'
+      - 'tests/**'
       - '.github/workflows/codeql.yml'
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
     paths:
       - 'src/**'
-      - 'scripts/**'
+      - 'tests/**'
       - '.github/workflows/codeql.yml'
   schedule:
     - cron: '24 3 * * 1'
@@ -34,20 +32,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language:
-          - javascript-typescript
+        language: [ python ]
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v3
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v3
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v3
+        uses: github/codeql-action/analyze@v3

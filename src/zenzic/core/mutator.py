@@ -7,7 +7,11 @@ from __future__ import annotations
 import copy
 from typing import Protocol
 
+from zenzic.core import regex
 from zenzic.core.ast import CodeSpanNode, LinkNode, Node, TextNode
+
+
+_FENCE_OPEN_RE = regex.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 
 
 class Mutation(Protocol):
@@ -37,7 +41,7 @@ def _has_text_content(node: Node) -> bool:
 
 
 class EmptyLinkTextMutation:
-    """Z108 Auto-Fix: Injects placeholder text into empty links."""
+    """Z108 Auto-Fix: Injects placeholder 'TODO' text into empty links."""
 
     def apply(self, node: Node) -> bool:
         mutated = False
@@ -45,13 +49,68 @@ class EmptyLinkTextMutation:
             is_empty = not any(_has_text_content(child) for child in node.children)
 
             if is_empty:
-                node.children = [TextNode(text="MISSING LINK LABEL")]
+                node.children = [TextNode(text="TODO")]
                 mutated = True
 
         for child in node.children:
             if self.apply(child):
                 mutated = True
 
+        return mutated
+
+
+class UntaggedCodeBlockMutation:
+    """Z505 Auto-Fix: Injects 'text' language specifier into untagged fenced code blocks."""
+
+    def apply(self, node: Node) -> bool:
+        from zenzic.core.ast import Document
+        from zenzic.core.parser import parse, serialize
+
+        if isinstance(node, Document):
+            text = serialize(node)
+            lines = text.splitlines(keepends=True)
+            new_lines = []
+            mutated = False
+            inside = False
+            open_char = ""
+            open_count = 0
+
+            for line in lines:
+                line_clean = line.rstrip("\r\n")
+                m = _FENCE_OPEN_RE.match(line_clean)
+                if not inside:
+                    if m:
+                        fence = m.group("fence")
+                        info = m.group("info").strip()
+                        has_tag = bool(info)
+                        inside = True
+                        open_char = fence[0]
+                        open_count = len(fence)
+                        if not has_tag:
+                            rest = line[len(fence) :].lstrip(" \t")
+                            line = f"{fence}text{rest}"
+                            mutated = True
+                else:
+                    if m:
+                        fence = m.group("fence")
+                        info = m.group("info").strip()
+                        if fence[0] == open_char and len(fence) >= open_count and not info:
+                            inside = False
+                            open_char = ""
+                            open_count = 0
+
+                new_lines.append(line)
+
+            if mutated:
+                new_doc = parse("".join(new_lines))
+                node.children = new_doc.children
+                return True
+            return False
+
+        mutated = False
+        for child in node.children:
+            if self.apply(child):
+                mutated = True
         return mutated
 
 
@@ -72,70 +131,6 @@ class Mutator:
             if mutation.apply(new_ast):
                 changed = True
         return new_ast, changed
-
-
-def fix_missing_or_empty_href(attrs: str, tag: str) -> tuple[str, bool]:
-    if tag != "a":
-        return attrs, False
-    from zenzic.core.validator import _RE_POLY_ATTR
-
-    attrs_dict = {}
-    for m in _RE_POLY_ATTR.finditer(attrs):
-        key = m.group("key").lower()
-        val = m.group("val")
-        if val is not None:
-            if (val.startswith('"') and val.endswith('"')) or (
-                val.startswith("'") and val.endswith("'")
-            ):
-                val = val[1:-1]
-        attrs_dict[key] = (val, m.start(), m.end())
-
-    if "href" not in attrs_dict:
-        new_attrs = attrs.rstrip() + ' href="#"'
-        return new_attrs, True
-
-    val, start, end = attrs_dict["href"]
-    if val is None or val.strip() == "":
-        prefix = attrs[:start]
-        suffix = attrs[end:]
-        new_attrs = prefix + 'href="#"' + suffix
-        return new_attrs, True
-
-    return attrs, False
-
-
-class HtmlMissingHrefMutation:
-    """Z121 Auto-Fix: Injects href="#" into missing or empty <a> tag href attributes."""
-
-    def apply(self, node: Node) -> bool:
-        mutated = False
-        from zenzic.core.ast import TextNode
-
-        if isinstance(node, TextNode):
-            from zenzic.core.validator import _RE_POLY_TAG
-
-            text = node.text
-            new_text = ""
-            last_idx = 0
-            for m in _RE_POLY_TAG.finditer(text):
-                tag = m.group(1).lower()
-                attrs_str = m.group("attrs")
-
-                if tag == "a":
-                    new_attrs, changed = fix_missing_or_empty_href(attrs_str, tag)
-                    if changed:
-                        new_text += text[last_idx : m.start()] + f"<a {new_attrs.strip()}>"
-                        last_idx = m.end()
-                        mutated = True
-
-            if mutated:
-                new_text += text[last_idx:]
-                node.text = new_text
-
-        for child in node.children:
-            if self.apply(child):
-                mutated = True
-        return mutated
 
 
 class DeadSuppressionMutation:

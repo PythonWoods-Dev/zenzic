@@ -307,7 +307,7 @@ An HTML `<a>` tag contains unknown or malformed attributes.
 
 ### Z121: MISSING_HREF {#z121}
 
-**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z121-missing-href.md)
+**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z121-missing-href.md)
 
 An HTML `<a>` tag is missing the required `href` attribute.
 
@@ -340,6 +340,9 @@ An HTML link has an opaque context or relies on inline scripts for navigation.
 ---
 
 ## Z2xx — Security (credential scanner)
+
+!!! danger "🔒 NON-SUPPRESSIBLE SECURITY GOVERNANCE"
+    All `Z2xx` Security findings are strictly **Non-Suppressible** across the Zenzic engine and Language Server Protocol (LSP). `<!-- zenzic:ignore: Z2xx -->` directives are silently rejected, and the editor will **never** offer inline suppression Code Actions for security findings. Security breaches must be resolved at the source.
 
 ### Z201: CREDENTIAL_SECRET {#z201}
 
@@ -589,7 +592,7 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
 
 ### Z505: UNTAGGED_CODE_BLOCK {#z505}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z505-untagged-code-block.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z505-untagged-code-block.md)
 
 A fenced code block has no language specifier. Syntax highlighters, the Snippet Guard (Z503), and screen readers cannot process it. Some engine-specific metadata (e.g. `` ```python title="file.py" showLineNumbers ``) is fully supported and never flagged.
 

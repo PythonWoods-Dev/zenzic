@@ -748,14 +748,14 @@ def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     assert in_uri in server.dirty_documents
 
 
-def test_lsp_code_action_z121(tmp_path) -> None:
-    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z121 fix."""
+def test_lsp_code_action_z505(tmp_path) -> None:
+    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z505 fix."""
     server = LanguageServer()
     out_stream = io.BytesIO()
     server.stdout = out_stream
 
     doc_uri = (tmp_path / "docs" / "index.md").as_uri()
-    doc_text = "<a>Link without href</a>\n"
+    doc_text = "```\ncode\n```\n"
 
     # Open document
     server.handle_message(
@@ -769,7 +769,7 @@ def test_lsp_code_action_z121(tmp_path) -> None:
     out_stream.seek(0)
     out_stream.truncate(0)
 
-    # Request code action for Z121 diagnostic
+    # Request code action for Z505 diagnostic
     server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -779,18 +779,18 @@ def test_lsp_code_action_z121(tmp_path) -> None:
                 "textDocument": {"uri": doc_uri},
                 "range": {
                     "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 24},
+                    "end": {"line": 0, "character": 3},
                 },
                 "context": {
                     "diagnostics": [
                         {
                             "range": {
                                 "start": {"line": 0, "character": 0},
-                                "end": {"line": 0, "character": 24},
+                                "end": {"line": 0, "character": 3},
                             },
-                            "code": "Z121",
+                            "code": "Z505",
                             "source": "Zenzic",
-                            "message": "[Z121] Missing or empty href attribute",
+                            "message": "[Z505] Fenced code block has no language specifier",
                         }
                     ]
                 },
@@ -806,18 +806,86 @@ def test_lsp_code_action_z121(tmp_path) -> None:
 
     assert response["id"] == 100
     actions = response["result"]
-    assert len(actions) == 1
-    action = actions[0]
-    assert action["title"] == 'Fix Z121: Inject placeholder href="#"'
+    assert len(actions) == 2
+    action = [a for a in actions if a["title"].startswith("Fix Z505")][0]
+    assert action["title"] == "Fix Z505: Inject language specifier ('text')"
     assert action["kind"] == "quickfix"
     assert doc_uri in action["edit"]["changes"]
     edits = action["edit"]["changes"][doc_uri]
     assert len(edits) == 1
-    assert '<a href="#">' in edits[0]["newText"]
+    assert "```text" in edits[0]["newText"]
+
+
+def test_lsp_code_action_z108(tmp_path) -> None:
+    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z108 fix."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "[](https://example.com)\n"
+
+    # Open document
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    # Request code action for Z108 diagnostic
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 23},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 23},
+                            },
+                            "code": "Z108",
+                            "source": "Zenzic",
+                            "message": "[Z108] Link text is empty or contains only whitespace",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    assert "Content-Length:" in raw_output
+    body_str = raw_output.split("\r\n\r\n")[1]
+    response = json.loads(body_str)
+
+    assert response["id"] == 101
+    actions = response["result"]
+    assert len(actions) == 2
+    action = [a for a in actions if a["title"].startswith("Fix Z108")][0]
+    assert action["title"] == "Fix Z108: Inject placeholder link text ('TODO')"
+    assert action["kind"] == "quickfix"
+    assert doc_uri in action["edit"]["changes"]
+    edits = action["edit"]["changes"][doc_uri]
+    assert len(edits) == 1
+    assert "[TODO](https://example.com)" in edits[0]["newText"]
 
 
 def test_lsp_code_action_unfixable(tmp_path) -> None:
-    """Verify textDocument/codeAction returns empty list for unfixable diagnostics."""
+    """Verify textDocument/codeAction returns empty list for unfixable & non-suppressible diagnostics."""
     server = LanguageServer()
     out_stream = io.BytesIO()
     server.stdout = out_stream
@@ -834,7 +902,7 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
     out_stream.seek(0)
     out_stream.truncate(0)
 
-    # Z120 is unfixable (fixable=False)
+    # Z201 is non-suppressible and has no quick fix
     server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -850,9 +918,9 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
                                 "start": {"line": 0, "character": 0},
                                 "end": {"line": 0, "character": 9},
                             },
-                            "code": "Z120",
+                            "code": "Z201",
                             "source": "Zenzic",
-                            "message": "[Z120] Relative link error",
+                            "message": "[Z201] Security breach",
                         }
                     ]
                 },
@@ -1305,3 +1373,264 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
     diags_after = results_after.get(index_uri, [])
     z103_after = [d for d in diags_after if d.code == "Z103"]
     assert len(z103_after) == 0, "Z103 should be cleared after hot-reloading mkdocs.yml nav"
+
+
+def test_file_deletion_clears_ghost_diagnostics(tmp_path: "Path") -> None:  # noqa: F821
+    """LSP-FIX-015 Fix 1 — Deleting a file must clear its diagnostics from the PROBLEMS panel.
+
+    When a file is deleted (workspace/didChangeWatchedFiles type=3), the LSP must
+    send a ``textDocument/publishDiagnostics`` with an empty diagnostics array ``[]``
+    so that VS Code clears stale (ghost) entries from the PROBLEMS panel immediately.
+    """
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    # Create a file with a Z107 circular anchor so there will be prior diagnostics
+    doc_path = docs / "ghost.md"
+    doc_path.write_text("[self](#self)\n", encoding="utf-8")
+    (tmp_path / "mkdocs.yml").write_text(
+        f"site_name: T\ndocs_dir: {docs}\nnav:\n  - Page: ghost.md\n",
+        encoding="utf-8",
+    )
+
+    def _encode(msg: dict) -> bytes:
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        return f"Content-Length: {len(body)}\r\n\r\n".encode() + body
+
+    def _parse_frames(raw: bytes) -> list[dict]:
+        """Parse all Content-Length-framed JSON-RPC messages from a byte stream."""
+        msgs = []
+        offset = 0
+        while offset < len(raw):
+            # Find the double CRLF that terminates the header block
+            header_end = raw.find(b"\r\n\r\n", offset)
+            if header_end == -1:
+                break
+            header = raw[offset:header_end].decode("ascii", errors="ignore")
+            content_length = 0
+            for line in header.splitlines():
+                if line.lower().startswith("content-length:"):
+                    content_length = int(line.split(":", 1)[1].strip())
+                    break
+            body_start = header_end + 4
+            body_end = body_start + content_length
+            if body_end > len(raw):
+                break
+            try:
+                msgs.append(json.loads(raw[body_start:body_end]))
+            except json.JSONDecodeError:
+                pass
+            offset = body_end
+        return msgs
+
+    doc_uri = doc_path.as_uri()
+    root_uri = tmp_path.as_uri()
+
+    in_stream = io.BytesIO()
+    # 1. initialize — establishes the repo root and config
+    in_stream.write(
+        _encode(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"rootUri": root_uri, "capabilities": {}},
+            }
+        )
+    )
+    # 2. initialized — triggers _build_vsm_sync() so self.vsm is available
+    in_stream.write(_encode({"jsonrpc": "2.0", "method": "initialized", "params": {}}))
+    # 3. didOpen — opens the file so its diagnostics are emitted
+    in_stream.write(
+        _encode(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {"textDocument": {"uri": doc_uri, "text": "[self](#self)\n"}},
+            }
+        )
+    )
+    # 4. didChangeWatchedFiles type=3 — simulates file deletion
+    in_stream.write(
+        _encode(
+            {
+                "jsonrpc": "2.0",
+                "method": "workspace/didChangeWatchedFiles",
+                "params": {"changes": [{"uri": doc_uri, "type": 3}]},
+            }
+        )
+    )
+    in_stream.write(_encode({"jsonrpc": "2.0", "method": "exit", "params": {}}))
+    in_stream.seek(0)
+
+    out_stream = io.BytesIO()
+    server = LanguageServer(stdin=in_stream, stdout=out_stream)
+    server.serve()
+
+    out_stream.seek(0)
+    raw = out_stream.read()
+    frames = _parse_frames(raw)
+
+    empty_diags_found = any(
+        frame.get("method") == "textDocument/publishDiagnostics"
+        and frame.get("params", {}).get("uri") == doc_uri
+        and frame.get("params", {}).get("diagnostics") == []
+        for frame in frames
+    )
+
+    assert empty_diags_found, (
+        "Expected a textDocument/publishDiagnostics with diagnostics=[] "
+        "after the file was deleted, but none was found. "
+        "Ghost diagnostics will remain in the VS Code PROBLEMS panel.\n"
+        f"Frames received: {[f.get('method') for f in frames]}"
+    )
+
+
+def test_lsp_code_action_suppression(tmp_path) -> None:
+    """Verify textDocument/codeAction generates Inline Suppression CodeActions (LSP-FEAT-003).
+
+    1. Suppressible code (Z101): returns 'Suppress Z101 for this line'.
+    2. Non-suppressible code (Z201): returns no suppression action.
+    3. Fixable + Suppressible code (Z108): returns both Quick Fix and Suppression action.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = (
+        "[](https://example.com)\n[Broken link](missing.md)\nAWS_SECRET_KEY=AKIAIOSFODNN7EXAMPLE\n"
+    )
+
+    # Open document
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    # 1. Test Z101 (Suppressible only)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 201,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 1, "character": 0},
+                    "end": {"line": 1, "character": 24},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 1, "character": 0},
+                                "end": {"line": 1, "character": 24},
+                            },
+                            "code": "Z101",
+                            "source": "Zenzic",
+                            "message": "[Z101] Target file missing.md does not exist",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 1
+    assert actions[0]["title"] == "Suppress Z101 for this line"
+    assert actions[0]["kind"] == "quickfix"
+    edit = actions[0]["edit"]["changes"][doc_uri][0]
+    assert edit["newText"] == "<!-- zenzic:ignore:Z101 -->\n"
+    assert edit["range"] == {
+        "start": {"line": 1, "character": 0},
+        "end": {"line": 1, "character": 0},
+    }
+
+    # 2. Test Z201 (Non-suppressible security gate)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 202,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 40},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 40},
+                            },
+                            "code": "Z201",
+                            "source": "Zenzic",
+                            "message": "[Z201] Hardcoded credential secret detected",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    assert resp["result"] == [], "Z201 Security findings must NOT offer suppression Code Actions"
+
+    # 3. Test Z108 (Fixable + Suppressible)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 203,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 23},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 23},
+                            },
+                            "code": "Z108",
+                            "source": "Zenzic",
+                            "message": "[Z108] Link text is empty",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 2
+    titles = [a["title"] for a in actions]
+    assert "Fix Z108: Inject placeholder link text ('TODO')" in titles
+    assert "Suppress Z108 for this line" in titles

@@ -595,8 +595,8 @@ Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation pro
 
 Currently, `zenzic fix` supports auto-fixing:
 
-- **Z108 (EMPTY_LINK_TEXT):** Converts a structural accessibility error into a content debt warning (`Z501`), injecting the `[MISSING LINK LABEL]` keyword. You must subsequently resolve these placeholders.
-- **Z121 (MISSING_OR_EMPTY_HREF):** Converts a structural HTML integrity error into an HTML hygiene warning (`Z122`) by injecting `href="#"` (safe self-reference).
+- **Z108 (EMPTY_LINK_TEXT):** Injects a placeholder label for empty link text.
+- **Z505 (UNTAGGED_CODE_BLOCK):** Injects default `text` language specifier for untagged fenced code blocks.
 - **Z603 (DEAD_SUPPRESSION):** Cleanly extracts dead/unused inline suppression comments (`<!-- zenzic:ignore: Zxxx -->`) and `data-zenzic-ignore` HTML attributes without corrupting the surrounding text.
 
 `zenzic clean assets` respects `excluded_assets`, `excluded_dirs`, and

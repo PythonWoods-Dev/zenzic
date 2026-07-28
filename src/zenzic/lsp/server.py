@@ -373,6 +373,23 @@ class LanguageServer:
             elif change_type == 3:  # Deleted
                 if self.engine is not None:
                     self.engine.remove_file_cache(file_path)
+                # State Hygiene (LSP-FIX-015): evict the deleted URI from all
+                # in-memory caches so it is never re-scheduled for analysis.
+                self.documents.documents.pop(uri, None)
+                self.dirty_documents.pop(uri, None)
+                if self.overlay is not None:
+                    self.overlay.remove(uri)
+                # LSP contract: an empty diagnostics array clears stale entries
+                # from the editor's PROBLEMS panel immediately. Without this,
+                # VS Code retains ghost diagnostics until the next full scan.
+                self.send_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "textDocument/publishDiagnostics",
+                        "params": {"uri": uri, "diagnostics": []},
+                    }
+                )
+                continue  # Deleted files must NOT be re-added to dirty_documents
 
             self.dirty_documents[uri] = 0.0
 
@@ -654,13 +671,13 @@ class LanguageServer:
 
         import re
 
-        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
         from zenzic.core.mutator import (
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
-            HtmlMissingHrefMutation,
             Mutation,
             Mutator,
+            UntaggedCodeBlockMutation,
         )
         from zenzic.core.parser import parse, serialize
 
@@ -668,65 +685,84 @@ class LanguageServer:
 
         for diag in diagnostics:
             raw_code = diag.get("code")
-            code = str(raw_code) if raw_code is not None else ""
-            if not code and "message" in diag:
+            diag_code = str(raw_code) if raw_code is not None else ""
+            if not diag_code and "message" in diag:
                 m = re.search(r"\[(Z\d{3})\]", str(diag["message"]))
                 if m:
-                    code = m.group(1)
+                    diag_code = m.group(1)
 
-            defn = CODE_DEFINITIONS.get(code)
-            if not defn or not getattr(defn, "fixable", False):
-                continue
+            defn = CODE_DEFINITIONS.get(diag_code)
+            if defn and getattr(defn, "fixable", False):
+                mutations: list[Mutation] = []
+                title = ""
 
-            mutations: list[Mutation] = []
-            title_desc = ""
+                if diag_code == "Z108":
+                    mutations.append(EmptyLinkTextMutation())
+                    title = "Fix Z108: Inject placeholder link text ('TODO')"
+                elif diag_code == "Z505":
+                    mutations.append(UntaggedCodeBlockMutation())
+                    title = "Fix Z505: Inject language specifier ('text')"
+                elif diag_code == "Z603":
+                    line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
+                    mutations.append(DeadSuppressionMutation({line_no}))
+                    title = "Fix Z603: Remove dead inline suppression"
 
-            if code == "Z121":
-                mutations.append(HtmlMissingHrefMutation())
-                title_desc = 'Inject placeholder href="#"'
-            elif code == "Z603":
-                line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
-                mutations.append(DeadSuppressionMutation({line_no}))
-                title_desc = "Remove dead inline suppression"
-            elif code == "Z108":
-                mutations.append(EmptyLinkTextMutation())
-                title_desc = "Inject placeholder link text"
-            else:
-                continue
+                if mutations:
+                    try:
+                        ast = parse(content)
+                        mutator = Mutator(mutations)
+                        new_ast, changed = mutator.mutate(ast)
+                    except Exception:
+                        changed = False
 
-            try:
-                ast = parse(content)
-                mutator = Mutator(mutations)
-                new_ast, changed = mutator.mutate(ast)
-            except Exception:
-                changed = False
+                    if changed:
+                        new_content = serialize(new_ast)
+                        lines = content.splitlines(keepends=True)
+                        total_lines = max(0, len(lines) - 1)
+                        last_line_len = len(lines[-1]) if lines else 0
 
-            if changed:
-                new_content = serialize(new_ast)
-                lines = content.splitlines(keepends=True)
-                total_lines = max(0, len(lines) - 1)
-                last_line_len = len(lines[-1]) if lines else 0
+                        full_range = {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": total_lines, "character": last_line_len},
+                        }
 
-                full_range = {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": total_lines, "character": last_line_len},
-                }
+                        action = {
+                            "title": title,
+                            "kind": "quickfix",
+                            "diagnostics": [diag],
+                            "edit": {
+                                "changes": {
+                                    uri: [
+                                        {
+                                            "range": full_range,
+                                            "newText": new_content,
+                                        }
+                                    ]
+                                }
+                            },
+                        }
+                        code_actions.append(action)
 
-                action = {
-                    "title": f"Fix {code}: {title_desc}",
+            if diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
+                insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
+                suppress_action = {
+                    "title": f"Suppress {diag_code} for this line",
                     "kind": "quickfix",
                     "diagnostics": [diag],
                     "edit": {
                         "changes": {
                             uri: [
                                 {
-                                    "range": full_range,
-                                    "newText": new_content,
+                                    "range": {
+                                        "start": {"line": insert_line, "character": 0},
+                                        "end": {"line": insert_line, "character": 0},
+                                    },
+                                    "newText": f"<!-- zenzic:ignore:{diag_code} -->\n",
                                 }
                             ]
                         }
                     },
                 }
-                code_actions.append(action)
+                code_actions.append(suppress_action)
 
         self.send_response(msg_id, result=code_actions)
