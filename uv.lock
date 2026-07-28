@@ -2465,7 +2465,7 @@ wheels = [
 
 [[package]]
 name = "zenzic"
-version = "0.26.1"
+version = "0.26.2"
 source = { editable = "." }
 dependencies = [
     { name = "google-re2" },
