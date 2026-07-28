@@ -341,6 +341,9 @@ An HTML link has an opaque context or relies on inline scripts for navigation.
 
 ## Z2xx — Security (credential scanner)
 
+!!! danger "🔒 NON-SUPPRESSIBLE SECURITY GOVERNANCE"
+    All `Z2xx` Security findings are strictly **Non-Suppressible** across the Zenzic engine and Language Server Protocol (LSP). `<!-- zenzic:ignore: Z2xx -->` directives are silently rejected, and the editor will **never** offer inline suppression Code Actions for security findings. Security breaches must be resolved at the source.
+
 ### Z201: CREDENTIAL_SECRET {#z201}
 
 !!! danger "🔒 INVIOLABLE — Cannot be suppressed | Exit 2 | DQS collapses to 0/100"

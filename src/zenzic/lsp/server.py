@@ -671,7 +671,7 @@ class LanguageServer:
 
         import re
 
-        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
         from zenzic.core.mutator import (
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
@@ -692,58 +692,77 @@ class LanguageServer:
                     diag_code = m.group(1)
 
             defn = CODE_DEFINITIONS.get(diag_code)
-            if not defn or not getattr(defn, "fixable", False):
-                continue
+            if defn and getattr(defn, "fixable", False):
+                mutations: list[Mutation] = []
+                title = ""
 
-            mutations: list[Mutation] = []
-            title = ""
+                if diag_code == "Z108":
+                    mutations.append(EmptyLinkTextMutation())
+                    title = "Fix Z108: Inject placeholder link text ('TODO')"
+                elif diag_code == "Z505":
+                    mutations.append(UntaggedCodeBlockMutation())
+                    title = "Fix Z505: Inject language specifier ('text')"
+                elif diag_code == "Z603":
+                    line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
+                    mutations.append(DeadSuppressionMutation({line_no}))
+                    title = "Fix Z603: Remove dead inline suppression"
 
-            if diag_code == "Z108":
-                mutations.append(EmptyLinkTextMutation())
-                title = "Fix Z108: Inject placeholder link text ('TODO')"
-            elif diag_code == "Z505":
-                mutations.append(UntaggedCodeBlockMutation())
-                title = "Fix Z505: Inject language specifier ('text')"
-            elif diag_code == "Z603":
-                line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
-                mutations.append(DeadSuppressionMutation({line_no}))
-                title = "Fix Z603: Remove dead inline suppression"
-            else:
-                continue
+                if mutations:
+                    try:
+                        ast = parse(content)
+                        mutator = Mutator(mutations)
+                        new_ast, changed = mutator.mutate(ast)
+                    except Exception:
+                        changed = False
 
-            try:
-                ast = parse(content)
-                mutator = Mutator(mutations)
-                new_ast, changed = mutator.mutate(ast)
-            except Exception:
-                changed = False
+                    if changed:
+                        new_content = serialize(new_ast)
+                        lines = content.splitlines(keepends=True)
+                        total_lines = max(0, len(lines) - 1)
+                        last_line_len = len(lines[-1]) if lines else 0
 
-            if changed:
-                new_content = serialize(new_ast)
-                lines = content.splitlines(keepends=True)
-                total_lines = max(0, len(lines) - 1)
-                last_line_len = len(lines[-1]) if lines else 0
+                        full_range = {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": total_lines, "character": last_line_len},
+                        }
 
-                full_range = {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": total_lines, "character": last_line_len},
-                }
+                        action = {
+                            "title": title,
+                            "kind": "quickfix",
+                            "diagnostics": [diag],
+                            "edit": {
+                                "changes": {
+                                    uri: [
+                                        {
+                                            "range": full_range,
+                                            "newText": new_content,
+                                        }
+                                    ]
+                                }
+                            },
+                        }
+                        code_actions.append(action)
 
-                action = {
-                    "title": title,
+            if diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
+                insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
+                suppress_action = {
+                    "title": f"Suppress {diag_code} for this line",
                     "kind": "quickfix",
                     "diagnostics": [diag],
                     "edit": {
                         "changes": {
                             uri: [
                                 {
-                                    "range": full_range,
-                                    "newText": new_content,
+                                    "range": {
+                                        "start": {"line": insert_line, "character": 0},
+                                        "end": {"line": insert_line, "character": 0},
+                                    },
+                                    "newText": f"<!-- zenzic:ignore:{diag_code} -->\n",
                                 }
                             ]
                         }
                     },
                 }
-                code_actions.append(action)
+                code_actions.append(suppress_action)
 
         self.send_response(msg_id, result=code_actions)

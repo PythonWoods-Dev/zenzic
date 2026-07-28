@@ -806,8 +806,8 @@ def test_lsp_code_action_z505(tmp_path) -> None:
 
     assert response["id"] == 100
     actions = response["result"]
-    assert len(actions) == 1
-    action = actions[0]
+    assert len(actions) == 2
+    action = [a for a in actions if a["title"].startswith("Fix Z505")][0]
     assert action["title"] == "Fix Z505: Inject language specifier ('text')"
     assert action["kind"] == "quickfix"
     assert doc_uri in action["edit"]["changes"]
@@ -874,8 +874,8 @@ def test_lsp_code_action_z108(tmp_path) -> None:
 
     assert response["id"] == 101
     actions = response["result"]
-    assert len(actions) == 1
-    action = actions[0]
+    assert len(actions) == 2
+    action = [a for a in actions if a["title"].startswith("Fix Z108")][0]
     assert action["title"] == "Fix Z108: Inject placeholder link text ('TODO')"
     assert action["kind"] == "quickfix"
     assert doc_uri in action["edit"]["changes"]
@@ -885,7 +885,7 @@ def test_lsp_code_action_z108(tmp_path) -> None:
 
 
 def test_lsp_code_action_unfixable(tmp_path) -> None:
-    """Verify textDocument/codeAction returns empty list for unfixable diagnostics."""
+    """Verify textDocument/codeAction returns empty list for unfixable & non-suppressible diagnostics."""
     server = LanguageServer()
     out_stream = io.BytesIO()
     server.stdout = out_stream
@@ -902,7 +902,7 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
     out_stream.seek(0)
     out_stream.truncate(0)
 
-    # Z120 is unfixable (fixable=False)
+    # Z201 is non-suppressible and has no quick fix
     server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -918,9 +918,9 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
                                 "start": {"line": 0, "character": 0},
                                 "end": {"line": 0, "character": 9},
                             },
-                            "code": "Z120",
+                            "code": "Z201",
                             "source": "Zenzic",
-                            "message": "[Z120] Relative link error",
+                            "message": "[Z201] Security breach",
                         }
                     ]
                 },
@@ -1484,3 +1484,153 @@ def test_file_deletion_clears_ghost_diagnostics(tmp_path: "Path") -> None:  # no
         "Ghost diagnostics will remain in the VS Code PROBLEMS panel.\n"
         f"Frames received: {[f.get('method') for f in frames]}"
     )
+
+
+def test_lsp_code_action_suppression(tmp_path) -> None:
+    """Verify textDocument/codeAction generates Inline Suppression CodeActions (LSP-FEAT-003).
+
+    1. Suppressible code (Z101): returns 'Suppress Z101 for this line'.
+    2. Non-suppressible code (Z201): returns no suppression action.
+    3. Fixable + Suppressible code (Z108): returns both Quick Fix and Suppression action.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = (
+        "[](https://example.com)\n[Broken link](missing.md)\nAWS_SECRET_KEY=AKIAIOSFODNN7EXAMPLE\n"
+    )
+
+    # Open document
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    # 1. Test Z101 (Suppressible only)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 201,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 1, "character": 0},
+                    "end": {"line": 1, "character": 24},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 1, "character": 0},
+                                "end": {"line": 1, "character": 24},
+                            },
+                            "code": "Z101",
+                            "source": "Zenzic",
+                            "message": "[Z101] Target file missing.md does not exist",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 1
+    assert actions[0]["title"] == "Suppress Z101 for this line"
+    assert actions[0]["kind"] == "quickfix"
+    edit = actions[0]["edit"]["changes"][doc_uri][0]
+    assert edit["newText"] == "<!-- zenzic:ignore:Z101 -->\n"
+    assert edit["range"] == {
+        "start": {"line": 1, "character": 0},
+        "end": {"line": 1, "character": 0},
+    }
+
+    # 2. Test Z201 (Non-suppressible security gate)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 202,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 40},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 40},
+                            },
+                            "code": "Z201",
+                            "source": "Zenzic",
+                            "message": "[Z201] Hardcoded credential secret detected",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    assert resp["result"] == [], "Z201 Security findings must NOT offer suppression Code Actions"
+
+    # 3. Test Z108 (Fixable + Suppressible)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 203,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 23},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 23},
+                            },
+                            "code": "Z108",
+                            "source": "Zenzic",
+                            "message": "[Z108] Link text is empty",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 2
+    titles = [a["title"] for a in actions]
+    assert "Fix Z108: Inject placeholder link text ('TODO')" in titles
+    assert "Suppress Z108 for this line" in titles
