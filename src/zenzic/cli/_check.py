@@ -1238,10 +1238,23 @@ def _to_findings(
                 )
             )
         for rule_f in report.rule_findings:
-            if rule_f.rule_id in ("Z101", "Z102", "Z103", "Z104", "Z105", "Z106", "Z110", "Z120", "Z121", "Z122", "Z123", "Z124", "Z205"):
+            if rule_f.rule_id in (
+                "Z101",
+                "Z102",
+                "Z103",
+                "Z104",
+                "Z105",
+                "Z106",
+                "Z110",
+                "Z120",
+                "Z121",
+                "Z122",
+                "Z123",
+                "Z124",
+                "Z205",
+            ):
                 continue
             findings.append(
-
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,

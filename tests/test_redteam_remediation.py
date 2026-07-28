@@ -397,7 +397,6 @@ class TestVSMContextAwareResolution:
         assert len(violations) == 1
         assert violations[0].code in ("Z101", "Z104")
 
-
     def test_context_aware_traversal_escape_returns_none(self) -> None:
         """A path that escapes docs_root via .. must be silently skipped (no crash)."""
         vsm = _make_vsm("/etc/")

@@ -490,7 +490,6 @@ class TestVSMBrokenLinkRule:
         assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
 
-
     # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
 
     def test_orphan_link_emits_z002_warning(self) -> None:
@@ -1526,6 +1525,10 @@ class TestToCanonicalUrlMutantKill:
         )
 
     # ── rstrip("/") kills ────────────────────────────────────────────────────
+
+    def test_extensionless_static_asset_no_trailing_slash(self) -> None:
+        """Extensionless files like LICENSE must resolve without trailing slash."""
+        assert self._url("LICENSE") == "/LICENSE"
 
     def test_trailing_slash_is_stripped_before_processing(self) -> None:
         """rstrip(None) / lstrip("/") / rstrip("XX/XX") mutants leave a trailing slash

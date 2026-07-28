@@ -114,7 +114,6 @@ class ResolutionContext:
     config: Any = None
 
 
-
 # ─── Finding ──────────────────────────────────────────────────────────────────
 
 Severity = Literal["error", "warning", "info"]
@@ -1117,7 +1116,6 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     return results
 
 
-
 class CredentialScannerRule(BaseRule):
     """Rule wrapper for Z201 Credential Scanner (Tier 1)."""
 
@@ -1383,31 +1381,27 @@ class VSMBrokenLinkRule(BaseRule):
 
             # Skip static media and non-markdown assets (handled by URP asset checks)
             url_clean = url.split("?")[0].split("#")[0].lower()
-            if (
-                any(
-                    url_clean.endswith(ext)
-                    for ext in (
-                        ".png",
-                        ".jpg",
-                        ".jpeg",
-                        ".gif",
-                        ".webp",
-                        ".svg",
-                        ".ico",
-                        ".pdf",
-                        ".zip",
-                        ".tar.gz",
-                        ".xml",
-                        ".css",
-                        ".json",
-                    )
+            if any(
+                url_clean.endswith(ext)
+                for ext in (
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".webp",
+                    ".svg",
+                    ".ico",
+                    ".pdf",
+                    ".zip",
+                    ".tar.gz",
+                    ".xml",
+                    ".css",
+                    ".json",
                 )
             ):
                 continue
 
-
             from zenzic.core.validator import _classify_traversal_intent
-
 
             if _classify_traversal_intent(url) == "suspicious":
                 continue
@@ -1452,9 +1446,13 @@ class VSMBrokenLinkRule(BaseRule):
                             if fallback_route is not None:
                                 is_fallback_on = True
                                 if context.adapter is not None:
-                                    is_fallback_on = getattr(context.adapter, "_fallback_to_default", True)
+                                    is_fallback_on = getattr(
+                                        context.adapter, "_fallback_to_default", True
+                                    )
                                 elif context.config is not None:
-                                    is_fallback_on = getattr(context.config.build_context, "fallback_to_default", True)
+                                    is_fallback_on = getattr(
+                                        context.config.build_context, "fallback_to_default", True
+                                    )
                                 if is_fallback_on:
                                     route = fallback_route
                 except Exception:
@@ -1479,8 +1477,6 @@ class VSMBrokenLinkRule(BaseRule):
                         context=raw_line,
                     )
                 )
-
-
 
             elif route.status == "ORPHAN_BUT_EXISTING":
                 if Path(route.source).suffix.lower() in (".md", ".mdx"):
@@ -1515,7 +1511,6 @@ class VSMBrokenLinkRule(BaseRule):
                         context=raw_line,
                     )
                 )
-
 
         return violations
 
@@ -1587,7 +1582,18 @@ class VSMBrokenLinkRule(BaseRule):
 
         # Keep static assets at their exact path (no trailing slash rewrite).
         ext = Path(path).suffix.lower()
-        is_asset = bool(ext) and ext not in DOC_SUFFIXES and ext not in (".html", ".htm")
+        KNOWN_EXTENSIONLESS_ASSETS = {
+            "LICENSE",
+            "COPYING",
+            "NOTICE",
+            "MAKEFILE",
+            "DOCKERFILE",
+            "CNAME",
+            "JUSTFILE",
+        }
+        is_asset = (bool(ext) and ext not in DOC_SUFFIXES and ext not in (".html", ".htm")) or (
+            not ext and Path(path).name.upper() in KNOWN_EXTENSIONLESS_ASSETS
+        )
 
         # Strip document suffixes so internal links normalize to canonical routes.
         if ext in DOC_SUFFIXES or (use_directory_urls and ext in (".html", ".htm")):

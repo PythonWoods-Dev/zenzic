@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-07-28
+
+### Fixed
+
+- **Extensionless Asset Resolution**: Fixed a bug in `VSMBrokenLinkRule._to_canonical_url` where extensionless files (e.g., `LICENSE`, `Makefile`) incorrectly received a trailing slash when `use_directory_urls` was active, causing false-positive `Z101` findings.
+
 ## [0.26.1] - 2026-07-27
 
 ### Added
@@ -18,6 +24,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Adapter API Contract (`CORE-FIX-005`)**: Added the `use_directory_urls` property to the `BaseAdapter` contract. This allows adapters to explicitly declare their URL routing mode, eradicating encapsulation violations in the incremental engine.
 
 ### Fixed
+
 - **URP Unification (`CORE-REFACTOR-003`)**: Eradicated the legacy CLI link validation pipeline (`validate_links_async`). Both CLI and LSP now evaluate broken internal links exclusively via `VSMBrokenLinkRule.check_vsm` and `PolyglotExtractor`, achieving 100% true validation parity.
 - **Asset Indexing Parity (`CORE-REFACTOR-006`)**: Upgraded the Virtual Site Map (VSM) builder to explicitly index non-Markdown static assets (e.g., `.png`, `.webp`, `.html`). This eradicates hardcoded directory workarounds and eliminates false-positive `Z101` and `Z104` findings for static assets across all adapters.
 - **JSON Purity (`CLI-FIX-001`)**: Enforced absolute JSON purity when the `--json` flag is active by routing `fail_under` and `suppression_cap` failure messages to `stderr`. This prevents `JSON.parse()` failures in programmatic consumers.

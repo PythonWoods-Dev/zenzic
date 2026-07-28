@@ -108,7 +108,6 @@ class TestZ104FileNotFound:
         z101_msgs = [f.message for f in findings if f.code == "Z101"]
         assert any("api/reference.md" in m or "api/reference" in m for m in z101_msgs)
 
-
     def test_z104_expected_pass_false(self) -> None:
         assert _GALLERY["z104"].expected_pass is False
 

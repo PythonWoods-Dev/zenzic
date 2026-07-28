@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
 
@@ -41,7 +41,6 @@ from zenzic.core.rules import (
     AdaptiveRuleEngine,
     ResolutionContext,
     RuleFinding,
-    _extract_inline_links_with_lines,
 )
 from zenzic.core.suppressions import SuppressionTracker
 from zenzic.core.validator import (
@@ -481,7 +480,6 @@ class IncrementalAnalysisEngine:
             self._run_urp_checks(vsm, path, text, tracker=tracker, extracted_links=extracted_links)
         )
 
-
         # Dead suppression detection
         findings.extend(tracker.get_dead_suppressions())
 
@@ -566,7 +564,6 @@ class IncrementalAnalysisEngine:
         extracted_links: list[ExtractedLink] | None = None,
         resolver: Any = None,
     ) -> list[RuleFinding]:
-
         """Run the Uniform Resolver Pipeline checks on a single file.
 
         Covers: Z120, Z121, Z122, Z123, Z124, Z205, Z102, Z105, Z202, Z203.
@@ -761,18 +758,31 @@ class IncrementalAnalysisEngine:
                         )
                 continue
 
-
-
             # Non-markdown asset validation (Z104)
             url_clean = url.split("?")[0].split("#")[0].lower()
-            is_asset = (
-                link.node_type in ("image", "html_img")
-                or any(url_clean.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".pdf", ".zip", ".tar.gz", ".html"))
+            is_asset = link.node_type in ("image", "html_img") or any(
+                url_clean.endswith(ext)
+                for ext in (
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".webp",
+                    ".svg",
+                    ".ico",
+                    ".pdf",
+                    ".zip",
+                    ".tar.gz",
+                    ".html",
+                )
             )
             if is_asset:
                 if self.config.excluded_build_artifacts:
                     import fnmatch
-                    if any(fnmatch.fnmatch(url, pat) for pat in self.config.excluded_build_artifacts):
+
+                    if any(
+                        fnmatch.fnmatch(url, pat) for pat in self.config.excluded_build_artifacts
+                    ):
                         continue
 
                 rel_url = unquote(parsed.path)
@@ -792,8 +802,6 @@ class IncrementalAnalysisEngine:
                             )
                         )
                 continue
-
-
 
             # Z102 (Local and Cross-file)
             if parsed.fragment:
@@ -824,7 +832,9 @@ class IncrementalAnalysisEngine:
 
                     if route is not None and anchor not in route.anchors:
                         # Check adapter i18n anchor fallback
-                        if not self.adapter.resolve_anchor(target_path, anchor, self.anchors_cache, self.docs_root):
+                        if not self.adapter.resolve_anchor(
+                            target_path, anchor, self.anchors_cache, self.docs_root
+                        ):
                             findings.append(
                                 RuleFinding(
                                     path,
@@ -837,7 +847,6 @@ class IncrementalAnalysisEngine:
                             )
 
         return findings
-
 
 
 # ── Module-level pure functions ───────────────────────────────────────────────
