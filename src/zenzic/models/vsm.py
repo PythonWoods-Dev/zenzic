@@ -16,6 +16,7 @@ Design principles (The Zenzic Way):
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -177,7 +178,6 @@ def build_vsm(
     Returns:
         ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
     """
-    from typing import Iterable
 
     ac = anchors_cache or {}
     extra_mounts = build_content_mounts(list(extra_content_roots or []), repo_root=repo_root)

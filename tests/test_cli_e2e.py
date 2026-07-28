@@ -509,7 +509,6 @@ class TestSuppressionCapE2E:
 
         assert result.exit_code == 0, (
             "Expected per-file ignore to suppress Z101 in this file. "
-
             f"Got exit {result.exit_code}.\nOutput:\n{result.stdout}"
         )
         assert "Suppression Audit:" in result.stdout

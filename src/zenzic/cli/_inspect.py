@@ -401,6 +401,7 @@ def inspect_routes(
 
     # ── Pass 1d: include static assets (HTML, webp, images, etc.) ──────────────
     from zenzic.core.discovery import DOC_SUFFIXES, walk_files
+
     static_assets: set[Path] = set()
     if docs_root.is_dir():
         for fpath in walk_files(docs_root, set(config.excluded_dirs), exclusion_mgr, config):

@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
-
 from zenzic.core import regex as re
 from zenzic.core.credentials import (
     SecurityFinding,
@@ -40,7 +39,6 @@ from zenzic.core.discovery import (
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.validator import LinkValidator, PolyglotExtractor
-
 from zenzic.models.config import (
     ZenzicConfig,
 )
@@ -171,8 +169,6 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
             or (candidate / "mkdocs.yml").is_file()
         ):
             return candidate
-
-
 
     if fallback_to_cwd:
         return start
@@ -1087,12 +1083,16 @@ def _run_vsm_and_urp_pass(
     """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
     from zenzic.core.adapter import get_adapter
     from zenzic.core.incremental import IncrementalAnalysisEngine
-    from zenzic.core.rules import AdaptiveRuleEngine, ResolutionContext, RuleFinding, VSMBrokenLinkRule
+    from zenzic.core.resolver import InMemoryPathResolver, Resolved
+    from zenzic.core.rules import (
+        AdaptiveRuleEngine,
+        ResolutionContext,
+        RuleFinding,
+        VSMBrokenLinkRule,
+    )
     from zenzic.core.validator import (
-        InMemoryPathResolver,
         LinkInfo,
         PolyglotExtractor,
-        Resolved,
         _build_link_graph,
         _find_cycles_iterative,
         anchors_in_file,
@@ -1143,7 +1143,6 @@ def _run_vsm_and_urp_pass(
     }
     resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache, repo_root=repo_root)
 
-
     link_graph = _build_link_graph(links_cache, resolver, frozenset(md_contents.keys()))
 
     cycle_nodes = set(_find_cycles_iterative(link_graph))
@@ -1156,7 +1155,6 @@ def _run_vsm_and_urp_pass(
     for r in reports:
         if not r.file_path.is_file():
             continue
-
 
         try:
             text = r.file_path.read_text(encoding="utf-8")
@@ -1172,21 +1170,27 @@ def _run_vsm_and_urp_pass(
             adapter=adapter,
         )
 
-
         vsm_findings = rule_engine.run_vsm(
             r.file_path, text, vsm, anchors_cache, context, extracted_links=extracted_links
         )
         urp_findings = inc_engine._run_urp_checks(
-            vsm, r.file_path, text, tracker=r.suppression_tracker, extracted_links=extracted_links, resolver=resolver
+            vsm,
+            r.file_path,
+            text,
+            tracker=r.suppression_tracker,
+            extracted_links=extracted_links,
+            resolver=resolver,
         )
 
         if r.suppression_tracker is not None:
             active_vsm = [
-                f for f in vsm_findings
+                f
+                for f in vsm_findings
                 if not r.suppression_tracker.is_suppressed(f.line_no, f.rule_id)
             ]
             active_urp = [
-                f for f in urp_findings
+                f
+                for f in urp_findings
                 if not r.suppression_tracker.is_suppressed(f.line_no, f.rule_id)
             ]
         else:
@@ -1202,7 +1206,10 @@ def _run_vsm_and_urp_pass(
                     match resolver.resolve(r.file_path, link.url):
                         case Resolved(target=target):
                             if target.as_posix() in cycle_nodes:
-                                if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(link.lineno, "Z106"):
+                                if (
+                                    r.suppression_tracker is None
+                                    or not r.suppression_tracker.is_suppressed(link.lineno, "Z106")
+                                ):
                                     r.rule_findings.append(
                                         RuleFinding(
                                             r.file_path,
@@ -1218,11 +1225,11 @@ def _run_vsm_and_urp_pass(
 
     if config.absolute_path_allowlist:
         used_allowlist: set[str] = set()
-        for f, text in md_contents.items():
-            for link in PolyglotExtractor().extract_all_links(text):
-                if link.url.startswith("/"):
+        for text in md_contents.values():
+            for ext_link in PolyglotExtractor().extract_all_links(text):
+                if ext_link.url.startswith("/"):
                     for prefix in config.absolute_path_allowlist:
-                        if link.url.startswith(prefix):
+                        if ext_link.url.startswith(prefix):
                             used_allowlist.add(prefix)
         unused = set(config.absolute_path_allowlist) - used_allowlist
         if unused and reports:
@@ -1242,11 +1249,6 @@ def _run_vsm_and_urp_pass(
                         severity="warning",
                     )
                 )
-
-
-
-
-
 
 
 def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
@@ -1436,7 +1438,6 @@ def scan_docs_references(
     content_roots: list[Path] | None = None,
     show_progress: bool = False,
 ) -> tuple[list[IntegrityReport], list[str]]:
-
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
     This is the single unified entry point for all scan modes.  The engine
@@ -1506,6 +1507,9 @@ def scan_docs_references(
 
     if not docs_root.exists() or not docs_root.is_dir():
         return [], []
+
+    if config is None:
+        config, _ = ZenzicConfig.load(docs_root)
 
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
@@ -1653,7 +1657,6 @@ def scan_docs_references(
                 static_assets=static_assets,
             )
 
-
             # Remap locale file paths to their logical display paths.
             if _locale_path_remap:
                 for _r in reports:
@@ -1725,7 +1728,6 @@ def scan_docs_references(
             content_roots=content_roots,
             static_assets=static_assets,
         )
-
 
         elapsed_seq = time.monotonic() - _t0
 

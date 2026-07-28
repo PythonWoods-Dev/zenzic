@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from _helpers import make_mgr
 
-from zenzic.core.ast import ExtractedLink
 from zenzic.core.validator import (
     _MAX_CONCURRENT_REQUESTS,
     PolyglotExtractor,
@@ -155,7 +154,6 @@ class TestPolyglotUnifiedExtractor:
         assert len(all_links) == 1
         assert all_links[0].url == "https://example.com/outside.md"
         assert all_links[0].line_no == 5
-
 
 
 # ─── slug_heading (pure) ──────────────────────────────────────────────────────

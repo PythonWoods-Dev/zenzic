@@ -26,12 +26,8 @@ No subprocesses are spawned for any language.
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
-import difflib
-import fnmatch
 import html
 import json
-import os
 import sys
 import textwrap
 import time
@@ -45,32 +41,23 @@ else:
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
-from urllib.parse import urlsplit
 
 import httpx
 import yaml
 
 from zenzic.core import regex as re
-from zenzic.core.adapter import get_adapter
 from zenzic.core.ast import ExtractedLink
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
-    build_content_mounts,
-    iter_extra_content_markdown_sources,
-    iter_locale_markdown_sources,
     iter_markdown_sources,
     walk_files,
 )
 from zenzic.core.resolver import (
-    AnchorMissing,
-    FileNotFound,
     InMemoryPathResolver,
-    PathTraversal,
     Resolved,
 )
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import ReferenceMap
-from zenzic.models.vsm import build_vsm
 
 
 if TYPE_CHECKING:
@@ -441,7 +428,6 @@ class PolyglotExtractor:
         extracted.sort(key=lambda item: (item.line_no, item.col_start))
         return extracted
 
-
     def _mask_comments(self, text: str) -> str:
         """Mask HTML and MDX comments with spaces of equal length to preserve offsets."""
         text = _POLY_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
@@ -760,7 +746,6 @@ def _index_file_for_validation(args: tuple[Path, str]) -> _ValidationPayload:
     )
 
 
-
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
 
 
@@ -787,7 +772,6 @@ def extract_links(text: str) -> list[LinkInfo]:
         )
         for link in inline_links
     ]
-
 
 
 def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
@@ -1118,9 +1102,6 @@ async def _check_external_links(
                 return_exceptions=True,
             )
 
-
-
-
             for url, result in zip(urls_to_check, results, strict=True):
                 if result is None:
                     continue
@@ -1139,734 +1120,6 @@ async def _check_external_links(
                 pass
 
     return sorted(errors)
-
-
-# ─── Main link validator ──────────────────────────────────────────────────────
-
-
-# validate_links_async eradicated in CORE-REFACTOR-003-TRUE-URP-UNIFICATION.
-
-
-
-    # ── Instantiate the build-engine adapter (locale-aware path resolution) ──
-    adapter = get_adapter(config.build_context, docs_root, repo_root)
-    _bypass_schemes = adapter.get_link_scheme_bypasses()
-    _project_absolute_prefixes: tuple[str, ...] = tuple(
-        list(adapter.get_absolute_url_prefixes()) + config.absolute_path_allowlist
-    )
-    used_allowlist: set[str] = set()
-
-    # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
-    md_contents: dict[Path, str] = {}
-    for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):
-        try:
-            content = md_file.read_text(encoding="utf-8")
-            md_contents[md_file.resolve()] = content
-            if trackers is not None and md_file.resolve() not in trackers:
-                from zenzic.core.suppressions import SuppressionTracker
-
-                trackers[md_file.resolve()] = SuppressionTracker(md_file.resolve(), content)
-        except OSError:
-            continue
-
-    # ── Pass 1b: include i18n locale files when provided ──────────────────────
-    # Locale files live outside docs_root (under i18n/<locale>/…) so they are
-    # invisible to iter_markdown_sources.  Loading them here ensures that:
-    #   • their headings are indexed (anchors_cache),
-    #   • links *within* each translated page are validated, and
-    #   • cross-references from locale files into main docs resolve correctly.
-    if locale_roots:
-        for locale_root, locale_name in locale_roots:
-            for abs_path, _logical_rel in iter_locale_markdown_sources(
-                locale_root, locale_name, config, exclusion_manager
-            ):
-                try:
-                    content = abs_path.read_text(encoding="utf-8")
-                    md_contents[abs_path.resolve()] = content
-                    if trackers is not None and abs_path.resolve() not in trackers:
-                        from zenzic.core.suppressions import SuppressionTracker
-
-                        trackers[abs_path.resolve()] = SuppressionTracker(
-                            abs_path.resolve(), content
-                        )
-                except OSError:
-                    continue
-
-    # ── Pass 1c: include extra content roots (v0.7.x Multi-Root Discovery) ──
-    # Plugin-managed content trees that live outside docs_root — most notably
-    # Docusaurus's blog/ directory.  Loading them here means the VSM, anchor
-    # index, and link resolver all see them as first-class content, closing the
-    # gap between ``zenzic check`` and the engine's own build-time link check.
-    extra_content_roots: list[Path] = adapter.get_extra_content_roots(repo_root)
-    extra_content_mounts = build_content_mounts(extra_content_roots, repo_root=repo_root)
-    for content_root, url_prefix in extra_content_mounts:
-        for abs_path, _logical_rel in iter_extra_content_markdown_sources(
-            content_root, url_prefix, config, exclusion_manager
-        ):
-            try:
-                content = abs_path.read_text(encoding="utf-8")
-                md_contents[abs_path.resolve()] = content
-                if trackers is not None and abs_path.resolve() not in trackers:
-                    from zenzic.core.suppressions import SuppressionTracker
-
-                    trackers[abs_path.resolve()] = SuppressionTracker(abs_path.resolve(), content)
-            except OSError:
-                continue
-
-    # Build the asset map once — eliminates all Path.exists() calls from Pass 2.
-    # Scanning repo_root (not just docs_root) ensures that @site/static/ assets
-    # referenced from locale files (or any page) are included in the map.
-    # System-guardrail directories (.git, node_modules, .venv, …) are pruned by
-    # the exclusion_manager so the walk remains fast even for large repos.
-    known_assets: frozenset[str] = frozenset(
-        str(f.resolve())
-        for f in walk_files(repo_root, set(), exclusion_manager, config)
-        if f.is_file() and not f.is_symlink() and f.suffix not in DOC_SUFFIXES
-    )
-
-    # ── Locale file registry + multi-root credential scanner setup ───────────────────────
-    # locale_file_set: files loaded from i18n/ directories (outside docs_root).
-    # Used in Phase 2 to:
-    #   • Force same-page anchor validation regardless of validate_same_page_anchors
-    #     (translation drift is exactly the class of error the i18n integrity check must catch).
-    #   • Never suppress genuine path-traversal attempts (security invariant).
-    locale_file_set: frozenset[Path] = frozenset(
-        p for p in md_contents if not p.is_relative_to(docs_root)
-    )
-    # Multi-root allowed list passed to the resolver: docs_root is always in the
-    # list; locale roots are added so that cross-locale relative links resolve
-    # within an authorised boundary instead of firing PATH_TRAVERSAL.  v0.7.x:
-    # extra content roots (Docusaurus blog/, …) are also admitted so that
-    # in-blog relative links and cross-blog↔docs links resolve as authorised.
-    _allowed_roots: list[Path] = [docs_root]
-    if locale_roots:
-        _allowed_roots.extend(locale_root for locale_root, _ in locale_roots)
-    if extra_content_mounts:
-        _allowed_roots.extend(root for root, _ in extra_content_mounts)
-
-    # ── Phase 1: parallel index (anchors + resolved links) ────────────────
-    # Workers return immutable payloads. The main process only merges maps
-    # and performs global validation (phase 2), avoiding order-dependent
-    # false positives for file.md#anchor links.
-    use_parallel_index = (
-        len(md_contents) >= VALIDATION_PARALLEL_THRESHOLD and (os.cpu_count() or 1) > 1
-    )
-    if use_parallel_index:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            payloads = list(executor.map(_index_file_for_validation, md_contents.items()))
-    else:
-        payloads = [_index_file_for_validation(item) for item in md_contents.items()]
-
-    anchors_cache: dict[Path, set[str]] = {p.file_path: p.anchors for p in payloads}
-    links_cache: dict[Path, list[LinkInfo]] = {p.file_path: p.links for p in payloads}
-    source_lines_cache: dict[Path, list[str]] = {p.file_path: p.source_lines for p in payloads}
-
-    # Instantiate the resolver ONCE — _lookup_map is built here, not per-link.
-    # Instantiating inside the file loop would regenerate the map N times,
-    # cancelling the 14× performance gain from the pre-computed flat dict.
-    # allowed_roots extends the credential scanner boundary to authorised locale directories.
-    resolver_repo_root = repo_root
-    resolver = InMemoryPathResolver(
-        docs_root,
-        md_contents,
-        anchors_cache,
-        repo_root=resolver_repo_root,
-        allowed_roots=_allowed_roots,
-    )
-
-    # ── Build the Virtual Site Map (VSM) ──────────────────────────────────────
-    # The VSM maps every .md file to its canonical URL and routing status.
-    # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
-    # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
-    #
-
-    vsm = build_vsm(
-        adapter,
-        docs_root,
-        md_contents,
-        anchors_cache=anchors_cache,
-        extra_content_roots=extra_content_roots,
-        repo_root=repo_root,
-        static_assets={Path(p) for p in known_assets},
-    )
-
-    # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────
-    # Pre-compute the set of all nodes participating in at least one link cycle.
-    # This Θ(V+E) DFS runs once here; Phase 2 checks are O(1) per resolved link.
-    _source_files: frozenset[Path] = frozenset(md_contents)
-    _link_adj = _build_link_graph(links_cache, resolver, _source_files)
-    cycle_registry: frozenset[str] = _find_cycles_iterative(_link_adj)
-    # ─────────────────────────────────────────────────────────────────────────
-
-    # ── Phase 2: validate against global indexes ────────────────────────────
-    # Pre-compute known relative paths once for Z104 "Did you mean?" hints.
-    # No disk I/O — md_contents is already in memory from Pass 1.  Files under
-    # extra content roots (v0.7.x) are admitted with their url_prefix injected
-    # so suggestions like ``blog/2026-04-12-foo.mdx`` surface for typos.
-    def _compute_logical_rel(f: Path) -> str | None:
-        if f.is_relative_to(docs_root):
-            return f.relative_to(docs_root).as_posix()
-        for root, prefix in extra_content_mounts:
-            if f.is_relative_to(root):
-                inner = f.relative_to(root).as_posix()
-                return f"{prefix}/{inner}" if prefix else inner
-        return None
-
-    _known_rel_paths: list[str] = sorted(
-        rp for rp in (_compute_logical_rel(f) for f in md_contents) if rp is not None
-    )
-
-    internal_errors: list[LinkError] = []
-    external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
-    suppression_html_count = 0
-
-    # Engine-aware skip schemes: adapters declare their own bypass schemes via
-    # get_link_scheme_bypasses() — the Core never hardcodes engine names here.
-    _effective_skip = _SKIP_SCHEMES + tuple(f"{s}:" for s in _bypass_schemes)
-
-    # Pre-compute which absolute prefixes are actually represented in the VSM.
-    # Scanned prefixes (blog/, docs/, …) get full VSM-lookup validation.
-    # Unscanned sibling plugins (/developers/ with no markdown files in scope)
-    # keep the unconditional bypass — they are owned by the project but their
-    # content is not in md_contents and therefore has no VSM entries to check.
-    _scanned_vsm_prefixes: frozenset[str] = frozenset(
-        prefix
-        for prefix in _project_absolute_prefixes
-        if any(url.startswith(prefix) for url in vsm)
-    )
-
-    def _source_line(md_file: Path, lineno: int) -> str:
-        """Return the raw source line (1-based) from the pre-split cache."""
-        lines = source_lines_cache.get(md_file, [])
-        idx = lineno - 1
-        return lines[idx].strip() if 0 <= idx < len(lines) else ""
-
-    for md_file in md_contents:
-        # Locale files live outside docs_root — use repo-relative path for labels.
-        label = (
-            str(md_file.relative_to(docs_root))
-            if md_file.is_relative_to(docs_root)
-            else str(md_file.relative_to(repo_root))
-        )
-        raw_text = md_contents[md_file]
-
-        for lineno, col_start, source_line in _extract_empty_link_texts(raw_text):
-            internal_errors.append(
-                LinkError(
-                    file_path=md_file,
-                    line_no=lineno,
-                    message=f"{label}:{lineno}: link label is empty or whitespace-only",
-                    source_line=source_line,
-                    error_type="Z108",
-                    col_start=col_start,
-                    match_text=source_line,
-                )
-            )
-
-        # ── PolyglotExtractor: HTML Integrity phase (Z120-Z124, Z205) ────────────
-        # Analizza ogni tag <a>/<img> nel sorgente Markdown tramite la URP.
-        # Z205 (FORBIDDEN_SCHEME) ha precedenza assoluta: non sopprimibile, Exit 2.
-        # data-zenzic-ignore sopprime Z120-Z124 e il resolver (-1.0 pts DQS ciascuno).
-        _poly_html_urls: set[str] = set()
-        for node in _POLYGLOT_EXTRACTOR.extract(raw_text):
-            _source_ctx = _source_line(md_file, node.line_no)
-
-            # Z205 — SECURITY GATE: verificato PRIMA di data-zenzic-ignore
-            if node.z205_scheme:
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=node.line_no,
-                        message=(
-                            f"{label}:{node.line_no}: forbidden scheme "
-                            f"'{node.z205_scheme}' detected in "
-                            f"<{node.tag}> {'href' if node.tag == 'a' else 'src'} "
-                            f"— potential XSS vector (non-suppressible)."
-                        ),
-                        source_line=_source_ctx,
-                        error_type="Z205",
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-                continue  # blocco immediato: non analizzare oltre il nodo
-
-            # Z124 — OPAQUE_HTML_CONTEXT (blacklisted attrs)
-            for attr in node.blacklisted_attrs:
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=node.line_no,
-                        message=(
-                            f"{label}:{node.line_no}: opaque attribute '{attr}' "
-                            f"detected in <{node.tag}> tag — event-handler or shadow-routing."
-                        ),
-                        source_line=_source_ctx,
-                        error_type="Z124",
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-
-            # Z120 — UNKNOWN_HTML_ATTRIBUTE
-            for attr in node.unknown_attrs:
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=node.line_no,
-                        message=(
-                            f"{label}:{node.line_no}: unknown attribute '{attr}' "
-                            f"in <{node.tag}> — not in Safe-Core list. "
-                            f"Add to safe list or suppress with data-zenzic-ignore."
-                        ),
-                        source_line=_source_ctx,
-                        error_type="Z120",
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-
-            # Z121 — MISSING_OR_EMPTY_HREF / src
-            if node.is_missing_href:
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=node.line_no,
-                        message=(
-                            f"{label}:{node.line_no}: <{node.tag}> has no "
-                            f"{'href' if node.tag == 'a' else 'src'} attribute, "
-                            f"or it is empty."
-                        ),
-                        source_line=_source_ctx,
-                        error_type="Z121",
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-                continue  # nessun href da risolvere
-
-            # Z122 — JUMP_LINK_DETECTED
-            if node.is_jump_link:
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=node.line_no,
-                        message=(
-                            f'{label}:{node.line_no}: href="#" detected — '
-                            f"placeholder or opaque JS anchor. "
-                            f"Add a real destination or suppress with data-zenzic-ignore."
-                        ),
-                        source_line=_source_ctx,
-                        error_type="Z122",
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-                continue
-
-            # Z123 — NON_HTTP_SCHEME (informativo, nessuna risoluzione path)
-            if node.info_scheme:
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=node.line_no,
-                        message=(
-                            f"{label}:{node.line_no}: non-HTTP scheme "
-                            f"'{node.info_scheme}' in <{node.tag}> — "
-                            f"link not resolved by Zenzic (informational)."
-                        ),
-                        source_line=_source_ctx,
-                        error_type="Z123",
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-                continue
-
-            if node.suppressed:
-                suppression_html_count += 1
-                # Find the tracker for this file
-                if trackers and (tracker := trackers.get(md_file.resolve())):
-                    # We must mark the specific 'DATA-ZENZIC-IGNORE' directive on this line as consumed
-                    for d in tracker.directives:
-                        if d.line_no == node.line_no and d.code == "DATA-ZENZIC-IGNORE":
-                            d.consumed = True
-                # CRITICAL FIX: Do NOT pass node.href to the URP.
-                continue
-
-            # ── URP: Uniform Resolver Pipeline — href valido, risoluzione standard
-            if node.href and node.href not in _poly_html_urls:
-                _poly_html_urls.add(node.href)
-                raw_parsed = urlsplit(node.href)
-                if raw_parsed.scheme in ("http", "https"):
-                    external_entries.append((node.href, label, node.line_no))
-                elif not node.href.startswith(_effective_skip):
-                    outcome = resolver.resolve(md_file, node.href)
-                    match outcome:
-                        case FileNotFound(path_part=path_part):
-                            _sug = difflib.get_close_matches(
-                                path_part, _known_rel_paths, n=1, cutoff=0.6
-                            )
-                            _hint = f" 💡 Did you mean: '{_sug[0]}'?" if _sug else ""
-                            internal_errors.append(
-                                LinkError(
-                                    file_path=md_file,
-                                    line_no=node.line_no,
-                                    message=(
-                                        f"{label}:{node.line_no}: "
-                                        f"'{path_part}' not found in docs{_hint}"
-                                    ),
-                                    source_line=_source_ctx,
-                                    error_type="Z104",
-                                    col_start=0,
-                                    match_text=node.raw_tag,
-                                )
-                            )
-                        case PathTraversal():
-                            internal_errors.append(
-                                LinkError(
-                                    file_path=md_file,
-                                    line_no=node.line_no,
-                                    message=(
-                                        f"{label}:{node.line_no}: HTML link "
-                                        f"'{node.href}' escapes the docs root boundary."
-                                    ),
-                                    source_line=_source_ctx,
-                                    error_type="Z202",
-                                    col_start=0,
-                                    match_text=node.raw_tag,
-                                )
-                            )
-                        case _:
-                            pass  # Resolved — OK
-
-        all_links = links_cache.get(md_file, [])
-
-        for link in all_links:
-            url, lineno = link.url, link.lineno
-            # Skip non-navigable schemes and bare fragment-only links
-            if url.startswith(_effective_skip) or url == "#":
-                continue
-
-            parsed = urlsplit(url)
-
-            # ── External links ────────────────────────────────────────────────
-            if parsed.scheme in ("http", "https"):
-                if parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
-                    continue  # loopback URLs are not reachable externally; skip silently
-                external_entries.append((url, label, lineno))
-                continue
-
-            # Pure same-page anchor (#section).
-            # Always validated for locale files: translation drift (e.g. a
-            # translator updating the link text but not the heading's {#id})
-            # is exactly the failure mode the i18n integrity check must catch.
-            # For main-docs files the check is gated by validate_same_page_anchors
-            # (disabled by default — anchors can be generated by plugins/macros
-            # at build time that are invisible at source-scan time).
-            if not parsed.path:
-                if (
-                    config.validate_same_page_anchors or md_file in locale_file_set
-                ) and parsed.fragment:
-                    anchor = parsed.fragment.lower()
-                    if anchor not in anchors_cache.get(md_file, set()):
-                        internal_errors.append(
-                            LinkError(
-                                file_path=md_file,
-                                line_no=lineno,
-                                message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{label}'",
-                                source_line=_source_line(md_file, lineno),
-                                error_type="Z102",
-                                col_start=link.col_start,
-                                match_text=link.match_text,
-                            )
-                        )
-                continue
-
-            # ── Absolute-path prohibition ─────────────────────────────────────
-            # Links starting with "/" are environment-dependent: they resolve
-            # against the server root, not the docs root. This breaks hosting
-            # in subdirectories (e.g. site.io/docs/) and engine-agnosticism.
-            # Internal links must always be relative. Full URLs (https://...)
-            # are handled above as external links and are not affected.
-            # Rule R16 (CEO-055): ``pathname:///assets/file.html`` is the
-            # Z105: absolute path — engines declare their own bypass schemes via
-            # BaseAdapter.get_link_scheme_bypasses(); URLs using those schemes are
-            # already in _effective_skip and never reach this check.
-            #
-            # Multi-instance route prefixes are reported by the active adapter
-            # via :meth:`BaseAdapter.get_absolute_url_prefixes` — Docusaurus
-            # projects with sibling ``@docusaurus/plugin-content-docs``
-            # instances cross plugin boundaries with absolute URLs (e.g.
-            # ``/developers/intro``) that the local VSM cannot resolve, but
-            # the target is still owned by the project.  No user-side config
-            # required (Zero-Config invariant).
-            if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
-                for prefix in config.absolute_path_allowlist:
-                    if parsed.path.startswith(prefix):
-                        used_allowlist.add(prefix)
-
-                if any(parsed.path.startswith(prefix) for prefix in _project_absolute_prefixes):
-                    # Z105 suppressed: the absolute path is owned by this project.
-                    # For prefixes whose content was actually scanned into the VSM
-                    # (e.g. /blog/), verify the exact route exists so that a slug
-                    # mismatch (e.g. /blog/wrong-slug vs real /blog/correct-slug)
-                    # is caught.  Prefixes with no VSM entries are sibling plugins
-                    # whose content is outside the scan scope — those get the
-                    # unconditional bypass (Zero-Config invariant preserved).
-                    if any(parsed.path.startswith(p) for p in _scanned_vsm_prefixes):
-                        _abs_parts = [p for p in parsed.path.split("/") if p]
-                        if parsed.path.endswith((".md", ".mdx", ".json")):
-                            _canonical = adapter.get_route_info(Path(*_abs_parts)).canonical_url
-                        else:
-                            _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
-
-                        if vsm.get(_canonical) is None:
-                            _suggestions = difflib.get_close_matches(
-                                _canonical.strip("/"), [k.strip("/") for k in vsm], n=1, cutoff=0.6
-                            )
-                            _hint = (
-                                f" 💡 Did you mean: '/{_suggestions[0]}/'?" if _suggestions else ""
-                            )
-                            internal_errors.append(
-                                LinkError(
-                                    file_path=md_file,
-                                    line_no=lineno,
-                                    message=(
-                                        f"{label}:{lineno}: '{url}' not found in the site map{_hint}"
-                                    ),
-                                    source_line=_source_line(md_file, lineno),
-                                    error_type="Z104",
-                                    col_start=link.col_start,
-                                    match_text=link.match_text,
-                                )
-                            )
-                    continue
-                internal_errors.append(
-                    LinkError(
-                        file_path=md_file,
-                        line_no=lineno,
-                        message=(
-                            f"{label}:{lineno}: '{url}' uses an absolute path — "
-                            "use a relative path (e.g. '../' or './') instead; "
-                            "absolute paths break portability when the site is hosted "
-                            "in a subdirectory"
-                        ),
-                        source_line=_source_line(md_file, lineno),
-                        error_type="Z105",
-                        col_start=link.col_start,
-                        match_text=link.match_text,
-                    )
-                )
-                continue
-
-            # ── Internal resolution: delegate entirely to InMemoryPathResolver ─
-            # The resolver receives the raw href; it handles percent-decoding,
-            # backslash normalisation, normpath, credential scanner check, and anchor lookup.
-            # Do NOT pre-process the url before passing it — double-decoding
-            # would corrupt links with legitimately encoded characters.
-            match resolver.resolve(md_file, url):
-                case PathTraversal():
-                    # Security finding — path escaped the docs root.
-                    # Classify intent: hrefs targeting OS system directories
-                    # are promoted to PATH_TRAVERSAL_SUSPICIOUS (Exit Code 3).
-                    _intent = _classify_traversal_intent(url)
-                    internal_errors.append(
-                        LinkError(
-                            file_path=md_file,
-                            line_no=lineno,
-                            message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
-                            source_line=_source_line(md_file, lineno),
-                            error_type=("Z203" if _intent == "suspicious" else "Z202"),
-                            col_start=link.col_start,
-                            match_text=link.match_text,
-                        )
-                    )
-                case FileNotFound(path_part=path_part):
-                    # Non-Markdown assets are not tracked in md_contents.  Resolve
-                    # the target to a normalised absolute path string and check
-                    # against known_assets — the frozenset built in Pass 1.
-                    # No disk I/O in the hot path.
-                    if path_part.startswith("/"):
-                        asset_str = os.path.normpath(
-                            str(docs_root) + os.sep + path_part.lstrip("/")
-                        )
-                    elif path_part.startswith("@site/docs/"):
-                        # Docusaurus alias: @site/docs/ maps to docs_root.
-                        asset_str = os.path.normpath(
-                            str(docs_root) + os.sep + path_part[len("@site/docs/") :]
-                        )
-                    elif path_part.startswith("@site/"):
-                        # Docusaurus alias: @site/ maps to repo_root (site_root in monorepos).
-                        # known_assets is built from repo_root so this resolves correctly.
-                        asset_str = os.path.normpath(
-                            str(resolver_repo_root) + os.sep + path_part[len("@site/") :]
-                        )
-                    else:
-                        asset_str = os.path.normpath(str(md_file.parent) + os.sep + path_part)
-                    if asset_str not in known_assets:
-                        # Check adapter fallback before reporting: the build engine
-                        # serves the default-locale asset when a locale-specific
-                        # copy is absent.  Suppress the error when the fallback exists.
-                        if adapter.resolve_asset(Path(asset_str), docs_root) is not None:
-                            continue
-
-                        # Suppress errors for build-time generated artifacts
-                        # (e.g. PDFs from to-pdf plugin, ZIPs assembled in CI).
-                        # Assets outside docs_root (e.g. from locale file links)
-                        # skip this check — artifact patterns are docs-relative.
-                        if Path(asset_str).is_relative_to(docs_root) and any(
-                            fnmatch.fnmatch(Path(asset_str).relative_to(docs_root).as_posix(), pat)
-                            for pat in config.excluded_build_artifacts
-                        ):
-                            continue
-                        _suggestions = difflib.get_close_matches(
-                            path_part, _known_rel_paths, n=1, cutoff=0.6
-                        )
-                        _hint = f" 💡 Did you mean: '{_suggestions[0]}'?" if _suggestions else ""
-                        internal_errors.append(
-                            LinkError(
-                                file_path=md_file,
-                                line_no=lineno,
-                                message=f"{label}:{lineno}: '{path_part}' not found in docs{_hint}",
-                                source_line=_source_line(md_file, lineno),
-                                error_type="Z104",
-                                col_start=link.col_start,
-                                match_text=link.match_text,
-                            )
-                        )
-                case AnchorMissing(path_part=path_part, anchor=anchor, resolved_file=resolved_file):
-                    # Mirror the FileNotFound i18n fallback: when a locale file
-                    # exists but lacks the anchor (because headings are translated),
-                    # suppress the error if the anchor is present in the
-                    # default-locale equivalent file.  The build engine serves the
-                    # default-locale page for this anchor at build time.
-                    if adapter.resolve_anchor(resolved_file, anchor, anchors_cache, docs_root):
-                        continue
-                    internal_errors.append(
-                        LinkError(
-                            file_path=md_file,
-                            line_no=lineno,
-                            message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{path_part}'",
-                            source_line=_source_line(md_file, lineno),
-                            error_type="Z102",
-                            col_start=link.col_start,
-                            match_text=link.match_text,
-                        )
-                    )
-                case Resolved(target=resolved_target):
-                    # ── CIRCULAR_LINK: resolved target is part of a link cycle ─
-                    if resolved_target.as_posix() in cycle_registry:
-                        internal_errors.append(
-                            LinkError(
-                                file_path=md_file,
-                                line_no=lineno,
-                                message=(
-                                    f"{label}:{lineno}: '{url}' is part of a circular link cycle"
-                                ),
-                                source_line=_source_line(md_file, lineno),
-                                error_type="Z106",
-                                col_start=link.col_start,
-                                match_text=link.match_text,
-                            )
-                        )
-                    # ── UNREACHABLE_LINK: file exists but cannot be reached ───
-                    # Fires when the adapter has a build config and the resolved
-                    # target maps to a route that is either:
-                    #   - ORPHAN_BUT_EXISTING: file exists but not in MkDocs nav
-                    #   - IGNORED: file in a _private/ dir (Zensical) or an
-                    #     unlisted README.md — engine will never serve it
-                    if adapter.has_engine_config():
-                        try:
-                            target_rel = resolved_target.relative_to(docs_root)
-                        except ValueError:
-                            pass  # target outside docs_root — already handled by credential scanner
-                        else:
-                            target_url = adapter.get_route_info(target_rel).canonical_url
-                            route = vsm.get(target_url)
-                            if route is not None and route.status in (
-                                "ORPHAN_BUT_EXISTING",
-                                "IGNORED",
-                            ):
-                                internal_errors.append(
-                                    LinkError(
-                                        file_path=md_file,
-                                        line_no=lineno,
-                                        message=(
-                                            f"{label}:{lineno}: '{target_rel.as_posix()}' resolves "
-                                            f"to '{target_url}' which exists on disk but is not "
-                                            "listed in the site navigation (UNREACHABLE_LINK) — "
-                                            "add it to nav in mkdocs.yml or remove the link"
-                                        ),
-                                        source_line=_source_line(md_file, lineno),
-                                        error_type="Z101",
-                                        col_start=link.col_start,
-                                        match_text=link.match_text,
-                                    )
-                                )
-
-    # Identify unused allowlist entries (Z110 STALE_ALLOWLIST_ENTRY):
-    unused_entries = set(config.absolute_path_allowlist) - used_allowlist
-    origin_file = config.origin_file or (repo_root / ".zenzic.toml")
-    for entry in sorted(unused_entries):
-        internal_errors.append(
-            LinkError(
-                file_path=origin_file,
-                line_no=1,
-                message=f"{origin_file.name}:1: Stale absolute_path_allowlist entry: '{entry}' is never referenced in links.",
-                source_line="",
-                error_type="Z110",
-            )
-        )
-
-    if trackers is not None:
-        filtered = []
-        for e in internal_errors:
-            t = trackers.get(e.file_path.resolve())
-            if t and t.is_suppressed(e.line_no, e.error_type):
-                continue
-            filtered.append(e)
-        internal_errors = filtered
-
-    internal_errors.sort(key=lambda e: e.message)
-
-    if not strict or not check_external:
-        if structured:
-            return internal_errors
-        return [e.message for e in internal_errors]
-
-    # ── Pass 3 (strict only, check_external=True): validate external links ─────
-    excluded = config.excluded_external_urls
-    global_tracker = getattr(config, "_global_tracker", None)
-    if excluded:
-        filtered_external = []
-        for url, label, lineno in external_entries:
-            matched_prefix = None
-            for prefix in excluded:
-                if url.startswith(prefix):
-                    matched_prefix = prefix
-                    break
-            if matched_prefix:
-                if global_tracker:
-                    global_tracker.mark_excluded_external_url_used(matched_prefix)
-            else:
-                filtered_external.append((url, label, lineno))
-        external_entries = filtered_external
-    ext_error_strs = await _check_external_links(external_entries, config, repo_root)
-    ext_link_errors = [
-        LinkError(
-            file_path=docs_root,  # no single file context for external errors
-            line_no=0,
-            message=msg,
-            source_line="",
-            error_type="Z109",
-        )
-        for msg in ext_error_strs
-    ]
-    all_errors: list[LinkError] = internal_errors + ext_link_errors
-    if structured:
-        return all_errors
-    return [e.message for e in all_errors]
 
 
 def generate_virtual_site_map(
@@ -2012,8 +1265,6 @@ def validate_links_structured(
         locale_roots=locale_roots,
     )
 
-
-
     link_errors: list[LinkError] = []
     link_codes = {
         "Z101",
@@ -2050,9 +1301,6 @@ def validate_links_structured(
                     )
                 )
 
-
-
-
     for ext_msg in ext_errors:
         link_errors.append(
             LinkError(
@@ -2085,8 +1333,6 @@ def validate_links(
         check_external=check_external,
     )
     return sorted([str(e) for e in errors])
-
-
 
 
 # ─── Decoupled URP for Language Server (In-Memory) ────────────────────────────
@@ -2304,7 +1550,6 @@ class LinkValidator:
                         global_tracker.mark_excluded_external_url_used(prefix)
                     return  # do not schedule for HTTP validation
         self._registrations.setdefault(url, []).append((source, line_no))
-
 
     def register_from_map(self, ref_map: ReferenceMap, file_path: Path) -> None:
         """Register all HTTP/HTTPS URLs found in a :class:`ReferenceMap`.

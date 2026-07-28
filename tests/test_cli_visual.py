@@ -187,8 +187,6 @@ def test_sandbox_mkdocs_expected_error_types(monkeypatch: pytest.MonkeyPatch) ->
     assert "Z101" in result.stdout  # BROKEN_LINK (VSM miss — target not in site map)
 
 
-
-
 @pytest.mark.skipif(
     not _SANDBOX_MKDOCS.exists(),
     reason="MkDocs sandbox not present",

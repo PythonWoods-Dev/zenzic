@@ -490,7 +490,6 @@ class TestVSMBrokenLinkRule:
         assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
 
-
     # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
 
     def test_orphan_link_emits_z002_warning(self) -> None:

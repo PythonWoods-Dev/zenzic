@@ -97,4 +97,3 @@ class ExtractedLink:
     col_start: int = 0
     suppressed: bool = False
     html_node: Any | None = None
-
