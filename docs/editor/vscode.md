@@ -63,6 +63,12 @@ If you use a custom virtual environment or isolated installation, configure `zen
 |---|---|---|---|
 | `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. |
 
+## Inline Diagnostics & Code Actions
+
+The extension exposes real-time LSP diagnostics directly in the PROBLEMS panel and editor margin.
+
+Zenzic provides automated Quick Fixes for specific structural and content findings (e.g., injecting placeholder text for empty links `Z108`, adding language tags to code blocks `Z505`, and removing dead suppressions `Z603`).
+
 ## Domain Boundaries & Supported Files
 
 To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
