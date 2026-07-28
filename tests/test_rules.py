@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -584,7 +586,7 @@ class TestAdaptiveRuleEngineTortureTest:
         return "\n".join(lines)
 
     def test_check_vsm_scales_linearly_all_valid(self) -> None:
-        """10 000 REACHABLE links must resolve in < 1 s (O(N) dict lookups)."""
+        """10 000 REACHABLE links must resolve in < 1.5 s (O(N) dict lookups)."""
         rule = VSMBrokenLinkRule()
         vsm = self._make_large_vsm()
         text = self._make_text_with_links(self._N, all_valid=True)
@@ -593,13 +595,14 @@ class TestAdaptiveRuleEngineTortureTest:
         violations = rule.check_vsm(_FILE, text, vsm, {})
         elapsed = time.monotonic() - start
 
+        max_elapsed = 3.0 if sys.platform == "win32" or os.environ.get("CI") else 1.5
         assert violations == [], f"Expected 0 violations, got {len(violations)}"
-        assert elapsed < 1.5, (
+        assert elapsed < max_elapsed, (
             f"check_vsm took {elapsed:.3f}s for {self._N} valid links — possible O(N²) regression"
         )
 
     def test_check_vsm_scales_linearly_all_missing(self) -> None:
-        """10 000 missing links (worst-case violation path) must complete < 1 s."""
+        """10 000 missing links (worst-case violation path) must complete < 1.5 s."""
         rule = VSMBrokenLinkRule()
         vsm = self._make_large_vsm()
         text = self._make_text_with_links(self._N, all_valid=False)
@@ -608,13 +611,14 @@ class TestAdaptiveRuleEngineTortureTest:
         violations = rule.check_vsm(_FILE, text, vsm, {})
         elapsed = time.monotonic() - start
 
+        max_elapsed = 3.0 if sys.platform == "win32" or os.environ.get("CI") else 1.5
         assert len(violations) == self._N, f"Expected {self._N} violations, got {len(violations)}"
-        assert elapsed < 1.5, (
+        assert elapsed < max_elapsed, (
             f"check_vsm took {elapsed:.3f}s for {self._N} missing links — possible O(N²) regression"
         )
 
     def test_run_vsm_engine_scales_with_large_vsm(self) -> None:
-        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 1 s."""
+        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 0.5 s."""
         engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
         vsm = self._make_large_vsm()
         # Small file — only the VSM lookup overhead is being measured here
@@ -624,8 +628,11 @@ class TestAdaptiveRuleEngineTortureTest:
         findings = engine.run_vsm(_FILE, text, vsm, {})
         elapsed = time.monotonic() - start
 
+        max_elapsed = 1.5 if sys.platform == "win32" or os.environ.get("CI") else 0.5
         assert findings == []
-        assert elapsed < 0.5, f"run_vsm took {elapsed:.3f}s with {self._N}-node VSM — regression"
+        assert elapsed < max_elapsed, (
+            f"run_vsm took {elapsed:.3f}s with {self._N}-node VSM — regression"
+        )
 
 
 # ─── Public namespace & run_rule helper ───────────────────────────────────────

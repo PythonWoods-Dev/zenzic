@@ -11,8 +11,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.26.3] - 2026-07-28
-
 ### Added
 
 - **Suppression Code Actions (`LSP-FEAT-003`)**: The LSP server now dynamically generates "Suppress this finding" Code Actions for all suppressible diagnostics. Clicking the action automatically injects the correct `<!-- zenzic:ignore:ZXXX -->` comment above the offending line. This feature is strictly disabled for `NON_SUPPRESSIBLE_CODES` (Z2xx Security findings) to enforce the security gate.
