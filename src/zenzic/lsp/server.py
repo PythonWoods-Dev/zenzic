@@ -373,6 +373,23 @@ class LanguageServer:
             elif change_type == 3:  # Deleted
                 if self.engine is not None:
                     self.engine.remove_file_cache(file_path)
+                # State Hygiene (LSP-FIX-015): evict the deleted URI from all
+                # in-memory caches so it is never re-scheduled for analysis.
+                self.documents.documents.pop(uri, None)
+                self.dirty_documents.pop(uri, None)
+                if self.overlay is not None:
+                    self.overlay.remove(uri)
+                # LSP contract: an empty diagnostics array clears stale entries
+                # from the editor's PROBLEMS panel immediately. Without this,
+                # VS Code retains ghost diagnostics until the next full scan.
+                self.send_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "textDocument/publishDiagnostics",
+                        "params": {"uri": uri, "diagnostics": []},
+                    }
+                )
+                continue  # Deleted files must NOT be re-added to dirty_documents
 
             self.dirty_documents[uri] = 0.0
 

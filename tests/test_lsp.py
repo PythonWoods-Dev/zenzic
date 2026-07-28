@@ -1305,3 +1305,114 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
     diags_after = results_after.get(index_uri, [])
     z103_after = [d for d in diags_after if d.code == "Z103"]
     assert len(z103_after) == 0, "Z103 should be cleared after hot-reloading mkdocs.yml nav"
+
+
+def test_file_deletion_clears_ghost_diagnostics(tmp_path: "Path") -> None:  # noqa: F821
+    """LSP-FIX-015 Fix 1 — Deleting a file must clear its diagnostics from the PROBLEMS panel.
+
+    When a file is deleted (workspace/didChangeWatchedFiles type=3), the LSP must
+    send a ``textDocument/publishDiagnostics`` with an empty diagnostics array ``[]``
+    so that VS Code clears stale (ghost) entries from the PROBLEMS panel immediately.
+    """
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    # Create a file with a Z107 circular anchor so there will be prior diagnostics
+    doc_path = docs / "ghost.md"
+    doc_path.write_text("[self](#self)\n", encoding="utf-8")
+    (tmp_path / "mkdocs.yml").write_text(
+        f"site_name: T\ndocs_dir: {docs}\nnav:\n  - Page: ghost.md\n",
+        encoding="utf-8",
+    )
+
+    def _encode(msg: dict) -> bytes:
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        return f"Content-Length: {len(body)}\r\n\r\n".encode() + body
+
+    def _parse_frames(raw: bytes) -> list[dict]:
+        """Parse all Content-Length-framed JSON-RPC messages from a byte stream."""
+        msgs = []
+        offset = 0
+        while offset < len(raw):
+            # Find the double CRLF that terminates the header block
+            header_end = raw.find(b"\r\n\r\n", offset)
+            if header_end == -1:
+                break
+            header = raw[offset:header_end].decode("ascii", errors="ignore")
+            content_length = 0
+            for line in header.splitlines():
+                if line.lower().startswith("content-length:"):
+                    content_length = int(line.split(":", 1)[1].strip())
+                    break
+            body_start = header_end + 4
+            body_end = body_start + content_length
+            if body_end > len(raw):
+                break
+            try:
+                msgs.append(json.loads(raw[body_start:body_end]))
+            except json.JSONDecodeError:
+                pass
+            offset = body_end
+        return msgs
+
+    doc_uri = doc_path.as_uri()
+    root_uri = tmp_path.as_uri()
+
+    in_stream = io.BytesIO()
+    # 1. initialize — establishes the repo root and config
+    in_stream.write(
+        _encode(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"rootUri": root_uri, "capabilities": {}},
+            }
+        )
+    )
+    # 2. initialized — triggers _build_vsm_sync() so self.vsm is available
+    in_stream.write(_encode({"jsonrpc": "2.0", "method": "initialized", "params": {}}))
+    # 3. didOpen — opens the file so its diagnostics are emitted
+    in_stream.write(
+        _encode(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {"textDocument": {"uri": doc_uri, "text": "[self](#self)\n"}},
+            }
+        )
+    )
+    # 4. didChangeWatchedFiles type=3 — simulates file deletion
+    in_stream.write(
+        _encode(
+            {
+                "jsonrpc": "2.0",
+                "method": "workspace/didChangeWatchedFiles",
+                "params": {"changes": [{"uri": doc_uri, "type": 3}]},
+            }
+        )
+    )
+    in_stream.write(_encode({"jsonrpc": "2.0", "method": "exit", "params": {}}))
+    in_stream.seek(0)
+
+    out_stream = io.BytesIO()
+    server = LanguageServer(stdin=in_stream, stdout=out_stream)
+    server.serve()
+
+    out_stream.seek(0)
+    raw = out_stream.read()
+    frames = _parse_frames(raw)
+
+    empty_diags_found = any(
+        frame.get("method") == "textDocument/publishDiagnostics"
+        and frame.get("params", {}).get("uri") == doc_uri
+        and frame.get("params", {}).get("diagnostics") == []
+        for frame in frames
+    )
+
+    assert empty_diags_found, (
+        "Expected a textDocument/publishDiagnostics with diagnostics=[] "
+        "after the file was deleted, but none was found. "
+        "Ghost diagnostics will remain in the VS Code PROBLEMS panel.\n"
+        f"Frames received: {[f.get('method') for f in frames]}"
+    )
