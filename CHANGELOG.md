@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **LSP State Hygiene (`LSP-FIX-017`)**: Eradicated a race condition that caused "ghost diagnostics" to persist in the editor after a file or directory was deleted. The server now maintains a stateful tracker (`self.file_diagnostics`) and explicitly broadcasts empty diagnostic arrays (`[]`) for any URI that no longer exists in the Virtual Site Map.
+- **Inline Suppression Placement (`LSP-FIX-018`)**: Fixed a bug where the "Suppress this finding" Code Action injected the suppression comment on a new line, causing false-positive `Z603` (Dead Suppression) errors. The action now correctly appends the comment to the end of the offending line.
 ## [0.26.3] - 2026-07-28
 
 ### Added

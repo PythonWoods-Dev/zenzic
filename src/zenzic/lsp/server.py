@@ -73,6 +73,9 @@ class LanguageServer:
         # Phase 5: Decoupled Incremental Engine (ADR-075)
         self.engine: IncrementalAnalysisEngine | None = None
 
+        # Diagnostics tracking to prevent ghost diagnostics on file deletion
+        self.file_diagnostics: set[str] = set()
+
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
         body = json.dumps(message, separators=(",", ":")).encode("utf-8")
@@ -389,6 +392,7 @@ class LanguageServer:
                         "params": {"uri": uri, "diagnostics": []},
                     }
                 )
+                self.file_diagnostics.discard(uri)
                 continue  # Deleted files must NOT be re-added to dirty_documents
 
             self.dirty_documents[uri] = 0.0
@@ -541,8 +545,9 @@ class LanguageServer:
         assert isinstance(self.vsm, VirtualSiteMap)
 
         # Instantiate engine if needed (ADR-075: transport-agnostic analysis)
+        assert self.rule_engine is not None  # Ensure engine exists
+        is_full_rebuild = self.engine is None
         if self.engine is None:
-            assert self.rule_engine is not None
             self.engine = IncrementalAnalysisEngine(
                 config=self.config,
                 rule_engine=self.rule_engine,
@@ -558,6 +563,7 @@ class LanguageServer:
         # Serialize at transport boundary and publish via JSON-RPC
         # to_lsp_dict() is the ONLY serialization site in the codebase
         for uri, typed_diags in results.items():
+            self.file_diagnostics.add(uri)
             self.send_message(
                 {
                     "jsonrpc": "2.0",
@@ -568,6 +574,26 @@ class LanguageServer:
                     },
                 }
             )
+
+        # State Hygiene (LSP-FIX-017): Clear ghost diagnostics for files that no longer exist.
+        # If a file was deleted or its route removed, process_changes won't return it in results,
+        # so we must actively detect missing URIs and broadcast an empty diagnostics array.
+        # PERF: Only run this on full topology rebuilds to avoid O(N) resolve() calls during incremental typing.
+        if is_full_rebuild and self.engine is not None:
+            dead_uris = []
+            for uri in list(self.file_diagnostics):
+                path = uri_to_path(uri).resolve()
+                if path not in self.engine.md_contents_cache:
+                    self.send_message(
+                        {
+                            "jsonrpc": "2.0",
+                            "method": "textDocument/publishDiagnostics",
+                            "params": {"uri": uri, "diagnostics": []},
+                        }
+                    )
+                    dead_uris.append(uri)
+            for dead_uri in dead_uris:
+                self.file_diagnostics.remove(dead_uri)
 
         # DQS emission intentionally removed (LSP-FIX-014).
         # The LSP operates in incremental mode and only sees topological findings
@@ -745,6 +771,9 @@ class LanguageServer:
 
             if diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
                 insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
+                # Use a large character index to append to the end of the line
+                insert_char = 9999
+
                 suppress_action = {
                     "title": f"Suppress {diag_code} for this line",
                     "kind": "quickfix",
@@ -754,10 +783,10 @@ class LanguageServer:
                             uri: [
                                 {
                                     "range": {
-                                        "start": {"line": insert_line, "character": 0},
-                                        "end": {"line": insert_line, "character": 0},
+                                        "start": {"line": insert_line, "character": insert_char},
+                                        "end": {"line": insert_line, "character": insert_char},
                                     },
-                                    "newText": f"<!-- zenzic:ignore:{diag_code} -->\n",
+                                    "newText": f" <!-- zenzic:ignore:{diag_code} -->",
                                 }
                             ]
                         }

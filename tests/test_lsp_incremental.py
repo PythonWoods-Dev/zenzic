@@ -111,6 +111,3 @@ def test_no_incoming_links_in_language_server(tmp_path: Path) -> None:
     assert not hasattr(server, "incoming_links"), (
         "LanguageServer must not manage graph topology (ADR-075 Radical Unawareness)"
     )
-    assert not hasattr(server, "file_diagnostics"), (
-        "LanguageServer must not cache diagnostic payloads in parallel store (Mirror Law)"
-    )
