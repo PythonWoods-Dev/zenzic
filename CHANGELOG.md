@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.26.4] - 2026-07-29
+
 ### Fixed
 
 - **LSP State Hygiene (`LSP-FIX-017`)**: Eradicated a race condition that caused "ghost diagnostics" to persist in the editor after a file or directory was deleted. The server now maintains a stateful tracker (`self.file_diagnostics`) and explicitly broadcasts empty diagnostic arrays (`[]`) for any URI that no longer exists in the Virtual Site Map.
