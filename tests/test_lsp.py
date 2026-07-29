@@ -1551,10 +1551,10 @@ def test_lsp_code_action_suppression(tmp_path) -> None:
     assert actions[0]["title"] == "Suppress Z101 for this line"
     assert actions[0]["kind"] == "quickfix"
     edit = actions[0]["edit"]["changes"][doc_uri][0]
-    assert edit["newText"] == "<!-- zenzic:ignore:Z101 -->\n"
+    assert edit["newText"] == " <!-- zenzic:ignore:Z101 -->"
     assert edit["range"] == {
-        "start": {"line": 1, "character": 0},
-        "end": {"line": 1, "character": 0},
+        "start": {"line": 1, "character": 9999},
+        "end": {"line": 1, "character": 9999},
     }
 
     # 2. Test Z201 (Non-suppressible security gate)
