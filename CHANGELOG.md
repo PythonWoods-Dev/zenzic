@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.26.5] - 2026-07-29
+
 ### Fixed
 - **Supply Chain Integrity**: Emergency patch to replace a dirty build artifact published to PyPI in `v0.26.4`. No functional code changes.
 
