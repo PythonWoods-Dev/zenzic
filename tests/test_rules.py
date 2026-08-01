@@ -245,8 +245,9 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
     mgr = make_mgr(config, repo_root=tmp_path)
     reports, _ = scan_docs_references(docs_root, mgr, config=config)
     assert len(reports) == 1
-    assert len(reports[0].rule_findings) == 1
-    assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
+    draft_findings = [f for f in reports[0].rule_findings if f.rule_id == "ZZ-DRAFT"]
+    assert len(draft_findings) == 1
+    assert draft_findings[0].rule_id == "ZZ-DRAFT"
 
 
 def test_build_rule_engine_always_built() -> None:
@@ -285,8 +286,10 @@ def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
         reports, _ = scan_docs_references(docs_root, mgr, config=config)
 
     assert len(reports) == 1
-    assert len(reports[0].rule_findings) == 1
-    assert reports[0].rule_findings[0].rule_id == "PLUG-TODO"
+    plugin_findings = [f for f in reports[0].rule_findings if f.rule_id == "PLUG-TODO"]
+    assert len(plugin_findings) == 1
+    assert plugin_findings[0].rule_id == "PLUG-TODO"
+    assert plugin_findings[0].message == "Plugin TODO marker found."
 
 
 def test_scan_docs_with_unknown_plugin_raises_contract_error(tmp_path: Path) -> None:
@@ -391,12 +394,12 @@ def test_custom_rules_fire_regardless_of_engine(
     mgr = make_mgr(config, repo_root=repo)
     reports, _ = scan_docs_references(docs_root, mgr, config=config)
     assert len(reports) == 1, f"Expected 1 report for engine={engine!r}"
-    rule_findings = reports[0].rule_findings
-    assert len(rule_findings) == 1, (
-        f"Expected 1 rule finding for engine={engine!r}, got {rule_findings}"
+    draft_findings = [f for f in reports[0].rule_findings if f.rule_id == "ZZ-DRAFT"]
+    assert len(draft_findings) == 1, (
+        f"Expected 1 ZZ-DRAFT finding for engine={engine!r}, got {reports[0].rule_findings}"
     )
-    assert rule_findings[0].rule_id == "ZZ-DRAFT"
-    assert rule_findings[0].is_error
+    assert draft_findings[0].rule_id == "ZZ-DRAFT"
+    assert draft_findings[0].is_error
 
 
 # ─── Violation dataclass ──────────────────────────────────────────────────────

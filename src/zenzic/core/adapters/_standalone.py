@@ -137,6 +137,6 @@ class StandaloneAdapter(BaseAdapter):
         """Standalone mode owns no absolute URL prefixes."""
         return []
 
-    def get_entry_points(self, vsm: 'VirtualSiteMap') -> list[str]:  # noqa: ARG002
-        """Standalone mode defaults to the root URL."""
-        return ["/"]
+    def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
+        """Standalone mode has no nav tree; all routes are entry points."""
+        return list(vsm.keys())

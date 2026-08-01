@@ -613,7 +613,7 @@ def _print_gallery_index() -> None:
     table.add_column("Title", style="bold", min_width=22)
     table.add_column("Description", style=ZenzicPalette.WARNING)
     table.add_column("Expects", justify="center", min_width=8)
-    for act in _GALLERY.values():
+    for act in sorted(_GALLERY.values(), key=lambda a: a.code):
         expects = "[red]BREACH[/]" if act.expected_breach else "[yellow]FAIL[/]"
         table.add_row(act.code.upper(), act.title, act.description, expects)
     con.print(table)

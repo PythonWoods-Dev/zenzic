@@ -79,6 +79,33 @@ def test_z411_registered_in_gallery() -> None:
     assert "z411" in _GALLERY
 
 
+def test_all_active_codes_covered_in_gallery() -> None:
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    # Non-scannable internal, governance, or system escalation codes
+    INTERNAL_CODES = {
+        "z000",
+        "z106",
+        "z111",
+        "z112",
+        "z113",
+        "z114",
+        "z203",
+        "z504",
+        "z506",
+        "z901",
+        "z902",
+        "z906",
+    }
+
+    active_codes = {
+        code.lower() for code in CODE_DEFINITIONS if code.lower() not in INTERNAL_CODES
+    }
+    gallery_codes = set(_GALLERY.keys())
+    missing = active_codes - gallery_codes
+    assert not missing, f"Missing lab scenarios for active codes: {sorted(missing)}"
+
+
 # ── Fixture directory existence ───────────────────────────────────────────────
 
 

@@ -1128,6 +1128,15 @@ def _run_vsm_and_urp_pass(
         static_assets=static_assets,
     )
 
+    orphaned_urls: set[str] = set()
+    dead_end_urls: set[str] = set()
+    if hasattr(adapter, "get_entry_points"):
+        from zenzic.core.topology import detect_dead_ends, detect_orphans
+
+        entry_points = adapter.get_entry_points(vsm)
+        orphaned_urls = set(detect_orphans(vsm, entry_points))
+        dead_end_urls = set(detect_dead_ends(vsm))
+
     links_cache: dict[Path, list[LinkInfo]] = {
         f: [
             LinkInfo(
@@ -1199,6 +1208,45 @@ def _run_vsm_and_urp_pass(
 
         r.rule_findings.extend(active_vsm)
         r.rule_findings.extend(active_urp)
+
+        try:
+            rel_posix = r.file_path.relative_to(docs_root).as_posix()
+        except ValueError:
+            rel_posix = r.file_path.absolute().as_posix()
+        canonical_url = next(
+            (route.url for route in vsm.values() if route.source == rel_posix), ""
+        )
+        if canonical_url:
+            if canonical_url in orphaned_urls:
+                if (
+                    r.suppression_tracker is None
+                    or not r.suppression_tracker.is_suppressed(1, "Z410")
+                ):
+                    r.rule_findings.append(
+                        RuleFinding(
+                            r.file_path,
+                            1,
+                            "Z410",
+                            f"Document is isolated and unreachable from defined entry points: '{canonical_url}'",
+                            severity="warning",
+                            matched_line="",
+                        )
+                    )
+            if canonical_url in dead_end_urls:
+                if (
+                    r.suppression_tracker is None
+                    or not r.suppression_tracker.is_suppressed(1, "Z411")
+                ):
+                    r.rule_findings.append(
+                        RuleFinding(
+                            r.file_path,
+                            1,
+                            "Z411",
+                            f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
+                            severity="warning",
+                            matched_line="",
+                        )
+                    )
 
         if cycle_nodes and r.file_path in links_cache:
             for link in links_cache[r.file_path]:

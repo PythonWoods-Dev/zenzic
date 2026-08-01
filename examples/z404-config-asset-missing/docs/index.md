@@ -14,3 +14,4 @@ Zenzic to ensure link integrity and documentation quality standards are met.
 ## Get Started
 
 Follow the quick start guide to set up your environment and run your first check.
+See [Index](index.md).

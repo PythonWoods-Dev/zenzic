@@ -11,3 +11,4 @@ The installation takes approximately two minutes on a standard connection.
 
 Ensure you have Python 3.10 or higher and pip installed on your system before
 proceeding with the installation steps described in this document.
+See [Installation Guide](page.md).
