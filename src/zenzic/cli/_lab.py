@@ -334,6 +334,20 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z603-dead-suppression",
         expected_pass=False,
     ),
+    "z410": _Act(
+        code="z410",
+        title="Unreachable Graph Node",
+        description="Z410 UNREACHABLE_GRAPH_NODE — Document is isolated and unreachable from navigation entry points",
+        example_dir="z410-unreachable-graph-node",
+        expected_pass=False,
+    ),
+    "z411": _Act(
+        code="z411",
+        title="Dead End Node",
+        description="Z411 DEAD_END_NODE — Document has no outgoing links and forms a structural dead end",
+        example_dir="z411-dead-end-node",
+        expected_pass=False,
+    ),
 }
 
 _VALID_CODES: frozenset[str] = frozenset(_GALLERY)
