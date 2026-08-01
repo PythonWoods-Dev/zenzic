@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 This document describes the planned milestone trajectory for Zenzic, the **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**.
 Dates are targets, not commitments. All milestones are subject to revision.
 
-For the current release history and completed milestones (up to `v0.23.x`), see [CHANGELOG.md](CHANGELOG.md).
+For the current release history and completed milestones (up to `v0.26.x`), see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -25,13 +25,13 @@ Before advancing the core feature set, the following infrastructural and validat
 
 ## Milestone Sequence
 
-### [v0.24] — Interactive Intelligence
+### [v0.24] — Interactive Intelligence (Released)
 
 *Completing the diagnostic-to-remediation loop within the IDE.*
 
 - **VS Code Code Actions (Quick Fixes):** Implement `textDocument/codeAction` via LSP to allow users to instantly apply deterministic fixes (e.g., `Z121`, `Z603`) directly from the editor.
 
-### [v0.25] — LSP Stabilization & Hot-Reloading
+### [v0.25] — LSP Stabilization & Hot-Reloading (Released)
 
 *Achieving 100% determinism between CLI and IDE via centralized governance, adapter-driven hot-reloading, and cross-platform URI parity.*
 
@@ -39,7 +39,7 @@ Before advancing the core feature set, the following infrastructural and validat
 - **Adapter-Driven Config Hot-Reloading:** Enable real-time VSM topology rebuilds in VS Code when engine configuration files (e.g., `mkdocs.yml`, `zensical.toml`) change, without requiring an LSP server restart.
 - **BaseAdapter Contract Hardening:** Expose `watched_config_files` on the `BaseAdapter` interface to preserve Adapter Neutrality across third-party engines.
 
-### [v0.26] — DQS Workspace UI
+### [v0.26] — DQS Workspace UI (Released)
 
 *Bringing the global Documentation Quality Score into the authoring environment via an asynchronous, deterministic CLI execution bridge.*
 
@@ -95,4 +95,4 @@ These constraints apply across every future release. No feature may violate them
 
 ---
 
-Roadmap last updated: 2026-07-25.
+Roadmap last updated: 2026-08-01.
