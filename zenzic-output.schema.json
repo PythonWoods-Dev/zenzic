@@ -33,6 +33,8 @@
         "unused_assets",
         "nav_contract",
         "references",
+        "topological_orphans",
+        "dead_ends",
         "suppression_count",
         "suppression_cap",
         "suppression_debt_pts",
@@ -88,6 +90,18 @@
           }
         },
         "references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "topological_orphans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dead_ends": {
           "type": "array",
           "items": {
             "type": "string"

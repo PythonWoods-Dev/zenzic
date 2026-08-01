@@ -285,11 +285,14 @@ class VirtualSiteMap(dict[str, Route]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.incoming_links: dict[str, set[Path]] = {}
+        self.outgoing_links: dict[str, list[str]] = {}
 
-    def remove_outgoing_links(self, path: Path) -> None:
-        """Discard `path` from every entry in the reverse index."""
+    def remove_outgoing_links(self, path: Path, canonical_url: str = "") -> None:
+        """Discard `path` from every entry in the reverse index and clear its outgoing links."""
         for dependent_set in self.incoming_links.values():
             dependent_set.discard(path)
+        if canonical_url and canonical_url in self.outgoing_links:
+            self.outgoing_links[canonical_url] = []
 
     def reindex_outgoing_links(
         self,
@@ -298,9 +301,20 @@ class VirtualSiteMap(dict[str, Route]):
         docs_root: Path,
         extra_mounts: list[tuple[Path, str]],
         adapter: BaseAdapter,
+        canonical_url: str = "",
     ) -> None:
         """Rebuild the reverse-index entries emitted by `path`."""
-        self.remove_outgoing_links(path)
+        if not canonical_url:
+            # Fallback O(N) lookup if not provided
+            try:
+                rel_posix = path.relative_to(docs_root).as_posix()
+            except ValueError:
+                rel_posix = path.absolute().as_posix()
+            canonical_url = next((url for url, r in self.items() if r.source == rel_posix), "")
+
+        self.remove_outgoing_links(path, canonical_url=canonical_url)
+
+        targets: set[str] = set()
 
         from zenzic.core.rules import _extract_inline_links_with_lines
         from zenzic.core.validator import PolyglotExtractor
@@ -315,6 +329,7 @@ class VirtualSiteMap(dict[str, Route]):
             )
             if canonical:
                 self.incoming_links.setdefault(canonical, set()).add(path)
+                targets.add(canonical)
 
         for url, _lineno, _raw in _extract_inline_links_with_lines(content):
             _register(url)
@@ -322,6 +337,9 @@ class VirtualSiteMap(dict[str, Route]):
         for node in PolyglotExtractor().extract(content):
             if node.href:
                 _register(node.href)
+                
+        if canonical_url:
+            self.outgoing_links[canonical_url] = sorted(list(targets))
 
 
 def resolve_link_to_canonical(

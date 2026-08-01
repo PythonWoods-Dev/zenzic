@@ -228,6 +228,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z404": CodeDefinition("warning", 3.0, "brand"),  # CONFIG_ASSET_MISSING
     "Z405": CodeDefinition("warning", 3.0, "brand"),  # UNUSED_ASSET
     "Z406": CodeDefinition("warning", 2.0, "brand"),  # NAV_CONTRACT
+    "Z410": CodeDefinition("warning", 5.0, "structural"),  # UNREACHABLE_GRAPH_NODE
+    "Z411": CodeDefinition("warning", 5.0, "structural"),  # DEAD_END_NODE
     # ── Z5xx — Content Quality ────────────────────────────────────────────────
     "Z501": CodeDefinition("warning", 2.0, "content"),  # PLACEHOLDER
     "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
@@ -283,6 +285,8 @@ CODE_NAMES: dict[str, str] = {
     "Z404": "CONFIG_ASSET_MISSING",
     "Z405": "UNUSED_ASSET",
     "Z406": "NAV_CONTRACT",
+    "Z410": "UNREACHABLE_GRAPH_NODE",
+    "Z411": "DEAD_END_NODE",
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
@@ -341,6 +345,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z404": "Asset referenced in engine config not found on disk",
     "Z405": "Asset file not referenced by any documentation page",
     "Z406": "Navigation contract violation detected",
+    "Z410": "Document is isolated and unreachable from the navigation entry points",
+    "Z411": "Document has no outgoing links and forms a structural dead end",
     # Z5xx — Content Quality
     "Z501": "Page contains placeholder or stub content",
     "Z502": "Page word count is below the minimum threshold",
@@ -469,10 +475,10 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z401\u2013404",
+        codes="Z401\u2013404, Z410\u2013411",
         name="Structure Guard",
         capability=(
-            "Directory-index integrity, orphan pages, missing alt text, config asset paths"
+            "Directory-index integrity, orphan pages, missing alt text, config asset paths, topological orphans and dead ends"
         ),
         primary_exit=1,
         non_suppressible=False,

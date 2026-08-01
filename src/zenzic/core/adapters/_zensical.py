@@ -459,6 +459,22 @@ class ZensicalAdapter(BaseAdapter):
         """Zensical is single-instance and exports no absolute URL prefixes."""
         return []
 
+    def get_entry_points(self, vsm: 'VirtualSiteMap') -> list[str]:
+        """Return canonical URLs serving as root entry points from nav configuration."""
+        if not self._has_explicit_nav:
+            return ["/"] if "/" in vsm else []
+        
+        entry_points = set()
+        for p in self._nav_paths:
+            ep = self._map_url(Path(p))
+            if ep in vsm:
+                entry_points.add(ep)
+        
+        if "/" in vsm:
+            entry_points.add("/")
+            
+        return sorted(list(entry_points))
+
     @classmethod
     def from_repo(
         cls,

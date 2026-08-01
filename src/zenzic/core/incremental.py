@@ -267,6 +267,16 @@ class IncrementalAnalysisEngine:
         # Update overlay's VSM reference
         overlay.vsm = vsm
 
+        # 2b. Run Topological Analysis
+        if hasattr(self.adapter, "get_entry_points"):
+            from zenzic.core.topology import detect_dead_ends, detect_orphans
+            entry_points = self.adapter.get_entry_points(vsm)
+            self._orphaned_urls = set(detect_orphans(vsm, entry_points))
+            self._dead_end_urls = set(detect_dead_ends(vsm))
+        else:
+            self._orphaned_urls = set()
+            self._dead_end_urls = set()
+
         # 3. Expand files_to_process with dependents via VSM's O(1) reverse index
         if changed_uris is not None:
             dependents: set[Path] = set()
@@ -331,7 +341,7 @@ class IncrementalAnalysisEngine:
             if canonical and canonical in vsm:
                 del vsm[canonical]
             if hasattr(vsm, "remove_outgoing_links"):
-                vsm.remove_outgoing_links(path)
+                vsm.remove_outgoing_links(path, canonical_url=canonical)
         else:
             # File was created or modified — update route
             try:
@@ -357,6 +367,7 @@ class IncrementalAnalysisEngine:
                     self.docs_root,
                     [],
                     self.adapter,
+                    canonical_url=route_meta.canonical_url if route_meta else "",
                 )
 
     def _resolve_canonical_url(self, vsm: VirtualSiteMap, path: Path) -> str:
@@ -479,6 +490,31 @@ class IncrementalAnalysisEngine:
         findings.extend(
             self._run_urp_checks(vsm, path, text, tracker=tracker, extracted_links=extracted_links)
         )
+
+        # Topological Rules (Z410, Z411)
+        canonical_url = self._resolve_canonical_url(vsm, path)
+        if canonical_url in getattr(self, "_orphaned_urls", set()):
+            findings.append(
+                RuleFinding(
+                    path,
+                    1,
+                    "Z410",
+                    f"Document is isolated and unreachable from the navigation entry points: '{canonical_url}'",
+                    severity="warning",
+                    matched_line="",
+                )
+            )
+        if canonical_url in getattr(self, "_dead_end_urls", set()):
+            findings.append(
+                RuleFinding(
+                    path,
+                    1,
+                    "Z411",
+                    f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
+                    severity="warning",
+                    matched_line="",
+                )
+            )
 
         # Dead suppression detection
         findings.extend(tracker.get_dead_suppressions())
