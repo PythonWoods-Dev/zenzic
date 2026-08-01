@@ -1293,6 +1293,48 @@ class PlaceholderRule(BaseRule):
         return findings
 
 
+class HeadingHierarchyRule(BaseRule):
+    """Z510: Detect skipped heading levels (e.g. H3 immediately following H1)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z510"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_heading_hierarchy
+
+        return check_heading_hierarchy(file_path, text)
+
+
+class ExcessiveSentenceLengthRule(BaseRule):
+    """Z511: Detect sentences exceeding maximum readability word count threshold."""
+
+    def __init__(self, max_words: int = 40) -> None:
+        self.max_words = max_words
+
+    @property
+    def rule_id(self) -> str:
+        return "Z511"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_sentence_lengths
+
+        return check_sentence_lengths(file_path, text, max_words=self.max_words)
+
+
+class EmptySectionRule(BaseRule):
+    """Z512: Detect heading sections with zero body content before next heading or EOF."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z512"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_empty_sections
+
+        return check_empty_sections(file_path, text)
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 

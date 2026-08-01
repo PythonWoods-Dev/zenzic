@@ -1334,10 +1334,19 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         UntaggedCodeBlockRule(),
     ]
 
-    from zenzic.core.rules import PlaceholderRule, ShortContentRule
+    from zenzic.core.rules import (
+        EmptySectionRule,
+        ExcessiveSentenceLengthRule,
+        HeadingHierarchyRule,
+        PlaceholderRule,
+        ShortContentRule,
+    )
 
     built_in.append(ShortContentRule(config.placeholder_max_words))
     built_in.append(PlaceholderRule(config.placeholder_patterns_compiled))
+    built_in.append(HeadingHierarchyRule())
+    built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
+    built_in.append(EmptySectionRule())
     if config.project_metadata.obsolete_names:
         built_in.append(BrandObsolescenceRule(config.project_metadata))
 

@@ -237,6 +237,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z504": CodeDefinition("warning", 0.0, None),  # QUALITY_REGRESSION — governance gate
     "Z505": CodeDefinition("warning", 1.0, "content", fixable=True),  # UNTAGGED_CODE_BLOCK
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
+    "Z510": CodeDefinition("warning", 1.0, "content"),  # HEADING_HIERARCHY
+    "Z511": CodeDefinition("warning", 1.0, "content"),  # EXCESSIVE_SENTENCE_LENGTH
+    "Z512": CodeDefinition("warning", 1.0, "content"),  # EMPTY_SECTION
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
@@ -293,6 +296,9 @@ CODE_NAMES: dict[str, str] = {
     "Z504": "QUALITY_REGRESSION",
     "Z505": "UNTAGGED_CODE_BLOCK",
     "Z506": "MALFORMED_FRONTMATTER",
+    "Z510": "HEADING_HIERARCHY",
+    "Z511": "EXCESSIVE_SENTENCE_LENGTH",
+    "Z512": "EMPTY_SECTION",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
     "Z901": "RULE_ENGINE_ERROR",
@@ -354,6 +360,9 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z504": "Documentation quality score regressed below the saved baseline",
     "Z505": "Fenced code block has no language specifier",
     "Z506": "Frontmatter boundary is malformed (e.g., opening delimiter is '--' instead of '---')",
+    "Z510": "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)",
+    "Z511": "Sentence length exceeds the maximum readability limit",
+    "Z512": "Heading section contains no body content before next heading or EOF",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",

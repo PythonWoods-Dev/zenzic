@@ -344,6 +344,10 @@ class ZenzicConfig(BaseModel):
         default=1,
         description="Minimum lines for a code block to be checked (skip trivial one-liners).",
     )
+    max_sentence_length: int = Field(
+        default=40,
+        description="Maximum words allowed in a sentence before triggering Z511 EXCESSIVE_SENTENCE_LENGTH.",
+    )
     placeholder_max_words: int = Field(
         default=50,
         description="Pages with fewer than this many words are flagged as placeholders.",

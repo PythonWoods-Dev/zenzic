@@ -14,9 +14,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Smart Link Graph (`V0.27-01`)**: Transformed the Virtual Site Map (VSM) into a Smart Link Graph that tracks deterministic adjacency lists for outgoing links across document nodes.
-- **Topological Graph Rules (`Z410`, `Z411`)**:
-  - `Z410` (UNREACHABLE_GRAPH_NODE): Emitted when a document exists in the workspace but is unreachable from navigation entry points via BFS traversal.
-  - `Z411` (DEAD_END_NODE): Emitted when a document has zero outgoing links, stranding readers.
+- **Semantic Linting & Readability Metrics (`V0.27-03`)**: Introduced structural content quality rules:
+  - `Z510` (HEADING_HIERARCHY): Detects skipped heading levels (e.g. H3 following H1).
+  - `Z511` (EXCESSIVE_SENTENCE_LENGTH): Detects prose sentences exceeding configurable word limit (`max_sentence_length`, default 40).
+  - `Z512` (EMPTY_SECTION): Detects heading sections with zero body content before next heading or EOF.
 - **Baseline & Regression Tracking (`V0.27-02`)**: Added deterministic snapshot baseline capability (`.zenzic-baseline.json`) via `--update-baseline` and `--baseline` CLI options. Computes line-shift invariant SHA-256 signatures for finding matching, tags baselined findings without dropping them (`Radical Unawareness`), and enforces DQS anti-regression exit rules in CI/CD.
 
 ## Historical Releases

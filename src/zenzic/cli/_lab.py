@@ -247,6 +247,27 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z505-untagged-code-block",
         expected_pass=False,
     ),
+    "z510": _Act(
+        code="z510",
+        title="Heading Hierarchy Violation",
+        description="Z510 HEADING_HIERARCHY — heading level skipped (e.g., H3 follows H1)",
+        example_dir="z510-heading-hierarchy",
+        expected_pass=False,
+    ),
+    "z511": _Act(
+        code="z511",
+        title="Excessive Sentence Length",
+        description="Z511 EXCESSIVE_SENTENCE_LENGTH — sentence word count exceeds maximum limit",
+        example_dir="z511-excessive-sentence-length",
+        expected_pass=False,
+    ),
+    "z512": _Act(
+        code="z512",
+        title="Empty Section",
+        description="Z512 EMPTY_SECTION — heading section contains no body content before next heading or EOF",
+        example_dir="z512-empty-section",
+        expected_pass=False,
+    ),
     "z104": _Act(
         code="z104",
         title="File Not Found",
