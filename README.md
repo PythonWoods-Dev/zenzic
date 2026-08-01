@@ -55,7 +55,7 @@ Zenzic detects broken links, orphaned pages, credential leaks, and structural in
 
 Zenzic is a unified, deterministic platform structured into three primary delivery mechanisms:
 
-- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, and Virtual Site Map (VSM) topology analyzer.
+- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, Virtual Site Map (VSM) topology analyzer, and **Baseline & Regression Tracking** (`.zenzic-baseline.json`).
 - **[VS Code Extension][zenzic-vscode]**: Real-time LSP client offering sub-50ms inline diagnostics, Quick Fixes, and DQS scoring.
 - **[GitHub Action][zenzic-action]**: Zero-config CI/CD quality gate with SARIF upload and PR annotations.
 

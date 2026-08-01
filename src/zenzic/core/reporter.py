@@ -29,6 +29,7 @@ class Finding:
     source_line: str = ""
     col_start: int = 0
     match_text: str = ""
+    is_baselined: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -353,9 +354,10 @@ class ZenzicReporter:
                     loc += f":{f.line_no}"
                     if f.col_start > 0:
                         loc += f":{f.col_start}"
+                baselined_tag = f"  [{ZenzicPalette.DIM}][BASELINED][/]" if f.is_baselined else ""
                 renderables.append(
                     Text.from_markup(
-                        f"[bold cyan]{_esc(loc)}[/]  [{style}]{sev_icon}[/]  [{style}][{f.code}][/]  {_esc(msg)}"
+                        f"[bold cyan]{_esc(loc)}[/]  [{style}]{sev_icon}[/]  [{style}][{f.code}][/]{baselined_tag}  {_esc(msg)}"
                     )
                 )
                 # Snippet with native position data — no guessing

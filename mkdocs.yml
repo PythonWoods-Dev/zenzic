@@ -114,6 +114,7 @@ nav:
       - Core Mechanics: explanation/core-mechanics.md
       - Scoring Design: explanation/scoring-design.md
       - Scoring System: explanation/scoring-system.md
+      - Baseline Tracking: explanation/baseline-tracking.md
       - Discovery Engine: explanation/discovery.md
       - Configuration Loading: explanation/configuration-loading.md
       - Exclusion Design: explanation/exclusion-design.md

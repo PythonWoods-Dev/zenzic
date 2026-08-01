@@ -17,7 +17,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Topological Graph Rules (`Z410`, `Z411`)**:
   - `Z410` (UNREACHABLE_GRAPH_NODE): Emitted when a document exists in the workspace but is unreachable from navigation entry points via BFS traversal.
   - `Z411` (DEAD_END_NODE): Emitted when a document has zero outgoing links, stranding readers.
-- **Batch Engine Parity**: Integrated topological analysis into the batch scanner pipeline (`scanner.py`), ensuring complete validation parity between CLI batch audits and real-time LSP diagnostics.
+- **Baseline & Regression Tracking (`V0.27-02`)**: Added deterministic snapshot baseline capability (`.zenzic-baseline.json`) via `--update-baseline` and `--baseline` CLI options. Computes line-shift invariant SHA-256 signatures for finding matching, tags baselined findings without dropping them (`Radical Unawareness`), and enforces DQS anti-regression exit rules in CI/CD.
 
 ## Historical Releases
 

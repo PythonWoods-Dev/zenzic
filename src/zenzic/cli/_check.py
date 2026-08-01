@@ -15,6 +15,7 @@ from zenzic import __version__
 from zenzic.core.adapters import get_adapter
 from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
 from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
+from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
 from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
@@ -1395,6 +1396,16 @@ def check_all(
         "--no-header",
         help="Suppress the Zenzic ASCII art header.",
     ),
+    update_baseline: bool = typer.Option(
+        False,
+        "--update-baseline",
+        help="Generate or overwrite the baseline snapshot file (.zenzic-baseline.json).",
+    ),
+    baseline: str | None = typer.Option(
+        None,
+        "--baseline",
+        help="Path to a baseline snapshot file to consume (defaults to .zenzic-baseline.json if present in workspace root).",
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1523,77 +1534,6 @@ def check_all(
 
     elapsed = time.monotonic() - t0
 
-    if output_format == "json":
-        with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root, repo_root, config)
-            all_findings = _apply_per_file_ignores(all_findings, config)
-            all_findings = _apply_directory_policies(all_findings, config)
-            _append_z118_findings(
-                all_findings, config, repo_root, check_all=True, check_external_urls=True
-            )
-
-        _shared._output_check_all_json_findings(
-            results, all_findings, repo_root, docs_root, config, suppression_audit
-        )
-
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
-        errors_count = sum(1 for f in all_findings if f.severity == "error")
-        if errors_count and not effective_exit_zero:
-            raise typer.Exit(1)
-        return
-    elif output_format == "sarif":
-        with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root, repo_root, config)
-            all_findings = _apply_per_file_ignores(all_findings, config)
-            all_findings = _apply_directory_policies(all_findings, config)
-            _append_z118_findings(
-                all_findings, config, repo_root, check_all=True, check_external_urls=True
-            )
-        _shared._output_sarif_findings(all_findings, __version__)
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
-        errors_count = sum(1 for f in all_findings if f.severity == "error")
-        if errors_count and not effective_exit_zero:
-            raise typer.Exit(1)
-        return
-    elif output_format == "github-annotations":
-        with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root, repo_root, config)
-            all_findings = _apply_per_file_ignores(all_findings, config)
-            all_findings = _apply_directory_policies(all_findings, config)
-            _append_z118_findings(
-                all_findings, config, repo_root, check_all=True, check_external_urls=True
-            )
-        if _single_file is not None:
-            _sf_rel = str(_single_file.relative_to(repo_root))
-            all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
-
-        _shared._output_github_annotations(all_findings)
-
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
-
-        errors_count = sum(1 for f in all_findings if f.severity == "error")
-        warnings_count = sum(1 for f in all_findings if f.severity == "warning")
-        if (
-            errors_count > 0 or (effective_strict and warnings_count > 0)
-        ) and not effective_exit_zero:
-            raise typer.Exit(1)
-        return
-
     with sovereign_context(force_audit=audit):
         all_findings = _to_findings(results, docs_root, repo_root, config)
         all_findings = _apply_per_file_ignores(all_findings, config)
@@ -1606,9 +1546,106 @@ def check_all(
         _sf_rel = str(_single_file.relative_to(repo_root))
         all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    # ── Baseline Handling ──────────────────────────────────────────────────────
+    baseline_file_path = Path(baseline) if baseline else (repo_root / DEFAULT_BASELINE_FILE)
+
+    _findings_counts: dict[str, int] = {}
+    for _f in all_findings:
+        _findings_counts[_f.code] = _findings_counts.get(_f.code, 0) + 1
+    _score_report = compute_score(
+        _findings_counts,
+        suppression_count=suppression_audit.total,
+        suppression_cap=suppression_audit.cap,
+    )
+
+    if update_baseline:
+        bdata = BaselineManager.create_baseline(
+            _score_report.score, all_findings, version_str=__version__
+        )
+        BaselineManager.save_baseline(bdata, baseline_file_path)
+        if not quiet and output_format == "text":
+            _shared.console.print(
+                f"[bold green]✓ Baseline snapshot saved to {baseline_file_path.name}[/bold green] "
+                f"[{ZenzicPalette.DIM}](score: {_score_report.score}/100, {len(bdata.signatures)} finding{'s' if len(bdata.signatures) != 1 else ''})[/]"
+            )
+
+    active_baseline = None
+    if baseline_file_path.is_file():
+        try:
+            active_baseline = BaselineManager.load_baseline(baseline_file_path)
+            BaselineManager.apply_baseline(all_findings, active_baseline)
+        except Exception as exc:
+            if baseline is not None:
+                typer.echo(f"ERROR: Failed to load baseline '{baseline_file_path}': {exc}", err=True)
+                raise typer.Exit(1)
+
+    elapsed = time.monotonic() - t0
+
+    if output_format == "json":
+        _shared._output_check_all_json_findings(
+            results, all_findings, repo_root, docs_root, config, suppression_audit
+        )
+
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+
+        if active_baseline is not None and not effective_exit_zero:
+            unbaselined = sum(1 for f in all_findings if not f.is_baselined and f.severity == "error")
+            if unbaselined or _score_report.score < active_baseline.score:
+                raise typer.Exit(1)
+        elif not effective_exit_zero:
+            errors_count = sum(1 for f in all_findings if f.severity == "error")
+            if errors_count:
+                raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(all_findings, __version__)
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+
+        if active_baseline is not None and not effective_exit_zero:
+            unbaselined = sum(1 for f in all_findings if not f.is_baselined and f.severity == "error")
+            if unbaselined or _score_report.score < active_baseline.score:
+                raise typer.Exit(1)
+        elif not effective_exit_zero:
+            errors_count = sum(1 for f in all_findings if f.severity == "error")
+            if errors_count:
+                raise typer.Exit(1)
+        return
+    elif output_format == "github-annotations":
+        _shared._output_github_annotations(all_findings)
+
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+
+        if active_baseline is not None and not effective_exit_zero:
+            unbaselined = sum(
+                1 for f in all_findings
+                if not f.is_baselined and (f.severity == "error" or (effective_strict and f.severity == "warning"))
+            )
+            if unbaselined or _score_report.score < active_baseline.score:
+                raise typer.Exit(1)
+        elif not effective_exit_zero:
+            errors_count = sum(1 for f in all_findings if f.severity == "error")
+            warnings_count = sum(1 for f in all_findings if f.severity == "warning")
+            if errors_count > 0 or (effective_strict and warnings_count > 0):
+                raise typer.Exit(1)
+        return
 
     if quiet:
+        reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
         errors, warnings = reporter.render_quiet(all_findings)
     else:
         docs_count, assets_count = _shared._count_docs_assets(
@@ -1617,8 +1654,6 @@ def check_all(
         if _single_file is not None:
             docs_count, assets_count = 1, 0
 
-        # Z906 guardrail: if the target contains zero Markdown sources, inform
-        # the user with an amber warning and exit cleanly (not a system error).
         if docs_count == 0 and _single_file is None:
             _target_display = _target_hint or "./"
             _shared.console.print(
@@ -1635,15 +1670,20 @@ def check_all(
                 f"Credential scanner (Z201) remains active.[/]"
             )
 
-        # ── DQS Score injection ────────────────────────────────────────────
-        _findings_counts: dict[str, int] = {}
-        for _f in all_findings:
-            _findings_counts[_f.code] = _findings_counts.get(_f.code, 0) + 1
-        _score_report = compute_score(
-            _findings_counts,
-            suppression_count=suppression_audit.total,
-            suppression_cap=suppression_audit.cap,
-        )
+        if active_baseline is not None:
+            baselined_cnt = sum(1 for f in all_findings if f.is_baselined)
+            new_cnt = sum(1 for f in all_findings if not f.is_baselined)
+            fixed_cnt = max(0, active_baseline.findings_count - baselined_cnt)
+            _footer_lines.append(
+                f"[{ZenzicPalette.DIM}]Baseline: {active_baseline.score}/100 "
+                f"({baselined_cnt} baselined, {new_cnt} new)[/]"
+            )
+            if fixed_cnt > 0:
+                _footer_lines.append(
+                    f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
+                    f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
+                )
+
         if _score_report.security_override:
             _dqs_line = (
                 f"[bold red]DQS Final Score: 0/100[/bold red] "
@@ -1669,6 +1709,7 @@ def check_all(
             )
         _footer_lines.insert(0, _dqs_line)
 
+        reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
         errors, warnings = reporter.render(
             all_findings,
             version=__version__,
@@ -1692,8 +1733,15 @@ def check_all(
     if breaches:
         raise typer.Exit(2)
 
-    has_failures = (errors > 0) or (effective_strict and warnings > 0)
-
-    if has_failures:
-        if not effective_exit_zero:
+    if active_baseline is not None:
+        unbaselined_defects = sum(
+            1 for f in all_findings
+            if not f.is_baselined and (f.severity == "error" or (effective_strict and f.severity == "warning"))
+        )
+        score_regressed = _score_report.score < active_baseline.score
+        if (score_regressed or unbaselined_defects > 0) and not effective_exit_zero:
+            raise typer.Exit(1)
+    else:
+        has_failures = (errors > 0) or (effective_strict and warnings > 0)
+        if has_failures and not effective_exit_zero:
             raise typer.Exit(1)
