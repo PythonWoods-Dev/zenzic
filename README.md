@@ -117,6 +117,10 @@ Zenzic treats documentation as a **security surface**. The tiered code model enf
 
 Zenzic reports only what is **statically verifiable** in the repository at scan time. It never infers intent or approximates link validity. Every finding is a falsifiable, reproducible fact.
 
+### Topological Graph Analysis (Orphans & Dead Ends)
+
+Beyond static file checks, Zenzic's Smart Link Graph builds an adjacency list to perform Breadth-First Search (BFS) over your document network. It identifies **Topological Orphans** (`Z410`, documents unreachable from navigation entry points) and **Dead Ends** (`Z411`, pages with no outgoing links), helping maintain structural navigation integrity.
+
 ---
 
 ## 🧠 Key Capabilities & Commands
