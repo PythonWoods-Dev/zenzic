@@ -1062,15 +1062,28 @@ _REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 # Inline code spans — erased before link extraction to avoid false positives
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
+# Math block patterns for masking (display math $$...$$ and inline math $...$)
+_DISPLAY_MATH_RE = re.compile(r"\$\$.*?\$\$", re.DOTALL)
+_INLINE_MATH_RE = re.compile(r"\$[^$\n]+\$")
 # Strips Markdown link title from href: "url 'title'" → "url"
 _TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
+
+
+def _mask_math(text: str) -> str:
+    text = _DISPLAY_MATH_RE.sub(
+        lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
+    )
+    text = _INLINE_MATH_RE.sub(
+        lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
+    )
+    return text
 
 
 def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link
     and HTML anchor/image element found in *text*.
 
-    Skips fenced code blocks and inline code spans.  Pure function — no I/O.
+    Skips fenced code blocks, inline code spans, and math blocks.  Pure function — no I/O.
 
     Args:
         text: Raw Markdown content.
@@ -1080,7 +1093,8 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     """
     results: list[tuple[str, int, str]] = []
     in_block = False
-    for lineno, line in enumerate(text.splitlines(), start=1):
+    text_masked = _mask_math(text)
+    for lineno, line in enumerate(text_masked.splitlines(), start=1):
         stripped = line.strip()
         if not in_block:
             if _FENCE_RE.match(stripped):

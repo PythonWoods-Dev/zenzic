@@ -62,6 +62,16 @@ check_app = _shared.create_app(
     long_help=(f"[bold {ZenzicPalette.BRAND}]Check[/] — {COMMAND_BY_NAME['check'].long_help}"),
 )
 
+def _validate_only_flag(only: str | None) -> None:
+    if not only:
+        return
+    for code in only.split(","):
+        code = code.strip().upper()
+        if code and code not in CODE_DEFINITIONS:
+            _shared.console.print(
+                f"[bold red]Error:[/] Invalid finding code '{code}' provided to --only flag."
+            )
+            raise typer.Exit(1)
 
 def _finding_severity(code: str) -> str:
     """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
@@ -135,6 +145,7 @@ def check_links(
     ),
 ) -> None:
     """Check for broken internal links and enforce strict warning policy when requested."""
+    _validate_only_flag(only)
 
     if ci:
         strict = True
@@ -299,6 +310,7 @@ def check_orphans(
     ),
 ) -> None:
     """Detect .md files not listed in the nav."""
+    _validate_only_flag(only)
 
     if ci:
         if output_format == "text":
@@ -420,6 +432,7 @@ def check_snippets(
     ),
 ) -> None:
     """Validate Python code blocks in documentation Markdown files."""
+    _validate_only_flag(only)
 
     if ci:
         if output_format == "text":
@@ -559,6 +572,7 @@ def check_references(
       1 — Dangling References or (with --strict) warnings found.
       2 — SECURITY CRITICAL: a secret was detected in a reference URL.
     """
+    _validate_only_flag(only)
 
     if ci:
         strict = True
@@ -731,6 +745,7 @@ def check_assets(
     ),
 ) -> None:
     """Detect unused images and assets in the documentation."""
+    _validate_only_flag(only)
 
     if ci:
         if output_format == "text":
@@ -854,6 +869,7 @@ def check_placeholders(
     ),
 ) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
+    _validate_only_flag(only)
 
     if ci:
         if output_format == "text":
@@ -1001,13 +1017,14 @@ def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
 
 
 def _filter_flat_findings(findings: list[Finding], only_str: str | None) -> list[Finding]:
-    """Filter a flat list of findings keeping only the specified Z-codes."""
+    """Filter a flat list of findings keeping only the specified Z-codes (except fatal config errors Z110, Z111)."""
     if not only_str:
         return findings
     allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
     if not allowed:
         return findings
-    return [f for f in findings if f.code in allowed]
+    bypass_codes = {"Z110", "Z111"}
+    return [f for f in findings if f.code in allowed or f.code in bypass_codes]
 
 
 # _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
@@ -1413,6 +1430,8 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
+    _validate_only_flag(only)
+
     # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
     if strict and exit_zero:
         typer.echo(
@@ -1541,6 +1560,8 @@ def check_all(
         _append_z118_findings(
             all_findings, config, repo_root, check_all=True, check_external_urls=True
         )
+        if only:
+            all_findings = _filter_flat_findings(all_findings, only)
 
     if _single_file is not None:
         _sf_rel = str(_single_file.relative_to(repo_root))

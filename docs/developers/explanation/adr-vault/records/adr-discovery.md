@@ -65,6 +65,9 @@ filesystem root.
 
 ## Rationale
 
+The technical rationale and architectural context driving this design decision are outlined below.
+
+
 ### 1. Safety: Preventing Accidental Massive Indexing
 
 A naive implementation that defaults to the current directory when no marker

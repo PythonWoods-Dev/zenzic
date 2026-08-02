@@ -80,6 +80,9 @@ Before committing any change that touches the filesystem structure, structural s
 
 ## Rationale
 
+The technical rationale and architectural context driving this design decision are outlined below.
+
+
 ### 1. Italian is a First-Class Citizen
 
 The Italian documentation is not a secondary asset or a "nice to have". It is

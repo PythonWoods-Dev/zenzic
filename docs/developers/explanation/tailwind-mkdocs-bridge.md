@@ -4,6 +4,9 @@ description: "How Zenzic reconciles Tailwind CSS rem scaling with MkDocs Materia
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 ## <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+This section details the specifications and guidelines for <!-- SPDX-License-Identifier: Apache-2.0 --> within the Zenzic ecosystem.
+
+
 # Tailwind/MkDocs Material Bridge
 
 This document explains the architectural pattern that allows Tailwind CSS components to coexist with MkDocs Material on the same page without layout corruption or dark-mode desynchronisation.
@@ -111,3 +114,8 @@ The Tailwind source files may retain `dark:` utilities for semantic clarity and 
 | `overrides/home.html` | Carries the `zz-tailwind-root` semantic anchor class |
 | `docs/assets/css/zenzic-tailwind.min.css` | Compiled Tailwind artifact (human-run Tailwind CLI; no Node.js in CI) |
 | `overrides/partials/homepage/` | Jinja2 partials rendered inside the `zz-tailwind-root` boundary |
+
+
+## See Also
+
+- [Brand System Guidelines](../../how-to/use-brand-system.md)

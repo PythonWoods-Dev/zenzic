@@ -61,3 +61,8 @@ If the winning config file contains a **TOML syntax error**, Zenzic raises a `Co
 with a human-friendly message and exits immediately — silent fallback on a broken config file
 would hide mistakes. Unknown fields are silently ignored, which means adding fields not yet
 supported by your installed version is safe.
+
+
+## See Also
+
+- [Initialize Configuration](../how-to/initialize-configuration.md)

@@ -225,6 +225,7 @@ uvx zenzic@0.26.5 check all
 | Area | URL | Audience |
 | :--- | :--- | :--- |
 | 👤 User Guide | [zenzic.dev][docs-home] | Install, configure, CI/CD, finding codes |
+| 📜 Rule Specification Cards | [zenzic.dev/docs/rules][docs-rules] | 41 deep-dive rule specifications with Bad/Good remediation examples |
 | 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapters, ADRs, CLI architecture |
 | 🛡️ Security | [SECURITY.md][security] | Security reviewer |
 
@@ -270,6 +271,7 @@ Apache-2.0 — see [LICENSE][license]. This project strictly adheres to Semantic
 [zenzic-vscode]:     https://marketplace.visualstudio.com/items?itemName=pythonwoods.zenzic-vscode
 [zenzic-action]:     https://github.com/PythonWoods/zenzic-action
 [docs-home]:         https://zenzic.dev/
+[docs-rules]:        https://zenzic.dev/docs/rules/
 [docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
 [contributing]:      CONTRIBUTING.md

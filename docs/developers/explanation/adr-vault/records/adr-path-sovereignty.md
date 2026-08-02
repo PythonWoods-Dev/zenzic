@@ -89,6 +89,9 @@ else:
 
 ## Rationale
 
+The technical rationale and architectural context driving this design decision are outlined below.
+
+
 ### 1. The Principle of Contextual Integrity
 
 A configuration file belongs to the project it lives in. Loading a foreign

@@ -2033,3 +2033,30 @@ def test_templates_root_keys_not_swallowed() -> None:
     assert "forbidden_patterns" in local_data, (
         "'forbidden_patterns' was swallowed in LOCAL_TOML_TEMPLATE!"
     )
+
+
+def test_check_all_only_filter_excludes_z118(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify that zenzic check all --only z101 excludes Z118 warnings."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+    from zenzic.main import app
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Test\n[Valid](index.md)\n", encoding="utf-8")
+
+    toml = tmp_path / ".zenzic.toml"
+    toml.write_text(
+        '[governance]\n'
+        'directory_policies = {"docs/unused/**" = ["Z405"]}\n',
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "Z118" not in result.output
+

@@ -84,6 +84,9 @@ The abstract base class for all engine adapters. Adapters translate engine-speci
 
 ### Core Methods
 
+This section details the specifications and guidelines for Core Methods within the Zenzic ecosystem.
+
+
 #### `provides_index(self, directory_path: Path) -> bool`
 
 Answers whether the engine auto-generates a browsable index for the directory (e.g., via `index.md` or a category metadata file). Used during missing index directory scans.

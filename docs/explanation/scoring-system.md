@@ -84,3 +84,8 @@ Executing `zenzic score` prints a transparent breakdown ledger detailing raw ded
   ! Technical Debt (6 suppressions)          -6 pts
   = Final Quality Score                      65 / 100
 ```
+
+
+## See Also
+
+- [Scoring Algorithm](../reference/scoring-algorithm.md)

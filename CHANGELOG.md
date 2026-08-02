@@ -19,6 +19,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
   - `Z111` (CONFIG_SCHEMA_ERROR): Emitted on schema type mismatches and validation failures (`ValidationError`).
   - Halts Markdown document graph scanning on fatal config errors to prevent false-positive cascades and protect LSP stability.
 - **Baseline & Regression Tracking (`V0.27-02`)**: Added deterministic snapshot baseline capability (`.zenzic-baseline.json`) via `--update-baseline` and `--baseline` CLI options. Computes line-shift invariant SHA-256 signatures for finding matching, tags baselined findings without dropping them (`Radical Unawareness`), and enforces DQS anti-regression exit rules in CI/CD.
+- **Mirror Law Parity (`ADR-020`)**: Authored 41 dedicated, deep-dive Rule Specification Cards (`docs/rules/ZXXX.md`) and updated `docs/reference/finding-codes.md` to achieve 100% Mirror Law documentation parity. Each card provides technical rationale, Bad/Good Markdown examples, and `.zenzic.toml` configuration options.
+- **Topological Connectivity Restoration**: Resolved `Z411` dead-end node findings across active documentation namespaces by injecting semantic `## See Also` navigation links within the AST graph.
+
+### Fixed
+
+- **Readability Sentence Boundary Parser (`Z511`)**: Fixed sentence length calculation in `zenzic.core.content` by recognizing bulleted lists, numbered items, and blockquotes as hard sentence boundaries, eliminating false-positive readability warnings on long lists.
+- **CLI Flag Input Validation**: Enforced strict input validation for the `--only` CLI option in `zenzic check`, triggering an immediate fatal exit (`Exit 1`) when an invalid or unknown finding code is supplied.
+
+### Changed
+
+- **Zero-DBT Technical Debt Cleanup**: Reverted unauthorized configuration suppressions in `.zenzic.toml`, structurally resolved 48 empty section (`Z512`) findings across 35 Markdown files, and eliminated stale global suppressions (`Z118`).
 
 ## Historical Releases
 

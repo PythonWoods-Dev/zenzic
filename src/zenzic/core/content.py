@@ -114,12 +114,14 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
             continue
 
         # Skip headings, blockquotes, tables, HTML comments
+        is_bullet = bool(re.match(r"^(\*|-|\d+\.)\s+", stripped))
         if (
             not stripped
             or stripped.startswith("#")
             or stripped.startswith("<!--")
             or stripped.startswith("|")
             or stripped.startswith(">")
+            or is_bullet
         ):
             if current_sentence_parts:
                 full_sent = " ".join(current_sentence_parts)
@@ -137,7 +139,9 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
                         )
                     )
                 current_sentence_parts.clear()
-            continue
+            
+            if not is_bullet:
+                continue
 
         if not current_sentence_parts:
             current_start_line = i

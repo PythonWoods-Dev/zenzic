@@ -61,6 +61,9 @@ The Zenzic Language Server computes the workspace DQS using a zero-disk-read mod
 
 ## Deterministic Bugfixes and Stability
 
+This section details the specifications and guidelines for Deterministic Bugfixes and Stability within the Zenzic ecosystem.
+
+
 ### 1. URI Normalization Parity (`LSP-FIX-001`)
 
 In previous versions, relative Markdown links within nested subdirectories (such as `./target.md` in `docs/developers/explanation/adr-vault/records/`) produced false-positive `Z101` (Broken Link) findings in LSP mode.

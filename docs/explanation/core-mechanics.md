@@ -98,7 +98,7 @@ Because the graph is computed entirely in memory during Pass 1.5, topological gr
 
 Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant SHA-256 signatures:
 
-$$\text{Signature} = \text{SHA256}[\text{RuleCode} + \text{PosixPath} + \text{ContextTarget}](:16)$$
+$$\text{Signature} = \text{SHA256}[\text{RuleCode} + \text{PosixPath} + \text{ContextTarget}]$$
 
 By excluding line numbers from the signature computation:
 
@@ -116,3 +116,8 @@ When `.zenzic.toml` parses global exclusion configurations (e.g., `directory_pol
 Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes. The engine achieves this through a non-destructive AST mutation pipeline and a strict Write Barrier.
 
 When a command like `zenzic fix --apply` is executed, the AST is mutated entirely in memory. To commit these changes to disk, the engine employs an Atomic Write Barrier using the `tempfile` and `os` native Python libraries. The mutated content is first written to a temporary file in the same directory as the target. Once the write succeeds, `os.replace` is used to atomically rename the temporary file over the original. This guarantees that even if a crash occurs mid-write, the original file is never corrupted and no data is lost.
+
+
+## See Also
+
+- [Core Architecture](./architecture.md)

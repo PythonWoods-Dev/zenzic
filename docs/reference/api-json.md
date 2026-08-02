@@ -118,3 +118,8 @@ Optional score fields (`security_override`, `security_findings`) appear when the
 
 For strict machine consumers, validate payloads against `zenzic-output.schema.json` during CI.
 This prevents silent contract drift across minor releases.
+
+
+## See Also
+
+- [CLI Reference](./cli.md)

@@ -118,3 +118,8 @@ excluded_assets = [
     "assets/social/*.svg",   # SVG sources — not served as OG images
 ]
 ```
+
+
+## See Also
+
+- [Why Zenzic](../explanation/why-zenzic.md)

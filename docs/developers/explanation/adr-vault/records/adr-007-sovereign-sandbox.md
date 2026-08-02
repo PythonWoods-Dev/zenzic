@@ -6,6 +6,9 @@ description: "Architectural Decision Record on isolating the Zenzic analysis run
 
 # ADR 007: Sovereign Sandbox
 
+This section details the specifications and guidelines for ADR 007: Sovereign Sandbox within the Zenzic ecosystem.
+
+
 ## Context
 
 When analyzing and parsing external data or configuration, the system must prevent unexpected privilege escalation or side effects.

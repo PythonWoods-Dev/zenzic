@@ -218,6 +218,10 @@ _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.
 _POLY_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
 _POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL)
 
+# Math block patterns for masking (display math $$...$$ and inline math $...$)
+_POLY_DISPLAY_MATH_RE: re.RegexPattern = re.compile(r"\$\$.*?\$\$", re.DOTALL)
+_POLY_INLINE_MATH_RE: re.RegexPattern = re.compile(r"\$[^$\n]+\$")
+
 # Strip whitespaces and control characters from URLs prima del check Z205.
 _POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
 
@@ -296,7 +300,7 @@ class PolyglotExtractor:
             Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
             trovato fuori dai blocchi di codice.
         """
-        masked = self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
+        masked = self._mask_math(self._mask_inline_code(self._mask_fences(self._mask_comments(text))))
         nodes: list[HtmlNodeInfo] = []
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()
@@ -313,7 +317,7 @@ class PolyglotExtractor:
         Fence-skipping obbligatorio tramite _mask_fences() e _mask_comments().
         First-definition-wins per la risoluzione dei duplicati.
         """
-        masked = self._mask_fences(self._mask_comments(text))
+        masked = self._mask_math(self._mask_fences(self._mask_comments(text)))
         nodes: list[ReferenceLinkNode] = []
         seen_labels: set[str] = set()
 
@@ -351,7 +355,7 @@ class PolyglotExtractor:
         Returns:
             List of :class:`ExtractedLink` with node_type="inline" or "image".
         """
-        masked = self._mask_fences(self._mask_comments(text))
+        masked = self._mask_math(self._mask_fences(self._mask_comments(text)))
         results: list[ExtractedLink] = []
 
         for lineno, line in enumerate(masked.splitlines(), start=1):
@@ -473,6 +477,16 @@ class PolyglotExtractor:
                         inside = False
                 result.append(" " * len(line))
         return "\n".join(result)
+
+    def _mask_math(self, text: str) -> str:
+        """Sostituisce blocchi matematici ($$...$$ e $...$) con spazi bianchi preservando i caratteri di a capo."""
+        text = _POLY_DISPLAY_MATH_RE.sub(
+            lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
+        )
+        text = _POLY_INLINE_MATH_RE.sub(
+            lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
+        )
+        return text
 
     def _parse_node(self, tag: str, attrs_str: str, line_no: int, raw_tag: str) -> HtmlNodeInfo:
         """Parsing lineare della stringa ``attrs`` e classificazione governance.
