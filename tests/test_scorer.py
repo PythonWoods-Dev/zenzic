@@ -303,11 +303,10 @@ def test_z103_structural_penalty() -> None:
     assert report.score == 98  # (30-2)/30*30 + 25 + 20 + 25 = 28+25+20+25=98
 
 
-def test_z111_structural_penalty_equals_z101() -> None:
-    """Z111 VIRTUAL_ROUTE_BROKEN: -8.0 pts, same weight as Z101 LINK_BROKEN (ADR-031)."""
+def test_z111_config_schema_error_score() -> None:
+    """Z111 CONFIG_SCHEMA_ERROR: 0.0 DQS penalty (config abort, score 0)."""
     r_z111 = compute_score({"Z111": 1})
-    r_z101 = compute_score({"Z101": 1})
-    assert r_z111.score == r_z101.score == 92  # (30-8)/30*30 + 25 + 20 + 25 = 22+25+20+25=92
+    assert r_z111.score == 0
 
 
 def test_z113_structural_penalty() -> None:

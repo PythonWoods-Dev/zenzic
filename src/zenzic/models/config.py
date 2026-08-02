@@ -841,7 +841,9 @@ class ZenzicConfig(BaseModel):
         return config, False
 
     @classmethod
-    def _apply_local_toml(cls, config: ZenzicConfig, repo_root: Path) -> None:
+    def _apply_local_toml(
+        cls, config: ZenzicConfig, repo_root: Path, raise_on_error: bool = False
+    ) -> None:
         """Apply machine-local overrides from ``.zenzic.local.toml``.
 
         The local file is git-ignored and machine-local.  It can override a
@@ -878,8 +880,10 @@ class ZenzicConfig(BaseModel):
         try:
             with local_toml.open("rb") as f:
                 local_data = tomllib.load(f)
-        except tomllib.TOMLDecodeError:
-            return  # malformed local file — silently skip to avoid hard failures
+        except tomllib.TOMLDecodeError as exc:
+            if raise_on_error:
+                raise exc
+            return  # malformed local file — silently skip when not in strict validation mode
 
         # Note: Z001 is a ZenzicConfigError raised before scanning begins —
         # not a scanner finding code.
@@ -1031,3 +1035,143 @@ class ZenzicConfig(BaseModel):
 
         # Re-compile forbidden_patterns union regex after all local merges are complete.
         config._recompile_forbidden_patterns()
+
+
+def load_config_with_diagnostics(
+    repo_root: Path, config_file: Path | None = None
+) -> tuple[ZenzicConfig | None, list[Any]]:
+    """Safely load ZenzicConfig, returning formal Finding objects on syntax/schema errors.
+
+    Prevents exceptions from leaking to the CLI or LSP server (Zero-DBT).
+    Emits Z110 for TOMLDecodeError and Z111 for ValidationError.
+    Extracts line numbers from errors whenever available.
+    """
+    from zenzic.core.reporter import Finding
+    from pydantic import ValidationError
+
+    target_file = config_file if config_file else (repo_root / ".zenzic.toml")
+    if not target_file.is_file() and (repo_root.parent / ".zenzic.toml").is_file():
+        target_file = repo_root.parent / ".zenzic.toml"
+
+    if not target_file.is_file():
+        pyproject = repo_root / "pyproject.toml"
+        if not pyproject.is_file() and (repo_root.parent / "pyproject.toml").is_file():
+            pyproject = repo_root.parent / "pyproject.toml"
+        if pyproject.is_file():
+            target_file = pyproject
+
+    if not target_file.is_file():
+        try:
+            cfg = ZenzicConfig()
+            cfg.origin_file = repo_root / ".zenzic.toml"
+            return cfg, []
+        except Exception:
+            pass
+
+    content = ""
+    try:
+        content = target_file.read_text(encoding="utf-8")
+    except OSError:
+        pass
+
+    rel_file_str = (
+        str(target_file.relative_to(repo_root))
+        if repo_root in target_file.parents or target_file.parent == repo_root
+        else target_file.name
+    )
+
+    try:
+        if target_file.name == "pyproject.toml":
+            data = tomllib.loads(content)
+            tool_data = data.get("tool", {}).get("zenzic", {})
+            if not tool_data:
+                cfg = ZenzicConfig()
+                cfg.origin_file = target_file
+                return cfg, []
+            ZenzicConfig._validate_no_swallowed_root_keys(tool_data)
+            cfg = ZenzicConfig._build_from_data(tool_data)
+            cfg.origin_file = target_file
+            ZenzicConfig._apply_local_toml(cfg, repo_root, raise_on_error=True)
+            return cfg, []
+        else:
+            data = tomllib.loads(content)
+            ZenzicConfig._validate_no_swallowed_root_keys(data)
+            cfg = ZenzicConfig._build_from_data(data)
+            cfg.origin_file = target_file
+            ZenzicConfig._apply_local_toml(cfg, repo_root, raise_on_error=True)
+            return cfg, []
+    except tomllib.TOMLDecodeError as exc:
+        err_file_str = rel_file_str
+        err_content = content
+        local_toml = repo_root / ".zenzic.local.toml"
+        if local_toml.is_file():
+            try:
+                tomllib.loads(local_toml.read_text(encoding="utf-8"))
+            except tomllib.TOMLDecodeError:
+                err_file_str = ".zenzic.local.toml"
+                try:
+                    err_content = local_toml.read_text(encoding="utf-8")
+                except OSError:
+                    pass
+
+        line_no = getattr(exc, "lineno", 1)
+        if line_no is None or line_no <= 0:
+            line_no = 1
+        lines = err_content.splitlines() if err_content else []
+        source_line = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
+        finding = Finding(
+            rel_path=err_file_str,
+            line_no=line_no,
+            code="Z110",
+            severity="error",
+            message=f"TOML syntax error in configuration file: {exc}",
+            source_line=source_line,
+        )
+        return None, [finding]
+    except ValidationError as exc:
+        findings: list[Finding] = []
+        content_lines = content.splitlines() if content else []
+        for err in exc.errors():
+            field_name = ".".join(str(p) for p in err.get("loc", []))
+            last_key = str(err["loc"][-1]) if err.get("loc") else ""
+            line_no = 1
+            if last_key and content_lines:
+                for idx, line in enumerate(content_lines, start=1):
+                    if last_key in line:
+                        line_no = idx
+                        break
+            source_line = content_lines[line_no - 1] if content_lines and 0 < line_no <= len(content_lines) else ""
+            msg = f"Configuration schema error: {err.get('msg', 'invalid value')} (field: '{field_name}')"
+            findings.append(
+                Finding(
+                    rel_path=rel_file_str,
+                    line_no=line_no,
+                    code="Z111",
+                    severity="error",
+                    message=msg,
+                    match_text=last_key,
+                    source_line=source_line,
+                )
+            )
+        return None, findings
+    except Exception as exc:
+        from zenzic.core.exceptions import ZenzicConfigError
+
+        err_rel_path = rel_file_str
+        if isinstance(exc, ZenzicConfigError) and exc.context and "file" in exc.context:
+            try:
+                f_path = Path(exc.context["file"])
+                if repo_root in f_path.parents or f_path.parent == repo_root:
+                    err_rel_path = str(f_path.relative_to(repo_root))
+                else:
+                    err_rel_path = f_path.name
+            except Exception:
+                pass
+        finding = Finding(
+            rel_path=err_rel_path,
+            line_no=1,
+            code="Z111",
+            severity="error",
+            message=f"Configuration error: {exc}",
+        )
+        return None, [finding]

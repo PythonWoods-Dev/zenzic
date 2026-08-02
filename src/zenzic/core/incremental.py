@@ -172,6 +172,24 @@ class IncrementalAnalysisEngine:
         """
         from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
         from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.models.config import load_config_with_diagnostics
+
+        # 0. Validate .zenzic.toml config
+        new_config, config_findings = load_config_with_diagnostics(self.repo_root)
+        if config_findings:
+            config_file = self.repo_root / ".zenzic.toml"
+            if not config_file.is_file() and (self.repo_root / "pyproject.toml").is_file():
+                config_file = self.repo_root / "pyproject.toml"
+            config_uri = config_file.resolve().as_uri()
+            cfg_text = ""
+            try:
+                cfg_text = config_file.read_text(encoding="utf-8")
+            except OSError:
+                pass
+            diags = self._findings_to_diagnostics(cfg_text, config_findings)
+            return {config_uri: diags}
+        if new_config:
+            self.config = new_config
 
         # Force full sync on first invocation
         if not self._initialized:
@@ -581,7 +599,7 @@ class IncrementalAnalysisEngine:
                         end=DiagnosticPosition(line=line_no, character=utf16_end),
                     ),
                     severity=severity,
-                    code=getattr(f, "rule_id", "Unknown"),
+                    code=getattr(f, "code", getattr(f, "rule_id", "Unknown")),
                     source="zenzic",
                     message=getattr(f, "message", "Violation"),
                 )

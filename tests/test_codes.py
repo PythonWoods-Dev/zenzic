@@ -64,7 +64,7 @@ def test_sarif_levels_are_valid_values() -> None:
 # informational within the Z1xx range because it reports a threshold metric,
 # not a broken link.
 _Z1XX_NON_ERROR_EXCEPTIONS: frozenset[str] = frozenset(
-    {"Z106", "Z110", "Z112", "Z114", "Z118", "Z120", "Z122", "Z123"}
+    {"Z106", "Z112", "Z114", "Z118", "Z120", "Z122", "Z123"}
 )
 
 
@@ -73,16 +73,16 @@ _Z1XX_NON_ERROR_EXCEPTIONS: frozenset[str] = frozenset(
     [c for c in CODE_NAMES if c.startswith("Z1") and c not in _Z1XX_NON_ERROR_EXCEPTIONS],
 )
 def test_z1xx_sarif_level_is_error(code: str) -> None:
-    """Z1xx (Link Integrity) codes must have SARIF level 'error'."""
+    """Z1xx codes must have SARIF level 'error'."""
     assert CODE_SARIF_LEVELS[code] == "error", (
-        f"{code} should be 'error' (Link Integrity), got '{CODE_SARIF_LEVELS[code]}'"
+        f"{code} should be 'error', got '{CODE_SARIF_LEVELS[code]}'"
     )
 
 
-def test_z110_sarif_level_is_warning() -> None:
-    """Z110 STALE_ALLOWLIST_ENTRY is config-hygiene — must be SARIF level 'warning'."""
-    assert CODE_SARIF_LEVELS["Z110"] == "warning", (
-        f"Z110 should be 'warning' (config hygiene), got '{CODE_SARIF_LEVELS['Z110']}'"
+def test_z110_sarif_level_is_error() -> None:
+    """Z110 CONFIG_SYNTAX_ERROR is a fatal config error — must be SARIF level 'error'."""
+    assert CODE_SARIF_LEVELS["Z110"] == "error", (
+        f"Z110 should be 'error' (config syntax error), got '{CODE_SARIF_LEVELS['Z110']}'"
     )
 
 
@@ -156,11 +156,11 @@ def test_no_orphan_definitions() -> None:
     assert orphans == [], f"Ghost codes in CODE_DEFINITIONS (not in CODE_NAMES): {orphans}"
 
 
-def test_z103_z111_z113_are_structural_with_penalty() -> None:
+def test_z103_z113_are_structural_with_penalty() -> None:
     """ADR-031: paradox codes must have error severity, positive penalty, structural category."""
     from zenzic.core.codes import CODE_DEFINITIONS
 
-    for code in ("Z103", "Z111", "Z113"):
+    for code in ("Z103", "Z113"):
         defn = CODE_DEFINITIONS[code]
         assert defn.severity == "error", f"{code}.severity should be 'error'"
         assert defn.penalty > 0.0, f"{code}.penalty should be > 0"

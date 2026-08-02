@@ -1565,8 +1565,22 @@ def scan_docs_references(
     if not docs_root.exists() or not docs_root.is_dir():
         return [], []
 
+    config_findings: list[Any] = []
     if config is None:
-        config, _ = ZenzicConfig.load(docs_root)
+        from zenzic.models.config import load_config_with_diagnostics
+
+        loaded_cfg, config_findings = load_config_with_diagnostics(docs_root)
+        if config_findings:
+            config_file = docs_root / ".zenzic.toml"
+            if not config_file.is_file() and (docs_root.parent / ".zenzic.toml").is_file():
+                config_file = docs_root.parent / ".zenzic.toml"
+            report = IntegrityReport(
+                file_path=config_file,
+                findings=config_findings,
+                score=0.0,
+            )
+            return [report], []
+        config = loaded_cfg or ZenzicConfig()
 
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))

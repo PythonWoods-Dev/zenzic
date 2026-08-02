@@ -93,10 +93,17 @@ _GALLERY: dict[str, _Act] = {
     ),
     "z110": _Act(
         code="z110",
-        title="Stale Allowlist",
-        description="Z110 STALE_ALLOWLIST_ENTRY — stale absolute path allowlist entry; exit 0 (warning)",
-        example_dir="z110-stale-allowlist",
-        expected_pass=True,
+        title="Config Syntax Error",
+        description="Z110 CONFIG_SYNTAX_ERROR — malformed TOML syntax in .zenzic.toml; exit 1",
+        example_dir="z110-config-syntax-error",
+        expected_pass=False,
+    ),
+    "z111": _Act(
+        code="z111",
+        title="Config Schema Error",
+        description="Z111 CONFIG_SCHEMA_ERROR — invalid schema structure or type in .zenzic.toml; exit 1",
+        example_dir="z111-config-schema-error",
+        expected_pass=False,
     ),
     "z118": _Act(
         code="z118",
