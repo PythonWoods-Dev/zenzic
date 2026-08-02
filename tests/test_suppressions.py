@@ -282,3 +282,19 @@ def test_global_usage_tracker_toml_line_resolution(tmp_path: Path) -> None:
         "docs/assets/**" in msg and line_no == 3 for msg, line_no in lines_by_pattern.items()
     )
     assert any("docs/blog/**" in msg and line_no == 4 for msg, line_no in lines_by_pattern.items())
+
+
+def test_global_usage_tracker_topology_policy_pair_consumption() -> None:
+    """Using either topological code must consume the paired directory policy family."""
+    from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
+
+    config = ZenzicConfig(
+        governance=GovernanceConfig(directory_policies={"docs/historical/**": ["Z410", "Z411"]})
+    )
+    tracker = GlobalUsageTracker(config)
+
+    tracker.mark_directory_policy_used("docs/historical/**", "Z411")
+
+    assert ("docs/historical/**", "Z410") not in tracker.unused_dir_policies
+    assert ("docs/historical/**", "Z411") not in tracker.unused_dir_policies

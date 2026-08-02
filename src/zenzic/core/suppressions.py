@@ -26,6 +26,9 @@ _SUPPRESS_RE = re.compile(
 #: ADR-084 — Strip backtick inline code spans before counting suppressions.
 _INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 
+#: Topological findings are governed as a paired policy family.
+_TOPOLOGY_POLICY_CODES: frozenset[str] = frozenset({"Z410", "Z411"})
+
 
 @dataclass
 class SuppressionDirective:
@@ -201,7 +204,11 @@ class GlobalUsageTracker:
                 self.unused_ext_urls.add(url)
 
     def mark_directory_policy_used(self, pattern: str, code: str) -> None:
-        self.unused_dir_policies.discard((pattern, code.upper()))
+        normalized = code.upper()
+        self.unused_dir_policies.discard((pattern, normalized))
+        if normalized in _TOPOLOGY_POLICY_CODES:
+            for sibling in _TOPOLOGY_POLICY_CODES:
+                self.unused_dir_policies.discard((pattern, sibling))
 
     def mark_excluded_file_pattern_used(self, pattern: str) -> None:
         self.unused_file_patterns.discard(pattern)
