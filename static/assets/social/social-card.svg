@@ -1,15 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
   <defs>
+    <linearGradient id="zenzic-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <linearGradient id="zenzic-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+
+    <linearGradient id="zenzic-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#312e81"/>
+    </linearGradient>
+
     <clipPath id="br-clip-og">
-      <rect x="103" y="103" width="97" height="97" rx="10"/>
+      <rect x="103" y="103" width="97" height="97" rx="12"/>
     </clipPath>
     <mask id="slash-cut-og">
       <rect x="0" y="0" width="200" height="200" fill="white"/>
-      <polygon points="162,-5 138,-5 38,205 62,205" fill="black"/>
+      <polygon points="166,-5 138,-5 34,205 62,205" fill="black"/>
     </mask>
   </defs>
 
-  <!-- Sfondo primario — identico al background di zenzic.dev -->
+  <!-- Sfondo primario -->
   <rect x="0" y="0" width="1200" height="630" fill="#09090b"/>
 
   <!-- Cerchio decorativo -->
@@ -18,11 +33,11 @@
   <!-- Icona grande, posizionata in alto al centro -->
   <g transform="translate(500, 140) scale(1)">
     <g mask="url(#slash-cut-og)">
-      <rect x="0" y="0" width="97" height="97" rx="10" fill="#38bdf8"/>
-      <rect x="103" y="0" width="97" height="97" rx="10" fill="#4f46e5"/>
-      <rect x="0" y="103" width="97" height="97" rx="10" fill="#4f46e5"/>
+      <rect x="0" y="0" width="97" height="97" rx="12" fill="url(#zenzic-cyan)"/>
+      <rect x="103" y="0" width="97" height="97" rx="12" fill="url(#zenzic-indigo)"/>
+      <rect x="0" y="103" width="97" height="97" rx="12" fill="url(#zenzic-indigo)"/>
       <g clip-path="url(#br-clip-og)">
-        <polygon points="103,103 200,103 200,120 160,200 103,200" fill="#4f46e5"/>
+        <polygon points="103,103 200,103 200,125 155,200 103,200" fill="url(#zenzic-dark)"/>
       </g>
     </g>
   </g>
@@ -30,5 +45,5 @@
   <!-- Testo centrato -->
   <text x="600" y="440" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="80" fill="#f8fafc" text-anchor="middle" letter-spacing="-2">Zenzic</text>
 
-  <text x="600" y="490" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="24" fill="#94a3b8" text-anchor="middle" letter-spacing="2">STRICT MARKDOWN STATIC ANALYZER &amp; CREDENTIAL SCANNER</text>
+  <text x="600" y="490" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="24" fill="#94a3b8" text-anchor="middle" letter-spacing="2">DETERMINISTIC DOCUMENT INTEGRITY ENGINE &amp; SAST</text>
 </svg>
