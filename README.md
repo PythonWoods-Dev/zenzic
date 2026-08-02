@@ -143,7 +143,7 @@ Zenzic Core is headless and emits standardized **SARIF** JSON, ensuring seamless
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.26.5",
+          "version": "0.27.0",
           "rules": [
             {
               "id": "Z101",
@@ -215,7 +215,7 @@ uv tool upgrade zenzic
 To run a specific version ephemerally without altering your global environment:
 
 ```bash
-uvx zenzic@0.26.5 check all
+uvx zenzic@0.27.0 check all
 ```
 
 ---

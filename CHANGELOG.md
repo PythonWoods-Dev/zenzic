@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-08-02
+
 ### Added
 
 - **Smart Link Graph (`V0.27-01`)**: Transformed the Virtual Site Map (VSM) into a Smart Link Graph that tracks deterministic adjacency lists for outgoing links across document nodes.
