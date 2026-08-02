@@ -14,10 +14,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Smart Link Graph (`V0.27-01`)**: Transformed the Virtual Site Map (VSM) into a Smart Link Graph that tracks deterministic adjacency lists for outgoing links across document nodes.
-- **Semantic Linting & Readability Metrics (`V0.27-03`)**: Introduced structural content quality rules:
-  - `Z510` (HEADING_HIERARCHY): Detects skipped heading levels (e.g. H3 following H1).
-  - `Z511` (EXCESSIVE_SENTENCE_LENGTH): Detects prose sentences exceeding configurable word limit (`max_sentence_length`, default 40).
-  - `Z512` (EMPTY_SECTION): Detects heading sections with zero body content before next heading or EOF.
+- **Configuration Validation Engine (`V0.27-04`)**: Introduced formal validation for `.zenzic.toml` with graceful degradation and non-suppressible diagnostic findings:
+  - `Z110` (CONFIG_SYNTAX_ERROR): Emitted on TOML syntax errors (`TOMLDecodeError`) with line-number extraction.
+  - `Z111` (CONFIG_SCHEMA_ERROR): Emitted on schema type mismatches and validation failures (`ValidationError`).
+  - Halts Markdown document graph scanning on fatal config errors to prevent false-positive cascades and protect LSP stability.
 - **Baseline & Regression Tracking (`V0.27-02`)**: Added deterministic snapshot baseline capability (`.zenzic-baseline.json`) via `--update-baseline` and `--baseline` CLI options. Computes line-shift invariant SHA-256 signatures for finding matching, tags baselined findings without dropping them (`Radical Unawareness`), and enforces DQS anti-regression exit rules in CI/CD.
 
 ## Historical Releases

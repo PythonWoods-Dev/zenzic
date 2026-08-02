@@ -17,9 +17,7 @@ supported engine and what the rules are.
 
 Zenzic supports checking Markdown directories natively without requiring a build engine via the Standalone engine mode. Adapters for MkDocs and Zensical provide enhanced navigation and internationalisation support.
 
-Because Zenzic analyses **source Markdown files and configuration as plain data** — never
-invoking a build engine, never importing framework code — it can validate documentation for
-any static site generator (SSG), regardless of what language that generator is written in.
+Zenzic analyses source Markdown files and configuration as plain data without invoking a build engine or importing framework code. Consequently, it validates documentation for any static site generator (SSG), regardless of the underlying generator language.
 
 | Support level | Engine | SSG language | How |
 | :--- | :--- | :--- | :--- |

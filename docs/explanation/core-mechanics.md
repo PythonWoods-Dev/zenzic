@@ -85,6 +85,25 @@ To ensure accurate link validation that supports out-of-order reference definiti
 
 Pass 2 always runs after Pass 1 harvest completion. Security findings from Pass 1 affect exit semantics (exit code 2) but do not skip Pass 2 cross-check.
 
+## The Smart Link Graph & Topological Analysis {#smart-link-graph}
+
+Beyond simple URL resolution, Zenzic constructs an adjacency matrix over your Virtual Site Map to form a **Smart Link Graph**. By running Breadth-First Search (BFS) starting from defined site entry points (e.g., `index.md`), the engine evaluates graph topology to detect structural defects:
+
+- **Topological Orphans (`Z410`)**: Pages on disk that cannot be reached through any navigation link path starting from entry points.
+- **Dead-End Nodes (`Z411`)**: Pages that contain zero outgoing links, stranding readers without navigation pathways to continue exploring.
+
+Because the graph is computed entirely in memory during Pass 1.5, topological graph checks run in $\Theta(V + E)$ time without network calls or external build engine dependencies.
+
+## Baseline Engine & Line-Shift Invariant Signatures {#baseline-engine}
+
+Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant SHA-256 signatures:
+
+$$\text{Signature} = \text{SHA256}(\text{RuleCode} + \text{PosixPath} + \text{ContextTarget})[:16]$$
+
+By excluding line numbers from the signature computation:
+- Inserting or deleting lines above a finding does **not** invalidate its baseline match.
+- Baselined findings are flagged with `is_baselined: true` (**Radical Unawareness**), allowing reports to display existing debt transparently while enforcing strict CI exit gates for new defects.
+
 ## Global Usage Tracker
 
 To enforce configuration hygiene and zero-debt governance, the core execution engine maintains a `GlobalUsageTracker` attached directly to the `ZenzicConfig` model.

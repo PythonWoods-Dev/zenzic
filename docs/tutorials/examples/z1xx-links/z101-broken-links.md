@@ -83,7 +83,7 @@ Exit code: `1`
 
 The `Z101` finding indicates a **LINK_BROKEN** issue.
 
-This error or warning is raised by Zenzic when a reference link points to a target page or route that exists in the workspace filesystem or routing tree, but is broken because the specific path is incorrect or the target file does not map to any valid route in the Virtual Site Map. In this specific example:
+This error or warning is raised by Zenzic when a reference link points to an invalid path. The link is broken because the target file does not map to any valid route in the Virtual Site Map. In this specific example:
 
 - **Scan Type:** `Link Validator`
 - **Severity:** `Error`

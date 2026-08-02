@@ -13,6 +13,8 @@ This glossary provides precise definitions for all domain-specific terms used in
 
 ## Terms
 
+Glossary of key technical and domain concepts in alphabetical order.
+
 ### Adapter {#adapter}
 
 A build-engine-specific module that implements the `BaseAdapter` protocol. Adapters translate between a documentation engine's file conventions (nav structure, locale directories, URL mapping) and Zenzic's engine-agnostic core. Built-in adapters: `MkDocsAdapter`, `ZensicalAdapter`, `StandaloneAdapter`. Third-party adapters can be registered via the `zenzic.adapters` entry-point group.

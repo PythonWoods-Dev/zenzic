@@ -114,3 +114,10 @@ The CLI and CI pipelines report active debt state in the audit footer:
 ```
 
 If active suppressions exceed `suppression_cap`, Zenzic emits `[CAP_EXCEEDED]` and fails the quality gate with **Exit 1**.
+
+---
+
+## Related Specifications
+
+- [Finding Codes Catalog](./finding-codes.md) — Comprehensive reference of all `Zxxx` diagnostic codes.
+- [Managing Technical Debt](../how-to/handle-technical-debt.md) — How-to guide for applying directory policies and per-file ignores.

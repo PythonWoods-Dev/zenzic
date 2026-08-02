@@ -56,6 +56,14 @@ nav:
     - Rule Reference & Catalog:
       - Finding Codes Index: reference/finding-codes.md
       - Core Rule Checks: reference/checks.md
+      - Rule Specification Cards:
+        - rules/Z110.md
+        - rules/Z111.md
+        - rules/Z410.md
+        - rules/Z411.md
+        - rules/Z510.md
+        - rules/Z511.md
+        - rules/Z512.md
       - Interactive Rule Examples:
         - tutorials/examples/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md

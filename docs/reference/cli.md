@@ -1007,9 +1007,7 @@ entry-point group from any installed third-party package.
 
 <!-- Terminal output: run `uvx zenzic check all` -->
 
-Each row in the Extensible Rules table shows the entry-point name, the rule's stable `rule_id`
-(used in findings and suppression lists), the origin distribution (`(core)` for built-in rules,
-or the package name for third-party plugins), and the fully qualified Python class name.
+Each row in the Extensible Rules table shows the entry-point name and the rule's stable `rule_id`. It also displays the origin distribution (`(core)` for built-in rules, or the package name for third-party plugins) alongside the fully qualified Python class name.
 
 Use this command to verify which rules are active after installing a plugin package.
 

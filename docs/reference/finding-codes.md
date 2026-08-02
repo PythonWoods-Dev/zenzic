@@ -128,6 +128,8 @@ Examples:
 
 ## Z0xx — Migration & Compatibility
 
+Migration and legacy engine compatibility diagnostic findings.
+
 ### Z000: UNSUPPORTED_ENGINE {#z000}
 
 **Severity:** `error` (fatal abort) · **Penalty:** none · **Exit:** 1 · **Suppressible:** No
@@ -142,6 +144,8 @@ Fatal configuration error: the adapter factory encountered a deprecated or remov
 ---
 
 ## Z1xx — Link Integrity
+
+Diagnostic findings related to link targets, anchors, and Virtual Site Map resolution.
 
 ### Z101: LINK_BROKEN {#z101}
 
@@ -428,6 +432,8 @@ The Polyglot Extractor detected a highly dangerous scheme (such as `javascript:`
 
 ## Z3xx — Reference Integrity
 
+Diagnostic findings related to reference-style links and definition definitions.
+
 ### Z301: DANGLING_REF {#z301}
 
 **Severity:** `error` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z301-dangling-ref.md)
@@ -458,6 +464,8 @@ Multiple definitions exist for the same reference ID. CommonMark specifies that 
 ---
 
 ## Z4xx — Structure
+
+Diagnostic findings related to Virtual Site Map topology and navigation structure.
 
 ### Z401: MISSING_DIRECTORY_INDEX {#z401}
 
@@ -525,6 +533,8 @@ A conflict between the physical file structure and the engine's navigation confi
 ---
 
 ## Z5xx — Content Quality
+
+Diagnostic findings related to prose quality, sentence length, and structural formatting.
 
 ### Z501: PLACEHOLDER {#z501}
 
@@ -616,6 +626,8 @@ The opening frontmatter delimiter on line 1 of the file is not exactly `---`. An
 
 ## Z6xx — Governance
 
+Diagnostic findings related to brand governance, deprecation, and suppression audit state.
+
 ### Z601: BRAND_OBSOLESCENCE {#z601}
 
 **Severity:** `warning` · **Penalty:** −2.0 pts (Governance) + Escalation · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z601-brand-obsolescence.md)
@@ -666,6 +678,8 @@ any active finding. Remove the dead comment.
 ---
 
 ## Z9xx — Engine & System
+
+System-level diagnostic findings and worker watchdog execution alerts.
 
 ### Z901: RULE_ENGINE_ERROR {#z901}
 
