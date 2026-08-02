@@ -12,6 +12,7 @@ from zenzic.core.adapters._base import BaseAdapter
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
+    from zenzic.models.vsm import VirtualSiteMap
 
 
 class StandaloneAdapter(BaseAdapter):

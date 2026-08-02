@@ -1576,8 +1576,10 @@ def check_all(
             BaselineManager.apply_baseline(all_findings, active_baseline)
         except Exception as exc:
             if baseline is not None:
-                typer.echo(f"ERROR: Failed to load baseline '{baseline_file_path}': {exc}", err=True)
-                raise typer.Exit(1)
+                typer.echo(
+                    f"ERROR: Failed to load baseline '{baseline_file_path}': {exc}", err=True
+                )
+                raise typer.Exit(1) from None
 
     elapsed = time.monotonic() - t0
 
@@ -1594,7 +1596,9 @@ def check_all(
             raise typer.Exit(2)
 
         if active_baseline is not None and not effective_exit_zero:
-            unbaselined = sum(1 for f in all_findings if not f.is_baselined and f.severity == "error")
+            unbaselined = sum(
+                1 for f in all_findings if not f.is_baselined and f.severity == "error"
+            )
             if unbaselined or _score_report.score < active_baseline.score:
                 raise typer.Exit(1)
         elif not effective_exit_zero:
@@ -1612,7 +1616,9 @@ def check_all(
             raise typer.Exit(2)
 
         if active_baseline is not None and not effective_exit_zero:
-            unbaselined = sum(1 for f in all_findings if not f.is_baselined and f.severity == "error")
+            unbaselined = sum(
+                1 for f in all_findings if not f.is_baselined and f.severity == "error"
+            )
             if unbaselined or _score_report.score < active_baseline.score:
                 raise typer.Exit(1)
         elif not effective_exit_zero:
@@ -1632,8 +1638,10 @@ def check_all(
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
-                1 for f in all_findings
-                if not f.is_baselined and (f.severity == "error" or (effective_strict and f.severity == "warning"))
+                1
+                for f in all_findings
+                if not f.is_baselined
+                and (f.severity == "error" or (effective_strict and f.severity == "warning"))
             )
             if unbaselined or _score_report.score < active_baseline.score:
                 raise typer.Exit(1)
@@ -1735,8 +1743,10 @@ def check_all(
 
     if active_baseline is not None:
         unbaselined_defects = sum(
-            1 for f in all_findings
-            if not f.is_baselined and (f.severity == "error" or (effective_strict and f.severity == "warning"))
+            1
+            for f in all_findings
+            if not f.is_baselined
+            and (f.severity == "error" or (effective_strict and f.severity == "warning"))
         )
         score_regressed = _score_report.score < active_baseline.score
         if (score_regressed or unbaselined_defects > 0) and not effective_exit_zero:

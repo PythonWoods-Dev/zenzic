@@ -7,18 +7,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from jsonschema import validate
 from typer.testing import CliRunner
 
-from zenzic.main import app
 from zenzic.core.baseline import (
     DEFAULT_BASELINE_FILE,
-    BaselineData,
     BaselineManager,
     compute_finding_signature,
 )
 from zenzic.core.reporter import Finding
+from zenzic.main import app
+
 
 runner = CliRunner()
 
@@ -31,7 +30,9 @@ def test_signature_computation_resilient_to_line_shifts() -> None:
     assert len(sig1) == 16
 
     # Differing targets produce different signatures
-    sig_other = compute_finding_signature("Z410", "docs/guide.md", "", "Document is isolated: '/other/'")
+    sig_other = compute_finding_signature(
+        "Z410", "docs/guide.md", "", "Document is isolated: '/other/'"
+    )
     assert sig1 != sig_other
 
     # Context match_text precedence
@@ -67,8 +68,12 @@ def test_baseline_schema_validation(tmp_path: Path) -> None:
 
 def test_baseline_manager_apply_baseline() -> None:
     """apply_baseline flags matching findings as is_baselined=True."""
-    f1 = Finding(rel_path="docs/a.md", line_no=1, code="Z410", severity="warning", message="Isolated: '/a/'")
-    f2 = Finding(rel_path="docs/b.md", line_no=10, code="Z411", severity="warning", message="Dead end: '/b/'")
+    f1 = Finding(
+        rel_path="docs/a.md", line_no=1, code="Z410", severity="warning", message="Isolated: '/a/'"
+    )
+    f2 = Finding(
+        rel_path="docs/b.md", line_no=10, code="Z411", severity="warning", message="Dead end: '/b/'"
+    )
 
     bdata = BaselineManager.create_baseline(95.0, [f1], version_str="0.27.0")
     baselined_cnt, new_cnt = BaselineManager.apply_baseline([f1, f2], bdata)

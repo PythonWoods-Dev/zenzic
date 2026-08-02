@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from zenzic.core.rules import RuleFinding
 
@@ -62,9 +63,7 @@ def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
     return findings
 
 
-def check_sentence_lengths(
-    file_path: Path, text: str, max_words: int = 40
-) -> list[RuleFinding]:
+def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> list[RuleFinding]:
     """Z511: Detect sentences exceeding max_words readability threshold."""
     from zenzic.core.rules import RuleFinding
 

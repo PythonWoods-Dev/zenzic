@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+
 if TYPE_CHECKING:
     from zenzic.core.reporter import Finding
 
@@ -61,7 +62,7 @@ def compute_finding_signature(
         else:
             context_target = message.strip()
 
-    payload = f"{norm_code}:{norm_path}:{context_target}".encode("utf-8")
+    payload = f"{norm_code}:{norm_path}:{context_target}".encode()
     return hashlib.sha256(payload).hexdigest()[:16]
 
 

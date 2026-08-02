@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.scanner import scan_docs_references
 from zenzic.models.config import ZenzicConfig, load_config_with_diagnostics
@@ -18,9 +16,7 @@ def test_z110_toml_syntax_error_line_extraction(tmp_path: Path) -> None:
     """Z110 extracts line numbers from TOML syntax errors in .zenzic.toml."""
     config_file = tmp_path / ".zenzic.toml"
     config_file.write_text(
-        "[site]\n"
-        "engine = 'standalone'\n"
-        "placeholder_max_words = [ unclosed_array\n",  # line 3
+        "[site]\nengine = 'standalone'\nplaceholder_max_words = [ unclosed_array\n",  # line 3
         encoding="utf-8",
     )
 
@@ -122,4 +118,3 @@ def test_local_config_validation(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert findings[0].code == "Z110"
     assert findings[0].rel_path == ".zenzic.local.toml"
-

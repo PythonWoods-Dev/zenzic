@@ -337,9 +337,9 @@ class VirtualSiteMap(dict[str, Route]):
         for node in PolyglotExtractor().extract(content):
             if node.href:
                 _register(node.href)
-                
+
         if canonical_url:
-            self.outgoing_links[canonical_url] = sorted(list(targets))
+            self.outgoing_links[canonical_url] = sorted(targets)
 
 
 def resolve_link_to_canonical(

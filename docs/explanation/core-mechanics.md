@@ -98,9 +98,10 @@ Because the graph is computed entirely in memory during Pass 1.5, topological gr
 
 Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant SHA-256 signatures:
 
-$$\text{Signature} = \text{SHA256}(\text{RuleCode} + \text{PosixPath} + \text{ContextTarget})[:16]$$
+$$\text{Signature} = \text{SHA256}[\text{RuleCode} + \text{PosixPath} + \text{ContextTarget}](:16)$$
 
 By excluding line numbers from the signature computation:
+
 - Inserting or deleting lines above a finding does **not** invalidate its baseline match.
 - Baselined findings are flagged with `is_baselined: true` (**Radical Unawareness**), allowing reports to display existing debt transparently while enforcing strict CI exit gates for new defects.
 

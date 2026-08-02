@@ -38,13 +38,13 @@
     <g mask="url(#slash-cut-wm)">
       <!-- Quadrante Top-Left -->
       <rect x="0" y="0" width="97" height="97" rx="12" fill="url(#zenzic-cyan)"/>
-      
+
       <!-- Quadrante Top-Right -->
       <rect x="103" y="0" width="97" height="97" rx="12" fill="url(#zenzic-indigo)"/>
-      
+
       <!-- Quadrante Bottom-Left -->
       <rect x="0" y="103" width="97" height="97" rx="12" fill="url(#zenzic-indigo)"/>
-      
+
       <!-- Quadrante Bottom-Right con angolo a sfaccettatura (Document integrity icon) -->
       <g clip-path="url(#br-clip-wm)">
         <polygon points="103,103 200,103 200,125 155,200 103,200" fill="url(#zenzic-dark)"/>
@@ -54,18 +54,18 @@
 
   <!-- TIPOGRAFIA -->
   <!-- Titolo Principale -->
-  <text x="128" y="66" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" 
-        font-weight="800" 
-        font-size="54" 
-        fill="#0f172a" 
+  <text x="128" y="66"
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif"
+        font-weight="800"
+        font-size="54"
+        fill="#0f172a"
         letter-spacing="-1.5">Zenzic</text>
 
   <!-- Tagline Subtitle -->
-  <text x="130" y="90" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif" 
-        font-weight="600" 
-        font-size="12" 
-        fill="#64748b" 
+  <text x="130" y="90"
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif"
+        font-weight="600"
+        font-size="12"
+        fill="#64748b"
         letter-spacing="2.8">DOCUMENT INTEGRITY ENGINE</text>
 </svg>

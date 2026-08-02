@@ -99,4 +99,3 @@ Beyond static link checks, Zenzic's Smart Link Graph constructs an adjacency mat
 ### Configuration Validation Engine
 
 Formal schema validation for `.zenzic.toml` (`Z110` TOML syntax errors, `Z111` schema type mismatches) with exact line-number extraction. Fatal config errors halt document graph scanning to prevent false-positive cascades and protect LSP stability.
-

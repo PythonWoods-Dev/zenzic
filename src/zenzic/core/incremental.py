@@ -288,6 +288,7 @@ class IncrementalAnalysisEngine:
         # 2b. Run Topological Analysis
         if hasattr(self.adapter, "get_entry_points"):
             from zenzic.core.topology import detect_dead_ends, detect_orphans
+
             entry_points = self.adapter.get_entry_points(vsm)
             self._orphaned_urls = set(detect_orphans(vsm, entry_points))
             self._dead_end_urls = set(detect_dead_ends(vsm))

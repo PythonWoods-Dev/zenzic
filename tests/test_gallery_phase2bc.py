@@ -98,9 +98,7 @@ def test_all_active_codes_covered_in_gallery() -> None:
         "z906",
     }
 
-    active_codes = {
-        code.lower() for code in CODE_DEFINITIONS if code.lower() not in INTERNAL_CODES
-    }
+    active_codes = {code.lower() for code in CODE_DEFINITIONS if code.lower() not in INTERNAL_CODES}
     gallery_codes = set(_GALLERY.keys())
     missing = active_codes - gallery_codes
     assert not missing, f"Missing lab scenarios for active codes: {sorted(missing)}"

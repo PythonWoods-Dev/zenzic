@@ -31,6 +31,7 @@ _log = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
     from zenzic.models.vsm import RouteStatus
+    from zenzic.models.vsm import VirtualSiteMap
 
 
 def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -849,22 +850,22 @@ class MkDocsAdapter(BaseAdapter):
         """MkDocs is single-instance and exports no absolute URL prefixes."""
         return []
 
-    def get_entry_points(self, vsm: 'VirtualSiteMap') -> list[str]:
+    def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
         """Return canonical URLs serving as root entry points from nav configuration."""
         nav_paths = self.get_nav_paths()
         if not nav_paths:
             return ["/"] if "/" in vsm else []
-        
+
         entry_points = set()
         for p in nav_paths:
             ep = self._map_url(Path(p))
             if ep in vsm:
                 entry_points.add(ep)
-        
+
         if "/" in vsm:
             entry_points.add("/")
-            
-        return sorted(list(entry_points))
+
+        return sorted(entry_points)
 
     @classmethod
     def from_repo(

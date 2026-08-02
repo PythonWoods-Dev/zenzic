@@ -52,7 +52,7 @@ zenzic check all --baseline .zenzic-baseline.json
 
 Finding signatures are computed using SHA-256 hashes excluding line numbers:
 
-$$\text{Signature} = \text{SHA256}(\text{RuleCode} + \text{PosixPath} + \text{ContextTarget})[:16]$$
+$$\text{Signature} = \text{SHA256}[\text{RuleCode} + \text{PosixPath} + \text{ContextTarget}](:16)$$
 
 Inserting or deleting lines above an existing defect does **not** invalidate its baseline match. Baselined defects are tagged with `is_baselined: true` (**Radical Unawareness**), allowing reports to display existing debt transparently while failing CI builds if a new defect is introduced or if the Document Quality Score (DQS) regresses below the baseline threshold.
 

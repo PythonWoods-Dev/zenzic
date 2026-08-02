@@ -188,4 +188,3 @@ zenzic check all --baseline .zenzic-baseline.json
 - **Strict mode** — add `--strict` to also validate external URLs
 - **Custom rules** — add `[[custom_rules]]` entries to `.zenzic.toml` to enforce your own patterns
 - **Finding codes** — see the [Finding Codes reference](../reference/finding-codes) for the full `Zxxx` diagnostic catalogue
-

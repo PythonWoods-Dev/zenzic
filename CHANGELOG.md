@@ -23,7 +23,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Historical Releases
 
 - v0.26.x archive: [changelogs/v0.26.x.md](./changelogs/v0.26.x.md)
-
 - v0.25.x archive: [changelogs/v0.25.x.md](./changelogs/v0.25.x.md)
 - v0.24.x archive: [changelogs/v0.24.x.md](./changelogs/v0.24.x.md)
 - v0.23.x archive: [changelogs/v0.23.x.md](./changelogs/v0.23.x.md)

@@ -1046,8 +1046,9 @@ def load_config_with_diagnostics(
     Emits Z110 for TOMLDecodeError and Z111 for ValidationError.
     Extracts line numbers from errors whenever available.
     """
-    from zenzic.core.reporter import Finding
     from pydantic import ValidationError
+
+    from zenzic.core.reporter import Finding
 
     target_file = config_file if config_file else (repo_root / ".zenzic.toml")
     if not target_file.is_file() and (repo_root.parent / ".zenzic.toml").is_file():
@@ -1140,7 +1141,11 @@ def load_config_with_diagnostics(
                     if last_key in line:
                         line_no = idx
                         break
-            source_line = content_lines[line_no - 1] if content_lines and 0 < line_no <= len(content_lines) else ""
+            source_line = (
+                content_lines[line_no - 1]
+                if content_lines and 0 < line_no <= len(content_lines)
+                else ""
+            )
             msg = f"Configuration schema error: {err.get('msg', 'invalid value')} (field: '{field_name}')"
             findings.append(
                 Finding(

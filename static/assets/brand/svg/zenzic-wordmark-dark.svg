@@ -43,17 +43,17 @@
   </g>
 
   <!-- TIPOGRAFIA DARK -->
-  <text x="128" y="66" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" 
-        font-weight="800" 
-        font-size="54" 
-        fill="#f8fafc" 
+  <text x="128" y="66"
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif"
+        font-weight="800"
+        font-size="54"
+        fill="#f8fafc"
         letter-spacing="-1.5">Zenzic</text>
 
-  <text x="130" y="90" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif" 
-        font-weight="600" 
-        font-size="12" 
-        fill="#94a3b8" 
+  <text x="130" y="90"
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif"
+        font-weight="600"
+        font-size="12"
+        fill="#94a3b8"
         letter-spacing="2.8">DOCUMENT INTEGRITY ENGINE</text>
 </svg>

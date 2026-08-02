@@ -9,8 +9,6 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from zenzic.cli._shared import _output_sarif_findings
 from zenzic.core.content import (
     check_empty_sections,
@@ -108,9 +106,23 @@ def test_z512_empty_section_detection(tmp_path: Path) -> None:
 def test_sarif_payload_contains_z510_z511_z512_rules() -> None:
     """SARIF output payload automatically includes Z510, Z511, Z512 rule metadata."""
     findings = [
-        Finding(rel_path="docs/a.md", line_no=3, code="Z510", severity="warning", message="Skipped H2"),
-        Finding(rel_path="docs/b.md", line_no=9, code="Z511", severity="warning", message="Long sentence"),
-        Finding(rel_path="docs/c.md", line_no=4, code="Z512", severity="warning", message="Empty section"),
+        Finding(
+            rel_path="docs/a.md", line_no=3, code="Z510", severity="warning", message="Skipped H2"
+        ),
+        Finding(
+            rel_path="docs/b.md",
+            line_no=9,
+            code="Z511",
+            severity="warning",
+            message="Long sentence",
+        ),
+        Finding(
+            rel_path="docs/c.md",
+            line_no=4,
+            code="Z512",
+            severity="warning",
+            message="Empty section",
+        ),
     ]
 
     out_buffer = StringIO()
@@ -126,4 +138,7 @@ def test_sarif_payload_contains_z510_z511_z512_rules() -> None:
     assert "Z512" in rule_ids
 
     z510_rule = next(r for r in rules if r["id"] == "Z510")
-    assert z510_rule["shortDescription"]["text"] == "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)"
+    assert (
+        z510_rule["shortDescription"]["text"]
+        == "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)"
+    )

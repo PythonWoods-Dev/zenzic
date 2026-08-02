@@ -1213,14 +1213,11 @@ def _run_vsm_and_urp_pass(
             rel_posix = r.file_path.relative_to(docs_root).as_posix()
         except ValueError:
             rel_posix = r.file_path.absolute().as_posix()
-        canonical_url = next(
-            (route.url for route in vsm.values() if route.source == rel_posix), ""
-        )
+        canonical_url = next((route.url for route in vsm.values() if route.source == rel_posix), "")
         if canonical_url:
             if canonical_url in orphaned_urls:
-                if (
-                    r.suppression_tracker is None
-                    or not r.suppression_tracker.is_suppressed(1, "Z410")
+                if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(
+                    1, "Z410"
                 ):
                     r.rule_findings.append(
                         RuleFinding(
@@ -1233,9 +1230,8 @@ def _run_vsm_and_urp_pass(
                         )
                     )
             if canonical_url in dead_end_urls:
-                if (
-                    r.suppression_tracker is None
-                    or not r.suppression_tracker.is_suppressed(1, "Z411")
+                if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(
+                    1, "Z411"
                 ):
                     r.rule_findings.append(
                         RuleFinding(
