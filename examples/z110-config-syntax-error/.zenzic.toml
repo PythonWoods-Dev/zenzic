@@ -1,0 +1,2 @@
+# Malformed TOML syntax example
+placeholder_max_words = [ unclosed_array
