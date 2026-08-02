@@ -28,6 +28,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Readability Sentence Boundary Parser (`Z511`)**: Fixed sentence length calculation in `zenzic.core.content` by recognizing bulleted lists, numbered items, and blockquotes as hard sentence boundaries, eliminating false-positive readability warnings on long lists.
 - **CLI Flag Input Validation**: Enforced strict input validation for the `--only` CLI option in `zenzic check`, triggering an immediate fatal exit (`Exit 1`) when an invalid or unknown finding code is supplied.
+- **Topological Directory-Policy Tracking (`Z118`)**: Fixed a Core Engine governance bug where topological suppressions (`Z410`/`Z411`) could leave false-positive dead-policy findings by ensuring canonical tracker rebinding in scanner passes and paired topology policy consumption in `GlobalUsageTracker`.
 
 ### Changed
 
