@@ -60,8 +60,7 @@ _UNSUPPORTED_MKDOCS_KEYS = {
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
-    from zenzic.models.vsm import RouteStatus
-    from zenzic.models.vsm import VirtualSiteMap
+    from zenzic.models.vsm import RouteStatus, VirtualSiteMap
 
 
 # ── Config discovery & loading ────────────────────────────────────────────────

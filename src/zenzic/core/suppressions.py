@@ -156,7 +156,9 @@ def count_inline_suppressions(text: str) -> int:
     return len(tracker.directives)
 
 
-def _resolve_toml_line(origin_path: Path, search_target: str, lines_cache: list[str] | None = None) -> int:
+def _resolve_toml_line(
+    origin_path: Path, search_target: str, lines_cache: list[str] | None = None
+) -> int:
     """Find the 1-based line number in origin_path containing search_target.
 
     Falls back to line 1 if the file cannot be read or search_target is not found.

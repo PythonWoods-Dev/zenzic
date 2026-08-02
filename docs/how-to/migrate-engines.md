@@ -46,7 +46,6 @@ touching a single documentation file. From Zenzic's perspective:
 
 This section details the specifications and guidelines for MkDocs Material best practices within the Zenzic ecosystem.
 
-
 ### Language switcher configuration
 
 When using `mkdocs-material` with the `i18n` plugin and multiple locales, the language

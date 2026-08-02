@@ -251,8 +251,8 @@ class TestSuppressionTrackerParsing:
 
 def test_global_usage_tracker_toml_line_resolution(tmp_path: Path) -> None:
     """Verify that Z118 findings report the actual line number in .zenzic.toml."""
-    from zenzic.models.config import ZenzicConfig, GovernanceConfig
     from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
 
     toml_path = tmp_path / ".zenzic.toml"
     toml_path.write_text(
@@ -278,6 +278,7 @@ def test_global_usage_tracker_toml_line_resolution(tmp_path: Path) -> None:
     stale = tracker.get_stale_findings(check_all=True)
 
     lines_by_pattern = {f.message: f.line_no for f in stale}
-    assert any("docs/assets/**" in msg and line_no == 3 for msg, line_no in lines_by_pattern.items())
+    assert any(
+        "docs/assets/**" in msg and line_no == 3 for msg, line_no in lines_by_pattern.items()
+    )
     assert any("docs/blog/**" in msg and line_no == 4 for msg, line_no in lines_by_pattern.items())
-

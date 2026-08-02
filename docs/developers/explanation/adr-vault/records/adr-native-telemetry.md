@@ -65,7 +65,6 @@ invocations and enforces the read/write boundary between the two modes.
 
 The technical rationale and architectural context driving this design decision are outlined below.
 
-
 ### 1. Zero-Config Default enforcement
 
 The Zero-Config Default pillar requires that users can adopt Zenzic features without configuring

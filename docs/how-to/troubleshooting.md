@@ -15,7 +15,6 @@ For the complete list of finding codes, see [Finding Codes](../reference/finding
 
 This section details the specifications and guidelines for Editor Integration within the Zenzic ecosystem.
 
-
 ### `Zenzic: Not Found (ENOENT)`
 
 **Symptom:** Status bar shows `$(error) Zenzic: Not Found` or prompt reads *Zenzic binary not found*.
@@ -56,7 +55,6 @@ uv tool install --force zenzic
 ## Configuration
 
 This section details the specifications and guidelines for Configuration within the Zenzic ecosystem.
-
 
 ### External link check is slow or needs suppression
 

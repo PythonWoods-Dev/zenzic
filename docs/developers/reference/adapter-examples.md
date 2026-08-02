@@ -167,7 +167,6 @@ From the repository root, verify all examples produce their expected exit codes:
 (cd examples/plugin-scaffold-demo && zenzic check all)
 ```
 
-
 ## See Also
 
 - [Adapter API Reference](./adapter-api.md)

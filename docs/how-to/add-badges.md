@@ -164,7 +164,6 @@ If `badge_stamp_files` includes more than `README.md`, expand the `git add` and 
     fi
 ```
 
-
 ## See Also
 
 - [CLI Reference](../reference/cli.md)

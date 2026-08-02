@@ -8,7 +8,6 @@ description: "Architectural Decision Record prohibiting subprocesses within the 
 
 This section details the specifications and guidelines for ADR 002: Zero Subprocesses Policy within the Zenzic ecosystem.
 
-
 ## Context
 
 Running arbitrary executables or scripts via subprocesses (e.g., `os.system`, `subprocess`) introduces severe security, portability, and determinism risks into the Core execution environment.

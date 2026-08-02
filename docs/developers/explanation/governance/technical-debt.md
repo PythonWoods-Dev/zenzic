@@ -26,7 +26,6 @@ follow-through.
 
 This section details the specifications and guidelines for Open Entries within the Zenzic ecosystem.
 
-
 ### Z108 STALE_ALLOWLIST_ENTRY
 
 **Category:** Configuration hygiene
@@ -108,7 +107,6 @@ Three commitments govern this page:
 
 When you contribute a deferral here, you are not admitting weakness — you
 are protecting the next contributor from rediscovering the same trade-off.
-
 
 ## See Also
 

@@ -300,7 +300,9 @@ class PolyglotExtractor:
             Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
             trovato fuori dai blocchi di codice.
         """
-        masked = self._mask_math(self._mask_inline_code(self._mask_fences(self._mask_comments(text))))
+        masked = self._mask_math(
+            self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
+        )
         nodes: list[HtmlNodeInfo] = []
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()

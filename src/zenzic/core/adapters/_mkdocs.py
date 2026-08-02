@@ -30,8 +30,7 @@ _log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
-    from zenzic.models.vsm import RouteStatus
-    from zenzic.models.vsm import VirtualSiteMap
+    from zenzic.models.vsm import RouteStatus, VirtualSiteMap
 
 
 def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:

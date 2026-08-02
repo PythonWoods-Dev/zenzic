@@ -85,7 +85,6 @@ Executing `zenzic score` prints a transparent breakdown ledger detailing raw ded
   = Final Quality Score                      65 / 100
 ```
 
-
 ## See Also
 
 - [Scoring Algorithm](../reference/scoring-algorithm.md)

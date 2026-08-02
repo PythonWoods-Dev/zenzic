@@ -8,7 +8,6 @@ description: "Build protocol and guidelines for the Tailwind CSS external artifa
 
 This section details the specifications and guidelines for Tailwind CSS External Build Artifact within the Zenzic ecosystem.
 
-
 ## Protocol
 
 `zenzic-tailwind.min.css` is an **external build artifact** produced by a human-run

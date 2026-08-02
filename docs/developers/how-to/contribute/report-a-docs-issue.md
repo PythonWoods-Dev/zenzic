@@ -82,7 +82,6 @@ us with every piece of information we need to improve it.
 
 __We'll take it from here.__
 
-
 ## See Also
 
 - [Contributing Pull Requests](./pull-requests.md)

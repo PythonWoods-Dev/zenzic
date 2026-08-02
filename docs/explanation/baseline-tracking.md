@@ -6,11 +6,11 @@ description: Snapshot existing technical debt into .zenzic-baseline.json to prev
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Baseline & Regression Tracking
-
 Zenzic provides an anti-regression engine that captures existing technical debt into a deterministic snapshot file (`.zenzic-baseline.json`). This allows engineering teams to adopt strict Quality Gates without being blocked by legacy documentation debt.
 
 ## Core Concepts
+
+The baseline engine is designed around stable signatures and explicit visibility of debt.
 
 ### 1. Deterministic Cryptographic Signatures
 
@@ -26,6 +26,8 @@ The Core Engine does not drop baselined findings; it flags them with `is_baselin
 ---
 
 ## Command Line Usage
+
+The following commands cover baseline creation, baseline consumption, and CI decision rules.
 
 ### Creating or Updating a Baseline
 
@@ -77,3 +79,9 @@ When a baseline is active:
 - **Exit 1**: A new defect is introduced OR current DQS score drops below the baseline score.
 - **Resolution Hint**: If baselined issues are fixed, Zenzic displays a hint suggesting to refresh the baseline:
   `💡 2 baselined issues resolved! Run 'zenzic check --update-baseline' to refresh baseline.`
+
+## See Also
+
+- [CLI Commands](../reference/cli.md)
+- [Scoring System](./scoring-system.md)
+- [Core Mechanics](./core-mechanics.md)

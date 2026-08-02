@@ -139,7 +139,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
                         )
                     )
                 current_sentence_parts.clear()
-            
+
             if not is_bullet:
                 continue
 

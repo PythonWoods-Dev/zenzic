@@ -90,7 +90,6 @@ The VSM allows Zenzic to answer questions that previously required a live site:
 
 The technical rationale and architectural context driving this design decision are outlined below.
 
-
 ### 1. Pre-Build Error Prevention
 
 A broken link discovered before the build is a developer warning. A broken link

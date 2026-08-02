@@ -76,4 +76,3 @@ own structure from erosion by convenience, urgency, and well-intentioned shortcu
 ### "Do not trust us. Trust the system we built to protect you."
 
 This section details the specifications and guidelines for "Do not trust us. Trust the system we built to protect you." within the Zenzic ecosystem.
-

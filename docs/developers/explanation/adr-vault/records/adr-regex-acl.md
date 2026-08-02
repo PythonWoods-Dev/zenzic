@@ -126,7 +126,6 @@ These constraints are permanent consequences of ADR-013:
 
 The system impact and operational consequences resulting from this architectural decision include:
 
-
 ### Pros
 
 - **ZRT-007 is enforceable in one place.** Auditability improves because there

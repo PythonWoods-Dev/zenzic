@@ -81,7 +81,6 @@ Two independent fixes were applied to `docusaurus.config.ts`. For step-by-step i
 
 Alternative implementation designs and architectural options that were evaluated and rejected:
 
-
 ### `themeConfig.siteStorage.themeKey`
 
 Proposed in the CEO directive as a way to control the storage key. This property

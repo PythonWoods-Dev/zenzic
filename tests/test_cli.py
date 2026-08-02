@@ -2035,10 +2035,13 @@ def test_templates_root_keys_not_swallowed() -> None:
     )
 
 
-def test_check_all_only_filter_excludes_z118(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_all_only_filter_excludes_z118(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Verify that zenzic check all --only z101 excludes Z118 warnings."""
     monkeypatch.chdir(tmp_path)
     from typer.testing import CliRunner
+
     from zenzic.main import app
 
     docs = tmp_path / "docs"
@@ -2047,8 +2050,7 @@ def test_check_all_only_filter_excludes_z118(tmp_path: Path, monkeypatch: pytest
 
     toml = tmp_path / ".zenzic.toml"
     toml.write_text(
-        '[governance]\n'
-        'directory_policies = {"docs/unused/**" = ["Z405"]}\n',
+        '[governance]\ndirectory_policies = {"docs/unused/**" = ["Z405"]}\n',
         encoding="utf-8",
     )
 
@@ -2059,4 +2061,3 @@ def test_check_all_only_filter_excludes_z118(tmp_path: Path, monkeypatch: pytest
         catch_exceptions=False,
     )
     assert "Z118" not in result.output
-

@@ -174,7 +174,6 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 This section details the specifications and guidelines for Shared Execution Flags within the Zenzic ecosystem.
 
-
 ## Global flags {#global-flags}
 
 These flags control Zenzic's signal-to-noise profile across routine scans, CI gates,
@@ -636,13 +635,11 @@ Each exit code has a distinct visual signature in the Zenzic Report:
 
 This section details the specifications and guidelines for Exit 0 — Zenzic Audit Badge within the Zenzic ecosystem.
 
-
 <!-- Terminal output: run `uvx zenzic check all` -->
 
 ### Exit 1 — Quality findings
 
 This section details the specifications and guidelines for Exit 1 — Quality findings within the Zenzic ecosystem.
-
 
 <!-- Terminal output: run `uvx zenzic check all` -->
 

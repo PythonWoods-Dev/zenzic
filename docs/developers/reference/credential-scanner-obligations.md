@@ -181,7 +181,6 @@ def test_resolution_context_is_pickleable():
 > **Reporting integrity:** A secret that is detected but not correctly reported is a CRITICAL
 > bug — indistinguishable from a secret that was never detected at all.
 
-
 ## See Also
 
 - [Finding Codes Index](../../reference/finding-codes.md)

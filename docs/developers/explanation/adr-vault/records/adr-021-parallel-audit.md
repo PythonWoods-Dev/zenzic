@@ -103,7 +103,6 @@ bypass the startup canary (`_assert_regex_canary()`).
 
 The technical rationale and architectural context driving this design decision are outlined below.
 
-
 ### 1. Pillar 3 Preserved
 
 The fail-fast is implemented entirely in the coordinator, which is orchestration

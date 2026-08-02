@@ -16,6 +16,7 @@ repos:
         args: [--unsafe]
       - id: check-json
       - id: check-toml
+        exclude: ^examples/
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: check-case-conflict
@@ -26,6 +27,7 @@ repos:
     rev: f295829140d25717bc79368d3f966fc1f67a824f  # v0.41.0
     hooks:
       - id: markdownlint
+        exclude: ^examples/
         args: ["--fix"]
 
   # 3. Ruff (linting & formatting)

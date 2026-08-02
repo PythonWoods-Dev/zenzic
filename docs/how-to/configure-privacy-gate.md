@@ -31,7 +31,6 @@ Zenzic enforces this by automatically adding `.zenzic.local.toml` to `.gitignore
 
 Follow the setup instructions below to configure your development and scanning environment.
 
-
 ### 1. Initialise the local overlay
 
 If `.zenzic.local.toml` does not yet exist, create it via:

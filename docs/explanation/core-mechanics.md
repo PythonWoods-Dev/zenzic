@@ -117,7 +117,6 @@ Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation pro
 
 When a command like `zenzic fix --apply` is executed, the AST is mutated entirely in memory. To commit these changes to disk, the engine employs an Atomic Write Barrier using the `tempfile` and `os` native Python libraries. The mutated content is first written to a temporary file in the same directory as the target. Once the write succeeds, `os.replace` is used to atomically rename the temporary file over the original. This guarantees that even if a crash occurs mid-write, the original file is never corrupted and no data is lost.
 
-
 ## See Also
 
 - [Core Architecture](./architecture.md)

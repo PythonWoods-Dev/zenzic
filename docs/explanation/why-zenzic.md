@@ -21,7 +21,6 @@ deterministic.
 
 This section details the specifications and guidelines for Business Value within the Zenzic ecosystem.
 
-
 ### 1. Risk Reduction
 
 Zenzic prevents high-impact documentation failures before deployment:
@@ -52,7 +51,6 @@ analysis and deterministic exit codes so CI behavior is stable across runs and e
 ## Defence Trinity {#defence-trinity}
 
 This section details the specifications and guidelines for Defence Trinity within the Zenzic ecosystem.
-
 
 ### Link Integrity (Z1xx)
 
@@ -100,7 +98,6 @@ penalty, so score movement is predictable and reviewable.
 - **B2B monorepo maintenance**: enforce consistent doc quality across multiple services.
 - **API portal validation**: prevent broken route references and hidden navigation regressions.
 - **Docs-as-code CI pipelines**: block regressions early with deterministic gate behavior.
-
 
 ## See Also
 

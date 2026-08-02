@@ -157,7 +157,6 @@ zenzic diff --base .zenzic-score.json
 
 Continuous integration pipelines enforce 100% parity between documentation state and source code definitions.
 
-
 ## See Also
 
 - [CLI Reference](../reference/cli.md)

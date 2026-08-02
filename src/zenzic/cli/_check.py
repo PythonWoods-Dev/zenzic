@@ -62,6 +62,7 @@ check_app = _shared.create_app(
     long_help=(f"[bold {ZenzicPalette.BRAND}]Check[/] — {COMMAND_BY_NAME['check'].long_help}"),
 )
 
+
 def _validate_only_flag(only: str | None) -> None:
     if not only:
         return
@@ -72,6 +73,7 @@ def _validate_only_flag(only: str | None) -> None:
                 f"[bold red]Error:[/] Invalid finding code '{code}' provided to --only flag."
             )
             raise typer.Exit(1)
+
 
 def _finding_severity(code: str) -> str:
     """Derive CLI finding severity from CodeDefinition SSoT (codes.py).

@@ -1765,8 +1765,8 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
 
 def test_math_blocks_link_extraction_ignored():
     """Verify that links syntax inside display math ($$..$$) and inline math ($..$) are ignored."""
-    from zenzic.core.validator import PolyglotExtractor
     from zenzic.core.rules import _extract_inline_links_with_lines
+    from zenzic.core.validator import PolyglotExtractor
 
     content = """# Math Test
 $$\\text{Signature} = \\text{SHA256}[\\text{RuleCode} + \\text{PosixPath}](:16)$$
@@ -1781,4 +1781,3 @@ Inline math $\\text{Ref}[\\text{Code}](:32)$ should also be ignored.
     rule_links = _extract_inline_links_with_lines(content)
     rule_urls = [u[0] for u in rule_links]
     assert rule_urls == ["https://example.com/valid"]
-

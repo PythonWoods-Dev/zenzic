@@ -62,7 +62,6 @@ with a human-friendly message and exits immediately — silent fallback on a bro
 would hide mistakes. Unknown fields are silently ignored, which means adding fields not yet
 supported by your installed version is safe.
 
-
 ## See Also
 
 - [Initialize Configuration](../how-to/initialize-configuration.md)

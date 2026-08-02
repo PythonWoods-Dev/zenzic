@@ -53,7 +53,6 @@ Consistent with the **Zero-Threading Policy** to prevent race conditions and GIL
 
 This ensures that the language server remains highly responsive and strictly single-threaded while accurately validating cross-file structural integrity in real-time.
 
-
 ## See Also
 
 - [Core Architecture](./architecture.md)

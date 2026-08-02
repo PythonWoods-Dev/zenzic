@@ -119,7 +119,6 @@ we need to help you.
 
 __We'll take it from here.__
 
-
 ## See Also
 
 - [Contributing Pull Requests](./pull-requests.md)

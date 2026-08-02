@@ -10,7 +10,6 @@ description: "The design rationale behind Zenzic's conscious exclusion model ver
 
 This section details the specifications and guidelines for Exclusion Design within the Zenzic ecosystem.
 
-
 ## Conscious Control vs. Blind Automation
 
 Zenzic defaults to **Conscious Control** rather than Blind Automation. Understanding this principle is the key to configuring the tool effectively in production projects.
@@ -65,7 +64,6 @@ where $|F_s|$ is the total active suppression count. Configuring `fail_under > 1
 ### Designing Hybrid Governance Policies
 
 Setting `fail_under = 90` and `suppression_cap = 30` means: "The global repository quality must never drop below 90/100, **but** regardless of the score, we absolutely refuse to tolerate more than 30 suppressed defects." This prevents teams from hiding massive structural debt even if their active code is otherwise clean.
-
 
 ## See Also
 

@@ -119,7 +119,6 @@ I/O dependencies.
 
 The technical rationale and architectural context driving this design decision are outlined below.
 
-
 ### 1. Single Responsibility at the File Level
 
 A 2,000-line file is not a file — it is an undeclared package. Formalising the

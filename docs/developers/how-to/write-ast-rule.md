@@ -40,7 +40,6 @@ raw text.
 
 This section details the specifications and guidelines for Quick start within the Zenzic ecosystem.
 
-
 ### 1. Create the rules directory
 
 ```bash
@@ -109,7 +108,6 @@ normal output.
 ## The `BaseASTRule` contract
 
 This section details the specifications and guidelines for The BaseASTRule contract within the Zenzic ecosystem.
-
 
 ### Constructor
 
