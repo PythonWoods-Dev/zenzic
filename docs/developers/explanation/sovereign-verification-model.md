@@ -71,3 +71,7 @@ The following practices are **strictly prohibited** in Zenzic quality gates:
 - `uvx zenzic@...` remote network execution inside repository-internal quality gates.
 - Ad-hoc local configuration edits used to bypass structural checks.
 - Divergent execution scripts between local developer workstations and CI runners.
+
+## See Also
+
+- [Adapter API Reference](../reference/adapter-api.md)

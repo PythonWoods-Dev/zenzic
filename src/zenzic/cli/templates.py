@@ -67,6 +67,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo"]\n'
     "# placeholder_max_words = 50\n"
     "# snippet_min_lines = 1\n"
+    "# max_sentence_length = 40  # Z511 Excessive Sentence Length threshold (words)\n"
     "\n"
     "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
     "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"

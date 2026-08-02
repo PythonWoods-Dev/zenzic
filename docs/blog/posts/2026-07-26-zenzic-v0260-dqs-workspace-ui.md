@@ -32,6 +32,8 @@ Zenzic v0.26.0 solves this fundamental architectural challenge by establishing a
 
 ## Architectural Invariants Preserved
 
+This section details the specifications and guidelines for Architectural Invariants Preserved within the Zenzic ecosystem.
+
 ### 1. Absolute Determinism
 
 Because the status bar indicator is powered directly by `zenzic score --json`, the score displayed inside VS Code is **mathematically identical** to the score computed by GitHub Actions and CI/CD pipelines.
@@ -127,6 +129,8 @@ Zenzic v0.26.0 contributes a new command to VS Code:
 ---
 
 ## Upgrade Guide
+
+This section details the specifications and guidelines for Upgrade Guide within the Zenzic ecosystem.
 
 ### Core Engine & CLI
 

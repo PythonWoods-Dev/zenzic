@@ -46,3 +46,7 @@ technical reference pages, or to add team-specific placeholder patterns — crea
 # default_locale = "en"
 # locales        = ["it"]   # non-default locale directory names
 ```
+
+## See Also
+
+- [Configuration Loading](../explanation/configuration-loading.md)

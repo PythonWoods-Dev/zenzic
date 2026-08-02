@@ -16,3 +16,4 @@ This page contains a self-referential anchor link: [Setup](#setup)
 ## Next Steps
 
 After completing setup, proceed to the tutorial section for hands-on examples.
+See [Guide](guide.md).

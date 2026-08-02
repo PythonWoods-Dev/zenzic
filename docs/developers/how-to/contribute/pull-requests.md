@@ -241,3 +241,7 @@ Signed-off-by: ...
 
   <figcaption>Accepted commit types</figcaption>
 </figure>
+
+## See Also
+
+- [Zenzic Style Guide](../../reference/zenzic-style.md)

@@ -93,10 +93,17 @@ _GALLERY: dict[str, _Act] = {
     ),
     "z110": _Act(
         code="z110",
-        title="Stale Allowlist",
-        description="Z110 STALE_ALLOWLIST_ENTRY — stale absolute path allowlist entry; exit 0 (warning)",
-        example_dir="z110-stale-allowlist",
-        expected_pass=True,
+        title="Config Syntax Error",
+        description="Z110 CONFIG_SYNTAX_ERROR — malformed TOML syntax in .zenzic.toml; exit 1",
+        example_dir="z110-config-syntax-error",
+        expected_pass=False,
+    ),
+    "z111": _Act(
+        code="z111",
+        title="Config Schema Error",
+        description="Z111 CONFIG_SCHEMA_ERROR — invalid schema structure or type in .zenzic.toml; exit 1",
+        example_dir="z111-config-schema-error",
+        expected_pass=False,
     ),
     "z118": _Act(
         code="z118",
@@ -247,6 +254,27 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z505-untagged-code-block",
         expected_pass=False,
     ),
+    "z510": _Act(
+        code="z510",
+        title="Heading Hierarchy Violation",
+        description="Z510 HEADING_HIERARCHY — heading level skipped (e.g., H3 follows H1)",
+        example_dir="z510-heading-hierarchy",
+        expected_pass=False,
+    ),
+    "z511": _Act(
+        code="z511",
+        title="Excessive Sentence Length",
+        description="Z511 EXCESSIVE_SENTENCE_LENGTH — sentence word count exceeds maximum limit",
+        example_dir="z511-excessive-sentence-length",
+        expected_pass=False,
+    ),
+    "z512": _Act(
+        code="z512",
+        title="Empty Section",
+        description="Z512 EMPTY_SECTION — heading section contains no body content before next heading or EOF",
+        example_dir="z512-empty-section",
+        expected_pass=False,
+    ),
     "z104": _Act(
         code="z104",
         title="File Not Found",
@@ -332,6 +360,20 @@ _GALLERY: dict[str, _Act] = {
         title="Dead Suppression",
         description="Z603 DEAD_SUPPRESSION — inline zenzic:ignore matches no findings",
         example_dir="z603-dead-suppression",
+        expected_pass=False,
+    ),
+    "z410": _Act(
+        code="z410",
+        title="Unreachable Graph Node",
+        description="Z410 UNREACHABLE_GRAPH_NODE — Document is isolated and unreachable from navigation entry points",
+        example_dir="z410-unreachable-graph-node",
+        expected_pass=False,
+    ),
+    "z411": _Act(
+        code="z411",
+        title="Dead End Node",
+        description="Z411 DEAD_END_NODE — Document has no outgoing links and forms a structural dead end",
+        example_dir="z411-dead-end-node",
         expected_pass=False,
     ),
 }
@@ -599,7 +641,7 @@ def _print_gallery_index() -> None:
     table.add_column("Title", style="bold", min_width=22)
     table.add_column("Description", style=ZenzicPalette.WARNING)
     table.add_column("Expects", justify="center", min_width=8)
-    for act in _GALLERY.values():
+    for act in sorted(_GALLERY.values(), key=lambda a: a.code):
         expects = "[red]BREACH[/]" if act.expected_breach else "[yellow]FAIL[/]"
         table.add_row(act.code.upper(), act.title, act.description, expects)
     con.print(table)

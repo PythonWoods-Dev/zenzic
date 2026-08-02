@@ -247,3 +247,54 @@ class TestSuppressionTrackerParsing:
         )
         tracker = SuppressionTracker(_FILE, text)
         assert count_inline_suppressions(text) == len(tracker.directives) == 2
+
+
+def test_global_usage_tracker_toml_line_resolution(tmp_path: Path) -> None:
+    """Verify that Z118 findings report the actual line number in .zenzic.toml."""
+    from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
+
+    toml_path = tmp_path / ".zenzic.toml"
+    toml_path.write_text(
+        "[governance]\n"
+        "directory_policies = {\n"
+        '    "docs/assets/**" = ["Z405"],\n'
+        '    "docs/blog/**" = ["Z405"]\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    config = ZenzicConfig(
+        governance=GovernanceConfig(
+            directory_policies={
+                "docs/assets/**": ["Z405"],
+                "docs/blog/**": ["Z405"],
+            }
+        )
+    )
+    config.origin_file = toml_path
+
+    tracker = GlobalUsageTracker(config)
+    stale = tracker.get_stale_findings(check_all=True)
+
+    lines_by_pattern = {f.message: f.line_no for f in stale}
+    assert any(
+        "docs/assets/**" in msg and line_no == 3 for msg, line_no in lines_by_pattern.items()
+    )
+    assert any("docs/blog/**" in msg and line_no == 4 for msg, line_no in lines_by_pattern.items())
+
+
+def test_global_usage_tracker_topology_policy_pair_consumption() -> None:
+    """Using either topological code must consume the paired directory policy family."""
+    from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
+
+    config = ZenzicConfig(
+        governance=GovernanceConfig(directory_policies={"docs/historical/**": ["Z410", "Z411"]})
+    )
+    tracker = GlobalUsageTracker(config)
+
+    tracker.mark_directory_policy_used("docs/historical/**", "Z411")
+
+    assert ("docs/historical/**", "Z410") not in tracker.unused_dir_policies
+    assert ("docs/historical/**", "Z411") not in tracker.unused_dir_policies

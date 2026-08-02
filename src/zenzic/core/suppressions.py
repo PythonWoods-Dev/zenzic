@@ -26,6 +26,9 @@ _SUPPRESS_RE = re.compile(
 #: ADR-084 — Strip backtick inline code spans before counting suppressions.
 _INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 
+#: Topological findings are governed as a paired policy family.
+_TOPOLOGY_POLICY_CODES: frozenset[str] = frozenset({"Z410", "Z411"})
+
 
 @dataclass
 class SuppressionDirective:
@@ -156,6 +159,28 @@ def count_inline_suppressions(text: str) -> int:
     return len(tracker.directives)
 
 
+def _resolve_toml_line(
+    origin_path: Path, search_target: str, lines_cache: list[str] | None = None
+) -> int:
+    """Find the 1-based line number in origin_path containing search_target.
+
+    Falls back to line 1 if the file cannot be read or search_target is not found.
+    """
+    lines = lines_cache
+    if lines is None:
+        try:
+            lines = origin_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return 1
+
+    quoted_d = f'"{search_target}"'
+    quoted_s = f"'{search_target}'"
+    for idx, line in enumerate(lines, start=1):
+        if quoted_d in line or quoted_s in line or search_target in line:
+            return idx
+    return 1
+
+
 class GlobalUsageTracker:
     """Tracks global policy usage (Z118) for directory_policies, excluded_file_patterns, and excluded_external_urls."""
 
@@ -179,7 +204,11 @@ class GlobalUsageTracker:
                 self.unused_ext_urls.add(url)
 
     def mark_directory_policy_used(self, pattern: str, code: str) -> None:
-        self.unused_dir_policies.discard((pattern, code.upper()))
+        normalized = code.upper()
+        self.unused_dir_policies.discard((pattern, normalized))
+        if normalized in _TOPOLOGY_POLICY_CODES:
+            for sibling in _TOPOLOGY_POLICY_CODES:
+                self.unused_dir_policies.discard((pattern, sibling))
 
     def mark_excluded_file_pattern_used(self, pattern: str) -> None:
         self.unused_file_patterns.discard(pattern)
@@ -197,15 +226,21 @@ class GlobalUsageTracker:
         origin = self.config.origin_file or Path(".zenzic.toml")
         findings = []
 
+        try:
+            toml_lines = origin.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            toml_lines = []
+
         if check_all:
             for pattern, code in sorted(self.unused_dir_policies):
                 # Do not complain about Z502 for the root files or Z601 for adr vault (these are implicit/system)
                 if pattern in ("docs/index.md", "docs/blog/index.md") and code == "Z502":
                     continue
+                line_no = _resolve_toml_line(origin, pattern, toml_lines)
                 findings.append(
                     RuleFinding(
                         file_path=origin,
-                        line_no=1,
+                        line_no=line_no,
                         rule_id="Z118",
                         message=f"Global policy '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
                         severity="warning",
@@ -213,10 +248,11 @@ class GlobalUsageTracker:
                 )
 
         for pattern in sorted(self.unused_file_patterns):
+            line_no = _resolve_toml_line(origin, pattern, toml_lines)
             findings.append(
                 RuleFinding(
                     file_path=origin,
-                    line_no=1,
+                    line_no=line_no,
                     rule_id="Z118",
                     message=f"Excluded file pattern '{pattern}' did not match any files during traversal.",
                     severity="warning",
@@ -225,10 +261,11 @@ class GlobalUsageTracker:
 
         if check_external_urls:
             for url in sorted(self.unused_ext_urls):
+                line_no = _resolve_toml_line(origin, url, toml_lines)
                 findings.append(
                     RuleFinding(
                         file_path=origin,
-                        line_no=1,
+                        line_no=line_no,
                         rule_id="Z118",
                         message=f"Excluded external URL '{url}' was never skipped (the URL was not found in checked files).",
                         severity="warning",

@@ -47,6 +47,8 @@ main scan pass.
 
 ## Rationale
 
+The technical rationale and architectural context driving this design decision are outlined below.
+
 ### 1. Privacy Gate Is a Universal Contract
 
 A Privacy Gate that applies only to Docusaurus is not an Exclusion Zone — it is a

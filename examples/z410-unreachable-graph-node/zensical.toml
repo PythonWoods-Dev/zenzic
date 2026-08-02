@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zensical.toml — Z402 ORPHAN_PAGE gallery example
+#
+# index.md and guide.md are in the navigation → reachable via site nav.
+# secret.md is NOT listed → ORPHAN_BUT_EXISTING → Z402.
+
+[project]
+site_name = "Z402 Example"
+docs_dir  = "docs"
+nav = [
+    "index.md",
+    "guide.md",
+]

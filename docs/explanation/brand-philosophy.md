@@ -53,3 +53,7 @@ Zenzic adapts its visual frequency to the ambient light of the engineer's enviro
 | Borders (Dark) | `indigo-500/20` | `#6366f1` at 20% | structural | — |
 
 **Usage Specification:** The Zenzic Indigo color is a semantic indicator reserved for structural components (e.g., Navbar, Footer, Scanner Output). In Light Mode, it ensures a contrast ratio >4.5:1 for primary text. In Dark Mode, contrast levels are recalibrated for extended readability. The `backdrop-blur` layer beneath `ZenzicTerminal` panels reduces border intensity to prevent visual fatigue (WCAG 2.1 AA compliance).
+
+## See Also
+
+* [Brand System Guidelines](../how-to/use-brand-system.md)

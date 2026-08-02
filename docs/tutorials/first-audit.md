@@ -161,13 +161,30 @@ Run `uvx zenzic score` on your own repo to obtain a baseline score without insta
 
 ---
 
+## Step 5 — Snapshot technical debt with Baseline Tracking {#step-5-baseline}
+
+If your repository has existing technical debt, capture it into a deterministic baseline snapshot so your team can enforce strict CI gates for new code immediately:
+
+```bash
+# Capture current findings into .zenzic-baseline.json snapshot
+zenzic check all --update-baseline
+```
+
+Subsequent CI audits against `--baseline .zenzic-baseline.json` tag existing debt as `is_baselined: true` without failing your build. This quality gate catches any newly introduced defects or DQS regressions:
+
+```bash
+# CI Quality Gate — verify PR against repository baseline
+zenzic check all --baseline .zenzic-baseline.json
+```
+
+---
+
 ## What's next? {#next}
 
-- **Measure your score** — run `uvx zenzic score` to get a precise 0–100 baseline for your repo
+- **Baseline & Anti-Regression** — see [Baseline Tracking](../explanation/baseline-tracking) for CI/CD debt management
+- **Measure your score** — run `uvx zenzic score` to get a precise 0–100 DQS for your repo
 - **Add a CI gate** — see [CI/CD Integration](../how-to/configure-ci-cd) for automated quality enforcement
 - **SARIF export** — `zenzic check all --format sarif` for GitHub Code Scanning inline annotations
 - **Strict mode** — add `--strict` to also validate external URLs
 - **Custom rules** — add `[[custom_rules]]` entries to `.zenzic.toml` to enforce your own patterns
-- **Finding codes** — see the [Finding Codes reference](../reference/finding-codes) for the full
-
-  `Zxxx` diagnostic catalogue
+- **Finding codes** — see the [Finding Codes reference](../reference/finding-codes) for the full `Zxxx` diagnostic catalogue

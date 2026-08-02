@@ -118,3 +118,7 @@ checklist ensures that you have read this guide and provided us with everything
 we need to help you.
 
 __We'll take it from here.__
+
+## See Also
+
+- [Contributing Pull Requests](./pull-requests.md)

@@ -52,3 +52,7 @@ Consistent with the **Zero-Threading Policy** to prevent race conditions and GIL
 2. **Incremental Patching ($O(1)$):** ZLS registers the `workspace/didChangeWatchedFiles` capability to instruct the language client to monitor the filesystem for changes. When a file is created, updated, or deleted, ZLS receives an event and patches the dictionary-based VSM in strictly $O(1)$ time.
 
 This ensures that the language server remains highly responsive and strictly single-threaded while accurately validating cross-file structural integrity in real-time.
+
+## See Also
+
+- [Core Architecture](./architecture.md)

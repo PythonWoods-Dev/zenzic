@@ -57,6 +57,8 @@ Every card in a `<div class="grid cards" markdown>` block must have exactly:
 
 ## 3. Iconography Law (Material for MkDocs) {#iconography}
 
+This section details the specifications and guidelines for 3. Iconography Law (Material for MkDocs) within the Zenzic ecosystem.
+
 ### Native Emoji & Icon Shortcodes
 
 Every icon in the documentation MUST be rendered using native Material for MkDocs shortcodes:
@@ -83,6 +85,8 @@ Examples:
 ---
 
 ## 4. Anchor ID Protocol (ZRT-DOC-004) {#anchor-ids}
+
+This section details the specifications and guidelines for 4. Anchor ID Protocol (ZRT-DOC-004) within the Zenzic ecosystem.
 
 ### When to add explicit IDs
 

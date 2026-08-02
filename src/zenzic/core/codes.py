@@ -140,6 +140,8 @@ class ZenzicExitCode:
 FROZEN_CODES: frozenset[str] = frozenset(
     {
         "Z000",
+        "Z110",  # CONFIG_SYNTAX_ERROR — malformed .zenzic.toml
+        "Z111",  # CONFIG_SCHEMA_ERROR — invalid .zenzic.toml schema
         "Z201",
         "Z202",
         "Z203",
@@ -153,6 +155,8 @@ FROZEN_CODES: frozenset[str] = frozenset(
 
 NON_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
     {
+        "Z110",  # CONFIG_SYNTAX_ERROR — malformed .zenzic.toml; non-suppressible
+        "Z111",  # CONFIG_SCHEMA_ERROR — invalid .zenzic.toml schema; non-suppressible
         "Z201",
         "Z202",
         "Z203",
@@ -174,7 +178,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     # Aborts config loading before any analysis; not in the DQS penalty table.
     "Z000": CodeDefinition("error", 0.0, None),
     "Z001": CodeDefinition("error", 0.0, None),  # CORE_CONFIG_STRUCTURE
-    # ── Z1xx — Link Integrity ─────────────────────────────────────────────────
+    # ── Z1xx — Link Integrity & Configuration Validation ──────────────────────
     "Z101": CodeDefinition("error", 8.0, "structural"),  # LINK_BROKEN
     "Z102": CodeDefinition("error", 5.0, "structural"),  # ANCHOR_MISSING
     "Z103": CodeDefinition(
@@ -186,10 +190,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z107": CodeDefinition("error", 1.0, "structural"),  # CIRCULAR_ANCHOR
     "Z108": CodeDefinition("error", 1.0, "structural", fixable=True),  # EMPTY_LINK_TEXT
     "Z109": CodeDefinition("error", 3.0, "structural"),  # EXTERNAL_LINK_BROKEN
-    "Z110": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY
-    "Z111": CodeDefinition(
-        "error", 8.0, "structural"
-    ),  # VIRTUAL_ROUTE_BROKEN — ADR-031 paradox resolved
+    "Z110": CodeDefinition("error", 0.0, None),  # CONFIG_SYNTAX_ERROR — malformed TOML
+    "Z111": CodeDefinition("error", 0.0, None),  # CONFIG_SCHEMA_ERROR — invalid schema/type
     "Z112": CodeDefinition(
         "note", 0.0, None, "inactive"
     ),  # (reserved) — slot free, not used in v0.17.0
@@ -228,6 +230,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z404": CodeDefinition("warning", 3.0, "brand"),  # CONFIG_ASSET_MISSING
     "Z405": CodeDefinition("warning", 3.0, "brand"),  # UNUSED_ASSET
     "Z406": CodeDefinition("warning", 2.0, "brand"),  # NAV_CONTRACT
+    "Z410": CodeDefinition("warning", 5.0, "structural"),  # UNREACHABLE_GRAPH_NODE
+    "Z411": CodeDefinition("warning", 5.0, "structural"),  # DEAD_END_NODE
     # ── Z5xx — Content Quality ────────────────────────────────────────────────
     "Z501": CodeDefinition("warning", 2.0, "content"),  # PLACEHOLDER
     "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
@@ -235,6 +239,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z504": CodeDefinition("warning", 0.0, None),  # QUALITY_REGRESSION — governance gate
     "Z505": CodeDefinition("warning", 1.0, "content", fixable=True),  # UNTAGGED_CODE_BLOCK
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
+    "Z510": CodeDefinition("warning", 1.0, "content"),  # HEADING_HIERARCHY
+    "Z511": CodeDefinition("warning", 1.0, "content"),  # EXCESSIVE_SENTENCE_LENGTH
+    "Z512": CodeDefinition("warning", 1.0, "content"),  # EMPTY_SECTION
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
@@ -258,8 +265,8 @@ CODE_NAMES: dict[str, str] = {
     "Z107": "CIRCULAR_ANCHOR",
     "Z108": "EMPTY_LINK_TEXT",
     "Z109": "EXTERNAL_LINK_BROKEN",
-    "Z110": "STALE_ALLOWLIST_ENTRY",
-    "Z111": "VIRTUAL_ROUTE_BROKEN",
+    "Z110": "CONFIG_SYNTAX_ERROR",
+    "Z111": "CONFIG_SCHEMA_ERROR",
     "Z112": "RESERVED",
     "Z113": "AUTHOR_KEY_COLLISION",
     "Z114": "LARGE_PAGINATION_SET",
@@ -283,12 +290,17 @@ CODE_NAMES: dict[str, str] = {
     "Z404": "CONFIG_ASSET_MISSING",
     "Z405": "UNUSED_ASSET",
     "Z406": "NAV_CONTRACT",
+    "Z410": "UNREACHABLE_GRAPH_NODE",
+    "Z411": "DEAD_END_NODE",
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
     "Z504": "QUALITY_REGRESSION",
     "Z505": "UNTAGGED_CODE_BLOCK",
     "Z506": "MALFORMED_FRONTMATTER",
+    "Z510": "HEADING_HIERARCHY",
+    "Z511": "EXCESSIVE_SENTENCE_LENGTH",
+    "Z512": "EMPTY_SECTION",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
     "Z901": "RULE_ENGINE_ERROR",
@@ -312,8 +324,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z107": "Self-referential anchor link — slug(text) resolves to the same fragment",
     "Z108": "Link label is empty or contains only whitespace",
     "Z109": "External URL returned an HTTP error or could not be reached",
-    "Z110": "Stale absolute path allowlist entry declared in .zenzic.toml",
-    "Z111": "Link targets a virtual route (tag page, paginated index, author profile) that was never generated by any frontmatter",
+    "Z110": "Malformed TOML syntax in configuration file (.zenzic.toml)",
+    "Z111": "Invalid schema structure or type in configuration file (.zenzic.toml)",
     "Z112": "Reserved slot — not used in v0.17.0",
     "Z113": "Duplicate author key declared across two or more blog author config files",
     "Z114": "Blog pagination set exceeds the 200-page informational threshold",
@@ -341,6 +353,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z404": "Asset referenced in engine config not found on disk",
     "Z405": "Asset file not referenced by any documentation page",
     "Z406": "Navigation contract violation detected",
+    "Z410": "Document is isolated and unreachable from the navigation entry points",
+    "Z411": "Document has no outgoing links and forms a structural dead end",
     # Z5xx — Content Quality
     "Z501": "Page contains placeholder or stub content",
     "Z502": "Page word count is below the minimum threshold",
@@ -348,6 +362,9 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z504": "Documentation quality score regressed below the saved baseline",
     "Z505": "Fenced code block has no language specifier",
     "Z506": "Frontmatter boundary is malformed (e.g., opening delimiter is '--' instead of '---')",
+    "Z510": "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)",
+    "Z511": "Sentence length exceeds the maximum readability limit",
+    "Z512": "Heading section contains no body content before next heading or EOF",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
@@ -469,10 +486,10 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z401\u2013404",
+        codes="Z401\u2013404, Z410\u2013411",
         name="Structure Guard",
         capability=(
-            "Directory-index integrity, orphan pages, missing alt text, config asset paths"
+            "Directory-index integrity, orphan pages, missing alt text, config asset paths, topological orphans and dead ends"
         ),
         primary_exit=1,
         non_suppressible=False,

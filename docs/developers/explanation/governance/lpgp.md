@@ -29,3 +29,7 @@ The current extended textual descriptions, which produce unnecessary cognitive l
 ## 3. Proof of Integrity (Standardized CI Badges)
 
 Zenzic will prove its own integrity via "dogfooding". Instead of custom UI components, the Landing Page will embed the official CI-generated Shields.io badges (DQS Score, Audit Status). This guarantees absolute real-time state synchronization without custom build hooks, proving the effectiveness of the tool using its own standard outputs.
+
+## See Also
+
+* [Contributing Pull Requests](../../how-to/contribute/pull-requests.md)

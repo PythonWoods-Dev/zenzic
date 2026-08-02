@@ -27,6 +27,7 @@
 
 strict = true
 fail_under = 98
+max_sentence_length = 50
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
@@ -46,13 +47,9 @@ excluded_external_urls = [
 # --- EXCLUSION ZONES (Full bypass — use sparingly) ---
 excluded_file_patterns = []
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
-# Prefer [governance.per_file_ignores]
-
 [governance.directory_policies]
-"docs/assets/**" = ["Z405"]
-"docs/favicon.ico" = ["Z405"]
-"docs/blog/rss.xsl" = ["Z405"]
+"docs/blog/posts/**" = ["Z410", "Z411"]
+"docs/developers/explanation/adr-vault/records/**" = ["Z410", "Z411"]
+"docs/tutorials/examples/**" = ["Z410", "Z411"]
 "docs/tutorials/examples/z1xx-links/**" = ["Z107"]
-"docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]
-# Exempt reference file from syntax checks because it contains intentionally incorrect examples
-"docs/reference/finding-codes.md" = ["Z503"]
+"docs/tutorials/examples/z5xx-content/**" = ["Z506"]

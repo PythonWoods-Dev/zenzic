@@ -13,6 +13,8 @@ For user-facing installation and configuration problems, see the
 
 ## Installation & Environment
 
+Follow the setup instructions below to configure your development and scanning environment.
+
 ### `zenzic --version` shows the wrong version after a release bump
 
 **Symptom:** The global `zenzic` command reports an older version than expected, even
@@ -80,6 +82,8 @@ Do not suppress this error with a config workaround — it indicates a setup mis
 
 ## Release Workflow
 
+This section details the specifications and guidelines for Release Workflow within the Zenzic ecosystem.
+
 ### `just release` fails with "release-contracts" error
 
 **Symptom:** `just release patch` (or `minor`/`major`) exits with:
@@ -102,6 +106,8 @@ allowing a version bump. Common violations:
 ---
 
 ## Common Zenzic Blocks
+
+Review the common diagnostic signals and troubleshooting resolution steps detailed below.
 
 ### Z105 Path Safety Breach
 

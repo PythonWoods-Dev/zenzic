@@ -56,6 +56,48 @@ nav:
     - Rule Reference & Catalog:
       - Finding Codes Index: reference/finding-codes.md
       - Core Rule Checks: reference/checks.md
+      - Rule Specification Cards:
+        - rules/Z000.md
+        - rules/Z001.md
+        - rules/Z101.md
+        - rules/Z102.md
+        - rules/Z103.md
+        - rules/Z104.md
+        - rules/Z105.md
+        - rules/Z106.md
+        - rules/Z107.md
+        - rules/Z108.md
+        - rules/Z109.md
+        - rules/Z110.md
+        - rules/Z111.md
+        - rules/Z114.md
+        - rules/Z118.md
+        - rules/Z201.md
+        - rules/Z202.md
+        - rules/Z203.md
+        - rules/Z204.md
+        - rules/Z301.md
+        - rules/Z302.md
+        - rules/Z303.md
+        - rules/Z401.md
+        - rules/Z402.md
+        - rules/Z403.md
+        - rules/Z404.md
+        - rules/Z405.md
+        - rules/Z406.md
+        - rules/Z410.md
+        - rules/Z411.md
+        - rules/Z501.md
+        - rules/Z502.md
+        - rules/Z503.md
+        - rules/Z504.md
+        - rules/Z505.md
+        - rules/Z506.md
+        - rules/Z510.md
+        - rules/Z511.md
+        - rules/Z512.md
+        - rules/Z601.md
+        - rules/Z603.md
       - Interactive Rule Examples:
         - tutorials/examples/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md
@@ -114,6 +156,7 @@ nav:
       - Core Mechanics: explanation/core-mechanics.md
       - Scoring Design: explanation/scoring-design.md
       - Scoring System: explanation/scoring-system.md
+      - Baseline Tracking: explanation/baseline-tracking.md
       - Discovery Engine: explanation/discovery.md
       - Configuration Loading: explanation/configuration-loading.md
       - Exclusion Design: explanation/exclusion-design.md
@@ -224,7 +267,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.26.5"  # release sync
+  zenzic_version: "0.27.0"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

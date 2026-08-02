@@ -24,3 +24,7 @@ This rule exists due to several critical limitations of static `.svg` files with
 | **GitHub README Illustrations** | Permitted (✓) | Rendered by GitHub's Markdown processor outside the build engine context |
 | **Pure Graphics** (logos, simple shapes) | Permitted (✓) | No text nodes or localized data requiring translations |
 | **Text-Bearing Illustrations inside Markdown** | Forbidden (❌) | Must use a `.tsx` component to support i18n and styling |
+
+## See Also
+
+- [Zenzic Style Guide](../reference/zenzic-style.md)

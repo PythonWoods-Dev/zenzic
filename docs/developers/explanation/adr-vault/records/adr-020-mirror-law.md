@@ -6,6 +6,8 @@ description: "Architectural Decision Record on total synchronization between cod
 
 # ADR 020: Mirror Law
 
+This section details the specifications and guidelines for ADR 020: Mirror Law within the Zenzic ecosystem.
+
 ## Context
 
 Discrepancies between the codebase, the filesystem state, and the documentation lead to architectural rot and a breakdown of trust in the system's "memory".

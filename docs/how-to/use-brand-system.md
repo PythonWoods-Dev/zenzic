@@ -88,3 +88,54 @@ Cons: lower perceived energy on marketing-like surfaces, less aggressive CTA pop
 2. Technical Neon
 Pros: higher perceived modernity, stronger active/hover cues, more memorable interaction identity.
 Cons: can feel more intense on dense pages, requires stricter accessibility QA on edge states.
+
+## Brand Asset Reference
+
+The following assets are tracked by Zenzic to ensure they remain in the Virtual Site Map without suppression (resolving Z405):
+
+- [Favicon](../favicon.ico)
+- [Icon (SVG)](../assets/brand/svg/zenzic-icon.svg)
+- [Logo (SVG)](../assets/brand/svg/zenzic-logo.svg)
+- [Logo (PNG)](../assets/brand/png/zenzic-logo.png)
+
+### Barlow Fonts
+
+- [Barlow 300 Italic](../assets/fonts/barlow-condensed-300-italic.woff2)
+- [Barlow 300 Normal](../assets/fonts/barlow-condensed-300-normal.woff2)
+- [Barlow 600 Normal](../assets/fonts/barlow-condensed-600-normal.woff2)
+- [Barlow 700 Normal](../assets/fonts/barlow-condensed-700-normal.woff2)
+
+### IBM Plex Mono Fonts
+
+- [IBM Plex Mono 400 Italic](../assets/fonts/ibm-plex-mono-400-italic.woff2)
+- [IBM Plex Mono 400 Normal](../assets/fonts/ibm-plex-mono-400-normal.woff2)
+- [IBM Plex Mono 500 Normal](../assets/fonts/ibm-plex-mono-500-normal.woff2)
+
+### Inter Fonts
+
+- [Inter 400 Normal](../assets/fonts/inter-400-normal.woff2)
+- [Inter 500 Normal](../assets/fonts/inter-500-normal.woff2)
+- [Inter 600 Normal](../assets/fonts/inter-600-normal.woff2)
+- [Inter 700 Normal](../assets/fonts/inter-700-normal.woff2)
+
+### JetBrains Mono Fonts
+
+- [JetBrains Mono 400 Italic](../assets/fonts/jetbrains-mono-400-italic.woff2)
+- [JetBrains Mono 400 Normal](../assets/fonts/jetbrains-mono-400-normal.woff2)
+- [JetBrains Mono 500 Normal](../assets/fonts/jetbrains-mono-500-normal.woff2)
+
+### Roboto Fonts
+
+- [Roboto 300 Italic](../assets/fonts/roboto-300-italic.woff2)
+- [Roboto 300 Normal](../assets/fonts/roboto-300-normal.woff2)
+- [Roboto 400 Italic](../assets/fonts/roboto-400-italic.woff2)
+- [Roboto 400 Normal](../assets/fonts/roboto-400-normal.woff2)
+- [Roboto 700 Italic](../assets/fonts/roboto-700-italic.woff2)
+- [Roboto 700 Normal](../assets/fonts/roboto-700-normal.woff2)
+
+### Roboto Mono Fonts
+
+- [Roboto Mono 400 Italic](../assets/fonts/roboto-mono-400-italic.woff2)
+- [Roboto Mono 400 Normal](../assets/fonts/roboto-mono-400-normal.woff2)
+- [Roboto Mono 700 Italic](../assets/fonts/roboto-mono-700-italic.woff2)
+- [Roboto Mono 700 Normal](../assets/fonts/roboto-mono-700-normal.woff2)

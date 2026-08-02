@@ -213,7 +213,7 @@ $$
 
 ## See Also {#see-also}
 
-- [Scoring Design](../explanation/scoring-design.md) — Worked example, CLI output interpretation, and governance posture semantics
+- [Scoring Design](../explanation/scoring-design.md) — Worked example, CLI output interpretation, and governance posture semantics.
 - [Suppression Policy](./suppression-policy) — Three suppression levels, debt formula, and the `--audit` override
 - [Finding Codes](./finding-codes) — Full encyclopedia of Zxxx codes with remediation steps
 - [Handle Technical Debt](../how-to/handle-technical-debt) — Step-by-step remediation workflow

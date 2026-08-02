@@ -85,3 +85,7 @@ with open("mkdocs.yml") as f:
     config = yaml.safe_load(f)
     locale = config.get("plugins", {}).get("i18n", {}).get("default_locale", "en")
 ```
+
+## See Also
+
+- [Zenzic Style Guide](../reference/zenzic-style.md)

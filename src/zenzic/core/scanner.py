@@ -1128,6 +1128,15 @@ def _run_vsm_and_urp_pass(
         static_assets=static_assets,
     )
 
+    orphaned_urls: set[str] = set()
+    dead_end_urls: set[str] = set()
+    if hasattr(adapter, "get_entry_points"):
+        from zenzic.core.topology import detect_dead_ends, detect_orphans
+
+        entry_points = adapter.get_entry_points(vsm)
+        orphaned_urls = set(detect_orphans(vsm, entry_points))
+        dead_end_urls = set(detect_dead_ends(vsm))
+
     links_cache: dict[Path, list[LinkInfo]] = {
         f: [
             LinkInfo(
@@ -1151,10 +1160,18 @@ def _run_vsm_and_urp_pass(
     inc_engine.anchors_cache = anchors_cache
 
     use_dir_urls = getattr(config, "use_directory_urls", True)
+    parent_global_tracker = getattr(config, "_global_tracker", None)
 
     for r in reports:
         if not r.file_path.is_file():
             continue
+
+        # In parallel mode, each report is deserialized from a worker process and
+        # may carry a detached GlobalUsageTracker snapshot. Rebind to the parent
+        # process tracker so directory-policy consumption (Z118 accounting)
+        # is recorded on the canonical tracker instance.
+        if r.suppression_tracker is not None:
+            r.suppression_tracker.global_tracker = parent_global_tracker
 
         try:
             text = r.file_path.read_text(encoding="utf-8")
@@ -1199,6 +1216,41 @@ def _run_vsm_and_urp_pass(
 
         r.rule_findings.extend(active_vsm)
         r.rule_findings.extend(active_urp)
+
+        try:
+            rel_posix = r.file_path.relative_to(docs_root).as_posix()
+        except ValueError:
+            rel_posix = r.file_path.absolute().as_posix()
+        canonical_url = next((route.url for route in vsm.values() if route.source == rel_posix), "")
+        if canonical_url:
+            if canonical_url in orphaned_urls:
+                if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(
+                    1, "Z410"
+                ):
+                    r.rule_findings.append(
+                        RuleFinding(
+                            r.file_path,
+                            1,
+                            "Z410",
+                            f"Document is isolated and unreachable from defined entry points: '{canonical_url}'",
+                            severity="warning",
+                            matched_line="",
+                        )
+                    )
+            if canonical_url in dead_end_urls:
+                if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(
+                    1, "Z411"
+                ):
+                    r.rule_findings.append(
+                        RuleFinding(
+                            r.file_path,
+                            1,
+                            "Z411",
+                            f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
+                            severity="warning",
+                            matched_line="",
+                        )
+                    )
 
         if cycle_nodes and r.file_path in links_cache:
             for link in links_cache[r.file_path]:
@@ -1286,10 +1338,19 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         UntaggedCodeBlockRule(),
     ]
 
-    from zenzic.core.rules import PlaceholderRule, ShortContentRule
+    from zenzic.core.rules import (
+        EmptySectionRule,
+        ExcessiveSentenceLengthRule,
+        HeadingHierarchyRule,
+        PlaceholderRule,
+        ShortContentRule,
+    )
 
     built_in.append(ShortContentRule(config.placeholder_max_words))
     built_in.append(PlaceholderRule(config.placeholder_patterns_compiled))
+    built_in.append(HeadingHierarchyRule())
+    built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
+    built_in.append(EmptySectionRule())
     if config.project_metadata.obsolete_names:
         built_in.append(BrandObsolescenceRule(config.project_metadata))
 
@@ -1508,8 +1569,22 @@ def scan_docs_references(
     if not docs_root.exists() or not docs_root.is_dir():
         return [], []
 
+    config_findings: list[Any] = []
     if config is None:
-        config, _ = ZenzicConfig.load(docs_root)
+        from zenzic.models.config import load_config_with_diagnostics
+
+        loaded_cfg, config_findings = load_config_with_diagnostics(docs_root)
+        if config_findings:
+            config_file = docs_root / ".zenzic.toml"
+            if not config_file.is_file() and (docs_root.parent / ".zenzic.toml").is_file():
+                config_file = docs_root.parent / ".zenzic.toml"
+            report = IntegrityReport(
+                file_path=config_file,
+                findings=config_findings,
+                score=0.0,
+            )
+            return [report], []
+        config = loaded_cfg or ZenzicConfig()
 
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))

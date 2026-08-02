@@ -6,6 +6,8 @@ description: "Architectural Decision Record explaining why the Zenzic Core is de
 
 # ADR 075: Radical Unawareness
 
+This section details the specifications and guidelines for ADR 075: Radical Unawareness within the Zenzic ecosystem.
+
 ## Context
 
 Tight coupling between the Core logic and specific Continuous Integration (CI) consumers creates fragile architectures and vendor lock-in.

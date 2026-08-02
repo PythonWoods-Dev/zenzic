@@ -12,6 +12,7 @@ from zenzic.core.adapters._base import BaseAdapter
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
+    from zenzic.models.vsm import VirtualSiteMap
 
 
 class StandaloneAdapter(BaseAdapter):
@@ -136,3 +137,7 @@ class StandaloneAdapter(BaseAdapter):
     def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
         """Standalone mode owns no absolute URL prefixes."""
         return []
+
+    def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
+        """Standalone mode has no nav tree; all routes are entry points."""
+        return list(vsm.keys())

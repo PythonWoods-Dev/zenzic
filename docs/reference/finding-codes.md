@@ -62,6 +62,38 @@ The code registry is governed by immutable contract surfaces:
 
 ---
 
+### Z410: UNREACHABLE_GRAPH_NODE {#z410}
+
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z410.md)
+
+This rule exists to detect when an internal document is physically present but unreachable from any node in the Virtual Site Map.
+
+### Z411: DEAD_END_NODE {#z411}
+
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z411.md)
+
+This rule exists to detect when an active document has no outgoing navigational edges to the rest of the site structure.
+
+### Z510: HEADING_HIERARCHY {#z510}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z510.md)
+
+This rule exists to detect when a heading level skips one or more levels in the document hierarchy.
+
+### Z511: EXCESSIVE_SENTENCE_LENGTH {#z511}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z511.md)
+
+This rule exists to detect when a sentence in the markdown body exceeds the maximum configured word limit.
+
+### Z512: EMPTY_SECTION {#z512}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z512.md)
+
+This rule exists to detect when a heading section contains no body content before the next section or EOF.
+
+---
+
 ## Severity Levels and Pipeline Impact {#severity-pipeline-impact}
 
 Every finding code carries a **severity** that determines its DQS math contribution and its pipeline gate behaviour. The `inspect codes` table makes these values explicit via the **Severity** and **Penalty** columns.
@@ -128,9 +160,11 @@ Examples:
 
 ## Z0xx — Migration & Compatibility
 
+Migration and legacy engine compatibility diagnostic findings.
+
 ### Z000: UNSUPPORTED_ENGINE {#z000}
 
-**Severity:** `error` (fatal abort) · **Penalty:** none · **Exit:** 1 · **Suppressible:** No
+**Severity:** `error` (fatal abort) · **Penalty:** none · **Exit:** 1 · **Suppressible:** No · [↗ Rule Specification](../rules/Z000.md)
 
 Fatal configuration error: the adapter factory encountered a deprecated or removed engine alias in `.zenzic.toml`. Execution stops before any scan begins — Z000 does not appear in `--format json` output.
 
@@ -143,9 +177,17 @@ Fatal configuration error: the adapter factory encountered a deprecated or remov
 
 ## Z1xx — Link Integrity
 
+Diagnostic findings related to link targets, anchors, and Virtual Site Map resolution.
+
+### Z001: CORE_CONFIG_STRUCTURE {#z001}
+
+**Severity:**  · **Penalty:** FATAL · **Exit:** 1 · **Suppressible:** No · [↗ Rule Specification](../rules/Z001.md)
+
+This rule exists to detect when an invalid configuration structure is detected (ZenzicConfigError before analysis).
+
 ### Z101: LINK_BROKEN {#z101}
 
-**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z101-broken-links.md)
+**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z101-broken-links.md) · [↗ Rule Specification](../rules/Z101.md)
 
 A relative link points to a resource not found in the Virtual Site Map. The file may be outside `docs_dir` scope or matched by an exclusion rule.
 
@@ -157,7 +199,7 @@ A relative link points to a resource not found in the Virtual Site Map. The file
 
 ### Z102: ANCHOR_MISSING {#z102}
 
-**Severity:** `error` · **Penalty:** −5.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z102-anchor-missing.md)
+**Severity:** `error` · **Penalty:** −5.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z102-anchor-missing.md) · [↗ Rule Specification](../rules/Z102.md)
 
 The link target file exists (Z101 passes), but the specific HTML anchor (e.g. `#setup`) is absent from the target file's header registry. Zenzic parses all headings and explicit `<a id="...">` tags during Pass 1.
 
@@ -169,7 +211,7 @@ The link target file exists (Z101 passes), but the specific HTML anchor (e.g. `#
 
 ### Z103: ORPHAN_LINK {#z103}
 
-**Severity:** `error` · **Penalty:** 0.0 pts · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z103-orphan-link.md)
+**Severity:** `error` · **Penalty:** 0.0 pts · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z103-orphan-link.md) · [↗ Rule Specification](../rules/Z103.md)
 
 The link target exists in the VSM but is not reachable through any navigation structure (sidebar/nav). Users can reach it only by direct URL.
 
@@ -180,7 +222,7 @@ The link target exists in the VSM but is not reachable through any navigation st
 
 ### Z104: FILE_NOT_FOUND {#z104}
 
-**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z104.md)
 
 Low-level filesystem error: the engine could not open a file referenced by a link.
 
@@ -197,7 +239,7 @@ blog/post.md:12: '/blog/zenzic-v070' not found in the site map
 
 ### Z105: ABSOLUTE_PATH {#z105}
 
-**Severity:** `error` · **Penalty:** −2.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z105-absolute-path.md)
+**Severity:** `error` · **Penalty:** −2.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z105-absolute-path.md) · [↗ Rule Specification](../rules/Z105.md)
 
 An absolute filesystem path (e.g. `C:\Docs\page.md` or `/home/user/docs/page.md`) breaks documentation portability. Project-owned URL prefixes (`/blog/`, `/docs/`) are exempt from Z105 but still checked via VSM lookup (a missing slug raises **Z104** instead).
 
@@ -209,7 +251,7 @@ An absolute filesystem path (e.g. `C:\Docs\page.md` or `/home/user/docs/page.md`
 
 ### Z106: CIRCULAR_LINK {#z106}
 
-**Severity:** `info` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes (informational only, `--show-info`)
+**Severity:** `info` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes (informational only, `--show-info`) · [↗ Rule Specification](../rules/Z106.md)
 
 A set of links forms a directed cycle (A → B → A). This is a structural telemetry signal — it does not block the Quality Gate or reduce the DQS.
 
@@ -217,7 +259,7 @@ A set of links forms a directed cycle (A → B → A). This is a structural tele
 
 ### Z107: CIRCULAR_ANCHOR {#z107}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z107.md)
 
 A link of the form `[text](#anchor)` resolves to a heading on the **same** page — a self-loop that navigates the reader to exactly where they already are. Distinct from a ToC entry (which links forward to a lower anchor on a long page).
 
@@ -228,7 +270,7 @@ A link of the form `[text](#anchor)` resolves to a heading on the **same** page 
 
 ### Z108: EMPTY_LINK_TEXT {#z108}
 
-**Severity:** `error` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z108-empty-link-text.md)
+**Severity:** `error` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z108-empty-link-text.md) · [↗ Rule Specification](../rules/Z108.md)
 
 Inline Markdown link or collapsed reference link has empty or whitespace-only visible text — e.g. `[](./page.md)`, `[ ](./page.md)`, `[][ref]`. Breaks screen reader accessibility and semantic indexing simultaneously.
 
@@ -239,7 +281,7 @@ Inline Markdown link or collapsed reference link has empty or whitespace-only vi
 
 ### Z109: EXTERNAL_LINK_BROKEN {#z109}
 
-**Severity:** `error` · **Penalty:** −3.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z109-external-link-broken.md)
+**Severity:** `error` · **Penalty:** −3.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z109-external-link-broken.md) · [↗ Rule Specification](../rules/Z109.md)
 
 An external URL returned an HTTP error status code (e.g. 404, 500) or was completely unreachable due to a connection timeout or DNS resolution failure during scan.
 
@@ -250,7 +292,7 @@ An external URL returned an HTTP error status code (e.g. 404, 500) or was comple
 
 ### Z110: STALE_ALLOWLIST_ENTRY {#z110}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z110.md)
 
 An entry in the `absolute_path_allowlist` configuration was never matched by any scanned absolute path link. This indicates that the entry is stale and no longer needed.
 
@@ -261,7 +303,7 @@ An entry in the `absolute_path_allowlist` configuration was never matched by any
 
 ### Z111: VIRTUAL_ROUTE_BROKEN {#z111}
 
-**Severity:** `error` · **Penalty:** −8.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `error` · **Penalty:** −8.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z111.md)
 
 Link targets a virtual route (tag page, paginated index, author profile) that was never generated by any frontmatter.
 
@@ -283,7 +325,7 @@ Duplicate author key declared across two or more blog author config files.
 
 ### Z114: LARGE_PAGINATION_SET {#z114}
 
-**Severity:** `note` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes
+**Severity:** `note` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z114.md)
 
 Blog pagination set exceeds the 200-page informational threshold.
 
@@ -291,7 +333,7 @@ Blog pagination set exceeds the 200-page informational threshold.
 
 ### Z118: STALE_GLOBAL_SUPPRESSION {#z118}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z118-stale-global-suppression.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z118-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z118.md)
 
 An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
 
@@ -349,7 +391,7 @@ An HTML link has an opaque context or relies on inline scripts for navigation.
 !!! danger "🔒 INVIOLABLE — Cannot be suppressed | Exit 2 | DQS collapses to 0/100"
     `zenzic:ignore: Z201` is **silently rejected**. The credential scanner fires unconditionally on every line. [↗ Gallery](../tutorials/examples/z2xx-security/z201-credentials.md)
 
-**Severity:** `security_breach` · **Penalty:** DQS collapses to 0/100 · **Exit:** 2
+**Severity:** `security_breach` · **Penalty:** DQS collapses to 0/100 · **Exit:** 2 · [↗ Rule Specification](../rules/Z201.md)
 
 The credential scanner uses deterministic pattern matching (e.g., RE2) to detect known structural secrets (like AWS keys or GitHub tokens) without exponential backtracking, rather than relying on high-noise entropy checks. Speculative Base64 decoding is also applied — encoded tokens that decode to credential patterns are flagged.
 
@@ -365,7 +407,7 @@ The credential scanner uses deterministic pattern matching (e.g., RE2) to detect
 !!! danger "🔒 INVIOLABLE — Cannot be suppressed | Exit 1 | DQS collapses to 0/100"
     `zenzic:ignore: Z202` is **silently rejected**. [↗ Gallery](../tutorials/examples/z2xx-security/z202-path-traversal.md)
 
-**Severity:** `error` · **Penalty:** DQS collapses to 0/100 · **Exit:** 1
+**Severity:** `error` · **Penalty:** DQS collapses to 0/100 · **Exit:** 1 · [↗ Rule Specification](../rules/Z202.md)
 
 The Path Traversal Guard intercepts any relative links attempting to escape the documentation root (e.g. `../.env`). A relative path uses `..` segments to escape the `docs/` boundary, potentially exposing private repository files.
 
@@ -379,7 +421,7 @@ The Path Traversal Guard intercepts any relative links attempting to escape the 
 !!! danger "🔒 INVIOLABLE — Cannot be suppressed | Exit 3 (highest) | DQS collapses to 0/100"
     `zenzic:ignore: Z203` is **silently rejected**. Distinct from Z202: targets OS directories (`/etc/`, `/root/`) signalling supply-chain compromise.
 
-**Severity:** `security_incident` · **Penalty:** DQS collapses to 0/100 · **Exit:** 3
+**Severity:** `security_incident` · **Penalty:** DQS collapses to 0/100 · **Exit:** 3 · [↗ Rule Specification](../rules/Z203.md)
 
 Path traversal detected targeting restricted OS directories (e.g. `/etc/`, `/root/`). Cannot result from a legitimate documentation workflow — presence indicates template injection, a compromised toolchain, or a malicious commit.
 
@@ -394,7 +436,7 @@ Path traversal detected targeting restricted OS directories (e.g. `/etc/`, `/roo
 !!! danger "🔒 INVIOLABLE — Cannot be suppressed | Exit 2 | DQS collapses to 0/100"
     `zenzic:ignore: Z204` is **silently rejected**. Source: `forbidden_patterns` in `.zenzic.local.toml` (git-ignored). [↗ Gallery](../tutorials/examples/z2xx-security/z204-forbidden-term.md)
 
-**Severity:** `security_breach` · **Penalty:** DQS collapses to 0/100 · **Exit:** 2
+**Severity:** `security_breach` · **Penalty:** DQS collapses to 0/100 · **Exit:** 2 · [↗ Rule Specification](../rules/Z204.md)
 
 The Privacy Gate detected a confidential project term (internal code-name, staging hostname, team alias) configured in `.zenzic.local.toml`. Matching is case-insensitive verbatim substring — no regex. Run `zenzic init` to scaffold `.zenzic.local.toml` (auto-added to `.gitignore`).
 
@@ -428,9 +470,11 @@ The Polyglot Extractor detected a highly dangerous scheme (such as `javascript:`
 
 ## Z3xx — Reference Integrity
 
+Diagnostic findings related to reference-style links and definition definitions.
+
 ### Z301: DANGLING_REF {#z301}
 
-**Severity:** `error` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z301-dangling-ref.md)
+**Severity:** `error` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z301-dangling-ref.md) · [↗ Rule Specification](../rules/Z301.md)
 
 A reference-style link (`[my link][ref]`) exists but its definition (`[ref]: http://...`) is missing. Most renderers silently degrade the link to plain text. Ensure your Markdown formatter (like Prettier or Markdownlint) does not inadvertently remove unused reference definitions during an automated pass, which can cause downstream references to dangle.
 
@@ -441,7 +485,7 @@ A reference-style link (`[my link][ref]`) exists but its definition (`[ref]: htt
 
 ### Z302: DEAD_DEF {#z302}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z302-dead-def.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z302-dead-def.md) · [↗ Rule Specification](../rules/Z302.md)
 
 A reference definition exists but no link in the file uses it. Harmless for readers but creates maintenance debt.
 
@@ -449,7 +493,7 @@ A reference definition exists but no link in the file uses it. Harmless for read
 
 ### Z303: DUPLICATE_DEF {#z303}
 
-**Severity:** `warning` · **Penalty:** −3.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z303-duplicate-def.md)
+**Severity:** `warning` · **Penalty:** −3.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z303-duplicate-def.md) · [↗ Rule Specification](../rules/Z303.md)
 
 Multiple definitions exist for the same reference ID. CommonMark specifies that the first definition wins, but this ambiguity should be resolved for deterministic cross-engine rendering.
 
@@ -459,9 +503,11 @@ Multiple definitions exist for the same reference ID. CommonMark specifies that 
 
 ## Z4xx — Structure
 
+Diagnostic findings related to Virtual Site Map topology and navigation structure.
+
 ### Z401: MISSING_DIRECTORY_INDEX {#z401}
 
-**Severity:** `info` · **Penalty:** none (structural hint) · **Exit:** 0 · **Suppressible:** Yes
+**Severity:** `info` · **Penalty:** none (structural hint) · **Exit:** 0 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z401.md)
 
 A documentation directory has no `index.md` or `README.md`. The directory URL may return 404 or a raw listing depending on the build engine.
 
@@ -469,7 +515,7 @@ A documentation directory has no `index.md` or `README.md`. The directory URL ma
 
 ### Z402: ORPHAN_PAGE {#z402}
 
-**Severity:** `warning` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z4xx-topology/z402-orphan-page.md)
+**Severity:** `warning` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z4xx-topology/z402-orphan-page.md) · [↗ Rule Specification](../rules/Z402.md)
 
 A file exists in `docs/` but is not reachable from any navigation menu. The documentation equivalent of dead code.
 
@@ -480,7 +526,7 @@ A file exists in `docs/` but is not reachable from any navigation menu. The docu
 
 ### Z403: MISSING_ALT {#z403}
 
-**Severity:** `warning` · **Penalty:** none (accessibility warning) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z4xx-topology/z403-missing-alt.md)
+**Severity:** `warning` · **Penalty:** none (accessibility warning) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z4xx-topology/z403-missing-alt.md) · [↗ Rule Specification](../rules/Z403.md)
 
 An image has no alt text, degrading screen reader accessibility and SEO.
 
@@ -488,7 +534,7 @@ An image has no alt text, degrading screen reader accessibility and SEO.
 
 ### Z404: CONFIG_ASSET_MISSING {#z404}
 
-**Severity:** `warning` · **Penalty:** none (configuration integrity warning) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `warning` · **Penalty:** none (configuration integrity warning) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z404.md)
 
 The build engine's main configuration (e.g. `zensical.toml`) references a logo or favicon that does not exist at the specified path. The failure is global: every page in every locale ships without the branding asset.
 
@@ -499,7 +545,7 @@ The build engine's main configuration (e.g. `zensical.toml`) references a logo o
 
 ### Z405: UNUSED_ASSET {#z405}
 
-**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z405.md)
 
 An image or asset file in the repository is never referenced by any Markdown file. "Dark Assets" bloat the repository and build artifacts silently.
 
@@ -513,7 +559,7 @@ An image or asset file in the repository is never referenced by any Markdown fil
 
 ### Z406: NAV_CONTRACT {#z406}
 
-**Severity:** `error` · **Penalty:** −2.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `error` · **Penalty:** −2.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z406.md)
 
 A conflict between the physical file structure and the engine's navigation config. For MkDocs: a `nav` entry pointing to a path that no physical file activates.
 
@@ -526,9 +572,11 @@ A conflict between the physical file structure and the engine's navigation confi
 
 ## Z5xx — Content Quality
 
+Diagnostic findings related to prose quality, sentence length, and structural formatting.
+
 ### Z501: PLACEHOLDER {#z501}
 
-**Severity:** `warning` · **Penalty:** −2.0 pts (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z501-placeholder.md)
+**Severity:** `warning` · **Penalty:** −2.0 pts (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z501-placeholder.md) · [↗ Rule Specification](../rules/Z501.md)
 
 Placeholder strings committed to production documentation signal incomplete work. Examples include:
 
@@ -542,7 +590,7 @@ FIXME
 
 ### Z502: SHORT_CONTENT {#z502}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z502-short-content.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z502-short-content.md) · [↗ Rule Specification](../rules/Z502.md)
 
 A page contains fewer than 50 words of rendered prose (frontmatter, Markdown comments, and HTML comments excluded). A page below this threshold cannot contain the semantic components necessary to answer a reader's question.
 
@@ -550,7 +598,7 @@ A page contains fewer than 50 words of rendered prose (frontmatter, Markdown com
 
 ### Z503: SNIPPET_ERROR {#z503}
 
-**Severity:** `error` · **Penalty:** −10.0 pts (Content — highest single-occurrence penalty) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z503-snippet-error.md)
+**Severity:** `error` · **Penalty:** −10.0 pts (Content — highest single-occurrence penalty) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z503-snippet-error.md) · [↗ Rule Specification](../rules/Z503.md)
 
 The Snippet Guard identified a syntax error in a fenced code block marked with a language tag. The reported line number is **absolute** — relative to the source file, not to the start of the snippet.
 
@@ -567,7 +615,7 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
     **Z503 (error — do not do this):**
 
     ````markdown
-    ```python
+    ```text
     my_function(
         param: str,
         other: int = 0,
@@ -592,7 +640,7 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
 
 ### Z505: UNTAGGED_CODE_BLOCK {#z505}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z505-untagged-code-block.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z505-untagged-code-block.md) · [↗ Rule Specification](../rules/Z505.md)
 
 A fenced code block has no language specifier. Syntax highlighters, the Snippet Guard (Z503), and screen readers cannot process it. Some engine-specific metadata (e.g. `` ```python title="file.py" showLineNumbers ``) is fully supported and never flagged.
 
@@ -600,7 +648,7 @@ A fenced code block has no language specifier. Syntax highlighters, the Snippet 
 
 ### Z506: MALFORMED_FRONTMATTER {#z506}
 
-**Severity:** `error` · **Penalty:** −5.0 pts (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z506-malformed-frontmatter.md)
+**Severity:** `error` · **Penalty:** −5.0 pts (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z506-malformed-frontmatter.md) · [↗ Rule Specification](../rules/Z506.md)
 
 The opening frontmatter delimiter on line 1 of the file is not exactly `---`. Any line that starts with two or more dashes but is not exactly `---` — such as `--`, `----`, or `--- trailing chars` — is silently discarded by most static-site engines. The `template:`, `title:`, and all metadata keys will be rendered as raw prose content instead of being parsed.
 
@@ -616,9 +664,11 @@ The opening frontmatter delimiter on line 1 of the file is not exactly `---`. An
 
 ## Z6xx — Governance
 
+Diagnostic findings related to brand governance, deprecation, and suppression audit state.
+
 ### Z601: BRAND_OBSOLESCENCE {#z601}
 
-**Severity:** `warning` · **Penalty:** −2.0 pts (Governance) + Escalation · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z601-brand-obsolescence.md)
+**Severity:** `warning` · **Penalty:** −2.0 pts (Governance) + Escalation · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z601-brand-obsolescence.md) · [↗ Rule Specification](../rules/Z601.md)
 
 A deprecated release name or brand identifier appears in a scanned file. Configured via `[governance].brand_obsolescence` in `.zenzic.toml`. CHANGELOG files are exempt by default (`obsolete_names_exclude_patterns`).
 
@@ -633,7 +683,7 @@ A deprecated release name or brand identifier appears in a scanned file. Configu
 
 ### Z603: DEAD_SUPPRESSION {#z603}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z603-dead-suppression.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z603-dead-suppression.md) · [↗ Rule Specification](../rules/Z603.md)
 
 An inline suppression directive (`<!-- zenzic:ignore: Zxxx -->`) does not correspond to any active finding on that line. The directive silences nothing — it is **Phantom Debt** that consumes part of the 30-point governance budget without justification.
 
@@ -666,6 +716,8 @@ any active finding. Remove the dead comment.
 ---
 
 ## Z9xx — Engine & System
+
+System-level diagnostic findings and worker watchdog execution alerts.
 
 ### Z901: RULE_ENGINE_ERROR {#z901}
 
@@ -707,7 +759,7 @@ No `.md` / `.md` files found in the resolved `docs_root` after all exclusion lay
 
 ### Z504: QUALITY_REGRESSION {#z504}
 
-**Severity:** `warning` *(reserved)*
+**Severity:** `warning` *(reserved)* · [↗ Rule Specification](../rules/Z504.md)
 
 Emitted by `zenzic diff` when the current DQS is lower than the saved baseline (`.zenzic-score.json`). Not itself weighted into the score (that would be circular); it identifies which commit introduced a regression.
 

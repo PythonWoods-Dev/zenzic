@@ -22,9 +22,9 @@ Zenzic detects broken links, orphaned pages, credential leaks, and structural in
 
 Zenzic is structured into three dedicated delivery mechanisms to support your entire development workflow:
 
-- **[Core Engine (CLI)](https://zenzic.dev/)**: Python CLI, AST rule engine, and Virtual Site Map (VSM) topology analyzer.
-- **[VS Code Extension](https://github.com/PythonWoods/zenzic-vscode)**: Real-time LSP client providing sub-50ms inline diagnostics, automated Quick Fixes, and DQS status bar streaming.
-- **[GitHub Action](https://github.com/PythonWoods/zenzic-action)**: Zero-config CI/CD quality gate with SARIF upload directly to GitHub Code Scanning and PR annotations.
+- **[Core Engine (CLI)](./reference/cli.md)**: Python CLI, AST rule engine, and Virtual Site Map (VSM) topology analyzer.
+- **[Getting Started](./tutorials/first-audit.md)**: Step-by-step tutorial to run your first documentation audit in under three minutes.
+- **[Configuration Reference](./reference/configuration-reference.md)**: Complete guide to `.zenzic.toml` workspace settings.
 
 ---
 
@@ -57,9 +57,21 @@ FAILED: Hard errors detected. Exit code 1 is mandatory.
 
 ## 🛡️ Why Zenzic?
 
-### 100% Determinism
+Zenzic provides a comprehensive, deterministic quality architecture for your documentation suite:
 
-Every Zenzic run is a pure function of its inputs. Given the same repository state and `.zenzic.toml`, the output — finding codes, severity levels, exit code, SARIF structure — is **bit-for-bit identical** across machines, platforms, and time. No probabilistic guessing, no LLM sampling, no network dependencies.
+### 100% Determinism & Baseline Tracking
+
+Every Zenzic run is a pure function of its inputs. Given the same repository state and `.zenzic.toml`, the output — finding codes, severity levels, exit code, SARIF structure — is **bit-for-bit identical** across machines, platforms, and time.
+
+With **Baseline & Regression Tracking**, existing technical debt can be recorded into a deterministic snapshot (`.zenzic-baseline.json`) via `--update-baseline`. Subsequent CI runs validate against `--baseline .zenzic-baseline.json` using line-shift invariant SHA-256 signatures, tagging baselined findings without dropping them (**Radical Unawareness**) and enforcing Document Quality Score (DQS) anti-regression rules.
+
+```bash
+# Record existing technical debt into baseline snapshot
+zenzic check all --update-baseline
+
+# Validate PR against baseline in CI/CD pipeline
+zenzic check all --baseline .zenzic-baseline.json
+```
 
 ### Documentation Security (SAST)
 
@@ -69,6 +81,21 @@ Zenzic treats documentation as a **security surface**. The tiered code model enf
 - **Z202 / Z203 — Path Traversal Guard:** Filesystem boundary security violations caught at scan boundaries.
 - **Suppression CAP:** Configurable ceiling on total active `zenzic:ignore` suppressions.
 
-### Zero Hallucinations
+### Semantic Linting & Readability Metrics
 
-Zenzic reports only what is **statically verifiable** in the repository at scan time. Every finding is a falsifiable, reproducible fact — suitable as audit evidence for security reviewers and compliance teams.
+Evaluate content quality without relying on probabilistic models or LLMs:
+
+- **Z510 — Heading Hierarchy:** Detects skipped heading levels (e.g. H3 directly following H1).
+- **Z511 — Excessive Sentence Length:** Enforces maximum sentence word count (`max_sentence_length = 40`).
+- **Z512 — Empty Section:** Identifies heading sections containing no prose content before the next heading or EOF.
+
+### Topological Graph Analysis (Smart Link Graph)
+
+Beyond static link checks, Zenzic's Smart Link Graph constructs an adjacency matrix over your document network to perform Breadth-First Search (BFS):
+
+- **Z410 — Unreachable Graph Node:** Documents completely isolated or unreachable from navigation entry points.
+- **Z411 — Dead-End Node:** Documentation pages containing no outgoing links.
+
+### Configuration Validation Engine
+
+Formal schema validation for `.zenzic.toml` (`Z110` TOML syntax errors, `Z111` schema type mismatches) with exact line-number extraction. Fatal config errors halt document graph scanning to prevent false-positive cascades and protect LSP stability.

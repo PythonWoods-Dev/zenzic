@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 This document describes the planned milestone trajectory for Zenzic, the **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**.
 Dates are targets, not commitments. All milestones are subject to revision.
 
-For the current release history and completed milestones (up to `v0.23.x`), see [CHANGELOG.md](CHANGELOG.md).
+For the current release history and completed milestones (up to `v0.26.x`), see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -25,34 +25,7 @@ Before advancing the core feature set, the following infrastructural and validat
 
 ## Milestone Sequence
 
-### [v0.24] — Interactive Intelligence
-
-*Completing the diagnostic-to-remediation loop within the IDE.*
-
-- **VS Code Code Actions (Quick Fixes):** Implement `textDocument/codeAction` via LSP to allow users to instantly apply deterministic fixes (e.g., `Z121`, `Z603`) directly from the editor.
-
-### [v0.25] — LSP Stabilization & Hot-Reloading
-
-*Achieving 100% determinism between CLI and IDE via centralized governance, adapter-driven hot-reloading, and cross-platform URI parity.*
-
-- **Centralized Governance Pipeline:** Eliminate CLI vs. LSP diagnostic drift by extracting `directory_policies` and `per_file_ignores` into core governance evaluation.
-- **Adapter-Driven Config Hot-Reloading:** Enable real-time VSM topology rebuilds in VS Code when engine configuration files (e.g., `mkdocs.yml`, `zensical.toml`) change, without requiring an LSP server restart.
-- **BaseAdapter Contract Hardening:** Expose `watched_config_files` on the `BaseAdapter` interface to preserve Adapter Neutrality across third-party engines.
-
-### [v0.26] — DQS Workspace UI
-
-*Bringing the global Documentation Quality Score into the authoring environment via an asynchronous, deterministic CLI execution bridge.*
-
-- **Asynchronous CLI Execution Bridge:** Restore DQS visualization in the VS Code Status Bar via `child_process.execFile` calling `zenzic score --json`, guaranteeing 100% mathematical parity with CI/CD without blocking LSP performance.
-
-### [v0.27] — Deterministic Quality Platform
-
-*Evolving from a strict validator to a comprehensive quality governance engine.*
-
-- **Smart Link Graph:** Transform the Virtual Site Map (VSM) into a full topological analysis engine capable of detecting documentation islands, circular navigation paths, and unreachable clusters.
-- **Baseline & Regression Tracking:** Introduce evolutionary quality control. Essential for enterprise CI/CD to prevent DQS regressions over time.
-- **Semantic Readability Metrics:** Extend Zenzic beyond structural validation into content quality (e.g., deterministic Flesch-Kincaid scoring) while maintaining the static analysis paradigm.
-- **Configuration Validation Engine:** Reduce operational errors by establishing a single source of truth for configuration schemas across the CLI, VS Code, and documentation.
+> For completed milestones (`v0.23` through `v0.27`), see [CHANGELOG.md](CHANGELOG.md).
 
 ### [v0.28] — Governance & Extensibility
 
@@ -95,4 +68,4 @@ These constraints apply across every future release. No feature may violate them
 
 ---
 
-Roadmap last updated: 2026-07-25.
+Roadmap last updated: 2026-08-01.

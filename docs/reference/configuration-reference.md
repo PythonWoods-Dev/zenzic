@@ -169,6 +169,8 @@ zenzic init --pyproject
 
 ## Core Settings {#core-settings}
 
+Configure core workspace paths and execution parameters.
+
 ### `docs_dir` {#docs-dir}
 
 | | |
@@ -260,6 +262,8 @@ validate_same_page_anchors = true
 ---
 
 ## Exclusion Settings {#exclusion-settings}
+
+Configure file and directory exclusion patterns.
 
 ### `excluded_dirs` {#excluded-dirs}
 
@@ -520,6 +524,8 @@ fallback_to_default = false
 
 ## CI / Exit Behaviour {#ci-exit-behaviour}
 
+Configure continuous integration exit thresholds.
+
 ### `fail_under` {#fail-under}
 
 | | |
@@ -565,6 +571,8 @@ exit_zero = true
 
 ## Project Metadata {#project-metadata}
 
+Configure project identity and release naming metadata.
+
 ### `release_name` {#release-name}
 
 | | |
@@ -602,6 +610,8 @@ Add one or both markers to each listed file, followed on the next line by any Sh
 ---
 
 ## Governance Settings {#governance-settings}
+
+Configure brand governance and directory policies.
 
 ### `brand_obsolescence` {#brand-obsolescence}
 
@@ -813,6 +823,8 @@ plugins = []
 ---
 
 ## TOML Pitfalls {#toml-pitfalls}
+
+Avoid common syntax and order pitfalls when editing `.zenzic.toml`.
 
 ### Field Order is Law {#field-order}
 

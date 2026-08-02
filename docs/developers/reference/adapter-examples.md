@@ -166,3 +166,7 @@ From the repository root, verify all examples produce their expected exit codes:
 # Plugin scaffold demo: generated template must be clean
 (cd examples/plugin-scaffold-demo && zenzic check all)
 ```
+
+## See Also
+
+- [Adapter API Reference](./adapter-api.md)

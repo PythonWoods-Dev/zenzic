@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
-    from zenzic.models.vsm import RouteStatus
+    from zenzic.models.vsm import RouteStatus, VirtualSiteMap
 
 
 # ── Route metadata types ─────────────────────────────────────────────────────
@@ -133,3 +133,7 @@ class BaseAdapter(ABC):
     def watched_config_files(self) -> frozenset[str]:
         """Return the configuration filenames that trigger a VSM rebuild in LSP mode."""
         return frozenset()
+
+    @abstractmethod
+    def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
+        """Return canonical URLs serving as root entry points for reachability analysis."""

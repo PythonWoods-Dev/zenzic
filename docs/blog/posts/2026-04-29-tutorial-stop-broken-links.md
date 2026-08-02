@@ -43,9 +43,9 @@ You'll see one of two results:
 **Issues found:**
 
 <ZenzicTerminal title="zenzic check all">
-<div className="flex gap-2 items-baseline mb-1"><span className="text-rose-500">✘</span><span className="bg-rose-500/10 text-rose-400 px-1 rounded-sm text-[11px]">[Z101]</span><span className="text-zinc-300">docs/guide.md:42 — Broken link → ./missing-page.md</span></div>
-<div className="flex gap-2 items-baseline mb-1"><span className="text-amber-500">⚠</span><span className="bg-amber-500/10 text-amber-400 px-1 rounded-sm text-[11px]">[Z402]</span><span className="text-zinc-300">docs/old-api.md — Orphan page, not in navigation</span></div>
-<div className="flex gap-2 items-baseline"><span className="text-rose-500">✘</span><span className="bg-rose-500/10 text-rose-400 px-1 rounded-sm text-[11px]">[Z201]</span><span className="text-zinc-300">docs/config.md:7 — Credential pattern detected</span></div>
+<div className="flex gap-2 items-baseline mb-1"><span className="text-rose-500">✘</span><span className="bg-rose-500/10 text-rose-400 px-1 rounded-sm text-[11px]">[Z101]</span><span className="text-zinc-300">docs/guide.md:42 — Broken link → ./missing-page.md. </span></div>
+<div className="flex gap-2 items-baseline mb-1"><span className="text-amber-500">⚠</span><span className="bg-amber-500/10 text-amber-400 px-1 rounded-sm text-[11px]">[Z402]</span><span className="text-zinc-300">docs/old-api.md — Orphan page, not in navigation. </span></div>
+<div className="flex gap-2 items-baseline"><span className="text-rose-500">✘</span><span className="bg-rose-500/10 text-rose-400 px-1 rounded-sm text-[11px]">[Z201]</span><span className="text-zinc-300">docs/config.md:7 — Credential pattern detected. </span></div>
 <div className="mt-2 text-rose-500 font-semibold text-[11px] tracking-wide">FAILED — exit 1</div>
 </ZenzicTerminal>
 

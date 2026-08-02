@@ -124,3 +124,7 @@ Zenzic implements an AST `Mutator` engine to execute precise, safe code modifica
 - **RE2 Engine Rigor (ADR-013)**: The block-level AST scanner uses DFA-pure tokenization patterns via `zenzic.core.regex`. Regex lookarounds and backreferences are strictly forbidden to eliminate ReDoS vulnerabilities.
 - **O(N) Linear Tokenization**: The inline tokenizer operates as a single-pass, character-by-character linear state machine ($O(N)$ complexity).
 - **Zero Subprocess Execution**: The AST compiler runs natively in-process without spawning external shell processes.
+
+## See Also
+
+- [Core Architecture](../../explanation/architecture.md)

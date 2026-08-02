@@ -101,17 +101,18 @@ We applied Pillar 4 of the Zenzic Manifesto — Zero Technical Debt — and dele
 
 ---
 
-## What Zenzic Supports
+## The Deterministic Perimeter
 
-Zenzic supports documentation engines whose anchor output is **deterministically derivable from Markdown source without executing external runtime code**.
+Zenzic's architecture is designed exclusively for documentation engines whose anchor output is **deterministically derivable from Markdown source without executing external runtime code**.
 
-In practice, this means:
+In practice, this defines our current support and future roadmap:
 
-- **MkDocs** — anchors derived from `python-markdown`'s heading slugifier, stable and documented
-- **Sphinx** — anchors derived from `docutils` AST, fully introspectable from Python
-- **Hugo** — anchors derived from `goldmark`'s slugifier, deterministic from spec
-- **Jekyll** — anchors derived from `kramdown`, deterministic from spec
-- **Zensical** — our own engine, Python-native, anchor generation by definition under our control
+- **MkDocs** *(Supported)* — anchors derived from `python-markdown` heading slugification, stable and documented
+- **Zensical** *(Supported)* — Python-native engine; anchor generation is fully controlled within the same deterministic model
+- **Standalone** *(Supported)* — engine-agnostic static analysis over Markdown source trees without a framework adapter contract
+- **Sphinx** *(Roadmap)* — architecture-compatible candidate via deterministic `docutils`-based anchors, but no native adapter is currently shipped
+- **Hugo** *(Roadmap)* — architecture-compatible candidate via deterministic `goldmark`-based anchors, but no native adapter is currently shipped
+- **Jekyll** *(Roadmap)* — architecture-compatible candidate via deterministic `kramdown`-based anchors, but no native adapter is currently shipped
 
 Docusaurus falls outside this perimeter. Not because we did not try, and not because we plan to revisit it with more engineering effort. Because the architecture of Docusaurus is incompatible with the architecture of Zenzic at a level that cannot be bridged without abandoning what Zenzic is.
 

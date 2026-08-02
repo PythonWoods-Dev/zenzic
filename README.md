@@ -5,11 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://github.com/PythonWoods/zenzic">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/svg/zenzic-wordmark-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="assets/brand/svg/zenzic-wordmark.svg">
-      <img src="assets/brand/svg/zenzic-wordmark.svg" alt="Zenzic" width="360">
-    </picture>
+    <img src="https://raw.githubusercontent.com/PythonWoods/zenzic/main/docs/assets/brand/svg/zenzic-logo.svg" alt="Zenzic Document Integrity Engine" width="480">
   </a>
 </p>
 
@@ -55,7 +51,7 @@ Zenzic detects broken links, orphaned pages, credential leaks, and structural in
 
 Zenzic is a unified, deterministic platform structured into three primary delivery mechanisms:
 
-- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, and Virtual Site Map (VSM) topology analyzer.
+- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, Virtual Site Map (VSM) topology analyzer, and **Baseline & Regression Tracking** (`.zenzic-baseline.json`).
 - **[VS Code Extension][zenzic-vscode]**: Real-time LSP client offering sub-50ms inline diagnostics, Quick Fixes, and DQS scoring.
 - **[GitHub Action][zenzic-action]**: Zero-config CI/CD quality gate with SARIF upload and PR annotations.
 
@@ -117,6 +113,10 @@ Zenzic treats documentation as a **security surface**. The tiered code model enf
 
 Zenzic reports only what is **statically verifiable** in the repository at scan time. It never infers intent or approximates link validity. Every finding is a falsifiable, reproducible fact.
 
+### Topological Graph Analysis (Orphans & Dead Ends)
+
+Beyond static file checks, Zenzic's Smart Link Graph builds an adjacency list to perform Breadth-First Search (BFS) over your document network. It identifies **Topological Orphans** (`Z410`, documents unreachable from navigation entry points) and **Dead Ends** (`Z411`, pages with no outgoing links), helping maintain structural navigation integrity.
+
 ---
 
 ## 🧠 Key Capabilities & Commands
@@ -143,7 +143,7 @@ Zenzic Core is headless and emits standardized **SARIF** JSON, ensuring seamless
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.26.5",
+          "version": "0.27.0",
           "rules": [
             {
               "id": "Z101",
@@ -215,7 +215,7 @@ uv tool upgrade zenzic
 To run a specific version ephemerally without altering your global environment:
 
 ```bash
-uvx zenzic@0.26.5 check all
+uvx zenzic@0.27.0 check all
 ```
 
 ---
@@ -225,6 +225,7 @@ uvx zenzic@0.26.5 check all
 | Area | URL | Audience |
 | :--- | :--- | :--- |
 | 👤 User Guide | [zenzic.dev][docs-home] | Install, configure, CI/CD, finding codes |
+| 📜 Rule Specification Cards | [zenzic.dev/docs/rules][docs-rules] | 41 deep-dive rule specifications with Bad/Good remediation examples |
 | 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapters, ADRs, CLI architecture |
 | 🛡️ Security | [SECURITY.md][security] | Security reviewer |
 
@@ -270,6 +271,7 @@ Apache-2.0 — see [LICENSE][license]. This project strictly adheres to Semantic
 [zenzic-vscode]:     https://marketplace.visualstudio.com/items?itemName=pythonwoods.zenzic-vscode
 [zenzic-action]:     https://github.com/PythonWoods/zenzic-action
 [docs-home]:         https://zenzic.dev/
+[docs-rules]:        https://zenzic.dev/docs/rules/
 [docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
 [contributing]:      CONTRIBUTING.md

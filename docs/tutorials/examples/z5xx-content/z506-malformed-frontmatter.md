@@ -1,6 +1,9 @@
 --
 
 ## description: "Live example showing a malformed frontmatter delimiter detected by Zenzic."
+
+This section details the specifications and guidelines for description: "Live example showing a malformed frontmatter delimiter detected by Zenzic." within the Zenzic ecosystem.
+
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
@@ -45,16 +48,16 @@ This file intentionally opens with `--` (two dashes) to trigger the rule. The `d
 
 Ensure the very first line of the file is exactly three dashes and nothing else:
 
-## ```yaml
-
-## description: A well-formed frontmatter block
-
 ```yaml
+---
+description: A well-formed frontmatter block
+---
+```
 
 ## Suppression
 
 If you need to suppress Z506 on a specific file (e.g. a gallery page like this one):
 
-```markdown
-## -- <!-- zenzic:ignore: Z506 -->
+```text
+<!-- zenzic:ignore: Z506 -->
 ```
