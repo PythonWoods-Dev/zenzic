@@ -270,6 +270,7 @@ class LanguageServer:
             repo_root=self.repo_root,
         )
         self._flush_dirty_documents()
+
     def _is_supported_doc_uri(self, uri: str) -> bool:
         """Return True if the URI has a supported documentation file extension (DOC_SUFFIXES)."""
         if not uri:
@@ -361,7 +362,9 @@ class LanguageServer:
             uri = change.get("uri", "")
             change_type = change.get("type")
 
-            if not (self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)) or not self._is_within_domain(uri):
+            if not (
+                self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+            ) or not self._is_within_domain(uri):
                 continue
 
             file_path = uri_to_path(uri).resolve()
@@ -482,7 +485,9 @@ class LanguageServer:
             self.exit_code = 0 if self.shutdown_received else 1
         elif method == "textDocument/didOpen":
             uri = params.get("textDocument", {}).get("uri", "")
-            if not (self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)) or not self._is_within_domain(uri):
+            if not (
+                self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+            ) or not self._is_within_domain(uri):
                 return
             self.documents.did_open(params)
             if uri in self.documents.documents:
@@ -491,7 +496,9 @@ class LanguageServer:
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didChange":
             uri = params.get("textDocument", {}).get("uri", "")
-            if not (self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)) or not self._is_within_domain(uri):
+            if not (
+                self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+            ) or not self._is_within_domain(uri):
                 return
             self.documents.did_change(params)
             if uri in self.documents.documents:

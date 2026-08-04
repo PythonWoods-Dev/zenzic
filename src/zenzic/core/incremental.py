@@ -305,7 +305,9 @@ class IncrementalAnalysisEngine:
             self._dead_end_urls = set()
 
         if changed_uris is not None:
-            topo_delta_urls = (old_orphans ^ self._orphaned_urls) | (old_dead_ends ^ self._dead_end_urls)
+            topo_delta_urls = (old_orphans ^ self._orphaned_urls) | (
+                old_dead_ends ^ self._dead_end_urls
+            )
             if topo_delta_urls:
                 for delta_url in topo_delta_urls:
                     route = vsm.get(delta_url)
