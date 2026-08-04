@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **LSP Execution Parity**: Restored real-time diagnostic emission for `Z110` and `Z111` by enabling in-memory buffer validation for `.zenzic.toml` and `pyproject.toml` via `content_override`.
+- **Topological Delta Optimization**: `IncrementalAnalysisEngine` now computes graph changes using XOR set operations (`old_orphans ^ new_orphans`), ensuring `Z410` and `Z411` diagnostics are updated in strictly $O(K)$ time during hot-reload.
+- **Dogfooding & Documentation**: Fixed internal `Z503` syntax errors in rule documentation and integrated all `v0.27.0` rule cards into the `mkdocs.yml` navigation tree to resolve `Z402` false positives.
+
 ## [0.27.0] - 2026-08-02
 
 ### Added
