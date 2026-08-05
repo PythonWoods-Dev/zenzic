@@ -490,8 +490,15 @@ class LanguageServer:
             if self.repo_root:
                 self._build_vsm_sync()
                 watchers: list[dict[str, str]] = [
+                    # File-level watchers: individual .md/.mdx changes
                     {"globPattern": "**/*.md"},
                     {"globPattern": "**/*.mdx"},
+                    # Directory-level watcher (LSP-FIX-018): catches folder
+                    # creation, rename, and deletion events that VS Code does
+                    # NOT surface via the file-only patterns above.
+                    # Without this, deleting a folder leaves ghost diagnostics
+                    # in the editor's PROBLEMS panel.
+                    {"globPattern": "**/"},
                     {"globPattern": "**/.zenzic.toml"},
                     {"globPattern": "**/.zenzic.local.toml"},
                 ]
@@ -516,9 +523,27 @@ class LanguageServer:
                     }
                 )
                 self._sync_workspace_and_publish()
+                # Emit core version to VS Code Output panel (LSP-INFO-001).
+                # This is the canonical way to verify which core binary is active
+                # without leaving the editor. Visible via Output → Zenzic Language Server.
+                self.send_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "window/logMessage",
+                        "params": {
+                            "type": 3,  # Info
+                            "message": (
+                                f"Zenzic Language Server v{__version__} started. "
+                                f"Core binary: {sys.executable}"
+                            ),
+                        },
+                    }
+                )
 
         elif method == "workspace/didChangeWatchedFiles":
-            self._handle_file_changes(params.get("changes", []))
+            changes = params.get("changes", [])
+            self._handle_file_changes(changes)
+
         elif method == "shutdown":
             self.shutdown_received = True
             if msg_id is not None:

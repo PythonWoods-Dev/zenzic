@@ -1948,3 +1948,71 @@ def test_directory_deletion_evicts_overlay_and_clears_diagnostics(tmp_path: Path
     assert err_uri not in server.documents.documents
     assert err_uri not in server.file_diagnostics
 
+
+def test_initialized_registers_directory_watcher() -> None:
+    """LSP-FIX-018: the ``initialized`` handshake must include a ``**/`` glob
+    pattern so VS Code sends directory-level deletion events to the server.
+    Without this pattern, deleting a folder in the explorer does NOT trigger
+    ``workspace/didChangeWatchedFiles`` for the deleted directory, causing
+    ghost diagnostics to persist in the PROBLEMS panel.
+    """
+    import io
+    import json
+    import tempfile
+    from pathlib import Path
+
+    def encode_rpc(msg: dict) -> bytes:
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "index.md").write_text("# Home\n")
+
+        in_stream = io.BytesIO()
+        in_stream.write(encode_rpc({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"rootUri": tmp_path.as_uri()},
+        }))
+        in_stream.write(encode_rpc({
+            "jsonrpc": "2.0", "method": "initialized", "params": {},
+        }))
+        in_stream.write(encode_rpc({
+            "jsonrpc": "2.0", "method": "exit", "params": {},
+        }))
+        in_stream.seek(0)
+
+        out = io.BytesIO()
+        server = LanguageServer(stdin=in_stream, stdout=out)
+        server.serve()
+
+        out.seek(0)
+        raw = out.read().decode("utf-8", errors="replace")
+
+        all_messages = []
+        for chunk in raw.split("\r\n\r\n"):
+            json_part = chunk.split("Content-Length")[0].strip()
+            if json_part:
+                try:
+                    all_messages.append(json.loads(json_part))
+                except Exception:
+                    pass
+
+        reg_msgs = [
+            m for m in all_messages
+            if m.get("method") == "client/registerCapability"
+        ]
+        assert reg_msgs, "No client/registerCapability message sent during initialized"
+
+        registered_patterns = [
+            w.get("globPattern", "")
+            for m in reg_msgs
+            for reg in m.get("params", {}).get("registrations", [])
+            for w in reg.get("registerOptions", {}).get("watchers", [])
+        ]
+
+        # LSP-FIX-018: directory watcher must be present
+        assert "**/" in registered_patterns, (
+            f"Directory watcher '**/' not found in registered patterns: {registered_patterns}"
+        )
