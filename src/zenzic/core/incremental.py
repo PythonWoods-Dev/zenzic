@@ -291,8 +291,8 @@ class IncrementalAnalysisEngine:
         overlay.vsm = vsm
 
         # 2b. Run Topological Analysis
-        old_orphans = getattr(self, "_orphaned_urls", set())
-        old_dead_ends = getattr(self, "_dead_end_urls", set())
+        old_orphans: set[str] = getattr(self, "_orphaned_urls", set())
+        old_dead_ends: set[str] = getattr(self, "_dead_end_urls", set())
 
         if hasattr(self.adapter, "get_entry_points"):
             from zenzic.core.topology import detect_dead_ends, detect_orphans
