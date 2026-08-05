@@ -367,10 +367,35 @@ class LanguageServer:
             if path.suffix.lower() not in DOC_SUFFIXES and not self._is_config_file_change(uri):
                 # This URI has no recognised doc extension — treat as a
                 # directory-level event and flag for a debounced full workspace sync.
-                self._full_sync_pending = True
-                self.dirty_documents[uri] = time.time()
                 if change.get("type") == 3:  # Directory deleted
                     prefix = uri.rstrip("/") + "/"
+
+                    # ── LSP-FIX-019: Fast Ghost Clearing ─────────────────────
+                    # Emit publishDiagnostics [] for every active-diagnostic URI
+                    # that falls under the deleted directory — **before** setting
+                    # _full_sync_pending.  This clears the PROBLEMS panel
+                    # instantaneously (O(A), A = |file_diagnostics|), independently
+                    # of how long the subsequent Full Sync takes.
+                    # Constraint: must not block the event loop (no filesystem I/O).
+                    for ghost_uri in list(self.file_diagnostics):
+                        if ghost_uri == uri or ghost_uri.startswith(prefix):
+                            self.send_message(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "method": "textDocument/publishDiagnostics",
+                                    "params": {"uri": ghost_uri, "diagnostics": []},
+                                }
+                            )
+                            self.file_diagnostics.discard(ghost_uri)
+                            # Keep engine's set in sync to avoid redundant
+                            # ghost-clearing passes during the subsequent full sync.
+                            if self.engine is not None:
+                                self.engine._uris_with_active_diagnostics.discard(ghost_uri)
+
+                    # ── Cache eviction ────────────────────────────────────────
+                    # Remove child URIs from overlay and document manager so the
+                    # engine does not re-analyse stale in-memory content during
+                    # the full sync that follows.
                     if self.overlay:
                         for buf_uri in list(self.overlay.buffers.keys()):
                             if buf_uri == uri or buf_uri.startswith(prefix):
@@ -379,6 +404,9 @@ class LanguageServer:
                         if doc_uri == uri or doc_uri.startswith(prefix):
                             self.documents.documents.pop(doc_uri, None)
                             self.dirty_documents.pop(doc_uri, None)
+
+                self._full_sync_pending = True
+                self.dirty_documents[uri] = time.time()
                 continue
 
         # Hot-reload configuration if any watched config file changed
