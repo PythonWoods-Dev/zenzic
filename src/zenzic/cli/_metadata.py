@@ -118,6 +118,13 @@ COMMANDS: tuple[CommandMeta, ...] = (
         long_help="Introspect the Zenzic scanner arsenal and plugin registry.",
         usage_hint="Try 'zenzic inspect --help' for options.",
     ),
+    CommandMeta(
+        name="env",
+        panel="Introspection",
+        short_help="Output core environment diagnostics.",
+        long_help="Output core environment diagnostics (Python executable, Zenzic version, config path).",
+        usage_hint="Try 'zenzic env --help' for options.",
+    ),
 )
 
 

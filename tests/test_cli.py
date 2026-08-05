@@ -2061,3 +2061,38 @@ def test_check_all_only_filter_excludes_z118(
         catch_exceptions=False,
     )
     assert "Z118" not in result.output
+
+
+def test_env_command() -> None:
+    """Verify zenzic env outputs human-readable environment diagnostics."""
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["env"])
+    assert result.exit_code == 0
+    assert "Zenzic Environment Diagnostics" in result.stdout
+    assert "Zenzic Version:" in result.stdout
+    assert "Python Executable:" in result.stdout
+    assert "Zenzic Module Path:" in result.stdout
+    assert "Working Directory:" in result.stdout
+
+
+def test_env_command_json() -> None:
+    """Verify zenzic env --json outputs structured JSON environment diagnostics."""
+    import json
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["env", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "zenzic_version" in data
+    assert "python_executable" in data
+    assert "zenzic_module_path" in data
+    assert "current_working_directory" in data
+    assert "active_config_path" in data
+
