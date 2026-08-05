@@ -1853,3 +1853,60 @@ def test_filesystem_directory_move_triggers_analysis(tmp_path) -> None:
 
     finally:
         os.chdir(old_cwd)
+
+
+def test_cache_pruning_clears_ghost_diagnostics(tmp_path: Path) -> None:
+    """Verify atomic cache pruning clears stale paths and returns empty diagnostics on deletion."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    error_md = docs_dir / "error.md"
+    error_md.write_text("[self](#self)", encoding="utf-8")
+    error_uri = error_md.resolve().as_uri()
+
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.incremental import IncrementalAnalysisEngine
+    from zenzic.core.rules import AdaptiveRuleEngine
+    from zenzic.models.config import ZenzicConfig
+    from zenzic.models.vsm import VirtualBufferOverlay, build_vsm
+
+    config = ZenzicConfig()
+    rule_engine = AdaptiveRuleEngine([])
+    adapter = get_adapter(config.build_context, docs_dir, tmp_path)
+    engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_dir, tmp_path)
+
+    vsm = build_vsm(adapter, docs_dir, {error_md.resolve(): "[self](#self)"}, repo_root=tmp_path)
+    overlay = VirtualBufferOverlay(vsm)
+
+    # 1. Full sync with error.md present
+    results1 = engine.process_changes(vsm, overlay, None)
+    assert error_uri in results1
+    assert error_uri in engine._uris_with_active_diagnostics
+
+    # 2. Delete error.md from disk and run full sync
+    error_md.unlink()
+    results2 = engine.process_changes(vsm, overlay, None)
+
+    # Cache must be pruned
+    assert error_md.resolve() not in engine.md_contents_cache
+    assert error_md.resolve() not in engine.anchors_cache
+
+    # Empty diagnostic array must be emitted for ghost clearing (LSP-FIX-017)
+    assert error_uri in results2
+    assert results2[error_uri] == []
+    assert error_uri not in engine._uris_with_active_diagnostics
+
+
+def test_full_sync_pending_debouncing() -> None:
+    """Verify directory events set _full_sync_pending and use timestamped debounce."""
+    import time
+    server = LanguageServer()
+    dir_uri = "file:///fake/workspace/docs/subfolder"
+
+    now_before = time.time()
+    server._handle_file_changes([{"uri": dir_uri, "type": 1}])
+    now_after = time.time()
+
+    assert server._full_sync_pending is True
+    assert dir_uri in server.dirty_documents
+    assert now_before <= server.dirty_documents[dir_uri] <= now_after
+

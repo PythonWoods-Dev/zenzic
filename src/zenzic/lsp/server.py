@@ -63,6 +63,7 @@ class LanguageServer:
 
         # Phase 3: Debounce
         self.dirty_documents: dict[str, float] = {}
+        self._full_sync_pending: bool = False
 
         # Phase 4: VSM Integration
         self.repo_root: Path | None = None
@@ -193,6 +194,12 @@ class LanguageServer:
             if force or now - ts >= 0.3:
                 incremental_uris.add(uri)
                 del self.dirty_documents[uri]
+        if self._full_sync_pending:
+            if force or (not self.dirty_documents):
+                self._full_sync_pending = False
+                self.dirty_documents.clear()
+                self._sync_workspace_and_publish(None)
+                return
         if incremental_uris:
             self._sync_workspace_and_publish(incremental_uris)
 
@@ -358,9 +365,10 @@ class LanguageServer:
                 continue
             if path.suffix.lower() not in DOC_SUFFIXES and not self._is_config_file_change(uri):
                 # This URI has no recognised doc extension — treat as a
-                # directory-level event and fall back to a full workspace sync.
-                self._sync_workspace_and_publish(None)
-                return
+                # directory-level event and flag for a debounced full workspace sync.
+                self._full_sync_pending = True
+                self.dirty_documents[uri] = time.time()
+                continue
 
         # Hot-reload configuration if any watched config file changed
         if any(self._is_config_file_change(change.get("uri", "")) for change in changes):
@@ -426,10 +434,8 @@ class LanguageServer:
                 self.file_diagnostics.discard(uri)
                 continue  # Deleted files must NOT be re-added to dirty_documents
 
-            self.dirty_documents[uri] = 0.0
+            self.dirty_documents[uri] = time.time()
 
-        for open_uri in self.documents.documents:
-            self.dirty_documents[open_uri] = 0.0
         self._flush_dirty_documents()
 
     def handle_message(self, message: JsonRpcMessage) -> None:

@@ -17,6 +17,17 @@ def lsp() -> None:
     This command initializes the JSON-RPC server loop and binds it to
     sys.stdin.buffer and sys.stdout.buffer for editor clients.
     """
+    if sys.stdin.isatty():
+        sys.stderr.write(
+            "Zenzic Language Server (ZLS) running over stdio.\n"
+            "This command is intended for editor clients (VS Code, Neovim, Helix, Emacs).\n"
+            "Press Ctrl+C to exit.\n"
+        )
+        sys.stderr.flush()
+
     server = LanguageServer(stdin=sys.stdin.buffer, stdout=sys.stdout.buffer)
-    server.serve()
+    try:
+        server.serve()
+    except KeyboardInterrupt:
+        pass
     raise typer.Exit(code=server.exit_code)

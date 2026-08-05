@@ -213,6 +213,7 @@ class IncrementalAnalysisEngine:
         files_to_process: set[Path] = set()
 
         if changed_uris is None:
+            valid_paths: set[Path] = set()
             # Full read
             for md_file in iter_markdown_sources(self.docs_root, self.config, exclusion_manager):
                 uri = md_file.resolve().as_uri()
@@ -227,6 +228,7 @@ class IncrementalAnalysisEngine:
                 self.md_contents_cache[path] = text
                 self.anchors_cache[path] = anchors_in_file(text)
                 files_to_process.add(path)
+                valid_paths.add(path)
 
             # Static asset files (HTML, images, etc.) under docs_root
             self.static_assets_cache: set[Path] = set()
@@ -255,7 +257,15 @@ class IncrementalAnalysisEngine:
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
                         self.anchors_cache[buf_path] = anchors_in_file(buf_text)
-                        files_to_process.add(buf_path)
+                    files_to_process.add(buf_path)
+                    valid_paths.add(buf_path)
+
+            # Atomic cache pruning (LSP-FIX-017 / Zero-DBT):
+            # Remove stale deleted paths from caches so phantom routes are not created.
+            stale_paths = set(self.md_contents_cache.keys()) - valid_paths
+            for stale_path in stale_paths:
+                self.md_contents_cache.pop(stale_path, None)
+                self.anchors_cache.pop(stale_path, None)
         else:
             # Incremental read
             for uri in changed_uris:
