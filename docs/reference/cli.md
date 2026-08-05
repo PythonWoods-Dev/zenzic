@@ -168,6 +168,45 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | :--- | :--- | :--- |
     | `JSON-RPC 2.0 (stdio)` | VS Code, Neovim, Emacs, Zed | Language server process executed by editor extension infrastructure. |
 
+    **Usage & Diagnostics Examples:**
+    ```bash title="Terminal"
+    # Verify LSP server response over stdio using an inline JSON-RPC shutdown request (exact byte length 44)
+    printf 'Content-Length: 44\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"shutdown"}' | zenzic lsp
+    ```
+
+    ??? info "Interactive TTY Behavior"
+        When `zenzic lsp` is launched directly in an interactive terminal shell (without stdin piping), it detects a TTY, displays an informational notice on `stderr`, and waits for `Ctrl+C` to exit cleanly. Editor clients launch `zenzic lsp` in background non-TTY pipes.
+
+=== "zenzic env"
+
+    Output core environment diagnostics to assist in debugging path resolution and runtime configuration issues in CI/CD or tool integrations:
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--json` | — | `false` | Outputs environment diagnostics in a single machine-readable JSON object on `stdout`. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Display environment diagnostics in human-readable format
+    zenzic env
+
+    # Emit machine-readable JSON object
+    zenzic env --json
+    ```
+
+    ??? info "JSON Output Schema (`--json`)"
+        When `--json` is specified, `zenzic env` emits a single JSON object on `stdout` reporting the Zenzic version, Python executable path, Zenzic module path, current working directory, and resolved active configuration path.
+
+        ```json
+        {
+          "zenzic_version": "<version>",
+          "python_executable": "/usr/bin/python3",
+          "zenzic_module_path": "/usr/lib/python3/site-packages/zenzic/__init__.py",
+          "current_working_directory": "/workspace/my-project",
+          "active_config_path": "/workspace/my-project/.zenzic.toml"
+        }
+        ```
+
 ---
 
 ## Shared Execution Flags

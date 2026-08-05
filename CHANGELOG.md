@@ -9,11 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.27.2] - 2026-08-05
+
+### Added
+- **Environment Diagnostics CLI (`zenzic env`)**: Added a transport-agnostic CLI command (`zenzic env` and `zenzic env --json`) that outputs core runtime diagnostics (Zenzic version, Python executable path, Zenzic module path, working directory, and active configuration file path) to streamline debugging path resolution issues without coupling to specific editors or LSP clients (**ADR-075 Radical Unawareness**).
 
 ### Fixed
-- **LSP Ghost Diagnostics (LSP-FIX-017)**: The `IncrementalAnalysisEngine` now explicitly tracks URIs with active diagnostics and emits empty arrays (`[]`) during full syncs for files that have been deleted or moved out of the Virtual Site Map (VSM), eliminating ghost errors in the editor.
-- **LSP Filesystem Synchronization**: The LSP server now correctly handles directory-level `workspace/didChangeWatchedFiles` events (e.g., moving or deleting entire folders). Directory events instantly trigger a deterministic full workspace sync, ensuring the editor's diagnostic state perfectly mirrors the filesystem without requiring files to be opened.
+- **LSP Event Coalescing & Uniform Debouncing**: Applied a uniform 300ms debounce buffer to watched file notifications (`workspace/didChangeWatchedFiles`). Directory events now flag pending full syncs rather than executing synchronous rebuilds, eliminating $O(M \cdot N)$ redundant AST parses, execution latency, and memory spikes during bulk directory copies.
+- **Ghost Diagnostics Fix via Atomic Cache Pruning**: Implemented atomic cache pruning in `IncrementalAnalysisEngine.process_changes()` during full workspace syncs. Stale deleted paths are automatically evicted from `md_contents_cache` and `anchors_cache`, enabling deterministic empty diagnostic array (`[]`) emission for deleted files and directories in compliance with **LSP-FIX-017 State Hygiene**.
 
 ## [0.27.1] - 2026-08-05
 
