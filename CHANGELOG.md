@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-08-05
+
 ### Added
 
 - **Environment Diagnostics CLI (`zenzic env`)**: Added a transport-agnostic CLI command (`zenzic env` and `zenzic env --json`) that outputs core runtime diagnostics (Zenzic version, Python executable path, Zenzic module path, working directory, and active configuration file path) to streamline debugging path resolution issues without coupling to specific editors or LSP clients (**ADR-075 Radical Unawareness**).
