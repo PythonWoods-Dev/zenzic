@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **LSP Ghost Diagnostics (LSP-FIX-017)**: The `IncrementalAnalysisEngine` now explicitly tracks URIs with active diagnostics and emits empty arrays (`[]`) during full syncs for files that have been deleted or moved out of the Virtual Site Map (VSM), eliminating ghost errors in the editor.
+- **LSP Filesystem Synchronization**: The LSP server now correctly handles directory-level `workspace/didChangeWatchedFiles` events (e.g., moving or deleting entire folders). Directory events instantly trigger a deterministic full workspace sync, ensuring the editor's diagnostic state perfectly mirrors the filesystem without requiring files to be opened.
+
 ## [0.27.1] - 2026-08-05
 
 ### Fixed

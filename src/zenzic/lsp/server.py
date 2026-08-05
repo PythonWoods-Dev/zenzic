@@ -336,6 +336,32 @@ class LanguageServer:
 
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
         """Incrementally update file caches and trigger revalidation, hot-reloading config on changes."""
+        # Directory-event fallback (ADR-075 / Mirror Law):
+        # When VS Code emits a watched-files event whose URI points to a
+        # directory (no recognised doc extension), it signals a structural
+        # filesystem change — typically a directory move, rename, or bulk
+        # creation.  The server must NOT attempt to traverse the filesystem or
+        # inspect engine internals to synthesise per-file events (separation of
+        # concerns).  Instead, we delegate to a full workspace sync, which
+        # instructs the Core Engine to rebuild the VSM from scratch.  The engine
+        # will then emit empty-diagnostic arrays for any previously-active URIs
+        # that have disappeared from the VSM, satisfying LSP-FIX-017.
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        for change in changes:
+            uri = change.get("uri", "")
+            if not uri.startswith("file://"):
+                continue
+            try:
+                path = uri_to_path(uri)
+            except Exception:
+                continue
+            if path.suffix.lower() not in DOC_SUFFIXES and not self._is_config_file_change(uri):
+                # This URI has no recognised doc extension — treat as a
+                # directory-level event and fall back to a full workspace sync.
+                self._sync_workspace_and_publish(None)
+                return
+
         # Hot-reload configuration if any watched config file changed
         if any(self._is_config_file_change(change.get("uri", "")) for change in changes):
             from zenzic.core.adapters._factory import clear_adapter_cache
@@ -572,7 +598,13 @@ class LanguageServer:
         # Serialize at transport boundary and publish via JSON-RPC
         # to_lsp_dict() is the ONLY serialization site in the codebase
         for uri, typed_diags in results.items():
-            self.file_diagnostics.add(uri)
+            # file_diagnostics tracks URIs with *active* (non-empty) diagnostics.
+            # Discard when the list is empty so ghost-clearing broadcasts are not
+            # double-emitted on the next full rebuild (LSP-FIX-017 correctness).
+            if typed_diags:
+                self.file_diagnostics.add(uri)
+            else:
+                self.file_diagnostics.discard(uri)
             self.send_message(
                 {
                     "jsonrpc": "2.0",

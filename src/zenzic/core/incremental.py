@@ -116,6 +116,10 @@ class IncrementalAnalysisEngine:
         self.anchors_cache: dict[Path, set[str]] = {}
         self._use_directory_urls: bool = self._resolve_use_directory_urls()
         self._initialized: bool = False
+        # ADR-075 / LSP-FIX-017: tracks which file URIs currently have at least
+        # one active diagnostic in this engine's last analysis cycle.
+        # Semantically pure — no knowledge of LSP transport or "publishing".
+        self._uris_with_active_diagnostics: set[str] = set()
 
     def _resolve_use_directory_urls(self) -> bool:
         """Resolve canonical URL mode through the public adapter contract."""
@@ -358,6 +362,29 @@ class IncrementalAnalysisEngine:
                     break
 
             results[uri] = typed_diags
+
+        # 6. Ghost diagnostic clearing (LSP-FIX-017 — engine side)
+        # On a full workspace sync, detect URIs that previously had active
+        # diagnostics but whose backing file has since left the VSM (deleted,
+        # moved, or excluded).  Injecting an empty list into ``results``
+        # signals the transport layer to clear them from the client without
+        # any additional logic there.
+        # This is intentionally skipped on incremental syncs (changed_uris is
+        # not None) because a targeted incremental pass cannot authoritatively
+        # determine that an *unrelated* file is gone — only a full rebuild can.
+        if changed_uris is None:
+            for ghost_uri in list(self._uris_with_active_diagnostics):
+                if ghost_uri not in results:
+                    ghost_path = _uri_to_path(ghost_uri).resolve()
+                    if ghost_path not in self.md_contents_cache:
+                        # File is gone from the analysis graph — emit empty list
+                        results[ghost_uri] = []
+
+        # Update the active-diagnostic URI set for the next cycle.
+        # Only URIs with at least one diagnostic are considered "active".
+        self._uris_with_active_diagnostics = {
+            uri for uri, diags in results.items() if diags
+        }
 
         return results
 
