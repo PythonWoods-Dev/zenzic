@@ -246,7 +246,7 @@ class IncrementalAnalysisEngine:
                         continue
                     self.static_assets_cache.add(file_path.resolve())
 
-            # Process open buffers not already cached (virtual or out-of-bounds)
+            # Process open buffers not already cached (virtual or out-of-bounds).
             for buf_uri, buf_text in overlay.buffers.items():
                 if buf_uri.startswith("file://"):
                     buf_path = _uri_to_path(buf_uri).resolve()

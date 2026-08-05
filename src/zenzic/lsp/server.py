@@ -15,6 +15,7 @@ from typing import Any, BinaryIO, TypedDict, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from zenzic import __version__
 from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.exclusion import LayeredExclusionManager
@@ -368,6 +369,16 @@ class LanguageServer:
                 # directory-level event and flag for a debounced full workspace sync.
                 self._full_sync_pending = True
                 self.dirty_documents[uri] = time.time()
+                if change.get("type") == 3:  # Directory deleted
+                    prefix = uri.rstrip("/") + "/"
+                    if self.overlay:
+                        for buf_uri in list(self.overlay.buffers.keys()):
+                            if buf_uri == uri or buf_uri.startswith(prefix):
+                                self.overlay.remove(buf_uri)
+                    for doc_uri in list(self.documents.documents.keys()):
+                        if doc_uri == uri or doc_uri.startswith(prefix):
+                            self.documents.documents.pop(doc_uri, None)
+                            self.dirty_documents.pop(doc_uri, None)
                 continue
 
         # Hot-reload configuration if any watched config file changed
@@ -406,7 +417,7 @@ class LanguageServer:
             if change_type in (1, 2):  # Created or Changed
                 try:
                     text = file_path.read_text(encoding="utf-8")
-                    if self.overlay:
+                    if self.overlay and uri in self.documents.documents:
                         self.overlay.update(uri, text)
                     if self.engine is not None:
                         self.engine.update_file_cache(file_path, text)
@@ -466,7 +477,7 @@ class LanguageServer:
                         "hoverProvider": True,
                         "codeActionProvider": True,
                     },
-                    "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
+                    "serverInfo": {"name": "Zenzic Language Server", "version": __version__},
                 },
             )
 
@@ -525,7 +536,7 @@ class LanguageServer:
             if uri in self.documents.documents:
                 if self.overlay:
                     self.overlay.update(uri, self.documents.documents[uri])
-                self.dirty_documents[uri] = time.time()
+                self.dirty_documents[uri] = 0.0
         elif method == "textDocument/didChange":
             uri = params.get("textDocument", {}).get("uri", "")
             if not (
@@ -573,15 +584,16 @@ class LanguageServer:
 
         if not self.adapter:
             self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
-            if self.vsm is None:
-                self.vsm = VirtualSiteMap()
 
-            assert isinstance(self.vsm, VirtualSiteMap)
+        if self.vsm is None:
+            self.vsm = VirtualSiteMap()
 
-            if self.overlay is None:
-                self.overlay = VirtualBufferOverlay(self.vsm)
-                for open_uri, open_text in self.documents.documents.items():
-                    self.overlay.update(open_uri, open_text)
+        assert isinstance(self.vsm, VirtualSiteMap)
+
+        if self.overlay is None:
+            self.overlay = VirtualBufferOverlay(self.vsm)
+            for open_uri, open_text in self.documents.documents.items():
+                self.overlay.update(open_uri, open_text)
 
         assert isinstance(self.vsm, VirtualSiteMap)
 

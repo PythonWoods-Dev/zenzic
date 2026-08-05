@@ -1910,3 +1910,41 @@ def test_full_sync_pending_debouncing() -> None:
     assert dir_uri in server.dirty_documents
     assert now_before <= server.dirty_documents[dir_uri] <= now_after
 
+
+def test_directory_deletion_evicts_overlay_and_clears_diagnostics(tmp_path: Path) -> None:
+    """Verify that deleting a folder evicts child buffers from overlay/documents and emits diagnostics=[]."""
+    from zenzic.core.scanner import _build_rule_engine
+    from zenzic.models.config import ZenzicConfig
+
+    docs_dir = tmp_path / "docs"
+    example_dir = docs_dir / "example"
+    example_dir.mkdir(parents=True)
+    err_file = example_dir / "err.md"
+    err_file.write_text("[self](#self)")
+    err_uri = err_file.resolve().as_uri()
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server.config, _ = ZenzicConfig.load(tmp_path)
+    server.rule_engine = _build_rule_engine(server.config)
+    server._build_vsm_sync()
+
+    # Simulate creation of folder contents
+    server._handle_file_changes([
+        {"uri": example_dir.resolve().as_uri(), "type": 1},
+        {"uri": err_uri, "type": 1},
+    ])
+    server._flush_dirty_documents(force=True)
+    assert err_uri in server.file_diagnostics
+
+    # Simulate deletion of directory
+    import shutil
+    shutil.rmtree(example_dir)
+    server._handle_file_changes([
+        {"uri": example_dir.resolve().as_uri(), "type": 3},
+    ])
+    server._flush_dirty_documents(force=True)
+
+    assert err_uri not in server.documents.documents
+    assert err_uri not in server.file_diagnostics
+

@@ -16,7 +16,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **LSP Event Coalescing & Uniform Debouncing**: Applied a uniform 300ms debounce buffer to watched file notifications (`workspace/didChangeWatchedFiles`). Directory events now flag pending full syncs rather than executing synchronous rebuilds, eliminating $O(M \cdot N)$ redundant AST parses, execution latency, and memory spikes during bulk directory copies.
-- **Ghost Diagnostics Fix via Atomic Cache Pruning**: Implemented atomic cache pruning in `IncrementalAnalysisEngine.process_changes()` during full workspace syncs. Stale deleted paths are automatically evicted from `md_contents_cache` and `anchors_cache`, enabling deterministic empty diagnostic array (`[]`) emission for deleted files and directories in compliance with **LSP-FIX-017 State Hygiene**.
+- **Ghost Diagnostics Fix & Directory Eviction**: Implemented atomic cache pruning in `IncrementalAnalysisEngine.process_changes()` and directory-level buffer/document eviction in `LanguageServer._handle_file_changes()`. Deleting a directory now automatically evicts all contained child buffers from `overlay.buffers` and broadcasts `[]` empty diagnostic arrays to immediately clear the editor's PROBLEMS panel (**LSP-FIX-017 State Hygiene**).
+- **LSP Server Version Reporting**: Replaced static `"0.21.0"` string in LSP `initialize` response with dynamic `__version__` from `zenzic`.
 
 ## [0.27.1] - 2026-08-05
 
