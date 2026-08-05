@@ -2082,6 +2082,7 @@ def test_env_command() -> None:
 def test_env_command_json() -> None:
     """Verify zenzic env --json outputs structured JSON environment diagnostics."""
     import json
+
     from typer.testing import CliRunner
 
     from zenzic.main import app
@@ -2095,4 +2096,3 @@ def test_env_command_json() -> None:
     assert "zenzic_module_path" in data
     assert "current_working_directory" in data
     assert "active_config_path" in data
-

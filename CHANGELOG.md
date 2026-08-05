@@ -12,9 +12,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+
 - **Environment Diagnostics CLI (`zenzic env`)**: Added a transport-agnostic CLI command (`zenzic env` and `zenzic env --json`) that outputs core runtime diagnostics (Zenzic version, Python executable path, Zenzic module path, working directory, and active configuration file path) to streamline debugging path resolution issues without coupling to specific editors or LSP clients (**ADR-075 Radical Unawareness**).
 
 ### Fixed
+
 - **LSP Event Coalescing & Uniform Debouncing**: Applied a uniform 300ms debounce buffer to watched file notifications (`workspace/didChangeWatchedFiles`). Directory events now flag pending full syncs rather than executing synchronous rebuilds, eliminating $O(M \cdot N)$ redundant AST parses, execution latency, and memory spikes during bulk directory copies.
 - **Ghost Diagnostics Fix & Directory Eviction**: Implemented atomic cache pruning in `IncrementalAnalysisEngine.process_changes()` and directory-level buffer/document eviction in `LanguageServer._handle_file_changes()`. Deleting a directory now automatically evicts all contained child buffers from `overlay.buffers` and broadcasts `[]` empty diagnostic arrays to immediately clear the editor's PROBLEMS panel (**LSP-FIX-017 State Hygiene**).
 - **LSP Server Version Reporting**: Replaced static `"0.21.0"` string in LSP `initialize` response with dynamic `__version__` from `zenzic`.

@@ -4,6 +4,7 @@
 
 import io
 import json
+from pathlib import Path
 
 from zenzic.lsp.documents import DocumentManager
 from zenzic.lsp.server import LanguageServer
@@ -1716,9 +1717,9 @@ def test_lsp_fix_017_ghost_diagnostic_clearing(tmp_path) -> None:
             m for m in phase1_msgs if m.get("method") == "textDocument/publishDiagnostics"
         ]
         ghost_md_pub = [p for p in phase1_pub if p["params"]["uri"] == file_uri]
-        assert any(
-            p["params"]["diagnostics"] for p in ghost_md_pub
-        ), "Pre-condition: ghost.md must have active diagnostics after full sync"
+        assert any(p["params"]["diagnostics"] for p in ghost_md_pub), (
+            "Pre-condition: ghost.md must have active diagnostics after full sync"
+        )
 
         # Phase 2: simulate the file being deleted externally
         error_file.unlink()  # Remove from disk so the engine won't find it on next sync
@@ -1749,8 +1750,7 @@ def test_lsp_fix_017_ghost_diagnostic_clearing(tmp_path) -> None:
         # LSP-FIX-017: there MUST be at least one publishDiagnostics with empty
         # array for the deleted URI — this clears the ghost from the Problems tab.
         empty_clear_found = any(
-            m["params"]["uri"] == file_uri and m["params"]["diagnostics"] == []
-            for m in phase2_pub
+            m["params"]["uri"] == file_uri and m["params"]["diagnostics"] == [] for m in phase2_pub
         )
         assert empty_clear_found, (
             f"LSP-FIX-017 violation: no publishDiagnostics with diagnostics=[] "
@@ -1842,7 +1842,8 @@ def test_filesystem_directory_move_triggers_analysis(tmp_path) -> None:
         # The full sync triggered by the directory event MUST produce diagnostics
         # for error.md without the user opening the file.
         error_md_diags = [
-            m for m in phase2_pub
+            m
+            for m in phase2_pub
             if m["params"]["uri"] == error_md_uri and m["params"]["diagnostics"]
         ]
         assert error_md_diags, (
@@ -1899,6 +1900,7 @@ def test_cache_pruning_clears_ghost_diagnostics(tmp_path: Path) -> None:
 def test_full_sync_pending_debouncing() -> None:
     """Verify directory events set _full_sync_pending and use timestamped debounce."""
     import time
+
     server = LanguageServer()
     dir_uri = "file:///fake/workspace/docs/subfolder"
 
@@ -1930,19 +1932,24 @@ def test_directory_deletion_evicts_overlay_and_clears_diagnostics(tmp_path: Path
     server._build_vsm_sync()
 
     # Simulate creation of folder contents
-    server._handle_file_changes([
-        {"uri": example_dir.resolve().as_uri(), "type": 1},
-        {"uri": err_uri, "type": 1},
-    ])
+    server._handle_file_changes(
+        [
+            {"uri": example_dir.resolve().as_uri(), "type": 1},
+            {"uri": err_uri, "type": 1},
+        ]
+    )
     server._flush_dirty_documents(force=True)
     assert err_uri in server.file_diagnostics
 
     # Simulate deletion of directory
     import shutil
+
     shutil.rmtree(example_dir)
-    server._handle_file_changes([
-        {"uri": example_dir.resolve().as_uri(), "type": 3},
-    ])
+    server._handle_file_changes(
+        [
+            {"uri": example_dir.resolve().as_uri(), "type": 3},
+        ]
+    )
     server._flush_dirty_documents(force=True)
 
     assert err_uri not in server.documents.documents
@@ -1971,16 +1978,34 @@ def test_initialized_registers_directory_watcher() -> None:
         (tmp_path / "docs" / "index.md").write_text("# Home\n")
 
         in_stream = io.BytesIO()
-        in_stream.write(encode_rpc({
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"rootUri": tmp_path.as_uri()},
-        }))
-        in_stream.write(encode_rpc({
-            "jsonrpc": "2.0", "method": "initialized", "params": {},
-        }))
-        in_stream.write(encode_rpc({
-            "jsonrpc": "2.0", "method": "exit", "params": {},
-        }))
+        in_stream.write(
+            encode_rpc(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"rootUri": tmp_path.as_uri()},
+                }
+            )
+        )
+        in_stream.write(
+            encode_rpc(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "initialized",
+                    "params": {},
+                }
+            )
+        )
+        in_stream.write(
+            encode_rpc(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "exit",
+                    "params": {},
+                }
+            )
+        )
         in_stream.seek(0)
 
         out = io.BytesIO()
@@ -1999,10 +2024,7 @@ def test_initialized_registers_directory_watcher() -> None:
                 except Exception:
                     pass
 
-        reg_msgs = [
-            m for m in all_messages
-            if m.get("method") == "client/registerCapability"
-        ]
+        reg_msgs = [m for m in all_messages if m.get("method") == "client/registerCapability"]
         assert reg_msgs, "No client/registerCapability message sent during initialized"
 
         registered_patterns = [

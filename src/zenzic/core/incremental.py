@@ -392,9 +392,7 @@ class IncrementalAnalysisEngine:
 
         # Update the active-diagnostic URI set for the next cycle.
         # Only URIs with at least one diagnostic are considered "active".
-        self._uris_with_active_diagnostics = {
-            uri for uri, diags in results.items() if diags
-        }
+        self._uris_with_active_diagnostics = {uri for uri, diags in results.items() if diags}
 
         return results
 

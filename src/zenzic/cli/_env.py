@@ -33,7 +33,7 @@ def _find_active_config_path(cwd: Path) -> Path | None:
             if sys.version_info >= (3, 11):
                 import tomllib
             else:
-                import tomli as tomllib  # type: ignore[no-redef]
+                import tomli as tomllib
             with pyproject.open("rb") as f:
                 data = tomllib.load(f)
             if "tool" in data and "zenzic" in data["tool"]:
@@ -80,4 +80,4 @@ def env(
     if config_path:
         console.print(f"  [dim]Active Config:[/] {env_data['active_config_path']}")
     else:
-        console.print(f"  [dim]Active Config:[/] [yellow]None (using built-in defaults)[/]")
+        console.print("  [dim]Active Config:[/] [yellow]None (using built-in defaults)[/]")
