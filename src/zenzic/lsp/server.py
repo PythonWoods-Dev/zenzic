@@ -15,6 +15,7 @@ from typing import Any, BinaryIO, TypedDict, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from zenzic import __version__
 from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.exclusion import LayeredExclusionManager
@@ -63,6 +64,7 @@ class LanguageServer:
 
         # Phase 3: Debounce
         self.dirty_documents: dict[str, float] = {}
+        self._full_sync_pending: bool = False
 
         # Phase 4: VSM Integration
         self.repo_root: Path | None = None
@@ -193,6 +195,12 @@ class LanguageServer:
             if force or now - ts >= 0.3:
                 incremental_uris.add(uri)
                 del self.dirty_documents[uri]
+        if self._full_sync_pending:
+            if force or (not self.dirty_documents):
+                self._full_sync_pending = False
+                self.dirty_documents.clear()
+                self._sync_workspace_and_publish(None)
+                return
         if incremental_uris:
             self._sync_workspace_and_publish(incremental_uris)
 
@@ -336,6 +344,71 @@ class LanguageServer:
 
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
         """Incrementally update file caches and trigger revalidation, hot-reloading config on changes."""
+        # Directory-event fallback (ADR-075 / Mirror Law):
+        # When VS Code emits a watched-files event whose URI points to a
+        # directory (no recognised doc extension), it signals a structural
+        # filesystem change — typically a directory move, rename, or bulk
+        # creation.  The server must NOT attempt to traverse the filesystem or
+        # inspect engine internals to synthesise per-file events (separation of
+        # concerns).  Instead, we delegate to a full workspace sync, which
+        # instructs the Core Engine to rebuild the VSM from scratch.  The engine
+        # will then emit empty-diagnostic arrays for any previously-active URIs
+        # that have disappeared from the VSM, satisfying LSP-FIX-017.
+        from zenzic.core.discovery import DOC_SUFFIXES
+
+        for change in changes:
+            uri = change.get("uri", "")
+            if not uri.startswith("file://"):
+                continue
+            try:
+                path = uri_to_path(uri)
+            except Exception:
+                continue
+            if path.suffix.lower() not in DOC_SUFFIXES and not self._is_config_file_change(uri):
+                # This URI has no recognised doc extension — treat as a
+                # directory-level event and flag for a debounced full workspace sync.
+                if change.get("type") == 3:  # Directory deleted
+                    prefix = uri.rstrip("/") + "/"
+
+                    # ── LSP-FIX-019: Fast Ghost Clearing ─────────────────────
+                    # Emit publishDiagnostics [] for every active-diagnostic URI
+                    # that falls under the deleted directory — **before** setting
+                    # _full_sync_pending.  This clears the PROBLEMS panel
+                    # instantaneously (O(A), A = |file_diagnostics|), independently
+                    # of how long the subsequent Full Sync takes.
+                    # Constraint: must not block the event loop (no filesystem I/O).
+                    for ghost_uri in list(self.file_diagnostics):
+                        if ghost_uri == uri or ghost_uri.startswith(prefix):
+                            self.send_message(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "method": "textDocument/publishDiagnostics",
+                                    "params": {"uri": ghost_uri, "diagnostics": []},
+                                }
+                            )
+                            self.file_diagnostics.discard(ghost_uri)
+                            # Keep engine's set in sync to avoid redundant
+                            # ghost-clearing passes during the subsequent full sync.
+                            if self.engine is not None:
+                                self.engine._uris_with_active_diagnostics.discard(ghost_uri)
+
+                    # ── Cache eviction ────────────────────────────────────────
+                    # Remove child URIs from overlay and document manager so the
+                    # engine does not re-analyse stale in-memory content during
+                    # the full sync that follows.
+                    if self.overlay:
+                        for buf_uri in list(self.overlay.buffers.keys()):
+                            if buf_uri == uri or buf_uri.startswith(prefix):
+                                self.overlay.remove(buf_uri)
+                    for doc_uri in list(self.documents.documents.keys()):
+                        if doc_uri == uri or doc_uri.startswith(prefix):
+                            self.documents.documents.pop(doc_uri, None)
+                            self.dirty_documents.pop(doc_uri, None)
+
+                self._full_sync_pending = True
+                self.dirty_documents[uri] = time.time()
+                continue
+
         # Hot-reload configuration if any watched config file changed
         if any(self._is_config_file_change(change.get("uri", "")) for change in changes):
             from zenzic.core.adapters._factory import clear_adapter_cache
@@ -372,7 +445,7 @@ class LanguageServer:
             if change_type in (1, 2):  # Created or Changed
                 try:
                     text = file_path.read_text(encoding="utf-8")
-                    if self.overlay:
+                    if self.overlay and uri in self.documents.documents:
                         self.overlay.update(uri, text)
                     if self.engine is not None:
                         self.engine.update_file_cache(file_path, text)
@@ -400,10 +473,8 @@ class LanguageServer:
                 self.file_diagnostics.discard(uri)
                 continue  # Deleted files must NOT be re-added to dirty_documents
 
-            self.dirty_documents[uri] = 0.0
+            self.dirty_documents[uri] = time.time()
 
-        for open_uri in self.documents.documents:
-            self.dirty_documents[open_uri] = 0.0
         self._flush_dirty_documents()
 
     def handle_message(self, message: JsonRpcMessage) -> None:
@@ -434,7 +505,7 @@ class LanguageServer:
                         "hoverProvider": True,
                         "codeActionProvider": True,
                     },
-                    "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
+                    "serverInfo": {"name": "Zenzic Language Server", "version": __version__},
                 },
             )
 
@@ -447,8 +518,15 @@ class LanguageServer:
             if self.repo_root:
                 self._build_vsm_sync()
                 watchers: list[dict[str, str]] = [
+                    # File-level watchers: individual .md/.mdx changes
                     {"globPattern": "**/*.md"},
                     {"globPattern": "**/*.mdx"},
+                    # Directory-level watcher (LSP-FIX-018): catches folder
+                    # creation, rename, and deletion events that VS Code does
+                    # NOT surface via the file-only patterns above.
+                    # Without this, deleting a folder leaves ghost diagnostics
+                    # in the editor's PROBLEMS panel.
+                    {"globPattern": "**/"},
                     {"globPattern": "**/.zenzic.toml"},
                     {"globPattern": "**/.zenzic.local.toml"},
                 ]
@@ -473,9 +551,27 @@ class LanguageServer:
                     }
                 )
                 self._sync_workspace_and_publish()
+                # Emit core version to VS Code Output panel (LSP-INFO-001).
+                # This is the canonical way to verify which core binary is active
+                # without leaving the editor. Visible via Output → Zenzic Language Server.
+                self.send_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "window/logMessage",
+                        "params": {
+                            "type": 3,  # Info
+                            "message": (
+                                f"Zenzic Language Server v{__version__} started. "
+                                f"Core binary: {sys.executable}"
+                            ),
+                        },
+                    }
+                )
 
         elif method == "workspace/didChangeWatchedFiles":
-            self._handle_file_changes(params.get("changes", []))
+            changes = params.get("changes", [])
+            self._handle_file_changes(changes)
+
         elif method == "shutdown":
             self.shutdown_received = True
             if msg_id is not None:
@@ -493,7 +589,7 @@ class LanguageServer:
             if uri in self.documents.documents:
                 if self.overlay:
                     self.overlay.update(uri, self.documents.documents[uri])
-                self.dirty_documents[uri] = time.time()
+                self.dirty_documents[uri] = 0.0
         elif method == "textDocument/didChange":
             uri = params.get("textDocument", {}).get("uri", "")
             if not (
@@ -541,15 +637,16 @@ class LanguageServer:
 
         if not self.adapter:
             self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
-            if self.vsm is None:
-                self.vsm = VirtualSiteMap()
 
-            assert isinstance(self.vsm, VirtualSiteMap)
+        if self.vsm is None:
+            self.vsm = VirtualSiteMap()
 
-            if self.overlay is None:
-                self.overlay = VirtualBufferOverlay(self.vsm)
-                for open_uri, open_text in self.documents.documents.items():
-                    self.overlay.update(open_uri, open_text)
+        assert isinstance(self.vsm, VirtualSiteMap)
+
+        if self.overlay is None:
+            self.overlay = VirtualBufferOverlay(self.vsm)
+            for open_uri, open_text in self.documents.documents.items():
+                self.overlay.update(open_uri, open_text)
 
         assert isinstance(self.vsm, VirtualSiteMap)
 
@@ -572,7 +669,13 @@ class LanguageServer:
         # Serialize at transport boundary and publish via JSON-RPC
         # to_lsp_dict() is the ONLY serialization site in the codebase
         for uri, typed_diags in results.items():
-            self.file_diagnostics.add(uri)
+            # file_diagnostics tracks URIs with *active* (non-empty) diagnostics.
+            # Discard when the list is empty so ghost-clearing broadcasts are not
+            # double-emitted on the next full rebuild (LSP-FIX-017 correctness).
+            if typed_diags:
+                self.file_diagnostics.add(uri)
+            else:
+                self.file_diagnostics.discard(uri)
             self.send_message(
                 {
                     "jsonrpc": "2.0",

@@ -4,6 +4,7 @@
 
 import io
 import json
+from pathlib import Path
 
 from zenzic.lsp.documents import DocumentManager
 from zenzic.lsp.server import LanguageServer
@@ -1634,3 +1635,406 @@ def test_lsp_code_action_suppression(tmp_path) -> None:
     titles = [a["title"] for a in actions]
     assert "Fix Z108: Inject placeholder link text ('TODO')" in titles
     assert "Suppress Z108 for this line" in titles
+
+
+# ─── LSP-FIX-017 & Filesystem Truth tests ─────────────────────────────────────
+
+
+def _encode_rpc(msg: dict) -> bytes:
+    """Encode a single JSON-RPC 2.0 message as LSP wire format."""
+    body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+    header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
+    return header + body
+
+
+def _parse_lsp_messages(raw: bytes) -> list[dict]:
+    """Parse all JSON-RPC messages from a raw LSP byte stream."""
+    messages: list[dict] = []
+    parts = raw.split(b"\r\n\r\n")
+    for part in parts:
+        # Each part is either a header or a body fragment; the body follows
+        # immediately after the double-CRLF separator.
+        body_candidate = part.split(b"Content-Length")[0].strip()
+        if not body_candidate:
+            continue
+        try:
+            messages.append(json.loads(body_candidate.decode("utf-8")))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+    return messages
+
+
+def test_lsp_fix_017_ghost_diagnostic_clearing(tmp_path) -> None:
+    """LSP-FIX-017: deleting a watched file MUST broadcast publishDiagnostics
+    with an empty diagnostics array, clearing ghost errors from the Problems tab.
+
+    Sequence:
+    1. initialize / initialized (triggers full sync with a file that has errors)
+    2. workspace/didChangeWatchedFiles — type=3 (Deleted) for the erroneous file
+    3. Assert: server emits publishDiagnostics with diagnostics=[] for that URI
+    """
+    import os
+
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+
+    try:
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"', encoding="utf-8")
+
+        # Create a file with a known violation (Z107: circular self-anchor)
+        error_file = docs_dir / "ghost.md"
+        error_file.write_text("[self link](#self-link)", encoding="utf-8")
+        file_uri = error_file.resolve().as_uri()
+
+        workspace_uri = tmp_path.as_uri()
+
+        req_init = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": workspace_uri},
+        }
+        req_initialized = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+        req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
+
+        # Phase 1: full init so the engine populates _uris_with_active_diagnostics
+        in1 = io.BytesIO()
+        in1.write(_encode_rpc(req_init))
+        in1.write(_encode_rpc(req_initialized))
+        in1.write(_encode_rpc(req_exit))
+        in1.seek(0)
+
+        out1 = io.BytesIO()
+        server = LanguageServer(stdin=in1, stdout=out1)
+        server.serve()
+
+        # Confirm the engine has seen the file and produced diagnostics
+        out1.seek(0)
+        phase1_msgs = _parse_lsp_messages(out1.read())
+        phase1_pub = [
+            m for m in phase1_msgs if m.get("method") == "textDocument/publishDiagnostics"
+        ]
+        ghost_md_pub = [p for p in phase1_pub if p["params"]["uri"] == file_uri]
+        assert any(p["params"]["diagnostics"] for p in ghost_md_pub), (
+            "Pre-condition: ghost.md must have active diagnostics after full sync"
+        )
+
+        # Phase 2: simulate the file being deleted externally
+        error_file.unlink()  # Remove from disk so the engine won't find it on next sync
+
+        req_delete = {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {"changes": [{"uri": file_uri, "type": 3}]},  # 3 = Deleted
+        }
+
+        in2 = io.BytesIO()
+        in2.write(_encode_rpc(req_delete))
+        in2.write(_encode_rpc(req_exit))
+        in2.seek(0)
+
+        server.stdin = in2
+        server.exit_received = False
+        out2 = io.BytesIO()
+        server.stdout = out2
+        server.serve()
+
+        out2.seek(0)
+        phase2_msgs = _parse_lsp_messages(out2.read())
+        phase2_pub = [
+            m for m in phase2_msgs if m.get("method") == "textDocument/publishDiagnostics"
+        ]
+
+        # LSP-FIX-017: there MUST be at least one publishDiagnostics with empty
+        # array for the deleted URI — this clears the ghost from the Problems tab.
+        empty_clear_found = any(
+            m["params"]["uri"] == file_uri and m["params"]["diagnostics"] == [] for m in phase2_pub
+        )
+        assert empty_clear_found, (
+            f"LSP-FIX-017 violation: no publishDiagnostics with diagnostics=[] "
+            f"was emitted for the deleted URI {file_uri!r}. "
+            f"Ghost errors would persist in the VS Code Problems tab."
+        )
+
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_filesystem_directory_move_triggers_analysis(tmp_path) -> None:
+    """Mirror Law / Filesystem Truth: a workspace/didChangeWatchedFiles event
+    that targets a directory (no .md extension) MUST trigger a full workspace
+    sync, causing diagnostics for files inside the directory to appear in the
+    Problems tab without the user opening the files.
+
+    Sequence:
+    1. initialize / initialized (empty docs dir — no diagnostics)
+    2. Physically create docs/moved/ with an erroneous .md file
+    3. workspace/didChangeWatchedFiles — type=1 (Created) for the directory URI
+    4. Assert: server emits publishDiagnostics for the .md file inside the dir
+    """
+    import os
+
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+
+    try:
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"', encoding="utf-8")
+
+        workspace_uri = tmp_path.as_uri()
+
+        req_init = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": workspace_uri},
+        }
+        req_initialized = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+        req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
+
+        # Phase 1: initialise with an empty workspace
+        in1 = io.BytesIO()
+        in1.write(_encode_rpc(req_init))
+        in1.write(_encode_rpc(req_initialized))
+        in1.write(_encode_rpc(req_exit))
+        in1.seek(0)
+
+        out1 = io.BytesIO()
+        server = LanguageServer(stdin=in1, stdout=out1)
+        server.serve()
+
+        # Phase 2: simulate a directory being moved into docs/
+        moved_dir = docs_dir / "moved"
+        moved_dir.mkdir()
+        error_md = moved_dir / "error.md"
+        # Z107: circular self-anchor reference
+        error_md.write_text("[self](#self)", encoding="utf-8")
+        error_md_uri = error_md.resolve().as_uri()
+
+        # VS Code emits the directory URI, not the individual file URI
+        dir_uri = moved_dir.resolve().as_uri()
+        req_dir_created = {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {"changes": [{"uri": dir_uri, "type": 1}]},  # 1 = Created
+        }
+
+        in2 = io.BytesIO()
+        in2.write(_encode_rpc(req_dir_created))
+        in2.write(_encode_rpc(req_exit))
+        in2.seek(0)
+
+        server.stdin = in2
+        server.exit_received = False
+        out2 = io.BytesIO()
+        server.stdout = out2
+        server.serve()
+
+        out2.seek(0)
+        phase2_msgs = _parse_lsp_messages(out2.read())
+        phase2_pub = [
+            m for m in phase2_msgs if m.get("method") == "textDocument/publishDiagnostics"
+        ]
+
+        # The full sync triggered by the directory event MUST produce diagnostics
+        # for error.md without the user opening the file.
+        error_md_diags = [
+            m
+            for m in phase2_pub
+            if m["params"]["uri"] == error_md_uri and m["params"]["diagnostics"]
+        ]
+        assert error_md_diags, (
+            f"Mirror Law violation: directory-level Created event did not trigger "
+            f"analysis of {error_md_uri!r}. "
+            f"Problems tab would be empty until the user manually opens the file."
+        )
+
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_cache_pruning_clears_ghost_diagnostics(tmp_path: Path) -> None:
+    """Verify atomic cache pruning clears stale paths and returns empty diagnostics on deletion."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    error_md = docs_dir / "error.md"
+    error_md.write_text("[self](#self)", encoding="utf-8")
+    error_uri = error_md.resolve().as_uri()
+
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.incremental import IncrementalAnalysisEngine
+    from zenzic.core.rules import AdaptiveRuleEngine
+    from zenzic.models.config import ZenzicConfig
+    from zenzic.models.vsm import VirtualBufferOverlay, build_vsm
+
+    config = ZenzicConfig()
+    rule_engine = AdaptiveRuleEngine([])
+    adapter = get_adapter(config.build_context, docs_dir, tmp_path)
+    engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_dir, tmp_path)
+
+    vsm = build_vsm(adapter, docs_dir, {error_md.resolve(): "[self](#self)"}, repo_root=tmp_path)
+    overlay = VirtualBufferOverlay(vsm)
+
+    # 1. Full sync with error.md present
+    results1 = engine.process_changes(vsm, overlay, None)
+    assert error_uri in results1
+    assert error_uri in engine._uris_with_active_diagnostics
+
+    # 2. Delete error.md from disk and run full sync
+    error_md.unlink()
+    results2 = engine.process_changes(vsm, overlay, None)
+
+    # Cache must be pruned
+    assert error_md.resolve() not in engine.md_contents_cache
+    assert error_md.resolve() not in engine.anchors_cache
+
+    # Empty diagnostic array must be emitted for ghost clearing (LSP-FIX-017)
+    assert error_uri in results2
+    assert results2[error_uri] == []
+    assert error_uri not in engine._uris_with_active_diagnostics
+
+
+def test_full_sync_pending_debouncing() -> None:
+    """Verify directory events set _full_sync_pending and use timestamped debounce."""
+    import time
+
+    server = LanguageServer()
+    dir_uri = "file:///fake/workspace/docs/subfolder"
+
+    now_before = time.time()
+    server._handle_file_changes([{"uri": dir_uri, "type": 1}])
+    now_after = time.time()
+
+    assert server._full_sync_pending is True
+    assert dir_uri in server.dirty_documents
+    assert now_before <= server.dirty_documents[dir_uri] <= now_after
+
+
+def test_directory_deletion_evicts_overlay_and_clears_diagnostics(tmp_path: Path) -> None:
+    """Verify that deleting a folder evicts child buffers from overlay/documents and emits diagnostics=[]."""
+    from zenzic.core.scanner import _build_rule_engine
+    from zenzic.models.config import ZenzicConfig
+
+    docs_dir = tmp_path / "docs"
+    example_dir = docs_dir / "example"
+    example_dir.mkdir(parents=True)
+    err_file = example_dir / "err.md"
+    err_file.write_text("[self](#self)")
+    err_uri = err_file.resolve().as_uri()
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server.config, _ = ZenzicConfig.load(tmp_path)
+    server.rule_engine = _build_rule_engine(server.config)
+    server._build_vsm_sync()
+
+    # Simulate creation of folder contents
+    server._handle_file_changes(
+        [
+            {"uri": example_dir.resolve().as_uri(), "type": 1},
+            {"uri": err_uri, "type": 1},
+        ]
+    )
+    server._flush_dirty_documents(force=True)
+    assert err_uri in server.file_diagnostics
+
+    # Simulate deletion of directory
+    import shutil
+
+    shutil.rmtree(example_dir)
+    server._handle_file_changes(
+        [
+            {"uri": example_dir.resolve().as_uri(), "type": 3},
+        ]
+    )
+    server._flush_dirty_documents(force=True)
+
+    assert err_uri not in server.documents.documents
+    assert err_uri not in server.file_diagnostics
+
+
+def test_initialized_registers_directory_watcher() -> None:
+    """LSP-FIX-018: the ``initialized`` handshake must include a ``**/`` glob
+    pattern so VS Code sends directory-level deletion events to the server.
+    Without this pattern, deleting a folder in the explorer does NOT trigger
+    ``workspace/didChangeWatchedFiles`` for the deleted directory, causing
+    ghost diagnostics to persist in the PROBLEMS panel.
+    """
+    import io
+    import json
+    import tempfile
+    from pathlib import Path
+
+    def encode_rpc(msg: dict) -> bytes:
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "index.md").write_text("# Home\n")
+
+        in_stream = io.BytesIO()
+        in_stream.write(
+            encode_rpc(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"rootUri": tmp_path.as_uri()},
+                }
+            )
+        )
+        in_stream.write(
+            encode_rpc(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "initialized",
+                    "params": {},
+                }
+            )
+        )
+        in_stream.write(
+            encode_rpc(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "exit",
+                    "params": {},
+                }
+            )
+        )
+        in_stream.seek(0)
+
+        out = io.BytesIO()
+        server = LanguageServer(stdin=in_stream, stdout=out)
+        server.serve()
+
+        out.seek(0)
+        raw = out.read().decode("utf-8", errors="replace")
+
+        all_messages = []
+        for chunk in raw.split("\r\n\r\n"):
+            json_part = chunk.split("Content-Length")[0].strip()
+            if json_part:
+                try:
+                    all_messages.append(json.loads(json_part))
+                except Exception:
+                    pass
+
+        reg_msgs = [m for m in all_messages if m.get("method") == "client/registerCapability"]
+        assert reg_msgs, "No client/registerCapability message sent during initialized"
+
+        registered_patterns = [
+            w.get("globPattern", "")
+            for m in reg_msgs
+            for reg in m.get("params", {}).get("registrations", [])
+            for w in reg.get("registerOptions", {}).get("watchers", [])
+        ]
+
+        # LSP-FIX-018: directory watcher must be present
+        assert "**/" in registered_patterns, (
+            f"Directory watcher '**/' not found in registered patterns: {registered_patterns}"
+        )

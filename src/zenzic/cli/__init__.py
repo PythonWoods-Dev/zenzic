@@ -16,6 +16,7 @@ from ._check import (
 )
 from ._clean import clean_app
 from ._config_explain import config_app
+from ._env import env
 from ._fix import fix
 from ._guard import guard_app
 from ._inspect import inspect_app
@@ -42,6 +43,7 @@ __all__ = [
     # Standalone commands (registered in main.py)
     "score",
     "diff",
+    "env",
     "explain",
     "fix",
     "init",

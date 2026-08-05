@@ -116,6 +116,10 @@ class IncrementalAnalysisEngine:
         self.anchors_cache: dict[Path, set[str]] = {}
         self._use_directory_urls: bool = self._resolve_use_directory_urls()
         self._initialized: bool = False
+        # ADR-075 / LSP-FIX-017: tracks which file URIs currently have at least
+        # one active diagnostic in this engine's last analysis cycle.
+        # Semantically pure — no knowledge of LSP transport or "publishing".
+        self._uris_with_active_diagnostics: set[str] = set()
 
     def _resolve_use_directory_urls(self) -> bool:
         """Resolve canonical URL mode through the public adapter contract."""
@@ -209,6 +213,7 @@ class IncrementalAnalysisEngine:
         files_to_process: set[Path] = set()
 
         if changed_uris is None:
+            valid_paths: set[Path] = set()
             # Full read
             for md_file in iter_markdown_sources(self.docs_root, self.config, exclusion_manager):
                 uri = md_file.resolve().as_uri()
@@ -223,6 +228,7 @@ class IncrementalAnalysisEngine:
                 self.md_contents_cache[path] = text
                 self.anchors_cache[path] = anchors_in_file(text)
                 files_to_process.add(path)
+                valid_paths.add(path)
 
             # Static asset files (HTML, images, etc.) under docs_root
             self.static_assets_cache: set[Path] = set()
@@ -240,7 +246,7 @@ class IncrementalAnalysisEngine:
                         continue
                     self.static_assets_cache.add(file_path.resolve())
 
-            # Process open buffers not already cached (virtual or out-of-bounds)
+            # Process open buffers not already cached (virtual or out-of-bounds).
             for buf_uri, buf_text in overlay.buffers.items():
                 if buf_uri.startswith("file://"):
                     buf_path = _uri_to_path(buf_uri).resolve()
@@ -251,7 +257,15 @@ class IncrementalAnalysisEngine:
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
                         self.anchors_cache[buf_path] = anchors_in_file(buf_text)
-                        files_to_process.add(buf_path)
+                    files_to_process.add(buf_path)
+                    valid_paths.add(buf_path)
+
+            # Atomic cache pruning (LSP-FIX-017 / Zero-DBT):
+            # Remove stale deleted paths from caches so phantom routes are not created.
+            stale_paths = set(self.md_contents_cache.keys()) - valid_paths
+            for stale_path in stale_paths:
+                self.md_contents_cache.pop(stale_path, None)
+                self.anchors_cache.pop(stale_path, None)
         else:
             # Incremental read
             for uri in changed_uris:
@@ -358,6 +372,27 @@ class IncrementalAnalysisEngine:
                     break
 
             results[uri] = typed_diags
+
+        # 6. Ghost diagnostic clearing (LSP-FIX-017 — engine side)
+        # On a full workspace sync, detect URIs that previously had active
+        # diagnostics but whose backing file has since left the VSM (deleted,
+        # moved, or excluded).  Injecting an empty list into ``results``
+        # signals the transport layer to clear them from the client without
+        # any additional logic there.
+        # This is intentionally skipped on incremental syncs (changed_uris is
+        # not None) because a targeted incremental pass cannot authoritatively
+        # determine that an *unrelated* file is gone — only a full rebuild can.
+        if changed_uris is None:
+            for ghost_uri in list(self._uris_with_active_diagnostics):
+                if ghost_uri not in results:
+                    ghost_path = _uri_to_path(ghost_uri).resolve()
+                    if ghost_path not in self.md_contents_cache:
+                        # File is gone from the analysis graph — emit empty list
+                        results[ghost_uri] = []
+
+        # Update the active-diagnostic URI set for the next cycle.
+        # Only URIs with at least one diagnostic are considered "active".
+        self._uris_with_active_diagnostics = {uri for uri, diags in results.items() if diags}
 
         return results
 

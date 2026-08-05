@@ -36,6 +36,7 @@ nav:
       - Configuration Setup: how-to/initialize-configuration.md
     - Delivery Mechanisms:
       - VS Code Extension (LSP): editor/vscode.md
+      - Third-Party Editors (LSP): how-to/editor-integrations.md
       - GitHub Action (CI/CD): how-to/configure-ci-cd.md
       - GitHub Action Reference: reference/zenzic-action.md
 

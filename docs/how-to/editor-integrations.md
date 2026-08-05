@@ -1,0 +1,91 @@
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Configure Third-Party Editors (Neovim, Helix, Emacs, Zed)
+
+While Zenzic provides an official thin-client extension for VS Code, the **Zenzic Language Server (ZLS)** implements standard Language Server Protocol (LSP v3.17) over `stdio` (JSON-RPC 2.0).
+
+Any editor or IDE supporting LSP over `stdio` can launch `zenzic lsp` as a background language server process for Markdown (`.md` and `.mdx`) files.
+
+---
+
+## Editor Configuration Snippets
+
+Below are verified configuration snippets for major third-party editors supporting Language Server Protocol (LSP) over `stdio`.
+
+### Helix
+
+In your Helix configuration file (`~/.config/helix/languages.toml`):
+
+```toml title="~/.config/helix/languages.toml"
+[[language]]
+name = "markdown"
+language-servers = ["zenzic-lsp"]
+
+[language-server.zenzic-lsp]
+command = "zenzic"
+args = ["lsp"]
+```
+
+### Neovim
+
+Using Neovim's native LSP client (`vim.lsp.start`) in `~/.config/nvim/init.lua`:
+
+```lua title="~/.config/nvim/init.lua"
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "markdown", "mdx" },
+  callback = function()
+    vim.lsp.start({
+      name = "zenzic-lsp",
+      cmd = { "zenzic", "lsp" },
+      root_dir = vim.fs.dirname(vim.fs.find({ ".zenzic.toml", ".git" }, { upward = true })[1]),
+    })
+  end,
+})
+```
+
+### Emacs (Eglot)
+
+Using Emacs' built-in `Eglot` package in `~/.emacs.d/init.el`:
+
+```elisp title="~/.emacs.d/init.el"
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '((markdown-mode gfm-mode) . ("zenzic" "lsp"))))
+```
+
+---
+
+## Environment & Diagnostic Verification
+
+Before configuring your editor, verify that `zenzic` is installed and accessible in your shell `$PATH`:
+
+```bash title="Terminal"
+# Output runtime environment diagnostics
+zenzic env
+```
+
+To verify LSP `stdio` communication directly from your shell, run an inline JSON-RPC `shutdown` request:
+
+```bash title="Terminal"
+printf 'Content-Length: 44\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"shutdown"}' | zenzic lsp
+```
+
+A properly working server immediately emits the JSON-RPC response on `stdout`:
+
+```http
+Content-Length: 38
+Content-Type: application/vscode-jsonrpc; charset=utf-8
+
+{"jsonrpc":"2.0","id":1,"result":null}
+```
+
+!!! note "Interactive Terminal Behavior"
+    When `zenzic lsp` is launched directly in an interactive terminal shell (without stdin piping), it detects a TTY, displays an informational notice on `stderr`, and waits for `Ctrl+C` to exit cleanly.
+
+---
+
+## Related Documents
+
+* [CLI Reference](../reference/cli.md) — Reference documentation for `zenzic lsp` and `zenzic env`.
+* [Finding Codes Index](../reference/finding-codes.md) — Index of all Z-Codes reported in editor diagnostics.

@@ -11,6 +11,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Environment Diagnostics CLI (`zenzic env`)**: Added a transport-agnostic CLI command (`zenzic env` and `zenzic env --json`) that outputs core runtime diagnostics (Zenzic version, Python executable path, Zenzic module path, working directory, and active configuration file path) to streamline debugging path resolution issues without coupling to specific editors or LSP clients (**ADR-075 Radical Unawareness**).
+
+### Fixed
+
+- **LSP Event Coalescing & Uniform Debouncing**: Applied a uniform 300ms debounce buffer to watched file notifications (`workspace/didChangeWatchedFiles`). Directory events now flag pending full syncs rather than executing synchronous rebuilds, eliminating $O(M \cdot N)$ redundant AST parses, execution latency, and memory spikes during bulk directory copies.
+- **Ghost Diagnostics Fix & Directory Eviction**: Implemented atomic cache pruning in `IncrementalAnalysisEngine.process_changes()` and directory-level buffer/document eviction in `LanguageServer._handle_file_changes()`. Deleting a directory now automatically evicts all contained child buffers from `overlay.buffers` and broadcasts `[]` empty diagnostic arrays to immediately clear the editor's PROBLEMS panel (**LSP-FIX-017 State Hygiene**).
+- **LSP Server Version Reporting**: Replaced static `"0.21.0"` string in LSP `initialize` response with dynamic `__version__` from `zenzic`.
+- **LSP-FIX-018 — Directory Watcher Glob**: Added `**/` pattern to the `client/registerCapability` watcher registrations so VS Code sends `workspace/didChangeWatchedFiles` events for directory-level create/rename/delete operations. Without this pattern, deleting a folder in the VS Code Explorer did not trigger any server notification, leaving ghost diagnostics in the PROBLEMS panel permanently.
+- **LSP-INFO-001 — Core Version Banner**: Emits a `window/logMessage` (type: Info) on the `initialized` handshake showing the active core version and Python executable path. Visible in the VS Code Output panel (`Output → Zenzic Language Server`) and provides a reliable way to confirm which core binary is active without leaving the editor.
+- **LSP-FIX-019 — Fast Ghost Clearing**: Implemented $O(A)$ instantaneous ghost-diagnostic clearing on directory deletion events. The server now emits `publishDiagnostics: []` for all affected URIs *before* flagging the asynchronous full workspace sync, clearing the VS Code PROBLEMS panel instantly without blocking the event loop.
+
 ## [0.27.1] - 2026-08-05
 
 ### Fixed
