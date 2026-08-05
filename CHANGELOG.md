@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-08-05
+
 ### Fixed
 
 - **LSP Execution Parity**: Restored real-time diagnostic emission for `Z110` and `Z111` by enabling in-memory buffer validation for `.zenzic.toml` and `pyproject.toml` via `content_override`.
