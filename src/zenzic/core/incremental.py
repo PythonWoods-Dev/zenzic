@@ -175,17 +175,22 @@ class IncrementalAnalysisEngine:
         from zenzic.models.config import load_config_with_diagnostics
 
         # 0. Validate .zenzic.toml config
-        new_config, config_findings = load_config_with_diagnostics(self.repo_root)
+        config_file = self.repo_root / ".zenzic.toml"
+        if not config_file.is_file() and (self.repo_root / "pyproject.toml").is_file():
+            config_file = self.repo_root / "pyproject.toml"
+        config_uri = config_file.resolve().as_uri()
+        cfg_override = overlay.buffers.get(config_uri)
+
+        new_config, config_findings = load_config_with_diagnostics(
+            self.repo_root, config_file=config_file, content_override=cfg_override
+        )
         if config_findings:
-            config_file = self.repo_root / ".zenzic.toml"
-            if not config_file.is_file() and (self.repo_root / "pyproject.toml").is_file():
-                config_file = self.repo_root / "pyproject.toml"
-            config_uri = config_file.resolve().as_uri()
-            cfg_text = ""
-            try:
-                cfg_text = config_file.read_text(encoding="utf-8")
-            except OSError:
-                pass
+            cfg_text = cfg_override if cfg_override is not None else ""
+            if not cfg_text:
+                try:
+                    cfg_text = config_file.read_text(encoding="utf-8")
+                except OSError:
+                    pass
             diags = self._findings_to_diagnostics(cfg_text, config_findings)
             return {config_uri: diags}
         if new_config:
@@ -286,6 +291,9 @@ class IncrementalAnalysisEngine:
         overlay.vsm = vsm
 
         # 2b. Run Topological Analysis
+        old_orphans: set[str] = getattr(self, "_orphaned_urls", set())
+        old_dead_ends: set[str] = getattr(self, "_dead_end_urls", set())
+
         if hasattr(self.adapter, "get_entry_points"):
             from zenzic.core.topology import detect_dead_ends, detect_orphans
 
@@ -295,6 +303,25 @@ class IncrementalAnalysisEngine:
         else:
             self._orphaned_urls = set()
             self._dead_end_urls = set()
+
+        if changed_uris is not None:
+            topo_delta_urls = (old_orphans ^ self._orphaned_urls) | (
+                old_dead_ends ^ self._dead_end_urls
+            )
+            if topo_delta_urls:
+                for delta_url in topo_delta_urls:
+                    route = vsm.get(delta_url)
+                    if route and route.source:
+                        delta_path = (self.docs_root / route.source).resolve()
+                        if delta_path not in self.md_contents_cache and delta_path.is_file():
+                            try:
+                                delta_text = delta_path.read_text(encoding="utf-8")
+                                self.md_contents_cache[delta_path] = delta_text
+                                self.anchors_cache[delta_path] = anchors_in_file(delta_text)
+                            except OSError:
+                                continue
+                        if delta_path in self.md_contents_cache:
+                            files_to_process.add(delta_path)
 
         # 3. Expand files_to_process with dependents via VSM's O(1) reverse index
         if changed_uris is not None:

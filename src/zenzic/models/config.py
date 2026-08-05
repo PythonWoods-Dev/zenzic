@@ -1038,7 +1038,7 @@ class ZenzicConfig(BaseModel):
 
 
 def load_config_with_diagnostics(
-    repo_root: Path, config_file: Path | None = None
+    repo_root: Path, config_file: Path | None = None, content_override: str | None = None
 ) -> tuple[ZenzicConfig | None, list[Any]]:
     """Safely load ZenzicConfig, returning formal Finding objects on syntax/schema errors.
 
@@ -1061,7 +1061,7 @@ def load_config_with_diagnostics(
         if pyproject.is_file():
             target_file = pyproject
 
-    if not target_file.is_file():
+    if not target_file.is_file() and content_override is None:
         try:
             cfg = ZenzicConfig()
             cfg.origin_file = repo_root / ".zenzic.toml"
@@ -1070,10 +1070,13 @@ def load_config_with_diagnostics(
             pass
 
     content = ""
-    try:
-        content = target_file.read_text(encoding="utf-8")
-    except OSError:
-        pass
+    if content_override is not None:
+        content = content_override
+    else:
+        try:
+            content = target_file.read_text(encoding="utf-8")
+        except OSError:
+            pass
 
     rel_file_str = (
         str(target_file.relative_to(repo_root))
@@ -1115,7 +1118,22 @@ def load_config_with_diagnostics(
                 except OSError:
                     pass
 
-        line_no = getattr(exc, "lineno", 1)
+        line_no = getattr(exc, "lineno", None)
+        if line_no is None:
+            msg_str = str(exc)
+            if "line " in msg_str:
+                try:
+                    part = msg_str.split("line ", 1)[1]
+                    num_str = ""
+                    for char in part:
+                        if char.isdigit():
+                            num_str += char
+                        elif num_str:
+                            break
+                    if num_str:
+                        line_no = int(num_str)
+                except Exception:
+                    pass
         if line_no is None or line_no <= 0:
             line_no = 1
         lines = err_content.splitlines() if err_content else []

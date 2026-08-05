@@ -6,7 +6,7 @@ version = 1
 # listed here.
 
 [[annotations]]
-path = [".zenzic-score.json", "coverage.json", ".markdownlint.json", "zenzic-output.schema.json", "zenzic-baseline.schema.json"]
+path = [".zenzic-score.json", "coverage.json", ".markdownlint.json", "zenzic-output.schema.json", "zenzic-baseline.schema.json", ".zenzic-baseline.json"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 

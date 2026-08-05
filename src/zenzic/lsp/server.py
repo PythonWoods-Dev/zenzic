@@ -282,6 +282,9 @@ class LanguageServer:
         if not uri or self.repo_root is None:
             return True
 
+        if self._is_config_file_change(uri):
+            return True
+
         try:
             if not self.config:
                 self.config, _ = ZenzicConfig.load(self.repo_root)
@@ -325,7 +328,7 @@ class LanguageServer:
         except Exception:
             return False
 
-        if filename in (".zenzic.toml", ".zenzic.local.toml"):
+        if filename in (".zenzic.toml", ".zenzic.local.toml", "pyproject.toml"):
             return True
         if self.adapter and filename in self.adapter.watched_config_files:
             return True
@@ -358,30 +361,32 @@ class LanguageServer:
         for change in changes:
             uri = change.get("uri", "")
             change_type = change.get("type")
-            if (
-                not uri.startswith("file://")
-                or not self._is_supported_doc_uri(uri)
-                or not self._is_within_domain(uri)
-            ):
+
+            if not (
+                self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+            ) or not self._is_within_domain(uri):
                 continue
+
             file_path = uri_to_path(uri).resolve()
 
             if change_type in (1, 2):  # Created or Changed
                 try:
                     text = file_path.read_text(encoding="utf-8")
+                    if self.overlay:
+                        self.overlay.update(uri, text)
                     if self.engine is not None:
                         self.engine.update_file_cache(file_path, text)
                 except OSError:
                     pass
             elif change_type == 3:  # Deleted
+                if self.overlay:
+                    self.overlay.remove(uri)
                 if self.engine is not None:
                     self.engine.remove_file_cache(file_path)
                 # State Hygiene (LSP-FIX-015): evict the deleted URI from all
                 # in-memory caches so it is never re-scheduled for analysis.
                 self.documents.documents.pop(uri, None)
                 self.dirty_documents.pop(uri, None)
-                if self.overlay is not None:
-                    self.overlay.remove(uri)
                 # LSP contract: an empty diagnostics array clears stale entries
                 # from the editor's PROBLEMS panel immediately. Without this,
                 # VS Code retains ghost diagnostics until the next full scan.
@@ -480,7 +485,9 @@ class LanguageServer:
             self.exit_code = 0 if self.shutdown_received else 1
         elif method == "textDocument/didOpen":
             uri = params.get("textDocument", {}).get("uri", "")
-            if not self._is_supported_doc_uri(uri) or not self._is_within_domain(uri):
+            if not (
+                self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+            ) or not self._is_within_domain(uri):
                 return
             self.documents.did_open(params)
             if uri in self.documents.documents:
@@ -489,7 +496,9 @@ class LanguageServer:
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didChange":
             uri = params.get("textDocument", {}).get("uri", "")
-            if not self._is_supported_doc_uri(uri) or not self._is_within_domain(uri):
+            if not (
+                self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+            ) or not self._is_within_domain(uri):
                 return
             self.documents.did_change(params)
             if uri in self.documents.documents:
