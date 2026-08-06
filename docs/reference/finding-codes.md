@@ -43,7 +43,7 @@ The code registry is governed by immutable contract surfaces:
 | **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | `error`/`warning` | ✅ Yes |
 | **Z4xx** | Structure | Directory indexes, orphan pages, missing alt text, config assets | `info`/`warning` | ✅ Yes |
 | **Z5xx** | Content Quality | Placeholder text, short content, snippet validation, regressions | `warning`/`error` | ✅ Yes |
-| **Z6xx** | Governance | Brand obsolescence, translation parity (opt-in) | `warning` | ✅ Yes |
+| **Z6xx** | Governance | Brand obsolescence, required frontmatter, forbidden domain references (opt-in) | `warning` | ✅ Yes |
 | **Z9xx** | Engine & System | Rule execution errors, timeouts, system-level diagnostics | `error`/`warning` | ✅ Yes |
 
 !!! info "Per-line suppression syntax"
@@ -664,7 +664,7 @@ The opening frontmatter delimiter on line 1 of the file is not exactly `---`. An
 
 ## Z6xx — Governance
 
-Diagnostic findings related to brand governance, deprecation, and suppression audit state.
+Diagnostic findings related to brand governance, deprecation, suppression audit state, and Policy-as-Code violations (v0.28.0).
 
 ### Z601: BRAND_OBSOLESCENCE {#z601}
 
@@ -712,6 +712,32 @@ any active finding. Remove the dead comment.
 
 !!! warning "Inviolability Law & Z603"
     Attempting `<!-- zenzic:ignore: Z201 -->` above a real credential **does not suppress Z201**. The credential scanner fires unconditionally. The suppression directive is therefore never consumed, and **Z603 fires on top of Z201** — two findings for one bad line.
+
+### Z610: REQUIRED_FRONTMATTER_MISSING {#z610}
+
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z610.md)
+
+A required YAML frontmatter key declared in `[policies].required_frontmatter_keys` is absent from this document. Z610 is opt-in and inactive by default — activate it by declaring `required_frontmatter_keys` in `.zenzic.toml`.
+
+**Fix:** Add the missing key to the `---` frontmatter block at the top of the file.
+
+```toml
+[policies]
+required_frontmatter_keys = ["title", "description", "author"]
+```
+
+### Z611: FORBIDDEN_DOMAIN_REFERENCE {#z611}
+
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z611.md)
+
+A link (native Markdown or raw HTML `<a href>`) references an external domain listed in `[policies].forbidden_external_domains`. Domain matching is case-insensitive and covers exact matches and all subdomains. Z611 is opt-in and inactive by default.
+
+**Fix:** Replace the link with an approved alternative, or remove it.
+
+```toml
+[policies]
+forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
+```
 
 ---
 

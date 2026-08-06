@@ -99,6 +99,8 @@ nav:
         - rules/Z512.md
         - rules/Z601.md
         - rules/Z603.md
+        - rules/Z610.md
+        - rules/Z611.md
       - Interactive Rule Examples:
         - tutorials/examples/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md

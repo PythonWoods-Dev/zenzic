@@ -203,6 +203,43 @@ class GovernanceConfig(BaseModel):
     )
 
 
+class PoliciesConfig(BaseModel):
+    """Declarative governance policies declared in ``[policies]`` (v0.28.0).
+
+    This section introduces the **Policy-as-Code Engine**, allowing project
+    maintainers to define deterministic, declarative rules that every
+    Markdown file must satisfy.  Policies are **opt-in**: an empty
+    ``[policies]`` table (or no ``[policies]`` key at all) applies no
+    additional constraints and is fully backward-compatible.
+
+    TOML example::
+
+        [policies]
+        required_frontmatter_keys = ["title", "description", "author"]
+        forbidden_external_domains = ["competitor.example.com", "legacy.corp"]
+    """
+
+    required_frontmatter_keys: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of frontmatter keys that MUST be present in every Markdown file. "
+            "Missing keys emit Z610 REQUIRED_FRONTMATTER_MISSING. "
+            "Policy is inactive when the list is empty (opt-in). "
+            'Example: ["title", "description", "author"]'
+        ),
+    )
+    forbidden_external_domains: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of external domain prefixes forbidden from appearing in any link "
+            "(both native Markdown and raw HTML <a href>). "
+            "Violations emit Z611 FORBIDDEN_DOMAIN_REFERENCE. "
+            "Policy is inactive when the list is empty (opt-in). "
+            'Example: ["competitor.example.com", "legacy.corp"]'
+        ),
+    )
+
+
 class NetworkConfig(BaseModel):
     """Network I/O toggles declared in ``[network]``."""
 
@@ -516,6 +553,14 @@ class ZenzicConfig(BaseModel):
         description=(
             "Governance toggles for ADR-012 checks. Prefer this section over "
             "legacy [project_metadata].obsolete_names."
+        ),
+    )
+    policies: PoliciesConfig = Field(
+        default_factory=PoliciesConfig,
+        description=(
+            "Declarative Policy-as-Code governance rules (v0.28.0). "
+            "Opt-in: no constraints applied when section is absent or empty. "
+            "See PoliciesConfig for available policy keys."
         ),
     )
     network: NetworkConfig = Field(

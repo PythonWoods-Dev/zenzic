@@ -93,6 +93,8 @@ def test_all_active_codes_covered_in_gallery() -> None:
         "z203",
         "z504",
         "z506",
+        "z610",  # Policy-as-Code (v0.28.0) — gallery scenarios deferred to v0.28.x
+        "z611",  # Policy-as-Code (v0.28.0) — gallery scenarios deferred to v0.28.x
         "z901",
         "z902",
         "z906",
