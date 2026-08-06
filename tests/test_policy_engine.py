@@ -15,8 +15,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from zenzic.core.governance import (
     PolicyEvaluator,
     _extract_links,
@@ -27,6 +25,7 @@ from zenzic.models.config import PoliciesConfig, ZenzicConfig
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _config_with_policies(
     required_keys: list[str] | None = None,
@@ -83,8 +82,7 @@ def test_extract_links_html_href() -> None:
 
 def test_extract_links_both_types() -> None:
     content = (
-        "[Native](https://native.example.com) and "
-        '<a href="https://html.example.com">HTML</a>.'
+        '[Native](https://native.example.com) and <a href="https://html.example.com">HTML</a>.'
     )
     links = _extract_links(content)
     assert "https://native.example.com" in links

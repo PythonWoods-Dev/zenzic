@@ -32,6 +32,7 @@ T = TypeVar("T")
 # ── Frontmatter extraction (re-used from adapters._utils) ────────────────────
 # We re-declare the patterns here rather than importing from adapters._utils
 # to avoid a circular import (adapters import from core).
+_COMMENT_RE = _stdlib_re.compile(r"<!--.*?-->|\{/\*.*?\*/\}", _stdlib_re.DOTALL)
 _FRONTMATTER_BLOCK_RE = _stdlib_re.compile(r"\A\s*---\s*\n(.*?)\n---", _stdlib_re.DOTALL)
 _FM_KEY_VALUE_RE = _stdlib_re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", _stdlib_re.MULTILINE)
 
@@ -39,10 +40,11 @@ _FM_KEY_VALUE_RE = _stdlib_re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", _stdlib_
 def _parse_frontmatter_keys(content: str) -> set[str]:
     """Return the set of top-level frontmatter key names present in *content*.
 
-    Only inspects the leading ``---`` fenced block.  Returns an empty set
-    when no frontmatter is present or the block is malformed.
+    Only inspects the leading ``---`` fenced block (after stripping leading comments).
+    Returns an empty set when no frontmatter is present or the block is malformed.
     """
-    fm = _FRONTMATTER_BLOCK_RE.match(content)
+    clean_content = _COMMENT_RE.sub("", content).lstrip()
+    fm = _FRONTMATTER_BLOCK_RE.match(clean_content)
     if fm is None:
         return set()
     block = fm.group(1)

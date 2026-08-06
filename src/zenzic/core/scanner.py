@@ -1060,6 +1060,14 @@ def _scan_single_file(
         #   2. Each matching directive is marked consumed=True.
         report.rule_findings = rule_engine.run_with_tracker(md_file, text, tracker)
 
+        # Policy-as-Code Engine (v0.28.0)
+        from zenzic.core.governance import check_policies
+
+        policy_findings = check_policies(md_file, text, config)
+        for pf in policy_findings:
+            if not tracker.is_suppressed(pf.line_no, pf.rule_id):
+                report.rule_findings.append(pf)
+
         # Z603 DEAD_SUPPRESSION — emit for every directive never consumed above.
         report.rule_findings += tracker.get_dead_suppressions()
 

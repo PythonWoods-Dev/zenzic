@@ -362,6 +362,20 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z603-dead-suppression",
         expected_pass=False,
     ),
+    "z610": _Act(
+        code="z610",
+        title="Required Frontmatter",
+        description="Z610 REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document",
+        example_dir="z610-required-frontmatter",
+        expected_pass=False,
+    ),
+    "z611": _Act(
+        code="z611",
+        title="Forbidden External Domain",
+        description="Z611 FORBIDDEN_DOMAIN_REFERENCE — link references forbidden external domain",
+        example_dir="z611-forbidden-domain",
+        expected_pass=False,
+    ),
     "z410": _Act(
         code="z410",
         title="Unreachable Graph Node",
