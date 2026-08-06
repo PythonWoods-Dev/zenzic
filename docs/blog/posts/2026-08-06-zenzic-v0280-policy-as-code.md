@@ -46,6 +46,8 @@ When the `[policies]` section is omitted or empty, policy evaluations are bypass
 
 ## New Governance Diagnostic Codes (`Z610`, `Z611`)
 
+Zenzic v0.28.0 introduces two new diagnostic codes within the governance domain.
+
 ### Z610: `REQUIRED_FRONTMATTER_MISSING`
 
 Z610 flags Markdown documents missing top-level YAML frontmatter keys declared in `required_frontmatter_keys`.
