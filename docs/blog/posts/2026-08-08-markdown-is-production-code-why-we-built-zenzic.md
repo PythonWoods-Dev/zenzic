@@ -1,5 +1,3 @@
-Certo. Ti lascio il contenuto integrale, pronto per copia/incolla, con frontmatter e Markdown grezzo. Ho mantenuto anche <!-- more --> nel punto corretto.
-
 ---
 title: "Markdown Is Production Code: Why We Built Zenzic"
 slug: markdown-is-production-code-why-we-built-zenzic
