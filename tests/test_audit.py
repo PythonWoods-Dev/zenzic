@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from pathlib import Path
 
 from typer.testing import CliRunner
 
 from zenzic import __version__
 from zenzic.main import app
+
 
 runner = CliRunner()
 

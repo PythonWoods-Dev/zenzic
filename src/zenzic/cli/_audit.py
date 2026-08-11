@@ -5,13 +5,13 @@
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from zenzic import __version__
+from zenzic.cli import _shared
 from zenzic.cli._check import (
     _append_z118_findings,
     _apply_only_filter,
@@ -26,19 +26,16 @@ from zenzic.cli._governance import (
     collect_inline_suppression_stats,
     count_per_file_ignores,
 )
-from zenzic.cli import _shared
 from zenzic.cli._shared import (
     _count_docs_assets,
-    _output_json_findings,
-    _output_sarif_findings,
 )
 from zenzic.core.adapters import get_adapter
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.core.scorer import compute_score
-from zenzic.core.ui import ZenzicPalette
 from zenzic.core.sovereign_context import sovereign_context
+from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
 
 
@@ -96,7 +93,6 @@ def audit(
     exclusion_mgr = LayeredExclusionManager(config=config, repo_root=repo_root)
     effective_strict = strict or ci
 
-    t0 = time.monotonic()
     inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
         docs_root, config, exclusion_mgr
     )
@@ -181,13 +177,18 @@ def audit(
     errors_count = sum(1 for f in all_findings if f.severity == "error")
     warnings_count = sum(1 for f in all_findings if f.severity == "warning")
     info_count = sum(1 for f in all_findings if f.severity in ("info", "note"))
-    security_count = sum(1 for f in all_findings if f.severity in ("security_breach", "security_incident"))
+    security_count = sum(
+        1 for f in all_findings if f.severity in ("security_breach", "security_incident")
+    )
 
     pass_status = (
         "FAIL"
         if (
             security_count > 0
-            or (config.governance.suppression_cap_fail_hard and suppression_audit.total > suppression_audit.cap)
+            or (
+                config.governance.suppression_cap_fail_hard
+                and suppression_audit.total > suppression_audit.cap
+            )
             or (effective_strict and (errors_count > 0 or warnings_count > 0))
             or (errors_count > 0)
         )
@@ -230,7 +231,9 @@ def audit(
                 "engine": config.build_context.engine,
                 "adapter": adapter.__class__.__name__,
                 "custom_rules": custom_rules_loaded,
-                "active_rule_count": len(engine._rules) if engine and hasattr(engine, "_rules") else 0,
+                "active_rule_count": len(engine._rules)
+                if engine and hasattr(engine, "_rules")
+                else 0,
             },
             "findings_summary": {
                 "security_violations": security_count,
@@ -251,7 +254,9 @@ def audit(
 
     title_str = f"[bold {ZenzicPalette.BRAND}]# ZENZIC GOVERNANCE AUDIT REPORT v{__version__}[/]"
     console.print(title_str)
-    console.print(f"[{ZenzicPalette.DIM}]Engine-agnostic Markdown static analyzer & compliance auditor[/]")
+    console.print(
+        f"[{ZenzicPalette.DIM}]Engine-agnostic Markdown static analyzer & compliance auditor[/]"
+    )
     console.print()
 
     # Panel 1: Executive Summary
@@ -262,23 +267,37 @@ def audit(
         f"• Workspace Coverage: [bold]{docs_count}[/] docs, [bold]{assets_count}[/] assets ({docs_count + assets_count} files total)\n"
         f"• Technical Debt Posture: [bold yellow]{suppression_audit.debt_status}[/] ({suppression_audit.total}/{suppression_audit.cap} suppressions)"
     )
-    console.print(_shared._ui.make_panel(summary_text, title="Executive Summary", border_style="cyan"))
+    console.print(
+        _shared._ui.make_panel(summary_text, title="Executive Summary", border_style="cyan")
+    )
 
     # Panel 2: Governance Policies
-    fm_keys_str = ", ".join(config.policies.required_frontmatter_keys) if config.policies.required_frontmatter_keys else "None configured"
-    domains_str = ", ".join(config.policies.forbidden_external_domains) if config.policies.forbidden_external_domains else "None configured"
+    fm_keys_str = (
+        ", ".join(config.policies.required_frontmatter_keys)
+        if config.policies.required_frontmatter_keys
+        else "None configured"
+    )
+    domains_str = (
+        ", ".join(config.policies.forbidden_external_domains)
+        if config.policies.forbidden_external_domains
+        else "None configured"
+    )
     z610_violations = sum(1 for f in all_findings if f.code == "Z610")
     z611_violations = sum(1 for f in all_findings if f.code == "Z611")
 
     policies_text = (
         f"• Required Frontmatter Keys: [bold]{fm_keys_str}[/] "
-        f"([{ 'red' if z610_violations else 'green' }]{z610_violations} violations[/])\n"
+        f"([{'red' if z610_violations else 'green'}]{z610_violations} violations[/])\n"
         f"• Forbidden External Domains: [bold]{domains_str}[/] "
-        f"([{ 'red' if z611_violations else 'green' }]{z611_violations} violations[/])\n"
+        f"([{'red' if z611_violations else 'green'}]{z611_violations} violations[/])\n"
         f"• Global Suppression Cap: [bold]{config.governance.suppression_cap}[/] "
         f"(Fail-Hard: [bold]{config.governance.suppression_cap_fail_hard}[/], Active: [bold]{suppression_audit.total}[/])"
     )
-    console.print(_shared._ui.make_panel(policies_text, title="Governance Policies ([policies])", border_style="magenta"))
+    console.print(
+        _shared._ui.make_panel(
+            policies_text, title="Governance Policies ([policies])", border_style="magenta"
+        )
+    )
 
     # Panel 3: Technical Debt Ledger
     debt_text = (
@@ -292,7 +311,9 @@ def audit(
             f"  - {path}: {count} ignore(s)"
             for path, count in suppression_audit.top_offenders(limit=3)
         )
-    console.print(_shared._ui.make_panel(debt_text, title="Technical Debt Ledger", border_style="yellow"))
+    console.print(
+        _shared._ui.make_panel(debt_text, title="Technical Debt Ledger", border_style="yellow")
+    )
 
     # Panel 4: Architectural State
     custom_rules_str = (
@@ -306,7 +327,9 @@ def audit(
         f"• Custom SDK v3 Rules: [bold]{custom_rules_str}[/]\n"
         f"• Total Active Rules: [bold]{len(engine._rules) if engine and hasattr(engine, '_rules') else 0}[/] checks"
     )
-    console.print(_shared._ui.make_panel(arch_text, title="Architectural State", border_style="blue"))
+    console.print(
+        _shared._ui.make_panel(arch_text, title="Architectural State", border_style="blue")
+    )
 
     console.print()
     if pass_status == "FAIL":

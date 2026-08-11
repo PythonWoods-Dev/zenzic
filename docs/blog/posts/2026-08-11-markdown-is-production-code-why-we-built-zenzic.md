@@ -1,7 +1,7 @@
 ---
 title: "Markdown Is Production Code: Why We Built Zenzic"
 slug: markdown-is-production-code-why-we-built-zenzic
-date: 2026-08-08
+date: 2026-08-11
 authors:
   - pythonwoods
 description: >
