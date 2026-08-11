@@ -13,6 +13,8 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+![Zenzic v0.28.0 Policy-as-Code Engine Launch](../../assets/images/blog/launch_v0280.webp)
+
 Zenzic v0.28.0 introduces the **Policy-as-Code Engine**, allowing maintainers to declare deterministic governance rules directly within `.zenzic.toml`.
 
 <!-- more -->
