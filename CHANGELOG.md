@@ -21,6 +21,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Mirror Law Parity (`ADR-020`)**: Authored rule specification cards `docs/rules/Z610.md` and `docs/rules/Z611.md`. Registered both codes in `docs/reference/finding-codes.md` and `mkdocs.yml` navigation tree.
 - **CHANGELOG Archive**: Moved `v0.27.x` release notes to `changelogs/v0.27.x.md` and reset `CHANGELOG.md` for the `v0.28.x` development cycle.
 
+### Changed
+
+- **Brand & Positioning Alignment (`V0.27-13`)**: Realigned product positioning across package descriptions (`pyproject.toml`), READMEs, documentation, landing page components, and social assets to accurately reflect Zenzic as a **Deterministic Document Integrity Engine**. Eradicated misleading "SAST" terminology from all user-facing surfaces (**Mirror Law ADR-020**).
+
 ## Historical Releases
 
 - v0.27.x archive: [changelogs/v0.27.x.md](./changelogs/v0.27.x.md)
