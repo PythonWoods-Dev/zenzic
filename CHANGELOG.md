@@ -18,6 +18,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   - `Z611` (FORBIDDEN_DOMAIN_REFERENCE): Emitted when a link — native Markdown `[text](url)` or raw HTML `<a href>` — references an external domain listed in `[policies].forbidden_external_domains`. Domain matching is case-insensitive and covers exact domains and all subdomains. Penalty: 3.0 pts (Governance).
   - `PolicyEvaluator` class in `zenzic.core.governance`: stateless, deterministic, pure-function evaluator. No I/O, no subprocess, no cross-file state (**ADR-075 Radical Unawareness**).
   - `PoliciesConfig` Pydantic model in `zenzic.models.config` with full Zero-DBT documentation. Schema mismatches automatically emit `Z111` via the existing Configuration Validation Engine.
+- **Custom Rule SDK v3 (`V0.28-02`)**: Evolved the custom rules framework into a stable, typed SDK (`zenzic.sdk`).
+  - `ZenzicRuleV3`: Public base class for custom rules with visitor hooks (`visit_document`, `visit_line`, `visit_link`, `visit_heading`, `visit_code_block`).
+  - `RuleMetadata`: Typed Pydantic model enforcing `code`, `title`, `description`, `severity`, `category`, and `penalty` for custom rules.
+  - **Hard Deprecation of v2 API**: Removed legacy `BaseASTRule` v2 API. Instantiating or attempting to load v2 rules raises `PluginContractError` fast.
 - **Mirror Law Parity (`ADR-020`)**: Authored rule specification cards `docs/rules/Z610.md` and `docs/rules/Z611.md`. Registered both codes in `docs/reference/finding-codes.md` and `mkdocs.yml` navigation tree.
 - **CHANGELOG Archive**: Moved `v0.27.x` release notes to `changelogs/v0.27.x.md` and reset `CHANGELOG.md` for the `v0.28.x` development cycle.
 

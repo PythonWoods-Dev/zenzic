@@ -28,42 +28,50 @@ Severity = Literal["error", "warning", "info"]
 class CustomRuleConfig(BaseModel):
     """A single entry in the ``[[custom_rules]]`` TOML array.
 
-    Each entry declares a regex-based lint rule applied line-by-line to every
-    Markdown file under ``docs/``.  The rule engine compiles the pattern once
-    at config-load time.
+    Supports both regex-based line rules and Python class-based Custom Rule SDK v3 rules.
 
-    TOML example::
+    TOML example (regex)::
 
         [[custom_rules]]
         id = "ZZ-NOINTERNAL"
         pattern = "internal\\.corp\\.example\\.com"
         message = "Internal hostname must not appear in public docs."
         severity = "error"
+
+    TOML example (SDK v3 Python class)::
+
+        [[custom_rules]]
+        class_name = "zenzic.sdk.examples.NoTodoRule"
     """
 
-    id: str = Field(description="Stable unique identifier for this rule (e.g. 'ZZ-MY-RULE').")
-    pattern: str = Field(description="Regular-expression string applied to each content line.")
-    message: str = Field(description="Human-readable explanation shown in the finding.")
+    id: str | None = Field(
+        default=None, description="Stable unique identifier for this rule (e.g. 'ZZ-MY-RULE')."
+    )
+    pattern: str | None = Field(
+        default=None, description="Regular-expression string applied to each content line."
+    )
+    message: str | None = Field(
+        default=None, description="Human-readable explanation shown in the finding."
+    )
     severity: Severity = Field(
         default="error",
         description="Severity level: 'error' (default), 'warning', or 'info'.",
+    )
+    class_name: str | None = Field(
+        default=None,
+        description="Fully qualified Python class name for a Custom Rule SDK v3 rule.",
     )
 
     @field_validator("id", mode="before")
     @classmethod
     def _validate_id_namespace(cls, v: object) -> object:
-        """Enforce ADR-012 namespace contract: custom rule IDs must start with 'ZZ-'.
-
-        The 'ZZ-' prefix is reserved exclusively for user-defined custom rules
-        to prevent collision with Core finding codes (Z1xx–Z9xx) in findings,
-        SARIF reports, and CLI filters.
-        """
-        if not isinstance(v, str) or not v.startswith("ZZ-"):
-            raise ValueError(
-                f"Custom rule IDs must start with the 'ZZ-' prefix "
-                f"(e.g., 'ZZ-MY-RULE') to prevent collision with Core finding codes (ADR-012). "
-                f"Got: {v!r}"
-            )
+        if v is not None:
+            if not isinstance(v, str) or not v.startswith("ZZ-"):
+                raise ValueError(
+                    f"Custom rule IDs must start with the 'ZZ-' prefix "
+                    f"(e.g., 'ZZ-MY-RULE') to prevent collision with Core finding codes (ADR-012). "
+                    f"Got: {v!r}"
+                )
         return v
 
 
@@ -1073,9 +1081,13 @@ class ZenzicConfig(BaseModel):
             except Exception:
                 pass  # malformed local rule — silently skip (consistent with other merge blocks)
             else:
-                merged_rules: dict[str, CustomRuleConfig] = {r.id: r for r in config.custom_rules}
-                for r in local_rules:
-                    merged_rules[r.id] = r
+                merged_rules: dict[str, CustomRuleConfig] = {}
+                for idx, r in enumerate(config.custom_rules):
+                    key = r.id or r.class_name or f"rule_{idx}"
+                    merged_rules[key] = r
+                for idx, r in enumerate(local_rules):
+                    key = r.id or r.class_name or f"local_rule_{idx}"
+                    merged_rules[key] = r
                 config.custom_rules = list(merged_rules.values())
 
         # Re-compile forbidden_patterns union regex after all local merges are complete.

@@ -1362,41 +1362,62 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     if config.project_metadata.obsolete_names:
         built_in.append(BrandObsolescenceRule(config.project_metadata))
 
+    from zenzic.core.rules import BaseRule, RuleFinding
+
+    class FailedCustomRule(BaseRule):
+        def __init__(self, rule_id: str, error_msg: str) -> None:
+            self._rule_id = rule_id
+            self.error_msg = error_msg
+
+        @property
+        def rule_id(self) -> str:
+            return self._rule_id
+
+        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+            raise RuntimeError(self.error_msg)
+
     registry = PluginRegistry()
     rules: list[BaseRule] = list(built_in)
     rules.extend(registry.load_core_rules())
-    rules.extend(
-        CustomRule(
-            id=cr.id,
-            pattern=cr.pattern,
-            message=cr.message,
-            severity=cr.severity,
-        )
-        for cr in config.custom_rules
-    )
+
+    for cr in config.custom_rules:
+        if cr.class_name:
+            import importlib
+
+            try:
+                mod_path, cls_name = cr.class_name.rsplit(".", 1)
+                mod = importlib.import_module(mod_path)
+                cls_obj = getattr(mod, cls_name)
+                rules.append(cls_obj())
+            except Exception as exc:  # noqa: BLE001
+                fallback_id = cr.id or cr.class_name.split(".")[-1].upper()
+                rules.append(
+                    FailedCustomRule(
+                        rule_id=fallback_id,
+                        error_msg=f"Failed to load custom rule class '{cr.class_name}': {exc}",
+                    )
+                )
+        elif cr.id and cr.pattern and cr.message:
+            rules.append(
+                CustomRule(
+                    id=cr.id,
+                    pattern=cr.pattern,
+                    message=cr.message,
+                    severity=cr.severity,
+                )
+            )
+
     rules.extend(registry.load_selected_rules(config.plugins))
 
-    # 6. Auto-discover custom AST rules (v2) from .zenzic/rules/*.py
+    # 6. Auto-discover custom AST rules (v2 & v3 SDK) from .zenzic/rules/*.py
     repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
     custom_rules_dir = repo_root / ".zenzic" / "rules"
     if custom_rules_dir.is_dir():
         import importlib.util
         import sys
 
-        from zenzic.core.rules import BaseRule, RuleFinding
         from zenzic.rules.base import BaseASTRule
-
-        class FailedCustomRule(BaseRule):
-            def __init__(self, rule_id: str, error_msg: str) -> None:
-                self._rule_id = rule_id
-                self.error_msg = error_msg
-
-            @property
-            def rule_id(self) -> str:
-                return self._rule_id
-
-            def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-                raise RuntimeError(self.error_msg)
+        from zenzic.sdk.rules import ZenzicRuleV3
 
         for py_file in sorted(custom_rules_dir.glob("*.py")):
             if py_file.name.startswith("_"):
@@ -1415,13 +1436,13 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
                         attr = getattr(module, attr_name)
                         if (
                             isinstance(attr, type)
-                            and issubclass(attr, BaseASTRule)
-                            and attr is not BaseASTRule
+                            and issubclass(attr, BaseASTRule | ZenzicRuleV3)
+                            and attr not in (BaseASTRule, ZenzicRuleV3)
                         ):
                             try:
-                                rules.append(attr())  # type: ignore[call-arg]
+                                rules.append(attr())
                                 found_rule = True
-                            except Exception as exc:
+                            except Exception as exc:  # noqa: BLE001
                                 rules.append(
                                     FailedCustomRule(
                                         rule_id=attr_name.upper(),
@@ -1430,9 +1451,9 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
                                 )
                                 found_rule = True
                     if not found_rule:
-                        # No subclass of BaseASTRule found in file
+                        # No subclass of BaseASTRule / ZenzicRuleV3 found in file
                         pass
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 rules.append(
                     FailedCustomRule(
                         rule_id=rule_id_fallback,

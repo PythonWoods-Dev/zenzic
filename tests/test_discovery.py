@@ -4,14 +4,17 @@
 
 import logging
 from pathlib import Path
+
 import pytest
 
-from zenzic.core.discovery import iter_markdown_sources, walk_files
+from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.models.config import ZenzicConfig
 
 
-def test_escaping_symlink_skipped_and_logged(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_escaping_symlink_skipped_and_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     """Ensure symlinks resolving outside the repository root are skipped and log Z202 warning."""
     repo_root = tmp_path / "repo"
     docs_root = repo_root / "docs"

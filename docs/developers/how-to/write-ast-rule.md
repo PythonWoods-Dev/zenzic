@@ -1,297 +1,135 @@
 ---
-description: "Write project-local custom analysis rules using the BaseASTRule API v2. Zero packaging, zero entry-points."
+description: "Write project-local custom analysis rules using the Custom Rule SDK v3 (ZenzicRuleV3 + RuleMetadata)."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Writing Custom AST Rules (API v2)
+# Writing Custom Rules (Custom Rule SDK v3)
 
-> **v0.20.0+** — This guide covers the **drop-in Custom Rules API v2** (`BaseASTRule`).
-> For regex-based rules that require no Python, see [Add Custom Lint Rules](../../how-to/add-custom-rules.md).
-> For distributable plugin packages (entry-point API v1), see [Writing Plugin Rules](./write-plugin.md).
+> **v0.28.0 Breaking Change:** The legacy Custom Rules API v2 (`BaseASTRule`) was **hard deprecated and removed** in Zenzic v0.28.0. All custom rules must use the **Custom Rule SDK v3** (`ZenzicRuleV3` + `RuleMetadata`).
 
 ---
 
-## When to use each API
+## Migration from API v2 to SDK v3
 
-| Scenario | Recommended API |
-|---|---|
-| Simple keyword / pattern match | [TOML `[[custom_rules]]`](../../how-to/add-custom-rules.md) |
-| Multi-line or structural analysis (no distribution needed) | **Custom AST Rules v2** ← this guide |
-| Distributable plugin for other teams / open-source | [Plugin API v1 (`BaseRule`)](./write-plugin.md) |
+The table below illustrates the structural shift from the un-typed v2 API to the governed, typed SDK v3.
+
+### Before (API v2 — Removed in v0.28.0)
+
+```python
+from collections.abc import Generator
+from pathlib import Path
+from zenzic.core.ast import BlockNode
+from zenzic.core.rules import RuleFinding
+from zenzic.rules.base import BaseASTRule
+
+
+class LegacyRule(BaseASTRule):
+    def __init__(self) -> None:
+        super().__init__(rule_id="LOCAL-001", severity="error")
+
+    def visit_block_node(self, node: BlockNode, file_path: Path) -> Generator[RuleFinding, None, None]:
+        ...
+
+    def visit_html_node(self, node: object, file_path: Path) -> Generator[RuleFinding, None, None]:
+        ...
+```
+
+### After (Custom Rule SDK v3 — Current)
+
+```python
+from pathlib import Path
+from zenzic.sdk import ZenzicRuleV3, RuleMetadata
+from zenzic.core.rules import RuleFinding
+
+
+class ModernRule(ZenzicRuleV3):
+    metadata = RuleMetadata(
+        code="ZZ-NO-BAD-URL",
+        title="Forbidden Internal URL",
+        description="Internal URLs must not appear in published documentation.",
+        severity="warning",
+        category="content",
+        penalty=1.0,
+    )
+
+    def visit_line(self, file_path: Path, line_no: int, line_text: str) -> list[RuleFinding]:
+        if "bad.example.com" in line_text:
+            return [
+                self.create_finding(
+                    file_path=file_path,
+                    line_no=line_no,
+                    message="Forbidden internal URL found.",
+                    matched_line=line_text,
+                )
+            ]
+        return []
+```
 
 ---
 
 ## Overview
 
-Custom AST Rules v2 are single Python files placed inside your repository under
-`.zenzic/rules/`. Zenzic auto-discovers them at scan startup — no `pyproject.toml`,
-no `plugins = [...]` configuration, no installation step.
+Custom Rule SDK v3 allows developers to author deterministic Python linting rules. Rules placed inside `.zenzic/rules/*.py` are auto-discovered at scan startup. Alternatively, rules can be configured via `[[custom_rules]]` in `.zenzic.toml`:
 
-Each rule subclasses `BaseASTRule` and receives the parsed Markdown document as an
-**AST** (`BlockNode` tree) plus the list of **HTML nodes** extracted by the Polyglot
-Extractor. This gives rules access to the full structural context of a file, not just
-raw text.
+```toml
+[[custom_rules]]
+class_name = "my_module.my_rules.ModernRule"
+```
+
+SDK v3 rules inherit from `ZenzicRuleV3` and require a typed `RuleMetadata` declaration.
 
 ---
 
-## Quick start
+## The `RuleMetadata` Schema
 
-This section details the specifications and guidelines for Quick start within the Zenzic ecosystem.
+`RuleMetadata` dictates finding code, severity, category (for DQS weighting), and penalty impact:
 
-### 1. Create the rules directory
-
-```bash
-mkdir -p .zenzic/rules
-```
-
-### 2. Write your rule
-
-```python title=".zenzic/rules/no_draft_heading.py"
-# .zenzic/rules/no_draft_heading.py
-from collections.abc import Generator
-from pathlib import Path
-
-from zenzic.core.ast import BlockNode, Heading
-from zenzic.core.rules import RuleFinding
-from zenzic.core.validator import HtmlNodeInfo
-from zenzic.rules.base import BaseASTRule
-
-
-class NoDraftHeadingRule(BaseASTRule):
-    """Forbid headings that start with the word DRAFT."""
-
-    def __init__(self) -> None:
-        super().__init__(rule_id="LOCAL-001", severity="error")
-
-    def visit_block_node(
-        self,
-        node: BlockNode,
-        file_path: Path,
-    ) -> Generator[RuleFinding, None, None]:
-        if isinstance(node, Heading):
-            # Serialize heading text from children
-            text = "".join(
-                getattr(child, "text", "") for child in node.children
-            ).strip()
-            if text.upper().startswith("DRAFT"):
-                yield RuleFinding(
-                    file_path=file_path,
-                    line_no=0,   # line tracking not available at block level
-                    rule_id=self.rule_id,
-                    message=f"Heading '{text}' starts with DRAFT — remove before publishing.",
-                    severity=self.severity,
-                )
-
-    def visit_html_node(
-        self,
-        node: HtmlNodeInfo,
-        file_path: Path,
-    ) -> Generator[RuleFinding, None, None]:
-        return  # this rule does not inspect HTML nodes
-        yield    # pragma: no cover — makes the function a generator
-```
-
-### 3. Run Zenzic
-
-```bash
-zenzic check all
-```
-
-Zenzic automatically loads `NoDraftHeadingRule` from `.zenzic/rules/no_draft_heading.py`
-and applies it to every Markdown file. Findings appear alongside built-in Z-Codes in the
-normal output.
+| Attribute | Type | Description | Default |
+|---|---|---|---|
+| `code` | `str` | Unique rule identifier (e.g. `"ZZ-NO-BAD-URL"` or `"MY_RULE_001"`). | Required |
+| `title` | `str` | Short title of the rule. | Required |
+| `description` | `str` | Full description of the rule check. | Required |
+| `severity` | `"error" \| "warning" \| "info"` | Severity level of produced findings. | `"warning"` |
+| `category` | `"structural" \| "navigation" \| "content" \| "brand" \| "governance"` | Taxonomy category for scoring. | `"content"` |
+| `penalty` | `float` | DQS penalty cost per finding. | `1.0` |
+| `docs_url` | `Optional[str]` | Optional URL to rule documentation. | `None` |
+| `supports_autofix` | `bool` | Whether automated quick-fixes are supported. | `False` |
 
 ---
 
-## The `BaseASTRule` contract
+## Visitor Interface
 
-This section details the specifications and guidelines for The BaseASTRule contract within the Zenzic ecosystem.
+SDK v3 rules can override any of the following visitor hooks:
 
-### Constructor
+- `visit_document(self, file_path: Path, text: str) -> list[RuleFinding]`: Inspect full raw source.
+- `visit_line(self, file_path: Path, line_no: int, line_text: str) -> list[RuleFinding]`: Inspect individual lines.
+- `visit_link(self, file_path: Path, line_no: int, link_text: str, target_url: str) -> list[RuleFinding]`: Inspect links.
+- `visit_heading(self, file_path: Path, line_no: int, level: int, title: str) -> list[RuleFinding]`: Inspect headings.
+- `visit_code_block(self, file_path: Path, start_line: int, lang: str, code: str) -> list[RuleFinding]`: Inspect code blocks.
 
-```text
-BaseASTRule.__init__(
-    self,
-    rule_id: str,
-    severity: str = "warning",   # "error" | "warning" | "note"
-    max_visits: int = 10_000,    # visitation budget (see Sandbox section)
-)
-```
+---
 
-### Abstract methods
-
-You **must** implement both abstract methods. Both are generator functions:
+## Testing SDK v3 Rules
 
 ```python
-def visit_block_node(
-    self,
-    node: BlockNode,
-    file_path: Path,
-) -> Generator[RuleFinding, None, None]:
-    ...
-
-def visit_html_node(
-    self,
-    node: HtmlNodeInfo,
-    file_path: Path,
-) -> Generator[RuleFinding, None, None]:
-    ...
-```
-
-If your rule only inspects one kind of node, return immediately (or `yield` nothing) in
-the other method — both must still be present.
-
-### Available AST node types (from `zenzic.core.ast`)
-
-| Class | Description |
-|---|---|
-| `Document` | Root node — wraps the whole file |
-| `Heading` | `# H1` through `###### H6` — has `.level` and `.marker` |
-| `Paragraph` | Block of inline content |
-| `LinkNode` | `[text](url)` — has `.url` |
-| `TextNode` | Plain text fragment — has `.text` |
-| `CodeSpanNode` | `` `code` `` — has `.code` |
-| `EmphasisNode` | `*text*` — has `.marker` |
-| `StrongNode` | `**text**` — has `.marker` |
-
-`visit_block_node` is called once for every `BlockNode` encountered during a
-depth-first traversal. `Document`, `Heading`, and `Paragraph` are all `BlockNode`
-subclasses.
-
-### HTML node fields (`HtmlNodeInfo`)
-
-`visit_html_node` is called once for every `<a>` and `<img>` tag extracted by the
-Polyglot Extractor.
-
-| Field | Type | Description |
-|---|---|---|
-| `.tag` | `str` | `"a"` or `"img"` |
-| `.href` | `str \| None` | Value of `href` (for `<a>`) or `src` (for `<img>`). `None` if absent |
-| `.line_no` | `int` | 1-based source line number |
-| `.suppressed` | `bool` | `True` when `data-zenzic-ignore` is present on the tag |
-| `.is_missing_href` | `bool` | `True` when `href`/`src` is absent or empty → Z121 |
-| `.is_jump_link` | `bool` | `True` when `href="#"` → Z122 |
-| `.unknown_attrs` | `frozenset[str]` | Attributes not in the Safe-Core list → Z120 |
-| `.raw_tag` | `str` | Original tag text (for diagnostic messages) |
-
----
-
-## The sandbox: deterministic visitation budget
-
-Every call to `check()` resets an internal counter. Each time the engine visits an
-AST node or an HTML node it calls `check_budget()`, which increments the counter.
-If the counter exceeds `max_visits`, a `ZenzicRuleTimeout` exception is raised,
-caught by the engine, and converted to a **Z902 (RULE_TIMEOUT)** finding — the rule
-is skipped for that file and scanning continues.
-
-```text
-docs/guide.md:0  [Z902]  Rule 'LOCAL-001' exceeded execution limit: …
-```
-
-This design replaces thread-based or signal-based timeouts entirely, making the
-sandbox **Windows-compatible** and **GIL-safe**.
-
-!!! tip "Choosing `max_visits`"
-    The default (10 000) covers any realistic documentation file. Raise it only if
-    your rule legitimately needs to visit very large synthetic documents (e.g. in a
-    test suite). Never disable it by passing `max_visits=0`.
-
-Any other unhandled Python exception inside `visit_block_node` or `visit_html_node`
-is caught and converted to a **Z901 (RULE_ENGINE_ERROR)** finding with the original
-traceback message.
-
----
-
-## Discovery and load order
-
-At startup, `_build_rule_engine()` globs `.zenzic/rules/*.py`, sorted
-alphabetically. For each file:
-
-1. Files whose name starts with `_` are skipped (useful for shared helpers).
-2. The file is imported dynamically as a fresh module.
-3. Every attribute that is a **concrete subclass of `BaseASTRule`** is instantiated
-   with its zero-argument constructor and added to the engine.
-
-**Load order** (all six stages, in sequence):
-
-1. Built-in always-active rules (Z107, Z505, Z506).
-2. Z601 BRAND_OBSOLESCENCE (when `obsolete_names` is set).
-3. Core rules from the `zenzic.rules` entry-point group.
-4. Regex rules from `[[custom_rules]]` in `.zenzic.toml`.
-5. External plugin rules from `plugins = [...]`.
-6. **Custom AST Rules v2** from `.zenzic/rules/*.py`. ← API v2
-
-Rules at stage 6 are deduplicated by `rule_id` (first registration wins).
-
----
-
-## Testing your rules
-
-Use `run_rule` or instantiate `AdaptiveRuleEngine` directly:
-
-```python title="tests/test_local_rules.py"
 from pathlib import Path
-from zenzic.rules import AdaptiveRuleEngine
+from zenzic.sdk.examples import NoTodoRule
 
-# Import your rule as a local module
-import sys
-sys.path.insert(0, ".zenzic/rules")
-from no_draft_heading import NoDraftHeadingRule
-
-
-def test_detects_draft_heading() -> None:
-    engine = AdaptiveRuleEngine([NoDraftHeadingRule()])
-    findings = engine.run(Path("guide.md"), "# DRAFT — Work in Progress\n\nSome text.\n")
+def test_no_todo_rule(tmp_path: Path) -> None:
+    rule = NoTodoRule()
+    doc_path = tmp_path / "docs" / "index.md"
+    findings = rule.check(doc_path, "Line 1\nTODO fix this\nLine 3")
     assert len(findings) == 1
-    assert findings[0].rule_id == "LOCAL-001"
-
-
-def test_clean_file_passes() -> None:
-    engine = AdaptiveRuleEngine([NoDraftHeadingRule()])
-    findings = engine.run(Path("guide.md"), "# Introduction\n\nAll good.\n")
-    assert findings == []
+    assert findings[0].rule_id == "ZZ-NO-TODO"
+    assert findings[0].line_no == 2
 ```
 
-!!! note "Import path"
-    Because `.zenzic/rules/` is not a Python package, you must add it to `sys.path`
-    manually in tests, or use `importlib.util.spec_from_file_location`. Alternatively,
-    structure your tests to import the class via the auto-discovery path used by the
-    engine.
-
 ---
 
-## Rule authoring checklist
+## See Also
 
-- [ ] File placed in `.zenzic/rules/` (not in `src/` or anywhere else).
-- [ ] File name does **not** start with `_`.
-- [ ] Class is a **concrete** subclass of `BaseASTRule` (no `@abstractmethod` left).
-- [ ] Both `visit_block_node` and `visit_html_node` are implemented (even if one is empty).
-- [ ] `rule_id` is unique. Use a local prefix, e.g. `"LOCAL-001"`, `"MYTEAM-001"`.
-- [ ] No I/O, no network calls, no subprocess inside visitor methods.
-- [ ] No mutable global state (counter class attributes, etc.).
-- [ ] `max_visits` left at default unless you have a specific, documented reason.
-
----
-
-## Comparison with API v1 (Plugin Rules)
-
-| Feature | API v1 — Plugin Rules | API v2 — AST Rules |
-|---|---|---|
-| Distribution | Separate pip package | File in `.zenzic/rules/` |
-| Registration | `plugins = [...]` in `.zenzic.toml` | Zero config — auto-discovery |
-| Base class | `BaseRule` | `BaseASTRule` |
-| Input | `text: str` (raw Markdown) | `BlockNode` AST + `HtmlNodeInfo` |
-| Sandbox | `except Exception` → Z901 | Visitation budget → Z902 + Z901 |
-| Windows safe | Yes | Yes |
-| Use when | Sharing across projects | Project-local governance |
-
----
-
-## See also
-
-- [TOML Custom Rules DSL](../../how-to/add-custom-rules.md) — regex rules, no Python required
-- [Writing Plugin Rules (API v1)](./write-plugin.md) — distributable entry-point plugins
-- [Finding Codes — Z901 / Z902](../../reference/finding-codes.md#z901) — sandbox error codes
-- [AST Foundations](../reference/ast-foundations.md) — internal AST node hierarchy
+- [Add Custom Lint Rules](../../how-to/add-custom-rules.md)
+- [Writing Plugin Rules](./write-plugin.md)
+- [Finding Codes](../../reference/finding-codes.md)

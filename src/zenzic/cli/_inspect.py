@@ -268,9 +268,10 @@ def inspect_codes(
 
     # Custom tier (local TOML custom rules)
     for cr in config.custom_rules:
+        rule_id_str = cr.id or cr.class_name or "ZZ-CUSTOM"
         rows["custom"].append(
             (
-                cr.id,
+                rule_id_str,
                 "custom rule",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
