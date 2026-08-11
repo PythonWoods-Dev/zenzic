@@ -70,14 +70,13 @@ def test_parse_frontmatter_keys_empty_block() -> None:
 def test_extract_links_markdown_native() -> None:
     content = "See [Foo](https://example.com/foo) and [Bar](https://bar.io)."
     links = _extract_links(content)
-    assert "https://example.com/foo" in links
-    assert "https://bar.io" in links
+    assert links == ["https://example.com/foo", "https://bar.io"]
 
 
 def test_extract_links_html_href() -> None:
     content = 'Click <a href="https://legacy.corp/docs">here</a>.'
     links = _extract_links(content)
-    assert "https://legacy.corp/docs" in links
+    assert links == ["https://legacy.corp/docs"]
 
 
 def test_extract_links_both_types() -> None:
@@ -85,8 +84,7 @@ def test_extract_links_both_types() -> None:
         '[Native](https://native.example.com) and <a href="https://html.example.com">HTML</a>.'
     )
     links = _extract_links(content)
-    assert "https://native.example.com" in links
-    assert "https://html.example.com" in links
+    assert links == ["https://native.example.com", "https://html.example.com"]
 
 
 def test_extract_links_deduplication() -> None:
@@ -161,8 +159,9 @@ def test_policy_evaluator_z611_forbidden_domain_markdown_link() -> None:
     content = "See [this](https://competitor.example.com/page)."
     evaluator = PolicyEvaluator(config)
     findings = evaluator.check(DUMMY_FILE, content)
-    assert any(f.rule_id == "Z611" for f in findings)
-    assert "competitor.example.com" in findings[0].message
+    assert len(findings) == 1
+    assert findings[0].rule_id == "Z611"
+    assert findings[0].message.startswith("Link to 'https://competitor.example.com/page'")
 
 
 def test_policy_evaluator_z611_forbidden_domain_html_link() -> None:
@@ -271,8 +270,8 @@ def test_policies_config_accepts_valid_values() -> None:
         required_frontmatter_keys=["title", "description"],
         forbidden_external_domains=["bad.example.com"],
     )
-    assert "title" in policies.required_frontmatter_keys
-    assert "bad.example.com" in policies.forbidden_external_domains
+    assert policies.required_frontmatter_keys == ["title", "description"]
+    assert policies.forbidden_external_domains == ["bad.example.com"]
 
 
 def test_zenzic_config_policies_field_defaults() -> None:
