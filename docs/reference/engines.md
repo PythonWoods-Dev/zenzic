@@ -114,6 +114,12 @@ For projects that rely heavily on dynamic nav generation, add the plugin-generat
 `excluded_dirs` in `.zenzic.toml` to suppress false orphan reports until a native adapter
 is available.
 
+### Blog plugin support (`material/blog`)
+
+When the `blog` (or `material/blog`) plugin is enabled in `mkdocs.yml`, `MkDocsAdapter` automatically inspects `blog_dir` (default: `blog`).
+
+All Markdown files located under `<blog_dir>/posts/` (e.g. `docs/blog/posts/*.md`) are dynamically generated routes at build time (index, pagination, tag archives, RSS). `MkDocsAdapter` marks all files in this subtree as `REACHABLE` automatically, ensuring that blog posts do not require explicit listing in `mkdocs.yml`'s `nav:` section and do not emit false-positive orphan page (`Z103`) findings.
+
 ### Minimal configuration
 
 ```toml
