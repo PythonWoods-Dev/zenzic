@@ -92,7 +92,12 @@ def walk_files(
         exclusions (URL mapping, Z402, Z502) happen at the logical layer
         inside the adapter and rule engine.
     """
-    repo_root = getattr(exclusion_manager, "_repo_root", None)
+    repo_root = getattr(exclusion_manager, "_repo_root", None) or root
+    resolved_repo_root = repo_root.resolve(strict=False)
+    import logging
+
+    logger = logging.getLogger("zenzic.core.discovery")
+
     for dirpath, dirnames, filenames in os.walk(root):
         filtered_dirnames = []
         for d in dirnames:
@@ -113,7 +118,26 @@ def walk_files(
             filtered_dirnames.append(d)
         dirnames[:] = sorted(filtered_dirnames)
         for fname in sorted(filenames):
-            yield Path(dirpath) / fname
+            fpath = Path(dirpath) / fname
+            # Security boundary check (Path Sovereignty / Z202 Path Traversal):
+            resolved_fpath = fpath.resolve(strict=False)
+            try:
+                if not resolved_fpath.is_relative_to(resolved_repo_root):
+                    logger.warning(
+                        "Z202 Path Traversal: skipping file escaping workspace root boundary: %s -> %s",
+                        fpath,
+                        resolved_fpath,
+                    )
+                    continue
+            except ValueError:
+                logger.warning(
+                    "Z202 Path Traversal: skipping file escaping workspace root boundary: %s -> %s",
+                    fpath,
+                    resolved_fpath,
+                )
+                continue
+
+            yield fpath
 
 
 def iter_locale_markdown_sources(
@@ -150,8 +174,6 @@ def iter_locale_markdown_sources(
     excluded_dirs = set(config.excluded_dirs)
     for md_file in walk_files(locale_root, excluded_dirs, exclusion_manager, config):
         if md_file.suffix not in DOC_SUFFIXES:
-            continue
-        if md_file.is_symlink():
             continue
         if exclusion_manager.should_exclude_file(md_file, locale_root):
             continue
@@ -198,8 +220,6 @@ def iter_extra_content_markdown_sources(
     for md_file in walk_files(content_root, excluded_dirs, exclusion_manager, config):
         if md_file.suffix not in DOC_SUFFIXES:
             continue
-        if md_file.is_symlink():
-            continue
         if exclusion_manager.should_exclude_file(md_file, content_root):
             continue
         rel = md_file.relative_to(content_root)
@@ -236,8 +256,6 @@ def iter_markdown_sources(
     excluded_dirs = set(config.excluded_dirs)
     for md_file in walk_files(docs_root, excluded_dirs, exclusion_manager, config):
         if md_file.suffix not in DOC_SUFFIXES:
-            continue
-        if md_file.is_symlink():
             continue
         if exclusion_manager.should_exclude_file(md_file, docs_root):
             continue

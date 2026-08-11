@@ -655,13 +655,14 @@ class TestScanDocsReferences:
     def test_symlinks_skipped(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
-        (tmp_path / "mkdocs.yml").touch()
-        real = tmp_path / "real.md"
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        real = outside / "real.md"
         real.write_text("[ref]: https://example.com\n", encoding="utf-8")
         (docs / "linked.md").symlink_to(real)
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
-        mgr = make_mgr(config, repo_root=tmp_path)
+        mgr = make_mgr(config, repo_root=docs)
         reports, _ = scan_docs_references(docs_root, mgr, config=config)
         assert reports == []
 

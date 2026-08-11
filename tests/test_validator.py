@@ -361,13 +361,15 @@ class TestInternalLinks:
     def test_symlinks_skipped(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
-        real = tmp_path / "real.md"
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        real = outside / "real.md"
         real.write_text("[broken](ghost.md)")
         (docs / "linked.md").symlink_to(real)
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
-        mgr = make_mgr(config, repo_root=tmp_path)
-        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
+        mgr = make_mgr(config, repo_root=docs)
+        assert validate_links(docs_root, mgr, repo_root=docs, config=config) == []
 
     def test_excluded_dir_not_scanned(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
@@ -1251,12 +1253,14 @@ def test_validate_snippets_docs_not_exist(tmp_path: Path) -> None:
 def test_validate_snippets_symlink_skipped(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
-    real_file = tmp_path / "real.md"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_file = outside / "real.md"
     real_file.write_text("```python\ndef broken(\n```")
     (docs / "linked.md").symlink_to(real_file)
     config = ZenzicConfig()
     docs_root = tmp_path / config.docs_dir
-    mgr = make_mgr(config, repo_root=tmp_path)
+    mgr = make_mgr(config, repo_root=docs)
     assert validate_snippets(docs_root, mgr, config=config) == []
 
 
@@ -1781,3 +1785,28 @@ Inline math $\\text{Ref}[\\text{Code}](:32)$ should also be ignored.
     rule_links = _extract_inline_links_with_lines(content)
     rule_urls = [u[0] for u in rule_links]
     assert rule_urls == ["https://example.com/valid"]
+
+
+def test_polyglot_extractor_multiline_comment_line_preservation():
+    """Verify that multiline HTML comments with code blocks inside preserve line numbers for subsequent links."""
+    from zenzic.core.validator import PolyglotExtractor
+
+    content = """# Header (Line 1)
+Line 2 text
+<!--
+Line 4 in comment
+```python
+API_KEY = "sk-live-123"
+```
+Line 8 in comment
+-->
+Line 10 text
+[Real Link](https://example.com/real)
+"""
+    extractor = PolyglotExtractor()
+    extracted = extractor.extract_all_links(content)
+
+    assert len(extracted) == 1
+    link = extracted[0]
+    assert link.url == "https://example.com/real"
+    assert link.line_no == 11
