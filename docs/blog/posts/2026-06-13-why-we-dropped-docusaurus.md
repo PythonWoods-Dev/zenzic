@@ -10,7 +10,7 @@ description: "Why We Dropped Docusaurus: The Ontological Limits of Static Analys
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 !!! abstract "Architectural Update"
-    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
 We spent a full development cycle building a Docusaurus adapter for Zenzic.
 We ran forensic audits on real Docusaurus projects.

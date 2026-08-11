@@ -9,7 +9,7 @@ description: "Why we banned Python's regex module: The algorithm behind Zenzic"
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 !!! abstract "Architectural Update"
-    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
 In modern CI/CD pipelines, security and performance should be structurally bounded, not just empirically observed. Traditional documentation linters and credential scanners often fail when operating at scale or under adversarial conditions. The primary failure mode is **ReDoS (Regular Expression Denial of Service)**.
 

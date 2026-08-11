@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 > **Governance Note (ADR-020):** This document is a root governance file. It is strictly **English-Only**. It must not be translated or mirrored in the `i18n/` directory.
 
-This document describes the planned milestone trajectory for Zenzic, the **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**.
+This document describes the planned milestone trajectory for Zenzic, the **Deterministic Document Integrity Engine for Markdown/MDX graphs**.
 Dates are targets, not commitments. All milestones are subject to revision.
 
 For the current release history and completed milestones (up to `v0.26.x`), see [CHANGELOG.md](CHANGELOG.md).
@@ -18,7 +18,7 @@ For the current release history and completed milestones (up to `v0.26.x`), see 
 
 Before advancing the core feature set, the following infrastructural and validation tasks are prioritized:
 
-- **Empirical Benchmark Suite:** Audit large-scale open-source repositories (e.g., Kubernetes, Docusaurus) to empirically prove $O(N)$ complexity, sub-50ms latency, and SAST capabilities against real-world documentation graphs.
+- **Empirical Benchmark Suite:** Audit large-scale open-source repositories (e.g., Kubernetes, Docusaurus) to empirically prove $O(N)$ complexity, sub-50ms latency, and static analysis capabilities against real-world documentation graphs.
 - **OIDC/Entra ID CI/CD Integration:** Resolve VS Code Marketplace publishing technical debt by transitioning from legacy Personal Access Tokens (PAT) to Workload Identity Federation before the December 2026 deprecation deadline.
 
 ---

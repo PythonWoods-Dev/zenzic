@@ -30,7 +30,7 @@ We decided that this was the wrong model.
 
 **We built Zenzic to treat documentation integrity as a property that can be tested before a change reaches the main branch.**
 
-Zenzic is a deterministic document-integrity engine and SAST for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
+Zenzic is a deterministic document-integrity engine for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
 
 Our objective is operational:
 
@@ -57,7 +57,7 @@ We decided that this was the wrong model.
 
 **We built Zenzic to treat documentation integrity as a property that can be tested before a change reaches the main branch.**
 
-Zenzic is a deterministic document-integrity engine and SAST for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
+Zenzic is a deterministic document-integrity engine for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
 
 Our objective is operational:
 
@@ -757,6 +757,6 @@ License: Apache-2.0
 
 References
 
-[1] Zenzic — Deterministic Document Integrity Engine & SAST - https://zenzic.dev/
+[1] Zenzic — Deterministic Document Integrity Engine - https://zenzic.dev/
 
 [2] Zenzic — Why Zenzic? - https://zenzic.dev/explanation/why-zenzic/
