@@ -25,6 +25,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **SARIF Enterprise Integration (`V0.28-03`)**: Elevated SARIF 2.1.0 output to enterprise-grade compliance status for GitHub Code Scanning.
   - Enriched `runs[0].tool.driver.rules` with `helpUri`, `properties.category`, `properties.penalty`, and `fullDescription` derived dynamically from `CODE_DEFINITIONS` and Custom Rule SDK v3 `RuleMetadata`.
   - Enforced 100% deterministic result and rule sorting order (`(rel_path, line_no, code, message)`).
+- **Zenzic Audit Mode (`V0.28-04`)**: Introduced `zenzic audit` CLI command under the Governance panel for generating formal compliance audit reports.
+  - Aggregates Executive Summary (workspace coverage, DQS score, pass/fail status), Governance Policies (`[policies]` compliance), Technical Debt Ledger (inline comments, per-file ignores, directory policies), and Architectural State (active build engine, adapter class, custom SDK v3 rules).
+  - Supports rich terminal output (`--format text`) and 100% deterministic machine-readable JSON (`--format json`).
 - **Mirror Law Parity (`ADR-020`)**: Authored rule specification cards `docs/rules/Z610.md` and `docs/rules/Z611.md`. Registered both codes in `docs/reference/finding-codes.md` and `mkdocs.yml` navigation tree.
 - **CHANGELOG Archive**: Moved `v0.27.x` release notes to `changelogs/v0.27.x.md` and reset `CHANGELOG.md` for the `v0.28.x` development cycle.
 

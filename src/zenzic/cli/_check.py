@@ -20,6 +20,7 @@ from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
+    _build_rule_engine,
     _map_credential_to_finding,
     find_missing_directory_indices,
     find_orphans,

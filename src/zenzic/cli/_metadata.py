@@ -70,6 +70,13 @@ COMMANDS: tuple[CommandMeta, ...] = (
         usage_hint="Try 'zenzic score --help' for options.",
     ),
     CommandMeta(
+        name="audit",
+        panel="Governance",
+        short_help="Generate a formal compliance audit report of workspace governance, DQS, and technical debt.",
+        long_help="Generate a formal compliance audit report detailing active policies, DQS score calculation, technical debt suppressions, and architectural adapter state.",
+        usage_hint="Try 'zenzic audit --help' for options.",
+    ),
+    CommandMeta(
         name="fix",
         panel="Core",
         short_help="Auto-fix deterministic structural violations.",

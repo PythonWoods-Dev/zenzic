@@ -15,6 +15,7 @@ from rich.console import Console
 
 from zenzic import __version__
 from zenzic.cli import (
+    audit,
     check_app,
     clean_app,
     config_app,
@@ -95,6 +96,7 @@ _SUB_APPS = {
 }
 
 _STANDALONE_COMMANDS = {
+    "audit": audit,
     "lab": lab,
     "score": score,
     "diff": diff,

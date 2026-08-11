@@ -112,6 +112,29 @@ Select a command tab to view its execution flags, default behaviors, and usage e
         Possible values of `status`: `success`, `failing` (score < `fail_under`),
         `security_breach` (Z2xx finding detected).
 
+=== "zenzic audit"
+
+    Generate a formal compliance audit report detailing active policies, DQS score calculation, technical debt suppressions, and architectural adapter state:
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--format` | `-f` | `text` | Output format: `text` (Rich terminal panels) or `json` (deterministic compliance payload). |
+    | `--strict` | `-s` | `false` | Treat warnings as errors (exit 1 on any warning). |
+    | `--no-external` | — | `false` | Skip HTTP validation of external URLs for air-gapped / offline builds. |
+    | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
+    | `--only` | — | — | Comma-separated list of Z-Codes to include in audit findings. |
+    | `--baseline` | — | — | Path to custom baseline snapshot file. |
+    | `--ci` | — | `false` | Run in CI mode. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Generate interactive terminal compliance report
+    zenzic audit
+
+    # Generate deterministic machine-readable JSON compliance artifact
+    zenzic audit --format json
+    ```
+
 === "zenzic diff"
 
     Evaluate score delta and finding changes against a stored baseline file:

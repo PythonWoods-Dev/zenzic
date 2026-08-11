@@ -7,7 +7,7 @@ from pathlib import Path
 import jsonschema
 
 from zenzic.cli._shared import Finding, _output_sarif_findings
-from zenzic.sdk import ZenzicRuleV3, RuleMetadata
+from zenzic.sdk import RuleMetadata, ZenzicRuleV3
 
 
 class CustomSarifTestRule(ZenzicRuleV3):
@@ -79,6 +79,10 @@ def test_sarif_enrichment_and_schema_validation(capsys) -> None:
     results = sarif_data["runs"][0]["results"]
     assert len(results) == 2
     assert results[0]["ruleId"] == "ZZ-SARIF-TEST"
-    assert results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "docs/guide.md"
+    assert (
+        results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "docs/guide.md"
+    )
     assert results[1]["ruleId"] == "Z101"
-    assert results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "docs/index.md"
+    assert (
+        results[1]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "docs/index.md"
+    )
