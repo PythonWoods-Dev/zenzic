@@ -143,6 +143,7 @@ class ZenzicRuleV3(BaseRule):
                 doc = parse(text)
                 self._walk_headings(doc, file_path, findings)
             except Exception:
+                # Fail-open: suppress AST parse errors to ensure custom rule evaluation completes
                 pass
 
     def _walk_headings(self, node: Any, file_path: Path, findings: list[RuleFinding]) -> None:

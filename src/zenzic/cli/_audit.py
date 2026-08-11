@@ -134,6 +134,7 @@ def audit(
             active_baseline = BaselineManager.load_baseline(baseline_file_path)
             BaselineManager.apply_baseline(all_findings, active_baseline)
         except Exception:
+            # Gracefully ignore invalid or unparseable baseline files during audit
             pass
 
     findings_counts: dict[str, int] = {}
