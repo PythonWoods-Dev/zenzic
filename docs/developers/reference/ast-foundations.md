@@ -32,7 +32,7 @@ Zenzic replaces text matching with a **Lossless Abstract Syntax Tree (AST) Compi
 
   - Compiles Lossless ASTs and computes a Directed Graph (VSM)
   - Verifies link targets, anchor references, and nav contracts statically
-  - Enforces hard security boundaries (SAST credential scanner)
+  - Enforces hard security boundaries (credential scanner)
   - Delivers 100% bit-for-bit deterministic execution across platforms
 
 </div>

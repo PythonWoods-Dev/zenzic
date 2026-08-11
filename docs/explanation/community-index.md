@@ -8,7 +8,7 @@ description: "Community resources, contribution guides, and project governance."
 
 # About Zenzic
 
-Zenzic is a Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs.
+Zenzic is a Deterministic Document Integrity Engine for Markdown/MDX graphs.
 
 Built by [PythonWoods](https://github.com/PythonWoods), it is designed to run in CI/CD pipelines and catch documentation issues before they reach users.
 

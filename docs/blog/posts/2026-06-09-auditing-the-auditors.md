@@ -10,7 +10,7 @@ description: "Auditing the Auditors: Finding Documentation Defects with AST-Base
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 !!! abstract "Architectural Update"
-    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
 To validate the parser and snippet-analysis capabilities of Zenzic, we needed a production-grade documentation corpus. We selected the official documentation repository of Zensical, a mature and actively maintained static site generator.
 

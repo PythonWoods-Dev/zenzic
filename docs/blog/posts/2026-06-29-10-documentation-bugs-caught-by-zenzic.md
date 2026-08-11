@@ -11,7 +11,7 @@ categories:
   - Quality Assurance
 ---
 !!! abstract "Architectural Update"
-    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
 Documentation isn't just text—it's a critical interface. When users rely on your docs to deploy infrastructure, configure security policies, or integrate APIs, a "simple typo" can lead to hours of lost productivity.
 
