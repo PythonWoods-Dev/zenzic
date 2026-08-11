@@ -22,6 +22,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   - `ZenzicRuleV3`: Public base class for custom rules with visitor hooks (`visit_document`, `visit_line`, `visit_link`, `visit_heading`, `visit_code_block`).
   - `RuleMetadata`: Typed Pydantic model enforcing `code`, `title`, `description`, `severity`, `category`, and `penalty` for custom rules.
   - **Hard Deprecation of v2 API**: Removed legacy `BaseASTRule` v2 API. Instantiating or attempting to load v2 rules raises `PluginContractError` fast.
+- **SARIF Enterprise Integration (`V0.28-03`)**: Elevated SARIF 2.1.0 output to enterprise-grade compliance status for GitHub Code Scanning.
+  - Enriched `runs[0].tool.driver.rules` with `helpUri`, `properties.category`, `properties.penalty`, and `fullDescription` derived dynamically from `CODE_DEFINITIONS` and Custom Rule SDK v3 `RuleMetadata`.
+  - Enforced 100% deterministic result and rule sorting order (`(rel_path, line_no, code, message)`).
 - **Mirror Law Parity (`ADR-020`)**: Authored rule specification cards `docs/rules/Z610.md` and `docs/rules/Z611.md`. Registered both codes in `docs/reference/finding-codes.md` and `mkdocs.yml` navigation tree.
 - **CHANGELOG Archive**: Moved `v0.27.x` release notes to `changelogs/v0.27.x.md` and reset `CHANGELOG.md` for the `v0.28.x` development cycle.
 

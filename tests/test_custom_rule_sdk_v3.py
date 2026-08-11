@@ -19,9 +19,7 @@ class CustomLinkRule(ZenzicRuleV3):
         penalty=3.0,
     )
 
-    def visit_link(
-        self, file_path: Path, line_no: int, link_text: str, target_url: str
-    ) -> list:
+    def visit_link(self, file_path: Path, line_no: int, link_text: str, target_url: str) -> list:
         if target_url.startswith("http://"):
             return [
                 self.create_finding(
@@ -66,7 +64,6 @@ def test_sdk_v3_visit_link(tmp_path: Path) -> None:
 
 def test_sdk_v3_loading_via_config(tmp_path: Path) -> None:
     from zenzic.core.scanner import _build_rule_engine
-
     from zenzic.models.config import CustomRuleConfig
 
     config = ZenzicConfig(

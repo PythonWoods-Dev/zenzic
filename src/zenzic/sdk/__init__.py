@@ -9,6 +9,7 @@ while exposing rich metadata capabilities.
 from zenzic.models.rules import RuleMetadata, RuleSeverity, TaxonomyCategory
 from zenzic.sdk.rules import ZenzicRuleV3
 
+
 __all__ = [
     "RuleMetadata",
     "RuleSeverity",

@@ -12,7 +12,7 @@ from zenzic.models.rules import RuleMetadata
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 
 class ZenzicRuleV3(BaseRule):
@@ -157,6 +157,6 @@ class ZenzicRuleV3(BaseRule):
             if res:
                 findings.extend(res)
 
-        if hasattr(node, "children") and isinstance(node.children, (list, tuple)):
+        if hasattr(node, "children") and isinstance(node.children, list | tuple):
             for child in node.children:
                 self._walk_headings(child, file_path, findings)

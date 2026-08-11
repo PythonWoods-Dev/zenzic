@@ -33,7 +33,7 @@ Before advancing the core feature set, the following infrastructural and validat
 
 - [x] **Policy-as-Code Engine:** Formalize governance by transforming scattered configurations and ADRs into a verifiable, declarative model. (Foundation released in v0.28.x)
 - [x] **Custom Rule SDK v3:** Stabilize the analysis engine and sandbox to allow the community to build safe, deterministic custom rules. (Released in v0.28.x)
-- **SARIF Enterprise Integration:** Enhance security and compliance integrations for enterprise dashboards.
+- [x] **SARIF Enterprise Integration:** Enhance security and compliance integrations for GitHub Code Scanning and enterprise dashboards. (Released in v0.28.x)
 - **Zenzic Audit Mode:** High-value enterprise reporting mode requiring stable DQS, Policy Engine, and SARIF outputs.
 
 ### [v0.29] — Ecosystem Expansion

@@ -20,7 +20,12 @@ from rich.panel import Panel
 from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
-from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS, get_sarif_name
+from zenzic.core.codes import (
+    CODE_DEFINITIONS,
+    CODE_DESCRIPTIONS,
+    CODE_NAMES,
+    get_sarif_name,
+)
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, FooterNotice
 from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
@@ -292,11 +297,21 @@ def _sarif_level(severity: str) -> str:
     }.get(severity, "note")
 
 
-def _output_sarif_findings(findings: list[Finding], version: str) -> None:
-    """Serialize findings list to SARIF 2.1.0 JSON and print to stdout."""
+def _output_sarif_findings(
+    findings: list[Finding],
+    version: str,
+    rules_map: dict[str, Any] | None = None,
+) -> None:
+    """Serialize findings list to deterministic SARIF 2.1.0 JSON and print to stdout."""
     seen_rule_ids: set[str] = set()
+
+    sorted_findings = sorted(
+        findings,
+        key=lambda f: (f.rel_path, f.line_no, f.code, f.message),
+    )
+
     sarif_results: list[dict[str, object]] = []
-    for f in findings:
+    for f in sorted_findings:
         seen_rule_ids.add(f.code)
         result: dict[str, object] = {
             "ruleId": f.code,
@@ -318,18 +333,55 @@ def _output_sarif_findings(findings: list[Finding], version: str) -> None:
             result["properties"] = {"security-severity": _SARIF_SECURITY_SEVERITY[f.severity]}
         sarif_results.append(result)
 
-    rules = [
-        {
+    rules: list[dict[str, object]] = []
+    for rule_id in sorted(seen_rule_ids):
+        rule_def = CODE_DEFINITIONS.get(rule_id)
+        if rule_def is not None:
+            category = rule_def.category or (
+                "governance" if rule_id.startswith("Z6") else "uncategorized"
+            )
+            penalty = rule_def.penalty
+            level = rule_def.severity
+            help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+            short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
+        elif rules_map and rule_id in rules_map:
+            rule_obj = rules_map[rule_id]
+            meta = getattr(rule_obj, "metadata", None)
+            if meta:
+                category = getattr(meta, "category", "custom")
+                penalty = getattr(meta, "penalty", 1.0)
+                level = _sarif_level(getattr(meta, "severity", "warning"))
+                help_uri = (
+                    getattr(meta, "docs_url", None)
+                    or f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+                )
+                short_desc = getattr(meta, "description", getattr(meta, "title", rule_id))
+            else:
+                category = "custom"
+                penalty = 1.0
+                level = "warning"
+                help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+                short_desc = rule_id
+        else:
+            category = "custom" if rule_id.startswith("ZZ-") else "uncategorized"
+            penalty = 1.0 if rule_id.startswith("ZZ-") else 0.0
+            level = "warning"
+            help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+            short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
+
+        rule_entry: dict[str, object] = {
             "id": rule_id,
             "name": get_sarif_name(rule_id),
-            "shortDescription": {
-                "text": CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
+            "shortDescription": {"text": short_desc},
+            "fullDescription": {"text": short_desc},
+            "defaultConfiguration": {"level": level},
+            "helpUri": help_uri,
+            "properties": {
+                "category": category,
+                "penalty": penalty,
             },
-            "defaultConfiguration": {"level": CODE_SARIF_LEVELS.get(rule_id, "warning")},
-            "helpUri": f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}",
         }
-        for rule_id in sorted(seen_rule_ids)
-    ]
+        rules.append(rule_entry)
 
     run_obj: dict[str, Any] = {
         "tool": {

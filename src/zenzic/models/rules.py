@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +28,7 @@ class RuleMetadata(BaseModel):
         default="content", description="Taxonomy category for DQS weighting."
     )
     penalty: float = Field(default=1.0, description="DQS penalty points applied per finding.")
-    docs_url: Optional[str] = Field(default=None, description="Optional URL to rule documentation.")
+    docs_url: str | None = Field(default=None, description="Optional URL to rule documentation.")
     supports_autofix: bool = Field(
         default=False, description="Whether the rule supports automated quick-fixes."
     )

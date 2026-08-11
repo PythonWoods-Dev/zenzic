@@ -227,7 +227,9 @@ def check_links(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _shared._output_sarif_findings(findings, __version__)
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         incidents = sum(1 for f in findings if f.severity == "security_incident")
         if incidents:
             raise typer.Exit(3)
@@ -380,7 +382,9 @@ def check_orphans(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _shared._output_sarif_findings(findings, __version__)
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
             raise typer.Exit(1)
@@ -496,7 +500,9 @@ def check_snippets(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _shared._output_sarif_findings(findings, __version__)
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
             raise typer.Exit(1)
@@ -685,7 +691,9 @@ def check_references(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _shared._output_sarif_findings(findings, __version__)
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         breaches = sum(1 for f in findings if f.severity == "security_breach")
         if breaches:
             raise typer.Exit(2)
@@ -817,7 +825,9 @@ def check_assets(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _shared._output_sarif_findings(findings, __version__)
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
             raise typer.Exit(1)
@@ -1630,7 +1640,9 @@ def check_all(
                 raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _shared._output_sarif_findings(all_findings, __version__)
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(all_findings, __version__, rules_map=_rules_map)
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
             raise typer.Exit(3)
