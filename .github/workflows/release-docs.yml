@@ -21,8 +21,6 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout Repository
@@ -35,6 +33,41 @@ jobs:
 
       - name: Build Docs
         run: |
+          uv run --extra docs mkdocs build --strict
+
+      - name: Set artifact name
+        id: vars
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=docs-build-${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=docs-build-run-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Archive build output
+        run: tar -czf "${{ steps.vars.outputs.name }}.tar.gz" site
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.vars.outputs.name }}
+          path: ${{ steps.vars.outputs.name }}.tar.gz
+          retention-days: 30
+
+      - name: Publish GitHub release (tags only)
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        with:
+          files: ${{ steps.vars.outputs.name }}.tar.gz
+          generate_release_notes: true
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=zenzic-doc
+          wranglerVersion: "3.90.0"        run: |
           uv run --extra docs mkdocs build --strict
 
       - name: Set artifact name
