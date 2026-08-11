@@ -40,8 +40,7 @@ That means reducing production risk, removing repetitive manual review loops, an
 
 <!-- more -->
 
-# Markdown Is Production Code
-## Why we built Zenzic to make documentation integrity a deterministic CI gate
+## Markdown Is Production Code: Why We Built Zenzic
 
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 
@@ -347,7 +346,7 @@ prefer pure-function-first validation and scoring.
 
 These choices are intended to make the core analysis predictable and reproducible.
 
-We also use a non-backtracking RE2-based engine for the relevant pattern matching, and the project is designed around a linear 
+We also use a non-backtracking RE2-based engine for the relevant pattern matching, and the project is designed around a linear
 𝑂
 (
 𝑁
@@ -527,14 +526,14 @@ We did not build Zenzic to replace the entire documentation ecosystem.
 
 Different tools solve different problems:
 
-Tool	Primary responsibility	Relationship with Zenzic
-markdownlint	Markdown style and formatting	Complementary
-Vale	Editorial style and terminology	Complementary
-Lychee	Link and HTTP endpoint checking	Partial overlap
-Codespell	Spelling errors	Complementary
-Gitleaks or TruffleHog	Secrets across repository content and history	Complementary, not automatically replaceable
-MkDocs/Docusaurus/Zensical build	Rendering, plugins, and compilation	Not replaceable
-Browser or HTML tests	Accessibility and rendered behaviour	Not replaceable
+Tool Primary responsibility Relationship with Zenzic
+markdownlint Markdown style and formatting Complementary
+Vale Editorial style and terminology Complementary
+Lychee Link and HTTP endpoint checking Partial overlap
+Codespell Spelling errors Complementary
+Gitleaks or TruffleHog Secrets across repository content and history Complementary, not automatically replaceable
+MkDocs/Docusaurus/Zensical build Rendering, plugins, and compilation Not replaceable
+Browser or HTML tests Accessibility and rendered behaviour Not replaceable
 
 Zenzic can replace scripts that were custom-built to detect orphan pages, unused assets, missing local files, or certain navigation defects.
 
