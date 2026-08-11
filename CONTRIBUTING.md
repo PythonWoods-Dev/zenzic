@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Thank you for your interest in contributing to Zenzic Core!
 
-Zenzic is a Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs.
+Zenzic is a Deterministic Document Integrity Engine for Markdown/MDX graphs.
 We welcome contributions that improve reliability, performance, adapter accuracy, or usability of the Python Core engine and CLI.
 
 ## Multi-Repo Ecosystem Architecture
@@ -31,7 +31,7 @@ Zenzic is structured across three independent, dedicated repositories:
 
 Before proposing rule or core engine changes, contributors must validate impact against the live code registry and tier ownership model:
 
-- **Tier Ownership Model:** Findings are grouped into Core (Z1xx), Security/SAST (Z2xx), and Governance/Structure (Z3xx–Z6xx) domains. Keep changes in the correct band.
+- **Tier Ownership Model:** Findings are grouped into Core (Z1xx), Security (Z2xx), and Governance/Structure (Z3xx–Z6xx) domains. Keep changes in the correct band.
 - **Frozen Contract Awareness:** Do not alter immutable surfaces (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) without an explicit architecture decision record (ADR).
 - **Inspect-First Workflow:** Treat `zenzic inspect codes` as the source of truth before editing examples, checks tables, or changelog narratives.
 

@@ -543,6 +543,16 @@ class IncrementalAnalysisEngine:
         # Atomic Rules
         findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
+        # Policy-as-Code Engine (v0.28.0)
+        from zenzic.core.governance import check_policies
+
+        policy_findings = check_policies(
+            path, text, self.config, links=[link.url for link in extracted_links]
+        )
+        for pf in policy_findings:
+            if not tracker.is_suppressed(pf.line_no, pf.rule_id):
+                findings.append(pf)
+
         # VSM-aware Rules
         context = ResolutionContext(
             docs_root=self.docs_root,

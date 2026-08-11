@@ -435,9 +435,13 @@ class PolyglotExtractor:
         return extracted
 
     def _mask_comments(self, text: str) -> str:
-        """Mask HTML and MDX comments with spaces of equal length to preserve offsets."""
-        text = _POLY_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
-        text = _POLY_MDX_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
+        """Mask HTML and MDX comments with spaces of equal length, preserving newlines to maintain line offsets."""
+
+        def _repl(m: Any) -> str:
+            return "".join("\n" if c == "\n" else " " for c in m.group(0))
+
+        text = _POLY_COMMENT_RE.sub(_repl, text)
+        text = _POLY_MDX_COMMENT_RE.sub(_repl, text)
         return text
 
     def _mask_inline_code(self, text: str) -> str:

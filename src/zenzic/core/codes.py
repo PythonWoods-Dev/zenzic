@@ -63,6 +63,8 @@ Z5xx — Content Quality
 
 Z6xx — Governance (opt-in)
      Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
+     Z610  REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document (v0.28.0)
+     Z611  FORBIDDEN_DOMAIN_REFERENCE  — link references a domain forbidden by [policies] (v0.28.0)
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
@@ -245,6 +247,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
+    "Z610": CodeDefinition("warning", 3.0, "governance"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
+    "Z611": CodeDefinition("warning", 3.0, "governance"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -303,6 +307,8 @@ CODE_NAMES: dict[str, str] = {
     "Z512": "EMPTY_SECTION",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
+    "Z610": "REQUIRED_FRONTMATTER_MISSING",
+    "Z611": "FORBIDDEN_DOMAIN_REFERENCE",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -368,6 +374,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
+    "Z610": "Required frontmatter key is absent from this document",
+    "Z611": "Link references an external domain forbidden by the [policies] configuration",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",
@@ -559,6 +567,17 @@ CORE_SCANNERS: list[CoreScanner] = [
         codes="Z603",
         name="Suppression Governance",
         capability="Detects dead inline suppressions that do not suppress any active finding",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z610\u2013611",
+        name="Policy Engine",
+        capability=(
+            "Declarative Policy-as-Code evaluation \u2014 required frontmatter keys (Z610) "
+            "and forbidden external domains (Z611), both Markdown and HTML links. "
+            "Activated via [policies] in .zenzic.toml. Opt-in, inactive by default."
+        ),
         primary_exit=1,
         non_suppressible=False,
     ),

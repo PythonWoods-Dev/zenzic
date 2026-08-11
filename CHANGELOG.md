@@ -11,54 +11,42 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.27.2] - 2026-08-05
+*Upcoming changes for the next release.*
+
+## [0.28.0] - 2026-08-11
 
 ### Added
 
-- **Environment Diagnostics CLI (`zenzic env`)**: Added a transport-agnostic CLI command (`zenzic env` and `zenzic env --json`) that outputs core runtime diagnostics (Zenzic version, Python executable path, Zenzic module path, working directory, and active configuration file path) to streamline debugging path resolution issues without coupling to specific editors or LSP clients (**ADR-075 Radical Unawareness**).
+- **Policy-as-Code Engine (`V0.28-01`)**: Introduced foundational architecture for declarative governance policies via a new `[policies]` table in `.zenzic.toml`. Policies are **opt-in** and fully backward-compatible. When the `[policies]` section is absent or empty, zero behaviour change is observed.
+  - `Z610` (REQUIRED_FRONTMATTER_MISSING): Emitted when a Markdown file is missing a frontmatter key declared in `[policies].required_frontmatter_keys`. One finding is emitted per missing key per file. Penalty: 3.0 pts (Governance).
+  - `Z611` (FORBIDDEN_DOMAIN_REFERENCE): Emitted when a link — native Markdown `[text](url)` or raw HTML `<a href>` — references an external domain listed in `[policies].forbidden_external_domains`. Domain matching is case-insensitive and covers exact domains and all subdomains. Penalty: 3.0 pts (Governance).
+  - `PolicyEvaluator` class in `zenzic.core.governance`: stateless, deterministic, pure-function evaluator. No I/O, no subprocess, no cross-file state (**ADR-075 Radical Unawareness**).
+  - `PoliciesConfig` Pydantic model in `zenzic.models.config` with full Zero-DBT documentation. Schema mismatches automatically emit `Z111` via the existing Configuration Validation Engine.
+- **Custom Rule SDK v3 (`V0.28-02`)**: Evolved the custom rules framework into a stable, typed SDK (`zenzic.sdk`).
+  - `ZenzicRuleV3`: Public base class for custom rules with visitor hooks (`visit_document`, `visit_line`, `visit_link`, `visit_heading`, `visit_code_block`).
+  - `RuleMetadata`: Typed Pydantic model enforcing `code`, `title`, `description`, `severity`, `category`, and `penalty` for custom rules.
+  - **Hard Deprecation of v2 API**: Removed legacy `BaseASTRule` v2 API. Instantiating or attempting to load v2 rules raises `PluginContractError` fast.
+- **SARIF Enterprise Integration (`V0.28-03`)**: Elevated SARIF 2.1.0 output to enterprise-grade compliance status for GitHub Code Scanning.
+  - Enriched `runs[0].tool.driver.rules` with `helpUri`, `properties.category`, `properties.penalty`, and `fullDescription` derived dynamically from `CODE_DEFINITIONS` and Custom Rule SDK v3 `RuleMetadata`.
+  - Enforced 100% deterministic result and rule sorting order (`(rel_path, line_no, code, message)`).
+- **Zenzic Audit Mode (`V0.28-04`)**: Introduced `zenzic audit` CLI command under the Governance panel for generating formal compliance audit reports.
+  - Aggregates Executive Summary (workspace coverage, DQS score, pass/fail status), Governance Policies (`[policies]` compliance), Technical Debt Ledger (inline comments, per-file ignores, directory policies), and Architectural State (active build engine, adapter class, custom SDK v3 rules).
+  - Supports rich terminal output (`--format text`) and 100% deterministic machine-readable JSON (`--format json`).
+- **Mirror Law Parity (`ADR-020`)**: Authored rule specification cards `docs/rules/Z610.md` and `docs/rules/Z611.md`. Registered both codes in `docs/reference/finding-codes.md` and `mkdocs.yml` navigation tree.
+- **CHANGELOG Archive**: Moved `v0.27.x` release notes to `changelogs/v0.27.x.md` and reset `CHANGELOG.md` for the `v0.28.x` development cycle.
 
 ### Fixed
 
-- **LSP Event Coalescing & Uniform Debouncing**: Applied a uniform 300ms debounce buffer to watched file notifications (`workspace/didChangeWatchedFiles`). Directory events now flag pending full syncs rather than executing synchronous rebuilds, eliminating $O(M \cdot N)$ redundant AST parses, execution latency, and memory spikes during bulk directory copies.
-- **Ghost Diagnostics Fix & Directory Eviction**: Implemented atomic cache pruning in `IncrementalAnalysisEngine.process_changes()` and directory-level buffer/document eviction in `LanguageServer._handle_file_changes()`. Deleting a directory now automatically evicts all contained child buffers from `overlay.buffers` and broadcasts `[]` empty diagnostic arrays to immediately clear the editor's PROBLEMS panel (**LSP-FIX-017 State Hygiene**).
-- **LSP Server Version Reporting**: Replaced static `"0.21.0"` string in LSP `initialize` response with dynamic `__version__` from `zenzic`.
-- **LSP-FIX-018 — Directory Watcher Glob**: Added `**/` pattern to the `client/registerCapability` watcher registrations so VS Code sends `workspace/didChangeWatchedFiles` events for directory-level create/rename/delete operations. Without this pattern, deleting a folder in the VS Code Explorer did not trigger any server notification, leaving ghost diagnostics in the PROBLEMS panel permanently.
-- **LSP-INFO-001 — Core Version Banner**: Emits a `window/logMessage` (type: Info) on the `initialized` handshake showing the active core version and Python executable path. Visible in the VS Code Output panel (`Output → Zenzic Language Server`) and provides a reliable way to confirm which core binary is active without leaving the editor.
-- **LSP-FIX-019 — Fast Ghost Clearing**: Implemented $O(A)$ instantaneous ghost-diagnostic clearing on directory deletion events. The server now emits `publishDiagnostics: []` for all affected URIs *before* flagging the asynchronous full workspace sync, clearing the VS Code PROBLEMS panel instantly without blocking the event loop.
-
-## [0.27.1] - 2026-08-05
-
-### Fixed
-
-- **LSP Execution Parity**: Restored real-time diagnostic emission for `Z110` and `Z111` by enabling in-memory buffer validation for `.zenzic.toml` and `pyproject.toml` via `content_override`.
-- **Topological Delta Optimization**: `IncrementalAnalysisEngine` now computes graph changes using XOR set operations (`old_orphans ^ new_orphans`), ensuring `Z410` and `Z411` diagnostics are updated in strictly $O(K)$ time during hot-reload.
-- **Dogfooding & Documentation**: Fixed internal `Z503` syntax errors in rule documentation and integrated all `v0.27.0` rule cards into the `mkdocs.yml` navigation tree to resolve `Z402` false positives.
-
-## [0.27.0] - 2026-08-02
-
-### Added
-
-- **Smart Link Graph (`V0.27-01`)**: Transformed the Virtual Site Map (VSM) into a Smart Link Graph that tracks deterministic adjacency lists for outgoing links across document nodes.
-- **Configuration Validation Engine (`V0.27-04`)**: Introduced formal validation for `.zenzic.toml` with graceful degradation and non-suppressible diagnostic findings:
-  - `Z110` (CONFIG_SYNTAX_ERROR): Emitted on TOML syntax errors (`TOMLDecodeError`) with line-number extraction.
-  - `Z111` (CONFIG_SCHEMA_ERROR): Emitted on schema type mismatches and validation failures (`ValidationError`).
-  - Halts Markdown document graph scanning on fatal config errors to prevent false-positive cascades and protect LSP stability.
-- **Baseline & Regression Tracking (`V0.27-02`)**: Added deterministic snapshot baseline capability (`.zenzic-baseline.json`) via `--update-baseline` and `--baseline` CLI options. Computes line-shift invariant SHA-256 signatures for finding matching, tags baselined findings without dropping them (`Radical Unawareness`), and enforces DQS anti-regression exit rules in CI/CD.
-- **Mirror Law Parity (`ADR-020`)**: Authored 41 dedicated, deep-dive Rule Specification Cards (`docs/rules/ZXXX.md`) and updated `docs/reference/finding-codes.md` to achieve 100% Mirror Law documentation parity. Each card provides technical rationale, Bad/Good Markdown examples, and `.zenzic.toml` configuration options.
-- **Topological Connectivity Restoration**: Resolved `Z411` dead-end node findings across active documentation namespaces by injecting semantic `## See Also` navigation links within the AST graph.
-
-### Fixed
-
-- **Readability Sentence Boundary Parser (`Z511`)**: Fixed sentence length calculation in `zenzic.core.content` by recognizing bulleted lists, numbered items, and blockquotes as hard sentence boundaries, eliminating false-positive readability warnings on long lists.
-- **CLI Flag Input Validation**: Enforced strict input validation for the `--only` CLI option in `zenzic check`, triggering an immediate fatal exit (`Exit 1`) when an invalid or unknown finding code is supplied.
-- **Topological Directory-Policy Tracking (`Z118`)**: Fixed a Core Engine governance bug where topological suppressions (`Z410`/`Z411`) could leave false-positive dead-policy findings by ensuring canonical tracker rebinding in scanner passes and paired topology policy consumption in `GlobalUsageTracker`.
+- **Path Sovereignty Guard (`Z202`)**: Enforced strict Path Sovereignty boundary checks in `walk_files` (`src/zenzic/core/discovery.py`) using `path.resolve(strict=False).is_relative_to(resolved_repo_root)`. Symlinks resolving outside the workspace root boundary are safely skipped with a `Z202 Path Traversal` warning. Legitimate internal symlinks inside the workspace root are preserved and scanned normally.
+- **AST Line-Offset Determinism**: Updated `_mask_comments` in `PolyglotExtractor` (`src/zenzic/core/validator.py`) to replace non-newline characters in HTML/MDX comments with spaces while retaining `\n` linebreaks. Prevents line collapse in multiline comments and preserves exact line offsets in AST link diagnostics.
 
 ### Changed
 
-- **Zero-DBT Technical Debt Cleanup**: Reverted unauthorized configuration suppressions in `.zenzic.toml`, structurally resolved 48 empty section (`Z512`) findings across 35 Markdown files, and eliminated stale global suppressions (`Z118`).
+- **Brand & Positioning Alignment (`V0.27-13`)**: Realigned product positioning across package descriptions (`pyproject.toml`), READMEs, documentation, landing page components, and social assets to accurately reflect Zenzic as a **Deterministic Document Integrity Engine**. Eradicated misleading "SAST" terminology from all user-facing surfaces (**Mirror Law ADR-020**).
 
 ## Historical Releases
 
+- v0.27.x archive: [changelogs/v0.27.x.md](./changelogs/v0.27.x.md)
 - v0.26.x archive: [changelogs/v0.26.x.md](./changelogs/v0.26.x.md)
 - v0.25.x archive: [changelogs/v0.25.x.md](./changelogs/v0.25.x.md)
 - v0.24.x archive: [changelogs/v0.24.x.md](./changelogs/v0.24.x.md)

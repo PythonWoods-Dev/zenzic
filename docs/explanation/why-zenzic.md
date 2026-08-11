@@ -9,7 +9,7 @@ description: "How Zenzic reduces documentation risk, removes manual QA loops, an
 
 # Why Zenzic — Risk Prevention and Deterministic Quality Gates
 
-Zenzic is a Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs. It operates on raw source files — never the generated output — so it works with any build engine (MkDocs, Zensical, or others via the adapter system). It detects broken links, orphan pages, placeholder stubs, unused assets, and leaked credentials before the build runs.
+Zenzic is a Deterministic Document Integrity Engine for Markdown/MDX graphs. It operates on raw source files — never the generated output — so it works with any build engine (MkDocs, Zensical, or others via the adapter system). It detects broken links, orphan pages, placeholder stubs, unused assets, and leaked credentials before the build runs.
 
 Zenzic exists to prevent documentation defects from entering the main branch. The objective is
 operational: block regressions before release, reduce security exposure, and keep CI outcomes

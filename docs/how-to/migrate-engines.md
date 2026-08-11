@@ -50,7 +50,7 @@ This section details the specifications and guidelines for MkDocs Material best 
 
 When using `mkdocs-material` with the `i18n` plugin and multiple locales, the language
 switcher can be controlled by two different mechanisms. Mixing them causes routing conflicts
-that Zenzic — a source-level SAST engine — cannot detect automatically, but that silently break the
+that Zenzic — a source-level document integrity engine — cannot detect automatically, but that silently break the
 user experience at build time.
 
 **Recommended configuration:**

@@ -687,14 +687,16 @@ def test_find_orphans_folder_i18n_nested_file_excluded(tmp_path: Path) -> None:
 def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
-    real = tmp_path / "real.md"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real = outside / "real.md"
     real.write_text("![img](assets/img.png)")
     (docs / "linked.md").symlink_to(real)
     assets = docs / "assets"
     assets.mkdir()
     (assets / "img.png").touch()
     config = ZenzicConfig()
-    mgr = make_mgr(config, repo_root=tmp_path)
+    mgr = make_mgr(config, repo_root=docs)
     unused = find_unused_assets(docs, mgr, config=config)
     assert any(p.name == "img.png" for p in unused)
 

@@ -35,7 +35,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs.</strong><br>
+  <strong>Deterministic Document Integrity Engine for Markdown/MDX graphs.</strong><br>
   <em>Tiered code governance, frozen security contracts, and RE2-backed deterministic scanning.</em>
 </p>
 
@@ -101,7 +101,7 @@ Every Zenzic run is a pure function of its inputs. Given the same repository sta
 | Frozen finding codes | ✅ `FROZEN_CODES` set; never renamed or silently retired |
 | Reproducible CI artefacts | ✅ Identical SARIF across runner OS and time |
 
-### Documentation Security (SAST)
+### Documentation Security
 
 Zenzic treats documentation as a **security surface**. The tiered code model enforces a hard boundary between quality findings (suppressible, exit 1) and security findings (non-suppressible, exit 2 / 3):
 
@@ -143,7 +143,7 @@ Zenzic Core is headless and emits standardized **SARIF** JSON, ensuring seamless
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.27.2",
+          "version": "0.28.0",
           "rules": [
             {
               "id": "Z101",
@@ -215,7 +215,7 @@ uv tool upgrade zenzic
 To run a specific version ephemerally without altering your global environment:
 
 ```bash
-uvx zenzic@0.27.2 check all
+uvx zenzic@0.28.0 check all
 ```
 
 ---

@@ -9,7 +9,7 @@ description: "Engineering Deep Dive: v0.8.0 Architecture"
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 !!! abstract "Architectural Update"
-    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
 Zenzic emerged as a systems response to a recurring pattern across code reviews and CI incidents: documentation quality pipelines were improving locally but degrading structurally over time. The pipeline was shipping checks, not guarantees — collecting signals, not preserving architecture.
 

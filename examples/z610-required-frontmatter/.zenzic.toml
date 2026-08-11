@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z610 REQUIRED_FRONTMATTER_MISSING gallery example
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+
+[policies]
+required_frontmatter_keys = ["title", "author"]

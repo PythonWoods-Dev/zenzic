@@ -114,11 +114,48 @@ Optional score fields (`security_override`, `security_findings`) appear when the
 }
 ```
 
+## Enterprise SARIF v2.1.0 Contract
+
+`zenzic check all --format sarif` emits OASIS SARIF v2.1.0 compliant JSON designed for GitHub Code Scanning and enterprise security dashboards.
+
+### Enriched `rules` Array
+
+Each rule descriptor under `runs[0].tool.driver.rules` includes rich taxonomy and DQS penalty metadata:
+
+```json
+{
+  "id": "Z101",
+  "name": "LinkBroken",
+  "shortDescription": {
+    "text": "Link target not found in the Virtual Site Map"
+  },
+  "fullDescription": {
+    "text": "Link target not found in the Virtual Site Map"
+  },
+  "defaultConfiguration": {
+    "level": "error"
+  },
+  "helpUri": "https://zenzic.dev/docs/reference/finding-codes#z101",
+  "properties": {
+    "category": "structural",
+    "penalty": 8.0
+  }
+}
+```
+
+- **`helpUri`**: Direct URL to Zenzic finding code documentation or Custom Rule SDK v3 `docs_url`.
+- **`properties.category`**: DQS taxonomy category (`structural`, `navigation`, `content`, `brand`, `governance`, or `custom`).
+- **`properties.penalty`**: DQS penalty deduction cost per occurrence.
+- **`defaultConfiguration.level`**: OASIS SARIF level (`error`, `warning`, `note`).
+
+---
+
 ## Validation Guidance
 
-For strict machine consumers, validate payloads against `zenzic-output.schema.json` during CI.
+For strict machine consumers, validate payloads against `zenzic-output.schema.json` for JSON output or `tests/fixtures/sarif-2.1.0-schema.json` for SARIF output during CI.
 This prevents silent contract drift across minor releases.
 
 ## See Also
 
 - [CLI Reference](./cli.md)
+- [Finding Codes Index](./finding-codes.md)

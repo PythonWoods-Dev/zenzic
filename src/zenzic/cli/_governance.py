@@ -313,13 +313,18 @@ def build_cap_exceeded_sarif_payload(
                         "rules": [
                             {
                                 "id": "SUPPRESSION_CAP_EXCEEDED",
-                                "name": "Governance Suppression CAP Exceeded",
+                                "name": "SuppressionCapExceeded",
                                 "shortDescription": {"text": "Global suppression cap exceeded."},
+                                "fullDescription": {"text": "Global suppression cap exceeded."},
                                 "defaultConfiguration": {"level": "error"},
                                 "helpUri": (
                                     "https://zenzic.dev/developers/how-to/"
                                     "release-governance-protocol"
                                 ),
+                                "properties": {
+                                    "category": "governance",
+                                    "penalty": 0.0,
+                                },
                             }
                         ],
                     }

@@ -1,12 +1,12 @@
 ---
 template: home.html
-title: "Zenzic — Deterministic Document Integrity Engine & SAST"
+title: "Zenzic — Deterministic Document Integrity Engine"
 hide:
   - navigation
   - toc
   - path
   - feedback
-description: "Zenzic is a deterministic document integrity engine and SAST for Markdown/MDX graphs. Detect broken links, credential leaks, and topological defects before merge."
+description: "Zenzic is a deterministic document integrity engine for Markdown/MDX graphs. Detect broken links, credential leaks, and topological defects before merge."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
@@ -73,7 +73,7 @@ zenzic check all --update-baseline
 zenzic check all --baseline .zenzic-baseline.json
 ```
 
-### Documentation Security (SAST)
+### Documentation Security
 
 Zenzic treats documentation as a **security surface**. The tiered code model enforces a hard boundary between quality findings (suppressible, exit 1) and security findings (non-suppressible, exit 2/3):
 

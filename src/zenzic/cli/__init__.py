@@ -8,6 +8,7 @@ Internal ``_*.py`` modules are private implementation details.
 
 from __future__ import annotations
 
+from ._audit import audit
 from ._check import (
     _AllCheckResults,
     _collect_all_results,
@@ -41,6 +42,7 @@ __all__ = [
     "guard_app",
     "inspect_app",
     # Standalone commands (registered in main.py)
+    "audit",
     "score",
     "diff",
     "env",

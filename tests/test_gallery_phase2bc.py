@@ -79,6 +79,14 @@ def test_z411_registered_in_gallery() -> None:
     assert "z411" in _GALLERY
 
 
+def test_z610_registered_in_gallery() -> None:
+    assert "z610" in _GALLERY
+
+
+def test_z611_registered_in_gallery() -> None:
+    assert "z611" in _GALLERY
+
+
 def test_all_active_codes_covered_in_gallery() -> None:
     from zenzic.core.codes import CODE_DEFINITIONS
 
@@ -117,6 +125,8 @@ def test_all_active_codes_covered_in_gallery() -> None:
         ("z406", "z406-nav-contract"),
         ("z410", "z410-unreachable-graph-node"),
         ("z411", "z411-dead-end-node"),
+        ("z610", "z610-required-frontmatter"),
+        ("z611", "z611-forbidden-domain"),
     ],
 )
 def test_fixture_directory_exists(code: str, dirname: str) -> None:
@@ -279,3 +289,37 @@ def test_z406_uses_mkdocs_engine() -> None:
     example_dir = _examples() / act.example_dir
     config, _ = ZenzicConfig.load(example_dir)
     assert config.build_context.engine == "mkdocs"
+
+
+# ── Z610 REQUIRED_FRONTMATTER_MISSING ─────────────────────────────────────────
+
+
+class TestZ610RequiredFrontmatter:
+    def test_z610_produces_warning(self) -> None:
+        _, errors, warnings = _run("z610")
+        assert warnings >= 1
+
+    def test_z610_finding_code_is_z610(self) -> None:
+        findings, _, _ = _run("z610")
+        codes = [f.code for f in findings]
+        assert "Z610" in codes
+
+    def test_z610_expected_pass_false(self) -> None:
+        assert _GALLERY["z610"].expected_pass is False
+
+
+# ── Z611 FORBIDDEN_DOMAIN_REFERENCE ───────────────────────────────────────────
+
+
+class TestZ611ForbiddenDomain:
+    def test_z611_produces_warning(self) -> None:
+        _, errors, warnings = _run("z611")
+        assert warnings >= 1
+
+    def test_z611_finding_code_is_z611(self) -> None:
+        findings, _, _ = _run("z611")
+        codes = [f.code for f in findings]
+        assert "Z611" in codes
+
+    def test_z611_expected_pass_false(self) -> None:
+        assert _GALLERY["z611"].expected_pass is False
