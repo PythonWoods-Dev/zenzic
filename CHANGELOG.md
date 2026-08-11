@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+*Upcoming changes for the next release.*
+
+## [0.28.0] - 2026-08-11
+
 ### Added
 
 - **Policy-as-Code Engine (`V0.28-01`)**: Introduced foundational architecture for declarative governance policies via a new `[policies]` table in `.zenzic.toml`. Policies are **opt-in** and fully backward-compatible. When the `[policies]` section is absent or empty, zero behaviour change is observed.

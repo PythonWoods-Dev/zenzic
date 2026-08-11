@@ -8,9 +8,9 @@
 
 | Field    | Value      |
 | :------- | :--------- |
-| Version  | v0.27.2     |
+| Version  | v0.28.0     |
 | Codename | Magnetite   |
-| Date     | 2026-08-05 |
+| Date     | 2026-08-11 |
 | Status   | Stable |
 
 ## Release Checklist
@@ -21,7 +21,7 @@ Before tagging, every item must be green:
 - [ ] `zenzic lab all` — all 20 scenarios exit with expected code
 - [ ] `zenzic score --stamp` committed — badge in README.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
-- [ ] `pyproject.toml` version matches the tag (`0.27.2`)
+- [ ] `pyproject.toml` version matches the tag (`0.28.0`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] Update SECURITY.md support table (Add new release, demote previous to Critical/EOL).
@@ -53,12 +53,12 @@ git checkout main
 git pull origin main
 
 # 3. Tag the main branch and push
-git tag -s -m "Release v0.27.2" v0.27.2
+git tag -s -m "Release v0.28.0" v0.28.0
 git push origin main --tags
 
 ```
 
-- [ ] Create GitHub Release from the tag, using the `## [0.27.2]` CHANGELOG section as the release body.
+- [ ] Create GitHub Release from the tag, using the `## [0.28.0]` CHANGELOG section as the release body.
 
 ## Changelog Reference
 
