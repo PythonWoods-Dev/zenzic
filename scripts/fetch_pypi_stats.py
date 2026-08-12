@@ -5,8 +5,7 @@
 """Fetch Zenzic download statistics from PyPI Stats API with strict netiquette.
 
 Maintains a compact historical dataset in `docs/assets/data/pypi-stats.json`.
-Uses a single API call (`overall?mirrors=false`) to minimize network overhead
-and avoid rate limits.
+Fetches daily time-series, OS platform distribution, and Python version matrix.
 """
 
 from __future__ import annotations
@@ -16,30 +15,39 @@ import pathlib
 import sys
 import time
 import urllib.request
+from collections import defaultdict
 from datetime import datetime, timezone
+
 
 PACKAGE_NAME = "zenzic"
 USER_AGENT = "zenzic-stats-bot/1.0 (+https://github.com/PythonWoods/zenzic)"
-DATA_FILE = pathlib.Path(__file__).resolve().parent.parent / "docs" / "assets" / "data" / "pypi-stats.json"
+DATA_FILE = (
+    pathlib.Path(__file__).resolve().parent.parent / "docs" / "assets" / "data" / "pypi-stats.json"
+)
 
 
 def fetch_json(url: str, retries: int = 3) -> dict:
     """Fetch JSON from URL with netiquette headers, rate-limit backoff, and safety handling."""
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
+    )
     for attempt in range(1, retries + 1):
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except Exception as exc:
             if attempt < retries:
-                time.sleep(attempt * 2.0)
+                time.sleep(attempt * 2.5)
             else:
-                print(f"Warning: Failed to fetch {url} after {retries} attempts: {exc}", file=sys.stderr)
+                print(
+                    f"Warning: Failed to fetch {url} after {retries} attempts: {exc}",
+                    file=sys.stderr,
+                )
     return {}
 
 
 def main() -> int:
-    print(f"Fetching PyPI download metrics for '{PACKAGE_NAME}' (single API call)...")
+    print(f"Fetching PyPI download metrics for '{PACKAGE_NAME}'...")
 
     existing_data: dict = {}
     if DATA_FILE.exists():
@@ -53,26 +61,61 @@ def main() -> int:
         if isinstance(entry, list) and len(entry) == 2:
             daily_map[entry[0]] = int(entry[1])
 
-    # Single efficient API call (without mirrors)
-    overall_raw = fetch_json(f"https://pypistats.org/api/packages/{PACKAGE_NAME}/overall?mirrors=false")
+    # 1. Fetch overall daily stats
+    overall_raw = fetch_json(
+        f"https://pypistats.org/api/packages/{PACKAGE_NAME}/overall?mirrors=false"
+    )
     overall_entries = overall_raw.get("data", [])
-
     for entry in overall_entries:
         date_str = entry.get("date")
         downloads = entry.get("downloads", 0)
         if date_str and isinstance(downloads, int):
             daily_map[date_str] = downloads
 
+    time.sleep(2.0)  # Netiquette delay
+
+    # 2. Fetch OS distribution stats
+    system_raw = fetch_json(
+        f"https://pypistats.org/api/packages/{PACKAGE_NAME}/system?mirrors=false"
+    )
+    system_map: dict[str, int] = defaultdict(int)
+    for entry in system_raw.get("data", []):
+        os_name = entry.get("category") or "Other / Unknown"
+        if os_name == "Darwin":
+            os_name = "macOS"
+        elif os_name == "null" or os_name is None:
+            os_name = "Other / CI"
+        system_map[os_name] += entry.get("downloads", 0)
+
+    time.sleep(2.0)  # Netiquette delay
+
+    # 3. Fetch Python version matrix stats
+    python_raw = fetch_json(
+        f"https://pypistats.org/api/packages/{PACKAGE_NAME}/python_minor?mirrors=false"
+    )
+    python_map: dict[str, int] = defaultdict(int)
+    for entry in python_raw.get("data", []):
+        ver = entry.get("category") or "Other"
+        if ver == "null" or ver is None:
+            ver = "Other / Automated"
+        else:
+            ver = f"Python {ver}"
+        python_map[ver] += entry.get("downloads", 0)
+
     # Chronologically sorted daily tuples
     sorted_daily = [[date, daily_map[date]] for date in sorted(daily_map.keys())]
-
     total_downloads = sum(count for _, count in sorted_daily)
     peak_daily = max((count for _, count in sorted_daily), default=0)
 
-    # Compute 1d, 7d, 30d recent totals dynamically from latest daily records
     last_day = sorted_daily[-1][1] if sorted_daily else 0
-    last_week = sum(count for _, count in sorted_daily[-7:]) if len(sorted_daily) >= 7 else total_downloads
-    last_month = sum(count for _, count in sorted_daily[-30:]) if len(sorted_daily) >= 30 else total_downloads
+    last_week = (
+        sum(count for _, count in sorted_daily[-7:]) if len(sorted_daily) >= 7 else total_downloads
+    )
+    last_month = (
+        sum(count for _, count in sorted_daily[-30:])
+        if len(sorted_daily) >= 30
+        else total_downloads
+    )
 
     dataset = {
         "package": PACKAGE_NAME,
@@ -84,14 +127,20 @@ def main() -> int:
             "last_month": last_month,
             "peak_daily": peak_daily,
         },
+        "systems": dict(sorted(system_map.items(), key=lambda x: x[1], reverse=True)),
+        "python_versions": dict(sorted(python_map.items(), key=lambda x: x[1], reverse=True)),
         "daily": sorted_daily,
     }
 
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     DATA_FILE.write_text(json.dumps(dataset, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    print(f"Successfully updated PyPI stats dataset: {DATA_FILE.relative_to(DATA_FILE.parent.parent.parent)}")
-    print(f"Summary: {total_downloads:,} total downloads | 30d: {last_month:,} | 7d: {last_week:,} | Peak: {peak_daily:,}")
+    print(
+        f"Successfully updated PyPI stats dataset: {DATA_FILE.relative_to(DATA_FILE.parent.parent.parent)}"
+    )
+    print(
+        f"Summary: {total_downloads:,} total downloads | OS: {dict(system_map)} | Python: {dict(python_map)}"
+    )
     return 0
 
 

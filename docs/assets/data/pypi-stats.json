@@ -1,12 +1,26 @@
 {
   "package": "zenzic",
-  "last_updated": "2026-08-12 17:04 UTC",
+  "last_updated": "2026-08-12 17:14 UTC",
   "summary": {
     "total_downloads": 10164,
     "last_day": 120,
     "last_week": 482,
     "last_month": 3532,
     "peak_daily": 660
+  },
+  "systems": {
+    "Other / CI": 7914,
+    "Linux": 2082,
+    "Windows": 86,
+    "macOS": 82
+  },
+  "python_versions": {
+    "Other / Automated": 7914,
+    "Python 3.12": 1692,
+    "Python 3.10": 248,
+    "Python 3.11": 202,
+    "Python 3.14": 61,
+    "Python 3.13": 47
   },
   "daily": [
     [
