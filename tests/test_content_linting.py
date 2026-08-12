@@ -163,3 +163,22 @@ def test_sarif_payload_contains_z510_z511_z512_rules() -> None:
         z510_rule["shortDescription"]["text"]
         == "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)"
     )
+
+
+def test_z511_semicolon_sentence_splitting(tmp_path: Path) -> None:
+    """Z511 recognizes semicolons as sentence boundaries, evaluating clauses independently."""
+    file_path = tmp_path / "doc.md"
+    clause1 = " ".join([f"worda{i}" for i in range(25)])
+    clause2 = " ".join([f"wordb{i}" for i in range(25)])
+    text = f"# Title\n\n{clause1}; {clause2}.\n"
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_sentence_lengths(file_path, text, max_words=40)
+    assert len(findings) == 0
+
+    # Verify that if any single clause separated by a semicolon exceeds max_words, it is flagged
+    long_clause = " ".join([f"wordc{i}" for i in range(45)])
+    text_long = f"# Title\n\n{clause1}; {long_clause}.\n"
+    findings_long = check_sentence_lengths(file_path, text_long, max_words=40)
+    assert len(findings_long) == 1
+    assert findings_long[0].rule_id == "Z511"

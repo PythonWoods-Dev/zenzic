@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 
 # ATX Heading regex matching # to ######
 _ATX_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
-# Sentence delimiter matching ., !, or ? followed by whitespace or end of string
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+# Sentence delimiter matching ., !, ?, or ; followed by whitespace or semicolon delimiter
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?;])\s+|;\s*")
 
 
 def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
@@ -156,9 +156,32 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
     in_code_block = False
     in_frontmatter = False
 
-    # Collect prose sentences line by line, preserving starting line number
     current_sentence_parts: list[str] = []
     current_start_line = 1
+
+    def _flush_and_check(parts: list[str], start_line: int) -> None:
+        if not parts:
+            return
+        full_sent = " ".join(parts)
+        raw_sentences = _SENTENCE_SPLIT_RE.split(full_sent)
+        for s in raw_sentences:
+            s_clean = s.strip()
+            if not s_clean:
+                continue
+            words = s_clean.split()
+            if len(words) > max_words:
+                preview = s_clean[:50] + "..." if len(s_clean) > 50 else s_clean
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z511",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=start_line,
+                        message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
+                        match_text=preview,
+                    )
+                )
+        parts.clear()
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
@@ -175,23 +198,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
         # Handle code blocks
         if stripped.startswith("```") or stripped.startswith("~~~"):
             in_code_block = not in_code_block
-            # Flush existing sentence accumulator on code block boundary
-            if current_sentence_parts:
-                full_sent = " ".join(current_sentence_parts)
-                words = full_sent.split()
-                if len(words) > max_words:
-                    preview = full_sent[:50] + "..." if len(full_sent) > 50 else full_sent
-                    findings.append(
-                        RuleFinding(
-                            rule_id="Z511",
-                            severity="warning",
-                            file_path=file_path,
-                            line_no=current_start_line,
-                            message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
-                            match_text=preview,
-                        )
-                    )
-                current_sentence_parts.clear()
+            _flush_and_check(current_sentence_parts, current_start_line)
             continue
 
         if in_code_block:
@@ -207,23 +214,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
             or stripped.startswith(">")
             or is_bullet
         ):
-            if current_sentence_parts:
-                full_sent = " ".join(current_sentence_parts)
-                words = full_sent.split()
-                if len(words) > max_words:
-                    preview = full_sent[:50] + "..." if len(full_sent) > 50 else full_sent
-                    findings.append(
-                        RuleFinding(
-                            rule_id="Z511",
-                            severity="warning",
-                            file_path=file_path,
-                            line_no=current_start_line,
-                            message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
-                            match_text=preview,
-                        )
-                    )
-                current_sentence_parts.clear()
-
+            _flush_and_check(current_sentence_parts, current_start_line)
             if not is_bullet:
                 continue
 
@@ -233,43 +224,10 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
         current_sentence_parts.append(stripped)
 
         # Check if line contains sentence terminators
-        if re.search(r"[.!?](?:\s+|$)", stripped):
-            full_sent = " ".join(current_sentence_parts)
-            # Split into individual sentences if multiple exist in accumulated buffer
-            raw_sentences = _SENTENCE_SPLIT_RE.split(full_sent)
-            for s in raw_sentences:
-                words = s.split()
-                if len(words) > max_words:
-                    preview = s[:50] + "..." if len(s) > 50 else s
-                    findings.append(
-                        RuleFinding(
-                            rule_id="Z511",
-                            severity="warning",
-                            file_path=file_path,
-                            line_no=current_start_line,
-                            message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
-                            match_text=preview,
-                        )
-                    )
-            current_sentence_parts.clear()
+        if re.search(r"[.!?;](?:\s+|$)", stripped):
+            _flush_and_check(current_sentence_parts, current_start_line)
 
     # Flush any remaining buffer at EOF
-    if current_sentence_parts:
-        full_sent = " ".join(current_sentence_parts)
-        words = full_sent.split()
-        if len(words) > max_words:
-            preview = full_sent[:50] + "..." if len(full_sent) > 50 else full_sent
-            findings.append(
-                RuleFinding(
-                    rule_id="Z511",
-                    severity="warning",
-                    file_path=file_path,
-                    line_no=current_start_line,
-                    message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
-                    match_text=preview,
-                )
-            )
-
     return findings
 
 

@@ -595,12 +595,12 @@ A simple link checker may be enough.
 
 You should also think carefully before adding Zenzic if:
 
-the documentation has no meaningful graph or navigation;
-a simpler tool already solves the actual problem;
-the project cannot afford another evolving dependency;
-the documentation uses highly dynamic MDX that the adapter cannot model;
-the team is unwilling to triage false positives;
-the pipeline already has several overlapping gates with no clear ownership.
+- the documentation has no meaningful graph or navigation;
+- a simpler tool already solves the actual problem;
+- the project cannot afford another evolving dependency;
+- the documentation uses highly dynamic MDX that the adapter cannot model;
+- the team is unwilling to triage false positives;
+- the pipeline already has several overlapping gates with no clear ownership.
 
 A new quality tool creates its own maintenance burden.
 
