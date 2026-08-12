@@ -16,7 +16,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Markdown Is Production Code: Why We Built Zenzic
+## Markdown Is Production Code: Why We Built Zenzic
 
 ![Markdown is Production Code](../../assets/images/blog/markdown_is_code.webp)
 

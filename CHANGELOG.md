@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Upcoming changes for the next patch release.
+
 ### Fixed
 
 - **AST Parser (Z511)**: Fixed a false positive where raw HTML blocks were incorrectly parsed as prose sentences, triggering excessive sentence length warnings.
