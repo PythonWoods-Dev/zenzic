@@ -51,7 +51,7 @@ Zenzic detects broken links, orphaned pages, credential leaks, and structural in
 
 Zenzic is a unified, deterministic platform structured into three primary delivery mechanisms:
 
-- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, Virtual Site Map (VSM) topology analyzer, and **Baseline & Regression Tracking** (`.zenzic-baseline.json`).
+- **[Core Engine (CLI)](#-installation)**: Python CLI, AST rule engine, Virtual Site Map (VSM) topology analyzer, **Policy-as-Code Engine** (`[policies]`), **Custom Rule SDK v3** (`zenzic.sdk`), **Audit Mode** (`zenzic audit`), and **Baseline & Regression Tracking** (`.zenzic-baseline.json`).
 - **[VS Code Extension][zenzic-vscode]**: Real-time LSP client offering sub-50ms inline diagnostics, Quick Fixes, and DQS scoring.
 - **[GitHub Action][zenzic-action]**: Zero-config CI/CD quality gate with SARIF upload and PR annotations.
 
@@ -126,6 +126,7 @@ Beyond static file checks, Zenzic's Smart Link Graph builds an adjacency list to
 | `zenzic init` | Scaffold workspace configuration (`.zenzic.toml`) |
 | `zenzic check all [PATH]` | Full documentation audit — links, credentials, orphans |
 | `zenzic score [--stamp]` | Compute the Documentation Quality Score (0–100) |
+| `zenzic audit [--format text\|json]` | Generate compliance, policy, DQS, and technical debt audit reports |
 | `zenzic diff [--base PATH]` | Detect debt regression against a saved baseline |
 | `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (fatal on security findings) |
 | `zenzic inspect codes` | Query live error-code semantics and suppressibility |
