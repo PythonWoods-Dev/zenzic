@@ -1,8 +1,9 @@
 {
   "package": "zenzic",
-  "last_updated": "2026-08-12 17:14 UTC",
+  "last_updated": "2026-08-12 17:20 UTC",
   "summary": {
-    "total_downloads": 10164,
+    "total_user_downloads": 10164,
+    "total_raw_downloads": 33399,
     "last_day": 120,
     "last_week": 482,
     "last_month": 3532,

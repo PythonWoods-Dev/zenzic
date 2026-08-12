@@ -5,7 +5,8 @@
 """Fetch Zenzic download statistics from PyPI Stats API with strict netiquette.
 
 Maintains a compact historical dataset in `docs/assets/data/pypi-stats.json`.
-Fetches daily time-series, OS platform distribution, and Python version matrix.
+Fetches user downloads (without mirrors), raw infrastructure traffic (with mirrors),
+OS platform distribution, and Python version matrix.
 """
 
 from __future__ import annotations
@@ -57,16 +58,17 @@ def main() -> int:
             existing_data = {}
 
     daily_map: dict[str, int] = {}
+    raw_daily_map: dict[str, int] = {}
+
     for entry in existing_data.get("daily", []):
-        if isinstance(entry, list) and len(entry) == 2:
+        if isinstance(entry, list) and len(entry) >= 2:
             daily_map[entry[0]] = int(entry[1])
 
-    # 1. Fetch overall daily stats
+    # 1. Fetch user daily stats (without mirrors)
     overall_raw = fetch_json(
         f"https://pypistats.org/api/packages/{PACKAGE_NAME}/overall?mirrors=false"
     )
-    overall_entries = overall_raw.get("data", [])
-    for entry in overall_entries:
+    for entry in overall_raw.get("data", []):
         date_str = entry.get("date")
         downloads = entry.get("downloads", 0)
         if date_str and isinstance(downloads, int):
@@ -74,7 +76,19 @@ def main() -> int:
 
     time.sleep(2.0)  # Netiquette delay
 
-    # 2. Fetch OS distribution stats
+    # 2. Fetch raw daily stats (with mirrors for complete infrastructure transparency)
+    raw_overall = fetch_json(
+        f"https://pypistats.org/api/packages/{PACKAGE_NAME}/overall?mirrors=true"
+    )
+    for entry in raw_overall.get("data", []):
+        date_str = entry.get("date")
+        downloads = entry.get("downloads", 0)
+        if date_str and isinstance(downloads, int):
+            raw_daily_map[date_str] = raw_daily_map.get(date_str, 0) + downloads
+
+    time.sleep(2.0)  # Netiquette delay
+
+    # 3. Fetch OS distribution stats
     system_raw = fetch_json(
         f"https://pypistats.org/api/packages/{PACKAGE_NAME}/system?mirrors=false"
     )
@@ -89,7 +103,7 @@ def main() -> int:
 
     time.sleep(2.0)  # Netiquette delay
 
-    # 3. Fetch Python version matrix stats
+    # 4. Fetch Python version matrix stats
     python_raw = fetch_json(
         f"https://pypistats.org/api/packages/{PACKAGE_NAME}/python_minor?mirrors=false"
     )
@@ -104,24 +118,28 @@ def main() -> int:
 
     # Chronologically sorted daily tuples
     sorted_daily = [[date, daily_map[date]] for date in sorted(daily_map.keys())]
-    total_downloads = sum(count for _, count in sorted_daily)
+    total_user_downloads = sum(count for _, count in sorted_daily)
+    total_raw_downloads = sum(raw_daily_map.values()) if raw_daily_map else total_user_downloads
     peak_daily = max((count for _, count in sorted_daily), default=0)
 
     last_day = sorted_daily[-1][1] if sorted_daily else 0
     last_week = (
-        sum(count for _, count in sorted_daily[-7:]) if len(sorted_daily) >= 7 else total_downloads
+        sum(count for _, count in sorted_daily[-7:])
+        if len(sorted_daily) >= 7
+        else total_user_downloads
     )
     last_month = (
         sum(count for _, count in sorted_daily[-30:])
         if len(sorted_daily) >= 30
-        else total_downloads
+        else total_user_downloads
     )
 
     dataset = {
         "package": PACKAGE_NAME,
         "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "summary": {
-            "total_downloads": total_downloads,
+            "total_user_downloads": total_user_downloads,
+            "total_raw_downloads": total_raw_downloads,
             "last_day": last_day,
             "last_week": last_week,
             "last_month": last_month,
@@ -139,7 +157,7 @@ def main() -> int:
         f"Successfully updated PyPI stats dataset: {DATA_FILE.relative_to(DATA_FILE.parent.parent.parent)}"
     )
     print(
-        f"Summary: {total_downloads:,} total downloads | OS: {dict(system_map)} | Python: {dict(python_map)}"
+        f"Summary: {total_user_downloads:,} user downloads (clean) | {total_raw_downloads:,} raw downloads (incl. mirrors)"
     )
     return 0
 

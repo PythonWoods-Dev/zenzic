@@ -10,22 +10,26 @@ description: "Real-time PyPI download metrics, historical adoption trajectory, O
 
 Zenzic tracks public PyPI download metrics to provide full transparency on community adoption, operating system distribution, and Python runtime version usage. All data points are updated daily via an automated pipeline respecting PyPI Stats API netiquette.
 
-<div class="zz-feature-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+<div class="zz-feature-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
   <div class="zz-showcase-card" style="padding: 1.25rem; border-radius: 12px; background: var(--zz-surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--zz-border-subtle, rgba(255,255,255,0.08)); text-align: center;">
-    <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total Downloads</div>
-    <div id="kpi-total" style="font-size: 2.2rem; font-weight: 800; color: var(--zz-accent-purple, #a855f7); margin-top: 0.4rem;">10,164</div>
+    <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">User Downloads</div>
+    <div id="kpi-total" style="font-size: 2rem; font-weight: 800; color: var(--zz-accent-purple, #a855f7); margin-top: 0.4rem;">10,164</div>
+    <div style="font-size: 0.75rem; color: var(--zz-text-subtle, #888); margin-top: 0.2rem;">Excludes automated mirrors</div>
+  </div>
+  <div class="zz-showcase-card" style="padding: 1.25rem; border-radius: 12px; background: var(--zz-surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--zz-border-subtle, rgba(255,255,255,0.08)); text-align: center;">
+    <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Raw PyPI Traffic</div>
+    <div id="kpi-raw" style="font-size: 2rem; font-weight: 800; color: var(--zz-accent-cyan, #06b6d4); margin-top: 0.4rem;">33,399</div>
+    <div style="font-size: 0.75rem; color: var(--zz-text-subtle, #888); margin-top: 0.2rem;">Includes mirror syncs</div>
   </div>
   <div class="zz-showcase-card" style="padding: 1.25rem; border-radius: 12px; background: var(--zz-surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--zz-border-subtle, rgba(255,255,255,0.08)); text-align: center;">
     <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Last 30 Days</div>
-    <div id="kpi-30d" style="font-size: 2.2rem; font-weight: 800; color: var(--zz-accent-cyan, #06b6d4); margin-top: 0.4rem;">3,532</div>
+    <div id="kpi-30d" style="font-size: 2rem; font-weight: 800; color: var(--zz-accent-emerald, #10b981); margin-top: 0.4rem;">3,532</div>
+    <div style="font-size: 0.75rem; color: var(--zz-text-subtle, #888); margin-top: 0.2rem;">Active monthly adoption</div>
   </div>
   <div class="zz-showcase-card" style="padding: 1.25rem; border-radius: 12px; background: var(--zz-surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--zz-border-subtle, rgba(255,255,255,0.08)); text-align: center;">
-    <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Last 7 Days</div>
-    <div id="kpi-7d" style="font-size: 2.2rem; font-weight: 800; color: var(--zz-accent-emerald, #10b981); margin-top: 0.4rem;">482</div>
-  </div>
-  <div class="zz-showcase-card" style="padding: 1.25rem; border-radius: 12px; background: var(--zz-surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--zz-border-subtle, rgba(255,255,255,0.08)); text-align: center;">
-    <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Peak Single Day</div>
-    <div id="kpi-peak" style="font-size: 2.2rem; font-weight: 800; color: var(--zz-accent-amber, #f59e0b); margin-top: 0.4rem;">660</div>
+    <div style="font-size: 0.85rem; color: var(--zz-text-subtle, #a0a0b0); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Peak Daily</div>
+    <div id="kpi-peak" style="font-size: 2rem; font-weight: 800; color: var(--zz-accent-amber, #f59e0b); margin-top: 0.4rem;">660</div>
+    <div style="font-size: 0.75rem; color: var(--zz-text-subtle, #888); margin-top: 0.2rem;">Max single-day downloads</div>
   </div>
 </div>
 
@@ -244,7 +248,10 @@ Zenzic tracks public PyPI download metrics to provide full transparency on commu
       .then(data => {
         globalStatsData = data;
         if (data.summary) {
-          document.getElementById("kpi-total").innerText = data.summary.total_downloads.toLocaleString();
+          document.getElementById("kpi-total").innerText = (data.summary.total_user_downloads || data.summary.total_downloads).toLocaleString();
+          if (document.getElementById("kpi-raw")) {
+            document.getElementById("kpi-raw").innerText = (data.summary.total_raw_downloads || data.summary.total_downloads).toLocaleString();
+          }
           document.getElementById("kpi-30d").innerText = data.summary.last_month.toLocaleString();
           document.getElementById("kpi-7d").innerText = data.summary.last_week.toLocaleString();
           document.getElementById("kpi-peak").innerText = data.summary.peak_daily.toLocaleString();
