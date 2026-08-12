@@ -715,7 +715,7 @@ any active finding. Remove the dead comment.
 
 ### Z610: REQUIRED_FRONTMATTER_MISSING {#z610}
 
-**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z610.md)
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z610.md)
 
 A required YAML frontmatter key declared in `[policies].required_frontmatter_keys` is absent from this document. Z610 is opt-in and inactive by default — activate it by declaring `required_frontmatter_keys` in `.zenzic.toml`.
 
@@ -728,7 +728,7 @@ required_frontmatter_keys = ["title", "description", "author"]
 
 ### Z611: FORBIDDEN_DOMAIN_REFERENCE {#z611}
 
-**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z611.md)
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z611.md)
 
 A link (native Markdown or raw HTML `<a href>`) references an external domain listed in `[policies].forbidden_external_domains`. Domain matching is case-insensitive and covers exact matches and all subdomains. Z611 is opt-in and inactive by default.
 
