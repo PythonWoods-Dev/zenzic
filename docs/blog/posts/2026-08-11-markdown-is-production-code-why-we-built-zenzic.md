@@ -16,33 +16,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Markdown Is Production Code Architecture](../../assets/images/blog/markdown_is_code.webp)
-
-We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
-
-A build can succeed while an internal link points to a file that no longer exists. A page can remain in the repository while no navigation path reaches it. An anchor can become invalid after a heading is renamed. An image can disappear while the Markdown still references it. A code example can contain a live credential that gets copied into a public repository.
-
-The build can still pass.
-
-The deployment can still complete.
-
-The defect is discovered only when a user follows the broken path—or when an exposed credential is abused.
-
-We decided that this was the wrong model.
-
-**We built Zenzic to treat documentation integrity as a property that can be tested before a change reaches the main branch.**
-
-Zenzic is a deterministic document-integrity engine for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
-
-Our objective is operational:
-
-> Prevent documentation defects from entering the main branch.
-
-That means reducing production risk, removing repetitive manual review loops, and making CI outcomes deterministic.
-
-<!-- more -->
-
-## Markdown Is Production Code: Why We Built Zenzic
+# Markdown Is Production Code: Why We Built Zenzic
 
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 
@@ -177,7 +151,7 @@ We therefore report findings with the path, line number, and relevant source con
 
 For example:
 
-```text
+```bash
 docs/index.md:3:8 ✘ [Z104] './intro.md' not found in docs
 
     1 │ # Welcome
@@ -185,7 +159,7 @@ docs/index.md:3:8 ✘ [Z104] './intro.md' not found in docs
     3 ❱ See the [intro page](./intro.md) for details.
        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
+```
 The difference matters operationally.
 
 “Documentation failed” is an interruption.
@@ -194,6 +168,7 @@ The difference matters operationally.
 
 We use the same model for security findings:
 
+```bash
 SECURITY BREACH DETECTED
 
 Finding: GitHub token detected
@@ -201,23 +176,24 @@ Location: docs/tutorial.md:42
 Credential: ghp_************3456
 
 Action: Rotate this credential immediately and purge it from repository history.
-
+```
 
 Secrets are redacted in diagnostic output while the pipeline receives a security-specific failure.
 
 We consider precise diagnostics part of the quality gate itself. Detecting a defect is only half the job; the result also needs to make remediation obvious.
 
-Markdown is also a security boundary
+## Markdown Is Also a Security Boundary
 
 One of the decisions we made early was to treat documentation as an explicit security surface.
 
 Documentation is full of examples:
 
+```bash
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 
 github_token: ghp_...
-
+```
 
 These examples are often copied from real deployment sessions.
 
@@ -237,7 +213,7 @@ Treat documentation itself as an explicit security boundary.
 
 This gives us a useful defence-in-depth model. A repository-wide scanner protects the repository broadly, while Zenzic protects the documentation pipeline specifically.
 
-The Defence Trinity
+## The Defence Trinity
 
 We designed Zenzic around three defensive boundaries.
 
@@ -263,32 +239,31 @@ Together, these controls cover three different failure modes:
 
 references  →  security  →  filesystem boundaries
 
-
 We do not think these are interchangeable concerns. A documentation integrity system needs to reason about all three.
 
-The graph behind the files
+## The Graph Behind the Files
 
 A documentation site is not merely a directory of Markdown files.
 
 It is a graph.
 
 Conceptually:
-
+```text
 index.md
  ├── links to install.md
  ├── links to api.md#authentication
  └── references assets/architecture.png
-
+```
 
 Once we model the documentation this way, we can ask questions that a line-oriented linter cannot answer easily:
 
-Does install.md exist?
-Does the authentication anchor exist in api.md?
-Is api.md reachable from the site navigation?
-Is a page present but disconnected from the graph?
-Is an asset referenced by any page?
-Does navigation point to a page that the source graph cannot resolve?
-Does the graph contain an unsafe path or a dead end?
+- Does install.md exist?
+- Does the authentication anchor exist in api.md?
+- Is api.md reachable from the site navigation?
+- Is a page present but disconnected from the graph?
+- Is an asset referenced by any page?
+- Does navigation point to a page that the source graph cannot resolve?
+- Does the graph contain an unsafe path or a dead end?
 
 This is why we describe Zenzic as a document-integrity engine, not simply another Markdown linter.
 
@@ -302,7 +277,7 @@ We also need to ask:
 
 “Does this line describe a relationship that actually exists?”
 
-Source before generated output
+## Source Before Generated Output
 
 We deliberately chose to analyze raw Markdown and MDX source rather than waiting for generated HTML.
 
@@ -334,7 +309,7 @@ Accessibility still needs to be checked.
 
 Zenzic addresses a different layer of the problem.
 
-Deterministic by design
+## Deterministic by Design
 
 Determinism is one of our most important engineering requirements.
 
@@ -365,27 +340,28 @@ The core analysis is designed to scale predictably with the amount of documentat
 
 We care about this because a CI quality gate should not become a source of unpredictable pipeline behaviour as a documentation repository grows.
 
-One command to start
+## One Command to Start
 
 A standalone Markdown repository can run:
 
+```bash
 uvx zenzic check all docs/
-
-
+```
 For a project using a documentation framework:
 
+```bash
 uvx zenzic check all .
-
-
+```
 We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs, Zensical, and Docusaurus-oriented setups.
 
 The intended gate semantics are straightforward:
 
+```text
 exit 0 → no blocking findings
 exit 1 → quality findings block the merge
 exit 2 → security finding detected
 exit 3 → path-traversal guard violation
-
+```
 
 The exact policy should always be verified against the installed version.
 
@@ -395,14 +371,13 @@ CI needs machine-readable outcomes, not merely a coloured report that developers
 
 That is why exit codes are part of the design rather than an afterthought.
 
-Configuration without ambiguity
+## Configuration Without Ambiguity
 
 Zenzic uses a three-level configuration priority chain:
 
 1. .zenzic.toml
 2. [tool.zenzic] in pyproject.toml
 3. built-in defaults
-
 
 The repository root is found by walking upward from the current working directory until Zenzic encounters a .git directory, .zenzic.toml, or pyproject.toml.
 
@@ -428,12 +403,13 @@ pattern = "(?i)\\bDRAFT\\b"
 message = "Remove DRAFT marker before publishing."
 severity = "warning"
 
-
 The same fields can be placed under [tool.zenzic] in pyproject.toml, with nested tables adjusted accordingly:
 
+```toml
 [tool.zenzic]
 docs_dir = "docs"
 fail_under = 90
+```
 
 [tool.zenzic.build_context]
 engine = "mkdocs"
@@ -443,7 +419,6 @@ id = "ZZ-NODRAFT"
 pattern = "(?i)\\bDRAFT\\b"
 message = "Remove DRAFT marker before publishing."
 severity = "warning"
-
 
 There is one design choice we think users should understand: unknown fields are silently ignored.
 
@@ -455,7 +430,7 @@ Projects adopting Zenzic should therefore consider using strict configuration va
 
 We prefer explicit configuration failures whenever a policy can materially affect a quality or security gate.
 
-Configuration is part of the safety model
+## Configuration Is Part of the Safety Model
 
 A broken configuration should not silently fall back to defaults.
 
@@ -473,7 +448,7 @@ We apply the same thinking to adapters, suppressions, and scoring.
 
 An invisible fallback may be convenient during development, but it is dangerous in a production gate because the user may believe a policy is active when it is not.
 
-Suppression debt is still debt
+## Suppression Debt Is Still Debt
 
 Every real repository contains exceptions.
 
@@ -497,7 +472,6 @@ Active suppressions: 43
 CAP limit: 30
 Excess debt: +13
 
-
 The goal is not to make exceptions impossible.
 
 The goal is to make them visible.
@@ -520,7 +494,7 @@ A score should guide investigation.
 
 It should never replace reading the actual findings.
 
-Can Zenzic replace existing tools?
+## Can Zenzic Replace Existing Tools?
 
 Usually, no—not completely.
 
@@ -528,14 +502,15 @@ We did not build Zenzic to replace the entire documentation ecosystem.
 
 Different tools solve different problems:
 
-Tool Primary responsibility Relationship with Zenzic
-markdownlint Markdown style and formatting Complementary
-Vale Editorial style and terminology Complementary
-Lychee Link and HTTP endpoint checking Partial overlap
-Codespell Spelling errors Complementary
-Gitleaks or TruffleHog Secrets across repository content and history Complementary, not automatically replaceable
-MkDocs/Docusaurus/Zensical build Rendering, plugins, and compilation Not replaceable
-Browser or HTML tests Accessibility and rendered behaviour Not replaceable
+| Tool | Primary responsibility | Relationship with Zenzic |
+|------|------------------------|--------------------------|
+| markdownlint | Markdown style and formatting | Complementary |
+| Vale | Editorial style and terminology | Complementary |
+| Lychee | Link and HTTP endpoint checking | Partial overlap |
+| Codespell | Spelling errors | Complementary |
+| Gitleaks or TruffleHog | Secrets across repository content and history | Complementary, not automatically replaceable |
+| MkDocs / Docusaurus / Zensical build | Rendering, plugins, and compilation | Not replaceable |
+| Browser or HTML tests | Accessibility and rendered behaviour | Not replaceable |
 
 Zenzic can replace scripts that were custom-built to detect orphan pages, unused assets, missing local files, or certain navigation defects.
 
@@ -555,7 +530,7 @@ Our intended position is:
 
 Zenzic is the structural and security layer of a documentation toolchain, not the entire toolchain.
 
-What Zenzic does not try to replace
+## What Zenzic Does Not Try to Replace
 
 We think this distinction is important enough to state explicitly.
 
@@ -575,7 +550,7 @@ Documentation integrity at source level.
 
 That is the problem we designed Zenzic to solve.
 
-Why adopt it?
+## Why Adopt It?
 
 We think Zenzic is useful when documentation has operational or security significance.
 
@@ -602,7 +577,7 @@ For larger repositories, the benefit is not simply finding more defects.
 
 It is moving mechanical verification from human review into an automated, repeatable gate.
 
-Why not adopt it?
+## Why Not Adopt It?
 
 We do not think everyone needs Zenzic.
 
@@ -627,7 +602,7 @@ A tool that produces too much noise becomes a decorative CI badge.
 
 We therefore think the adoption case should be based on measured defects found in a real repository, not on the length of the rule catalog.
 
-A reasonable adoption plan
+## A Reasonable Adoption Plan
 
 The safest approach is a staged rollout.
 
@@ -687,20 +662,22 @@ The goal is not to maximize the number of tools.
 
 The goal is to maximize defect detection per unit of maintenance.
 
-A minimal CI example
+## A Minimal CI Example
 
 A project can begin with a simple command:
 
+```yaml
 - name: Check documentation integrity
   run: uvx zenzic check all .
-
+```
 
 For a Python project, configuration can live in pyproject.toml:
 
+```toml
 [tool.zenzic]
 docs_dir = "docs"
 fail_under = 90
-
+```
 
 For a repository with a more explicit separation of concerns, use .zenzic.toml instead.
 
@@ -710,7 +687,7 @@ The important part is not the number of lines in the workflow.
 
 It is that the check runs before merge and produces a deterministic result that the repository can enforce.
 
-Documentation integrity as a production property
+## Documentation Integrity as a Production Property
 
 The reason we built Zenzic is ultimately simple.
 
