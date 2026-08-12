@@ -71,12 +71,19 @@ nav:
         - rules/Z109.md
         - rules/Z110.md
         - rules/Z111.md
+        - rules/Z113.md
         - rules/Z114.md
         - rules/Z118.md
+        - rules/Z120.md
+        - rules/Z121.md
+        - rules/Z122.md
+        - rules/Z123.md
+        - rules/Z124.md
         - rules/Z201.md
         - rules/Z202.md
         - rules/Z203.md
         - rules/Z204.md
+        - rules/Z205.md
         - rules/Z301.md
         - rules/Z302.md
         - rules/Z303.md
@@ -101,6 +108,9 @@ nav:
         - rules/Z603.md
         - rules/Z610.md
         - rules/Z611.md
+        - rules/Z901.md
+        - rules/Z902.md
+        - rules/Z906.md
       - Interactive Rule Examples:
         - tutorials/examples/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md
