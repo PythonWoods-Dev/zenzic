@@ -63,3 +63,11 @@ path = "docs/assets/fonts/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# ── Dynamic Data assets ───────────────────────────────────────────────────────
+
+[[annotations]]
+path = "docs/assets/data/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"

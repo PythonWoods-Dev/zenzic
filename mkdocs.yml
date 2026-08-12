@@ -161,6 +161,7 @@ nav:
       - Brand System: reference/brand-system.md
       - Glossary: reference/glossary.md
       - GitHub Action Reference: reference/zenzic-action.md
+      - Download Statistics: about/statistics.md
       - Reference Index: reference/index.md
     - Core Architecture:
       - Why Zenzic: explanation/why-zenzic.md
