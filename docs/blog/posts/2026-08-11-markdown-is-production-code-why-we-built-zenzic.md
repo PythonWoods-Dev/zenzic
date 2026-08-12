@@ -16,7 +16,9 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Markdown Is Production Code: Why We Built Zenzic
+## Markdown Is Production Code: Why We Built Zenzic
+
+![Markdown is Production Code](../../assets/images/blog/markdown_is_code.webp)
 
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 
@@ -31,6 +33,8 @@ The defect is discovered only when a user follows the broken path—or when an e
 We decided that this was the wrong model.
 
 **We built Zenzic to treat documentation integrity as a property that can be tested before a change reaches the main branch.**
+
+<!-- more -->
 
 Zenzic is a deterministic document-integrity engine for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
 
@@ -160,6 +164,7 @@ docs/index.md:3:8 ✘ [Z104] './intro.md' not found in docs
        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ```
+
 The difference matters operationally.
 
 “Documentation failed” is an interruption.
@@ -248,6 +253,7 @@ A documentation site is not merely a directory of Markdown files.
 It is a graph.
 
 Conceptually:
+
 ```text
 index.md
  ├── links to install.md
@@ -347,11 +353,13 @@ A standalone Markdown repository can run:
 ```bash
 uvx zenzic check all docs/
 ```
+
 For a project using a documentation framework:
 
 ```bash
 uvx zenzic check all .
 ```
+
 We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs, Zensical, and Docusaurus-oriented setups.
 
 The intended gate semantics are straightforward:
@@ -587,12 +595,12 @@ A simple link checker may be enough.
 
 You should also think carefully before adding Zenzic if:
 
-the documentation has no meaningful graph or navigation;
-a simpler tool already solves the actual problem;
-the project cannot afford another evolving dependency;
-the documentation uses highly dynamic MDX that the adapter cannot model;
-the team is unwilling to triage false positives;
-the pipeline already has several overlapping gates with no clear ownership.
+- the documentation has no meaningful graph or navigation;
+- a simpler tool already solves the actual problem;
+- the project cannot afford another evolving dependency;
+- the documentation uses highly dynamic MDX that the adapter cannot model;
+- the team is unwilling to triage false positives;
+- the pipeline already has several overlapping gates with no clear ownership.
 
 A new quality tool creates its own maintenance burden.
 
@@ -727,14 +735,14 @@ and
 
 That is the problem we built Zenzic to solve.
 
-Project: https://zenzic.dev/
+Project: <https://zenzic.dev/>
 
-Documentation: https://zenzic.dev/
+Documentation: <https://zenzic.dev/>
 
 License: Apache-2.0
 
 References
 
-[1] Zenzic — Deterministic Document Integrity Engine - https://zenzic.dev/
+[1] Zenzic — Deterministic Document Integrity Engine - <https://zenzic.dev/>
 
-[2] Zenzic — Why Zenzic? - https://zenzic.dev/explanation/why-zenzic/
+[2] Zenzic — Why Zenzic? - <https://zenzic.dev/explanation/why-zenzic/>

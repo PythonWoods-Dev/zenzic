@@ -270,6 +270,9 @@ class PolicyEvaluator:
 
     def _check_frontmatter(self, file_path: Path, content: str) -> list[RuleFinding]:
         """Z610: Emit one finding per required frontmatter key that is absent."""
+        if not self._required_keys:
+            return []
+
         from zenzic.core.rules import RuleFinding
 
         present_keys = _parse_frontmatter_keys(content)
@@ -296,6 +299,9 @@ class PolicyEvaluator:
 
     def _check_links(self, file_path: Path, content: str, links: list[str]) -> list[RuleFinding]:
         """Z611: Emit one finding per link whose domain matches a forbidden prefix."""
+        if not self._forbidden_domains:
+            return []
+
         from zenzic.core.rules import RuleFinding
 
         findings: list[RuleFinding] = []

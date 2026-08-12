@@ -72,6 +72,27 @@ def test_z511_sentence_length_and_line_fidelity(tmp_path: Path) -> None:
     assert "Sentence of" in findings[0].message
 
 
+def test_z511_html_block_exclusion(tmp_path: Path) -> None:
+    """Z511 ignores raw HTML blocks and does not trigger findings on HTML tags/attributes/content."""
+    file_path = tmp_path / "doc.md"
+    html_words = " ".join([f"word{i}" for i in range(120)])
+    text = (
+        "# Title\n"
+        "\n"
+        "This is a short prose sentence.\n"
+        "\n"
+        '<div class="zz-feature-visual">\n'
+        f"  <p>{html_words}</p>\n"
+        "</div>\n"
+        "\n"
+        "This is another short prose sentence.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_sentence_lengths(file_path, text, max_words=40)
+    assert len(findings) == 0
+
+
 def test_z512_empty_section_detection(tmp_path: Path) -> None:
     """Z512 flags headings with zero body content before next heading or EOF."""
     file_path = tmp_path / "doc.md"
@@ -142,3 +163,22 @@ def test_sarif_payload_contains_z510_z511_z512_rules() -> None:
         z510_rule["shortDescription"]["text"]
         == "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)"
     )
+
+
+def test_z511_semicolon_sentence_splitting(tmp_path: Path) -> None:
+    """Z511 recognizes semicolons as sentence boundaries, evaluating clauses independently."""
+    file_path = tmp_path / "doc.md"
+    clause1 = " ".join([f"worda{i}" for i in range(25)])
+    clause2 = " ".join([f"wordb{i}" for i in range(25)])
+    text = f"# Title\n\n{clause1}; {clause2}.\n"
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_sentence_lengths(file_path, text, max_words=40)
+    assert len(findings) == 0
+
+    # Verify that if any single clause separated by a semicolon exceeds max_words, it is flagged
+    long_clause = " ".join([f"wordc{i}" for i in range(45)])
+    text_long = f"# Title\n\n{clause1}; {long_clause}.\n"
+    findings_long = check_sentence_lengths(file_path, text_long, max_words=40)
+    assert len(findings_long) == 1
+    assert findings_long[0].rule_id == "Z511"

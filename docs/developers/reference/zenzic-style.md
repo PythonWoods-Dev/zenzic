@@ -1,6 +1,4 @@
 ---
-
-sidebar_position: 6
 description: "Documentation writing standards and formatting rules for Zenzic contributors."
 ---
 
@@ -81,6 +79,7 @@ Examples:
 - **Strict No-JSX Rule**: React JSX `<Icon name="..." />` tags are strictly forbidden and will be flagged by linting.
 - **Semantic consistency**: If an icon represents "Contribute" on one page, it must be the same icon on every page.
 - **Uniform syntax**: Every icon in a card grid uses native `:material-*: / :octicons-*:` shortcodes.
+- **No emoji in headings**: Emoji characters (`⚡`, `🛡️`, `🚀`, etc.) are permitted in running prose only. They must not be used as heading prefix decorators. Heading hierarchy communicates document structure; emoji communicates marketing enthusiasm. These are incompatible roles. Headings containing emoji will be rejected in PR review.
 
 ---
 

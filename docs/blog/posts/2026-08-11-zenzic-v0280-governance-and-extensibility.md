@@ -112,7 +112,7 @@ Zenzic v0.28.0 elevates compliance reporting for enterprise environments, provid
 
 ### Enterprise SARIF Integration
 
-The SARIF v2.1.0 output (`zenzic check all --format sarif`) has been enriched. The `rules` array now includes `helpUri`, `properties.category`, and `properties.penalty`. 
+The SARIF v2.1.0 output (`zenzic check all --format sarif`) has been enriched. The `rules` array now includes `helpUri`, `properties.category`, and `properties.penalty`.
 
 This allows platforms like GitHub Code Scanning to classify and weigh findings according to the Zenzic Document Quality Score (DQS) taxonomy. For schema details, see the [JSON & SARIF API Reference](../../reference/api-json.md).
 
@@ -121,6 +121,7 @@ This allows platforms like GitHub Code Scanning to classify and weigh findings a
 We introduced the `zenzic audit` CLI command. Unlike the standard `check` command, Audit Mode generates a formal compliance ledger detailing the repository's state.
 
 The report aggregates:
+
 - **Executive Summary**: Workspace coverage and DQS calculation.
 - **Governance Policies**: Active `[policies]` and global suppression caps.
 - **Technical Debt Ledger**: A breakdown of active suppressions (inline, per-file, directory policies) and top hotspots.

@@ -296,3 +296,32 @@ def test_zenzic_config_backward_compat_no_policies_key() -> None:
     config = ZenzicConfig.model_validate(data)
     assert config.policies.required_frontmatter_keys == []
     assert config.policies.forbidden_external_domains == []
+
+
+def test_init_template_includes_policies_section() -> None:
+    """zenzic init template must include valid [policies] section with empty opt-in lists."""
+    import sys
+
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE
+
+    rendered = GLOBAL_TOML_TEMPLATE.format(engine="mkdocs", hint_name="test-project")
+    parsed = tomllib.loads(rendered)
+
+    assert "policies" in parsed
+    assert parsed["policies"]["required_frontmatter_keys"] == []
+    assert parsed["policies"]["forbidden_external_domains"] == []
+
+
+def test_policy_evaluator_empty_policies_short_circuit() -> None:
+    """PolicyEvaluator internal checkers must return [] immediately when policy lists are empty."""
+    config = ZenzicConfig()
+    evaluator = PolicyEvaluator(config)
+
+    assert not evaluator.is_active
+    assert evaluator._check_frontmatter(DUMMY_FILE, "no frontmatter") == []
+    assert evaluator._check_links(DUMMY_FILE, "text", ["https://forbidden.com"]) == []

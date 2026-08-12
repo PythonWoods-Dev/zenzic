@@ -39,7 +39,11 @@ technical reference pages, or to add team-specific placeholder patterns — crea
 # excluded_assets = []
 # snippet_min_lines = 1
 # placeholder_max_words = 50
-# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo", "stub", ...]
+# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo", "stub"]
+
+# [policies]
+# required_frontmatter_keys = []   # Enforce YAML frontmatter metadata keys (Z610)
+# forbidden_external_domains = []  # Restrict forbidden external link domains (Z611)
 
 # [build_context]           # required only for folder-mode multi-locale projects
 # engine         = "mkdocs" # "mkdocs" or "zensical"

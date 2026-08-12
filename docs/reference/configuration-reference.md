@@ -704,6 +704,46 @@ suppression_cap_fail_hard = true
 
 ---
 
+## Policy-as-Code Settings {#policies-settings}
+
+Configure declarative Policy-as-Code rules (`Z610` and `Z611`). All policy rules are **opt-in** and inactive by default — empty lists (`[]`) short-circuit evaluation in $O(1)$ time with zero performance overhead.
+
+### `required_frontmatter_keys` {#required-frontmatter-keys}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z610 `REQUIRED_FRONTMATTER_MISSING` |
+| **Opt-in** | **Yes** |
+
+Declarative list of required YAML frontmatter keys. Every Markdown file in the documentation graph must declare these keys in its leading `---` frontmatter block. Zenzic emits Z610 for each absent required key per file.
+
+```toml
+[policies]
+required_frontmatter_keys = ["title", "description", "author"]
+```
+
+### `forbidden_external_domains` {#forbidden-external-domains}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z611 `FORBIDDEN_DOMAIN_REFERENCE` |
+| **Opt-in** | **Yes** |
+
+Declarative list of restricted external domain prefixes. Links (native Markdown `[text](url)` or raw HTML `<a href="url">`) referencing matching domains emit Z611 governance findings. Matching is case-insensitive and covers exact domain names and all subdomains (e.g. `"example.com"` matches `"sub.example.com"`).
+
+```toml
+[policies]
+forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
+```
+
+---
+
 ## Custom Rules {#custom-rules}
 
 Project-specific lint rules can be declared inline without writing Python. Each entry applies a regex pattern line-by-line to every `.md` file.
