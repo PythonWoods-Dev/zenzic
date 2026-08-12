@@ -201,14 +201,14 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
         "error", 2.0, "structural"
     ),  # AUTHOR_KEY_COLLISION — ADR-031 paradox resolved
     "Z114": CodeDefinition("note", 0.0, None),  # LARGE_PAGINATION_SET — informational threshold
-    "Z118": CodeDefinition("warning", 1.0, "governance"),  # STALE_GLOBAL_SUPPRESSION
+    "Z118": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
     # ── Z12x — HTML Integrity (Polyglot Extractor — v0.17.0) ──────────────────
     # Emitted by PolyglotExtractor for raw HTML <a>/<img> tags in Markdown.
     # Z120/Z122 are warnings; Z121/Z124 are errors (exit 1); Z123 is informational.
     # All Z12x codes are suppressible via data-zenzic-ignore (-1.0 pts DQS each).
-    "Z120": CodeDefinition("warning", 1.0, "html_hygiene"),  # UNKNOWN_HTML_ATTRIBUTE
+    "Z120": CodeDefinition("warning", 1.0, "content"),  # UNKNOWN_HTML_ATTRIBUTE
     "Z121": CodeDefinition("error", 1.0, "structural"),  # MISSING_OR_EMPTY_HREF
-    "Z122": CodeDefinition("warning", 1.0, "html_hygiene"),  # JUMP_LINK_DETECTED
+    "Z122": CodeDefinition("warning", 1.0, "content"),  # JUMP_LINK_DETECTED
     "Z123": CodeDefinition("note", 0.0, None),  # NON_HTTP_SCHEME — informational
     "Z124": CodeDefinition("error", 1.0, "structural"),  # OPAQUE_HTML_CONTEXT
     # ── Z2xx — Security ───────────────────────────────────────────────────────
@@ -246,9 +246,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z512": CodeDefinition("warning", 1.0, "content"),  # EMPTY_SECTION
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
-    "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
-    "Z610": CodeDefinition("warning", 3.0, "governance"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
-    "Z611": CodeDefinition("warning", 3.0, "governance"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
+    "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
+    "Z610": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
+    "Z611": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT

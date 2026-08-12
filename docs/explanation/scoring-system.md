@@ -1,7 +1,7 @@
 ---
 sidebar_label: "Scoring System"
 sidebar_position: 4
-description: "The Deterministic Quality Score (DQS) — conceptual model, penalty table, dual-gate architecture, worked examples, and CLI breakdown."
+description: "The Deterministic Quality Score (DQS) — conceptual model, category weight matrix, finding codes, dual-gate architecture, worked example, and CLI breakdown."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
@@ -19,15 +19,15 @@ The Zenzic **Deterministic Quality Score (DQS)** provides a single **0–100 val
 
 The Quality Score is a weighted composite of four distinct check categories:
 
-| Category | Primary Command | Finding Codes | Weight |
-| :--- | :--- | :--- | :---: |
-| **Structural Integrity** | `zenzic check links` | `Z101`–`Z124` | **30%** |
-| **Navigation Graph** | `zenzic check orphans` | `Z301`–`Z303`, `Z401`–`Z402` | **25%** |
-| **Brand & Governance** | `zenzic check assets` | `Z404`–`Z406`, `Z601`–`Z603` | **25%** |
-| **Content Excellence** | `zenzic check all` | `Z501`–`Z506` | **20%** |
+| Category | Primary Commands | Finding Codes | Weight | Bucket Cap |
+| :--- | :--- | :--- | :---: | :---: |
+| **Structural Integrity** | `zenzic check links` | `Z101`–`Z105`, `Z107`–`Z109`, `Z113`, `Z121`, `Z124`, `Z410`–`Z411` | **30%** | 30 pts |
+| **Navigation Graph** | `zenzic check orphans` | `Z301`–`Z303`, `Z402` | **25%** | 25 pts |
+| **Brand & Governance** | `zenzic check assets` | `Z118`, `Z404`–`Z406`, `Z601`, `Z603`, `Z610`, `Z611` | **25%** | 25 pts |
+| **Content Excellence** | `zenzic check all` | `Z120`, `Z122`, `Z403`, `Z501`–`Z503`, `Z505`–`Z506`, `Z510`–`Z512` | **20%** | 20 pts |
 
 !!! danger "Inviolable Security Override"
-    If any security finding is detected — **Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard** — the Quality Score **collapses to 0/100 unconditionally**. A repository with active secret leaks receives zero quality credit.
+    If any security finding is detected — **Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**, **Z204 Privacy Gate**, **Z205 XSS Gate** — the Quality Score **collapses to 0/100 unconditionally**. A repository with active secret leaks receives zero quality credit.
 
 ---
 
@@ -54,7 +54,7 @@ $$\text{Max Achievable Score} = 100 - |F_s|$$
 | **Stage 2 — Structural** | 2 × 8.0 = 16.0 pts | 14.0 / 30.0 |
 | **Stage 2 — Navigation** | 3 × 4.0 = 12.0 pts | 13.0 / 25.0 |
 | **Stage 2 — Content** | 5 × 1.0 = 5.0 pts | 15.0 / 20.0 |
-| **Stage 2 — Governance** | 15 × 2.0 = 30.0 pts → capped to 25.0 | 0.0 / 25.0 |
+| **Stage 2 — Governance** | 15 × 2.0 = 30.0 pts → amplified & capped to 25.0 | 0.0 / 25.0 |
 
 $$\text{Subtotal} = 14.0 + 13.0 + 15.0 + 0.0 = 42.0$$
 
@@ -85,6 +85,10 @@ Executing `zenzic score` prints a transparent breakdown ledger detailing raw ded
   = Final Quality Score                      65 / 100
 ```
 
+---
+
 ## See Also
 
-- [Scoring Algorithm](../reference/scoring-algorithm.md)
+- [Scoring Algorithm Reference](../reference/scoring-algorithm.md) — Complete 5-stage algorithm specification and 36-code penalty table.
+- [Finding Codes Reference](../reference/finding-codes.md) — Encyclopedia of all Zenzic finding codes.
+- [Suppression Policy Reference](../reference/suppression-policy.md) — Suppression mechanisms and debt limits.
