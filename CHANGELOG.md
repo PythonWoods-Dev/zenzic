@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+*Upcoming changes for the next release.*
+
+## [0.28.1] - 2026-08-12
+
 Upcoming changes for the next patch release.
 
 ### Added
