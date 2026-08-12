@@ -63,12 +63,51 @@ def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
     return findings
 
 
+_BLOCK_TAGS = {
+    "div", "section", "article", "aside", "header", "footer", "nav",
+    "figure", "figcaption", "details", "summary", "form", "fieldset",
+    "table", "tbody", "thead", "tfoot", "tr", "td", "th", "pre",
+    "script", "style", "main", "iframe", "blockquote", "p", "ul", "ol", "li"
+}
+_VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+
+def _mask_html_blocks(text: str) -> str:
+    """Mask raw HTML block elements and tags with spaces of equal length, preserving line breaks."""
+    lines = text.split("\n")
+    result: list[str] = []
+    html_depth = 0
+
+    open_tag_re = re.compile(r"<([a-zA-Z1-6]+)\b([^>]*)/?>", re.IGNORECASE)
+    close_tag_re = re.compile(r"</([a-zA-Z1-6]+)\s*>", re.IGNORECASE)
+
+    for line in lines:
+        opens = []
+        for m in open_tag_re.finditer(line):
+            tag = m.group(1).lower()
+            full_match = m.group(0)
+            if tag in _BLOCK_TAGS and tag not in _VOID_TAGS and not full_match.endswith("/>"):
+                opens.append(tag)
+
+        closes = [m.group(1).lower() for m in close_tag_re.finditer(line) if m.group(1).lower() in _BLOCK_TAGS]
+        net_change = len(opens) - len(closes)
+
+        if html_depth > 0 or opens:
+            result.append(" " * len(line))
+            html_depth = max(0, html_depth + net_change)
+        else:
+            result.append(re.sub(r"<[^>]+>", lambda m: " " * len(m.group(0)), line))
+
+    return "\n".join(result)
+
+
 def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> list[RuleFinding]:
     """Z511: Detect sentences exceeding max_words readability threshold."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
-    lines = text.splitlines()
+    text_masked = _mask_html_blocks(text)
+    lines = text_masked.splitlines()
     in_code_block = False
     in_frontmatter = False
 

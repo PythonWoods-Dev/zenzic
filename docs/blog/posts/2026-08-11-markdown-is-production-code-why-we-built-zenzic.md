@@ -18,6 +18,8 @@ categories:
 
 # Markdown Is Production Code: Why We Built Zenzic
 
+![Markdown is Production Code](../../assets/images/blog/markdown_is_code.webp)
+
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 
 A build can succeed while an internal link points to a file that no longer exists. A page can remain in the repository while no navigation path reaches it. An anchor can become invalid after a heading is renamed. An image can disappear while the Markdown still references it. A code example can contain a live credential that gets copied into a public repository.
@@ -31,6 +33,8 @@ The defect is discovered only when a user follows the broken path—or when an e
 We decided that this was the wrong model.
 
 **We built Zenzic to treat documentation integrity as a property that can be tested before a change reaches the main branch.**
+
+<!-- more -->
 
 Zenzic is a deterministic document-integrity engine for Markdown/MDX graphs. It analyzes raw documentation source, builds a model of its relationships, and reports structural, quality, and security findings with file-and-line precision.
 

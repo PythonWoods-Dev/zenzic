@@ -137,37 +137,94 @@ SPDX-License-Identifier: Apache-2.0
   src: url('../fonts/jetbrains-mono-500-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+    /* ── Design Tokens: Dark Mode (canonical) ── */
     :root {
-      --canvas:  #09090b;  /* Slate Lead — canonical zenzic.dev background */
-      --slate:     #0f0f13;  /* surface-color — matches --ifm-background-surface-color */
-      --surface:   #111118;
-      --border:    #1e1e27;
-      --lead:      #E2E8F0;
-      --muted:     #8B8FA8;
-      --rule:      rgba(255,255,255,0.07);
-      --indigo:    #4338ca;  /* light-mode UI indigo — indigo-700 (WCAG AAA 7.9:1) */
-      --indigo-dark: #a8b3fb; /* dark-mode UI indigo — brand-300 (WCAG AAA 9.9:1) */
-      --cyan:      #38bdf8;
-      --blood:     #FF3B30;
-      --magenta:   #FF2D73;
-      --canvas-light: #F1F5F9;
-      --accent-cyan-soft: #06b6d4;
-      --notice-bg: #09090b;
-      --code-bg: #0c0c10;
-      --muted-strong: #a1a1aa;
-      --ink-300: #d4d4d8;
-      --rule-soft: rgba(255,255,255,0.04);
-      --rule-subtle: rgba(255,255,255,0.06);
-      --brand-border-20: rgba(79,70,229,0.2);
-      --drop-shadow-strong: 0 8px 40px rgba(0,0,0,0.5);
+      /* Surface stack */
+      --zz-canvas:        #09090b;
+      --zz-surface-0:     #0d1117;
+      --zz-surface-1:     #111827;
+      --zz-surface-2:     #1f2937;
+      --zz-surface-3:     #374151;
+
+      /* Brand */
+      --zz-brand:         #4f46e5;
+      --zz-brand-light:   #818cf8;
+      --zz-brand-muted:   #3730a3;
+
+      /* Text hierarchy */
+      --zz-ink-100:       #f1f5f9;
+      --zz-ink-200:       #e2e8f0;
+      --zz-ink-400:       #94a3b8;
+      --zz-ink-600:       #64748b;
+
+      /* Borders */
+      --zz-border:        #1e293b;
+      --zz-border-subtle: #30363d;
+      --zz-rule:          rgba(255,255,255,0.06);
+
+      /* Semantic */
+      --zz-error:         #f43f5e;
+      --zz-fatal:         #be123c;
+      --zz-warning:       #f59e0b;
+      --zz-success:       #10b981;
+      --zz-info:          #38bdf8;
+
+      /* Applied aliases for this document */
+      --bg:    var(--zz-canvas);
+      --card:  var(--zz-surface-1);
+      --lead:  var(--zz-ink-200);
+      --muted: var(--zz-ink-400);
+      --rule:  var(--zz-rule);
+    }
+
+    /* ── Design Tokens: Light Mode Override ── */
+    @media (prefers-color-scheme: light) {
+      :root {
+        /* Surface stack */
+        --zz-canvas:        #f8fafc;
+        --zz-surface-0:     #ffffff;
+        --zz-surface-1:     #f1f5f9;
+        --zz-surface-2:     #e2e8f0;
+        --zz-surface-3:     #cbd5e1;
+
+        /* Brand (identical) */
+        --zz-brand:         #4f46e5;
+        --zz-brand-light:   #6366f1;
+        --zz-brand-muted:   #3730a3;
+
+        /* Text hierarchy */
+        --zz-ink-100:       #0f172a;
+        --zz-ink-200:       #1e293b;
+        --zz-ink-400:       #475569;
+        --zz-ink-600:       #94a3b8;
+
+        /* Borders */
+        --zz-border:        #e2e8f0;
+        --zz-border-subtle: #e2e8f0;
+        --zz-rule:          rgba(0,0,0,0.07);
+
+        /* Semantic */
+        --zz-error:         #e11d48;
+        --zz-fatal:         #9f1239;
+        --zz-warning:       #d97706;
+        --zz-success:       #059669;
+        --zz-info:          #0284c7;
+
+        /* Applied aliases */
+        --bg:    var(--zz-canvas);
+        --card:  var(--zz-surface-0);
+        --lead:  var(--zz-ink-200);
+        --muted: var(--zz-ink-400);
+        --rule:  var(--zz-rule);
+      }
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: var(--canvas);
+      background: var(--bg);
       color: var(--lead);
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: 'Inter', 'JetBrains Mono', ui-monospace, sans-serif;
       font-size: 13px;
       line-height: 1.65;
       padding: 52px 44px;
@@ -183,7 +240,7 @@ SPDX-License-Identifier: Apache-2.0
 
     /* ── Section header ── */
     .page-title {
-      font-family: 'Barlow Condensed', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.28em;
@@ -200,7 +257,7 @@ SPDX-License-Identifier: Apache-2.0
       background: var(--rule);
     }
     .section-title {
-      font-family: 'Barlow Condensed', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.25em;
@@ -220,15 +277,15 @@ SPDX-License-Identifier: Apache-2.0
 
     /* ── Card ── */
     .card {
-      background: var(--slate);
-      border: 1px solid var(--border);
+      background: var(--card);
+      border: 1px solid var(--zz-border-subtle);
       border-radius: 3px;
       padding: 36px;
     }
 
     /* ── Label ── */
     .label {
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 9px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
@@ -237,7 +294,7 @@ SPDX-License-Identifier: Apache-2.0
       margin-bottom: 16px;
     }
     .label-inline {
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 9px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
@@ -250,8 +307,8 @@ SPDX-License-Identifier: Apache-2.0
     .logo-row   { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
     .logo-variant { display: flex; flex-direction: column; gap: 0; }
 
-    .mark-dark  { background: var(--canvas); border: 1px solid var(--border); }
-    .mark-light { background: var(--canvas-light); }
+    .mark-dark  { background: var(--zz-surface-0); border: 1px solid var(--zz-border-subtle); }
+    .mark-light { background: var(--zz-canvas); }
 
     /* ── Palette ── */
     .palette { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -259,20 +316,20 @@ SPDX-License-Identifier: Apache-2.0
     .swatch-block {
       width: 72px; height: 72px;
       border-radius: 3px;
-      border: 1px solid var(--rule-subtle);
+      border: 1px solid var(--zz-rule);
       margin-bottom: 7px;
     }
     .swatch-name { font-size: 8.5px; color: var(--muted); line-height: 1.5; }
-    .swatch-role { font-size: 7.5px; color: var(--indigo); line-height: 1.4; margin-top: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .swatch-role { font-size: 7.5px; color: var(--zz-brand); line-height: 1.4; margin-top: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
 
     /* ── Social / hero wraps ── */
     .social-wrap {
       width: 100%;
       aspect-ratio: 1200 / 630;
-      border: 1px solid var(--border);
+      border: 1px solid var(--zz-border-subtle);
       border-radius: 3px;
       overflow: hidden;
-      box-shadow: var(--drop-shadow-strong);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
     }
 
     /* ── Two-col ── */

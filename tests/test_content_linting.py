@@ -72,6 +72,27 @@ def test_z511_sentence_length_and_line_fidelity(tmp_path: Path) -> None:
     assert "Sentence of" in findings[0].message
 
 
+def test_z511_html_block_exclusion(tmp_path: Path) -> None:
+    """Z511 ignores raw HTML blocks and does not trigger findings on HTML tags/attributes/content."""
+    file_path = tmp_path / "doc.md"
+    html_words = " ".join([f"word{i}" for i in range(120)])
+    text = (
+        "# Title\n"
+        "\n"
+        "This is a short prose sentence.\n"
+        "\n"
+        '<div class="zz-feature-visual">\n'
+        f"  <p>{html_words}</p>\n"
+        "</div>\n"
+        "\n"
+        "This is another short prose sentence.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_sentence_lengths(file_path, text, max_words=40)
+    assert len(findings) == 0
+
+
 def test_z512_empty_section_detection(tmp_path: Path) -> None:
     """Z512 flags headings with zero body content before next heading or EOF."""
     file_path = tmp_path / "doc.md"
