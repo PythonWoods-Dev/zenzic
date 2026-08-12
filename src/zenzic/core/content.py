@@ -64,12 +64,53 @@ def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
 
 
 _BLOCK_TAGS = {
-    "div", "section", "article", "aside", "header", "footer", "nav",
-    "figure", "figcaption", "details", "summary", "form", "fieldset",
-    "table", "tbody", "thead", "tfoot", "tr", "td", "th", "pre",
-    "script", "style", "main", "iframe", "blockquote", "p", "ul", "ol", "li"
+    "div",
+    "section",
+    "article",
+    "aside",
+    "header",
+    "footer",
+    "nav",
+    "figure",
+    "figcaption",
+    "details",
+    "summary",
+    "form",
+    "fieldset",
+    "table",
+    "tbody",
+    "thead",
+    "tfoot",
+    "tr",
+    "td",
+    "th",
+    "pre",
+    "script",
+    "style",
+    "main",
+    "iframe",
+    "blockquote",
+    "p",
+    "ul",
+    "ol",
+    "li",
 }
-_VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+_VOID_TAGS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
 
 
 def _mask_html_blocks(text: str) -> str:
@@ -89,7 +130,11 @@ def _mask_html_blocks(text: str) -> str:
             if tag in _BLOCK_TAGS and tag not in _VOID_TAGS and not full_match.endswith("/>"):
                 opens.append(tag)
 
-        closes = [m.group(1).lower() for m in close_tag_re.finditer(line) if m.group(1).lower() in _BLOCK_TAGS]
+        closes = [
+            m.group(1).lower()
+            for m in close_tag_re.finditer(line)
+            if m.group(1).lower() in _BLOCK_TAGS
+        ]
         net_change = len(opens) - len(closes)
 
         if html_depth > 0 or opens:

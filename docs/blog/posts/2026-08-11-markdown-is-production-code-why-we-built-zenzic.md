@@ -164,6 +164,7 @@ docs/index.md:3:8 ✘ [Z104] './intro.md' not found in docs
        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ```
+
 The difference matters operationally.
 
 “Documentation failed” is an interruption.
@@ -252,6 +253,7 @@ A documentation site is not merely a directory of Markdown files.
 It is a graph.
 
 Conceptually:
+
 ```text
 index.md
  ├── links to install.md
@@ -351,11 +353,13 @@ A standalone Markdown repository can run:
 ```bash
 uvx zenzic check all docs/
 ```
+
 For a project using a documentation framework:
 
 ```bash
 uvx zenzic check all .
 ```
+
 We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs, Zensical, and Docusaurus-oriented setups.
 
 The intended gate semantics are straightforward:
@@ -731,14 +735,14 @@ and
 
 That is the problem we built Zenzic to solve.
 
-Project: https://zenzic.dev/
+Project: <https://zenzic.dev/>
 
-Documentation: https://zenzic.dev/
+Documentation: <https://zenzic.dev/>
 
 License: Apache-2.0
 
 References
 
-[1] Zenzic — Deterministic Document Integrity Engine - https://zenzic.dev/
+[1] Zenzic — Deterministic Document Integrity Engine - <https://zenzic.dev/>
 
-[2] Zenzic — Why Zenzic? - https://zenzic.dev/explanation/why-zenzic/
+[2] Zenzic — Why Zenzic? - <https://zenzic.dev/explanation/why-zenzic/>
