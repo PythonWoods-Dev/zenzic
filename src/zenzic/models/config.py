@@ -145,7 +145,7 @@ class BuildContext(BaseModel):
     )
     base_url: str = Field(
         default="",
-        description="The root URL where the documentation is hosted (e.g. `https://docs.pythonwoods.dev/`).",
+        description="The root URL where the documentation is hosted (e.g. `https://docs.zenzic.dev/`).",
     )
     fallback_to_default: bool = Field(
         default=True,
@@ -271,7 +271,7 @@ class PoliciesConfig(BaseModel):
             "Zero-Trust whitelist of allowed external domain prefixes. "
             "When non-empty, ANY external link not matching this whitelist emits Z614 UNAPPROVED_DOMAIN_REFERENCE. "
             "Policy is inactive when empty (opt-in). "
-            'Example: ["pythonwoods.dev", "github.com"]'
+            'Example: ["zenzic.dev", "github.com"]'
         ),
     )
     required_url_schemes: list[str] = Field(

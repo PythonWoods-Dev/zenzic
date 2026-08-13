@@ -790,7 +790,7 @@ Zero-Trust whitelist of allowed external domain prefixes. When non-empty, ANY ex
 
 ```toml
 [policies]
-allowed_external_domains = ["pythonwoods.dev", "github.com"]
+allowed_external_domains = ["zenzic.dev", "github.com"]
 ```
 
 ### `required_url_schemes` {#required-url-schemes}

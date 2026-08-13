@@ -767,7 +767,7 @@ An external link references a domain name that is not included in the Zero-Trust
 
 ```toml
 [policies]
-allowed_external_domains = ["pythonwoods.dev", "github.com"]
+allowed_external_domains = ["zenzic.dev", "github.com"]
 ```
 
 ### Z615: FORBIDDEN_URL_SCHEME {#z615}
