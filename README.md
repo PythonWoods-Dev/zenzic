@@ -131,8 +131,6 @@ The declarative `[policies]` table in `.zenzic.toml` enforces governance constra
 | `required_url_schemes` | `Z615` | Enforces allowed URL schemes (e.g. `https`, `mailto`) — rejects `http`, `ftp`, and custom protocols. |
 | `cross_namespace_restrictions` | `Z616` | **Topological Boundaries**: restricts cross-namespace linking via the Virtual Site Map (e.g. `docs/public` cannot link into `docs/internal`). |
 
-
-
 ---
 
 ## 🧠 Key Capabilities & Commands

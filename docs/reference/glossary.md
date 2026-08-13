@@ -79,6 +79,7 @@ The credential scanner pattern that detects hex-encoded byte sequences (e.g. `\x
 ### Layered Exclusion {#layered-exclusion}
 
 The 4-level hierarchy that determines which files and directories Zenzic scans:
+
 - **L1 System Guardrails**: Hardcoded immutable exclusions (`.git`, `.venv`, `node_modules`).
 - **L2 VCS**: `.gitignore` and VCS rules.
 - **L3 Config Exclusions**: `excluded_dirs` and `excluded_file_patterns` in `.zenzic.toml`.
@@ -115,6 +116,7 @@ The immutable set of directories (`.git`, `.venv`, `node_modules`, `__pycache__`
 ### Three-Pass Pipeline {#two-pass-pipeline}
 
 Zenzic's core analysis pipeline processing each Markdown file in three sequential passes:
+
 1. **Pass 1 (Harvest & Secret Scan)**: Stream lines, extract `[id]: url` definitions, run credential scanner.
 2. **Pass 2 (Cross-Check)**: Resolve `[text][id]` usages against the Reference Map.
 3. **Pass 3 (Integrity Report)**: Compute integrity score and assemble diagnostic findings.

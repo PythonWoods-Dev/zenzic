@@ -39,7 +39,7 @@ Legacy documentation often accumulates deprecated metadata (e.g., `draft: true` 
 
 ### Z613: Frontmatter Schema Mismatch
 
-Data integrity requires strict typing. [`Z613`](../../rules/Z613.md) enforces value validation using RE2 regular expressions. Maintainers can define `frontmatter_schema_match` to guarantee that specific keys conform to exact patterns (e.g., ensuring an `author` field contains a valid corporate email). 
+Data integrity requires strict typing. [`Z613`](../../rules/Z613.md) enforces value validation using RE2 regular expressions. Maintainers can define `frontmatter_schema_match` to guarantee that specific keys conform to exact patterns (e.g., ensuring an `author` field contains a valid corporate email).
 
 To maintain fail-fast determinism, invalid regex patterns in your `.zenzic.toml` are caught during configuration loading, triggering a fatal schema error (`Z111`) before the scan even begins.
 
@@ -51,7 +51,7 @@ Link rot and insecure protocols are critical documentation defects. Zenzic v0.29
 
 ### Z614: Unapproved Domain Reference
 
-Shadow IT often bleeds into documentation when authors link to unvetted external tools, personal repositories, or deprecated corporate domains. [`Z614`](../../rules/Z614.md) implements a strict whitelist for external links. When `allowed_external_domains` is configured, any link pointing to an unlisted domain triggers a fatal error. 
+Shadow IT often bleeds into documentation when authors link to unvetted external tools, personal repositories, or deprecated corporate domains. [`Z614`](../../rules/Z614.md) implements a strict whitelist for external links. When `allowed_external_domains` is configured, any link pointing to an unlisted domain triggers a fatal error.
 
 ### Z615: Forbidden URL Scheme
 

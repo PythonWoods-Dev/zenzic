@@ -160,7 +160,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--ci` | — | `false` | Run in CI mode (non-interactive, explicit exit codes). |
 
     **Audit Report & Determinism:**
-    
+
     - Accepts `--format text` (default) for Rich interactive terminal panels and `--format json` for automated compliance pipelines.
     - The JSON output is **100% deterministic** (timestamps are excluded from the payload hash) to guarantee reproducible compliance builds in CI/CD.
 

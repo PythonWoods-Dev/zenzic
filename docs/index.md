@@ -42,7 +42,6 @@ description: "Zenzic is a deterministic document integrity engine for Markdown/M
 
     [:material-arrow-right: Policy Configuration](./reference/configuration-reference.md)
 
-
 </div>
 
 ---

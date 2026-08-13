@@ -709,7 +709,15 @@ class ZenzicConfig(BaseModel):
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
         _HANDLED_SECTIONS = frozenset(
-            {"build_context", "custom_rules", "project_metadata", "governance", "i18n", "network", "policies"}
+            {
+                "build_context",
+                "custom_rules",
+                "project_metadata",
+                "governance",
+                "i18n",
+                "network",
+                "policies",
+            }
         )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
@@ -757,11 +765,7 @@ class ZenzicConfig(BaseModel):
             )
         if "policies" in data and isinstance(data["policies"], dict):
             filtered_data["policies"] = PoliciesConfig(
-                **{
-                    k: v
-                    for k, v in data["policies"].items()
-                    if k in PoliciesConfig.model_fields
-                }
+                **{k: v for k, v in data["policies"].items() if k in PoliciesConfig.model_fields}
             )
         if "network" in data and isinstance(data["network"], dict):
             filtered_data["network"] = NetworkConfig(

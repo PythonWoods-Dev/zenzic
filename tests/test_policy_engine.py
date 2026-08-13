@@ -284,7 +284,9 @@ def test_policy_evaluator_z614_whitelisted_domain_passes() -> None:
     policies = PoliciesConfig(allowed_external_domains=["pythonwoods.dev", "github.com"])
     config = ZenzicConfig()
     config.policies = policies
-    content = "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods/zenzic)."
+    content = (
+        "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods/zenzic)."
+    )
     evaluator = PolicyEvaluator(config)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z614" for f in findings)

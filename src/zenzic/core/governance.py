@@ -598,12 +598,20 @@ class PolicyEvaluator:
             )
             target_repo_rel = (
                 target_fp.relative_to(repo_root.resolve()).as_posix()
-                if (repo_root and target_fp.is_absolute() and target_fp.is_relative_to(repo_root.resolve()))
+                if (
+                    repo_root
+                    and target_fp.is_absolute()
+                    and target_fp.is_relative_to(repo_root.resolve())
+                )
                 else target_fp.as_posix()
             )
             target_docs_rel = (
                 target_fp.relative_to(docs_root.resolve()).as_posix()
-                if (docs_root and target_fp.is_absolute() and target_fp.is_relative_to(docs_root.resolve()))
+                if (
+                    docs_root
+                    and target_fp.is_absolute()
+                    and target_fp.is_relative_to(docs_root.resolve())
+                )
                 else None
             )
 
