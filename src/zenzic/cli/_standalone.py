@@ -1603,7 +1603,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.28.1"]
+dependencies = ["zenzic>=0.29.0"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"
