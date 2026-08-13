@@ -48,3 +48,48 @@ In a mature CI/CD environment, warnings should eventually be treated as errors t
 
 ```bash
 zenzic check all --strict
+```
+
+When `--strict` is active, **all warnings are promoted to errors** and will fail the build. 
+
+However, `--strict` *never* promotes `Info` findings to errors. Why? Because a circular link (`Z106`)—where a Glossary page links to a CLI page, and the CLI page links back to the Glossary—is a legitimate and often desirable pattern in technical documentation. Punishing valid architectural patterns destroys developer trust.
+
+---
+
+## GitHub Code Scanning and SARIF
+
+The distinction between these three tiers becomes critical when integrating with enterprise dashboards like GitHub Code Scanning.
+
+When Zenzic runs in GitHub Actions, it exports its findings using the industry-standard **SARIF v2.1.0** format. The Zenzic SARIF formatter maps our internal taxonomy directly to OASIS SARIF levels:
+
+- `error` → `error` (Red alert in GitHub)
+- `warning` → `warning` (Yellow alert in GitHub)
+- `info` → `note` (Gray informational badge in GitHub)
+
+### The Alert Fatigue Problem
+
+GitHub Code Scanning ingests the entire SARIF file. This means that even if `Info` findings are hidden in your local terminal, GitHub will display them as `note` alerts in the Security tab or on Pull Requests.
+
+If your repository has 300 legitimate circular links, GitHub will show 300 `note` alerts. This is the definition of alert fatigue. A developer reviewing a PR might miss a critical `Z201` Credential Leak because it is buried under hundreds of circular link notices.
+
+### The Zero-DBT Solution: Declarative Suppression
+
+To solve this, Zenzic relies on its **Zero-DBT (Zero Documented Technical Debt)** philosophy. If a pattern is intentional, you must declare it in your configuration.
+
+By adding a global directory policy in `.zenzic.toml`, you explicitly tell the engine: *"In this repository, circular links are an accepted design pattern. Do not compute them, and do not export them to SARIF."*
+
+```toml
+[governance.directory_policies]
+# Suppress circular link notices globally to prevent SARIF noise
+"docs/**" = ["Z106"]
+```
+
+This single line of configuration stops the engine from emitting the `Info` findings entirely. The terminal remains clean, the SARIF payload is optimized, and GitHub Code Scanning displays only actionable signals.
+
+---
+
+## Conclusion
+
+A deterministic engine must provide deterministic observability. By strictly separating Errors, Warnings, and Info notices, and providing granular, declarative suppression mechanisms, Zenzic ensures that your CI/CD pipeline remains a reliable gatekeeper, not a source of noise.
+
+To learn more about integrating Zenzic into your pipeline, read our [CI/CD Integration Guide](../../how-to/configure-ci-cd.md) or explore the [Finding Codes Taxonomy](../../reference/finding-codes.md).
