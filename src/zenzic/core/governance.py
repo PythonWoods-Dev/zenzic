@@ -168,7 +168,10 @@ def apply_directory_policies(
                 compiled = re.compile(regex_str)
                 normalized_map.append((compiled, normalized_codes, pattern))
             except Exception:
-                pass
+                # Invalid glob pattern — skip registration safely
+                continue
+
+
 
     if not normalized_map:
         return findings
@@ -574,7 +577,10 @@ class PolicyEvaluator:
                     elif isinstance(outcome, AnchorMissing):
                         resolved_target_file = outcome.resolved_file
                 except Exception:
-                    pass
+                    # Best-effort resolution: if resolver fails, fall back to VSM/path logic below.
+                    resolved_target_file = None
+
+
 
             if resolved_target_file is None and vsm is not None:
                 for route in vsm.values():

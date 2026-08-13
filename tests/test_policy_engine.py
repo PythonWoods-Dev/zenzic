@@ -277,7 +277,13 @@ def test_policy_evaluator_z614_unapproved_domain() -> None:
     findings = evaluator.check(DUMMY_FILE, content)
     z614 = [f for f in findings if f.rule_id == "Z614"]
     assert len(z614) == 1
-    assert "unapproved.example.org" in z614[0].message
+    assert (
+        z614[0].message
+        == "Link to 'https://unapproved.example.org/spec' references external domain "
+        "'unapproved.example.org' which is not in [policies].allowed_external_domains whitelist. "
+        "Replace or add to whitelist."
+    )
+
 
 
 def test_policy_evaluator_z614_whitelisted_domain_passes() -> None:
