@@ -5,7 +5,8 @@ date: 2026-08-14
 authors:
   - pythonwoods
 description: >
-  How Zenzic manages diagnostic severity (Errors, Warnings, Info) to prevent CI/CD alert fatigue and integrate cleanly with GitHub Code Scanning.
+  How Zenzic manages diagnostic severity (Errors, Warnings, Info) to prevent
+  CI/CD alert fatigue and integrate cleanly with GitHub Code Scanning.
 categories:
   - Engineering
   - CI/CD
@@ -15,81 +16,267 @@ categories:
 
 ![Signal to Noise Ratio](../../assets/images/blog/signal_to_noise.webp)
 
-A static analyzer is only as useful as its signal-to-noise ratio. If a tool floods your CI/CD pipeline with hundreds of trivial notices, developers will learn to ignore it. When a real security vulnerability or broken link is introduced, it gets buried in the noise.
+A static analyzer is only as useful as its signal-to-noise ratio.
 
-In Zenzic, we treat documentation as production code. This means our diagnostic engine must respect the same strict severity taxonomy used by enterprise compilers and security scanners.
+If a tool floods a CI/CD pipeline with hundreds of low-value notices, developers eventually stop paying attention. The result is predictable: triage becomes slower, dashboards become cluttered, and governance loses credibility.
+
+This problem is not unique to documentation analysis. It exists across compilers, linters, security scanners, and code quality platforms. The challenge is always the same: surface actionable findings without overwhelming engineers with noise.
+
+In Zenzic, documentation is treated as production code. The diagnostic engine therefore follows a strict severity taxonomy designed to separate enforcement from observability and ensure that every finding has a clear operational meaning.
 
 <!-- more -->
 
 ## The Severity Taxonomy
 
-Every finding emitted by Zenzic (a `RuleFinding`) carries an intrinsic severity level. We categorize anomalies into three strict tiers:
+Every finding emitted by Zenzic is represented as a `RuleFinding` and carries an intrinsic severity level.
 
-### 1. Errors (The Blockers)
-Errors represent critical structural failures or security breaches. 
-- **Examples**: `Z101` (Broken Link), `Z201` (Credential Leak), `Z616` (Cross-Namespace Link Forbidden).
-- **Behavior**: Errors always fail the build, returning a non-zero exit code (Exit 1 for structural, Exit 2 for security). They cannot be ignored without explicit, tracked suppressions.
+The engine classifies findings into three categories:
 
-### 2. Warnings (The Quality Degraders)
-Warnings represent governance violations or content quality degradation. The document is structurally sound, but it violates project standards.
-- **Examples**: `Z511` (Excessive Sentence Length), `Z610` (Missing Required Frontmatter).
-- **Behavior**: By default, warnings do *not* fail the build. Instead, they deduct points from the repository's **Document Quality Score (DQS)**. 
+### Errors (Build Blockers)
 
-### 3. Info (The Structural Notices)
-Info findings (or "Notes") represent valid architectural patterns that the engine observes, but which do not constitute a defect.
-- **Examples**: `Z106` (Circular Link), `Z401` (Missing Directory Index).
-- **Behavior**: Info findings never fail the build and do not impact the DQS. In the CLI, they are hidden by default to keep the terminal output clean, unless explicitly requested via the `--show-info` flag.
+Errors represent structural failures, security violations, or conditions that make the repository unsafe to publish.
+
+Examples include:
+
+- `Z101` — Broken Link
+- `Z201` — Credential Leak
+- `Z616` — Cross-Namespace Link Forbidden
+
+Errors are enforcement mechanisms.
+
+When an error is detected, the build fails and Zenzic returns a non-zero exit code.
+
+Depending on the category of the failure, the engine may return different exit codes to distinguish structural failures from security violations.
+
+An error is not advisory. It represents a condition that requires remediation before publication.
+
+### Warnings (Quality Degraders)
+
+Warnings indicate that content remains structurally valid but violates governance rules, style requirements, or repository standards.
+
+Examples include:
+
+- `Z511` — Excessive Sentence Length
+- `Z610` — Missing Required Frontmatter
+
+Warnings do not fail the build by default.
+
+Instead, they contribute negatively to the repository's Document Quality Score (DQS), allowing teams to measure quality drift without immediately blocking delivery.
+
+Warnings exist to make quality visible.
+
+They are governance signals, not enforcement signals.
+
+### Info (Architectural Notices)
+
+Info findings describe observable repository conditions that are not defects.
+
+Examples include:
+
+- `Z106` — Circular Link
+- `Z401` — Missing Directory Index
+
+These findings may be useful for architecture analysis, navigation audits, or repository introspection, but they do not indicate broken behavior.
+
+Info findings:
+
+- Never fail the build.
+- Never affect the DQS.
+- Are hidden from CLI output by default.
+
+They can be displayed explicitly:
+
+```bash
+zenzic check all --show-info
+```
+
+The default behavior keeps terminal output focused on actionable findings.
+
+---
+
+## Why Severity Exists
+
+Many tools treat severity as a cosmetic label.
+
+In practice, severity determines operational behavior.
+
+A finding classified as an Error affects enforcement.
+
+A finding classified as a Warning affects governance.
+
+A finding classified as Info affects observability.
+
+Collapsing these concepts into a single stream of diagnostics produces confusion and eventually creates alert fatigue.
+
+For a diagnostic engine to remain trustworthy, every severity level must have a clearly defined consequence.
 
 ---
 
 ## The `--strict` Gate
 
-In a mature CI/CD environment, warnings should eventually be treated as errors to prevent technical debt accumulation. Zenzic provides the `--strict` flag for this exact purpose.
+As repositories mature, organizations often decide that governance violations should be treated as release blockers.
+
+Zenzic supports this through the `--strict` execution mode.
 
 ```bash
 zenzic check all --strict
 ```
 
-When `--strict` is active, **all warnings are promoted to errors** and will fail the build. 
+When strict mode is enabled:
 
-However, `--strict` *never* promotes `Info` findings to errors. Why? Because a circular link (`Z106`)—where a Glossary page links to a CLI page, and the CLI page links back to the Glossary—is a legitimate and often desirable pattern in technical documentation. Punishing valid architectural patterns destroys developer trust.
+- Errors remain Errors.
+- Warnings are promoted to Errors.
+- Info findings remain Info.
+
+This distinction is intentional.
+
+Promoting every informational notice into a build blocker would punish valid architectural patterns and create unnecessary friction.
+
+Consider a documentation system where a glossary page links to a CLI reference page and the CLI reference page links back to the glossary.
+
+This creates a circular relationship that may be entirely intentional.
+
+Treating such a pattern as a build failure would reduce trust in the engine rather than improve quality.
+
+Strict mode therefore applies enforcement only to findings that represent actionable governance concerns.
 
 ---
 
 ## GitHub Code Scanning and SARIF
 
-The distinction between these three tiers becomes critical when integrating with enterprise dashboards like GitHub Code Scanning.
+Severity becomes particularly important when integrating with enterprise tooling.
 
-When Zenzic runs in GitHub Actions, it exports its findings using the industry-standard **SARIF v2.1.0** format. The Zenzic SARIF formatter maps our internal taxonomy directly to OASIS SARIF levels:
+When executed inside GitHub Actions, Zenzic exports findings using the SARIF v2.1.0 standard.
 
-- `error` → `error` (Red alert in GitHub)
-- `warning` → `warning` (Yellow alert in GitHub)
-- `info` → `note` (Gray informational badge in GitHub)
+The formatter maps Zenzic severities directly to SARIF levels:
 
-### The Alert Fatigue Problem
+| Zenzic | SARIF |
+|----------|----------|
+| Error | error |
+| Warning | warning |
+| Info | note |
 
-GitHub Code Scanning ingests the entire SARIF file. This means that even if `Info` findings are hidden in your local terminal, GitHub will display them as `note` alerts in the Security tab or on Pull Requests.
+This mapping allows GitHub Code Scanning to display findings using native severity indicators while preserving the semantics defined by the engine.
 
-If your repository has 300 legitimate circular links, GitHub will show 300 `note` alerts. This is the definition of alert fatigue. A developer reviewing a PR might miss a critical `Z201` Credential Leak because it is buried under hundreds of circular link notices.
+The result is a consistent experience across:
 
-### The Zero-DBT Solution: Declarative Suppression
-
-To solve this, Zenzic relies on its **Zero-DBT (Zero Documented Technical Debt)** philosophy. If a pattern is intentional, you must declare it in your configuration.
-
-By adding a global directory policy in `.zenzic.toml`, you explicitly tell the engine: *"In this repository, circular links are an accepted design pattern. Do not compute them, and do not export them to SARIF."*
-
-```toml
-[governance.directory_policies]
-# Suppress circular link notices globally to prevent SARIF noise
-"docs/**" = ["Z106"]
-```
-
-This single line of configuration stops the engine from emitting the `Info` findings entirely. The terminal remains clean, the SARIF payload is optimized, and GitHub Code Scanning displays only actionable signals.
+- Local CLI execution
+- GitHub Actions
+- Pull Request reviews
+- Security dashboards
+- Compliance reporting
 
 ---
 
-## Conclusion
+## The Observability Problem
 
-A deterministic engine must provide deterministic observability. By strictly separating Errors, Warnings, and Info notices, and providing granular, declarative suppression mechanisms, Zenzic ensures that your CI/CD pipeline remains a reliable gatekeeper, not a source of noise.
+A failed build remains a failed build.
 
-To learn more about integrating Zenzic into your pipeline, read our [CI/CD Integration Guide](../../how-to/configure-ci-cd.md) or explore the [Finding Codes Taxonomy](../../reference/finding-codes.md).
+If Zenzic emits a `Z201` Credential Leak as an Error, the CI pipeline fails immediately and the issue cannot pass through a properly configured quality gate.
+
+The problem is not enforcement.
+
+The problem is observability.
+
+GitHub Code Scanning imports every result present in the SARIF payload.
+
+Informational findings are displayed as SARIF notes.
+
+If a repository intentionally contains hundreds of architectural patterns that generate informational diagnostics, those findings still consume attention, screen space, and review capacity.
+
+An engineer reviewing a pull request should not need to navigate hundreds of accepted notices before identifying the handful of findings that actually require action.
+
+Noise does not bypass governance.
+
+Noise increases triage cost.
+
+Noise slows remediation.
+
+Noise reduces trust in diagnostic systems.
+
+Over time, excessive informational output trains developers to ignore entire categories of findings, even when those findings were originally intended to improve visibility.
+
+This is the operational definition of alert fatigue.
+
+---
+
+## The Zero-DBT Solution: Declarative Suppression
+
+Zenzic follows a Zero-DBT (Zero Documented Technical Debt) philosophy.
+
+Under this model, intentional patterns should be declared explicitly rather than emitted continuously as findings that everyone already understands and ignores.
+
+If circular links are an accepted architectural decision within a repository, they should be suppressed at the source.
+
+For example:
+
+```toml
+[governance.directory_policies]
+"docs/**" = ["Z106"]
+```
+
+This configuration tells the engine that circular links are expected within the selected scope.
+
+As a result:
+
+- The finding is not computed.
+- The finding is not emitted.
+- The finding is not displayed in the CLI.
+- The finding is not exported to SARIF.
+- The finding does not appear in GitHub Code Scanning.
+
+The outcome is deterministic:
+
+- Cleaner terminal output.
+- Smaller SARIF payloads.
+- Faster triage.
+- Simpler pull request reviews.
+- Higher signal-to-noise ratio.
+
+The most effective informational finding is often the one that never needs to be generated.
+
+---
+
+## Severity as Governance
+
+Diagnostic severity is not a presentation detail.
+
+It is a governance mechanism.
+
+Errors enforce repository correctness.
+
+Warnings measure quality drift.
+
+Info findings provide optional architectural visibility.
+
+When these categories are kept separate, CI/CD systems remain predictable and trustworthy.
+
+When they are mixed together, signal is diluted by noise and developers lose confidence in the tooling.
+
+A deterministic engine must provide deterministic observability.
+
+By enforcing a strict severity taxonomy, supporting configurable escalation through strict mode, and enabling declarative suppression of accepted patterns, Zenzic ensures that CI/CD pipelines remain focused on actionable outcomes rather than diagnostic clutter.
+
+The objective is simple:
+
+**Surface what matters.**
+
+**Suppress what does not.**
+
+**Preserve trust in the signal.**
+
+---
+
+### System Vectors
+
+Zenzic is open-source (Apache 2.0) and operates with zero configuration out of the box.
+
+Test the engine against your current repository without installing dependencies:
+
+```bash
+uvx zenzic check all
+```
+
+- **Source Code & Architecture**: https://github.com/PythonWoods/zenzic
+- **Official Documentation**: https://zenzic.dev
+- **VS Code Extension**: https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode
