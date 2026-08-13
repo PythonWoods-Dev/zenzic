@@ -666,8 +666,8 @@ Scoped suppressions per glob pattern. Security findings remain non-suppressible.
 Strategic directory-level policy exemptions (zero debt). In `--audit` mode,
 these findings are surfaced with the `[POLICY_EXEMPTION]` label.
 
-!!! tip "Z118 (Stale Global Suppression)"
-    Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z118** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
+!!! tip "Z620 (Stale Global Suppression)"
+    Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z620** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
 
 ### `suppression_cap_scope` {#suppression-cap-scope}
 

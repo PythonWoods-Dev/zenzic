@@ -26,7 +26,7 @@ Z1xx — Link Integrity
     Z112  (reserved)           — slot free; not used in v0.17.0
     Z113  AUTHOR_KEY_COLLISION — duplicate author key across blog author configs
     Z114  LARGE_PAGINATION_SET — blog pagination set exceeds 200-page threshold (info)
-    Z118  STALE_GLOBAL_SUPPRESSION — global configuration rule was never used during the scan
+    Z620  STALE_GLOBAL_SUPPRESSION — global configuration rule was never used during the scan
     Z120  UNKNOWN_HTML_ATTRIBUTE — HTML attribute not in Safe-Core list (Polyglot Extractor — v0.17.0)
     Z121  MISSING_OR_EMPTY_HREF  — <a>/<img> tag has no href/src, or it is empty
     Z122  JUMP_LINK_DETECTED     — href="#" detected (placeholder or opaque JS anchor)
@@ -201,7 +201,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
         "error", 2.0, "structural"
     ),  # AUTHOR_KEY_COLLISION — ADR-031 paradox resolved
     "Z114": CodeDefinition("note", 0.0, None),  # LARGE_PAGINATION_SET — informational threshold
-    "Z118": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
+    "Z620": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
     # ── Z12x — HTML Integrity (Polyglot Extractor — v0.17.0) ──────────────────
     # Emitted by PolyglotExtractor for raw HTML <a>/<img> tags in Markdown.
     # Z120/Z122 are warnings; Z121/Z124 are errors (exit 1); Z123 is informational.
@@ -274,7 +274,7 @@ CODE_NAMES: dict[str, str] = {
     "Z112": "RESERVED",
     "Z113": "AUTHOR_KEY_COLLISION",
     "Z114": "LARGE_PAGINATION_SET",
-    "Z118": "STALE_GLOBAL_SUPPRESSION",
+    "Z620": "STALE_GLOBAL_SUPPRESSION",
     "Z120": "UNKNOWN_HTML_ATTRIBUTE",
     "Z121": "MISSING_OR_EMPTY_HREF",
     "Z122": "JUMP_LINK_DETECTED",
@@ -335,7 +335,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z112": "Reserved slot — not used in v0.17.0",
     "Z113": "Duplicate author key declared across two or more blog author config files",
     "Z114": "Blog pagination set exceeds the 200-page informational threshold",
-    "Z118": "Global configuration rule was never used during the scan — remove the dead configuration",
+    "Z620": "Global configuration rule was never used during the scan — remove the dead configuration",
     # Z12x — HTML Integrity (Polyglot Extractor — v0.17.0)
     "Z120": "HTML attribute not in Safe-Core list — declare intent or suppress with data-zenzic-ignore",
     "Z121": "Tag <a> or <img> has no href/src attribute, or it is empty",

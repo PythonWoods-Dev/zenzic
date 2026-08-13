@@ -250,7 +250,7 @@ class TestSuppressionTrackerParsing:
 
 
 def test_global_usage_tracker_toml_line_resolution(tmp_path: Path) -> None:
-    """Verify that Z118 findings report the actual line number in .zenzic.toml."""
+    """Verify that Z620 findings report the actual line number in .zenzic.toml."""
     from zenzic.core.suppressions import GlobalUsageTracker
     from zenzic.models.config import GovernanceConfig, ZenzicConfig
 

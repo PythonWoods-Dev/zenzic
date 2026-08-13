@@ -2038,7 +2038,7 @@ def test_templates_root_keys_not_swallowed() -> None:
 def test_check_all_only_filter_excludes_z118(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Verify that zenzic check all --only z101 excludes Z118 warnings."""
+    """Verify that zenzic check all --only z101 excludes Z620 warnings."""
     monkeypatch.chdir(tmp_path)
     from typer.testing import CliRunner
 
@@ -2060,7 +2060,7 @@ def test_check_all_only_filter_excludes_z118(
         ["check", "all", "--only", "z101", "--no-header"],
         catch_exceptions=False,
     )
-    assert "Z118" not in result.output
+    assert "Z620" not in result.output
 
 
 def test_env_command() -> None:

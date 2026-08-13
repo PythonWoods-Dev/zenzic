@@ -182,7 +182,7 @@ def _resolve_toml_line(
 
 
 class GlobalUsageTracker:
-    """Tracks global policy usage (Z118) for directory_policies, excluded_file_patterns, and excluded_external_urls."""
+    """Tracks global policy usage (Z620) for directory_policies, excluded_file_patterns, and excluded_external_urls."""
 
     def __init__(self, config: "ZenzicConfig"):
         self.config = config
@@ -241,7 +241,7 @@ class GlobalUsageTracker:
                     RuleFinding(
                         file_path=origin,
                         line_no=line_no,
-                        rule_id="Z118",
+                        rule_id="Z620",
                         message=f"Global policy '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
                         severity="warning",
                     )
@@ -253,7 +253,7 @@ class GlobalUsageTracker:
                 RuleFinding(
                     file_path=origin,
                     line_no=line_no,
-                    rule_id="Z118",
+                    rule_id="Z620",
                     message=f"Excluded file pattern '{pattern}' did not match any files during traversal.",
                     severity="warning",
                 )
@@ -266,7 +266,7 @@ class GlobalUsageTracker:
                     RuleFinding(
                         file_path=origin,
                         line_no=line_no,
-                        rule_id="Z118",
+                        rule_id="Z620",
                         message=f"Excluded external URL '{url}' was never skipped (the URL was not found in checked files).",
                         severity="warning",
                     )

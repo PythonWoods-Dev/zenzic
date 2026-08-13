@@ -105,11 +105,11 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z111-config-schema-error",
         expected_pass=False,
     ),
-    "z118": _Act(
-        code="z118",
+    "z620": _Act(
+        code="z620",
         title="Stale Global Suppression",
-        description="Z118 STALE_GLOBAL_SUPPRESSION — unused directory_policies in .zenzic.toml; exit 0 (warning)",
-        example_dir="z118-stale-global-suppression",
+        description="Z620 STALE_GLOBAL_SUPPRESSION — unused directory_policies in .zenzic.toml; exit 0 (warning)",
+        example_dir="z620-stale-global-suppression",
         expected_pass=True,
     ),
     "z101": _Act(
@@ -492,11 +492,11 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
 
     findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir, config=config)
 
-    from zenzic.cli._check import _append_z118_findings
+    from zenzic.cli._check import _append_z620_findings
     from zenzic.cli._governance import _apply_directory_policies
 
     findings = _apply_directory_policies(findings, config)
-    _append_z118_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
+    _append_z620_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
 
     if single_file is not None:
         sf_rel = str(single_file.relative_to(example_dir))

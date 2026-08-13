@@ -331,14 +331,6 @@ Blog pagination set exceeds the 200-page informational threshold.
 
 **Fix:** No action required (informational only). Review the size of the blog.
 
-### Z118: STALE_GLOBAL_SUPPRESSION {#z118}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z118-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z118.md)
-
-An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
-
-**Fix:** Remove the dead configuration line from `.zenzic.toml`.
-
 ### Z120: UNKNOWN_HTML_ATTR {#z120}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z120-unknown-html-attr.md)
@@ -738,6 +730,14 @@ A link (native Markdown or raw HTML `<a href>`) references an external domain li
 [policies]
 forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
 ```
+
+### Z620: STALE_GLOBAL_SUPPRESSION {#z620}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** No · [↗ Gallery](../tutorials/examples/z6xx-brand/z620-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z620.md)
+
+An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
+
+**Fix:** Remove the dead configuration line from `.zenzic.toml`.
 
 ---
 

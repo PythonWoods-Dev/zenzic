@@ -1176,7 +1176,7 @@ def _run_vsm_and_urp_pass(
 
         # In parallel mode, each report is deserialized from a worker process and
         # may carry a detached GlobalUsageTracker snapshot. Rebind to the parent
-        # process tracker so directory-policy consumption (Z118 accounting)
+        # process tracker so directory-policy consumption (Z620 accounting)
         # is recorded on the canonical tracker instance.
         if r.suppression_tracker is not None:
             r.suppression_tracker.global_tracker = parent_global_tracker

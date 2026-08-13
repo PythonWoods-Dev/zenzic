@@ -68,7 +68,7 @@ If no Z2xx finding is detected, the engine calculates per-category scores using 
 | Structural | `structural` | Z101–Z105, Z107–Z109, Z113, Z121, Z124, Z410, Z411 | 30% | 30 pts |
 | Navigation | `navigation` | Z301–Z303, Z402 | 25% | 25 pts |
 | Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z512 | 20% | 20 pts |
-| Governance & Brand | `brand` | Z118, Z404–Z406, Z601, Z603, Z610, Z611 | 25% | 25 pts |
+| Governance & Brand | `brand` | Z620, Z404–Z406, Z601, Z603, Z610, Z611 | 25% | 25 pts |
 
 ### Category Penalty Formula
 
@@ -93,7 +93,7 @@ Below is the authoritative, full reference table for all 36 active penalty-beari
 | **Z108** | EMPTY_LINK_TEXT | 1.0 pts | Structural | Standard |
 | **Z109** | EXTERNAL_LINK_BROKEN | 3.0 pts | Structural | Standard |
 | **Z113** | AUTHOR_KEY_COLLISION | 2.0 pts | Structural | Standard |
-| **Z118** | STALE_GLOBAL_SUPPRESSION | 1.0 pts | Governance & Brand | Standard |
+| **Z620** | STALE_GLOBAL_SUPPRESSION | 1.0 pts | Governance & Brand | Standard |
 | **Z120** | UNKNOWN_HTML_ATTRIBUTE | 1.0 pts | Content | Standard |
 | **Z121** | MISSING_OR_EMPTY_HREF | 1.0 pts | Structural | Standard |
 | **Z122** | JUMP_LINK_DETECTED | 1.0 pts | Content | Standard |
