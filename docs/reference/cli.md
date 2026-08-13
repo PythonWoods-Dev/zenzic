@@ -47,7 +47,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--strict` | `-s` | `false` | Treat warnings as errors (exit non-zero on any warning). |
+    | `--strict` | `-s` | `false` | Treats warnings as errors (exit non-zero on any warning). On `check links` and `check all`, also activates external HTTP link validation (Z109). Combine with `--no-external` to promote warnings without performing network I/O. |
     | `--exit-zero` | — | `false` | Always exit 0; report issues without failing. |
     | `--quiet` | `-q` | `false` | Minimal one-line output for pre-commit hooks. |
     | `--engine` | — | auto | Override the build engine adapter (e.g. `mkdocs`, `zensical`). Auto-detected from `.zenzic.toml` when omitted. |
@@ -409,12 +409,25 @@ otherwise be non-blocking.
 
 | Command | Effect |
 | :--- | :--- |
-| `check links --strict` | Validates external HTTP/HTTPS URLs via concurrent network requests |
-| `check all --strict` | Validates external URLs + treats warnings as errors |
+| `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (Z109) |
+| `check all --strict` | Activates external URL validation (Z109) + promotes warnings to errors |
 | `check references --strict` | Treats Dead Definitions (unused reference links) as hard errors |
 | `score --strict` / `diff --strict` | Runs link check in strict mode |
 
-The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance); for references, it treats Dead Definitions as fatal errors instead of warnings.
+The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting Z109 on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
+
+!!! tip "Air-Gapped CI Environments"
+    Combine `--strict` with `--no-external` to retain strict warning promotion while **disabling
+    network I/O** entirely. This is the recommended pattern for offline or air-gapped CI environments
+    where external URL reachability cannot be verified:
+
+    ```bash
+    # Strict error gate — no outbound HTTP requests
+    zenzic check all --strict --no-external
+    ```
+
+    This keeps Pass 1 (filesystem resolution) and Pass 2 (internal link graph) fully active.
+    Only Pass 3 (Z109 external HTTP validation) is suppressed.
 
 You can also set `strict = true` in `.zenzic.toml` to make it the permanent default.
 

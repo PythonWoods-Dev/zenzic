@@ -1902,10 +1902,10 @@ def test_check_all_strict_exit_zero_conflict_exits_2() -> None:
     assert "mutually exclusive" in result.output.lower() or "exclusive" in result.output.lower()
 
 
-def test_check_all_strict_alone_does_not_conflict() -> None:
+@patch("zenzic.cli._check._collect_all_results", return_value=[])
+def test_check_all_strict_alone_does_not_conflict(_mock_collect) -> None:
     """--strict alone must NOT trigger the conflict guard (flag is parsed without error)."""
-    # We just need the flag to be accepted — repo-root failure is expected on empty env.
-    result = runner.invoke(app, ["check", "all", "--strict"])
+    result = runner.invoke(app, ["check", "all", "--strict", "--no-external"])
     assert result.exit_code != 2 or "mutually exclusive" not in result.output.lower()
 
 
