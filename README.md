@@ -117,6 +117,22 @@ Zenzic reports only what is **statically verifiable** in the repository at scan 
 
 Beyond static file checks, Zenzic's Smart Link Graph builds an adjacency list to perform Breadth-First Search (BFS) over your document network. It identifies **Topological Orphans** (`Z410`, documents unreachable from navigation entry points) and **Dead Ends** (`Z411`, pages with no outgoing links), helping maintain structural navigation integrity.
 
+### Policy-as-Code Engine (Zero-Trust Governance)
+
+The declarative `[policies]` table in `.zenzic.toml` enforces governance constraints across the entire documentation workspace without executing arbitrary code. All policies are opt-in and activate the corresponding Z-codes only when configured:
+
+| Policy Key | Code | Enforcement |
+| :--- | :---: | :--- |
+| `required_frontmatter_keys` | `Z610` | Every Markdown file must declare the listed frontmatter keys. |
+| `forbidden_external_domains` | `Z611` | Blocks specific external domain references in any link or `<a href>`. |
+| `forbidden_frontmatter_keys` | `Z612` | Prohibits specific frontmatter keys (e.g. `draft`, `internal_notes`). |
+| `frontmatter_schema_match` | `Z613` | Validates frontmatter values against RE2 regex patterns (e.g. `version: "^v\d+\.\d+\.\d+$"`). |
+| `allowed_external_domains` | `Z614` | **Zero-Trust Link Governance**: any external link not matching the whitelist is blocked. |
+| `required_url_schemes` | `Z615` | Enforces allowed URL schemes (e.g. `https`, `mailto`) — rejects `http`, `ftp`, and custom protocols. |
+| `cross_namespace_restrictions` | `Z616` | **Topological Boundaries**: restricts cross-namespace linking via the Virtual Site Map (e.g. `docs/public` cannot link into `docs/internal`). |
+
+
+
 ---
 
 ## 🧠 Key Capabilities & Commands
