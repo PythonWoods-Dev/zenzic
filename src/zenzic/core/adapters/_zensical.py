@@ -432,10 +432,11 @@ class ZensicalAdapter(BaseAdapter):
     @property
     def dynamic_directories(self) -> set[Path]:
         """Return directories dynamically managed by plugins (e.g. blog posts)."""
-        blog_prefix = _extract_blog_dir(self._doc_config)
+        blog_prefix = _extract_blog_dir(self._zensical_config)
         if blog_prefix:
             return {(self._docs_root / blog_prefix).resolve()}
         return set()
+
 
 
 
