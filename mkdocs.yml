@@ -73,7 +73,7 @@ nav:
         - rules/Z111.md
         - rules/Z113.md
         - rules/Z114.md
-        - rules/Z118.md
+        - rules/Z620.md
         - rules/Z120.md
         - rules/Z121.md
         - rules/Z122.md
@@ -123,7 +123,6 @@ nav:
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
         - tutorials/examples/z1xx-links/z110-stale-allowlist.md
-        - tutorials/examples/z1xx-links/z118-stale-global-suppression.md
         - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
         - tutorials/examples/z1xx-links/z121-missing-href.md
         - tutorials/examples/z1xx-links/z122-jump-link.md
@@ -149,6 +148,7 @@ nav:
         - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
         - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
         - tutorials/examples/z6xx-brand/z603-dead-suppression.md
+        - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
     - Technical Reference:
       - CLI Specification: reference/cli.md
       - Configuration Schema: reference/configuration-reference.md
