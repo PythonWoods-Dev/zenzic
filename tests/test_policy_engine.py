@@ -259,10 +259,84 @@ def test_policy_evaluator_z613_schema_mismatch_detected() -> None:
 
 def test_policy_evaluator_z613_schema_match_valid() -> None:
     config = _config_with_policies(schema_match={"version": r"^v\d+\.\d+\.\d+$"})
-    content = "---\ntitle: Release\nversion: v1.0.0\n---\nBody."
+    content = "# Heading\n\nNo frontmatter."
     evaluator = PolicyEvaluator(config)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z613" for f in findings)
+
+
+# ── Z614 UNAPPROVED_DOMAIN_REFERENCE ──────────────────────────────────────────
+
+
+def test_policy_evaluator_z614_unapproved_domain() -> None:
+    policies = PoliciesConfig(allowed_external_domains=["pythonwoods.dev"])
+    config = ZenzicConfig()
+    config.policies = policies
+    content = "See [Unvetted](https://unapproved.example.org/spec) and [Valid](https://pythonwoods.dev/docs)."
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z614 = [f for f in findings if f.rule_id == "Z614"]
+    assert len(z614) == 1
+    assert "unapproved.example.org" in z614[0].message
+
+
+def test_policy_evaluator_z614_whitelisted_domain_passes() -> None:
+    policies = PoliciesConfig(allowed_external_domains=["pythonwoods.dev", "github.com"])
+    config = ZenzicConfig()
+    config.policies = policies
+    content = "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods/zenzic)."
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    assert not any(f.rule_id == "Z614" for f in findings)
+
+
+# ── Z615 FORBIDDEN_URL_SCHEME ──────────────────────────────────────────────────
+
+
+def test_policy_evaluator_z615_forbidden_scheme() -> None:
+    policies = PoliciesConfig(required_url_schemes=["https", "mailto"])
+    config = ZenzicConfig()
+    config.policies = policies
+    content = "Check [site](http://example.com/docs) and [email](mailto:dev@pythonwoods.dev)."
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z615 = [f for f in findings if f.rule_id == "Z615"]
+    assert len(z615) == 1
+    assert "http" in z615[0].message
+
+
+def test_policy_evaluator_z615_allowed_scheme_passes() -> None:
+    policies = PoliciesConfig(required_url_schemes=["https", "mailto"])
+    config = ZenzicConfig()
+    config.policies = policies
+    content = "Check [site](https://example.com/docs) and [email](mailto:dev@pythonwoods.dev)."
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    assert not any(f.rule_id == "Z615" for f in findings)
+
+
+# ── Z616 CROSS_NAMESPACE_LINK_FORBIDDEN ───────────────────────────────────────
+
+
+def test_policy_evaluator_z616_cross_namespace_boundary_violation() -> None:
+    from zenzic.core.resolver import InMemoryPathResolver
+
+    policies = PoliciesConfig(cross_namespace_restrictions={"docs/public": ["docs/internal"]})
+    config = ZenzicConfig()
+    config.policies = policies
+
+    src_file = Path("docs/public/index.md")
+    content = "For secret details, see [Secret Spec](../internal/secret.md)."
+    md_contents = {
+        Path("docs/public/index.md"): content,
+        Path("docs/internal/secret.md"): "# Secret\n",
+    }
+    resolver = InMemoryPathResolver(Path("docs"), md_contents, {p: set() for p in md_contents})
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(src_file, content, resolver=resolver)
+    z616 = [f for f in findings if f.rule_id == "Z616"]
+    assert len(z616) == 1
+    assert "docs/internal" in z616[0].message
 
 
 def test_policies_config_invalid_re2_pattern_raises_error() -> None:

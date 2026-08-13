@@ -251,6 +251,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z611": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
     "Z612": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_FRONTMATTER_KEY (v0.29.0)
     "Z613": CodeDefinition("error", 5.0, "brand"),  # FRONTMATTER_SCHEMA_MISMATCH (v0.29.0)
+    "Z614": CodeDefinition("error", 5.0, "brand"),  # UNAPPROVED_DOMAIN_REFERENCE (v0.29.0)
+    "Z615": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_URL_SCHEME (v0.29.0)
+    "Z616": CodeDefinition("error", 8.0, "brand"),  # CROSS_NAMESPACE_LINK_FORBIDDEN (v0.29.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -313,6 +316,9 @@ CODE_NAMES: dict[str, str] = {
     "Z611": "FORBIDDEN_DOMAIN_REFERENCE",
     "Z612": "FORBIDDEN_FRONTMATTER_KEY",
     "Z613": "FRONTMATTER_SCHEMA_MISMATCH",
+    "Z614": "UNAPPROVED_DOMAIN_REFERENCE",
+    "Z615": "FORBIDDEN_URL_SCHEME",
+    "Z616": "CROSS_NAMESPACE_LINK_FORBIDDEN",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -382,6 +388,9 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z611": "Link references an external domain forbidden by the [policies] configuration",
     "Z612": "Forbidden frontmatter key is present in YAML frontmatter block",
     "Z613": "Frontmatter key value does not match the required RE2 pattern declared in [policies].frontmatter_schema_match",
+    "Z614": "Link references an external domain not listed in the Zero-Trust allowed_external_domains whitelist",
+    "Z615": "Link uses a URL scheme not permitted by the required_url_schemes whitelist",
+    "Z616": "Internal link crosses a forbidden topological namespace boundary",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",

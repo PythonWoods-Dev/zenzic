@@ -390,6 +390,27 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z613-frontmatter-schema-mismatch",
         expected_pass=False,
     ),
+    "z614": _Act(
+        code="z614",
+        title="Unapproved Domain Reference",
+        description="Z614 UNAPPROVED_DOMAIN_REFERENCE — external domain not in allowed whitelist",
+        example_dir="z614-unapproved-domain",
+        expected_pass=False,
+    ),
+    "z615": _Act(
+        code="z615",
+        title="Forbidden URL Scheme",
+        description="Z615 FORBIDDEN_URL_SCHEME — link uses non-whitelisted scheme protocol",
+        example_dir="z615-forbidden-url-scheme",
+        expected_pass=False,
+    ),
+    "z616": _Act(
+        code="z616",
+        title="Cross-Namespace Link Forbidden",
+        description="Z616 CROSS_NAMESPACE_LINK_FORBIDDEN — internal link crosses forbidden namespace boundary",
+        example_dir="z616-cross-namespace-link",
+        expected_pass=False,
+    ),
     "z410": _Act(
         code="z410",
         title="Unreachable Graph Node",

@@ -78,60 +78,69 @@ $$
 \text{cat\_pts}_i = \max\!\left(0,\; w_i \times 100 - \sum_{c \in \text{category}_i} \text{penalty}_c \times n_c\right)
 $$
 
-### Complete Penalty Reference Table
+---
 
-Below is the authoritative, full reference table for all 36 active penalty-bearing Zenzic codes:
+## 5. Finding Penalty Matrix
 
-| Code | Title | Penalty / Occurrence | Category | Opt-In Policy |
-| :--- | :--- | ---: | :--- | :---: |
-| **Z101** | LINK_BROKEN | 8.0 pts | Structural | Standard |
-| **Z102** | ANCHOR_MISSING | 5.0 pts | Structural | Standard |
-| **Z103** | ORPHAN_LINK | 2.0 pts | Structural | Standard |
-| **Z104** | FILE_NOT_FOUND | 8.0 pts | Structural | Standard |
-| **Z105** | ABSOLUTE_PATH | 2.0 pts | Structural | Standard |
-| **Z107** | CIRCULAR_ANCHOR | 1.0 pts | Structural | Standard |
-| **Z108** | EMPTY_LINK_TEXT | 1.0 pts | Structural | Standard |
-| **Z109** | EXTERNAL_LINK_BROKEN | 3.0 pts | Structural | Standard |
-| **Z113** | AUTHOR_KEY_COLLISION | 2.0 pts | Structural | Standard |
-| **Z620** | STALE_GLOBAL_SUPPRESSION | 1.0 pts | Governance & Brand | Standard |
-| **Z120** | UNKNOWN_HTML_ATTRIBUTE | 1.0 pts | Content | Standard |
-| **Z121** | MISSING_OR_EMPTY_HREF | 1.0 pts | Structural | Standard |
-| **Z122** | JUMP_LINK_DETECTED | 1.0 pts | Content | Standard |
-| **Z124** | OPAQUE_HTML_CONTEXT | 1.0 pts | Structural | Standard |
-| **Z301** | DANGLING_REF | 4.0 pts | Navigation | Standard |
-| **Z302** | DEAD_DEF | 1.0 pts | Navigation | Standard |
-| **Z303** | DUPLICATE_DEF | 3.0 pts | Navigation | Standard |
-| **Z402** | ORPHAN_PAGE | 4.0 pts | Navigation | Standard |
-| **Z403** | MISSING_ALT | 1.0 pts | Content | Standard |
-| **Z404** | CONFIG_ASSET_MISSING | 3.0 pts | Governance & Brand | Standard |
-| **Z405** | UNUSED_ASSET | 3.0 pts | Governance & Brand | Standard |
-| **Z406** | NAV_CONTRACT | 2.0 pts | Governance & Brand | Standard |
-| **Z410** | UNREACHABLE_GRAPH_NODE | 5.0 pts | Structural | Standard |
-| **Z411** | DEAD_END_NODE | 5.0 pts | Structural | Standard |
-| **Z501** | PLACEHOLDER | 2.0 pts | Content | Standard |
-| **Z502** | SHORT_CONTENT | 1.0 pts | Content | Standard |
-| **Z503** | SNIPPET_ERROR | 10.0 pts | Content | Standard |
-| **Z505** | UNTAGGED_CODE_BLOCK | 1.0 pts | Content | Standard |
-| **Z506** | MALFORMED_FRONTMATTER | 5.0 pts | Content | Standard |
-| **Z510** | HEADING_HIERARCHY | 1.0 pts | Content | Standard |
-| **Z511** | EXCESSIVE_SENTENCE_LENGTH | 1.0 pts | Content | Standard |
-| **Z512** | EMPTY_SECTION | 1.0 pts | Content | Standard |
-| **Z601** | BRAND_OBSOLESCENCE | 2.0 pts | Governance & Brand | Standard |
-| **Z603** | DEAD_SUPPRESSION | 1.0 pts | Governance & Brand | Standard |
+Every finding code is assigned a base penalty points value. Penalties are deducted from the respective category score during DQS evaluation.
+
+| Code | Name | Penalty | Category | Opt-In / Active |
+| :--- | :--- | :---: | :--- | :--- |
+| **Z000** | UNSUPPORTED_ENGINE | 0.0 pts | Configuration Guard | Fatal Guard |
+| **Z001** | CORE_CONFIG_STRUCTURE | 0.0 pts | Configuration Guard | Fatal Guard |
+| **Z101** | LINK_BROKEN | 10.0 pts | Structural Integrity | Default |
+| **Z102** | ANCHOR_MISSING | 5.0 pts | Structural Integrity | Default |
+| **Z103** | ORPHAN_LINK | 3.0 pts | Navigation Graph | Default |
+| **Z104** | FILE_NOT_FOUND | 10.0 pts | Structural Integrity | Default |
+| **Z105** | ABSOLUTE_PATH | 2.0 pts | Structural Integrity | Default |
+| **Z106** | CIRCULAR_LINK | 3.0 pts | Structural Integrity | Default |
+| **Z107** | CIRCULAR_ANCHOR | 2.0 pts | Structural Integrity | Default |
+| **Z108** | EMPTY_LINK_TEXT | 1.0 pt | Structural Integrity | Default |
+| **Z109** | EXTERNAL_LINK_BROKEN | 2.0 pts | Structural Integrity | Default |
+| **Z113** | AUTHOR_KEY_COLLISION | 3.0 pts | Structural Integrity | Default |
+| **Z120** | UNKNOWN_HTML_ATTR | 1.0 pt | Content Excellence | Default |
+| **Z121** | MISSING_HREF | 8.0 pts | Structural Integrity | Default |
+| **Z122** | JUMP_LINK | 1.0 pt | Content Excellence | Default |
+| **Z123** | NON_HTTP_SCHEME | 2.0 pts | Structural Integrity | Informational |
+| **Z124** | OPAQUE_CONTEXT | 1.0 pt | Structural Integrity | Default |
+| **Z201** | CREDENTIAL_SECRET | Security | Inviolable Override | Security Gate |
+| **Z202** | PATH_TRAVERSAL | Security | Inviolable Override | Security Gate |
+| **Z203** | PATH_TRAVERSAL_FATAL | Security | Inviolable Override | Security Gate |
+| **Z204** | FORBIDDEN_TERM | Security | Inviolable Override | Security Gate |
+| **Z205** | FORBIDDEN_SCHEME | Security | Inviolable Override | Security Gate |
+| **Z301** | DANGLING_REF | 2.0 pts | Navigation Graph | Default |
+| **Z302** | DEAD_DEF | 1.0 pt | Navigation Graph | Default |
+| **Z303** | DUPLICATE_DEF | 2.0 pts | Navigation Graph | Default |
+| **Z401** | MISSING_DIRECTORY_INDEX | 3.0 pts | Navigation Graph | Default |
+| **Z402** | ORPHAN_PAGE | 5.0 pts | Navigation Graph | Default |
+| **Z403** | MISSING_ALT | 2.0 pts | Content Excellence | Default |
+| **Z404** | CONFIG_ASSET_MISSING | 5.0 pts | Governance & Brand | Default |
+| **Z405** | UNUSED_ASSET | 1.0 pt | Governance & Brand | Default |
+| **Z406** | NAV_CONTRACT | 5.0 pts | Governance & Brand | Default |
+| **Z410** | UNREACHABLE_GRAPH_NODE | 3.0 pts | Structural Integrity | Default |
+| **Z411** | DEAD_END_NODE | 2.0 pts | Structural Integrity | Default |
+| **Z501** | PLACEHOLDER | 3.0 pts | Content Excellence | Default |
+| **Z502** | SHORT_CONTENT | 2.0 pts | Content Excellence | Default |
+| **Z503** | SNIPPET_ERROR | 5.0 pts | Content Excellence | Default |
+| **Z504** | QUALITY_REGRESSION | Dynamic | Baseline Audit | Audit Gate |
+| **Z505** | UNTAGGED_CODE_BLOCK | 1.0 pt | Content Excellence | Default |
+| **Z506** | MALFORMED_FRONTMATTER | 3.0 pts | Content Excellence | Default |
+| **Z510** | HEADING_HIERARCHY | 2.0 pts | Content Excellence | Default |
+| **Z511** | EXCESSIVE_SENTENCE_LENGTH | 1.0 pt | Content Excellence | Default |
+| **Z512** | EMPTY_SECTION | 1.0 pt | Content Excellence | Default |
+| **Z601** | BRAND_OBSOLESCENCE | 2.0 pts | Governance & Brand | Default |
+| **Z603** | DEAD_SUPPRESSION | 1.0 pt | Governance & Brand | Technical Debt |
 | **Z610** | REQUIRED_FRONTMATTER_MISSING | 3.0 pts | Governance & Brand | **Opt-In** |
 | **Z611** | FORBIDDEN_DOMAIN_REFERENCE | 3.0 pts | Governance & Brand | **Opt-In** |
 | **Z612** | FORBIDDEN_FRONTMATTER_KEY | 3.0 pts | Governance & Brand | **Opt-In** |
 | **Z613** | FRONTMATTER_SCHEMA_MISMATCH | 5.0 pts | Governance & Brand | **Opt-In** |
-
-!!! note Informational & Configuration Codes Excluded
-    - **Z106** (CIRCULAR_LINK), **Z114** (LARGE_PAGINATION_SET), **Z123** (NON_HTTP_SCHEME), **Z401** (MISSING_DIRECTORY_INDEX), and **Z504** (QUALITY_REGRESSION) carry **0.0 pts** penalty and do not impact the DQS.
-    - **Z110** (CONFIG_SYNTAX_ERROR) and **Z111** (CONFIG_SCHEMA_ERROR) trigger fatal non-zero exits before scoring begins.
-
----
+| **Z614** | UNAPPROVED_DOMAIN_REFERENCE | 5.0 pts | Governance & Brand | **Opt-In** |
+| **Z615** | FORBIDDEN_URL_SCHEME | 3.0 pts | Governance & Brand | **Opt-In** |
+| **Z616** | CROSS_NAMESPACE_LINK_FORBIDDEN | 8.0 pts | Governance & Brand | **Opt-In** |
 
 ## Stage 3 — Governance Escalation {#governance-escalation}
 
-When Governance & Brand findings (codes $\mathcal{G} = \{Z601, Z603, Z610, Z611, Z612, Z613, Z620\}$) exceed **10 total occurrences**, an exponential penalty amplifier is applied to the Governance category deduction:
+When Governance & Brand findings (codes $\mathcal{G} = \{Z601, Z603, Z610, Z611, Z612, Z613, Z614, Z615, Z616, Z620\}$) exceed **10 total occurrences**, an exponential penalty amplifier is applied to the Governance category deduction:
 
 $$
 \text{deduction}_{\text{brand}}' = \min\!\left(\text{cap}_{\text{brand}},\; \text{deduction}_{\text{brand}} \times 2^{(n_{\text{excess}} / 5)}\right)

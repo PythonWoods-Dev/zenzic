@@ -152,11 +152,18 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# forbidden_external_domains: Links matching these domains emit governance warnings (Z611).\n"
     "# forbidden_frontmatter_keys: Markdown files must not contain these frontmatter keys (Z612).\n"
     "# frontmatter_schema_match: Frontmatter key values must match specified RE2 patterns (Z613).\n"
+    "# allowed_external_domains: Zero-Trust whitelist for external link domains (Z614).\n"
+    "# required_url_schemes: Whitelist of allowed URL protocols (Z615).\n"
+    "# cross_namespace_restrictions: Topological boundary restrictions between namespaces (Z616).\n"
     "required_frontmatter_keys = []\n"
     "forbidden_external_domains = []\n"
     "forbidden_frontmatter_keys = []\n"
+    "allowed_external_domains = []\n"
+    "required_url_schemes = []\n"
     "# [policies.frontmatter_schema_match]\n"
     '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
+    "# [policies.cross_namespace_restrictions]\n"
+    '# "docs/public" = ["docs/internal"]\n'
     "\n"
     "# --- NETWORK I/O ---\n"
     "[network]\n"

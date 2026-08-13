@@ -265,6 +265,38 @@ class PoliciesConfig(BaseModel):
             'Example: {"version": r"^v\\d+\\.\\d+\\.\\d+$"}'
         ),
     )
+    allowed_external_domains: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Zero-Trust whitelist of allowed external domain prefixes. "
+            "When non-empty, ANY external link not matching this whitelist emits Z614 UNAPPROVED_DOMAIN_REFERENCE. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["pythonwoods.dev", "github.com"]'
+        ),
+    )
+    required_url_schemes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of allowed URL scheme prefixes. "
+            "Any link using a scheme not listed in this whitelist emits Z615 FORBIDDEN_URL_SCHEME. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["https", "mailto"]'
+        ),
+    )
+    cross_namespace_restrictions: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a source namespace path prefix to a list of forbidden target namespace path prefixes. "
+            "Links crossing restricted boundaries emit Z616 CROSS_NAMESPACE_LINK_FORBIDDEN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"docs/public": ["docs/internal"]}'
+        ),
+    )
+
+    @field_validator("required_url_schemes")
+    @classmethod
+    def _normalize_required_url_schemes(cls, v: list[str]) -> list[str]:
+        return [s.lower().strip().rstrip(":") for s in v if isinstance(s, str)]
 
     @field_validator("frontmatter_schema_match")
     @classmethod

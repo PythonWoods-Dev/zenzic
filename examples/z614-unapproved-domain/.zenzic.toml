@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z614 UNAPPROVED_DOMAIN_REFERENCE gallery example
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+
+[policies]
+allowed_external_domains = ["pythonwoods.dev"]

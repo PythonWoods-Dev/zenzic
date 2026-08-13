@@ -776,6 +776,57 @@ Dictionary mapping frontmatter key names to required RE2 regular expression patt
 version = "^v\\d+\\.\\d+\\.\\d+$"
 ```
 
+### `allowed_external_domains` {#allowed-external-domains}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z614 `UNAPPROVED_DOMAIN_REFERENCE` |
+| **Opt-in** | **Yes** |
+
+Zero-Trust whitelist of allowed external domain prefixes. When non-empty, ANY external link pointing to a domain not in this whitelist emits a Z614 error finding.
+
+```toml
+[policies]
+allowed_external_domains = ["pythonwoods.dev", "github.com"]
+```
+
+### `required_url_schemes` {#required-url-schemes}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z615 `FORBIDDEN_URL_SCHEME` |
+| **Opt-in** | **Yes** |
+
+Whitelist of permitted URL scheme protocols (e.g., `["https", "mailto"]`). Any link using a scheme not listed in this whitelist emits a Z615 warning finding.
+
+```toml
+[policies]
+required_url_schemes = ["https", "mailto"]
+```
+
+### `cross_namespace_restrictions` {#cross-namespace-restrictions}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z616 `CROSS_NAMESPACE_LINK_FORBIDDEN` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping source namespace path prefixes to a list of forbidden target namespace path prefixes. Internal links crossing restricted boundaries emit a Z616 error finding.
+
+```toml
+[policies.cross_namespace_restrictions]
+"docs/public" = ["docs/internal"]
+```
+
 ---
 
 ## Custom Rules {#custom-rules}
