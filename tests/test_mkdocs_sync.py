@@ -43,6 +43,28 @@ def test_i18n_extraction_supports_plugins_mapping_syntax() -> None:
     assert _extract_i18n_reconfigure_material(cfg) is False
 
 
+def test_mkdocs_adapter_dynamic_directories_blog_plugin(tmp_path: Path) -> None:
+    """MkDocsAdapter must register blog posts_dir in dynamic_directories and provides_index."""
+    docs_dir = tmp_path / "docs"
+    blog_posts_dir = docs_dir / "blog" / "posts"
+    blog_posts_dir.mkdir(parents=True)
+
+    cfg = {
+        "docs_dir": "docs",
+        "plugins": [
+            {"material/blog": {"blog_dir": "blog"}}
+        ]
+    }
+    adapter = MkDocsAdapter(BuildContext(engine="mkdocs"), docs_dir, cfg, repo_root=tmp_path)
+
+
+
+    assert blog_posts_dir.resolve() in adapter.dynamic_directories
+    # Directory contains no physical index.md, but provides_index must return True via dynamic_directories
+    assert not (blog_posts_dir / "index.md").exists()
+    assert adapter.provides_index(blog_posts_dir) is True
+
+
 def test_i18n_folder_extraction_supports_plugins_mapping_syntax() -> None:
     cfg = {
         "plugins": {

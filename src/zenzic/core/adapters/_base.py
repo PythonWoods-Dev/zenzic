@@ -125,9 +125,15 @@ class BaseAdapter(ABC):
         """Return project-owned absolute URL prefixes (for Z105 allowlisting)."""
 
     @property
+    def dynamic_directories(self) -> set[Path]:
+        """Return directories where the build engine dynamically generates landing pages or routing."""
+        return set()
+
+    @property
     def use_directory_urls(self) -> bool:
         """Return URL routing mode: ``True`` for ``/page/``, ``False`` for ``/page.html``."""
         return True
+
 
     @property
     def watched_config_files(self) -> frozenset[str]:
