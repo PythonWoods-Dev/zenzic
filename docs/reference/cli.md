@@ -14,35 +14,68 @@ Complete reference for every Zenzic command, flag, and exit code.
 
 ## Command Specification Matrix
 
-Select a command tab to view its execution flags, default behaviors, and usage examples:
+Select a command tab to view its execution flags, default behaviors, and usage examples.
+
+**Version baseline: Zenzic v0.29.0** — all flags verified against `uv run zenzic <command> --help`.
 
 === "zenzic check"
 
-    Run full or targeted static analysis checks across the workspace:
+    Run full or targeted static analysis checks across the workspace.
+
+    `zenzic check` is a command group with the following sub-commands:
+
+    | Sub-command | Description |
+    | :--- | :--- |
+    | `zenzic check links` | Check for broken internal links and enforce strict warning policy. |
+    | `zenzic check orphans` | Detect `.md` files not listed in the nav. |
+    | `zenzic check snippets` | Validate Python code blocks in documentation Markdown files. |
+    | `zenzic check references` | Run the Three-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan. |
+    | `zenzic check assets` | Detect unused images and assets in the documentation. |
+    | `zenzic check placeholders` | Detect pages with < 50 words or containing TODOs/stubs. |
+    | `zenzic check all` | Run all checks: links, orphans, snippets, placeholders, assets, references. |
+
+    **Flags available on all `check` sub-commands:**
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--strict` | `-s` | `false` | Promotes warnings to blocking errors (Exit 1). Enables external HTTP link verification. |
-    | `--ci` | — | `false` | CI pipeline shorthand: applies `--strict`, `--no-header`, and `--format github-annotations`. |
-    | `--audit` | `-a` | `false` | Sovereign Audit Mode: ignores inline (`zenzic:ignore`) and per-file suppressions. |
-    | `--only` | — | `None` | Discards all findings except specified Z-Codes (e.g. `--only Z104,Z201`). |
-    | `--format` | `-f` | `text` | Output format: `text`, `json`, `sarif`, or `github-annotations`. |
-    | `--save` | — | `None` | Saves formatted report to specified output path. |
-    | `--exit-zero` | — | `false` | Forces Exit 0 exit code (except non-suppressible security findings Z2xx). |
-    | `--show-info` | — | `false` | Surfaces info-level structural telemetry findings (e.g. Z106 circular links). |
-    | `--quiet` | `-q` | `false` | Minimal output mode for pre-commit and CI hooks. |
-    | `--offline` | — | `false` | Forces flat `.html` URL slug resolution for offline/intranet distribution. |
+    | `--format` | `-f` | `text` | Output format: `text`, `json`, or `sarif`. |
+    | `--ci` | — | `false` | Run in CI mode (forces `github-annotations` output format and `--strict`). |
+    | `--only` | — | — | Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded. |
+    | `--show-info` | — | `false` | Show info-level findings (e.g. circular links) in the report. |
+
+    **Additional flags on `check all`:**
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--strict` | `-s` | `false` | Treats warnings as errors (exit non-zero on any warning). On `check links` and `check all`, also activates external HTTP link validation (Z109). Combine with `--no-external` to promote warnings without performing network I/O. |
+    | `--exit-zero` | — | `false` | Always exit 0; report issues without failing. |
+    | `--quiet` | `-q` | `false` | Minimal one-line output for pre-commit hooks. |
+    | `--engine` | — | auto | Override the build engine adapter (e.g. `mkdocs`, `zensical`). Auto-detected from `.zenzic.toml` when omitted. |
+    | `--exclude-dir` | — | — | Additional directories to exclude from scanning (repeatable). |
+    | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
+    | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
+    | `--no-external` | — | `false` | Skip HTTP validation of external URLs (Pass 3). Credential scanner (Z201) always active regardless. |
+
+    **Additional flags on `check references`:**
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--strict` | `-s` | `false` | Treat warnings as errors (exit non-zero on any warning). |
+    | `--links` | `-l` | `false` | Also validate external HTTP/HTTPS reference URLs via async HEAD requests. |
 
     **Usage Examples:**
     ```bash title="Terminal"
     # Execute full validation suite
     zenzic check all
 
-    # Run sovereign audit mode ignoring suppressions
-    zenzic check all --audit
+    # Run with strict mode (warnings become errors) in CI
+    zenzic check all --strict --ci
 
     # Export SARIF results for GitHub Code Scanning
-    zenzic check all --format sarif --save zenzic-results.sarif
+    zenzic check all --format sarif > zenzic-results.sarif
+
+    # Run only credential scanner and link checks
+    zenzic check all --only Z201,Z104
     ```
 
 === "zenzic score"
@@ -114,17 +147,22 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 === "zenzic audit"
 
-    Generate a formal compliance audit report detailing active policies, DQS score calculation, technical debt suppressions, and architectural adapter state:
+    Generate a formal compliance audit report detailing active Policy-as-Code rules, DQS score calculation, technical debt suppressions, baseline drift, and governance posture:
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--format` | `-f` | `text` | Output format: `text` (Rich terminal panels) or `json` (deterministic compliance payload). |
+    | `--format` | `-f` | `text` | Output format: `text` (Rich terminal panels, default) or `json` (deterministic machine-readable compliance payload). |
     | `--strict` | `-s` | `false` | Treat warnings as errors (exit 1 on any warning). |
     | `--no-external` | — | `false` | Skip HTTP validation of external URLs for air-gapped / offline builds. |
     | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
     | `--only` | — | — | Comma-separated list of Z-Codes to include in audit findings. |
     | `--baseline` | — | — | Path to custom baseline snapshot file. |
-    | `--ci` | — | `false` | Run in CI mode. |
+    | `--ci` | — | `false` | Run in CI mode (non-interactive, explicit exit codes). |
+
+    **Audit Report & Determinism:**
+
+    - Accepts `--format text` (default) for Rich interactive terminal panels and `--format json` for automated compliance pipelines.
+    - The JSON output is **100% deterministic** (timestamps are excluded from the payload hash) to guarantee reproducible compliance builds in CI/CD.
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -133,54 +171,169 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Generate deterministic machine-readable JSON compliance artifact
     zenzic audit --format json
+
+    # Run strict compliance audit in CI pipeline
+    zenzic audit --strict --ci
     ```
 
 === "zenzic diff"
 
-    Evaluate score delta and finding changes against a stored baseline file:
+    Compare current documentation score against the saved snapshot.
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--base` | `-b` | `.zenzic-score.json` | Path to stored baseline score snapshot file. |
+    | `--strict` | `-s` | `false` | Treat warnings as errors. The score gate is controlled exclusively by `--fail-under`. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
-    | `--strict` | `-s` | `false` | Promotes warnings to errors during differential audit. |
+    | `--threshold` | — | `0` | Exit non-zero only if score dropped by more than this many points (0 = any drop). |
+    | `--base` | — | — | Path to a JSON report file to use as baseline instead of the saved snapshot. |
+    | `--no-header` | — | `false` | Suppress the Zenzic banner. |
+    | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
+
+    | Argument | Description |
+    | :--- | :--- |
+    | `PATH` | Repository root or docs directory to compare (default: configured docs directory). |
 
     **Usage Examples:**
     ```bash title="Terminal"
-    # Compare current score against baseline snapshot
-    zenzic diff --base .zenzic-score.json
+    # Compare current score against saved baseline snapshot
+    zenzic diff
+
+    # Fail only if score dropped by more than 5 points
+    zenzic diff --threshold 5
+
+    # Compare against an explicit JSON report file
+    zenzic diff --base path/to/old-report.json
     ```
 
 === "zenzic explain"
 
-    Inspect finding code details, remediation guides, and configuration origin genealogy:
+    Show rule metadata, scoring weight, and config genealogy for a rule code.
 
-    | Parameter / Flag | Description |
+    | Argument / Flag | Description |
     | :--- | :--- |
-    | `CODE` | Target Z-Code (e.g. `Z101`, `Z201`, `Z601`). |
-    | `config` | Explains active `.zenzic.toml` values and file origin genealogy. |
+    | `RULE_ID` (required) | Rule code to explain (e.g. `Z101`, `Z601`). |
+    | `--path TEXT` | Project root to resolve config genealogy (default: current working directory). |
 
     **Usage Examples:**
     ```bash title="Terminal"
-    # Explain rule specification and remediation
+    # Explain rule specification, scoring weight, and remediation
     zenzic explain Z104
 
-    # Display active configuration genealogy
-    zenzic config explain
+    # Explain with config genealogy resolved from a remote project root
+    zenzic explain Z601 --path /path/to/project
     ```
 
 === "zenzic init"
 
-    Scaffold a new `.zenzic.toml` configuration file:
+    Scaffold a Zenzic configuration in the current project.
 
-    | Flag | Default | Description |
+    | Argument / Flag | Default | Description |
     | :--- | :---: | :--- |
-    | `--force` | `false` | Overwrites existing `.zenzic.toml` (Atomic safety protection prevents accidental overwrite by default). |
+    | `PATH` | CWD | Directory to initialize (default: current project root). |
+    | `--plugin NAME` | — | Generate a starter Python package for a Zenzic plugin rule. |
+    | `--force` / `-f` | `false` | Overwrite an existing plugin scaffold when used with `--plugin`. Not supported for configuration initialization. |
+    | `--pyproject` | `false` | Write configuration into `pyproject.toml` instead of `.zenzic.toml`. |
+    | `--local` | `false` | Create only `.zenzic.local.toml` (machine-local overlay, gitignored). Use this when cloning a repo that already has `.zenzic.toml` committed. |
+    | `--engine ENGINE` | auto | Override the build engine adapter (`mkdocs`, `zensical`, `standalone`). Auto-detected from project files when omitted. |
 
     **Usage Examples:**
     ```bash title="Terminal"
     # Bootstrap configuration scaffold
     zenzic init
+
+    # Write config into pyproject.toml
+    zenzic init --pyproject
+
+    # Create machine-local overlay only
+    zenzic init --local
+
+    # Scaffold a plugin SDK package
+    zenzic init --plugin my-plugin-name
+    ```
+
+=== "zenzic fix"
+
+    Auto-fix deterministic structural violations.
+
+    | Argument / Flag | Default | Description |
+    | :--- | :---: | :--- |
+    | `PATH` | docs root | Markdown file or directory to auto-fix. |
+    | `--dry-run` (default) / `--apply` | `--dry-run` | Show unified diff without saving changes (`--dry-run`, default). Apply fixes directly to files (`--apply`). |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Preview what would be fixed (dry run, default)
+    zenzic fix
+
+    # Apply fixes directly to files
+    zenzic fix --apply
+    ```
+
+=== "zenzic clean"
+
+    Safely remove unused documentation files.
+
+    `zenzic clean` is a command group with the following sub-command:
+
+    | Sub-command | Description |
+    | :--- | :--- |
+    | `zenzic clean assets` | Delete unused images and assets from the documentation. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    zenzic clean assets
+    ```
+
+=== "zenzic guard"
+
+    Run the fast pre-commit secret guard for Markdown/MDX files.
+
+    `zenzic guard` is a command group with the following sub-commands:
+
+    | Sub-command | Description |
+    | :--- | :--- |
+    | `zenzic guard scan` | Run pre-commit credential scan using built-in signatures and local forbidden patterns. |
+    | `zenzic guard init` | Create or update `.pre-commit-hooks.yaml` with the native Secret Guard hook. |
+
+    **`zenzic guard scan` flags:**
+
+    | Flag | Default | Description |
+    | :--- | :---: | :--- |
+    | `--staged` | `false` | Scan only staged Markdown/MDX files from git index (pre-commit fast path). |
+    | `--format` / `-f` | `text` | Output format: `text` or `json`. |
+
+    **`zenzic guard init` flags:**
+
+    | Flag | Default | Description |
+    | :--- | :---: | :--- |
+    | `--path TEXT` | `.pre-commit-hooks.yaml` | Path of the pre-commit hooks definition file to create/update. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Scan all Markdown files for credential leaks
+    zenzic guard scan
+
+    # Scan only staged files (pre-commit hook mode)
+    zenzic guard scan --staged
+
+    # Install the native pre-commit hook
+    zenzic guard init
+    ```
+
+=== "zenzic config"
+
+    Inspect the active Zenzic configuration and the origin of each value.
+
+    `zenzic config` is a command group with the following sub-command:
+
+    | Sub-command | Description |
+    | :--- | :--- |
+    | `zenzic config explain` | Show the active configuration and the origin of every value. |
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Show active configuration and file origin genealogy
+    zenzic config explain
     ```
 
 === "zenzic lsp"
@@ -256,12 +409,25 @@ otherwise be non-blocking.
 
 | Command | Effect |
 | :--- | :--- |
-| `check links --strict` | Validates external HTTP/HTTPS URLs via concurrent network requests |
-| `check all --strict` | Validates external URLs + treats warnings as errors |
+| `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (Z109) |
+| `check all --strict` | Activates external URL validation (Z109) + promotes warnings to errors |
 | `check references --strict` | Treats Dead Definitions (unused reference links) as hard errors |
 | `score --strict` / `diff --strict` | Runs link check in strict mode |
 
-The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance); for references, it treats Dead Definitions as fatal errors instead of warnings.
+The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting Z109 on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
+
+!!! tip "Air-Gapped CI Environments"
+    Combine `--strict` with `--no-external` to retain strict warning promotion while **disabling
+    network I/O** entirely. This is the recommended pattern for offline or air-gapped CI environments
+    where external URL reachability cannot be verified:
+
+    ```bash
+    # Strict error gate — no outbound HTTP requests
+    zenzic check all --strict --no-external
+    ```
+
+    This keeps Pass 1 (filesystem resolution) and Pass 2 (internal link graph) fully active.
+    Only Pass 3 (Z109 external HTTP validation) is suppressed.
 
 You can also set `strict = true` in `.zenzic.toml` to make it the permanent default.
 

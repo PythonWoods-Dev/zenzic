@@ -1295,7 +1295,7 @@ def validate_links_structured(
         "Z106",
         "Z108",
         "Z110",
-        "Z118",
+        "Z620",
         "Z120",
         "Z121",
         "Z122",
@@ -1555,10 +1555,10 @@ class LinkValidator:
         """
         if not url.startswith(("http://", "https://")):
             return
-        # ── Z118 exclusion tracking ──────────────────────────────────────────────
+        # ── Z620 exclusion tracking ──────────────────────────────────────────────
         # If the URL matches a prefix declared in excluded_external_urls, mark the
         # exclusion as "used" on the GlobalUsageTracker so it is not later flagged
-        # as stale (Z118), and skip HTTP validation for this URL.
+        # as stale (Z620), and skip HTTP validation for this URL.
         # This mirrors the identical filter that validate_links_async used to apply
         # before the URP unification removed that code path.
         excluded = getattr(self._config, "excluded_external_urls", None) or []

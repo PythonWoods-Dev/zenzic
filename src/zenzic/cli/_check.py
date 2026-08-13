@@ -213,7 +213,7 @@ def check_links(
         )
         for err in link_errors
     ]
-    _append_z118_findings(
+    _append_z620_findings(
         findings, config, repo_root, check_all=False, check_external_urls=not no_external
     )
     findings = _filter_flat_findings(findings, only)
@@ -373,7 +373,7 @@ def check_orphans(
         )
         for path in orphans
     ]
-    _append_z118_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
+    _append_z620_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
     findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
@@ -816,7 +816,7 @@ def check_assets(
         )
         for path in unused
     ]
-    _append_z118_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
+    _append_z620_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
     findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
@@ -1139,7 +1139,7 @@ def _collect_all_results(
     )
 
 
-def _append_z118_findings(
+def _append_z620_findings(
     findings: list[Finding],
     config: ZenzicConfig,
     repo_root: Path,
@@ -1570,7 +1570,7 @@ def check_all(
         all_findings = _to_findings(results, docs_root, repo_root, config)
         all_findings = _apply_per_file_ignores(all_findings, config)
         all_findings = _apply_directory_policies(all_findings, config)
-        _append_z118_findings(
+        _append_z620_findings(
             all_findings, config, repo_root, check_all=True, check_external_urls=True
         )
         if only:

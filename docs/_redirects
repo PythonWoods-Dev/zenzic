@@ -43,8 +43,6 @@
 /github-action                                          /reference/zenzic-action/ 301
 /github-action/                                         /reference/zenzic-action/ 301
 
-
-
 # ─── LAYER 3: BLOG CANONICAL SLUGS ───────────────────────────────────────────
 /blog/welcome                                 /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/                                /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
@@ -87,3 +85,14 @@
 /tutorials/examples/z6xx-brand/z602-i18n-parity/ /tutorials/examples/ 301
 /blog/tags/*                                   /blog/ 301
 /category/*                                    / 301
+
+# ─── LAYER 6: TAXONOMIC REFACTORING (v0.29.0) ──────────────────────────────────
+# Deprecated rule Z118 -> Z620 server-side 301 redirects for Cloudflare Pages
+/rules/Z118/                                   /rules/Z620/ 301
+/rules/Z118                                    /rules/Z620/ 301
+/tutorials/examples/z1xx-links/z118-stale-global-suppression/ /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301
+/tutorials/examples/z1xx-links/z118-stale-global-suppression /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301
+
+# Subpath fallback aliases for /docs/ base URLs
+/docs/rules/Z118/                              /rules/Z620/ 301
+/docs/tutorials/examples/z1xx-links/z118-stale-global-suppression/ /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301

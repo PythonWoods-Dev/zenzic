@@ -52,7 +52,7 @@ Markdown allows reference-style links: `[Read more][setup-guide]`. This is great
 
 Copy-pasting curl commands from your local terminal to a documentation file is dangerous. If an API key or an AWS secret slips into the Markdown block, it becomes public the moment it's merged. Zenzic incorporates baseline security auditing to flag exposed credentials and forbidden terms before they leave the CI pipeline.
 
-## 8. The Stale Suppression (Z118)
+## 8. The Stale Suppression (Z620)
 
 Sometimes, you *have* to link to a known broken external URL (e.g., as an example of what not to do). You add a suppression rule. A year later, the suppression is still there, but the link was removed from the documentation. Zenzic flags stale suppressions, preventing your ignore lists from becoming bloated technical debt.
 

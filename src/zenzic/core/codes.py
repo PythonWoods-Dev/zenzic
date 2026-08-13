@@ -26,7 +26,7 @@ Z1xx — Link Integrity
     Z112  (reserved)           — slot free; not used in v0.17.0
     Z113  AUTHOR_KEY_COLLISION — duplicate author key across blog author configs
     Z114  LARGE_PAGINATION_SET — blog pagination set exceeds 200-page threshold (info)
-    Z118  STALE_GLOBAL_SUPPRESSION — global configuration rule was never used during the scan
+    Z620  STALE_GLOBAL_SUPPRESSION — global configuration rule was never used during the scan
     Z120  UNKNOWN_HTML_ATTRIBUTE — HTML attribute not in Safe-Core list (Polyglot Extractor — v0.17.0)
     Z121  MISSING_OR_EMPTY_HREF  — <a>/<img> tag has no href/src, or it is empty
     Z122  JUMP_LINK_DETECTED     — href="#" detected (placeholder or opaque JS anchor)
@@ -201,14 +201,14 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
         "error", 2.0, "structural"
     ),  # AUTHOR_KEY_COLLISION — ADR-031 paradox resolved
     "Z114": CodeDefinition("note", 0.0, None),  # LARGE_PAGINATION_SET — informational threshold
-    "Z118": CodeDefinition("warning", 1.0, "governance"),  # STALE_GLOBAL_SUPPRESSION
+    "Z620": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
     # ── Z12x — HTML Integrity (Polyglot Extractor — v0.17.0) ──────────────────
     # Emitted by PolyglotExtractor for raw HTML <a>/<img> tags in Markdown.
     # Z120/Z122 are warnings; Z121/Z124 are errors (exit 1); Z123 is informational.
     # All Z12x codes are suppressible via data-zenzic-ignore (-1.0 pts DQS each).
-    "Z120": CodeDefinition("warning", 1.0, "html_hygiene"),  # UNKNOWN_HTML_ATTRIBUTE
+    "Z120": CodeDefinition("warning", 1.0, "content"),  # UNKNOWN_HTML_ATTRIBUTE
     "Z121": CodeDefinition("error", 1.0, "structural"),  # MISSING_OR_EMPTY_HREF
-    "Z122": CodeDefinition("warning", 1.0, "html_hygiene"),  # JUMP_LINK_DETECTED
+    "Z122": CodeDefinition("warning", 1.0, "content"),  # JUMP_LINK_DETECTED
     "Z123": CodeDefinition("note", 0.0, None),  # NON_HTTP_SCHEME — informational
     "Z124": CodeDefinition("error", 1.0, "structural"),  # OPAQUE_HTML_CONTEXT
     # ── Z2xx — Security ───────────────────────────────────────────────────────
@@ -246,9 +246,14 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z512": CodeDefinition("warning", 1.0, "content"),  # EMPTY_SECTION
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
-    "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
-    "Z610": CodeDefinition("warning", 3.0, "governance"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
-    "Z611": CodeDefinition("warning", 3.0, "governance"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
+    "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
+    "Z610": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
+    "Z611": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
+    "Z612": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_FRONTMATTER_KEY (v0.29.0)
+    "Z613": CodeDefinition("error", 5.0, "brand"),  # FRONTMATTER_SCHEMA_MISMATCH (v0.29.0)
+    "Z614": CodeDefinition("error", 5.0, "brand"),  # UNAPPROVED_DOMAIN_REFERENCE (v0.29.0)
+    "Z615": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_URL_SCHEME (v0.29.0)
+    "Z616": CodeDefinition("error", 8.0, "brand"),  # CROSS_NAMESPACE_LINK_FORBIDDEN (v0.29.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -274,7 +279,7 @@ CODE_NAMES: dict[str, str] = {
     "Z112": "RESERVED",
     "Z113": "AUTHOR_KEY_COLLISION",
     "Z114": "LARGE_PAGINATION_SET",
-    "Z118": "STALE_GLOBAL_SUPPRESSION",
+    "Z620": "STALE_GLOBAL_SUPPRESSION",
     "Z120": "UNKNOWN_HTML_ATTRIBUTE",
     "Z121": "MISSING_OR_EMPTY_HREF",
     "Z122": "JUMP_LINK_DETECTED",
@@ -309,6 +314,11 @@ CODE_NAMES: dict[str, str] = {
     "Z603": "DEAD_SUPPRESSION",
     "Z610": "REQUIRED_FRONTMATTER_MISSING",
     "Z611": "FORBIDDEN_DOMAIN_REFERENCE",
+    "Z612": "FORBIDDEN_FRONTMATTER_KEY",
+    "Z613": "FRONTMATTER_SCHEMA_MISMATCH",
+    "Z614": "UNAPPROVED_DOMAIN_REFERENCE",
+    "Z615": "FORBIDDEN_URL_SCHEME",
+    "Z616": "CROSS_NAMESPACE_LINK_FORBIDDEN",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -335,7 +345,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z112": "Reserved slot — not used in v0.17.0",
     "Z113": "Duplicate author key declared across two or more blog author config files",
     "Z114": "Blog pagination set exceeds the 200-page informational threshold",
-    "Z118": "Global configuration rule was never used during the scan — remove the dead configuration",
+    "Z620": "Global configuration rule was never used during the scan — remove the dead configuration",
     # Z12x — HTML Integrity (Polyglot Extractor — v0.17.0)
     "Z120": "HTML attribute not in Safe-Core list — declare intent or suppress with data-zenzic-ignore",
     "Z121": "Tag <a> or <img> has no href/src attribute, or it is empty",
@@ -376,6 +386,11 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
     "Z610": "Required frontmatter key is absent from this document",
     "Z611": "Link references an external domain forbidden by the [policies] configuration",
+    "Z612": "Forbidden frontmatter key is present in YAML frontmatter block",
+    "Z613": "Frontmatter key value does not match the required RE2 pattern declared in [policies].frontmatter_schema_match",
+    "Z614": "Link references an external domain not listed in the Zero-Trust allowed_external_domains whitelist",
+    "Z615": "Link uses a URL scheme not permitted by the required_url_schemes whitelist",
+    "Z616": "Internal link crosses a forbidden topological namespace boundary",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",

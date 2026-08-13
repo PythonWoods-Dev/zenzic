@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from zenzic import __version__
@@ -12,8 +14,18 @@ from zenzic.main import app
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _setup_audit_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("---\ntitle: Audit Test\n---\n# Audit\n[test](index.md)\n")
+    (tmp_path / ".zenzic.toml").write_text('[policies]\nrequired_frontmatter_keys = ["title"]\n')
+    monkeypatch.chdir(tmp_path)
+
+
+
 def test_zenzic_audit_text_output() -> None:
-    result = runner.invoke(app, ["audit"])
+    result = runner.invoke(app, ["audit", "--no-external"])
     assert result.exit_code == 0
     output = result.stdout
     assert "# ZENZIC GOVERNANCE AUDIT REPORT" in output
@@ -24,7 +36,7 @@ def test_zenzic_audit_text_output() -> None:
 
 
 def test_zenzic_audit_json_output() -> None:
-    result = runner.invoke(app, ["audit", "--format", "json"])
+    result = runner.invoke(app, ["audit", "--format", "json", "--no-external"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
 
@@ -50,8 +62,8 @@ def test_zenzic_audit_json_output() -> None:
 
 
 def test_zenzic_audit_determinism() -> None:
-    result1 = runner.invoke(app, ["audit", "--format", "json"])
-    result2 = runner.invoke(app, ["audit", "--format", "json"])
+    result1 = runner.invoke(app, ["audit", "--format", "json", "--no-external"])
+    result2 = runner.invoke(app, ["audit", "--format", "json", "--no-external"])
     assert result1.exit_code == 0
     assert result2.exit_code == 0
     assert result1.stdout == result2.stdout

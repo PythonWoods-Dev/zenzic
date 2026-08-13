@@ -13,7 +13,7 @@ import typer
 from zenzic import __version__
 from zenzic.cli import _shared
 from zenzic.cli._check import (
-    _append_z118_findings,
+    _append_z620_findings,
     _apply_only_filter,
     _collect_all_results,
     _filter_flat_findings,
@@ -122,7 +122,7 @@ def audit(
         all_findings = _to_findings(results, docs_root, repo_root, config)
         all_findings = _apply_per_file_ignores(all_findings, config)
         all_findings = _apply_directory_policies(all_findings, config)
-        _append_z118_findings(
+        _append_z620_findings(
             all_findings, config, repo_root, check_all=True, check_external_urls=not no_external
         )
         if only:

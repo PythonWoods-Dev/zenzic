@@ -73,7 +73,7 @@ nav:
         - rules/Z111.md
         - rules/Z113.md
         - rules/Z114.md
-        - rules/Z118.md
+        - rules/Z620.md
         - rules/Z120.md
         - rules/Z121.md
         - rules/Z122.md
@@ -108,6 +108,11 @@ nav:
         - rules/Z603.md
         - rules/Z610.md
         - rules/Z611.md
+        - rules/Z612.md
+        - rules/Z613.md
+        - rules/Z614.md
+        - rules/Z615.md
+        - rules/Z616.md
         - rules/Z901.md
         - rules/Z902.md
         - rules/Z906.md
@@ -123,7 +128,6 @@ nav:
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
         - tutorials/examples/z1xx-links/z110-stale-allowlist.md
-        - tutorials/examples/z1xx-links/z118-stale-global-suppression.md
         - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
         - tutorials/examples/z1xx-links/z121-missing-href.md
         - tutorials/examples/z1xx-links/z122-jump-link.md
@@ -149,6 +153,7 @@ nav:
         - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
         - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
         - tutorials/examples/z6xx-brand/z603-dead-suppression.md
+        - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
     - Technical Reference:
       - CLI Specification: reference/cli.md
       - Configuration Schema: reference/configuration-reference.md
@@ -276,7 +281,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.28.1"  # release sync
+  zenzic_version: "0.29.0"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

@@ -32,13 +32,7 @@ max_sentence_length = 50
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
 
-# External URLs excluded from the broken-link check (applies only with --strict)
-excluded_external_urls = [
-    # Prevents HTTP 429 (Too Many Requests) rate-limiting from GitHub in CI.
-    "https://github.com/PythonWoods/zenzic",
-    # GitHub API rate-limits unauthenticated CI runners; prefix covers all remaining github.com links.
-    "https://github.com",
-]
+excluded_external_urls = []
 
 
 # Z204 Privacy Gate — terms that must never appear in published docs.

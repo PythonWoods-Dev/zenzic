@@ -1176,7 +1176,7 @@ def _run_vsm_and_urp_pass(
 
         # In parallel mode, each report is deserialized from a worker process and
         # may carry a detached GlobalUsageTracker snapshot. Rebind to the parent
-        # process tracker so directory-policy consumption (Z118 accounting)
+        # process tracker so directory-policy consumption (Z620 accounting)
         # is recorded on the canonical tracker instance.
         if r.suppression_tracker is not None:
             r.suppression_tracker.global_tracker = parent_global_tracker
@@ -1224,6 +1224,26 @@ def _run_vsm_and_urp_pass(
 
         r.rule_findings.extend(active_vsm)
         r.rule_findings.extend(active_urp)
+
+        # Policy-as-Code VSM/Resolver aware checks (e.g. Z616 Cross-Namespace boundaries)
+        from zenzic.core.governance import check_policies
+
+        policy_vsm_findings = check_policies(
+            r.file_path,
+            text,
+            config,
+            resolver=resolver,
+            vsm=vsm,
+            repo_root=repo_root,
+            docs_root=docs_root,
+        )
+        for pf in policy_vsm_findings:
+            if pf.rule_id == "Z616":
+                if r.suppression_tracker is not None:
+                    if not r.suppression_tracker.is_suppressed(pf.line_no, pf.rule_id):
+                        r.rule_findings.append(pf)
+                else:
+                    r.rule_findings.append(pf)
 
         try:
             rel_posix = r.file_path.relative_to(docs_root).as_posix()

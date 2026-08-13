@@ -145,7 +145,7 @@ class BuildContext(BaseModel):
     )
     base_url: str = Field(
         default="",
-        description="The root URL where the documentation is hosted (e.g. `https://docs.pythonwoods.dev/`).",
+        description="The root URL where the documentation is hosted (e.g. `https://docs.zenzic.dev/`).",
     )
     fallback_to_default: bool = Field(
         default=True,
@@ -246,6 +246,70 @@ class PoliciesConfig(BaseModel):
             'Example: ["competitor.example.com", "legacy.corp"]'
         ),
     )
+    forbidden_frontmatter_keys: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of frontmatter keys that MUST NOT exist in any Markdown file. "
+            "Presence of any forbidden key emits Z612 FORBIDDEN_FRONTMATTER_KEY. "
+            "Policy is inactive when the list is empty (opt-in). "
+            'Example: ["draft", "internal_notes"]'
+        ),
+    )
+    frontmatter_schema_match: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping frontmatter key names to RE2 regex patterns "
+            "that the key's value must match. "
+            "Mismatch emits Z613 FRONTMATTER_SCHEMA_MISMATCH. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"version": r"^v\\d+\\.\\d+\\.\\d+$"}'
+        ),
+    )
+    allowed_external_domains: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Zero-Trust whitelist of allowed external domain prefixes. "
+            "When non-empty, ANY external link not matching this whitelist emits Z614 UNAPPROVED_DOMAIN_REFERENCE. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["zenzic.dev", "github.com"]'
+        ),
+    )
+    required_url_schemes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of allowed URL scheme prefixes. "
+            "Any link using a scheme not listed in this whitelist emits Z615 FORBIDDEN_URL_SCHEME. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["https", "mailto"]'
+        ),
+    )
+    cross_namespace_restrictions: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a source namespace path prefix to a list of forbidden target namespace path prefixes. "
+            "Links crossing restricted boundaries emit Z616 CROSS_NAMESPACE_LINK_FORBIDDEN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"docs/public": ["docs/internal"]}'
+        ),
+    )
+
+    @field_validator("required_url_schemes")
+    @classmethod
+    def _normalize_required_url_schemes(cls, v: list[str]) -> list[str]:
+        return [s.lower().strip().rstrip(":") for s in v if isinstance(s, str)]
+
+    @field_validator("frontmatter_schema_match")
+    @classmethod
+    def _validate_frontmatter_schema_patterns(cls, v: dict[str, str]) -> dict[str, str]:
+        for key, pattern in v.items():
+            try:
+                re.compile(pattern)
+            except Exception as err:
+                raise ValueError(
+                    f"Invalid RE2 regex pattern for frontmatter key '{key}' in "
+                    f"[policies].frontmatter_schema_match: {pattern!r} ({err})"
+                ) from err
+        return v
 
 
 class NetworkConfig(BaseModel):
@@ -645,7 +709,15 @@ class ZenzicConfig(BaseModel):
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
         _HANDLED_SECTIONS = frozenset(
-            {"build_context", "custom_rules", "project_metadata", "governance", "i18n", "network"}
+            {
+                "build_context",
+                "custom_rules",
+                "project_metadata",
+                "governance",
+                "i18n",
+                "network",
+                "policies",
+            }
         )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
@@ -690,6 +762,10 @@ class ZenzicConfig(BaseModel):
                     for k, v in data["governance"].items()
                     if k in GovernanceConfig.model_fields
                 }
+            )
+        if "policies" in data and isinstance(data["policies"], dict):
+            filtered_data["policies"] = PoliciesConfig(
+                **{k: v for k, v in data["policies"].items() if k in PoliciesConfig.model_fields}
             )
         if "network" in data and isinstance(data["network"], dict):
             filtered_data["network"] = NetworkConfig(

@@ -69,13 +69,17 @@ are enforced on every PR touching `src/zenzic/core/`.
 
 ---
 
-## Finding Codes
+## Finding Codes & Scoring Parity Protocol
 
-Every new check must emit findings using a code registered in `FROZEN_CODES`. Before
-adding a new code:
+Every new check must emit findings using a code registered in `CODE_DEFINITIONS` (`src/zenzic/core/codes.py`). When adding a new finding code, you MUST maintain 100% synchronization across 8 mandatory locations:
 
-1. Run `zenzic inspect codes` — confirm the code does not already exist.
-2. Add the code to `FROZEN_CODES` in the appropriate tier (`Core`, `Structure`, or `Governance`).
-3. Update `CHANGELOG.md` with the new code in the same commit.
+1. **`src/zenzic/core/codes.py`**: Register the code in `CODE_DEFINITIONS` with severity, DQS penalty, category (`structural`, `navigation`, `content`, `brand`), and Opt-In metadata.
+2. **`src/zenzic/core/scorer.py`**: If the code is a Governance rule (`Z6xx`), update the `_Z6XX_CODES` set for exponential escalation.
+3. **`docs/reference/scoring-algorithm.md`**: Update the Complete Penalty Reference Table.
+4. **`docs/explanation/scoring-system.md`**: Update the DQS Category Weight matrix and category mapping.
+5. **`docs/reference/finding-codes.md`**: Add/update the encyclopedia catalog card with severity, penalty, category, Opt-In metadata, and remediation steps.
+6. **`docs/rules/ZXXX.md`**: Create a dedicated rule specification card and register it in `mkdocs.yml`.
+7. **`src/zenzic/cli/_lab.py` & `examples/`**: Create an interactive test fixture in `examples/` and register it in `_GALLERY` in `_lab.py`.
+8. **`CHANGELOG.md`**: Document the new finding code in `[Unreleased]` under `### Added`.
 
-Do not reuse retired codes. Retired codes stay in `FROZEN_CODES` with status `retired`.
+Do not reuse retired codes.

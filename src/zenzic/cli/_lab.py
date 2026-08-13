@@ -105,11 +105,11 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z111-config-schema-error",
         expected_pass=False,
     ),
-    "z118": _Act(
-        code="z118",
+    "z620": _Act(
+        code="z620",
         title="Stale Global Suppression",
-        description="Z118 STALE_GLOBAL_SUPPRESSION — unused directory_policies in .zenzic.toml; exit 0 (warning)",
-        example_dir="z118-stale-global-suppression",
+        description="Z620 STALE_GLOBAL_SUPPRESSION — unused directory_policies in .zenzic.toml; exit 0 (warning)",
+        example_dir="z620-stale-global-suppression",
         expected_pass=True,
     ),
     "z101": _Act(
@@ -376,6 +376,41 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z611-forbidden-domain",
         expected_pass=False,
     ),
+    "z612": _Act(
+        code="z612",
+        title="Forbidden Frontmatter Key",
+        description="Z612 FORBIDDEN_FRONTMATTER_KEY — forbidden key present in YAML frontmatter block",
+        example_dir="z612-forbidden-frontmatter-key",
+        expected_pass=False,
+    ),
+    "z613": _Act(
+        code="z613",
+        title="Frontmatter Schema Mismatch",
+        description="Z613 FRONTMATTER_SCHEMA_MISMATCH — frontmatter key value fails required RE2 pattern",
+        example_dir="z613-frontmatter-schema-mismatch",
+        expected_pass=False,
+    ),
+    "z614": _Act(
+        code="z614",
+        title="Unapproved Domain Reference",
+        description="Z614 UNAPPROVED_DOMAIN_REFERENCE — external domain not in allowed whitelist",
+        example_dir="z614-unapproved-domain",
+        expected_pass=False,
+    ),
+    "z615": _Act(
+        code="z615",
+        title="Forbidden URL Scheme",
+        description="Z615 FORBIDDEN_URL_SCHEME — link uses non-whitelisted scheme protocol",
+        example_dir="z615-forbidden-url-scheme",
+        expected_pass=False,
+    ),
+    "z616": _Act(
+        code="z616",
+        title="Cross-Namespace Link Forbidden",
+        description="Z616 CROSS_NAMESPACE_LINK_FORBIDDEN — internal link crosses forbidden namespace boundary",
+        example_dir="z616-cross-namespace-link",
+        expected_pass=False,
+    ),
     "z410": _Act(
         code="z410",
         title="Unreachable Graph Node",
@@ -492,11 +527,11 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
 
     findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir, config=config)
 
-    from zenzic.cli._check import _append_z118_findings
+    from zenzic.cli._check import _append_z620_findings
     from zenzic.cli._governance import _apply_directory_policies
 
     findings = _apply_directory_policies(findings, config)
-    _append_z118_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
+    _append_z620_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
 
     if single_file is not None:
         sf_rel = str(single_file.relative_to(example_dir))

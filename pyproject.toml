@@ -13,7 +13,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.28.1"
+version = "0.29.0"
 description = "Deterministic Document Integrity Engine for Markdown/MDX graphs."
 readme = "README.md"
 requires-python = ">=3.10"

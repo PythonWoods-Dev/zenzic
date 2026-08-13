@@ -36,15 +36,31 @@ Before advancing the core feature set, the following infrastructural and validat
 - [x] **SARIF Enterprise Integration:** Enhance security and compliance integrations for GitHub Code Scanning and enterprise dashboards. (Released in v0.28.x)
 - [x] **Zenzic Audit Mode:** High-value enterprise compliance reporting command (`zenzic audit`) detailing active policies, DQS score, technical debt, and architectural state. (Released in v0.28.x)
 
-### [v0.29] — Ecosystem Expansion
+### [v0.29] — Policy-as-Code Expansion
 
-*Expanding the perimeter to external frameworks.*
+*Expanding governance policy evaluation, metadata validation, and link topology boundaries.*
+
+- [x] **Taxonomic Refactoring:** Renamed finding code `Z118` to `Z620` (`STALE_GLOBAL_SUPPRESSION`) to align its identifier with the DQS Governance & Brand category and escalation amplifier.
+- [x] **Metadata Governance Policies (`Z612`, `Z613`):** Declarative validation of required/forbidden frontmatter keys and schema matching.
+- [x] **Link & Topology Governance (`Z614`–`Z616`):** Virtual Site Map (VSM) zero-trust link evaluation, forbidden URL schemes, and cross-namespace link boundaries.
+
+### [v0.30] — Semantic Linting Supremacy
+
+*Expanding AST-based semantic linting, structural accessibility, editorial style enforcement, and list heuristics.*
+
+- **Semantic Linting & Accessibility (`Z513`–`Z517`):** Native AST-based detection of duplicate headings, missing image alt text, bare URLs, multiple H1 headings, and heading punctuation.
+- **Editorial Style Enforcement (`Z518`, `Z519`, `Z617`–`Z619`):** Deterministic heuristics for passive voice, weasel words, forbidden/required content patterns, and document complexity.
+- **Semantic List Heuristics (`Z520`):** Automatic detection of malformed/fake lists formatted with semicolons/commas.
+
+### [v0.31] — Adapters & Ecosystem Expansion
+
+*Expanding the perimeter to external frameworks and multi-repository graphs.*
 
 - **Docusaurus Bridge Architecture:** The first concrete implementation of the adapter ecosystem, validating the artifact-based VSM model outside the Core.
 - **Sphinx & Hugo Adapters:** Extend open-source compatibility following the stabilization of the `BaseAdapter` contract.
 - **Multi-Repository Documentation Graph:** Advanced feature to analyze documentation spanning multiple repositories, requiring full maturity of the VSM and artifact composition.
 
-### [v0.30] — Operational Excellence
+### [v0.32] — Operational Excellence
 
 *Advanced observability and developer experience.*
 
@@ -68,4 +84,4 @@ These constraints apply across every future release. No feature may violate them
 
 ---
 
-Roadmap last updated: 2026-08-01.
+Roadmap last updated: 2026-08-13.

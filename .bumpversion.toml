@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [tool.bumpversion]
-current_version = "0.28.1"
+current_version = "0.29.0"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<pre_l>a|b|rc)(?P<pre_n>\\d+))?"
 serialize = [
     "{major}.{minor}.{patch}{pre_l}{pre_n}",
@@ -112,3 +112,9 @@ replace = '"version": "{new_version}"'
 filename = "README.md"
 search = "uvx zenzic@{current_version} check all"
 replace = "uvx zenzic@{new_version} check all"
+
+# Manages the "Version baseline" annotation in the CLI reference so it never drifts.
+[[tool.bumpversion.files]]
+filename = "docs/reference/cli.md"
+search = "**Version baseline: Zenzic v{current_version}**"
+replace = "**Version baseline: Zenzic v{new_version}**"

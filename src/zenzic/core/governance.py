@@ -37,18 +37,33 @@ _FRONTMATTER_BLOCK_RE = _stdlib_re.compile(r"\A\s*---\s*\n(.*?)\n---", _stdlib_r
 _FM_KEY_VALUE_RE = _stdlib_re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", _stdlib_re.MULTILINE)
 
 
-def _parse_frontmatter_keys(content: str) -> set[str]:
-    """Return the set of top-level frontmatter key names present in *content*.
+def _parse_frontmatter_dict(content: str) -> dict[str, str]:
+    """Return a dictionary of top-level frontmatter key-value pairs present in *content*.
 
     Only inspects the leading ``---`` fenced block (after stripping leading comments).
-    Returns an empty set when no frontmatter is present or the block is malformed.
+    Returns an empty dict when no frontmatter is present or the block is malformed.
+    Values are stripped of leading/trailing whitespace and outer matching quotes.
     """
     clean_content = _COMMENT_RE.sub("", content).lstrip()
     fm = _FRONTMATTER_BLOCK_RE.match(clean_content)
     if fm is None:
-        return set()
+        return {}
     block = fm.group(1)
-    return {m.group(1) for m in _FM_KEY_VALUE_RE.finditer(block)}
+    result: dict[str, str] = {}
+    for m in _FM_KEY_VALUE_RE.finditer(block):
+        key = m.group(1)
+        raw_val = m.group(2).strip()
+        if (raw_val.startswith('"') and raw_val.endswith('"')) or (
+            raw_val.startswith("'") and raw_val.endswith("'")
+        ):
+            raw_val = raw_val[1:-1].strip()
+        result[key] = raw_val
+    return result
+
+
+def _parse_frontmatter_keys(content: str) -> set[str]:
+    """Return the set of top-level frontmatter key names present in *content*."""
+    return set(_parse_frontmatter_dict(content).keys())
 
 
 def _extract_code_and_rel_path(
@@ -153,7 +168,10 @@ def apply_directory_policies(
                 compiled = re.compile(regex_str)
                 normalized_map.append((compiled, normalized_codes, pattern))
             except Exception:
-                pass
+                # Invalid glob pattern — skip registration safely
+                continue
+
+
 
     if not normalized_map:
         return findings
@@ -202,17 +220,7 @@ def apply_directory_policies(
 class PolicyEvaluator:
     """Stateless, deterministic evaluator for ``[policies]`` declarations (v0.28.0).
 
-    Evaluates Z610 REQUIRED_FRONTMATTER_MISSING and Z611 FORBIDDEN_DOMAIN_REFERENCE
-    against a single Markdown file.
-
-    Architectural invariants
-    ------------------------
-    * **No I/O**: all inputs are passed as arguments; no filesystem reads.
-    * **No subprocess**: evaluation occurs entirely in-memory.
-    * **Deterministic**: same inputs always produce the same findings.
-    * **Stateless per file**: the evaluator holds no per-file state between calls.
-    * **Opt-in**: when both policy lists are empty the evaluator is a no-op.
-    * **Radical Unawareness**: no VS Code / LSP knowledge inside this class (ADR-075).
+    Evaluates Z610, Z611, Z612, Z613, Z614, Z615, Z616 policies against a single Markdown file.
 
     Usage::
 
@@ -224,62 +232,88 @@ class PolicyEvaluator:
     def __init__(self, config: ZenzicConfig) -> None:
         self._required_keys: list[str] = config.policies.required_frontmatter_keys
         self._forbidden_domains: list[str] = config.policies.forbidden_external_domains
+        self._forbidden_keys: list[str] = config.policies.forbidden_frontmatter_keys
+        self._schema_match: dict[str, str] = config.policies.frontmatter_schema_match
+        self._allowed_domains: list[str] = config.policies.allowed_external_domains
+        self._required_schemes: list[str] = config.policies.required_url_schemes
+        self._cross_namespace: dict[str, list[str]] = config.policies.cross_namespace_restrictions
 
     # ── Public surface ────────────────────────────────────────────────────────
 
     @property
     def is_active(self) -> bool:
         """Return True when at least one policy rule is configured."""
-        return bool(self._required_keys or self._forbidden_domains)
+        return bool(
+            self._required_keys
+            or self._forbidden_domains
+            or self._forbidden_keys
+            or self._schema_match
+            or self._allowed_domains
+            or self._required_schemes
+            or self._cross_namespace
+        )
 
     def check(
         self,
         file_path: Path,
         content: str,
         links: list[str] | None = None,
+        resolver: Any | None = None,
+        vsm: dict[str, Any] | None = None,
+        repo_root: Path | None = None,
+        docs_root: Path | None = None,
     ) -> list[RuleFinding]:
-        """Run all configured policy checks against a single Markdown file.
-
-        Args:
-            file_path: Absolute or relative path to the source file (for
-                finding attribution; no I/O performed on this path).
-            content:   Raw Markdown source text of the file.
-            links:     Optional pre-extracted list of URL strings (both Markdown
-                       and HTML) from the file.  When ``None`` the evaluator
-                       extracts links from *content* internally.
-
-        Returns:
-            A list of :class:`~zenzic.core.rules.RuleFinding` objects.
-            Empty when no policies are violated or no policies are configured.
-        """
+        """Run all configured policy checks against a single Markdown file."""
         if not self.is_active:
             return []
 
         findings: list[RuleFinding] = []
 
-        if self._required_keys:
+        if self._required_keys or self._forbidden_keys or self._schema_match:
             findings.extend(self._check_frontmatter(file_path, content))
 
-        if self._forbidden_domains:
+        has_link_policies = (
+            self._forbidden_domains
+            or self._allowed_domains
+            or self._required_schemes
+            or self._cross_namespace
+        )
+        if has_link_policies:
             resolved_links = links if links is not None else _extract_links(content)
-            findings.extend(self._check_links(file_path, content, resolved_links))
+            if self._forbidden_domains or self._allowed_domains:
+                findings.extend(self._check_links(file_path, content, resolved_links))
+            if self._required_schemes:
+                findings.extend(self._check_schemes(file_path, content, resolved_links))
+            if self._cross_namespace:
+                findings.extend(
+                    self._check_cross_namespace_links(
+                        file_path,
+                        content,
+                        resolved_links,
+                        resolver=resolver,
+                        vsm=vsm,
+                        repo_root=repo_root,
+                        docs_root=docs_root,
+                    )
+                )
 
         return findings
 
     # ── Internal checkers ─────────────────────────────────────────────────────
 
     def _check_frontmatter(self, file_path: Path, content: str) -> list[RuleFinding]:
-        """Z610: Emit one finding per required frontmatter key that is absent."""
-        if not self._required_keys:
+        """Z610, Z612, Z613 frontmatter policy checks."""
+        if not (self._required_keys or self._forbidden_keys or self._schema_match):
             return []
 
         from zenzic.core.rules import RuleFinding
 
-        present_keys = _parse_frontmatter_keys(content)
+        fm_dict = _parse_frontmatter_dict(content)
         findings: list[RuleFinding] = []
 
+        # Z610 REQUIRED_FRONTMATTER_MISSING
         for key in self._required_keys:
-            if key not in present_keys:
+            if key not in fm_dict:
                 findings.append(
                     RuleFinding(
                         rule_id="Z610",
@@ -295,11 +329,53 @@ class PolicyEvaluator:
                     )
                 )
 
+        # Z612 FORBIDDEN_FRONTMATTER_KEY
+        for key in self._forbidden_keys:
+            if key in fm_dict:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z612",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=1,
+                        message=(
+                            f"Forbidden frontmatter key '{key}' is present. "
+                            f"Remove '{key}' from the YAML frontmatter block. "
+                            f"Declared in [policies].forbidden_frontmatter_keys."
+                        ),
+                        matched_line=f"{key}: {fm_dict[key]}",
+                    )
+                )
+
+        # Z613 FRONTMATTER_SCHEMA_MISMATCH
+        for key, pattern_str in self._schema_match.items():
+            if key in fm_dict:
+                val = fm_dict[key]
+                try:
+                    compiled = re.compile(pattern_str)
+                    matched = bool(compiled.search(val))
+                except Exception:
+                    matched = True
+                if not matched:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z613",
+                            severity="error",
+                            file_path=file_path,
+                            line_no=1,
+                            message=(
+                                f"Frontmatter key '{key}' value '{val}' does not match required RE2 pattern '{pattern_str}'. "
+                                f"Declared in [policies].frontmatter_schema_match."
+                            ),
+                            matched_line=f"{key}: {val}",
+                        )
+                    )
+
         return findings
 
     def _check_links(self, file_path: Path, content: str, links: list[str]) -> list[RuleFinding]:
-        """Z611: Emit one finding per link whose domain matches a forbidden prefix."""
-        if not self._forbidden_domains:
+        """Z611 & Z614 external domain policy checks."""
+        if not (self._forbidden_domains or self._allowed_domains):
             return []
 
         from zenzic.core.rules import RuleFinding
@@ -316,39 +392,269 @@ class PolicyEvaluator:
             if parsed.scheme not in ("http", "https"):
                 continue
 
-            host = parsed.netloc.lower()
-            matched_domain = next(
-                (
-                    d
-                    for d in self._forbidden_domains
-                    if host == d.lower() or host.endswith("." + d.lower())
-                ),
-                None,
-            )
-            if matched_domain is None:
+            host = parsed.netloc.lower().split(":")[0]
+
+            # Z614: UNAPPROVED_DOMAIN_REFERENCE (Zero-Trust Whitelist)
+            if self._allowed_domains:
+                is_allowed = any(
+                    host == d.lower() or host.endswith("." + d.lower())
+                    for d in self._allowed_domains
+                )
+                if not is_allowed:
+                    line_no = 1
+                    for i, line in enumerate(lines, start=1):
+                        if url in line:
+                            line_no = i
+                            break
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z614",
+                            severity="error",
+                            file_path=file_path,
+                            line_no=line_no,
+                            message=(
+                                f"Link to '{url}' references external domain '{host}' which is not in "
+                                f"[policies].allowed_external_domains whitelist. "
+                                f"Replace or add to whitelist."
+                            ),
+                            matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                        )
+                    )
+                    continue
+
+            # Z611: FORBIDDEN_DOMAIN_REFERENCE (Blacklist)
+            if self._forbidden_domains:
+                matched_domain = next(
+                    (
+                        d
+                        for d in self._forbidden_domains
+                        if host == d.lower() or host.endswith("." + d.lower())
+                    ),
+                    None,
+                )
+                if matched_domain is not None:
+                    line_no = 1
+                    for i, line in enumerate(lines, start=1):
+                        if url in line:
+                            line_no = i
+                            break
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z611",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=line_no,
+                            message=(
+                                f"Link to '{url}' references forbidden domain '{matched_domain}'. "
+                                f"Remove or replace the link. "
+                                f"Declared in [policies].forbidden_external_domains."
+                            ),
+                            matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                        )
+                    )
+
+        return findings
+
+    def _check_schemes(self, file_path: Path, content: str, links: list[str]) -> list[RuleFinding]:
+        """Z615: FORBIDDEN_URL_SCHEME check."""
+        if not self._required_schemes:
+            return []
+
+        from zenzic.core.rules import RuleFinding
+
+        findings: list[RuleFinding] = []
+        lines = content.splitlines()
+
+        for url in links:
+            try:
+                parsed = urlsplit(url)
+            except ValueError:
                 continue
 
-            # Find the first line containing the URL for attribution.
-            line_no = 1
-            for i, line in enumerate(lines, start=1):
-                if url in line:
-                    line_no = i
-                    break
+            if not parsed.scheme:
+                continue
 
-            findings.append(
-                RuleFinding(
-                    rule_id="Z611",
-                    severity="warning",
-                    file_path=file_path,
-                    line_no=line_no,
-                    message=(
-                        f"Link to '{url}' references forbidden domain '{matched_domain}'. "
-                        f"Remove or replace the link. "
-                        f"Declared in [policies].forbidden_external_domains."
-                    ),
-                    matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+            scheme_lower = parsed.scheme.lower()
+            if scheme_lower in ("javascript", "data"):
+                continue  # Handled by Z205 security scanner
+
+            if scheme_lower not in self._required_schemes:
+                line_no = 1
+                for i, line in enumerate(lines, start=1):
+                    if url in line:
+                        line_no = i
+                        break
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z615",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=line_no,
+                        message=(
+                            f"Link to '{url}' uses scheme '{parsed.scheme}' which is not permitted "
+                            f"by [policies].required_url_schemes ({self._required_schemes}). "
+                            f"Change scheme to an allowed protocol."
+                        ),
+                        matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                    )
                 )
+
+        return findings
+
+    def _check_cross_namespace_links(
+        self,
+        file_path: Path,
+        content: str,
+        links: list[str],
+        resolver: Any | None = None,
+        vsm: dict[str, Any] | None = None,
+        repo_root: Path | None = None,
+        docs_root: Path | None = None,
+    ) -> list[RuleFinding]:
+        """Z616: CROSS_NAMESPACE_LINK_FORBIDDEN using VSM / InMemoryPathResolver target resolution."""
+        if not self._cross_namespace:
+            return []
+
+        from urllib.parse import unquote
+
+        from zenzic.core.resolver import AnchorMissing, Resolved
+        from zenzic.core.rules import RuleFinding
+
+        fp = file_path.resolve() if file_path.is_absolute() else file_path
+        repo_rel = (
+            fp.relative_to(repo_root.resolve()).as_posix()
+            if (repo_root and fp.is_absolute() and fp.is_relative_to(repo_root.resolve()))
+            else fp.as_posix()
+        )
+        docs_rel = (
+            fp.relative_to(docs_root.resolve()).as_posix()
+            if (docs_root and fp.is_absolute() and fp.is_relative_to(docs_root.resolve()))
+            else None
+        )
+
+        matched_src_prefix: str | None = None
+        forbidden_target_prefixes: list[str] = []
+
+        for src_prefix, forbidden_targets in self._cross_namespace.items():
+            clean_prefix = src_prefix.strip("/")
+            if (
+                repo_rel.startswith(clean_prefix + "/")
+                or repo_rel == clean_prefix
+                or (
+                    docs_rel is not None
+                    and (docs_rel.startswith(clean_prefix + "/") or docs_rel == clean_prefix)
+                )
+            ):
+                matched_src_prefix = src_prefix
+                forbidden_target_prefixes = forbidden_targets
+                break
+
+        if not matched_src_prefix or not forbidden_target_prefixes:
+            return []
+
+        findings: list[RuleFinding] = []
+        lines = content.splitlines()
+
+        for url in links:
+            try:
+                parsed = urlsplit(url)
+            except ValueError:
+                continue
+
+            if parsed.scheme or url.startswith("#"):
+                continue
+
+            raw_path = parsed.path
+            if not raw_path:
+                continue
+
+            resolved_target_file: Path | None = None
+            if resolver is not None:
+                try:
+                    outcome = resolver.resolve(file_path, url)
+                    if isinstance(outcome, Resolved):
+                        resolved_target_file = outcome.target
+                    elif isinstance(outcome, AnchorMissing):
+                        resolved_target_file = outcome.resolved_file
+                except Exception:
+                    # Best-effort resolution: if resolver fails, fall back to VSM/path logic below.
+                    resolved_target_file = None
+
+
+
+            if resolved_target_file is None and vsm is not None:
+                for route in vsm.values():
+                    route_source = getattr(route, "source", None)
+                    if route_source and raw_path.strip("/") in route_source:
+                        resolved_target_file = (
+                            docs_root / route_source if docs_root else Path(route_source)
+                        )
+                        break
+
+            if resolved_target_file is None:
+                try:
+                    resolved_target_file = (file_path.parent / unquote(raw_path)).resolve()
+                except Exception:
+                    continue
+
+            target_fp = (
+                resolved_target_file.resolve()
+                if resolved_target_file.is_absolute()
+                else resolved_target_file
             )
+            target_repo_rel = (
+                target_fp.relative_to(repo_root.resolve()).as_posix()
+                if (
+                    repo_root
+                    and target_fp.is_absolute()
+                    and target_fp.is_relative_to(repo_root.resolve())
+                )
+                else target_fp.as_posix()
+            )
+            target_docs_rel = (
+                target_fp.relative_to(docs_root.resolve()).as_posix()
+                if (
+                    docs_root
+                    and target_fp.is_absolute()
+                    and target_fp.is_relative_to(docs_root.resolve())
+                )
+                else None
+            )
+
+            for forbidden_prefix in forbidden_target_prefixes:
+                clean_target_prefix = forbidden_prefix.strip("/")
+                is_forbidden = (
+                    target_repo_rel.startswith(clean_target_prefix + "/")
+                    or target_repo_rel == clean_target_prefix
+                    or (
+                        target_docs_rel is not None
+                        and (
+                            target_docs_rel.startswith(clean_target_prefix + "/")
+                            or target_docs_rel == clean_target_prefix
+                        )
+                    )
+                )
+                if is_forbidden:
+                    line_no = 1
+                    for i, line in enumerate(lines, start=1):
+                        if url in line:
+                            line_no = i
+                            break
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z616",
+                            severity="error",
+                            file_path=file_path,
+                            line_no=line_no,
+                            message=(
+                                f"Internal link '{url}' from namespace '{repo_rel}' targets "
+                                f"forbidden namespace '{target_repo_rel}' (forbidden boundary '{forbidden_prefix}'). "
+                                f"Declared in [policies].cross_namespace_restrictions."
+                            ),
+                            matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                        )
+                    )
+                    break
 
         return findings
 
@@ -362,24 +668,12 @@ _HTML_HREF_RE = _stdlib_re.compile(r"""href\s*=\s*["']([^"']+)["']""", _stdlib_r
 
 
 def _extract_links(content: str) -> list[str]:
-    """Extract all link URLs from raw Markdown content (Markdown + HTML).
-
-    Combines native Markdown link syntax ``[text](url)`` and raw HTML
-    ``<a href="url">`` extraction.  Code blocks are not filtered here —
-    the Policy Engine intentionally inspects all links in the source,
-    including those in code samples, to prevent blind spots.
-
-    Args:
-        content: Raw Markdown/MDX source text.
-
-    Returns:
-        Deduplicated list of URL strings found in the document.
-    """
+    """Extract all link URLs from raw Markdown content (Markdown + HTML)."""
     urls: list[str] = []
     seen: set[str] = set()
 
     for url in _MD_LINK_RE.findall(content):
-        url = url.strip().split()[0]  # strip optional title attribute
+        url = url.strip().split()[0]
         if url not in seen:
             seen.add(url)
             urls.append(url)
@@ -398,22 +692,19 @@ def check_policies(
     content: str,
     config: ZenzicConfig,
     links: list[str] | None = None,
+    resolver: Any | None = None,
+    vsm: dict[str, Any] | None = None,
+    repo_root: Path | None = None,
+    docs_root: Path | None = None,
 ) -> list[RuleFinding]:
-    """Convenience wrapper: create a PolicyEvaluator and run all policy checks.
-
-    This is the primary integration surface for the scanner and rule engine.
-    Returns an empty list immediately when no policies are configured
-    (Zero-Cost opt-in).
-
-    Args:
-        file_path: Path to the Markdown source file.
-        content:   Raw file content.
-        config:    Active ZenzicConfig (provides ``[policies]`` settings).
-        links:     Optional pre-extracted link list; extracted from *content*
-                   when ``None``.
-
-    Returns:
-        List of :class:`~zenzic.core.rules.RuleFinding` (may be empty).
-    """
+    """Convenience wrapper: create a PolicyEvaluator and run all policy checks."""
     evaluator = PolicyEvaluator(config)
-    return evaluator.check(file_path, content, links)
+    return evaluator.check(
+        file_path,
+        content,
+        links=links,
+        resolver=resolver,
+        vsm=vsm,
+        repo_root=repo_root,
+        docs_root=docs_root,
+    )

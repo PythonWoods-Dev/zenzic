@@ -1902,10 +1902,10 @@ def test_check_all_strict_exit_zero_conflict_exits_2() -> None:
     assert "mutually exclusive" in result.output.lower() or "exclusive" in result.output.lower()
 
 
-def test_check_all_strict_alone_does_not_conflict() -> None:
+@patch("zenzic.cli._check._collect_all_results", return_value=[])
+def test_check_all_strict_alone_does_not_conflict(_mock_collect) -> None:
     """--strict alone must NOT trigger the conflict guard (flag is parsed without error)."""
-    # We just need the flag to be accepted — repo-root failure is expected on empty env.
-    result = runner.invoke(app, ["check", "all", "--strict"])
+    result = runner.invoke(app, ["check", "all", "--strict", "--no-external"])
     assert result.exit_code != 2 or "mutually exclusive" not in result.output.lower()
 
 
@@ -2038,7 +2038,7 @@ def test_templates_root_keys_not_swallowed() -> None:
 def test_check_all_only_filter_excludes_z118(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Verify that zenzic check all --only z101 excludes Z118 warnings."""
+    """Verify that zenzic check all --only z101 excludes Z620 warnings."""
     monkeypatch.chdir(tmp_path)
     from typer.testing import CliRunner
 
@@ -2060,7 +2060,7 @@ def test_check_all_only_filter_excludes_z118(
         ["check", "all", "--only", "z101", "--no-header"],
         catch_exceptions=False,
     )
-    assert "Z118" not in result.output
+    assert "Z620" not in result.output
 
 
 def test_env_command() -> None:

@@ -34,9 +34,11 @@ description: "Zenzic is a deterministic document integrity engine for Markdown/M
 
 - :material-file-code-outline: &nbsp; **Policy-as-Code Engine**
 
-    Declarative `[policies]` rules enforce governance constraints on
-    frontmatter keys (Z610) and forbidden domain references (Z611)
-    across every file in the workspace.
+    Declarative `[policies]` rules enforce governance constraints across
+    every file — required/forbidden frontmatter (Z610–Z613), Zero-Trust
+    external link whitelisting (Z614), URL scheme enforcement (Z615),
+    and Cross-Namespace topological boundaries via the Virtual Site Map
+    (Z616).
 
     [:material-arrow-right: Policy Configuration](./reference/configuration-reference.md)
 

@@ -331,14 +331,6 @@ Blog pagination set exceeds the 200-page informational threshold.
 
 **Fix:** No action required (informational only). Review the size of the blog.
 
-### Z118: STALE_GLOBAL_SUPPRESSION {#z118}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z118-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z118.md)
-
-An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
-
-**Fix:** Remove the dead configuration line from `.zenzic.toml`.
-
 ### Z120: UNKNOWN_HTML_ATTR {#z120}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z120-unknown-html-attr.md)
@@ -738,6 +730,79 @@ A link (native Markdown or raw HTML `<a href>`) references an external domain li
 [policies]
 forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
 ```
+
+### Z612: FORBIDDEN_FRONTMATTER_KEY {#z612}
+
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z612.md)
+
+A YAML frontmatter key declared in `[policies].forbidden_frontmatter_keys` is present in this document.
+
+**Fix:** Remove the forbidden key from the YAML frontmatter block.
+
+```toml
+[policies]
+forbidden_frontmatter_keys = ["draft", "internal_notes"]
+```
+
+### Z613: FRONTMATTER_SCHEMA_MISMATCH {#z613}
+
+**Severity:** `error` · **Penalty:** −5.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z613.md)
+
+A YAML frontmatter key value fails to match the required RE2 regular expression pattern declared in `[policies].frontmatter_schema_match`.
+
+**Fix:** Update the frontmatter value to conform to the required pattern.
+
+```toml
+[policies.frontmatter_schema_match]
+version = "^v\\d+\\.\\d+\\.\\d+$"
+```
+
+### Z614: UNAPPROVED_DOMAIN_REFERENCE {#z614}
+
+**Severity:** `error` · **Penalty:** −5.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z614.md)
+
+An external link references a domain name that is not included in the Zero-Trust allowed external domains whitelist (`[policies].allowed_external_domains`).
+
+**Fix:** Update the link to point to an approved domain, or add the domain to `allowed_external_domains` in `.zenzic.toml`.
+
+```toml
+[policies]
+allowed_external_domains = ["zenzic.dev", "github.com"]
+```
+
+### Z615: FORBIDDEN_URL_SCHEME {#z615}
+
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z615.md)
+
+A link uses a URL scheme protocol that is not permitted by the explicit whitelist declared in `[policies].required_url_schemes`.
+
+**Fix:** Update the link scheme to an allowed protocol.
+
+```toml
+[policies]
+required_url_schemes = ["https", "mailto"]
+```
+
+### Z616: CROSS_NAMESPACE_LINK_FORBIDDEN {#z616}
+
+**Severity:** `error` · **Penalty:** −8.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z616.md)
+
+An internal link originates from a restricted source namespace and resolves to a forbidden target namespace in the Virtual Site Map (VSM).
+
+**Fix:** Remove the link targeting the restricted namespace, or adjust directory boundaries in `[policies].cross_namespace_restrictions`.
+
+```toml
+[policies.cross_namespace_restrictions]
+"docs/public" = ["docs/internal"]
+```
+
+### Z620: STALE_GLOBAL_SUPPRESSION {#z620}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** No · [↗ Gallery](../tutorials/examples/z6xx-brand/z620-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z620.md)
+
+An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
+
+**Fix:** Remove the dead configuration line from `.zenzic.toml`.
 
 ---
 
