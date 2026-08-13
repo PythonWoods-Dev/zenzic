@@ -114,17 +114,22 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 === "zenzic audit"
 
-    Generate a formal compliance audit report detailing active policies, DQS score calculation, technical debt suppressions, and architectural adapter state:
+    Generate a formal compliance audit report detailing active Policy-as-Code rules, DQS score calculation, technical debt suppressions, baseline drift, and governance posture:
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--format` | `-f` | `text` | Output format: `text` (Rich terminal panels) or `json` (deterministic compliance payload). |
+    | `--format` | `-f` | `text` | Output format: `text` (Rich terminal panels, default) or `json` (deterministic machine-readable compliance payload). |
     | `--strict` | `-s` | `false` | Treat warnings as errors (exit 1 on any warning). |
     | `--no-external` | — | `false` | Skip HTTP validation of external URLs for air-gapped / offline builds. |
     | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
     | `--only` | — | — | Comma-separated list of Z-Codes to include in audit findings. |
     | `--baseline` | — | — | Path to custom baseline snapshot file. |
-    | `--ci` | — | `false` | Run in CI mode. |
+    | `--ci` | — | `false` | Run in CI mode (non-interactive, explicit exit codes). |
+
+    **Audit Report & Determinism:**
+    
+    - Accepts `--format text` (default) for Rich interactive terminal panels and `--format json` for automated compliance pipelines.
+    - The JSON output is **100% deterministic** (timestamps are excluded from the payload hash) to guarantee reproducible compliance builds in CI/CD.
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -133,6 +138,9 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Generate deterministic machine-readable JSON compliance artifact
     zenzic audit --format json
+
+    # Run strict compliance audit in CI pipeline
+    zenzic audit --strict --ci
     ```
 
 === "zenzic diff"

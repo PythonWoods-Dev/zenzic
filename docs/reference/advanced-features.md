@@ -444,4 +444,85 @@ Zensical's locale system, Zenzic adapts automatically:
     zenzic check all --engine standalone
     ```
 
+---
+
+---
+
+## Policy-as-Code Engine
+
+The **Policy-as-Code Engine** allows declarative enforcement of frontmatter schemas (e.g. `Z612`, `Z613`) and cross-namespace link boundaries (e.g. `Z614`, `Z615`, `Z616`) via the `[policies]` table in `.zenzic.toml`.
+
+### Supported Policy Controls
+
+| Policy Key | Target Code | Description |
+| :--- | :---: | :--- |
+| `required_frontmatter_keys` | `Z610` | Frontmatter keys that must be present in every Markdown file. |
+| `forbidden_external_domains` | `Z611` | Domain names forbidden in external HTTP/HTTPS links. |
+| `forbidden_frontmatter_keys` | `Z612` | Frontmatter keys prohibited from documentation files. |
+| `frontmatter_schema_match` | `Z613` | Key-value pairs mapping frontmatter keys to RE2 regex patterns. |
+| `allowed_external_domains` | `Z614` | Explicit allowlist for external links (blocks unapproved domains). |
+| `required_url_schemes` | `Z615` | Approved URL schemes (`https`, `mailto`). |
+| `cross_namespace_restrictions` | `Z616` | Zero-Trust link rules restricting cross-namespace linking. |
+
+### Configuration Example
+
+```toml title=".zenzic.toml"
+[policies]
+required_frontmatter_keys = ["title", "description"]
+forbidden_external_domains = ["untrusted-domain.com"]
+forbidden_frontmatter_keys = ["draft", "internal_notes"]
+
+[policies.frontmatter_schema_match]
+author = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+```
+
+---
+
+## Custom Rule SDK v3
+
+The **Custom Rule SDK v3** (`ZenzicRuleV3` + `RuleMetadata`) provides a typed framework for authoring custom analysis rules in Python.
+
+!!! warning "v0.28.0 Removal of Custom Rules API v2"
+    The legacy Custom Rules API v2 (`BaseASTRule`) was **hard-deprecated and removed in v0.28.0**. All custom rules must inherit from `ZenzicRuleV3` and provide a typed `RuleMetadata` instance to enforce severity, category, and DQS penalty.
+
+### The `RuleMetadata` Instance
+
+```python
+from pathlib import Path
+from zenzic.sdk import ZenzicRuleV3, RuleMetadata
+from zenzic.core.rules import RuleFinding
+
+class ForbiddenInternalUrlRule(ZenzicRuleV3):
+    metadata = RuleMetadata(
+        code="ZZ-NO-BAD-URL",
+        title="Forbidden Internal URL",
+        description="Internal staging URLs must not appear in published documentation.",
+        severity="warning",
+        category="content",
+        penalty=1.0,
+        supports_autofix=False,
+    )
+
+    def visit_line(self, file_path: Path, line_no: int, line_text: str) -> list[RuleFinding]:
+        if "staging.internal" in line_text:
+            return [
+                self.create_finding(
+                    file_path=file_path,
+                    line_no=line_no,
+                    message="Forbidden internal staging URL found.",
+                    matched_line=line_text,
+                )
+            ]
+        return []
+```
+
+### Discovery & Registration
+
+Custom rules placed in `.zenzic/rules/*.py` are auto-discovered at scan startup. Alternatively, external rules can be registered via `[[custom_rules]]` in `.zenzic.toml`:
+
+```toml title=".zenzic.toml"
+[[custom_rules]]
+class_name = "my_company.rules.ForbiddenInternalUrlRule"
+```
+
 [syntax]: https://spec.commonmark.org/0.31.2/#link-reference-definitions

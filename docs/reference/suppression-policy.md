@@ -97,9 +97,11 @@ Zenzic enforces a strict boundary between suppressible quality checks and **invi
 
 ---
 
-## Suppression CAP & Audit Footer
+## Suppression CAP & Technical Debt Ledger
 
-Zenzic tracks active suppressions against a configured `suppression_cap` (default: **30**).
+While suppressions (`<!-- zenzic:ignore -->`, `directory_policies`, `per_file_ignores`) are permitted, they are now formally tracked as Technical Debt.
+
+The `zenzic audit` command generates a **Technical Debt Ledger** that exposes all active suppressions, tracks `suppression_cap` consumption, and identifies suppression hotspots across the documentation tree.
 
 ```toml title=".zenzic.toml"
 [governance]
@@ -107,7 +109,7 @@ suppression_cap = 30
 suppression_cap_fail_hard = true
 ```
 
-The CLI and CI pipelines report active debt state in the audit footer:
+The CLI and CI pipelines report active debt state in the audit footer and through formal `zenzic audit` reports:
 
 ```text title="Terminal"
 🔒 Suppression Audit: 2/30 (inline: 2, per-file: 0) [MANAGED DEBT]
