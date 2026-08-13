@@ -15,11 +15,57 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from zenzic.core import regex as re
 
 
+def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Return normalized plugin declarations from list or mapping syntax.
+
+    MkDocs / compat config supports both:
+    - list syntax: ``plugins: [search, {i18n: {...}}]``
+    - mapping syntax: ``plugins: {search: {}, i18n: {...}}``
+    """
+    raw = doc_config.get("plugins", [])
+    normalized: list[tuple[str, dict[str, Any]]] = []
+
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, str):
+                normalized.append((item, {}))
+                continue
+            if isinstance(item, dict):
+                for name, cfg in item.items():
+                    normalized.append((name, cfg if isinstance(cfg, dict) else {}))
+        return normalized
+
+    if isinstance(raw, dict):
+        for name, cfg in raw.items():
+            normalized.append((name, cfg if isinstance(cfg, dict) else {}))
+
+    return normalized
+
+
+def _extract_blog_dir(doc_config: dict[str, Any]) -> str | None:
+    """Extract relative blog posts prefix from MkDocs / compat blog plugin config.
+
+    Returns:
+        The relative ``<blog_dir>/posts/`` prefix (e.g. ``"blog/posts"``) when
+        the blog plugin is active; ``None`` when the plugin is absent.
+    """
+    for name, blog_cfg in _iter_plugins(doc_config):
+        # Accept both short form ``blog`` and fully-qualified ``material/blog``.
+        if name not in ("blog", "material/blog"):
+            continue
+        blog_dir = blog_cfg.get("blog_dir", "blog") if isinstance(blog_cfg, dict) else "blog"
+        blog_dir = blog_dir.strip("/")
+        return f"{blog_dir}/posts"
+    return None
+
+
 def dedupe_roots(roots: list[Path]) -> list[Path]:
+
     """Return roots de-duplicated by resolved absolute path, preserving order."""
     seen: set[str] = set()
     out: list[Path] = []

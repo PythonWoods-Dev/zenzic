@@ -106,9 +106,14 @@ Constructs and returns routing metadata, including the canonical URL and route s
 
 Returns the set of framework configuration filenames (e.g., `mkdocs.yml`, `zensical.toml`) that dictate documentation structure. The Zenzic Language Server watches these files to trigger real-time VSM hot-reloading.
 
+#### `dynamic_directories` (Property `-> set[Path]`)
+
+Returns the set of absolute directory paths managed dynamically by framework plugins or engine runtime components (e.g., MkDocs Material blog post directories). This prevents false-positive `Z401` (`MISSING_DIRECTORY_INDEX`) findings on directories that lack a physical `index.md` on disk but are served dynamically by the framework at build time, eliminating the need for configuration suppressions in `.zenzic.toml`.
+
 #### `use_directory_urls` (Property `-> bool`)
 
 Declares the adapter routing mode for canonical page URLs. Return `True` for directory-style URLs (`/page/`), and `False` for flat HTML-style URLs (`/page.html`). The incremental engine forwards this value to VSM link canonicalization.
+
 
 ---
 

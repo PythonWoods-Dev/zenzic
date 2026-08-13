@@ -13,6 +13,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 *Upcoming changes for the next release.*
 
+### Changed
+
+- **Adapter API**: Extended the `BaseAdapter` contract with the `dynamic_directories` property. This allows adapters to declare directories managed dynamically by framework plugins (e.g., MkDocs blog posts), eradicating false-positive `Z401` (Missing Directory Index) findings without requiring configuration suppressions.
+
+
 ## [0.29.0] - 2026-08-13
 
 Upcoming changes for the next release.
