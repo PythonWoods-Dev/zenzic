@@ -16,6 +16,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **Adapter API**: Extended the `BaseAdapter` contract with the `dynamic_directories` property. This allows adapters to declare directories managed dynamically by framework plugins (e.g., MkDocs blog posts), eradicating false-positive `Z401` (Missing Directory Index) findings without requiring configuration suppressions.
+- **Adapter Isolation**: Extracted shared plugin configuration helpers to `_utils.py`, eliminating cross-adapter dependencies between `ZensicalAdapter` and `MkDocsAdapter` while preserving 100% backward compatibility for `mkdocs.yml` compat mode.
+- **Noise Reduction**: Applied global directory policies to suppress circular links (`Z106`) in documentation roots.
+
 
 
 ## [0.29.0] - 2026-08-13
