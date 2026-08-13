@@ -246,6 +246,38 @@ class PoliciesConfig(BaseModel):
             'Example: ["competitor.example.com", "legacy.corp"]'
         ),
     )
+    forbidden_frontmatter_keys: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of frontmatter keys that MUST NOT exist in any Markdown file. "
+            "Presence of any forbidden key emits Z612 FORBIDDEN_FRONTMATTER_KEY. "
+            "Policy is inactive when the list is empty (opt-in). "
+            'Example: ["draft", "internal_notes"]'
+        ),
+    )
+    frontmatter_schema_match: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping frontmatter key names to RE2 regex patterns "
+            "that the key's value must match. "
+            "Mismatch emits Z613 FRONTMATTER_SCHEMA_MISMATCH. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"version": r"^v\\d+\\.\\d+\\.\\d+$"}'
+        ),
+    )
+
+    @field_validator("frontmatter_schema_match")
+    @classmethod
+    def _validate_frontmatter_schema_patterns(cls, v: dict[str, str]) -> dict[str, str]:
+        for key, pattern in v.items():
+            try:
+                re.compile(pattern)
+            except Exception as err:
+                raise ValueError(
+                    f"Invalid RE2 regex pattern for frontmatter key '{key}' in "
+                    f"[policies].frontmatter_schema_match: {pattern!r} ({err})"
+                ) from err
+        return v
 
 
 class NetworkConfig(BaseModel):
@@ -645,7 +677,7 @@ class ZenzicConfig(BaseModel):
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
         _HANDLED_SECTIONS = frozenset(
-            {"build_context", "custom_rules", "project_metadata", "governance", "i18n", "network"}
+            {"build_context", "custom_rules", "project_metadata", "governance", "i18n", "network", "policies"}
         )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
@@ -689,6 +721,14 @@ class ZenzicConfig(BaseModel):
                     k: v
                     for k, v in data["governance"].items()
                     if k in GovernanceConfig.model_fields
+                }
+            )
+        if "policies" in data and isinstance(data["policies"], dict):
+            filtered_data["policies"] = PoliciesConfig(
+                **{
+                    k: v
+                    for k, v in data["policies"].items()
+                    if k in PoliciesConfig.model_fields
                 }
             )
         if "network" in data and isinstance(data["network"], dict):

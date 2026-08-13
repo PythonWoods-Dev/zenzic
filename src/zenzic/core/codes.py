@@ -249,6 +249,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
     "Z610": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
     "Z611": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
+    "Z612": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_FRONTMATTER_KEY (v0.29.0)
+    "Z613": CodeDefinition("error", 5.0, "brand"),  # FRONTMATTER_SCHEMA_MISMATCH (v0.29.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -309,6 +311,8 @@ CODE_NAMES: dict[str, str] = {
     "Z603": "DEAD_SUPPRESSION",
     "Z610": "REQUIRED_FRONTMATTER_MISSING",
     "Z611": "FORBIDDEN_DOMAIN_REFERENCE",
+    "Z612": "FORBIDDEN_FRONTMATTER_KEY",
+    "Z613": "FRONTMATTER_SCHEMA_MISMATCH",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -376,6 +380,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
     "Z610": "Required frontmatter key is absent from this document",
     "Z611": "Link references an external domain forbidden by the [policies] configuration",
+    "Z612": "Forbidden frontmatter key is present in YAML frontmatter block",
+    "Z613": "Frontmatter key value does not match the required RE2 pattern declared in [policies].frontmatter_schema_match",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",

@@ -742,6 +742,40 @@ Declarative list of restricted external domain prefixes. Links (native Markdown 
 forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
 ```
 
+### `forbidden_frontmatter_keys` {#forbidden-frontmatter-keys}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z612 `FORBIDDEN_FRONTMATTER_KEY` |
+| **Opt-in** | **Yes** |
+
+Declarative list of forbidden YAML frontmatter keys. Every Markdown file in the documentation graph must not contain any of these keys in its leading `---` frontmatter block. Zenzic emits Z612 for each present forbidden key per file.
+
+```toml
+[policies]
+forbidden_frontmatter_keys = ["draft", "internal_notes"]
+```
+
+### `frontmatter_schema_match` {#frontmatter-schema-match}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, str]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z613 `FRONTMATTER_SCHEMA_MISMATCH` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping frontmatter key names to required RE2 regular expression pattern strings. If a key is present in a file's frontmatter and its string value fails to match the specified pattern, Zenzic emits a Z613 error finding.
+
+```toml
+[policies.frontmatter_schema_match]
+version = "^v\\d+\\.\\d+\\.\\d+$"
+```
+
 ---
 
 ## Custom Rules {#custom-rules}

@@ -68,7 +68,7 @@ If no Z2xx finding is detected, the engine calculates per-category scores using 
 | Structural | `structural` | Z101–Z105, Z107–Z109, Z113, Z121, Z124, Z410, Z411 | 30% | 30 pts |
 | Navigation | `navigation` | Z301–Z303, Z402 | 25% | 25 pts |
 | Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z512 | 20% | 20 pts |
-| Governance & Brand | `brand` | Z620, Z404–Z406, Z601, Z603, Z610, Z611 | 25% | 25 pts |
+| Governance & Brand | `brand` | Z620, Z404–Z406, Z601, Z603, Z610, Z611, Z612, Z613 | 25% | 25 pts |
 
 ### Category Penalty Formula
 
@@ -120,6 +120,8 @@ Below is the authoritative, full reference table for all 36 active penalty-beari
 | **Z603** | DEAD_SUPPRESSION | 1.0 pts | Governance & Brand | Standard |
 | **Z610** | REQUIRED_FRONTMATTER_MISSING | 3.0 pts | Governance & Brand | **Opt-In** |
 | **Z611** | FORBIDDEN_DOMAIN_REFERENCE | 3.0 pts | Governance & Brand | **Opt-In** |
+| **Z612** | FORBIDDEN_FRONTMATTER_KEY | 3.0 pts | Governance & Brand | **Opt-In** |
+| **Z613** | FRONTMATTER_SCHEMA_MISMATCH | 5.0 pts | Governance & Brand | **Opt-In** |
 
 !!! note Informational & Configuration Codes Excluded
     - **Z106** (CIRCULAR_LINK), **Z114** (LARGE_PAGINATION_SET), **Z123** (NON_HTTP_SCHEME), **Z401** (MISSING_DIRECTORY_INDEX), and **Z504** (QUALITY_REGRESSION) carry **0.0 pts** penalty and do not impact the DQS.
@@ -129,7 +131,7 @@ Below is the authoritative, full reference table for all 36 active penalty-beari
 
 ## Stage 3 — Governance Escalation {#governance-escalation}
 
-When Governance & Brand findings (codes $\mathcal{G} = \{Z601, Z603, Z610, Z611\}$) exceed **10 total occurrences**, an exponential penalty amplifier is applied to the Governance category deduction:
+When Governance & Brand findings (codes $\mathcal{G} = \{Z601, Z603, Z610, Z611, Z612, Z613, Z620\}$) exceed **10 total occurrences**, an exponential penalty amplifier is applied to the Governance category deduction:
 
 $$
 \text{deduction}_{\text{brand}}' = \min\!\left(\text{cap}_{\text{brand}},\; \text{deduction}_{\text{brand}} \times 2^{(n_{\text{excess}} / 5)}\right)

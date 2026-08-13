@@ -376,6 +376,20 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z611-forbidden-domain",
         expected_pass=False,
     ),
+    "z612": _Act(
+        code="z612",
+        title="Forbidden Frontmatter Key",
+        description="Z612 FORBIDDEN_FRONTMATTER_KEY — forbidden key present in YAML frontmatter block",
+        example_dir="z612-forbidden-frontmatter-key",
+        expected_pass=False,
+    ),
+    "z613": _Act(
+        code="z613",
+        title="Frontmatter Schema Mismatch",
+        description="Z613 FRONTMATTER_SCHEMA_MISMATCH — frontmatter key value fails required RE2 pattern",
+        example_dir="z613-frontmatter-schema-mismatch",
+        expected_pass=False,
+    ),
     "z410": _Act(
         code="z410",
         title="Unreachable Graph Node",

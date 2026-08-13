@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z613 FRONTMATTER_SCHEMA_MISMATCH gallery example
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+
+[policies.frontmatter_schema_match]
+version = "^v\\d+\\.\\d+\\.\\d+$"

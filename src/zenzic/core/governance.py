@@ -37,18 +37,33 @@ _FRONTMATTER_BLOCK_RE = _stdlib_re.compile(r"\A\s*---\s*\n(.*?)\n---", _stdlib_r
 _FM_KEY_VALUE_RE = _stdlib_re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", _stdlib_re.MULTILINE)
 
 
-def _parse_frontmatter_keys(content: str) -> set[str]:
-    """Return the set of top-level frontmatter key names present in *content*.
+def _parse_frontmatter_dict(content: str) -> dict[str, str]:
+    """Return a dictionary of top-level frontmatter key-value pairs present in *content*.
 
     Only inspects the leading ``---`` fenced block (after stripping leading comments).
-    Returns an empty set when no frontmatter is present or the block is malformed.
+    Returns an empty dict when no frontmatter is present or the block is malformed.
+    Values are stripped of leading/trailing whitespace and outer matching quotes.
     """
     clean_content = _COMMENT_RE.sub("", content).lstrip()
     fm = _FRONTMATTER_BLOCK_RE.match(clean_content)
     if fm is None:
-        return set()
+        return {}
     block = fm.group(1)
-    return {m.group(1) for m in _FM_KEY_VALUE_RE.finditer(block)}
+    result: dict[str, str] = {}
+    for m in _FM_KEY_VALUE_RE.finditer(block):
+        key = m.group(1)
+        raw_val = m.group(2).strip()
+        if (raw_val.startswith('"') and raw_val.endswith('"')) or (
+            raw_val.startswith("'") and raw_val.endswith("'")
+        ):
+            raw_val = raw_val[1:-1].strip()
+        result[key] = raw_val
+    return result
+
+
+def _parse_frontmatter_keys(content: str) -> set[str]:
+    """Return the set of top-level frontmatter key names present in *content*."""
+    return set(_parse_frontmatter_dict(content).keys())
 
 
 def _extract_code_and_rel_path(
@@ -202,17 +217,7 @@ def apply_directory_policies(
 class PolicyEvaluator:
     """Stateless, deterministic evaluator for ``[policies]`` declarations (v0.28.0).
 
-    Evaluates Z610 REQUIRED_FRONTMATTER_MISSING and Z611 FORBIDDEN_DOMAIN_REFERENCE
-    against a single Markdown file.
-
-    Architectural invariants
-    ------------------------
-    * **No I/O**: all inputs are passed as arguments; no filesystem reads.
-    * **No subprocess**: evaluation occurs entirely in-memory.
-    * **Deterministic**: same inputs always produce the same findings.
-    * **Stateless per file**: the evaluator holds no per-file state between calls.
-    * **Opt-in**: when both policy lists are empty the evaluator is a no-op.
-    * **Radical Unawareness**: no VS Code / LSP knowledge inside this class (ADR-075).
+    Evaluates Z610, Z611, Z612, Z613 policies against a single Markdown file.
 
     Usage::
 
@@ -224,13 +229,20 @@ class PolicyEvaluator:
     def __init__(self, config: ZenzicConfig) -> None:
         self._required_keys: list[str] = config.policies.required_frontmatter_keys
         self._forbidden_domains: list[str] = config.policies.forbidden_external_domains
+        self._forbidden_keys: list[str] = config.policies.forbidden_frontmatter_keys
+        self._schema_match: dict[str, str] = config.policies.frontmatter_schema_match
 
     # ── Public surface ────────────────────────────────────────────────────────
 
     @property
     def is_active(self) -> bool:
         """Return True when at least one policy rule is configured."""
-        return bool(self._required_keys or self._forbidden_domains)
+        return bool(
+            self._required_keys
+            or self._forbidden_domains
+            or self._forbidden_keys
+            or self._schema_match
+        )
 
     def check(
         self,
@@ -238,26 +250,13 @@ class PolicyEvaluator:
         content: str,
         links: list[str] | None = None,
     ) -> list[RuleFinding]:
-        """Run all configured policy checks against a single Markdown file.
-
-        Args:
-            file_path: Absolute or relative path to the source file (for
-                finding attribution; no I/O performed on this path).
-            content:   Raw Markdown source text of the file.
-            links:     Optional pre-extracted list of URL strings (both Markdown
-                       and HTML) from the file.  When ``None`` the evaluator
-                       extracts links from *content* internally.
-
-        Returns:
-            A list of :class:`~zenzic.core.rules.RuleFinding` objects.
-            Empty when no policies are violated or no policies are configured.
-        """
+        """Run all configured policy checks against a single Markdown file."""
         if not self.is_active:
             return []
 
         findings: list[RuleFinding] = []
 
-        if self._required_keys:
+        if self._required_keys or self._forbidden_keys or self._schema_match:
             findings.extend(self._check_frontmatter(file_path, content))
 
         if self._forbidden_domains:
@@ -269,17 +268,18 @@ class PolicyEvaluator:
     # ── Internal checkers ─────────────────────────────────────────────────────
 
     def _check_frontmatter(self, file_path: Path, content: str) -> list[RuleFinding]:
-        """Z610: Emit one finding per required frontmatter key that is absent."""
-        if not self._required_keys:
+        """Z610, Z612, Z613 frontmatter policy checks."""
+        if not (self._required_keys or self._forbidden_keys or self._schema_match):
             return []
 
         from zenzic.core.rules import RuleFinding
 
-        present_keys = _parse_frontmatter_keys(content)
+        fm_dict = _parse_frontmatter_dict(content)
         findings: list[RuleFinding] = []
 
+        # Z610 REQUIRED_FRONTMATTER_MISSING
         for key in self._required_keys:
-            if key not in present_keys:
+            if key not in fm_dict:
                 findings.append(
                     RuleFinding(
                         rule_id="Z610",
@@ -294,6 +294,48 @@ class PolicyEvaluator:
                         matched_line="",
                     )
                 )
+
+        # Z612 FORBIDDEN_FRONTMATTER_KEY
+        for key in self._forbidden_keys:
+            if key in fm_dict:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z612",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=1,
+                        message=(
+                            f"Forbidden frontmatter key '{key}' is present. "
+                            f"Remove '{key}' from the YAML frontmatter block. "
+                            f"Declared in [policies].forbidden_frontmatter_keys."
+                        ),
+                        matched_line=f"{key}: {fm_dict[key]}",
+                    )
+                )
+
+        # Z613 FRONTMATTER_SCHEMA_MISMATCH
+        for key, pattern_str in self._schema_match.items():
+            if key in fm_dict:
+                val = fm_dict[key]
+                try:
+                    compiled = re.compile(pattern_str)
+                    matched = bool(compiled.search(val))
+                except Exception:
+                    matched = True
+                if not matched:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z613",
+                            severity="error",
+                            file_path=file_path,
+                            line_no=1,
+                            message=(
+                                f"Frontmatter key '{key}' value '{val}' does not match required RE2 pattern '{pattern_str}'. "
+                                f"Declared in [policies].frontmatter_schema_match."
+                            ),
+                            matched_line=f"{key}: {val}",
+                        )
+                    )
 
         return findings
 

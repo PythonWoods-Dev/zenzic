@@ -731,6 +731,32 @@ A link (native Markdown or raw HTML `<a href>`) references an external domain li
 forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
 ```
 
+### Z612: FORBIDDEN_FRONTMATTER_KEY {#z612}
+
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z612.md)
+
+A YAML frontmatter key declared in `[policies].forbidden_frontmatter_keys` is present in this document.
+
+**Fix:** Remove the forbidden key from the YAML frontmatter block.
+
+```toml
+[policies]
+forbidden_frontmatter_keys = ["draft", "internal_notes"]
+```
+
+### Z613: FRONTMATTER_SCHEMA_MISMATCH {#z613}
+
+**Severity:** `error` · **Penalty:** −5.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** Yes · [↗ Rule Specification](../rules/Z613.md)
+
+A YAML frontmatter key value fails to match the required RE2 regular expression pattern declared in `[policies].frontmatter_schema_match`.
+
+**Fix:** Update the frontmatter value to conform to the required pattern.
+
+```toml
+[policies.frontmatter_schema_match]
+version = "^v\\d+\\.\\d+\\.\\d+$"
+```
+
 ### Z620: STALE_GLOBAL_SUPPRESSION {#z620}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** No · [↗ Gallery](../tutorials/examples/z6xx-brand/z620-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z620.md)
