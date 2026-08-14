@@ -49,15 +49,8 @@ def test_mkdocs_adapter_dynamic_directories_blog_plugin(tmp_path: Path) -> None:
     blog_posts_dir = docs_dir / "blog" / "posts"
     blog_posts_dir.mkdir(parents=True)
 
-    cfg = {
-        "docs_dir": "docs",
-        "plugins": [
-            {"material/blog": {"blog_dir": "blog"}}
-        ]
-    }
+    cfg = {"docs_dir": "docs", "plugins": [{"material/blog": {"blog_dir": "blog"}}]}
     adapter = MkDocsAdapter(BuildContext(engine="mkdocs"), docs_dir, cfg, repo_root=tmp_path)
-
-
 
     assert blog_posts_dir.resolve() in adapter.dynamic_directories
     # Directory contains no physical index.md, but provides_index must return True via dynamic_directories

@@ -48,6 +48,3 @@ excluded_file_patterns = []
 "docs/tutorials/examples/**" = ["Z410", "Z411"]
 "docs/tutorials/examples/z1xx-links/**" = ["Z107"]
 "docs/tutorials/examples/z5xx-content/**" = ["Z506"]
-
-
-

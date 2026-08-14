@@ -39,7 +39,6 @@ if TYPE_CHECKING:
     from zenzic.models.vsm import RouteStatus, VirtualSiteMap
 
 
-
 def _iter_path_like_values(value: Any) -> list[str]:
     """Extract path-like string values from nested plugin config structures."""
     out: list[str] = []
@@ -328,9 +327,6 @@ def _extract_i18n_fallback_to_default(doc_config: dict[str, Any]) -> bool:
             continue
         return bool(i18n_config.get("fallback_to_default", True))
     return True
-
-
-
 
 
 def _validate_i18n_fallback_config(doc_config: dict[str, Any]) -> None:
@@ -769,7 +765,6 @@ class MkDocsAdapter(BaseAdapter):
             return {(self._docs_root / self._blog_posts_prefix).resolve()}
         return set()
 
-
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when MkDocs will serve an index page for this directory.
 
@@ -790,7 +785,6 @@ class MkDocsAdapter(BaseAdapter):
         if any((directory_path / f).exists() for f in ("index.md", "README.md")):
             return True
         return directory_path.resolve() in self.dynamic_directories
-
 
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """MkDocs has no engine-specific link-scheme bypass."""

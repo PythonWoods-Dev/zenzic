@@ -38,11 +38,12 @@ from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import find_mkdocs_config_file, load_mkdocs_config
-
-
-from zenzic.core.adapters._utils import _extract_blog_dir, case_sensitive_exists, remap_to_default_locale
+from zenzic.core.adapters._utils import (
+    _extract_blog_dir,
+    case_sensitive_exists,
+    remap_to_default_locale,
+)
 from zenzic.core.exceptions import ZenzicConfigError
-
 from zenzic.models.config import BuildContext
 
 
@@ -437,10 +438,6 @@ class ZensicalAdapter(BaseAdapter):
             return {(self._docs_root / blog_prefix).resolve()}
         return set()
 
-
-
-
-
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when Zensical will serve an index page for this directory.
 
@@ -461,7 +458,6 @@ class ZensicalAdapter(BaseAdapter):
         if (directory_path / "index.md").exists():
             return True
         return directory_path.resolve() in self.dynamic_directories
-
 
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """Zensical has no engine-specific link-scheme bypass."""

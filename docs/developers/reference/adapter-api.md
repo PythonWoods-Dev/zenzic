@@ -114,7 +114,6 @@ Returns the set of absolute directory paths managed dynamically by framework plu
 
 Declares the adapter routing mode for canonical page URLs. Return `True` for directory-style URLs (`/page/`), and `False` for flat HTML-style URLs (`/page.html`). The incremental engine forwards this value to VSM link canonicalization.
 
-
 ---
 
 ## `zenzic.rules` — Plugin SDK Façade

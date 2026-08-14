@@ -19,7 +19,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Adapter Isolation**: Extracted shared plugin configuration helpers to `_utils.py`, eliminating cross-adapter dependencies between `ZensicalAdapter` and `MkDocsAdapter` while preserving 100% backward compatibility for `mkdocs.yml` compat mode.
 - **Noise Reduction**: Applied global directory policies to suppress circular links (`Z106`) in documentation roots.
 
+### Security
 
+- **Supply Chain Remediation**: Upgraded `pymdown-extensions` (to `11.0.1`, remediating `CVE-2026-67422` and `CVE-2026-61632`), `GitPython` (to `3.1.59`, remediating 15 GHSA advisories), and all transitive dependencies in `uv.lock`. `pip-audit` confirms 0 known vulnerabilities.
+- **Sensitive Data Masking (CWE-312 / CWE-532)**: Masked secret values in `zenzic guard scan` JSON and table outputs (`src/zenzic/cli/_guard.py`), remediating CodeQL alert `py/clear-text-logging-sensitive-data` to prevent accidental credential leakage in CI/CD logs and terminal reports.
+- **AST Mutator Regex Hardening (CWE-116 / CWE-185)**: Replaced insecure generic HTML comment regex with deterministic suppression pattern matching and compiled RE2 expressions in `src/zenzic/core/mutator.py`, resolving CodeQL alert `py/bad-tag-filter`.
+
+### Fixed
+
+- **CLI Contract Stability**: Explicitly designated `metavar="PATH"` on the `path` argument of `zenzic check all` in `src/zenzic/cli/_check.py` to ensure CLI help contract snapshot stability across Click and Typer upstream updates.
 
 ## [0.29.0] - 2026-08-13
 

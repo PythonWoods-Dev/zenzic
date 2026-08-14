@@ -115,6 +115,15 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
     return sorted(iter_markdown_sources(docs_root, config, exclusion_mgr))
 
 
+def _mask_secret(secret: str) -> str:
+    """Mask sensitive secret values to prevent cleartext exposure in logs/terminal (CWE-312 / CWE-532)."""
+    if not secret:
+        return ""
+    if len(secret) <= 8:
+        return "*" * len(secret)
+    return f"{secret[:4]}...{secret[-4:]}"
+
+
 @guard_app.command(name="scan")
 def scan(
     paths: list[str] = typer.Argument(
@@ -158,18 +167,20 @@ def scan(
         findings.extend(_scan_file_for_secrets(target, forbidden_patterns))
 
     if output_format == "json":
-        payload = {
-            "targets": len(targets),
-            "findings": [
+        items = []
+        for f in findings:
+            items.append(
                 {
                     "file": str(f.file_path),
                     "line": f.line_no,
-                    "secret_type": f.secret_type,
-                    "match": f.match_text,
-                    "context": f.url,
+                    "type": str(f.secret_type),
+                    "match": _mask_secret(f.match_text),
+                    "context": _mask_secret(f.url) if f.url else "",
                 }
-                for f in findings
-            ],
+            )
+        payload = {
+            "targets": len(targets),
+            "findings": items,
         }
         print(json.dumps(payload, indent=2))
         if findings:
@@ -193,7 +204,12 @@ def scan(
                 file_cell = str(rel)
             except ValueError:
                 file_cell = str(finding.file_path)
-            table.add_row(file_cell, str(finding.line_no), finding.secret_type, finding.match_text)
+            table.add_row(
+                file_cell,
+                str(finding.line_no),
+                finding.secret_type,
+                _mask_secret(finding.match_text),
+            )
         _shared.console.print(table)
         _shared.console.print(
             f"[bold {ZenzicPalette.ERROR}]Secret Guard blocked commit:[/] "

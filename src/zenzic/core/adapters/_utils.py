@@ -65,7 +65,6 @@ def _extract_blog_dir(doc_config: dict[str, Any]) -> str | None:
 
 
 def dedupe_roots(roots: list[Path]) -> list[Path]:
-
     """Return roots de-duplicated by resolved absolute path, preserving order."""
     seen: set[str] = set()
     out: list[Path] = []
