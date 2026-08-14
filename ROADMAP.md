@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 This document describes the planned milestone trajectory for Zenzic, the **Deterministic Document Integrity Engine for Markdown/MDX graphs**.
 Dates are targets, not commitments. All milestones are subject to revision.
 
-For the current release history and completed milestones (up to `v0.26.x`), see [CHANGELOG.md](CHANGELOG.md).
+For the current release history and completed milestones (up to `v0.29.x`), see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -25,24 +25,7 @@ Before advancing the core feature set, the following infrastructural and validat
 
 ## Milestone Sequence
 
-> For completed milestones (`v0.23` through `v0.27`), see [CHANGELOG.md](CHANGELOG.md).
-
-### [v0.28] — Governance & Extensibility
-
-*Opening the engine to enterprise policies and custom integrations.*
-
-- [x] **Policy-as-Code Engine:** Formalize governance by transforming scattered configurations and ADRs into a verifiable, declarative model. (Foundation released in v0.28.x)
-- [x] **Custom Rule SDK v3:** Stabilize the analysis engine and sandbox to allow the community to build safe, deterministic custom rules. (Released in v0.28.x)
-- [x] **SARIF Enterprise Integration:** Enhance security and compliance integrations for GitHub Code Scanning and enterprise dashboards. (Released in v0.28.x)
-- [x] **Zenzic Audit Mode:** High-value enterprise compliance reporting command (`zenzic audit`) detailing active policies, DQS score, technical debt, and architectural state. (Released in v0.28.x)
-
-### [v0.29] — Policy-as-Code Expansion
-
-*Expanding governance policy evaluation, metadata validation, and link topology boundaries.*
-
-- [x] **Taxonomic Refactoring:** Renamed finding code `Z118` to `Z620` (`STALE_GLOBAL_SUPPRESSION`) to align its identifier with the DQS Governance & Brand category and escalation amplifier.
-- [x] **Metadata Governance Policies (`Z612`, `Z613`):** Declarative validation of required/forbidden frontmatter keys and schema matching.
-- [x] **Link & Topology Governance (`Z614`–`Z616`):** Virtual Site Map (VSM) zero-trust link evaluation, forbidden URL schemes, and cross-namespace link boundaries.
+> For completed milestones (`v0.23` through `v0.29`), see [CHANGELOG.md](CHANGELOG.md).
 
 ### [v0.30] — Semantic Linting Supremacy
 
@@ -52,15 +35,31 @@ Before advancing the core feature set, the following infrastructural and validat
 - **Editorial Style Enforcement (`Z518`, `Z519`, `Z617`–`Z619`):** Deterministic heuristics for passive voice, weasel words, forbidden/required content patterns, and document complexity.
 - **Semantic List Heuristics (`Z520`):** Automatic detection of malformed/fake lists formatted with semicolons/commas.
 
-### [v0.31] — Adapters & Ecosystem Expansion
+### [v0.31] — Docusaurus Bridge Architecture
 
-*Expanding the perimeter to external frameworks and multi-repository graphs.*
+*The first concrete implementation of the adapter ecosystem.*
 
-- **Docusaurus Bridge Architecture:** The first concrete implementation of the adapter ecosystem, validating the artifact-based VSM model outside the Core.
-- **Sphinx & Hugo Adapters:** Extend open-source compatibility following the stabilization of the `BaseAdapter` contract.
-- **Multi-Repository Documentation Graph:** Advanced feature to analyze documentation spanning multiple repositories, requiring full maturity of the VSM and artifact composition.
+- **`@zenzic/plugin-docusaurus`:** Validate the artifact-based Virtual Site Map (VSM) model outside the Python Core, allowing deterministic validation of Docusaurus routing without framework coupling.
 
-### [v0.32] — Operational Excellence
+### [v0.32] — Sphinx Adapter
+
+*Extending open-source compatibility to the Python ecosystem.*
+
+- **Native Sphinx Parsing:** Parse `conf.py` and `.rst` files natively without invoking the `sphinx-build` subprocess, translating Sphinx cross-references into the standard VSM.
+
+### [v0.33] — Hugo Adapter
+
+*Extending open-source compatibility to the Go ecosystem.*
+
+- **Native Hugo Parsing:** Parse `hugo.toml` and frontmatter conventions to deterministically replicate Hugo's permalink generation rules within the Zenzic VSM.
+
+### [v0.34] — Multi-Repository Documentation Graph
+
+*Enterprise-scale topology validation.*
+
+- **Artifact Composition:** Allow Zenzic to aggregate multiple VSM artifacts to detect broken cross-repository references and routing inconsistencies across distributed documentation.
+
+### [v0.35] — Operational Excellence
 
 *Advanced observability and developer experience.*
 
