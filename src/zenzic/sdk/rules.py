@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -139,12 +140,9 @@ class ZenzicRuleV3(BaseRule):
         if self._is_method_overridden("visit_heading"):
             from zenzic.core.parser import parse
 
-            try:
+            with contextlib.suppress(Exception):
                 doc = parse(text)
                 self._walk_headings(doc, file_path, findings)
-            except Exception:
-                # Fail-open: suppress AST parse errors to ensure custom rule evaluation completes
-                pass
 
     def _walk_headings(self, node: Any, file_path: Path, findings: list[RuleFinding]) -> None:
         from zenzic.core.ast import Heading, TextNode

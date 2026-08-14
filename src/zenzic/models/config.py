@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 
@@ -1071,10 +1072,8 @@ class ZenzicConfig(BaseModel):
             for key in BuildContext.model_fields:
                 if key in build_local:
                     merged_build[key] = build_local[key]
-            try:
+            with contextlib.suppress(Exception):
                 config.build_context = BuildContext(**merged_build)
-            except Exception:
-                pass
 
         metadata_local = local_data.get("project_metadata")
         if isinstance(metadata_local, dict):
@@ -1082,10 +1081,8 @@ class ZenzicConfig(BaseModel):
             for key in ProjectMetadata.model_fields:
                 if key in metadata_local:
                     merged_meta[key] = metadata_local[key]
-            try:
+            with contextlib.suppress(Exception):
                 config.project_metadata = ProjectMetadata(**merged_meta)
-            except Exception:
-                pass
 
         governance_local = local_data.get("governance")
         if isinstance(governance_local, dict):
@@ -1102,10 +1099,8 @@ class ZenzicConfig(BaseModel):
             for key in GovernanceConfig.model_fields:
                 if key in governance_local and key != "brand_obsolescence":
                     merged_governance[key] = governance_local[key]
-            try:
+            with contextlib.suppress(Exception):
                 config.governance = GovernanceConfig(**merged_governance)
-            except Exception:
-                pass
 
         merged_forbidden = list(config.forbidden_patterns)
 
@@ -1150,13 +1145,12 @@ class ZenzicConfig(BaseModel):
         # This prevents a non-versioned local file from silently disabling global lint policy.
         local_custom_rules_raw = local_data.get("custom_rules", [])
         if isinstance(local_custom_rules_raw, list) and local_custom_rules_raw:
-            try:
+            local_rules = []
+            with contextlib.suppress(Exception):
                 local_rules = [
                     CustomRuleConfig(**r) for r in local_custom_rules_raw if isinstance(r, dict)
                 ]
-            except Exception:
-                pass  # malformed local rule — silently skip (consistent with other merge blocks)
-            else:
+            if local_rules:
                 merged_rules: dict[str, CustomRuleConfig] = {}
                 for idx, r in enumerate(config.custom_rules):
                     key = r.id or r.class_name or f"rule_{idx}"
@@ -1195,12 +1189,9 @@ def load_config_with_diagnostics(
             target_file = pyproject
 
     if not target_file.is_file() and content_override is None:
-        try:
-            cfg = ZenzicConfig()
-            cfg.origin_file = repo_root / ".zenzic.toml"
-            return cfg, []
-        except Exception:
-            pass
+        cfg = ZenzicConfig()
+        cfg.origin_file = repo_root / ".zenzic.toml"
+        return cfg, []
 
     content = ""
     if content_override is not None:
@@ -1255,7 +1246,7 @@ def load_config_with_diagnostics(
         if line_no is None:
             msg_str = str(exc)
             if "line " in msg_str:
-                try:
+                with contextlib.suppress(Exception):
                     part = msg_str.split("line ", 1)[1]
                     num_str = ""
                     for char in part:
@@ -1265,8 +1256,6 @@ def load_config_with_diagnostics(
                             break
                     if num_str:
                         line_no = int(num_str)
-                except Exception:
-                    pass
         if line_no is None or line_no <= 0:
             line_no = 1
         lines = err_content.splitlines() if err_content else []
@@ -1315,14 +1304,12 @@ def load_config_with_diagnostics(
 
         err_rel_path = rel_file_str
         if isinstance(exc, ZenzicConfigError) and exc.context and "file" in exc.context:
-            try:
+            with contextlib.suppress(Exception):
                 f_path = Path(exc.context["file"])
                 if repo_root in f_path.parents or f_path.parent == repo_root:
                     err_rel_path = str(f_path.relative_to(repo_root))
                 else:
                     err_rel_path = f_path.name
-            except Exception:
-                pass
         finding = Finding(
             rel_path=err_rel_path,
             line_no=1,

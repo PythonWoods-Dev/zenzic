@@ -30,6 +30,7 @@ Architecture invariants
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -471,15 +472,13 @@ class IncrementalAnalysisEngine:
         canonical = next((url for url, r in vsm.items() if r.source == rel_posix), "")
 
         if not canonical:
-            try:
+            with contextlib.suppress(Exception):
                 if path.is_relative_to(self.docs_root):
                     rel_obj = path.relative_to(self.docs_root)
                 else:
                     rel_obj = path
                 meta = self.adapter.get_route_info(rel_obj)
                 canonical = meta.canonical_url
-            except Exception:
-                pass
 
         return canonical
 

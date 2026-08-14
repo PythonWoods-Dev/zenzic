@@ -462,7 +462,8 @@ def _render_link_error(err: object, docs_root: Path) -> None:
     """Print a single LinkError with a Visual Snippet when source context is available."""
     from zenzic.core.validator import LinkError
 
-    assert isinstance(err, LinkError)
+    if not isinstance(err, LinkError):
+        return
     try:
         rel = err.file_path.relative_to(docs_root)
         location = f"[{ZenzicPalette.DIM}]{rel}:{err.line_no}[/]"

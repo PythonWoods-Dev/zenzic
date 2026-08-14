@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -1440,25 +1441,21 @@ def _discover_project_name(repo_root: Path) -> str | None:
     """Discover project name from pyproject.toml or package.json when available."""
     pyproject = repo_root / "pyproject.toml"
     if pyproject.is_file():
-        try:
+        with contextlib.suppress(Exception):
             data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
             project = data.get("project")
             if isinstance(project, dict):
                 name = project.get("name")
                 if isinstance(name, str) and name.strip():
                     return name.strip()
-        except Exception:
-            pass
 
     package_json = repo_root / "package.json"
     if package_json.is_file():
-        try:
+        with contextlib.suppress(Exception):
             data = json.loads(package_json.read_text(encoding="utf-8"))
             name = data.get("name")
             if isinstance(name, str) and name.strip():
                 return name.strip()
-        except Exception:
-            pass
 
     return None
 

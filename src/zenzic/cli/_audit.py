@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Annotated
@@ -130,12 +131,10 @@ def audit(
 
     baseline_file_path = Path(baseline) if baseline else (repo_root / DEFAULT_BASELINE_FILE)
     if baseline_file_path.is_file():
-        try:
+        with contextlib.suppress(Exception):
+            # Gracefully ignore invalid or unparseable baseline files during audit
             active_baseline = BaselineManager.load_baseline(baseline_file_path)
             BaselineManager.apply_baseline(all_findings, active_baseline)
-        except Exception:
-            # Gracefully ignore invalid or unparseable baseline files during audit
-            pass
 
     findings_counts: dict[str, int] = {}
     for f in all_findings:
@@ -182,7 +181,7 @@ def audit(
         1 for f in all_findings if f.severity in ("security_breach", "security_incident")
     )
 
-    pass_status = (
+    audit_status = (
         "FAIL"
         if (
             security_count > 0
@@ -201,7 +200,7 @@ def audit(
         audit_payload = {
             "audit_version": __version__,
             "executive_summary": {
-                "status": pass_status,
+                "status": audit_status,
                 "score": score_report.score,
                 "total_files": docs_count + assets_count,
                 "docs_count": docs_count,
@@ -245,7 +244,7 @@ def audit(
         }
         print(json.dumps(audit_payload, indent=2))
 
-        if pass_status == "FAIL":
+        if audit_status == "FAIL":
             raise typer.Exit(1)
         return
 
@@ -261,9 +260,9 @@ def audit(
     console.print()
 
     # Panel 1: Executive Summary
-    status_color = "green" if pass_status == "PASS" else "red"
+    status_color = "green" if audit_status == "PASS" else "red"
     summary_text = (
-        f"• Status: [bold {status_color}]{pass_status}[/bold {status_color}]\n"
+        f"• Status: [bold {status_color}]{audit_status}[/bold {status_color}]\n"
         f"• Quality Score: [bold cyan]{score_report.score}/100[/bold cyan] (Base: 100)\n"
         f"• Workspace Coverage: [bold]{docs_count}[/] docs, [bold]{assets_count}[/] assets ({docs_count + assets_count} files total)\n"
         f"• Technical Debt Posture: [bold yellow]{suppression_audit.debt_status}[/] ({suppression_audit.total}/{suppression_audit.cap} suppressions)"
@@ -333,5 +332,5 @@ def audit(
     )
 
     console.print()
-    if pass_status == "FAIL":
+    if audit_status == "FAIL":
         raise typer.Exit(1)

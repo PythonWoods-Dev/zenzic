@@ -58,7 +58,7 @@ def _staged_doc_files(repo_root: Path) -> list[Path]:
         "--diff-filter=ACMRT",
     ]
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # noqa: S603  # Fixed hardcoded git diff arguments
             cmd,
             cwd=repo_root,
             capture_output=True,

@@ -73,17 +73,19 @@ lint:
     {{ runner }} pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → pytest tests/ → structural audit → score + stamp → badge freshness.
+# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ → structural audit → score + stamp → badge freshness.
 verify: _check-hooks release-contracts check-pinning docs-build
-    @echo "==> [1/5] Pre-commit hooks (lint, type-check, REUSE)..."
+    @echo "==> [1/6] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
-    @echo "==> [2/5] Test suite..."
+    @echo "==> [2/6] Dependency vulnerability audit (pip-audit)..."
+    {{ runner }} pip-audit
+    @echo "==> [3/6] Test suite..."
     {{ runner }} pytest tests/
-    @echo "==> [3/5] Structural audit (zenzic check all --strict)..."
+    @echo "==> [4/6] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
-    @echo "==> [4/5] Score computation and badge stamp (zenzic score --stamp)..."
+    @echo "==> [5/6] Score computation and badge stamp (zenzic score --stamp)..."
     {{ runner }} zenzic score --stamp --ci
-    @echo "==> [5/5] Badge freshness gate..."
+    @echo "==> [6/6] Badge freshness gate..."
     {{ runner }} zenzic score --check-stamp --ci
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,

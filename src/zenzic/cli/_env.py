@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -29,7 +30,7 @@ def _find_active_config_path(cwd: Path) -> Path | None:
 
     pyproject = cwd / "pyproject.toml"
     if pyproject.is_file():
-        try:
+        with contextlib.suppress(Exception):
             if sys.version_info >= (3, 11):
                 import tomllib
             else:
@@ -38,8 +39,6 @@ def _find_active_config_path(cwd: Path) -> Path | None:
                 data = tomllib.load(f)
             if "tool" in data and "zenzic" in data["tool"]:
                 return pyproject.resolve()
-        except Exception:
-            pass
 
     return None
 
