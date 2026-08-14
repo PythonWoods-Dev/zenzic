@@ -11,7 +11,6 @@ v0.28.0: Added PolicyEvaluator for declarative Policy-as-Code (Z610/Z611).
 from __future__ import annotations
 
 import dataclasses
-import re as _stdlib_re
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -32,9 +31,9 @@ T = TypeVar("T")
 # ── Frontmatter extraction (re-used from adapters._utils) ────────────────────
 # We re-declare the patterns here rather than importing from adapters._utils
 # to avoid a circular import (adapters import from core).
-_COMMENT_RE = _stdlib_re.compile(r"<!--.*?-->|\{/\*.*?\*/\}", _stdlib_re.DOTALL)
-_FRONTMATTER_BLOCK_RE = _stdlib_re.compile(r"\A\s*---\s*\n(.*?)\n---", _stdlib_re.DOTALL)
-_FM_KEY_VALUE_RE = _stdlib_re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", _stdlib_re.MULTILINE)
+_COMMENT_RE = re.compile(r"(?s)<!--.*?-->|(?s)\{/\*.*?\*/\}")
+_FRONTMATTER_BLOCK_RE = re.compile(r"(?s)^\s*---\s*\n(.*?)\n---")
+_FM_KEY_VALUE_RE = re.compile(r"(?m)^([A-Za-z0-9_-]+)\s*:\s*(.*)$")
 
 
 def _parse_frontmatter_dict(content: str) -> dict[str, str]:
@@ -167,7 +166,7 @@ def apply_directory_policies(
                 regex_str = translate_glob_to_re2(pattern)
                 compiled = re.compile(regex_str)
                 normalized_map.append((compiled, normalized_codes, pattern))
-            except Exception:
+            except (re.error, ValueError):
                 # Invalid glob pattern — skip registration safely
                 continue
 
@@ -590,7 +589,7 @@ class PolicyEvaluator:
             if resolved_target_file is None:
                 try:
                     resolved_target_file = (file_path.parent / unquote(raw_path)).resolve()
-                except Exception:
+                except (ValueError, OSError):
                     continue
 
             target_fp = (
@@ -658,9 +657,9 @@ class PolicyEvaluator:
 # ── Link extraction helper ────────────────────────────────────────────────────
 
 # Matches Markdown links: [text](url)
-_MD_LINK_RE = _stdlib_re.compile(r"\[(?:[^\]]*)\]\(([^)]+)\)")
+_MD_LINK_RE = re.compile(r"\[(?:[^\]]*)\]\(([^)]+)\)")
 # Matches HTML href attributes: href="url" or href='url'
-_HTML_HREF_RE = _stdlib_re.compile(r"""href\s*=\s*["']([^"']+)["']""", _stdlib_re.IGNORECASE)
+_HTML_HREF_RE = re.compile(r"""(?i)href\s*=\s*["']([^"']+)["']""")
 
 
 def _extract_links(content: str) -> list[str]:
