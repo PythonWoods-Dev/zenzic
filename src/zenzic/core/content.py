@@ -9,9 +9,10 @@ empty section detection (Z512) with strict line-number fidelity.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import zenzic.core.regex as re
 
 
 if TYPE_CHECKING:
@@ -19,8 +20,31 @@ if TYPE_CHECKING:
 
 # ATX Heading regex matching # to ######
 _ATX_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
-# Sentence delimiter matching ., !, ?, or ; followed by whitespace or semicolon delimiter
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?;])\s+|;\s*")
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split text into sentences deterministically in O(N) time without regex lookaround."""
+    sentences: list[str] = []
+    current: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        char = text[i]
+        current.append(char)
+        if char in ".!?;":
+            if i + 1 == n or text[i + 1].isspace():
+                sent = "".join(current).strip()
+                if sent:
+                    sentences.append(sent)
+                current.clear()
+                while i + 1 < n and text[i + 1].isspace():
+                    i += 1
+        i += 1
+    if current:
+        trailing = "".join(current).strip()
+        if trailing:
+            sentences.append(trailing)
+    return sentences
 
 
 def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
@@ -163,7 +187,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
         if not parts:
             return
         full_sent = " ".join(parts)
-        raw_sentences = _SENTENCE_SPLIT_RE.split(full_sent)
+        raw_sentences = _split_sentences(full_sent)
         for s in raw_sentences:
             s_clean = s.strip()
             if not s_clean:

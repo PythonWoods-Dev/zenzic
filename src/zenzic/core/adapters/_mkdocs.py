@@ -20,7 +20,13 @@ from zenzic.core.adapters._mkdocs_config import (
     load_mkdocs_config,
     load_mkdocs_config_file,
 )
-from zenzic.core.adapters._utils import case_sensitive_exists, dedupe_roots, remap_to_default_locale
+from zenzic.core.adapters._utils import (
+    _extract_blog_dir,
+    _iter_plugins,
+    case_sensitive_exists,
+    dedupe_roots,
+    remap_to_default_locale,
+)
 from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.models.config import BuildContext
 
@@ -31,33 +37,6 @@ _log = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
     from zenzic.models.vsm import RouteStatus, VirtualSiteMap
-
-
-def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    """Return normalized plugin declarations from list or mapping syntax.
-
-    MkDocs supports both:
-    - list syntax: ``plugins: [search, {i18n: {...}}]``
-    - mapping syntax: ``plugins: {search: {}, i18n: {...}}``
-    """
-    raw = doc_config.get("plugins", [])
-    normalized: list[tuple[str, dict[str, Any]]] = []
-
-    if isinstance(raw, list):
-        for item in raw:
-            if isinstance(item, str):
-                normalized.append((item, {}))
-                continue
-            if isinstance(item, dict):
-                for name, cfg in item.items():
-                    normalized.append((name, cfg if isinstance(cfg, dict) else {}))
-        return normalized
-
-    if isinstance(raw, dict):
-        for name, cfg in raw.items():
-            normalized.append((name, cfg if isinstance(cfg, dict) else {}))
-
-    return normalized
 
 
 def _iter_path_like_values(value: Any) -> list[str]:
@@ -348,35 +327,6 @@ def _extract_i18n_fallback_to_default(doc_config: dict[str, Any]) -> bool:
             continue
         return bool(i18n_config.get("fallback_to_default", True))
     return True
-
-
-def _extract_blog_dir(doc_config: dict[str, Any]) -> str | None:
-    """Return the blog posts prefix when the ``material/blog`` plugin is active.
-
-    The ``material/blog`` plugin (``mkdocs-material``) dynamically generates
-    all routes under ``<blog_dir>/posts/`` at build time — these files are
-    **never** listed in the static ``nav:`` section of ``mkdocs.yml``.  The
-    MkDocs adapter must treat them as ``REACHABLE`` rather than
-    ``ORPHAN_BUT_EXISTING``; otherwise Zenzic raises Z103 for every internal
-    link that targets a blog post.
-
-    Args:
-        doc_config: Parsed ``mkdocs.yml`` config dict.
-
-    Returns:
-        The relative ``<blog_dir>/posts/`` prefix (e.g. ``"blog/posts"``) when
-        the blog plugin is active; ``None`` when the plugin is absent.
-    """
-    for name, blog_cfg in _iter_plugins(doc_config):
-        # Accept both short form ``blog`` and fully-qualified ``material/blog``.
-        if name not in ("blog", "material/blog"):
-            continue
-        blog_dir = blog_cfg.get("blog_dir", "blog") if isinstance(blog_cfg, dict) else "blog"
-        # Normalise: strip leading/trailing slashes so the prefix is always
-        # a plain relative posix string like "blog/posts".
-        blog_dir = blog_dir.strip("/")
-        return f"{blog_dir}/posts"
-    return None
 
 
 def _validate_i18n_fallback_config(doc_config: dict[str, Any]) -> None:
@@ -808,11 +758,19 @@ class MkDocsAdapter(BaseAdapter):
             is_proxy=is_proxy,
         )
 
+    @property
+    def dynamic_directories(self) -> set[Path]:
+        """Return directories dynamically managed by MkDocs plugins (e.g. blog posts)."""
+        if self._blog_posts_prefix:
+            return {(self._docs_root / self._blog_posts_prefix).resolve()}
+        return set()
+
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when MkDocs will serve an index page for this directory.
 
         MkDocs treats ``index.md`` (and ``README.md``) as the index
         page for the enclosing directory, rendering it at the directory URL.
+        It also recognizes dynamic directories managed by plugins (such as MkDocs Material blog).
 
         I/O is permitted here — this method is called once per directory during
         the discovery phase, never inside per-link or per-file hot loops.
@@ -821,9 +779,12 @@ class MkDocsAdapter(BaseAdapter):
             directory_path: Absolute path to the directory to inspect.
 
         Returns:
-            ``True`` if an ``index.md`` or ``README.md`` exists in the directory.
+            ``True`` if an ``index.md`` or ``README.md`` exists in the directory,
+            or if the directory is dynamically served by an active plugin.
         """
-        return any((directory_path / f).exists() for f in ("index.md", "README.md"))
+        if any((directory_path / f).exists() for f in ("index.md", "README.md")):
+            return True
+        return directory_path.resolve() in self.dynamic_directories
 
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """MkDocs has no engine-specific link-scheme bypass."""

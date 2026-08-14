@@ -23,7 +23,6 @@ def _setup_audit_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
 
 
-
 def test_zenzic_audit_text_output() -> None:
     result = runner.invoke(app, ["audit", "--no-external"])
     assert result.exit_code == 0

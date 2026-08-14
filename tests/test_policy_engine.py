@@ -285,7 +285,6 @@ def test_policy_evaluator_z614_unapproved_domain() -> None:
     )
 
 
-
 def test_policy_evaluator_z614_whitelisted_domain_passes() -> None:
     policies = PoliciesConfig(allowed_external_domains=["pythonwoods.dev", "github.com"])
     config = ZenzicConfig()

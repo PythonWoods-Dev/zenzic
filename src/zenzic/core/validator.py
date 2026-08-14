@@ -26,6 +26,7 @@ No subprocesses are spawned for any language.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import html
 import json
 import sys
@@ -1130,14 +1131,12 @@ async def _check_external_links(
                     errors.append(f"{label}:{lineno}: {msg}")
 
         if config.network.cache_ttl_hours > 0:
-            try:
+            with contextlib.suppress(Exception):
                 cache_file.parent.mkdir(parents=True, exist_ok=True)
                 temp_file = cache_file.with_suffix(".tmp")
                 with temp_file.open("w", encoding="utf-8") as f:
                     json.dump(cache, f)
                 temp_file.replace(cache_file)
-            except Exception:
-                pass
 
     return sorted(errors)
 
@@ -1209,7 +1208,9 @@ def check_nav_contract(
         return errors
     with config_file.open(encoding="utf-8") as f:
         try:
-            doc_config: dict[str, Any] = yaml.load(f, Loader=_PermissiveSafeLoader) or {}
+            doc_config: dict[str, Any] = (
+                yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
+            )
         except yaml.YAMLError:
             return errors
 

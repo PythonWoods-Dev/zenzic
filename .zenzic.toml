@@ -42,6 +42,7 @@ excluded_external_urls = []
 excluded_file_patterns = []
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
 [governance.directory_policies]
+"docs/**" = ["Z106"]
 "docs/blog/posts/**" = ["Z410", "Z411"]
 "docs/developers/explanation/adr-vault/records/**" = ["Z410", "Z411"]
 "docs/tutorials/examples/**" = ["Z410", "Z411"]

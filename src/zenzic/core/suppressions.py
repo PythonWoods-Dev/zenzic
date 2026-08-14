@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -87,7 +88,7 @@ class SuppressionTracker:
         # Parse html data-zenzic-ignore tags
         from zenzic.core.validator import PolyglotExtractor
 
-        try:
+        with contextlib.suppress(Exception):
             extractor = PolyglotExtractor()
             html_nodes = extractor.extract(text)
             for node in html_nodes:
@@ -99,8 +100,6 @@ class SuppressionTracker:
                             consumed=False,
                         )
                     )
-        except Exception:
-            pass
 
     def is_suppressed(self, line_no: int, code: str) -> bool:
         """Return True if the given code is suppressed at the specified line number.

@@ -212,8 +212,8 @@ class LanguageServer:
         does not exist on disk — an LSP-specific convenience for unconfigured
         workspaces.
         """
-        assert self.repo_root is not None
-        assert self.config is not None
+        if self.repo_root is None or self.config is None:
+            raise RuntimeError("LSP server not initialized: repo_root or config is None")
         docs_root = (self.repo_root / self.config.docs_dir).resolve()
         if not docs_root.is_dir():
             docs_root = self.repo_root.resolve()
@@ -262,21 +262,20 @@ class LanguageServer:
             repo_root=self.repo_root,
             static_assets=static_assets,
         )
-        assert self.vsm is not None
         self.overlay = VirtualBufferOverlay(self.vsm)
         # Populate overlay with currently open documents
         for uri, text in self.documents.documents.items():
             self.overlay.update(uri, text)
 
         # Instantiate the decoupled incremental engine (ADR-075)
-        assert self.rule_engine is not None
-        self.engine = IncrementalAnalysisEngine(
-            config=self.config,
-            rule_engine=self.rule_engine,
-            adapter=self.adapter,
-            docs_root=docs_root,
-            repo_root=self.repo_root,
-        )
+        if self.rule_engine is not None:
+            self.engine = IncrementalAnalysisEngine(
+                config=self.config,
+                rule_engine=self.rule_engine,
+                adapter=self.adapter,
+                docs_root=docs_root,
+                repo_root=self.repo_root,
+            )
         self._flush_dirty_documents()
 
     def _is_supported_doc_uri(self, uri: str) -> bool:
@@ -362,7 +361,7 @@ class LanguageServer:
                 continue
             try:
                 path = uri_to_path(uri)
-            except Exception:
+            except (ValueError, OSError):
                 continue
             if path.suffix.lower() not in DOC_SUFFIXES and not self._is_config_file_change(uri):
                 # This URI has no recognised doc extension — treat as a
@@ -429,8 +428,6 @@ class LanguageServer:
         if self.vsm is None or not self.adapter or not self.config:
             return
 
-        assert isinstance(self.vsm, VirtualSiteMap)
-
         for change in changes:
             uri = change.get("uri", "")
             change_type = change.get("type")
@@ -488,7 +485,8 @@ class LanguageServer:
             return
 
         if method == "initialize":
-            assert msg_id is not None
+            if msg_id is None:
+                return
             root_uri = params.get("rootUri")
             if root_uri and root_uri.startswith("file://"):
                 self.repo_root = uri_to_path(root_uri)
@@ -641,17 +639,14 @@ class LanguageServer:
         if self.vsm is None:
             self.vsm = VirtualSiteMap()
 
-        assert isinstance(self.vsm, VirtualSiteMap)
-
         if self.overlay is None:
             self.overlay = VirtualBufferOverlay(self.vsm)
             for open_uri, open_text in self.documents.documents.items():
                 self.overlay.update(open_uri, open_text)
 
-        assert isinstance(self.vsm, VirtualSiteMap)
-
         # Instantiate engine if needed (ADR-075: transport-agnostic analysis)
-        assert self.rule_engine is not None  # Ensure engine exists
+        if self.rule_engine is None:
+            return
         is_full_rebuild = self.engine is None
         if self.engine is None:
             self.engine = IncrementalAnalysisEngine(
@@ -663,7 +658,8 @@ class LanguageServer:
             )
 
         # Delegate analysis to the engine
-        assert self.overlay is not None
+        if self.overlay is None:
+            return
         results = self.engine.process_changes(self.vsm, self.overlay, incremental_uris)
 
         # Serialize at transport boundary and publish via JSON-RPC
@@ -718,8 +714,6 @@ class LanguageServer:
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
         if msg_id is None or self.vsm is None or not self.repo_root or not self.config:
             return
-
-        assert isinstance(self.vsm, VirtualSiteMap)
 
         doc = params.get("textDocument", {})
         uri = doc.get("uri", "")
@@ -807,8 +801,7 @@ class LanguageServer:
             self.send_response(msg_id, result=[])
             return
 
-        import re
-
+        from zenzic.core import regex as re
         from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
         from zenzic.core.mutator import (
             DeadSuppressionMutation,

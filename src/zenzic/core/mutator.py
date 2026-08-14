@@ -133,8 +133,12 @@ class Mutator:
         return new_ast, changed
 
 
+_DATA_IGNORE_RE = regex.compile(r"\bdata-zenzic-ignore\b\s*(=\s*\"[^\"]*\"\s*|=\s*'[^']*'\s*)?")
+_WS_COLLAPSE_RE = regex.compile(r"\s+")
+
+
 class DeadSuppressionMutation:
-    """Z603 Auto-Fix: Removes dead inline suppression comments and attributes."""
+    """Z603 Auto-Fix: Strips dead zenzic:ignore comments from source code."""
 
     def __init__(self, dead_lines: set[int]) -> None:
         self.dead_lines = dead_lines
@@ -164,9 +168,7 @@ class DeadSuppressionMutation:
                             line = ""
                             mutated = True
                         else:
-                            import re as std_re
-
-                            line = std_re.sub(r"\s*<!--.*?-->\s*", " ", line)
+                            line = stripped_line
                             if stripped_line.endswith("\n") and not line.endswith("\n"):
                                 line = line.rstrip() + "\n"
                             mutated = True
@@ -180,14 +182,8 @@ class DeadSuppressionMutation:
                         attrs_str = tag_match.group("attrs")
                         tag = tag_match.group(1)
                         if "data-zenzic-ignore" in attrs_str:
-                            import re as std_re
-
-                            new_attrs = std_re.sub(
-                                r"\bdata-zenzic-ignore\b\s*(=\s*\"[^\"]*\"\s*|=\s*'[^']*'\s*)?",
-                                "",
-                                attrs_str,
-                            )
-                            new_attrs = std_re.sub(r"\s+", " ", new_attrs).strip()
+                            new_attrs = _DATA_IGNORE_RE.sub("", attrs_str)
+                            new_attrs = _WS_COLLAPSE_RE.sub(" ", new_attrs).strip()
                             if new_attrs:
                                 new_tag = f"<{tag} {new_attrs}>"
                             else:

@@ -14,6 +14,7 @@ v0.2.0 additions
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import posixpath
 from collections.abc import Callable, Generator
@@ -221,7 +222,7 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
     except ValueError:
         rel = str(sf.file_path)
 
-    if sf.secret_type == "FORBIDDEN_TERM":
+    if sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Categorical finding identifier
         return Finding(
             rel_path=rel,
             line_no=sf.line_no,
@@ -459,11 +460,14 @@ def find_orphans(
         if ignored_patterns is None:
             ignored_patterns = adapter.get_ignored_patterns()
 
-    assert adapter is not None
-    assert nav_paths is not None
-    assert is_locale_dir is not None
-    assert ignored_patterns is not None
-    assert has_engine_config is not None
+    if (
+        adapter is None
+        or nav_paths is None
+        or is_locale_dir is None
+        or ignored_patterns is None
+        or has_engine_config is None
+    ):
+        return []
 
     if not has_engine_config:
         return []
@@ -1037,15 +1041,13 @@ def _scan_single_file(
                 from zenzic.core.exclusion import translate_glob_to_re2
 
                 for pattern, codes in config.governance.directory_policies.items():
-                    try:
+                    with contextlib.suppress(Exception):
                         compiled = re.compile(translate_glob_to_re2(pattern))
                         if compiled.fullmatch(rel_path):
                             for c in codes:
                                 globally_suppressed_codes.setdefault(
                                     str(c).strip().upper(), []
                                 ).append(pattern)
-                    except Exception:
-                        pass
 
         tracker = SuppressionTracker(
             md_file,

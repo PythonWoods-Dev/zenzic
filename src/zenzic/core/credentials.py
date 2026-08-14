@@ -333,7 +333,7 @@ def scan_line_for_forbidden_terms(
             yield SecurityFinding(
                 file_path=path,
                 line_no=line_no,
-                secret_type="FORBIDDEN_TERM",
+                secret_type="FORBIDDEN_TERM",  # noqa: S106  # Finding category identifier
                 url=line.strip(),
                 col_start=m.start(),
                 match_text=m.group(0),
@@ -348,7 +348,7 @@ def scan_line_for_forbidden_terms(
             yield SecurityFinding(
                 file_path=path,
                 line_no=line_no,
-                secret_type="FORBIDDEN_TERM",
+                secret_type="FORBIDDEN_TERM",  # noqa: S106  # Finding category identifier
                 url=line.strip(),
                 col_start=idx,
                 match_text=line[idx : idx + len(term)],

@@ -13,7 +13,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.29.0"
+version = "0.29.1"
 description = "Deterministic Document Integrity Engine for Markdown/MDX graphs."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -141,8 +141,26 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "C4", "UP", "A", "TID252"]
+select = ["E", "F", "W", "I", "B", "C4", "UP", "A", "TID252", "S"]
 ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = [
+    "S101",
+    "S105",
+    "S106",
+    "S107",
+    "S108",
+    "S110",
+    "S112",
+    "S301",
+    "S311",
+    "S506",
+    "S603",
+    "S607",
+    "S608",
+]
+"docs/**/*" = ["S101"]
 
 # Ban standard re module in governed paths (src/ + tests/)
 [tool.ruff.lint.flake8-tidy-imports.banned-api]

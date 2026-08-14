@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from zenzic.core import regex as re
 
 
 if TYPE_CHECKING:
@@ -58,7 +59,7 @@ def compute_finding_signature(
     else:
         quotes = re.findall(r"['\"]([^'\"]+)['\"]", message)
         if quotes:
-            context_target = ":".join(quotes)
+            context_target = ":".join(str(q) for q in quotes)
         else:
             context_target = message.strip()
 

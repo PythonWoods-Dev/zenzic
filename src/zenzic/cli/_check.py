@@ -1379,6 +1379,7 @@ def check_all(
     ),
     path: str | None = typer.Argument(
         None,
+        metavar="PATH",
         help=(
             "Limit audit to a single Markdown file or an entire directory. "
             "Accepts paths relative to the repository root or to the docs directory. "

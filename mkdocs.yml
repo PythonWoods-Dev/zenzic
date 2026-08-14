@@ -31,10 +31,12 @@ nav:
 
   - User Documentation:
     - Getting Started:
+      - Tutorials Index: tutorials/index.md
       - Quick Start Tutorial: tutorials/first-audit.md
       - Install & First Run: how-to/install.md
       - Configuration Setup: how-to/initialize-configuration.md
     - Delivery Mechanisms:
+      - Editor Index: editor/index.md
       - VS Code Extension (LSP): editor/vscode.md
       - Third-Party Editors (LSP): how-to/editor-integrations.md
       - GitHub Action (CI/CD): how-to/configure-ci-cd.md
@@ -42,6 +44,7 @@ nav:
 
 
     - How-to Guides:
+      - How-to Index: how-to/index.md
       - Manage Technical Debt: how-to/handle-technical-debt.md
       - Add Custom Rules: how-to/add-custom-rules.md
       - Configure Adapters: how-to/configure-adapter.md
@@ -55,6 +58,7 @@ nav:
       - Add Status Badges: how-to/add-badges.md
       - Troubleshooting: how-to/troubleshooting.md
     - Rule Reference & Catalog:
+      - Rules Index: rules/index.md
       - Finding Codes Index: reference/finding-codes.md
       - Core Rule Checks: reference/checks.md
       - Rule Specification Cards:
@@ -118,7 +122,9 @@ nav:
         - rules/Z906.md
       - Interactive Rule Examples:
         - tutorials/examples/index.md
+        - Z0xx Core Index: tutorials/examples/z0xx-core/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md
+        - Z1xx Links Index: tutorials/examples/z1xx-links/index.md
         - tutorials/examples/z1xx-links/z101-broken-links.md
         - tutorials/examples/z1xx-links/z102-anchor-missing.md
         - tutorials/examples/z1xx-links/z103-orphan-link.md
@@ -133,24 +139,29 @@ nav:
         - tutorials/examples/z1xx-links/z122-jump-link.md
         - tutorials/examples/z1xx-links/z123-non-http-scheme.md
         - tutorials/examples/z1xx-links/z124-opaque-context.md
+        - Z2xx Security Index: tutorials/examples/z2xx-security/index.md
         - tutorials/examples/z2xx-security/z201-credentials.md
         - tutorials/examples/z2xx-security/z202-path-traversal.md
         - tutorials/examples/z2xx-security/z204-forbidden-term.md
         - tutorials/examples/z2xx-security/z205-forbidden-scheme.md
+        - Z3xx References Index: tutorials/examples/z3xx-references/index.md
         - tutorials/examples/z3xx-references/z301-dangling-ref.md
         - tutorials/examples/z3xx-references/z302-dead-def.md
         - tutorials/examples/z3xx-references/z303-duplicate-def.md
+        - Z4xx Topology Index: tutorials/examples/z4xx-topology/index.md
         - tutorials/examples/z4xx-topology/z401-missing-directory-index.md
         - tutorials/examples/z4xx-topology/z402-orphan-page.md
         - tutorials/examples/z4xx-topology/z403-missing-alt.md
         - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
         - tutorials/examples/z4xx-topology/z405-unused-assets.md
         - tutorials/examples/z4xx-topology/z406-nav-contract.md
+        - Z5xx Content Index: tutorials/examples/z5xx-content/index.md
         - tutorials/examples/z5xx-content/z501-placeholder.md
         - tutorials/examples/z5xx-content/z502-short-content.md
         - tutorials/examples/z5xx-content/z503-snippet-error.md
         - tutorials/examples/z5xx-content/z505-untagged-code-block.md
         - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
+        - Z6xx Brand Index: tutorials/examples/z6xx-brand/index.md
         - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
         - tutorials/examples/z6xx-brand/z603-dead-suppression.md
         - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
@@ -168,6 +179,8 @@ nav:
       - GitHub Action Reference: reference/zenzic-action.md
       - Reference Index: reference/index.md
     - Core Architecture:
+      - Explanation Index: explanation/index.md
+      - Architecture Index: architecture/index.md
       - Why Zenzic: explanation/why-zenzic.md
       - System Architecture: explanation/architecture.md
       - Language Server Architecture: explanation/language-server-architecture.md
@@ -191,6 +204,7 @@ nav:
   - Developer Documentation:
     - developers/index.md
     - How-to:
+      - Developer How-to Index: developers/how-to/index.md
       - Contribute:
         - developers/how-to/contribute/index.md
         - developers/how-to/contribute/pull-requests.md
@@ -204,6 +218,7 @@ nav:
       - developers/how-to/write-ast-rule.md
       - developers/how-to/troubleshooting.md
     - Reference:
+      - Developer Reference Index: developers/reference/index.md
       - developers/reference/adapter-api.md
       - developers/reference/adapter-examples.md
       - developers/reference/ast-foundations.md
@@ -212,11 +227,14 @@ nav:
       - developers/reference/supply-chain-assurance-profile.md
       - developers/reference/zenzic-style.md
     - Explanation:
+      - Developer Explanation Index: developers/explanation/index.md
       - developers/explanation/adapter-internals.md
       - Architecture:
         - architecture/lsp-integration.md
       - ADR Vault:
         - developers/explanation/adr-vault/index.md
+        - ADR Records Index: developers/explanation/adr-vault/records/index.md
+
         - developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md
         - developers/explanation/adr-vault/records/adr-007-sovereign-sandbox.md
         - developers/explanation/adr-vault/records/adr-020-mirror-law.md
@@ -281,7 +299,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.29.0"  # release sync
+  zenzic_version: "0.29.1"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

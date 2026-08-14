@@ -61,6 +61,7 @@ Zenzic Way compliance
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pickle
 from abc import ABC, abstractmethod
@@ -1492,7 +1493,7 @@ class VSMBrokenLinkRule(BaseRule):
 
             if route is None and context and context.source_file and context.docs_root:
                 # ── Locale fallback ────────────────────────────────────────────────
-                try:
+                with contextlib.suppress(Exception):
                     rel = context.source_file.relative_to(context.docs_root)
                     if len(rel.parts) > 1:
                         locale = rel.parts[0]
@@ -1511,8 +1512,6 @@ class VSMBrokenLinkRule(BaseRule):
                                     )
                                 if is_fallback_on:
                                     route = fallback_route
-                except Exception:
-                    pass
 
             if route is None:
                 # Z101 is the canonical code for any link target absent from the VSM.
@@ -1717,7 +1716,7 @@ class PluginRegistry:
                 instance = cls()
                 if not isinstance(instance, BaseRule):
                     continue
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S112
                 continue
             dist_name = ep.dist.name if ep.dist is not None else "zenzic"
             results.append(

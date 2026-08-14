@@ -38,7 +38,11 @@ from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import find_mkdocs_config_file, load_mkdocs_config
-from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
+from zenzic.core.adapters._utils import (
+    _extract_blog_dir,
+    case_sensitive_exists,
+    remap_to_default_locale,
+)
 from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.models.config import BuildContext
 
@@ -426,11 +430,20 @@ class ZensicalAdapter(BaseAdapter):
             status=self._classify_route(rel, nav_paths),
         )
 
+    @property
+    def dynamic_directories(self) -> set[Path]:
+        """Return directories dynamically managed by plugins (e.g. blog posts)."""
+        blog_prefix = _extract_blog_dir(self._zensical_config)
+        if blog_prefix:
+            return {(self._docs_root / blog_prefix).resolve()}
+        return set()
+
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when Zensical will serve an index page for this directory.
 
         Zensical uses ``index.md`` as the canonical index file for a directory,
         rendering it at the directory URL without a filename suffix.
+        It also recognizes dynamic directories managed by plugins.
 
         I/O is permitted here — this method is called once per directory during
         the discovery phase, never inside per-link or per-file hot loops.
@@ -439,9 +452,12 @@ class ZensicalAdapter(BaseAdapter):
             directory_path: Absolute path to the directory to inspect.
 
         Returns:
-            ``True`` if an ``index.md`` exists in the directory.
+            ``True`` if an ``index.md`` exists in the directory, or if the
+            directory is dynamically served by an active plugin.
         """
-        return (directory_path / "index.md").exists()
+        if (directory_path / "index.md").exists():
+            return True
+        return directory_path.resolve() in self.dynamic_directories
 
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """Zensical has no engine-specific link-scheme bypass."""
