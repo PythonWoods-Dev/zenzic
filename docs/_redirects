@@ -54,7 +54,6 @@
 /blog/atom.xsl                                /rss.xsl 301
 
 # ─── LAYER 4: STRUCTURAL MIRRORS (Known Folders) ─────────────────────────────
-/it/blog/*                                    /blog/ 301
 /it/docs/how-to/examples/*                     /tutorials/examples/:splat 301
 /it/docs/tutorials/examples/*                  /tutorials/examples/:splat 301
 /docs/how-to/*                                 /how-to/:splat 301
@@ -81,10 +80,6 @@
 /it/developers/explanation/adr-vault/records/adr-022-english-only-governance/ /developers/explanation/adr-vault/records/adr-022-english-only-governance/ 301
 /it/developers/explanation/adr-vault/records/adr-bilingual-structural/ /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
 /it/developers/explanation/adr-vault/records/adr-decentralized-cli/   /developers/explanation/adr-vault/records/adr-decentralized-cli/ 301
-
-/tutorials/examples/z6xx-brand/z602-i18n-parity/ /tutorials/examples/ 301
-/blog/tags/*                                   /blog/ 301
-/category/*                                    / 301
 
 # ─── LAYER 6: TAXONOMIC REFACTORING (v0.29.0) ──────────────────────────────────
 # Deprecated rule Z118 -> Z620 server-side 301 redirects for Cloudflare Pages
