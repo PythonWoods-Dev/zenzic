@@ -138,7 +138,7 @@ This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously")
 
 **Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z520.md)
 
-This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`- `, `* `, `1. `), preventing accessibility and HTML list rendering degradation.
+This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`-`, `*`, `1.`), preventing accessibility and HTML list rendering degradation.
 
 ### Z617: FORBIDDEN_CONTENT_PATTERN {#z617}
 

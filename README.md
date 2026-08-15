@@ -107,14 +107,18 @@ zenzic fix --apply
 ## 🛡️ Core Capabilities
 
 ### 1. High-Speed Graph Topology (VSM)
+
 Zenzic's in-memory **Virtual Site Map (VSM)** indexes thousands of Markdown pages, anchors, and media assets in seconds. Renaming a document or moving a heading immediately flags all broken cross-references across the repository.
 
 ### 2. Zero Subprocesses & Deterministic Safety
+
 - **Zero Subprocesses (ADR-002)**: Analysis executes in-process without spawning external shell processes, guaranteeing maximum security and predictable sub-50ms execution.
 - **Google RE2 Regular Expressions**: All pattern matching is protected against catastrophic backtracking (ReDoS) and unbounded execution loops.
 
 ### 3. Atomic Mutator (`zenzic fix`)
+
 Remediation must be lossless and idempotent:
+
 - Wraps bare URLs in standard `<url>` notation (`Z515`).
 - Strips trailing punctuation from headings (`Z517`).
 - Transforms fake paragraph lists into valid Markdown bullet lists (`Z520`).
@@ -122,9 +126,11 @@ Remediation must be lossless and idempotent:
 - Cleans up dead inline suppressions (`Z603`).
 
 ### 4. Deterministic Quality Score (DQS)
+
 Zenzic calculates a mathematical health score (0–100) based on active findings, severities, and technical debt. Enforce strict team standards in CI (`fail_under = 90`) and track improvements over time with status badges.
 
 ### 5. Policy-as-Code Governance
+
 Define organizational conventions directly in `.zenzic.toml`:
 
 ```toml
@@ -157,22 +163,27 @@ Zenzic is engineered from the ground up as a **deterministic compiler** rather t
 ```
 
 ### 1. Lossless AST & Atomic Mutator (`zenzic.core.mutator`)
-Unlike regex-based search-and-replace tools that corrupt code fences, frontmatter, and inline math, Zenzic parses Markdown into a structured Abstract Syntax Tree (AST). 
+
+Unlike regex-based search-and-replace tools that corrupt code fences, frontmatter, and inline math, Zenzic parses Markdown into a structured Abstract Syntax Tree (AST).
 
 Mutations are executed directly on AST nodes and serialized back through a lossless emitter, guaranteeing:
+
 - **Zero Syntax Corruption**: Comments, indentation, code fences, and blank lines remain byte-for-byte identical outside the target node.
 - **Strict Idempotence**: Running `zenzic fix --apply` multiple times produces the exact same AST state without duplicate edits:
   $$\text{mutate}(\text{mutate}(\text{AST})) = \text{mutate}(\text{AST})$$
 
 ### 2. Virtual Site Map (VSM) & Topological Graph (`zenzic.core.vsm`)
-Zenzic builds an in-memory topological routing graph (the **Virtual Site Map**) across all documents and static assets in your workspace. 
+
+Zenzic builds an in-memory topological routing graph (the **Virtual Site Map**) across all documents and static assets in your workspace.
 
 The VSM maintains:
+
 - **Exact Slug Parity**: Heading anchors are slugified according to the active build adapter (MkDocs Material, Zensical, or Standalone) without running the generator itself.
 - **Cross-File Resolution**: Validates relative paths, root-relative links, anchor fragments (`#section-id`), and media assets.
 - **Ghost Route Registry**: Recognizes virtual and dynamically generated routes to eliminate false positives in complex documentation graphs.
 
 ### 3. Deterministic Quality Score (DQS) Mathematical Model
+
 Zenzic computes an objective, reproducible 0–100 documentation quality score using a weighted deduction model:
 
 $$\text{DQS} = \max\left(0, 100 - \sum \text{Penalties} - \text{Suppression Debt}\right)$$
@@ -189,6 +200,7 @@ $$\text{DQS} = \max\left(0, 100 - \sum \text{Penalties} - \text{Suppression Debt
 Under Zenzic's **Flat-Cost Model**, every inline suppression comment (`<!-- zenzic:ignore ZXXX -->`) costs exactly 1.0 DQS point, ensuring technical debt is visible, quantified, and capped (`suppression_cap = 30`).
 
 ### 4. RE2 Discipline & Sovereign Runtime (ADR-002, ADR-075)
+
 - **Zero Subprocesses (ADR-002)**: Zenzic executes 100% in-process with zero `subprocess.Popen` invocations, ensuring safe, lightweight execution across sandbox environments.
 - **Google RE2 Non-Backtracking Engine**: All regex operations are backed by Google RE2 via an Access Control Layer (`zenzic.core.regex`), guaranteeing $O(N)$ execution time and mathematical immunity to Regular Expression Denial of Service (ReDoS).
 - **Pure-Function Determinism**: Analysis has zero global state and zero network dependencies, guaranteeing bit-for-bit identical results on every machine and operating system.
@@ -244,6 +256,7 @@ zenzic check all --format sarif --output results.sarif
 ```
 
 Every SARIF diagnostic includes:
+
 - Precise 1-indexed line and column ranges.
 - Deductive DQS score penalty and taxonomy category.
 - Direct documentation remediation URLs (`helpUri`).

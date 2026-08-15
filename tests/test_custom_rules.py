@@ -54,8 +54,6 @@ class DummyWorkingRule(ZenzicRuleV3):
         return []
 
 
-
-
 def test_custom_rule_crash_handling() -> None:
     """If a rule raises an arbitrary exception, it is caught and converted to Z901."""
     rule = DummyCrashingRule()

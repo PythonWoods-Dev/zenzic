@@ -62,6 +62,7 @@ By inserting a standardized, prominent placeholder token, the Mutator establishe
 When organizations configure strict Policy-as-Code rules—such as [`Z501` (Placeholder Content)](../rules/Z501.md) or [`Z617` (Forbidden Content Patterns)](../rules/Z617.md) configured with `forbidden_content_patterns = ["(?i)\\btodo\\b"]`—the CI/CD pipeline intentionally halts on the generated beacon.
 
 This controlled cascade is an architectural feature:
+
 - The structural error ([`Z108`](../rules/Z108.md)) is healed automatically.
 - The pipeline prevents unreviewed placeholder text from reaching production.
 - The human author is guided directly to the exact file and line to supply authoritative copy.

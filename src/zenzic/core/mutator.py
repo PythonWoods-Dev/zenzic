@@ -249,7 +249,7 @@ class BareUrlMutation:
                         new_text += text[last_idx:]
                         node.text = new_text
 
-        elif isinstance(node, (LinkNode, CodeSpanNode)):
+        elif isinstance(node, LinkNode | CodeSpanNode):
             return False
         else:
             for child in node.children:
@@ -376,4 +376,3 @@ class MalformedListMutation:
                 mutated = True
 
         return mutated
-

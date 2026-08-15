@@ -57,7 +57,7 @@ Headings ending with trailing periods, colons, or semicolons degrade visual typo
 
 ### Semantic List Heuristics (Z520)
 
-When authors write lists formatted with newlines and semicolons or commas without Markdown bullet markers (`- `, `* `), Markdown engines render them as unbroken prose paragraphs rather than semantic HTML `<ul>` elements. [`Z520`](../../rules/Z520.md) detects these pseudo-lists and transforms them into valid bulleted lists.
+When authors write lists formatted with newlines and semicolons or commas without Markdown bullet markers (`-`, `*`), Markdown engines render them as unbroken prose paragraphs rather than semantic HTML `<ul>` elements. [`Z520`](../../rules/Z520.md) detects these pseudo-lists and transforms them into valid bulleted lists.
 
 ---
 
@@ -115,7 +115,7 @@ Supported auto-fix rules in v0.30.0 include:
 | `Z505` | Untagged Code Block | Injects default `text` language tag |
 | `Z515` | Bare URL Used | Wraps raw URLs in `<url>` syntax |
 | `Z517` | Heading Punctuation | Strips trailing `.`, `:`, `;` from headings |
-| `Z520` | Malformed List Detected | Prefixes list lines with `- ` |
+| `Z520` | Malformed List Detected | Prefixes list lines with `-` |
 | `Z603` | Dead Suppression | Removes obsolete suppression comments |
 
 All automated fixes are shared identically between the CLI tool and the VS Code LSP extension, ensuring 100% remediation parity across environments.

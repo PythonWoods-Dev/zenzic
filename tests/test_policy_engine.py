@@ -535,4 +535,3 @@ def test_policy_evaluator_z619_complexity_under_threshold() -> None:
     findings = evaluator.check(DUMMY_FILE, content)
     z619 = [f for f in findings if f.rule_id == "Z619"]
     assert len(z619) == 0
-

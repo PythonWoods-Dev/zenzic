@@ -265,7 +265,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z517": CodeDefinition("warning", 1.0, "content", fixable=True),  # HEADING_PUNCTUATION
     "Z518": CodeDefinition("warning", 1.0, "content"),  # PASSIVE_VOICE_DETECTED (opt-in)
     "Z519": CodeDefinition("warning", 1.0, "content"),  # WEASEL_WORDS (opt-in)
-    "Z520": CodeDefinition("warning", 2.0, "content", fixable=True),  # MALFORMED_LIST_DETECTED (v0.30.0)
+    "Z520": CodeDefinition(
+        "warning", 2.0, "content", fixable=True
+    ),  # MALFORMED_LIST_DETECTED (v0.30.0)
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION

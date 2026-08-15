@@ -337,19 +337,21 @@ _WS_COLLAPSE_RE = re.compile(r"\s+")
 _TRAILING_INVALID_PUNCT = {".", ":", ";"}
 _HTML_H1_RE = re.compile(r"<h1\b[^>]*>(.*?)</h1>", re.IGNORECASE)
 
-_GENERIC_ALT_SET = frozenset({
-    "image",
-    "screenshot",
-    "picture",
-    "photo",
-    "icon",
-    "graphic",
-    "logo",
-    "img",
-    "figure",
-    "thumbnail",
-    "untitled",
-})
+_GENERIC_ALT_SET = frozenset(
+    {
+        "image",
+        "screenshot",
+        "picture",
+        "photo",
+        "icon",
+        "graphic",
+        "logo",
+        "img",
+        "figure",
+        "thumbnail",
+        "untitled",
+    }
+)
 
 _GENERIC_ALT_PREFIXES = (
     "image of",
@@ -923,5 +925,3 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
             i += 1
 
     return findings
-
-

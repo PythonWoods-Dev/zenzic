@@ -403,6 +403,3 @@ def test_z520_malformed_list_detection_and_mutator(tmp_path: Path) -> None:
     # Re-evaluating fixed text should produce zero Z520 findings
     recheck_findings = check_malformed_lists(file_path, fixed_text)
     assert len(recheck_findings) == 0
-
-
-
