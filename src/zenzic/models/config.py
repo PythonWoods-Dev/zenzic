@@ -293,6 +293,49 @@ class PoliciesConfig(BaseModel):
             'Example: {"docs/public": ["docs/internal"]}'
         ),
     )
+    forbidden_content_patterns: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of RE2 regex patterns forbidden from appearing in prose content. "
+            "Matches emit Z617 FORBIDDEN_CONTENT_PATTERN. "
+            "Policy is inactive when the list is empty (opt-in). "
+            'Example: ["\\\\bTODO\\\\b", "\\\\bFIXME\\\\b", "\\\\bconfidential\\\\b"]'
+        ),
+    )
+    required_heading_patterns: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of RE2 regex patterns where each pattern MUST match at least one heading in the document. "
+            "Missing matching headings emit Z618 REQUIRED_HEADING_PATTERN. "
+            "Policy is inactive when the list is empty (opt-in). "
+            'Example: ["^Overview$", "^License$"]'
+        ),
+    )
+    max_document_complexity: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Maximum allowed document complexity score (based on word count, heading depth, and link density). "
+            "Documents exceeding this threshold emit Z619 MAX_DOCUMENT_COMPLEXITY. "
+            "0 disables complexity checking (opt-in)."
+        ),
+    )
+    weasel_words: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of weasel words to detect in prose (e.g., 'clearly', 'simply', 'obviously'). "
+            "Detected words emit Z519 WEASEL_WORDS. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["clearly", "simply", "obviously", "basically", "very"]'
+        ),
+    )
+    enable_passive_voice_check: bool = Field(
+        default=False,
+        description=(
+            "When True, enables heuristic passive voice detection (Z518 PASSIVE_VOICE_DETECTED). "
+            "Strictly opt-in."
+        ),
+    )
 
     @field_validator("required_url_schemes")
     @classmethod
@@ -309,6 +352,18 @@ class PoliciesConfig(BaseModel):
                 raise ValueError(
                     f"Invalid RE2 regex pattern for frontmatter key '{key}' in "
                     f"[policies].frontmatter_schema_match: {pattern!r} ({err})"
+                ) from err
+        return v
+
+    @field_validator("forbidden_content_patterns", "required_heading_patterns")
+    @classmethod
+    def _validate_re2_list_patterns(cls, v: list[str]) -> list[str]:
+        for pattern in v:
+            try:
+                re.compile(pattern)
+            except Exception as err:
+                raise ValueError(
+                    f"Invalid RE2 regex pattern in [policies]: {pattern!r} ({err})"
                 ) from err
         return v
 

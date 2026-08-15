@@ -68,11 +68,16 @@ Z5xx — Content Quality
     Z515  BARE_URL_USED        — bare URL in prose without link syntax
     Z516  MULTIPLE_H1_HEADINGS — multiple H1 headings in single document (error)
     Z517  HEADING_PUNCTUATION  — heading ends with invalid trailing punctuation
+    Z518  PASSIVE_VOICE_DETECTED — passive voice construction detected (opt-in)
+    Z519  WEASEL_WORDS          — weasel word detected in technical prose (opt-in)
 
 Z6xx — Governance (opt-in)
      Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
      Z610  REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document (v0.28.0)
      Z611  FORBIDDEN_DOMAIN_REFERENCE  — link references a domain forbidden by [policies] (v0.28.0)
+     Z617  FORBIDDEN_CONTENT_PATTERN — content matches forbidden regex pattern
+     Z618  REQUIRED_HEADING_PATTERN — document lacks required heading pattern
+     Z619  MAX_DOCUMENT_COMPLEXITY  — document complexity exceeds configured threshold
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
@@ -257,6 +262,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z515": CodeDefinition("warning", 1.0, "content", fixable=True),  # BARE_URL_USED
     "Z516": CodeDefinition("error", 5.0, "content"),  # MULTIPLE_H1_HEADINGS
     "Z517": CodeDefinition("warning", 1.0, "content", fixable=True),  # HEADING_PUNCTUATION
+    "Z518": CodeDefinition("warning", 1.0, "content"),  # PASSIVE_VOICE_DETECTED (opt-in)
+    "Z519": CodeDefinition("warning", 1.0, "content"),  # WEASEL_WORDS (opt-in)
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
@@ -267,6 +274,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z614": CodeDefinition("error", 5.0, "brand"),  # UNAPPROVED_DOMAIN_REFERENCE (v0.29.0)
     "Z615": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_URL_SCHEME (v0.29.0)
     "Z616": CodeDefinition("error", 8.0, "brand"),  # CROSS_NAMESPACE_LINK_FORBIDDEN (v0.29.0)
+    "Z617": CodeDefinition("warning", 2.0, "brand"),  # FORBIDDEN_CONTENT_PATTERN (v0.30.0)
+    "Z618": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_HEADING_PATTERN (v0.30.0)
+    "Z619": CodeDefinition("warning", 4.0, "brand"),  # MAX_DOCUMENT_COMPLEXITY (v0.30.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -328,6 +338,8 @@ CODE_NAMES: dict[str, str] = {
     "Z515": "BARE_URL_USED",
     "Z516": "MULTIPLE_H1_HEADINGS",
     "Z517": "HEADING_PUNCTUATION",
+    "Z518": "PASSIVE_VOICE_DETECTED",
+    "Z519": "WEASEL_WORDS",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
     "Z610": "REQUIRED_FRONTMATTER_MISSING",
@@ -337,6 +349,9 @@ CODE_NAMES: dict[str, str] = {
     "Z614": "UNAPPROVED_DOMAIN_REFERENCE",
     "Z615": "FORBIDDEN_URL_SCHEME",
     "Z616": "CROSS_NAMESPACE_LINK_FORBIDDEN",
+    "Z617": "FORBIDDEN_CONTENT_PATTERN",
+    "Z618": "REQUIRED_HEADING_PATTERN",
+    "Z619": "MAX_DOCUMENT_COMPLEXITY",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -404,6 +419,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z515": "Bare URL detected in prose — wrap in angle brackets '<url>' or Markdown link syntax '[text](url)'",
     "Z516": "Multiple H1 headings detected in document — ensure exactly one top-level title per page",
     "Z517": "Heading ends with invalid trailing punctuation (., :, ;) — remove trailing punctuation",
+    "Z518": "Passive voice construction detected — consider using active voice for clearer technical writing",
+    "Z519": "Weasel word detected in technical prose — use direct, assertive language instead",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
@@ -414,6 +431,9 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z614": "Link references an external domain not listed in the Zero-Trust allowed_external_domains whitelist",
     "Z615": "Link uses a URL scheme not permitted by the required_url_schemes whitelist",
     "Z616": "Internal link crosses a forbidden topological namespace boundary",
+    "Z617": "Prose content matches a forbidden RE2 regex pattern declared in [policies].forbidden_content_patterns",
+    "Z618": "Document does not contain any heading matching the required RE2 pattern declared in [policies].required_heading_patterns",
+    "Z619": "Document complexity score exceeds the maximum limit configured in [policies].max_document_complexity",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",

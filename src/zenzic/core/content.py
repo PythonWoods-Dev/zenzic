@@ -695,3 +695,126 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
                 )
 
     return findings
+
+
+_PASSIVE_VOICE_RE = re.compile(
+    r"(?i)\b(is|are|was|were|be|been|being)\s+([a-z]+(?:ed|en)|done|seen|made|found|built|written|read|set|put|known|taken|chosen|given|held|left|sent)\b"
+)
+_INLINE_CODE_SPAN_RE = re.compile(r"`[^`]+`")
+
+
+def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z518: Heuristic RE2 detection of passive voice constructs in prose (opt-in)."""
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        # Mask inline code, HTML tags/comments, and link targets
+        masked = _INLINE_CODE_SPAN_RE.sub(" ", line)
+        masked = _HTML_COMMENT_RE.sub(" ", masked)
+        masked = _HTML_TAG_RE.sub(" ", masked)
+        masked = _MARKDOWN_LINK_RE.sub(" ", masked)
+
+        for match in _PASSIVE_VOICE_RE.finditer(masked):
+            matched_text = match.group(0)
+            findings.append(
+                RuleFinding(
+                    rule_id="Z518",
+                    severity="warning",
+                    file_path=file_path,
+                    line_no=i,
+                    message=(
+                        f"Passive voice construct '{matched_text}' detected. "
+                        "Consider using active voice for clearer technical writing."
+                    ),
+                    match_text=matched_text,
+                    matched_line=line,
+                )
+            )
+
+    return findings
+
+
+def check_weasel_words(
+    file_path: Path,
+    text: str,
+    weasel_words: list[str] | None = None,
+) -> list[RuleFinding]:
+    """Z519: Detect weasel words in technical prose based on configured weasel_words list (opt-in)."""
+    from zenzic.core.rules import RuleFinding
+
+    if not weasel_words:
+        return []
+
+    escaped = [re.escape(w.strip()) for w in weasel_words if w.strip()]
+    if not escaped:
+        return []
+
+    pattern = re.compile(rf"(?i)\b({'|'.join(escaped)})\b")
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        masked = _INLINE_CODE_SPAN_RE.sub(" ", line)
+        masked = _HTML_COMMENT_RE.sub(" ", masked)
+        masked = _HTML_TAG_RE.sub(" ", masked)
+        masked = _MARKDOWN_LINK_RE.sub(" ", masked)
+
+        for match in pattern.finditer(masked):
+            matched_word = match.group(0)
+            findings.append(
+                RuleFinding(
+                    rule_id="Z519",
+                    severity="warning",
+                    file_path=file_path,
+                    line_no=i,
+                    message=(
+                        f"Weasel word '{matched_word}' detected. "
+                        "Consider using direct, precise language instead."
+                    ),
+                    match_text=matched_word,
+                    matched_line=line,
+                )
+            )
+
+    return findings
+

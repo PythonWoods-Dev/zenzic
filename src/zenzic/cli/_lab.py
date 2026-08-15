@@ -310,6 +310,20 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z517-heading-punctuation",
         expected_pass=False,
     ),
+    "z518": _Act(
+        code="z518",
+        title="Passive Voice Detected",
+        description="Z518 PASSIVE_VOICE_DETECTED — passive voice construction detected in technical prose",
+        example_dir="z518-passive-voice",
+        expected_pass=False,
+    ),
+    "z519": _Act(
+        code="z519",
+        title="Weasel Words",
+        description="Z519 WEASEL_WORDS — weasel word detected in technical prose",
+        example_dir="z519-weasel-words",
+        expected_pass=False,
+    ),
     "z104": _Act(
         code="z104",
         title="File Not Found",
@@ -444,6 +458,27 @@ _GALLERY: dict[str, _Act] = {
         title="Cross-Namespace Link Forbidden",
         description="Z616 CROSS_NAMESPACE_LINK_FORBIDDEN — internal link crosses forbidden namespace boundary",
         example_dir="z616-cross-namespace-link",
+        expected_pass=False,
+    ),
+    "z617": _Act(
+        code="z617",
+        title="Forbidden Content Pattern",
+        description="Z617 FORBIDDEN_CONTENT_PATTERN — content matches forbidden RE2 pattern",
+        example_dir="z617-forbidden-content",
+        expected_pass=False,
+    ),
+    "z618": _Act(
+        code="z618",
+        title="Required Heading Pattern",
+        description="Z618 REQUIRED_HEADING_PATTERN — document lacks required heading pattern",
+        example_dir="z618-required-heading",
+        expected_pass=False,
+    ),
+    "z619": _Act(
+        code="z619",
+        title="Max Document Complexity",
+        description="Z619 MAX_DOCUMENT_COMPLEXITY — document complexity score exceeds configured ceiling",
+        example_dir="z619-max-complexity",
         expected_pass=False,
     ),
     "z410": _Act(

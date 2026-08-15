@@ -31,9 +31,9 @@ Before advancing the core feature set, the following infrastructural and validat
 
 *Expanding AST-based semantic linting, structural accessibility, editorial style enforcement, and list heuristics.*
 
-- **Semantic Linting & Accessibility (`Z513`–`Z517`):** Native AST-based detection of duplicate headings, missing image alt text, bare URLs, multiple H1 headings, and heading punctuation.
-- **Editorial Style Enforcement (`Z518`, `Z519`, `Z617`–`Z619`):** Deterministic heuristics for passive voice, weasel words, forbidden/required content patterns, and document complexity.
-- **Semantic List Heuristics (`Z520`):** Automatic detection of malformed/fake lists formatted with semicolons/commas.
+- `[x]` **Semantic Linting & Accessibility (`Z513`–`Z517`):** Native AST-based detection of duplicate headings, missing image alt text, bare URLs, multiple H1 headings, and heading punctuation.
+- `[x]` **Editorial Style Enforcement (`Z518`, `Z519`, `Z617`–`Z619`):** Deterministic heuristics for passive voice, weasel words, forbidden/required content patterns, and document complexity.
+- `[ ]` **Semantic List Heuristics (`Z520`):** Automatic detection of malformed/fake lists formatted with semicolons/commas.
 
 ### [v0.31] — Docusaurus Bridge Architecture
 
@@ -83,4 +83,4 @@ These constraints apply across every future release. No feature may violate them
 
 ---
 
-Roadmap last updated: 2026-08-13.
+Roadmap last updated: 2026-08-15.

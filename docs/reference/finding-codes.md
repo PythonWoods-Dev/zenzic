@@ -122,6 +122,36 @@ This rule exists to enforce that every document has at most one top-level H1 hea
 
 This rule exists to detect headings that end with invalid trailing punctuation (such as periods, colons, or semicolons).
 
+### Z518: PASSIVE_VOICE_DETECTED {#z518}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z518.md)
+
+This rule exists to detect passive voice constructions in prose via deterministic RE2 heuristic matching, promoting direct and active technical prose.
+
+### Z519: WEASEL_WORDS {#z519}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z519.md)
+
+This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously") that weaken technical prose.
+
+### Z617: FORBIDDEN_CONTENT_PATTERN {#z617}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z617.md)
+
+This rule exists to detect prose content that matches any forbidden regular expression pattern declared in `[policies].forbidden_content_patterns`.
+
+### Z618: REQUIRED_HEADING_PATTERN {#z618}
+
+**Severity:** `warning` · **Penalty:** −3.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z618.md)
+
+This rule exists to enforce that documents include required section headings matching patterns declared in `[policies].required_heading_patterns`.
+
+### Z619: MAX_DOCUMENT_COMPLEXITY {#z619}
+
+**Severity:** `warning` · **Penalty:** −4.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z619.md)
+
+This rule exists to detect overly complex documents whose structural score exceeds the threshold set in `[policies].max_document_complexity`.
+
 ---
 
 ## Severity Levels and Pipeline Impact {#severity-pipeline-impact}

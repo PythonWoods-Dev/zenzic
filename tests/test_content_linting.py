@@ -18,7 +18,9 @@ from zenzic.core.content import (
     check_heading_hierarchy,
     check_heading_punctuation,
     check_multiple_h1_headings,
+    check_passive_voice,
     check_sentence_lengths,
+    check_weasel_words,
 )
 from zenzic.core.reporter import Finding
 
@@ -322,4 +324,46 @@ def test_z517_heading_punctuation_detection_and_mutator(tmp_path: Path) -> None:
     assert "### Subsection\n" in new_text
     assert "## Valid Question?\n" in new_text
     assert "## Valid Exclamation!\n" in new_text
+
+
+def test_z518_passive_voice_detection(tmp_path: Path) -> None:
+    """Z518 detects passive voice in prose while ignoring code and links."""
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n\n"
+        "The file was created by the script.\n"  # line 3: passive
+        "Zenzic validates the file.\n"  # line 4: active
+        "`The message is sent by server` in code.\n"  # line 5: inline code ignored
+        "<!-- This was written by human -->\n"  # line 6: comment ignored
+        "[is built by](https://example.com/built)\n"  # line 7: link target/markup
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_passive_voice(file_path, text)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "Z518"
+    assert findings[0].line_no == 3
+    assert "was created" in findings[0].match_text
+
+
+def test_z519_weasel_words_detection(tmp_path: Path) -> None:
+    """Z519 detects configured weasel words in technical prose."""
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n\n"
+        "Clearly, you simply configure the gateway.\n"  # line 3: two weasel words
+        "Configure the gateway directly.\n"  # line 4: no weasel words
+        "Run `simply` command in terminal.\n"  # line 5: code span ignored
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    weasel_words = ["clearly", "simply", "obviously"]
+    findings = check_weasel_words(file_path, text, weasel_words)
+    assert len(findings) == 2
+    assert all(f.rule_id == "Z519" for f in findings)
+    assert findings[0].line_no == 3
+    assert findings[0].match_text == "Clearly"
+    assert findings[1].line_no == 3
+    assert findings[1].match_text == "simply"
+
 

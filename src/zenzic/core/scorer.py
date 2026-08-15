@@ -73,7 +73,21 @@ _CODE_CATEGORY: dict[str, str] = {
 # penalty on the brand bucket — doubles every 5 excess findings until 0.
 _Z6XX_GOVERNANCE_THRESHOLD: int = 10
 _Z6XX_CODES: frozenset[str] = frozenset(
-    {"Z601", "Z603", "Z610", "Z611", "Z612", "Z613", "Z614", "Z615", "Z616", "Z620"}
+    {
+        "Z601",
+        "Z603",
+        "Z610",
+        "Z611",
+        "Z612",
+        "Z613",
+        "Z614",
+        "Z615",
+        "Z616",
+        "Z617",
+        "Z618",
+        "Z619",
+        "Z620",
+    }
 )
 
 _SOVEREIGN_SUPPRESSION_CAP: int = 30

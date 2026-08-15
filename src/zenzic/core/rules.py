@@ -1415,6 +1415,35 @@ class HeadingPunctuationRule(BaseRule):
         return check_heading_punctuation(file_path, text)
 
 
+class PassiveVoiceRule(BaseRule):
+    """Z518: Heuristic detection of passive voice constructs in prose (opt-in)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z518"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_passive_voice
+
+        return check_passive_voice(file_path, text)
+
+
+class WeaselWordsRule(BaseRule):
+    """Z519: Detect weasel words in technical prose (opt-in)."""
+
+    def __init__(self, weasel_words: list[str]) -> None:
+        self.weasel_words = weasel_words
+
+    @property
+    def rule_id(self) -> str:
+        return "Z519"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_weasel_words
+
+        return check_weasel_words(file_path, text, self.weasel_words)
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 

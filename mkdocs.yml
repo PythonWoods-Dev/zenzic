@@ -113,6 +113,8 @@ nav:
         - rules/Z515.md
         - rules/Z516.md
         - rules/Z517.md
+        - rules/Z518.md
+        - rules/Z519.md
         - rules/Z601.md
         - rules/Z603.md
         - rules/Z610.md
@@ -122,6 +124,9 @@ nav:
         - rules/Z614.md
         - rules/Z615.md
         - rules/Z616.md
+        - rules/Z617.md
+        - rules/Z618.md
+        - rules/Z619.md
         - rules/Z901.md
         - rules/Z902.md
         - rules/Z906.md

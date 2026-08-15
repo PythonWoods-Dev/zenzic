@@ -15,6 +15,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Editorial Style & Prose Quality Rules (Epic 2)**: Added 5 advanced editorial style and policy-as-code linting rules:
+  - `Z518` (`PASSIVE_VOICE_DETECTED`): Detects passive voice constructs in technical prose via non-backtracking RE2 regex heuristic (opt-in via `[policies].enable_passive_voice_check`). Penalty: 1.0 pt (Content).
+  - `Z519` (`WEASEL_WORDS`): Detects vague or weakening qualifiers (e.g., "clearly", "simply", "obviously") in technical prose (opt-in via `[policies].weasel_words`). Penalty: 1.0 pt (Content).
+  - `Z617` (`FORBIDDEN_CONTENT_PATTERN`): Enforces organizational terminology standards by detecting forbidden regex patterns in prose (opt-in via `[policies].forbidden_content_patterns`). Penalty: 2.0 pts (Governance).
+  - `Z618` (`REQUIRED_HEADING_PATTERN`): Enforces structural document templates by ensuring required heading patterns exist in each document (opt-in via `[policies].required_heading_patterns`). Penalty: 3.0 pts (Governance).
+  - `Z619` (`MAX_DOCUMENT_COMPLEXITY`): Restricts cognitive load and document bloat based on prose word count, heading depth, and link density (opt-in via `[policies].max_document_complexity`). Penalty: 4.0 pts (Governance).
+- **Policy-as-Code Configuration Enhancements**: Added 5 new declarative policy keys to the `[policies]` table in `PoliciesConfig` (`forbidden_content_patterns`, `required_heading_patterns`, `max_document_complexity`, `weasel_words`, `enable_passive_voice_check`), complete with `zenzic config explain` introspection table and `zenzic init` template integration.
+- **Mirror Law Parity for Editorial Style**: Added dedicated rule cards `docs/rules/Z518.md` through `docs/rules/Z619.md`, updated `mkdocs.yml` navigation, synchronized scoring algorithm/explanation matrices, registered finding reference entries, and added interactive lab acts (`z518`, `z519`, `z617`, `z618`, `z619`).
 - **Semantic Linting & Accessibility Rules (Epic 2)**: Implemented 5 native AST-based semantic and accessibility (a11y) rules in `zenzic.core`:
   - `Z513` (`DUPLICATE_HEADING`): Detects duplicate headings within the same document (case/whitespace/anchor invariant), preventing ambiguous anchor collisions. Penalty: 2.0 pts (Content).
   - `Z514` (`GENERIC_IMAGE_ALT_TEXT`): Detects generic filler words in image alt text (`![]()` and `<img>`), enforcing accessibility standards. Penalty: 2.0 pts (Content).

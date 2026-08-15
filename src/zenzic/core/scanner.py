@@ -1377,8 +1377,10 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         HeadingHierarchyRule,
         HeadingPunctuationRule,
         MultipleH1HeadingsRule,
+        PassiveVoiceRule,
         PlaceholderRule,
         ShortContentRule,
+        WeaselWordsRule,
     )
 
     built_in.append(ShortContentRule(config.placeholder_max_words))
@@ -1391,6 +1393,10 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     built_in.append(BareUrlUsedRule())
     built_in.append(MultipleH1HeadingsRule())
     built_in.append(HeadingPunctuationRule())
+    if config.policies.enable_passive_voice_check:
+        built_in.append(PassiveVoiceRule())
+    if config.policies.weasel_words:
+        built_in.append(WeaselWordsRule(config.policies.weasel_words))
     if config.project_metadata.obsolete_names:
         built_in.append(BrandObsolescenceRule(config.project_metadata))
 
