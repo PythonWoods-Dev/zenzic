@@ -298,8 +298,8 @@ class ZenzicReporter:
             # ── All-clear panel ───────────────────────────────────────────────
             _ok = ok_message or (
                 f"[bold {ZenzicPalette.SUCCESS}]Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
-                f" [{ZenzicPalette.SUCCESS}]All statically-detectable links, credentials,"
-                f" and references verified.[/{ZenzicPalette.SUCCESS}]"
+                f" [{ZenzicPalette.SUCCESS}]Links, credentials, semantic structure,"
+                f" and policies verified.[/{ZenzicPalette.SUCCESS}]"
             )
             _ok_items: list[RenderableType] = [
                 telemetry,
@@ -479,8 +479,8 @@ class ZenzicReporter:
         else:
             _ok = ok_message or (
                 f"[bold {ZenzicPalette.SUCCESS}]Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
-                f" [{ZenzicPalette.SUCCESS}]All statically-detectable links, credentials,"
-                f" and references verified.[/{ZenzicPalette.SUCCESS}]"
+                f" [{ZenzicPalette.SUCCESS}]Links, credentials, semantic structure,"
+                f" and policies verified.[/{ZenzicPalette.SUCCESS}]"
             )
             renderables.append(
                 Text.from_markup(f"{emoji('sparkles')} {_ok}")

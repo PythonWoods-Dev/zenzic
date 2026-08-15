@@ -203,6 +203,7 @@ nav:
       - Configuration Loading: explanation/configuration-loading.md
       - Exclusion Design: explanation/exclusion-design.md
       - Structural Integrity: explanation/structural-integrity.md
+      - Auto-Fix Philosophy: explanation/auto-fix-philosophy.md
       - Engine Migration Design: explanation/engine-migration-design.md
       - The Zenzic Trinity: explanation/the-zenzic-trinity.md
       - GitHub Action Internals: explanation/github-action-internals.md

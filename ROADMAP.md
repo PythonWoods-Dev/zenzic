@@ -37,9 +37,10 @@ Before advancing the core feature set, the following infrastructural and validat
 
 ### [v0.31] — Docusaurus Bridge Architecture
 
-*The first concrete implementation of the adapter ecosystem.*
+*The first concrete implementation of the adapter ecosystem & automated remediation audit.*
 
 - **`@zenzic/plugin-docusaurus`:** Validate the artifact-based Virtual Site Map (VSM) model outside the Python Core, allowing deterministic validation of Docusaurus routing without framework coupling.
+- **Auto-Fix Audit for Non-Fixable Rules:** Perform a systematic AST audit across all `fixable=False` finding codes to identify viable candidates for atomic auto-remediation expansion in the Mutator engine.
 
 ### [v0.32] — Sphinx Adapter
 

@@ -171,7 +171,7 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
     _shared.console.print(
         Text.from_markup(
             f"{emoji('sparkles')} [{ZenzicPalette.SUCCESS}]Analysis complete: "
-            "All statically-detectable links, credentials, and references verified.[/]"
+            "Links, credentials, semantic structure, and policies verified.[/]"
         )
     )
     _shared.console.print()
