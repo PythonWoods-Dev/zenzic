@@ -58,7 +58,7 @@ Documentation is software. Broken links, orphaned pages, leaked API keys, and in
 uv tool install zenzic
 
 # Or run ephemerally without installing
-uvx zenzic@0.29.1 check all
+uvx zenzic@0.30.0 check all
 
 # Or via standard pip
 pip install --upgrade zenzic
@@ -229,7 +229,7 @@ zenzic check all --format sarif --output results.sarif
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.29.1",
+          "version": "0.30.0",
           "rules": [
             {
               "id": "Z101",

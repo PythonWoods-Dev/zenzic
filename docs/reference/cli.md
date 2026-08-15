@@ -16,7 +16,7 @@ Complete reference for every Zenzic command, flag, and exit code.
 
 Select a command tab to view its execution flags, default behaviors, and usage examples.
 
-**Version baseline: Zenzic v0.29.1** — all flags verified against `uv run zenzic <command> --help`.
+**Version baseline: Zenzic v0.30.0** — all flags verified against `uv run zenzic <command> --help`.
 
 === "zenzic check"
 

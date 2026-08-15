@@ -13,6 +13,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 *Upcoming changes for the next release.*
 
+## [0.30.0] - 2026-08-15
+
 ### Added
 
 - **Semantic List Heuristics & Auto-Fix**:
