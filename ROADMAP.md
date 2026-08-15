@@ -42,23 +42,24 @@ Before advancing the core feature set, the following infrastructural and validat
 - **`@zenzic/plugin-docusaurus`:** Validate the artifact-based Virtual Site Map (VSM) model outside the Python Core, allowing deterministic validation of Docusaurus routing without framework coupling.
 - **Auto-Fix Audit for Non-Fixable Rules:** Perform a systematic AST audit across all `fixable=False` finding codes to identify viable candidates for atomic auto-remediation expansion in the Mutator engine.
 
-### [v0.32] — Sphinx Adapter
+### [v0.32] — Sphinx Adapter (GH #51)
 
 *Extending open-source compatibility to the Python ecosystem.*
 
 - **Native Sphinx Parsing:** Parse `conf.py` and `.rst` files natively without invoking the `sphinx-build` subprocess, translating Sphinx cross-references into the standard VSM.
 
-### [v0.33] — Hugo Adapter
+### [v0.33] — Hugo Adapter (GH #50)
 
 *Extending open-source compatibility to the Go ecosystem.*
 
 - **Native Hugo Parsing:** Parse `hugo.toml` and frontmatter conventions to deterministically replicate Hugo's permalink generation rules within the Zenzic VSM.
 
-### [v0.34] — Multi-Repository Documentation Graph
+### [v0.34] — Multi-Repository Documentation Graph & Connectivity (GH #7)
 
-*Enterprise-scale topology validation.*
+*Enterprise-scale topology validation & visual graph intelligence.*
 
 - **Artifact Composition:** Allow Zenzic to aggregate multiple VSM artifacts to detect broken cross-repository references and routing inconsistencies across distributed documentation.
+- **Smart Link Graph & Connectivity Analysis:** In-depth topological clustering and visual dead-end detection across interconnected documentation nodes.
 
 ### [v0.35] — Operational Excellence
 

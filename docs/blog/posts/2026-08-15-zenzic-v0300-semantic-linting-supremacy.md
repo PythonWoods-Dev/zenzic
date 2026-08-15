@@ -126,8 +126,6 @@ All automated fixes are shared identically between the CLI tool and the VS Code 
 
 With the completion of v0.30.0, Zenzic has solidified its foundation as the fastest, most deterministic document integrity and quality engine for Markdown graphs.
 
-In our upcoming **v0.31.0** milestone, we will begin the concrete rollout of the Adapter Ecosystem, starting with `@zenzic/plugin-docusaurus` to validate artifact-based routing for JavaScript-centric documentation frameworks, alongside a comprehensive auto-fix expansion audit.
-
 Explore the complete [Finding Codes Reference](../../reference/finding-codes.md) and get started today with:
 
 ```bash
