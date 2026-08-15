@@ -291,11 +291,11 @@ This means Zenzic operates before the documentation build and does not depend on
 
 That gives us several practical properties:
 
-Zenzic can run before the documentation generator;
-CI can fail fast;
-the core analysis does not need to execute the documentation stack;
-multiple documentation engines can be supported through adapters;
-findings can point directly to the author's source file.
+- Zenzic can run before the documentation generator;
+- CI can fail fast;
+- the core analysis does not need to execute the documentation stack;
+- multiple documentation engines can be supported through adapters;
+- findings can point directly to the author's source file.
 
 This source-first approach is important to our architecture.
 
@@ -490,11 +490,11 @@ The same principle applies to the documentation quality score.
 
 Zenzic's deterministic score and component metrics can show movement in areas such as:
 
-internal-link health;
-anchor stability;
-orphan detection;
-unused assets;
-navigation isolation.
+- internal-link health;
+- anchor stability;
+- orphan detection;
+- unused assets;
+- navigation isolation.
 
 But we do not want the score to become a vanity metric.
 
@@ -564,14 +564,14 @@ We think Zenzic is useful when documentation has operational or security signifi
 
 That includes:
 
-API and SDK documentation;
-deployment and infrastructure guides;
-public open source repositories;
-multi-team documentation portals;
-multi-repository documentation systems;
-documentation with generated navigation;
-projects where broken references cause support incidents;
-repositories where examples may contain sensitive configuration.
+- API and SDK documentation;
+- deployment and infrastructure guides;
+- public open source repositories;
+- multi-team documentation portals;
+- multi-repository documentation systems;
+- documentation with generated navigation;
+- projects where broken references cause support incidents;
+- repositories where examples may contain sensitive configuration.
 
 The strongest argument is not that Zenzic has more rules than a linter.
 
@@ -620,13 +620,13 @@ Run Zenzic locally and in CI without blocking merges.
 
 Collect:
 
-total findings;
-confirmed defects;
-false positives;
-duplicate findings;
-execution time;
-adapter incompatibilities;
-suppression candidates.
+- total findings;
+- confirmed defects;
+- false positives;
+- duplicate findings;
+- execution time;
+- adapter incompatibilities;
+- suppression candidates.
 
 The first goal is to understand the repository, not to impose a new policy overnight.
 
@@ -634,11 +634,11 @@ Phase two: classify
 
 Separate findings into:
 
-security-critical;
-hard structural errors;
-warnings;
-editorial suggestions;
-intentional exceptions.
+- security-critical;
+- hard structural errors;
+- warnings;
+- editorial suggestions;
+- intentional exceptions.
 
 Do not begin by enabling every rule as a mandatory gate.
 
@@ -646,11 +646,11 @@ Phase three: block high-confidence failures
 
 Start with findings such as:
 
-missing local files;
-missing anchors;
-credential leaks;
-path traversal;
-missing configured assets.
+- missing local files;
+- missing anchors;
+- credential leaks;
+- path traversal;
+- missing configured assets.
 
 These are easier to explain and generally have a clear remediation path.
 

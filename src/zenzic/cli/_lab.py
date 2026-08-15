@@ -324,6 +324,13 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z519-weasel-words",
         expected_pass=False,
     ),
+    "z520": _Act(
+        code="z520",
+        title="Malformed List Detected",
+        description="Z520 MALFORMED_LIST_DETECTED — paragraph formatted as list without Markdown list markers",
+        example_dir="z520-malformed-list",
+        expected_pass=False,
+    ),
     "z104": _Act(
         code="z104",
         title="File Not Found",

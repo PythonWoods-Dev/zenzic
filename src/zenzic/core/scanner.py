@@ -1376,6 +1376,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         GenericImageAltTextRule,
         HeadingHierarchyRule,
         HeadingPunctuationRule,
+        MalformedListRule,
         MultipleH1HeadingsRule,
         PassiveVoiceRule,
         PlaceholderRule,
@@ -1393,6 +1394,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     built_in.append(BareUrlUsedRule())
     built_in.append(MultipleH1HeadingsRule())
     built_in.append(HeadingPunctuationRule())
+    built_in.append(MalformedListRule())
     if config.policies.enable_passive_voice_check:
         built_in.append(PassiveVoiceRule())
     if config.policies.weasel_words:

@@ -70,6 +70,7 @@ Z5xx — Content Quality
     Z517  HEADING_PUNCTUATION  — heading ends with invalid trailing punctuation
     Z518  PASSIVE_VOICE_DETECTED — passive voice construction detected (opt-in)
     Z519  WEASEL_WORDS          — weasel word detected in technical prose (opt-in)
+    Z520  MALFORMED_LIST_DETECTED — fake list formatted with newlines and semicolons/commas without list markers
 
 Z6xx — Governance (opt-in)
      Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
@@ -264,6 +265,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z517": CodeDefinition("warning", 1.0, "content", fixable=True),  # HEADING_PUNCTUATION
     "Z518": CodeDefinition("warning", 1.0, "content"),  # PASSIVE_VOICE_DETECTED (opt-in)
     "Z519": CodeDefinition("warning", 1.0, "content"),  # WEASEL_WORDS (opt-in)
+    "Z520": CodeDefinition("warning", 2.0, "content", fixable=True),  # MALFORMED_LIST_DETECTED (v0.30.0)
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
@@ -340,6 +342,7 @@ CODE_NAMES: dict[str, str] = {
     "Z517": "HEADING_PUNCTUATION",
     "Z518": "PASSIVE_VOICE_DETECTED",
     "Z519": "WEASEL_WORDS",
+    "Z520": "MALFORMED_LIST_DETECTED",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
     "Z610": "REQUIRED_FRONTMATTER_MISSING",
@@ -421,6 +424,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z517": "Heading ends with invalid trailing punctuation (., :, ;) — remove trailing punctuation",
     "Z518": "Passive voice construction detected — consider using active voice for clearer technical writing",
     "Z519": "Weasel word detected in technical prose — use direct, assertive language instead",
+    "Z520": "Malformed list detected in paragraph — convert to a standard Markdown list with '- ' for accessibility and semantic rendering",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",

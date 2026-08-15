@@ -82,6 +82,7 @@ def fix(
         BareUrlMutation,
         DeadSuppressionMutation,
         HeadingPunctuationMutation,
+        MalformedListMutation,
         UntaggedCodeBlockMutation,
     )
     from zenzic.core.scanner import _scan_single_file
@@ -105,6 +106,7 @@ def fix(
                 DeadSuppressionMutation(dead_lines),
                 BareUrlMutation(),
                 HeadingPunctuationMutation(),
+                MalformedListMutation(),
             ]
         )
 

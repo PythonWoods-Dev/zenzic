@@ -134,6 +134,12 @@ This rule exists to detect passive voice constructions in prose via deterministi
 
 This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously") that weaken technical prose.
 
+### Z520: MALFORMED_LIST_DETECTED {#z520}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z520.md)
+
+This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`- `, `* `, `1. `), preventing accessibility and HTML list rendering degradation.
+
 ### Z617: FORBIDDEN_CONTENT_PATTERN {#z617}
 
 **Severity:** `warning` · **Penalty:** −2.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z617.md)

@@ -818,3 +818,110 @@ def check_weasel_words(
 
     return findings
 
+
+_LIST_MARKER_PREFIX_RE = re.compile(r"^(\*|-|\+|\d+\.|\d+\))\s+")
+_CONJUNCTION_START_RE = re.compile(r"^(and|or|but|nor|so|yet)\s+", re.IGNORECASE)
+
+
+def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z520: Detect malformed/fake lists in paragraphs lacking Markdown list markers."""
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        stripped = line.strip()
+
+        if i == 0 and stripped == "---":
+            in_frontmatter = True
+            i += 1
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            i += 1
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            i += 1
+            continue
+
+        if in_code_block or not stripped:
+            i += 1
+            continue
+
+        # Check for consecutive run of 3+ lines ending with ';' or ','
+        run_indices: list[int] = []
+        open_parens = 0
+        j = i
+        while j < n:
+            curr_line = lines[j]
+            curr_stripped = curr_line.strip()
+            if not curr_stripped:
+                break
+            if (
+                curr_stripped.startswith("```")
+                or curr_stripped.startswith("~~~")
+                or curr_stripped.startswith("#")
+                or curr_stripped.startswith("|")
+                or _LIST_MARKER_PREFIX_RE.match(curr_stripped)
+            ):
+                break
+
+            open_parens += curr_stripped.count("(") - curr_stripped.count(")")
+            if open_parens > 0 or curr_stripped.startswith("(") or curr_stripped.endswith(")"):
+                break
+
+            if curr_stripped.endswith(";") or curr_stripped.endswith(","):
+                if curr_stripped.endswith(",") and _CONJUNCTION_START_RE.match(curr_stripped):
+                    break
+                run_indices.append(j)
+                j += 1
+            elif (
+                len(run_indices) >= 2
+                and curr_stripped.endswith(".")
+                and not _CONJUNCTION_START_RE.match(curr_stripped)
+            ):
+                run_indices.append(j)
+                j += 1
+                break
+            else:
+                break
+
+        punct_count = sum(
+            1
+            for idx in run_indices
+            if lines[idx].strip().endswith(";") or lines[idx].strip().endswith(",")
+        )
+        if len(run_indices) >= 3 and punct_count >= 3:
+            first_line_no = run_indices[0] + 1
+            matched_snippet = "\n".join(lines[idx] for idx in run_indices)
+            findings.append(
+                RuleFinding(
+                    rule_id="Z520",
+                    severity="warning",
+                    file_path=file_path,
+                    line_no=first_line_no,
+                    message=(
+                        f"Malformed list detected at line {first_line_no}: paragraph contains "
+                        f"{len(run_indices)} consecutive lines formatted as a list with semicolons/commas "
+                        "without proper Markdown list markers ('- ', '* ', '1. ')."
+                    ),
+                    match_text=matched_snippet,
+                    matched_line=lines[run_indices[0]],
+                )
+            )
+            i = j
+        else:
+            i += 1
+
+    return findings
+
+

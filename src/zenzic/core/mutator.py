@@ -285,3 +285,95 @@ class HeadingPunctuationMutation:
                 mutated = True
 
         return mutated
+
+
+_LIST_MARKER_MUTATION_RE = regex.compile(r"^(\*|-|\+|\d+\.|\d+\))\s+")
+_CONJUNCTION_MUTATION_RE = regex.compile(r"^(and|or|but|nor|so|yet)\s+", regex.IGNORECASE)
+
+
+class MalformedListMutation:
+    """Z520 Auto-Fix: Transforms fake/malformed paragraph lists into valid Markdown bullet lists."""
+
+    def apply(self, node: Node) -> bool:
+        from zenzic.core.ast import Paragraph
+        from zenzic.core.parser import parse, serialize
+
+        if isinstance(node, Paragraph):
+            text = serialize(node)
+            lines = text.splitlines(keepends=True)
+            if len(lines) < 3:
+                return False
+
+            mutated = False
+            new_lines = []
+            i = 0
+            n = len(lines)
+            while i < n:
+                run = []
+                open_parens = 0
+                j = i
+                while j < n:
+                    raw_line = lines[j]
+                    clean = raw_line.rstrip("\r\n").strip()
+                    if not clean:
+                        break
+                    if (
+                        _LIST_MARKER_MUTATION_RE.match(clean)
+                        or clean.startswith("#")
+                        or clean.startswith("|")
+                        or clean.startswith("```")
+                        or clean.startswith("~~~")
+                    ):
+                        break
+
+                    open_parens += clean.count("(") - clean.count(")")
+                    if open_parens > 0 or clean.startswith("(") or clean.endswith(")"):
+                        break
+
+                    if clean.endswith(";") or clean.endswith(","):
+                        if clean.endswith(",") and _CONJUNCTION_MUTATION_RE.match(clean):
+                            break
+                        run.append(j)
+                        j += 1
+                    elif (
+                        len(run) >= 2
+                        and clean.endswith(".")
+                        and not _CONJUNCTION_MUTATION_RE.match(clean)
+                    ):
+                        run.append(j)
+                        j += 1
+                        break
+                    else:
+                        break
+
+                punct_count = sum(
+                    1
+                    for idx in run
+                    if lines[idx].rstrip("\r\n").strip().endswith(";")
+                    or lines[idx].rstrip("\r\n").strip().endswith(",")
+                )
+                if len(run) >= 3 and punct_count >= 3:
+                    mutated = True
+                    for k in range(i, j):
+                        line_content = lines[k]
+                        l_stripped = line_content.lstrip(" \t")
+                        indent = line_content[: len(line_content) - len(l_stripped)]
+                        new_lines.append(f"{indent}- {l_stripped}")
+                    i = j
+                else:
+                    new_lines.append(lines[i])
+                    i += 1
+
+            if mutated:
+                new_text = "".join(new_lines)
+                new_doc = parse(new_text)
+                node.children = new_doc.children
+                return True
+
+        mutated = False
+        for child in node.children:
+            if self.apply(child):
+                mutated = True
+
+        return mutated
+

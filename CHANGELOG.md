@@ -15,6 +15,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Semantic List Heuristics & Auto-Fix (Epic 2)**:
+  - `Z520` (`MALFORMED_LIST_DETECTED`): Detects paragraphs formatted as pseudo-lists using hard newlines and semicolons/commas without Markdown list markers. Supports atomic automated fix (`zenzic fix --apply`). Penalty: 2.0 pts (Content).
+  - Added `MalformedListMutation` to the core AST `Mutator` engine, automatically transforming malformed paragraph lists into structured Markdown bullet lists.
+  - Added rule card `docs/rules/Z520.md`, updated `mkdocs.yml` navigation, scoring references, and added interactive lab scenario `z520` (`examples/z520-malformed-list/`).
 - **Editorial Style & Prose Quality Rules (Epic 2)**: Added 5 advanced editorial style and policy-as-code linting rules:
   - `Z518` (`PASSIVE_VOICE_DETECTED`): Detects passive voice constructs in technical prose via non-backtracking RE2 regex heuristic (opt-in via `[policies].enable_passive_voice_check`). Penalty: 1.0 pt (Content).
   - `Z519` (`WEASEL_WORDS`): Detects vague or weakening qualifiers (e.g., "clearly", "simply", "obviously") in technical prose (opt-in via `[policies].weasel_words`). Penalty: 1.0 pt (Content).

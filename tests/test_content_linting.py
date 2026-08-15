@@ -367,3 +367,42 @@ def test_z519_weasel_words_detection(tmp_path: Path) -> None:
     assert findings[1].match_text == "simply"
 
 
+def test_z520_malformed_list_detection_and_mutator(tmp_path: Path) -> None:
+    """Z520 detects fake paragraph lists and Mutator converts them into Markdown bullet lists."""
+    from zenzic.core.content import check_malformed_lists
+    from zenzic.core.mutator import MalformedListMutation, Mutator
+    from zenzic.core.parser import parse, serialize
+
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Overview\n\n"
+        "Here are the items:\n"
+        "First item;\n"
+        "Second item;\n"
+        "Third item;\n\n"
+        "And normal prose sentence.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_malformed_lists(file_path, text)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "Z520"
+    assert findings[0].line_no == 4
+    assert "First item;" in findings[0].match_text
+
+    # Test Mutator Auto-Fix
+    ast = parse(text)
+    mutator = Mutator([MalformedListMutation()])
+    new_ast, changed = mutator.mutate(ast)
+    assert changed is True
+    fixed_text = serialize(new_ast)
+    assert "- First item;" in fixed_text
+    assert "- Second item;" in fixed_text
+    assert "- Third item;" in fixed_text
+
+    # Re-evaluating fixed text should produce zero Z520 findings
+    recheck_findings = check_malformed_lists(file_path, fixed_text)
+    assert len(recheck_findings) == 0
+
+
+

@@ -1444,6 +1444,19 @@ class WeaselWordsRule(BaseRule):
         return check_weasel_words(file_path, text, self.weasel_words)
 
 
+class MalformedListRule(BaseRule):
+    """Z520: Detect malformed/fake lists formatted without list markers."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z520"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_malformed_lists
+
+        return check_malformed_lists(file_path, text)
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 
