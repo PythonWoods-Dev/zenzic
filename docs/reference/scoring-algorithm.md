@@ -67,7 +67,7 @@ If no Z2xx finding is detected, the engine calculates per-category scores using 
 | Security Gate | — | Z2xx | — | score = 0 |
 | Structural | `structural` | Z101–Z105, Z107–Z109, Z113, Z121, Z124, Z410, Z411 | 30% | 30 pts |
 | Navigation | `navigation` | Z301–Z303, Z402 | 25% | 25 pts |
-| Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z512 | 20% | 20 pts |
+| Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z517 | 20% | 20 pts |
 | Governance & Brand | `brand` | Z620, Z404–Z406, Z601, Z603, Z610, Z611, Z612, Z613 | 25% | 25 pts |
 
 ### Category Penalty Formula
@@ -128,6 +128,11 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z510** | HEADING_HIERARCHY | 2.0 pts | Content Excellence | Default |
 | **Z511** | EXCESSIVE_SENTENCE_LENGTH | 1.0 pt | Content Excellence | Default |
 | **Z512** | EMPTY_SECTION | 1.0 pt | Content Excellence | Default |
+| **Z513** | DUPLICATE_HEADING | 2.0 pts | Content Excellence | Default |
+| **Z514** | GENERIC_IMAGE_ALT_TEXT | 2.0 pts | Content Excellence | Default |
+| **Z515** | BARE_URL_USED | 1.0 pt | Content Excellence | Default |
+| **Z516** | MULTIPLE_H1_HEADINGS | 5.0 pts | Content Excellence | Default |
+| **Z517** | HEADING_PUNCTUATION | 1.0 pt | Content Excellence | Default |
 | **Z601** | BRAND_OBSOLESCENCE | 2.0 pts | Governance & Brand | Default |
 | **Z603** | DEAD_SUPPRESSION | 1.0 pt | Governance & Brand | Technical Debt |
 | **Z610** | REQUIRED_FRONTMATTER_MISSING | 3.0 pts | Governance & Brand | **Opt-In** |

@@ -60,6 +60,14 @@ Z5xx — Content Quality
     Z504  QUALITY_REGRESSION   — quality scorer detected score drop vs saved baseline
     Z505  UNTAGGED_CODE_BLOCK  — fenced code block has no language specifier
     Z506  MALFORMED_FRONTMATTER — frontmatter opening delimiter is malformed (e.g., '--' instead of '---')
+    Z510  HEADING_HIERARCHY    — heading hierarchy level skipped
+    Z511  EXCESSIVE_SENTENCE_LENGTH — sentence length exceeds readability limit
+    Z512  EMPTY_SECTION        — heading section contains no body content
+    Z513  DUPLICATE_HEADING    — duplicate heading within the same document
+    Z514  GENERIC_IMAGE_ALT_TEXT — generic alt text detected in image tag
+    Z515  BARE_URL_USED        — bare URL in prose without link syntax
+    Z516  MULTIPLE_H1_HEADINGS — multiple H1 headings in single document (error)
+    Z517  HEADING_PUNCTUATION  — heading ends with invalid trailing punctuation
 
 Z6xx — Governance (opt-in)
      Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
@@ -244,6 +252,11 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z510": CodeDefinition("warning", 1.0, "content"),  # HEADING_HIERARCHY
     "Z511": CodeDefinition("warning", 1.0, "content"),  # EXCESSIVE_SENTENCE_LENGTH
     "Z512": CodeDefinition("warning", 1.0, "content"),  # EMPTY_SECTION
+    "Z513": CodeDefinition("warning", 2.0, "content"),  # DUPLICATE_HEADING
+    "Z514": CodeDefinition("warning", 2.0, "content"),  # GENERIC_IMAGE_ALT_TEXT
+    "Z515": CodeDefinition("warning", 1.0, "content", fixable=True),  # BARE_URL_USED
+    "Z516": CodeDefinition("error", 5.0, "content"),  # MULTIPLE_H1_HEADINGS
+    "Z517": CodeDefinition("warning", 1.0, "content", fixable=True),  # HEADING_PUNCTUATION
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
@@ -310,6 +323,11 @@ CODE_NAMES: dict[str, str] = {
     "Z510": "HEADING_HIERARCHY",
     "Z511": "EXCESSIVE_SENTENCE_LENGTH",
     "Z512": "EMPTY_SECTION",
+    "Z513": "DUPLICATE_HEADING",
+    "Z514": "GENERIC_IMAGE_ALT_TEXT",
+    "Z515": "BARE_URL_USED",
+    "Z516": "MULTIPLE_H1_HEADINGS",
+    "Z517": "HEADING_PUNCTUATION",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
     "Z610": "REQUIRED_FRONTMATTER_MISSING",
@@ -381,6 +399,11 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z510": "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)",
     "Z511": "Sentence length exceeds the maximum readability limit",
     "Z512": "Heading section contains no body content before next heading or EOF",
+    "Z513": "Duplicate heading found within the same document — ensure heading titles are unique",
+    "Z514": "Generic image alt text detected (e.g., 'image', 'screenshot') — provide descriptive alt text for accessibility",
+    "Z515": "Bare URL detected in prose — wrap in angle brackets '<url>' or Markdown link syntax '[text](url)'",
+    "Z516": "Multiple H1 headings detected in document — ensure exactly one top-level title per page",
+    "Z517": "Heading ends with invalid trailing punctuation (., :, ;) — remove trailing punctuation",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",

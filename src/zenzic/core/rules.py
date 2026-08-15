@@ -1350,6 +1350,71 @@ class EmptySectionRule(BaseRule):
         return check_empty_sections(file_path, text)
 
 
+class DuplicateHeadingRule(BaseRule):
+    """Z513: Emit if two headings in the same document resolve to the exact same text."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z513"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_duplicate_headings
+
+        return check_duplicate_headings(file_path, text)
+
+
+class GenericImageAltTextRule(BaseRule):
+    """Z514: Emit if an image tag uses generic filler words as alt text."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z514"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_generic_image_alt_text
+
+        return check_generic_image_alt_text(file_path, text)
+
+
+class BareUrlUsedRule(BaseRule):
+    """Z515: Detect raw URLs in prose that are not wrapped in Markdown link syntax."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z515"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_bare_urls
+
+        return check_bare_urls(file_path, text)
+
+
+class MultipleH1HeadingsRule(BaseRule):
+    """Z516: Emit if a document contains more than one H1 heading."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z516"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_multiple_h1_headings
+
+        return check_multiple_h1_headings(file_path, text)
+
+
+class HeadingPunctuationRule(BaseRule):
+    """Z517: Emit if a heading ends with invalid trailing punctuation (., :, ;)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z517"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_heading_punctuation
+
+        return check_heading_punctuation(file_path, text)
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 

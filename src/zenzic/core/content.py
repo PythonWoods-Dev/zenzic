@@ -3,8 +3,10 @@
 """Deterministic Semantic Linting & Readability Metrics engine for Zenzic.
 
 Provides mathematical content quality evaluation for Markdown/MDX graphs,
-enforcing heading hierarchy (Z510), sentence length limits (Z511), and
-empty section detection (Z512) with strict line-number fidelity.
+enforcing heading hierarchy (Z510), sentence length limits (Z511),
+empty section detection (Z512), duplicate headings (Z513), generic alt text (Z514),
+bare URLs in prose (Z515), multiple H1 headings (Z516), and heading punctuation (Z517)
+with strict line-number fidelity.
 """
 
 from __future__ import annotations
@@ -324,5 +326,372 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                 match_text=current_heading,
             )
         )
+
+    return findings
+
+
+# ─── Z513, Z514, Z515, Z516, Z517 ─────────────────────────────────────────────
+
+_HEADING_ANCHOR_STRIP_RE = re.compile(r"\s*\{#[^}]+\}\s*$")
+_WS_COLLAPSE_RE = re.compile(r"\s+")
+_TRAILING_INVALID_PUNCT = {".", ":", ";"}
+_HTML_H1_RE = re.compile(r"<h1\b[^>]*>(.*?)</h1>", re.IGNORECASE)
+
+_GENERIC_ALT_SET = frozenset({
+    "image",
+    "screenshot",
+    "picture",
+    "photo",
+    "icon",
+    "graphic",
+    "logo",
+    "img",
+    "figure",
+    "thumbnail",
+    "untitled",
+})
+
+_GENERIC_ALT_PREFIXES = (
+    "image of",
+    "picture of",
+    "photo of",
+    "screenshot of",
+    "graphic of",
+    "icon of",
+    "logo of",
+    "thumbnail of",
+    "figure of",
+)
+
+_BARE_URL_RE = re.compile(r"https?://[^\s<>`\"'\[\]\(\)]+")
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
+_AUTOLINK_RE = re.compile(r"<https?://[^>]+>")
+_MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\([^)]+\)")
+_MARKDOWN_REF_DEF_RE = re.compile(r"^\s*\[[^\]]+\]:\s*\S+")
+
+
+def _is_generic_alt(alt: str) -> bool:
+    """Check if alt text contains generic filler words or phrases."""
+    clean = alt.strip().lower()
+    if not clean:
+        return False
+    clean = re.sub(r"^[\s_.:-]+|[\s_.:-]+$", "", clean).strip()
+    if clean in _GENERIC_ALT_SET:
+        return True
+    if any(clean.startswith(prefix) for prefix in _GENERIC_ALT_PREFIXES):
+        return True
+    words = clean.split()
+    if len(words) == 2 and words[0] in _GENERIC_ALT_SET and words[1].isdigit():
+        return True
+    return False
+
+
+def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z513: Emit if two headings in the same document resolve to the exact same text."""
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+    seen_headings: dict[str, int] = {}
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        m = _ATX_HEADING_RE.match(stripped)
+        if m:
+            raw_title = m.group(2).strip()
+            clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
+            norm_title = _WS_COLLAPSE_RE.sub(" ", clean_title).lower()
+            if not norm_title:
+                continue
+
+            if norm_title in seen_headings:
+                first_line = seen_headings[norm_title]
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z513",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=i,
+                        message=f"Duplicate heading '{clean_title}' found (first occurrence at line {first_line}).",
+                        match_text=clean_title,
+                        matched_line=line,
+                    )
+                )
+            else:
+                seen_headings[norm_title] = i
+
+    return findings
+
+
+def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z514: Emit if an image tag (![]() or <img>) uses generic filler words as alt text."""
+    from zenzic.core.rules import RuleFinding
+    from zenzic.core.scanner import _INLINE_CODE_RE, _RE_HTML_ALT, _RE_HTML_IMG, _RE_IMAGE_INLINE
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+
+        # 1. Inline Markdown images
+        for m in _RE_IMAGE_INLINE.finditer(clean):
+            alt_text = m.group(1)
+            url = m.group(2)
+            if _is_generic_alt(alt_text):
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z514",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=i,
+                        message=(
+                            f"Image '{url}' uses generic alt text '{alt_text.strip()}'. "
+                            "Provide descriptive alt text for accessibility."
+                        ),
+                        match_text=alt_text.strip(),
+                        matched_line=line,
+                    )
+                )
+
+        # 2. HTML <img> tags
+        for img_match in _RE_HTML_IMG.finditer(clean):
+            tag = img_match.group()
+            alt_match = _RE_HTML_ALT.search(tag)
+            if alt_match is not None:
+                alt_text = alt_match.group(1) or alt_match.group(2) or alt_match.group(3) or ""
+                if _is_generic_alt(alt_text):
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z514",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=i,
+                            message=(
+                                f"HTML <img> tag uses generic alt text '{alt_text.strip()}'. "
+                                "Provide descriptive alt text for accessibility."
+                            ),
+                            match_text=alt_text.strip(),
+                            matched_line=line,
+                        )
+                    )
+
+    return findings
+
+
+def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z515: Detect raw URLs in prose that are not wrapped in Markdown link syntax."""
+    from zenzic.core.rules import RuleFinding
+    from zenzic.core.scanner import _INLINE_CODE_RE
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        if _MARKDOWN_REF_DEF_RE.match(line):
+            continue
+
+        masked = line
+        masked = _HTML_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), masked)
+        masked = _AUTOLINK_RE.sub(lambda m: " " * len(m.group(0)), masked)
+        masked = _MARKDOWN_LINK_RE.sub(lambda m: " " * len(m.group(0)), masked)
+        masked = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group(0)), masked)
+        masked = _HTML_TAG_RE.sub(lambda m: " " * len(m.group(0)), masked)
+
+        for m in _BARE_URL_RE.finditer(masked):
+            raw_url = m.group(0)
+            url = raw_url.rstrip(".,;:!?")
+            if not url:
+                continue
+            findings.append(
+                RuleFinding(
+                    rule_id="Z515",
+                    severity="warning",
+                    file_path=file_path,
+                    line_no=i,
+                    message=(
+                        f"Bare URL '{url}' detected in prose. Wrap in angle brackets '<{url}>' "
+                        f"or Markdown link syntax '[text]({url})'."
+                    ),
+                    match_text=url,
+                    matched_line=line,
+                )
+            )
+
+    return findings
+
+
+def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z516: Emit if a document contains more than one H1 heading (# or <h1>)."""
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+    h1_count = 0
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        m = _ATX_HEADING_RE.match(stripped)
+        if m and len(m.group(1)) == 1:
+            h1_count += 1
+            raw_title = m.group(2).strip()
+            clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
+            if h1_count > 1:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z516",
+                        severity="error",
+                        file_path=file_path,
+                        line_no=i,
+                        message=(
+                            f"Multiple H1 headings detected in document ('{clean_title}'). "
+                            "Documents must have exactly one H1 title."
+                        ),
+                        match_text=clean_title,
+                        matched_line=line,
+                    )
+                )
+            continue
+
+        m_html = _HTML_H1_RE.search(line)
+        if m_html:
+            h1_count += 1
+            html_title = m_html.group(1).strip()
+            if h1_count > 1:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z516",
+                        severity="error",
+                        file_path=file_path,
+                        line_no=i,
+                        message=(
+                            f"Multiple H1 headings detected in document ('{html_title}'). "
+                            "Documents must have exactly one H1 title."
+                        ),
+                        match_text=html_title,
+                        matched_line=line,
+                    )
+                )
+
+    return findings
+
+
+def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
+    """Z517: Emit if a heading ends with invalid trailing punctuation (., :, ;)."""
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            continue
+
+        m = _ATX_HEADING_RE.match(stripped)
+        if m:
+            raw_title = m.group(2).strip()
+            clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
+            if clean_title and clean_title[-1] in _TRAILING_INVALID_PUNCT:
+                trailing = clean_title[-1]
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z517",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=i,
+                        message=(
+                            f"Heading '{clean_title}' ends with invalid trailing punctuation '{trailing}'. "
+                            "Headings should not end with periods, colons, or semicolons."
+                        ),
+                        match_text=clean_title,
+                        matched_line=line,
+                    )
+                )
 
     return findings

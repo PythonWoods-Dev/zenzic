@@ -214,3 +214,74 @@ class DeadSuppressionMutation:
                     mutated = True
 
         return mutated
+
+
+_BARE_URL_MUTATOR_RE = regex.compile(r"https?://[^\s<>`\"'\[\]\(\)]+")
+
+
+class BareUrlMutation:
+    """Z515 Auto-Fix: Injects angle brackets around bare URLs in prose."""
+
+    def apply(self, node: Node) -> bool:
+        from zenzic.core.ast import CodeSpanNode, LinkNode, TextNode
+
+        mutated = False
+        if isinstance(node, TextNode):
+            text = node.text
+            if "http://" in text or "https://" in text:
+                url_matches = list(_BARE_URL_MUTATOR_RE.finditer(text))
+                if url_matches:
+                    new_text = ""
+                    last_idx = 0
+                    for match in url_matches:
+                        start, end = match.span()
+                        raw_url = match.group(0)
+                        if start > 0 and text[start - 1] in ("<", "[", "("):
+                            continue
+                        if end < len(text) and text[end] in (">", "]", ")"):
+                            continue
+                        url = raw_url.rstrip(".,;:!?")
+                        trailing_punct = raw_url[len(url) :]
+                        new_text += text[last_idx:start] + f"<{url}>{trailing_punct}"
+                        last_idx = end
+                        mutated = True
+                    if mutated:
+                        new_text += text[last_idx:]
+                        node.text = new_text
+
+        elif isinstance(node, (LinkNode, CodeSpanNode)):
+            return False
+        else:
+            for child in node.children:
+                if self.apply(child):
+                    mutated = True
+
+        return mutated
+
+
+class HeadingPunctuationMutation:
+    """Z517 Auto-Fix: Strips trailing punctuation (., :, ;) from headings."""
+
+    def apply(self, node: Node) -> bool:
+        from zenzic.core.ast import Heading, TextNode
+
+        mutated = False
+        if isinstance(node, Heading):
+            for child in reversed(node.children):
+                if isinstance(child, TextNode):
+                    content = child.text
+                    has_newline = content.endswith("\n")
+                    clean = content.rstrip("\r\n")
+                    if clean and clean[-1] in {".", ":", ";"}:
+                        clean = clean[:-1]
+                        child.text = clean + ("\n" if has_newline else "")
+                        mutated = True
+                        break
+                    elif clean:
+                        break
+
+        for child in node.children:
+            if self.apply(child):
+                mutated = True
+
+        return mutated

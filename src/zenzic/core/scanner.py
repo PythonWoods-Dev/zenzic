@@ -1369,9 +1369,14 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     ]
 
     from zenzic.core.rules import (
+        BareUrlUsedRule,
+        DuplicateHeadingRule,
         EmptySectionRule,
         ExcessiveSentenceLengthRule,
+        GenericImageAltTextRule,
         HeadingHierarchyRule,
+        HeadingPunctuationRule,
+        MultipleH1HeadingsRule,
         PlaceholderRule,
         ShortContentRule,
     )
@@ -1381,6 +1386,11 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     built_in.append(HeadingHierarchyRule())
     built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
     built_in.append(EmptySectionRule())
+    built_in.append(DuplicateHeadingRule())
+    built_in.append(GenericImageAltTextRule())
+    built_in.append(BareUrlUsedRule())
+    built_in.append(MultipleH1HeadingsRule())
+    built_in.append(HeadingPunctuationRule())
     if config.project_metadata.obsolete_names:
         built_in.append(BrandObsolescenceRule(config.project_metadata))
 

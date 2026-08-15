@@ -92,6 +92,36 @@ This rule exists to detect when a sentence in the markdown body exceeds the maxi
 
 This rule exists to detect when a heading section contains no body content before the next section or EOF.
 
+### Z513: DUPLICATE_HEADING {#z513}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z513.md)
+
+This rule exists to detect when two or more headings within the same document resolve to identical text, preventing ambiguous anchor collisions.
+
+### Z514: GENERIC_IMAGE_ALT_TEXT {#z514}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z514.md)
+
+This rule exists to detect when an image uses generic filler words (such as "image" or "screenshot") as its alternative text instead of providing descriptive accessibility content.
+
+### Z515: BARE_URL_USED {#z515}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z515.md)
+
+This rule exists to detect raw URLs in prose that are not properly enclosed in angle brackets (`<url>`) or formatted as Markdown links (`[text](url)`).
+
+### Z516: MULTIPLE_H1_HEADINGS {#z516}
+
+**Severity:** `error` · **Penalty:** −5.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z516.md)
+
+This rule exists to enforce that every document has at most one top-level H1 heading for structural hierarchy and document outline integrity.
+
+### Z517: HEADING_PUNCTUATION {#z517}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z517.md)
+
+This rule exists to detect headings that end with invalid trailing punctuation (such as periods, colons, or semicolons).
+
 ---
 
 ## Severity Levels and Pipeline Impact {#severity-pipeline-impact}
