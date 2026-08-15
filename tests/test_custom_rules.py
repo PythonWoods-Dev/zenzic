@@ -6,14 +6,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.rules import RuleMetadata
-from zenzic.rules.base import BaseASTRule
 from zenzic.sdk.rules import ZenzicRuleV3
 
 
@@ -58,11 +54,6 @@ class DummyWorkingRule(ZenzicRuleV3):
         return []
 
 
-def test_base_ast_rule_v2_hard_deprecation() -> None:
-    """Attempting to instantiate legacy BaseASTRule raises PluginContractError fast."""
-    with pytest.raises(PluginContractError) as exc_info:
-        BaseASTRule()
-    assert "Custom Rules API v2 (BaseASTRule) was removed" in str(exc_info.value)
 
 
 def test_custom_rule_crash_handling() -> None:

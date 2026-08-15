@@ -1448,7 +1448,6 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         import importlib.util
         import sys
 
-        from zenzic.rules.base import BaseASTRule
         from zenzic.sdk.rules import ZenzicRuleV3
 
         for py_file in sorted(custom_rules_dir.glob("*.py")):
@@ -1468,8 +1467,8 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
                         attr = getattr(module, attr_name)
                         if (
                             isinstance(attr, type)
-                            and issubclass(attr, BaseASTRule | ZenzicRuleV3)
-                            and attr not in (BaseASTRule, ZenzicRuleV3)
+                            and issubclass(attr, ZenzicRuleV3)
+                            and attr is not ZenzicRuleV3
                         ):
                             try:
                                 rules.append(attr())

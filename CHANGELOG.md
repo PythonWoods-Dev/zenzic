@@ -13,46 +13,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 *Upcoming changes for the next release.*
 
-## [0.29.1] - 2026-08-14
-
-### Changed
-
-- **Adapter API**: Extended the `BaseAdapter` contract with the `dynamic_directories` property. This allows adapters to declare directories managed dynamically by framework plugins (e.g., MkDocs blog posts), eradicating false-positive `Z401` (Missing Directory Index) findings without requiring configuration suppressions.
-- **Adapter Isolation**: Extracted shared plugin configuration helpers to `_utils.py`, eliminating cross-adapter dependencies between `ZensicalAdapter` and `MkDocsAdapter` while preserving 100% backward compatibility for `mkdocs.yml` compat mode.
-- **Noise Reduction**: Applied global directory policies to suppress circular links (`Z106`) in documentation roots.
-
-### Security
-
-- **Supply Chain Remediation**: Upgraded `pymdown-extensions` (to `11.0.1`, remediating `CVE-2026-67422` and `CVE-2026-61632`), `GitPython` (to `3.1.59`, remediating 15 GHSA advisories), and all transitive dependencies in `uv.lock`. `pip-audit` confirms 0 known vulnerabilities.
-- **Sensitive Data Masking (CWE-312 / CWE-532)**: Masked secret values in `zenzic guard scan` JSON and table outputs (`src/zenzic/cli/_guard.py`), remediating CodeQL alert `py/clear-text-logging-sensitive-data` to prevent accidental credential leakage in CI/CD logs and terminal reports.
-- **AST Mutator Regex Hardening (CWE-116 / CWE-185)**: Replaced insecure generic HTML comment regex with deterministic suppression pattern matching and compiled RE2 expressions in `src/zenzic/core/mutator.py`, resolving CodeQL alert `py/bad-tag-filter`.
-
-### Fixed
-
-- **CLI Contract Stability**: Explicitly designated `metavar="PATH"` on the `path` argument of `zenzic check all` in `src/zenzic/cli/_check.py` to ensure CLI help contract snapshot stability across Click and Typer upstream updates.
-
-## [0.29.0] - 2026-08-13
-
-Upcoming changes for the next release.
-
-### Changed (Breaking)
-
-- **Taxonomic Refactoring (Z118 → Z620)**: Renamed finding code `Z118` (`STALE_GLOBAL_SUPPRESSION`) to `Z620` to align its identifier with its semantic DQS category (Governance & Brand, Z6xx namespace). This is a **breaking change** for users with `ignore = ["Z118"]` in `.zenzic.toml` or Z118-based SARIF/JSON parsers. Update all references from `Z118` to `Z620`.
-
 ### Added
 
-- **Policy-as-Code Metadata Governance (`Z612`, `Z613`)**: Introduced `Z612` (`FORBIDDEN_FRONTMATTER_KEY`) and `Z613` (`FRONTMATTER_SCHEMA_MISMATCH`) into the Policy-as-Code engine (`[policies]` configuration in `.zenzic.toml`), allowing project maintainers to forbid specific frontmatter keys and enforce RE2 regex schemas on frontmatter values.
-- **Policy-as-Code Link & Topology Governance (`Z614`, `Z615`, `Z616`)**: Introduced Zero-Trust external domain whitelist (`Z614: UNAPPROVED_DOMAIN_REFERENCE`), URL scheme whitelist enforcement (`Z615: FORBIDDEN_URL_SCHEME`), and Virtual Site Map (VSM) cross-namespace boundary control (`Z616: CROSS_NAMESPACE_LINK_FORBIDDEN`) under `[policies]` in `.zenzic.toml`. Z616 leverages the Virtual Site Map (VSM) and `InMemoryPathResolver` for zero-I/O topological boundary enforcement.
-- **Ecosystem Dependency Strategy & DQS Integrity Rules**: Codified Governance Rules 10 & 11 in `.gemini/governance/rules` enforcing strict pinning (`==`) for `zenzic-action`, minimum versioning (`>=`) for `zenzic-vscode`, and 100% mathematical category-to-escalation parity in `scorer.py`.
-- **8-Step Finding Code Protocol**: Enriched developer guidelines in `docs/developers/how-to/write-a-check.md` with the mandatory 8-step protocol for adding or modifying diagnostic codes across the core engine, scoring algorithms, and documentation surfaces.
+- **Semantic Linting & Accessibility Rules (Epic 2)**: Implemented 5 native AST-based semantic and accessibility (a11y) rules in `zenzic.core`:
+  - `Z513` (`DUPLICATE_HEADING`): Detects duplicate headings within the same document (case/whitespace/anchor invariant), preventing ambiguous anchor collisions. Penalty: 2.0 pts (Content).
+  - `Z514` (`GENERIC_IMAGE_ALT_TEXT`): Detects generic filler words in image alt text (`![]()` and `<img>`), enforcing accessibility standards. Penalty: 2.0 pts (Content).
+  - `Z515` (`BARE_URL_USED`): Detects raw HTTP/HTTPS URLs in prose that are not enclosed in angle brackets or Markdown links. Supports automated fix (`zenzic fix --apply`). Penalty: 1.0 pt (Content).
+  - `Z516` (`MULTIPLE_H1_HEADINGS`): Enforces a single top-level `#` or `<h1>` heading per document for structural hierarchy. Severity: `error`, Penalty: 5.0 pts (Content).
+  - `Z517` (`HEADING_PUNCTUATION`): Detects invalid trailing punctuation (`.`, `:`, `;`) on headings. Supports automated fix (`zenzic fix --apply`). Penalty: 1.0 pt (Content).
+- **AST Mutator Extensions**: Added `BareUrlMutation` and `HeadingPunctuationMutation` to the core AST `Mutator` engine, enabling atomic auto-remediation via `zenzic fix`.
+- **Ecosystem & Mirror Law Integration**: Added dedicated rule cards `docs/rules/Z513.md` through `docs/rules/Z517.md`, registered codes in `CODE_DEFINITIONS` and SARIF export metadata, and added interactive scenarios in `zenzic lab` (`z513`–`z517`).
 
-### Fixed
+### Removed
 
-- **DQS Governance Escalation Parity (`Z620`)**: Included `Z620` (`STALE_GLOBAL_SUPPRESSION`) in `_Z6XX_CODES` in `src/zenzic/core/scorer.py`, eliminating a mathematical inconsistency where stale global suppressions were omitted from exponential penalty amplification.
-- **Documentation & Mirror Law Parity**: Synchronized DQS category weights, penalty tables, and finding catalogs across `docs/reference/scoring-algorithm.md`, `docs/explanation/scoring-system.md`, and `docs/reference/finding-codes.md`.
+- **Legacy Custom Rule API v2**: Removed deprecated `BaseASTRule` stub from `src/zenzic/rules/base.py` as scheduled in the v0.30.0 debt eradication milestone. All custom rules must use Custom Rule SDK v3 (`zenzic.sdk.ZenzicRuleV3`).
 
 ## Historical Releases
 
+- v0.29.x archive: [changelogs/v0.29.x.md](./changelogs/v0.29.x.md)
 - v0.28.x archive: [changelogs/v0.28.x.md](./changelogs/v0.28.x.md)
 - v0.27.x archive: [changelogs/v0.27.x.md](./changelogs/v0.27.x.md)
 - v0.26.x archive: [changelogs/v0.26.x.md](./changelogs/v0.26.x.md)
