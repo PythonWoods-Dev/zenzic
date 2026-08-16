@@ -87,13 +87,29 @@ If you use a custom virtual environment or isolated installation, configure `zen
 }
 ```
 
+!!! tip "Invalid custom path fallback"
+    If you configure an invalid custom `zenzic.executablePath`, the extension prompts you with a **Clear Setting** button to safely clear the broken configuration and fall back to the Auto-Provisioning engine.
+
 ### Supported Settings
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports `${workspaceFolder}` and leading `~/`. |
+| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports leading `~/` and `${workspaceFolder}` (intelligently scans across all active workspace folders in multi-root setups). |
 | `zenzic.autoProvision` | `boolean` | `true` | Automatically install the Zenzic CLI in an isolated environment if not found. Set to `false` to opt out. |
 | `zenzic.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Useful for debugging. |
+
+### Commands
+
+The extension contributes the following commands to the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+
+| Command | Identifier | Description |
+|---|---|---|
+| **Zenzic: Restart Server** | `zenzic.restartServer` | Restarts the Language Server and re-indexes all workspace documents. |
+| **Zenzic: Compute Global DQS** | `zenzic.computeDQS` | Executes on-demand global audit and updates the Status Bar score. |
+| **Zenzic: Start Server** | `zenzic.startServer` | Starts the ZLS Language Server background process. |
+| **Zenzic: Stop Server** | `zenzic.stopServer` | Stops the Language Server process. |
+| **Zenzic: Show Status / Recovery** | `zenzic.showStatus` | Re-triggers error recovery dialogs or opens the quick action menu. |
+| **Zenzic: Troubleshoot & Repair Setup** | `zenzic.troubleshoot` | Runs automated environment diagnostics and offers 1-click self-healing repairs. |
 
 ## Inline Diagnostics & Code Actions
 
