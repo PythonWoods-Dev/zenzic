@@ -19,11 +19,11 @@ Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communi
 
 !!! important "Minimum Core Version Requirement"
     The VS Code Extension requires **Zenzic Core v0.30.0 or higher**. If the CLI is not
-    already installed, the extension can provision it automatically — see [Auto-Provisioning](#auto-provisioning) below.
+    already installed, the extension can provision it automatically — see [the Auto-Provisioning section](#auto-provisioning) below.
 
 ## Requirements
 
-- **Zenzic Core**: `v0.30.0` or higher. Automatically provisioned on first use if not present (see [Auto-Provisioning](#auto-provisioning)).
+- **Zenzic Core**: `v0.30.0` or higher. Automatically provisioned on first use if not present (see [the Auto-Provisioning section](#auto-provisioning)).
 - **VS Code**: `v1.125.0` or higher.
 
 ## Installation & Setup

@@ -650,7 +650,15 @@ class IncrementalAnalysisEngine:
             line_no = max(0, f.line_no - 1)
             matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
 
-            col_start = getattr(f, "col_start", 0)
+            # LSP Spec §3.15: Position.character MUST be strictly 0-indexed.
+            # Handle finding.column (1-indexed) with - 1 correction, or
+            # finding.col_start (0-indexed) safely.
+            col = getattr(f, "column", None)
+            if col is not None and col > 0:
+                col_start = max(0, col - 1)
+            else:
+                col_start = max(0, getattr(f, "col_start", 0))
+
             match_text = getattr(f, "match_text", "")
             match_len = len(match_text) if match_text else len(matched_line)
 
