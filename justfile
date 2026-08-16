@@ -82,11 +82,11 @@ verify: _check-hooks release-contracts check-pinning docs-build
     @echo "==> [3/6] Test suite..."
     {{ runner }} pytest tests/
     @echo "==> [4/6] Structural audit (zenzic check all --strict)..."
-    {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
+    {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [5/6] Score computation and badge stamp (zenzic score --stamp)..."
-    {{ runner }} zenzic score --stamp --ci
+    {{ runner }} zenzic score --stamp --ci --no-header
     @echo "==> [6/6] Badge freshness gate..."
-    {{ runner }} zenzic score --check-stamp --ci
+    {{ runner }} zenzic score --check-stamp --ci --no-header
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
 # not a public Zenzic rule). Pre-commit `rev:` keys must be 40-char
