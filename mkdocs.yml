@@ -253,6 +253,9 @@ nav:
         - developers/explanation/adr-vault/records/adr-021-parallel-audit.md
         - developers/explanation/adr-vault/records/adr-022-english-only-governance.md
         - developers/explanation/adr-vault/records/adr-075-radical-unawareness.md
+        - developers/explanation/adr-vault/records/adr-090-silent-on-success-unix-philosophy.md
+        - developers/explanation/adr-vault/records/adr-091-single-pass-ast-and-cqs.md
+        - developers/explanation/adr-vault/records/adr-092-comprehensive-bump-coverage.md
         - developers/explanation/adr-vault/records/adr-agnostic-universalism.md
         - developers/explanation/adr-vault/records/adr-bilingual-structural.md
         - developers/explanation/adr-vault/records/adr-decentralized-cli.md
