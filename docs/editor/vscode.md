@@ -75,6 +75,19 @@ To disable auto-provisioning (e.g., for corporate proxy environments or air-gapp
 
 When `autoProvision` is `false`, the extension reverts to the manual-install flow and displays an actionable error message with a link to the installation documentation.
 
+## Path Resolution & Local Development
+
+The extension resolves the `zenzic` executable using a strict deterministic priority order:
+
+1. **Explicit Custom Path**: If `zenzic.executablePath` is set (e.g. `${workspaceFolder}/.venv/bin/zenzic` or `~/bin/zenzic`), the extension tests and uses this explicit path first, scanning across all active workspace folders in multi-root setups.
+2. **Active Virtual Environment**: Any active virtual environment on the current system or shell `$PATH`.
+3. **Global System `$PATH`**: System directories containing a globally installed `zenzic` executable.
+4. **Fallback Directories**: Standard user-level binary directories (`~/.local/bin`, `~/.cargo/bin`, `~/.uv/bin`).
+5. **Auto-Provisioned Isolated Engine**: The sandboxed virtual environment in VS Code global storage (`pythonwoods.zenzic-vscode/env/`).
+
+!!! tip "Local Core and Rule Development"
+    If you are developing Zenzic rules or working on the core engine itself, install Zenzic in editable mode (`uv pip install -e .`) inside a local `.venv`. Set `zenzic.executablePath` to `${workspaceFolder}/.venv/bin/zenzic` to ensure the extension uses your live code instead of the Auto-Provisioned version.
+
 ## Configuration
 
 The extension automatically discovers `zenzic` in standard `$PATH` directories and user bin locations (`~/.local/bin`, `~/.cargo/bin`, `~/.uv/bin`).

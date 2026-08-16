@@ -19,7 +19,7 @@
   description: >-
     Full documentation integrity audit (Zenzic check all).
     Equivalent to the Zenzic portion of just verify.
-  entry: zenzic check all --strict --quiet
+  entry: zenzic check all --strict --quiet --no-header
   language: python
   types_or: [markdown, mdx]
   pass_filenames: false
@@ -28,7 +28,7 @@
 - id: zenzic-guard
   name: zenzic guard (Credential Scanner)
   description: Fast staged-file secret detection for Markdown/MDX.
-  entry: zenzic guard scan --staged
+  entry: zenzic guard scan --staged --quiet --no-header
   language: python
   types_or: [markdown, mdx]
   pass_filenames: false
@@ -37,7 +37,7 @@
 - id: zenzic-check-links
   name: zenzic check links
   description: Check for broken internal links in documentation.
-  entry: zenzic check links
+  entry: zenzic check links --quiet --no-header
   language: python
   types_or: [markdown, mdx]
   pass_filenames: false
@@ -45,7 +45,7 @@
 - id: zenzic-check-references
   name: zenzic check references
   description: Run the Two-Pass Reference Pipeline and credential detection.
-  entry: zenzic check references
+  entry: zenzic check references --quiet --no-header
   language: python
   types_or: [markdown, mdx]
   pass_filenames: false
@@ -54,7 +54,7 @@
 - id: zenzic-score
   name: zenzic score
   description: Compute documentation quality score and fail if below threshold.
-  entry: zenzic score --fail-under 100
+  entry: zenzic score --fail-under 100 --quiet --no-header
   language: python
   types_or: [markdown, mdx]
   pass_filenames: false

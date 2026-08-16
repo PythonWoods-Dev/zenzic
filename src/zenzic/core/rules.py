@@ -198,6 +198,22 @@ class RuleFinding(ZenzicViolation):
         """Return ``True`` when this finding blocks a passing check."""
         return self.severity == "error"
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Support standard and inter-process pickling in worker pools."""
+        return (
+            RuleFinding,
+            (
+                self.file_path,
+                self.line_no,
+                self.rule_id,
+                self.message,
+                self.severity,
+                self.matched_line,
+                self.col_start,
+                self.match_text,
+            ),
+        )
+
 
 # ─── Violation (structured finding for VSM-aware rules) ──────────────────────
 

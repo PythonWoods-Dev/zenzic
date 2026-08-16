@@ -84,10 +84,32 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
           - name: Execute Zenzic Quality Gate
             uses: PythonWoods/zenzic-action@v2
             with:
-              version: "0.25.0"
+              version: "0.30.0"
               format: sarif
               upload-sarif: "true"
               fail-on-error: "true"
+    ```
+
+=== "Pre-Commit Hook (.pre-commit-config.yaml)"
+
+    Integrate Zenzic directly into local developer workflows and git hooks via `pre-commit`:
+
+    ```yaml title=".pre-commit-config.yaml"
+    repos:
+      - repo: https://github.com/PythonWoods/zenzic
+        rev: v0.30.0
+        hooks:
+          # Fast staged-file credential and forbidden pattern check (sub-50ms)
+          - id: zenzic-guard
+
+          # Full documentation integrity quality gate
+          - id: zenzic-verify
+    ```
+
+    You can also automatically scaffold or update your `.pre-commit-hooks.yaml` using:
+
+    ```bash title="Terminal"
+    zenzic guard init
     ```
 
 === "uvx (Zero Installation Pipeline)"

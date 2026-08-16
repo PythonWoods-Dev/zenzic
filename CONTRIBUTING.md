@@ -32,6 +32,7 @@ Zenzic is structured across three independent, dedicated repositories:
 Before proposing rule or core engine changes, contributors must validate impact against the live code registry and tier ownership model:
 
 - **Tier Ownership Model:** Findings are grouped into Core (Z1xx), Security (Z2xx), and Governance/Structure (Z3xx–Z6xx) domains. Keep changes in the correct band.
+- **Custom Rule SDK v3:** Authors implementing enterprise or domain-specific rules should subclass `ZenzicRuleV3` from `zenzic.sdk.v3.rule`. Custom rules must be deterministic, pure functions operating over AST or line streams with zero side effects.
 - **Frozen Contract Awareness:** Do not alter immutable surfaces (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) without an explicit architecture decision record (ADR).
 - **Inspect-First Workflow:** Treat `zenzic inspect codes` as the source of truth before editing examples, checks tables, or changelog narratives.
 
@@ -69,10 +70,11 @@ just sync
 
 `just sync` installs all dependency groups via `uv sync --all-groups`.
 
-Install pre-commit hooks immediately after sync (mandatory):
+Install pre-commit and pre-push hooks immediately after sync (mandatory):
 
 ```bash
-uvx pre-commit install              # commit-stage: light hooks (ruff, format, hygiene)
+uv run --active pre-commit install              # commit-stage: light hooks (ruff, format, hygiene, guard)
+uv run --active pre-commit install -t pre-push  # push-stage: Final Guard (just verify before pushing)
 ```
 
 Configure SSH commit signing (required — all commits must appear **Verified** on GitHub):

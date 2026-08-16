@@ -144,6 +144,17 @@ def scan(
         "-f",
         help="Output format: text or json.",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress output except for detected secrets.",
+    ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Suppress the Zenzic startup banner.",
+    ),
 ) -> None:
     """Run pre-commit credential scan using built-in signatures and local forbidden patterns."""
     repo_root = find_repo_root(fallback_to_cwd=True)
@@ -153,7 +164,7 @@ def scan(
     if not targets:
         if output_format == "json":
             print(json.dumps({"targets": 0, "findings": []}, indent=2))
-        else:
+        elif not quiet:
             _shared.console.print(
                 f"[{ZenzicPalette.DIM}]Secret Guard: no Markdown/MDX targets found.[/]"
             )
@@ -217,11 +228,12 @@ def scan(
         )
         raise typer.Exit(2)
 
-    _shared.console.print(
-        f"[bold {ZenzicPalette.SUCCESS}]Secret Guard clean:[/] "
-        f"{len(targets)} file(s) scanned, no secrets detected."
-    )
-    _shared.print_footer_hint("guard")
+    if not quiet:
+        _shared.console.print(
+            f"[bold {ZenzicPalette.SUCCESS}]Secret Guard clean:[/] "
+            f"{len(targets)} file(s) scanned, no secrets detected."
+        )
+        _shared.print_footer_hint("guard")
 
 
 _GUARD_HOOK_BLOCK = """- id: zenzic-guard

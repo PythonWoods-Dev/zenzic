@@ -88,6 +88,20 @@ zenzic fix --dry-run
 zenzic fix --apply
 ```
 
+### 4. Git Pre-Commit Hook (Optional)
+
+Catch broken links and leaked secrets before `git commit`:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/PythonWoods/zenzic
+    rev: v0.30.0
+    hooks:
+      - id: zenzic-guard   # Fast staged-file credential scan
+      - id: zenzic-verify  # Documentation integrity gate
+```
+
 ---
 
 ## 🎯 What Zenzic Solves

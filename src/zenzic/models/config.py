@@ -75,6 +75,20 @@ class CustomRuleConfig(BaseModel):
                 )
         return v
 
+    @field_validator("pattern", mode="before")
+    @classmethod
+    def _validate_pattern_re2(cls, v: object) -> object:
+        if v is not None and isinstance(v, str):
+            try:
+                re.compile(v)
+            except Exception as err:
+                raise ValueError(
+                    f"Invalid regular expression pattern: {v!r}. "
+                    f"RE2 compilation failed: {err}. "
+                    "Note: RE2 does not support lookarounds (?=...) or backreferences."
+                ) from err
+        return v
+
 
 class ProjectMetadata(BaseModel):
     """Optional brand-integrity metadata declared in ``[project_metadata]``.
@@ -351,11 +365,13 @@ class PoliciesConfig(BaseModel):
             except Exception as err:
                 raise ValueError(
                     f"Invalid RE2 regex pattern for frontmatter key '{key}' in "
-                    f"[policies].frontmatter_schema_match: {pattern!r} ({err})"
+                    f"[policies].frontmatter_schema_match: {pattern!r}. "
+                    f"RE2 compilation failed: {err}. "
+                    "Note: RE2 does not support lookarounds (?=...) or backreferences."
                 ) from err
         return v
 
-    @field_validator("forbidden_content_patterns", "required_heading_patterns")
+    @field_validator("forbidden_content_patterns", "required_heading_patterns", "weasel_words")
     @classmethod
     def _validate_re2_list_patterns(cls, v: list[str]) -> list[str]:
         for pattern in v:
@@ -363,7 +379,9 @@ class PoliciesConfig(BaseModel):
                 re.compile(pattern)
             except Exception as err:
                 raise ValueError(
-                    f"Invalid RE2 regex pattern in [policies]: {pattern!r} ({err})"
+                    f"Invalid RE2 regex pattern in [policies]: {pattern!r}. "
+                    f"RE2 compilation failed: {err}. "
+                    "Note: RE2 does not support lookarounds (?=...) or backreferences."
                 ) from err
         return v
 
@@ -725,11 +743,33 @@ class ZenzicConfig(BaseModel):
         repr=False,
     )
 
+    @field_validator("placeholder_patterns")
+    @classmethod
+    def _validate_placeholder_patterns(cls, v: list[str]) -> list[str]:
+        for pattern in v:
+            try:
+                re.compile(pattern, re.IGNORECASE)
+            except Exception as err:
+                raise ValueError(
+                    f"Invalid regular expression in placeholder_patterns: {pattern!r}. "
+                    f"RE2 compilation failed: {err}. "
+                    "Note: RE2 does not support lookarounds (?=...) or backreferences."
+                ) from err
+        return v
+
     def model_post_init(self, __context: Any) -> None:
         """Post-init: compile placeholders and enforce system exclusions."""
-        self.placeholder_patterns_compiled = [
-            re.compile(p, re.IGNORECASE) for p in self.placeholder_patterns
-        ]
+        try:
+            self.placeholder_patterns_compiled = [
+                re.compile(p, re.IGNORECASE) for p in self.placeholder_patterns
+            ]
+        except Exception as err:
+            from zenzic.core.exceptions import ZenzicConfigError
+
+            raise ZenzicConfigError(
+                f"Invalid regular expression in placeholder_patterns: {err}. "
+                "Note: RE2 does not support lookarounds (?=...) or backreferences."
+            ) from err
         self._recompile_forbidden_patterns()
         # Hard Exclusion Policy: system guardrails are always present.
         merged = list(dict.fromkeys([*self.excluded_dirs, *SYSTEM_EXCLUDED_DIRS]))

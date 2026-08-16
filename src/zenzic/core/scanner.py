@@ -1561,7 +1561,7 @@ def scan_docs_references(
     repo_root: Path | None = None,
     config: ZenzicConfig | None = None,
     validate_links: bool = False,
-    workers: int | None = 1,
+    workers: int | None = None,
     verbose: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
     content_roots: list[Path] | None = None,
@@ -1787,6 +1787,14 @@ def scan_docs_references(
                             progress.advance(task_id)
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
+
+            if getattr(config, "_global_tracker", None):
+                for _r in reports:
+                    if _r.suppression_tracker is not None:
+                        for pattern, code in getattr(
+                            _r.suppression_tracker, "consumed_global_patterns", ()
+                        ):
+                            config._global_tracker.mark_directory_policy_used(pattern, code)
 
             _run_vsm_and_urp_pass(
                 reports,
