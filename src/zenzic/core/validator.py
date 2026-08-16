@@ -58,7 +58,7 @@ from zenzic.core.resolver import (
     Resolved,
 )
 from zenzic.models.config import ZenzicConfig
-from zenzic.models.references import ReferenceMap
+from zenzic.models.references import IntegrityReport, ReferenceMap
 
 
 if TYPE_CHECKING:
@@ -1268,23 +1268,28 @@ def validate_links_structured(
     locale_roots: list[tuple[Path, str]] | None = None,
     check_external: bool = True,
     trackers: dict[Path, SuppressionTracker] | None = None,
+    reports: list[IntegrityReport] | None = None,
+    ext_errors: list[str] | None = None,
 ) -> list[LinkError]:
     """Unified link validation entry point using scan_docs_references and URP rules."""
     from zenzic.core.adapters import get_adapter
     from zenzic.core.scanner import scan_docs_references
 
-    if locale_roots is None:
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
-        locale_roots = adapter.get_locale_source_roots(repo_root)
+    if reports is None:
+        if locale_roots is None:
+            adapter = get_adapter(config.build_context, docs_root, repo_root)
+            locale_roots = adapter.get_locale_source_roots(repo_root)
 
-    reports, ext_errors = scan_docs_references(
-        docs_root,
-        exclusion_manager,
-        repo_root=repo_root,
-        config=config,
-        validate_links=strict and check_external,
-        locale_roots=locale_roots,
-    )
+        reports, ext_errors = scan_docs_references(
+            docs_root,
+            exclusion_manager,
+            repo_root=repo_root,
+            config=config,
+            validate_links=strict and check_external,
+            locale_roots=locale_roots,
+        )
+    elif ext_errors is None:
+        ext_errors = []
 
     link_errors: list[LinkError] = []
     link_codes = {

@@ -1138,11 +1138,11 @@ def _collect_all_results(
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
-    ref_reports, _ = scan_docs_references(
+    ref_reports, ext_errors = scan_docs_references(
         docs_root,
         exclusion_mgr,
         config=config,
-        validate_links=False,
+        validate_links=strict and check_external,
         locale_roots=locale_roots,
         content_roots=content_roots,
         show_progress=show_progress,
@@ -1171,6 +1171,8 @@ def _collect_all_results(
         locale_roots=locale_roots,
         check_external=check_external,
         trackers=trackers,
+        reports=ref_reports,
+        ext_errors=ext_errors,
     )
 
     for r in ref_reports:

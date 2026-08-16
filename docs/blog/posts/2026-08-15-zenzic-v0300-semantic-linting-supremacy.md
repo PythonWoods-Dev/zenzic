@@ -170,13 +170,23 @@ For teams enforcing documentation quality in GitHub Actions, Zenzic's SARIF inte
 -->
 
 ```yaml
-- uses: PythonWoods/zenzic-action@v0.30.0
+- uses: PythonWoods/zenzic-action@v2
   with:
     format: sarif
     upload-sarif: "true"
 ```
 
 Findings from Z513 (duplicate anchors), Z516 (multiple H1), and Z617 (forbidden content) appear as inline code scanning alerts in the GitHub security tab and as PR review annotations — the same deterministic diagnostics your team sees in VS Code, now enforced at merge time.
+
+---
+
+## Hybrid Adaptive Performance & Unix Philosophy
+
+Documentation repositories grow rapidly. To maintain sub-second feedback across enterprise-scale doc sets, v0.30.0 incorporates the **Hybrid Adaptive Multiprocessing Engine**:
+
+- **7x Parallel Speedup**: On repositories with $\ge 50$ documents, Zenzic automatically coordinates a `ProcessPoolExecutor` worker pool. Scanning hundreds of pages drops from multi-second compilations down to ~1.0 second.
+- **Single-Pass AST Evaluation**: Analysis, link resolution, accessibility checks, and credential scanning execute in a single $O(N)$ pass without duplicate I/O or redundant tree traversals.
+- **Silent-on-Success Unix Philosophy**: In pre-commit hooks and CI quality gates, passing `--quiet` (`-q`) and `--no-header` emits strictly **0 bytes** on success (Exit Code 0), keeping developer terminals and CI logs noise-free.
 
 ---
 

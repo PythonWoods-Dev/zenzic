@@ -35,12 +35,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
   - `Z515` (`BARE_URL_USED`): Detects raw HTTP/HTTPS URLs in prose that are not enclosed in angle brackets or Markdown links. Supports automated fix (`zenzic fix --apply`). Penalty: 1.0 pt (Content).
   - `Z516` (`MULTIPLE_H1_HEADINGS`): Enforces a single top-level `#` or `<h1>` heading per document for structural hierarchy. Severity: `error`, Penalty: 5.0 pts (Content).
   - `Z517` (`HEADING_PUNCTUATION`): Detects invalid trailing punctuation (`.`, `:`, `;`) on headings. Supports automated fix (`zenzic fix --apply`). Penalty: 1.0 pt (Content).
-- **AST Mutator Extensions**: Added `BareUrlMutation` and `HeadingPunctuationMutation` to the core AST `Mutator` engine, enabling atomic auto-remediation via `zenzic fix`.
-- **Ecosystem & Mirror Law Integration**: Added dedicated rule cards `docs/rules/Z513.md` through `docs/rules/Z517.md`, registered codes in `CODE_DEFINITIONS` and SARIF export metadata, and added interactive scenarios in `zenzic lab` (`z513`–`z517`).
+- **Silent-on-Success Unix Philosophy (`--quiet`, `--no-header`)**: Added `--quiet` (`-q`) and `--no-header` across all subcommands (`guard scan`, `score`, `check all`, `check links`, `check orphans`, `check placeholders`, `check references`, `check structure`, `check snippets`), muting all headers, banners, and footers to emit exactly 0 bytes when checks pass (Exit Code 0).
+- **Dogfooding Pre-Commit Secret Guard**: Added native `zenzic-guard` hook to `.pre-commit-config.yaml` and updated `.pre-commit-hooks.yaml` to pass `--quiet --no-header` by default for sub-50ms commit-stage validation.
+
+### Fixed
+
+- **Hybrid Adaptive Engine Multiprocessing Bugfix**: Fixed `workers: int | None = None` default in `scan_docs_references()`, added `RuleFinding.__reduce__()` for safe multiprocessing pickle serialization, and aggregated `consumed_global_patterns` across parallel worker reports into `config._global_tracker`. Restores 7x parallel speedup on workspaces with $\ge 50$ documents.
+- **Single-Pass CLI Architecture**: Refactored `_collect_all_results()` to pass precomputed integrity reports directly to `validate_links_structured()`, eliminating redundant second-pass scans and restoring strict $O(N)$ execution.
+- **RE2 Configuration Error Trapping**: Added comprehensive regex pattern validation with explicit user diagnostics detailing Google RE2 limitations (prohibiting lookaround assertions `(?=...)` and backreferences `\1`) in `CustomRuleConfig`, `PoliciesConfig`, and `ZenzicConfig`.
 
 ### Removed
 
 - **Legacy Custom Rule API v2**: Removed deprecated `BaseASTRule` stub from `src/zenzic/rules/base.py` as scheduled in the v0.30.0 debt eradication milestone. All custom rules must use Custom Rule SDK v3 (`zenzic.sdk.ZenzicRuleV3`).
+
+### Governance
+
+- **Comprehensive Bump Coverage Invariant**: Mandated and registered complete version search/replace coverage across all repository files (`docs/`, `README.md`, `.github/`, `.pre-commit-hooks.yaml`) in `.bumpversion.toml` to guarantee zero-debt release automation.
 
 ### Ecosystem
 
