@@ -58,6 +58,9 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 021](./records/adr-021-parallel-audit.md) | Parallel Audit Completeness vs. Fail-Fast |
 | [ADR 022](./records/adr-022-english-only-governance.md) | English-Only Governance & Deprecation of Bilingual Invariant |
 | [ADR 075](./records/adr-075-radical-unawareness.md) | Radical Unawareness |
+| [ADR 090](./records/adr-090-silent-on-success-unix-philosophy.md) | Silent-on-Success Unix Philosophy & Pipeline Signal Protocol |
+| [ADR 091](./records/adr-091-single-pass-ast-and-cqs.md) | Single-Pass AST Compilation & Command-Query Segregation (CQS) |
+| [ADR 092](./records/adr-092-comprehensive-bump-coverage.md) | Comprehensive Release Bump Coverage |
 
 ---
 
