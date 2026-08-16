@@ -133,7 +133,10 @@ v0.30.0 introduces the most impactful adoption improvement in Zenzic's history: 
 
 Previously, the VS Code extension required users to have the `zenzic` Python CLI already installed on their machine — a step that introduced friction for developers unfamiliar with Python toolchains. Starting with this release, the extension's Auto-Provisioning Engine removes that barrier entirely.
 
-![Zenzic VS Code Auto-Provisioning Demo](../../assets/images/blog/demo.gif)
+<!-- NOTE for Human Bridge: embed the VS Code demo GIF below once assets/demo.gif is produced.
+     Path: ../../assets/images/blog/demo.gif
+     Syntax: ![Zenzic VS Code Auto-Provisioning Demo](../../assets/images/blog/demo.gif)
+-->
 
 ### How it works
 
@@ -161,7 +164,10 @@ The Thin Client Architecture (ADR-075) was always designed to keep the extension
 
 For teams enforcing documentation quality in GitHub Actions, Zenzic's SARIF integration turns findings into native GitHub PR annotations:
 
-![Zenzic SARIF PR Annotations](../../assets/images/blog/sarif-showcase.svg)
+<!-- NOTE for Human Bridge: embed the SARIF PR annotation SVG below once assets/sarif-showcase.svg is produced.
+     Path: ../../assets/images/blog/sarif-showcase.svg
+     Syntax: ![Zenzic SARIF PR Annotation](../../assets/images/blog/sarif-showcase.svg)
+-->
 
 ```yaml
 - uses: PythonWoods/zenzic-action@v2
