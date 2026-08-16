@@ -18,11 +18,12 @@ Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communi
 ```
 
 !!! important "Minimum Core Version Requirement"
-    The VS Code Extension requires **Zenzic Core v0.25.0 or higher** installed on your system or active virtual environment.
+    The VS Code Extension requires **Zenzic Core v0.30.0 or higher**. If the CLI is not
+    already installed, the extension can provision it automatically — see [Auto-Provisioning](#auto-provisioning) below.
 
-## Requirements & Baseline
+## Requirements
 
-- **Zenzic Core**: `v0.25.0` or higher installed on your system or virtual environment.
+- **Zenzic Core**: `v0.30.0` or higher. Automatically provisioned on first use if not present (see [Auto-Provisioning](#auto-provisioning)).
 - **VS Code**: `v1.125.0` or higher.
 
 ## Installation & Setup
@@ -45,6 +46,35 @@ Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communi
     pip install zenzic
     ```
 
+## Auto-Provisioning
+
+Starting with v0.31.0 of the VS Code extension, **manual installation of the Zenzic CLI is optional for VS Code users**.
+
+On first activation, if the extension cannot find a `zenzic` binary (via the configured path, system `$PATH`, or standard binary locations), it shows a consent prompt:
+
+> *Zenzic CLI not found. Install it automatically in an isolated environment?*
+
+Clicking **Install** triggers the Auto-Provisioning Engine, which:
+
+1. Creates an isolated virtual environment inside VS Code's own global storage (`~/.config/Code/User/globalStorage/pythonwoods.zenzic-vscode/env/`).
+2. Installs `zenzic >= 0.30.0` using `uv pip install` (primary path) or `pip install` in a `python3 -m venv` (fallback).
+3. Verifies the installed binary version before starting the Language Server.
+4. Persists the binary path in VS Code `globalState` to skip re-installation on subsequent activations.
+
+!!! note "System isolation guarantee"
+    The provisioned environment is strictly isolated. No changes are made to the user's system
+    `$PATH`, `.bashrc`, `.zshrc`, or any other shell configuration file.
+
+To disable auto-provisioning (e.g., for corporate proxy environments or air-gapped machines), set the following in your user or workspace settings:
+
+```json title="settings.json"
+{
+  "zenzic.autoProvision": false
+}
+```
+
+When `autoProvision` is `false`, the extension reverts to the manual-install flow and displays an actionable error message with a link to the installation documentation.
+
 ## Configuration
 
 The extension automatically discovers `zenzic` in standard `$PATH` directories and user bin locations (`~/.local/bin`, `~/.cargo/bin`, `~/.uv/bin`).
@@ -61,7 +91,9 @@ If you use a custom virtual environment or isolated installation, configure `zen
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. |
+| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports `${workspaceFolder}` and leading `~/`. |
+| `zenzic.autoProvision` | `boolean` | `true` | Automatically install the Zenzic CLI in an isolated environment if not found. Set to `false` to opt out. |
+| `zenzic.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Useful for debugging. |
 
 ## Inline Diagnostics & Code Actions
 

@@ -9,10 +9,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
-
-*Upcoming changes for the next release.*
-
 ## [0.30.0] - 2026-08-15
 
 ### Added
@@ -41,6 +37,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Removed
 
 - **Legacy Custom Rule API v2**: Removed deprecated `BaseASTRule` stub from `src/zenzic/rules/base.py` as scheduled in the v0.30.0 debt eradication milestone. All custom rules must use Custom Rule SDK v3 (`zenzic.sdk.ZenzicRuleV3`).
+
+### Ecosystem
+
+- **VS Code Extension — Zero-Config Auto-Provisioning**: The companion `zenzic-vscode` extension now automatically provisions an isolated Zenzic engine if the CLI is not found on the user's system, using `uv` or `python3 -m venv`. This milestone eliminates the last remaining manual setup friction for new adopters and positions Zenzic as a truly frictionless, "install-and-forget" documentation quality platform.
 
 ## Historical Releases
 

@@ -45,6 +45,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Documentation is software. Broken links, orphaned pages, leaked API keys, and invalid HTML structures degrade developer trust, damage SEO, and cause critical security incidents.
 
+Most documentation tools tell you what's wrong. Zenzic fixes it. By treating Markdown with the same rigor as compiled code, Zenzic ensures your documentation is secure, accessible, and mathematically sound. Sleep soundly knowing your docs are perfect.
+
 **Zenzic** is a fast, deterministic static analyzer and automated remediation engine for Markdown and MDX repositories. It evaluates your entire documentation graph in milliseconds—verifying cross-file links, scanning for credentials, enforcing semantic accessibility, and applying atomic fixes directly to your files.
 
 ---
@@ -52,6 +54,8 @@ Documentation is software. Broken links, orphaned pages, leaked API keys, and in
 ## ⚡ Quick Start (< 60 Seconds)
 
 ### 1. Install Zenzic
+
+Get started in 2 seconds with uv:
 
 ```bash
 # Recommended: isolated tool install via uv
@@ -129,6 +133,25 @@ Remediation must be lossless and idempotent:
 
 Zenzic calculates a mathematical health score (0–100) based on active findings, severities, and technical debt. Enforce strict team standards in CI (`fail_under = 90`) and track improvements over time with status badges.
 
+```text
+$ zenzic score
+
+✨ Quality Score: 94/100
+
+╭─ Quality Breakdown ──────────────────────────────────────╮
+│   Category     Issues  Weight  Raw Pts  Applied Pts      │
+├──────────────────────────────────────────────────────────┤
+│ ✓ structural      0      30%      0           0          │
+│ ✓ navigation      0      25%      0           0          │
+│ ✗ content         2      20%     -4          -4          │
+│ ✓ brand           0      25%      0           0          │
+├──────────────────────────────────────────────────────────┤
+│   Σ Subtotal                                96           │
+╰──────────────────────────────────────────────────────────╯
+  ! Technical Debt (2 suppressions)          -2 pts
+  = Final Quality Score                      94 / 100
+```
+
 ### 5. Policy-as-Code Governance
 
 Define organizational conventions directly in `.zenzic.toml`:
@@ -143,11 +166,15 @@ forbidden_content_patterns = ["(?i)\\bconfidential\\b"]
 max_document_complexity = 45
 ```
 
+### 6. Custom Rule SDK v3
+
+Extend Zenzic with organization-specific invariants. The **[Custom Rule SDK v3](https://zenzic.dev/docs/developers/how-to/write-ast-rule/)** (`zenzic.sdk`) lets you author typed, deterministic AST visitor plugins in Python with guaranteed $O(N)$ execution and full SARIF integration.
+
 ---
 
 ## 🏗️ Architecture & Engine Deep Dive
 
-Zenzic is engineered from the ground up as a **deterministic compiler** rather than a loose collection of linters.
+Zenzic is engineered from the ground up as a **deterministic compiler** rather than a loose collection of linters. It delivers **$O(N)$ execution speed**, scanning thousands of Markdown documents in milliseconds through pure-function compilation and zero-subprocess architecture.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -201,6 +228,7 @@ Under Zenzic's **Flat-Cost Model**, every inline suppression comment (`<!-- zenz
 
 ### 4. RE2 Discipline & Sovereign Runtime (ADR-002, ADR-075)
 
+- **$O(N)$ Execution Performance**: Scans thousands of Markdown files in milliseconds with linear time complexity and minimal memory overhead.
 - **Zero Subprocesses (ADR-002)**: Zenzic executes 100% in-process with zero `subprocess.Popen` invocations, ensuring safe, lightweight execution across sandbox environments.
 - **Google RE2 Non-Backtracking Engine**: All regex operations are backed by Google RE2 via an Access Control Layer (`zenzic.core.regex`), guaranteeing $O(N)$ execution time and mathematical immunity to Regular Expression Denial of Service (ReDoS).
 - **Pure-Function Determinism**: Analysis has zero global state and zero network dependencies, guaranteeing bit-for-bit identical results on every machine and operating system.
@@ -306,9 +334,20 @@ Zenzic provides consistent, identical analysis across every development touchpoi
 - **[Quick Start Tutorial](https://zenzic.dev/tutorials/first-audit/)**: Step-by-step introduction.
 - **[Finding Codes Catalog](https://zenzic.dev/docs/reference/finding-codes/)**: Complete reference for all `Z1xx`–`Z6xx` finding codes.
 - **[Policy-as-Code Guide](https://zenzic.dev/docs/how-to/configuration-strategy/)**: Enforce repository standards.
+- **[Custom Rule SDK v3](https://zenzic.dev/docs/developers/how-to/write-ast-rule/)**: Author deterministic, typed Python linting plugins.
 - **[CI/CD Configuration](https://zenzic.dev/docs/how-to/configure-ci-cd/)**: Set up automated GitHub Actions pipelines.
 
 For deep architectural explanations, configuration strategies, and the full finding taxonomy, visit [zenzic.dev](https://zenzic.dev).
+
+---
+
+## 🗺️ Roadmap
+
+Zenzic evolves strictly within its deterministic, AST-driven architecture. Upcoming milestones include:
+
+- **Adapter Ecosystem**: Native Virtual Site Map (VSM) adapters for **Docusaurus**, **Sphinx (MyST)**, and **Hugo** to support cross-engine slugification and taxonomy out of the box.
+- **Multi-Repository Documentation Graph**: Cross-repository link resolution and contract validation across polyrepo documentation architectures without network calls.
+- **Auto-Fix Expansion**: Extended lossless AST mutations for additional structural codes (`Z1xx`), reference normalization (`Z3xx`), and frontmatter standardization (`Z6xx`).
 
 ---
 

@@ -1,11 +1,14 @@
 ---
-title: "Zenzic v0.30.0: Semantic Linting Supremacy"
+title: "Zenzic v0.30.0: Semantic Linting Supremacy & Frictionless Adoption"
 slug: zenzic-v0300-semantic-linting-supremacy
 date: 2026-08-15
 authors:
   - pythonwoods
 description: >
-  Zenzic v0.30.0 introduces native AST-based semantic linting, structural accessibility rules, editorial style enforcement, and atomic automated remediation.
+  Zenzic v0.30.0 introduces native AST-based semantic linting, editorial style enforcement,
+  atomic auto-remediation, and a Zero-Config VS Code experience powered by automatic
+  engine provisioning — making professional-grade documentation quality available to every developer,
+  without any manual setup.
 categories:
   - Releases
   - Engineering
@@ -15,7 +18,9 @@ categories:
 
 ![Zenzic v0.30.0 Semantic Linting Supremacy](../../assets/images/blog/launch_v0300.webp)
 
-Zenzic v0.30.0 delivers the **Semantic Linting Supremacy** milestone. This major update extends Zenzic beyond link verification and metadata validation, establishing a unified, deterministic engine for semantic AST analysis, structural accessibility, editorial style governance, and atomic auto-remediation.
+Zenzic v0.30.0 is a dual milestone. On the **engine side**, it delivers the **Semantic Linting Supremacy** update: native AST-based semantic analysis, structural accessibility rules, editorial style governance, and atomic auto-remediation — the complete picture of what deterministic documentation quality looks like at the AST level. On the **adoption side**, it delivers **Frictionless Adoption**: the VS Code extension can now provision its own engine automatically, removing the last remaining manual setup step for every developer who opens a Markdown file.
+
+Together, these two pillars define what v0.30.0 is about: *making the highest standard of documentation quality accessible to every developer on your team, regardless of their Python expertise or system configuration.*
 
 <!-- more -->
 
@@ -122,13 +127,74 @@ All automated fixes are shared identically between the CLI tool and the VS Code 
 
 ---
 
-## Looking Ahead: The Adapter Ecosystem
+## Zero-Config Developer Experience
 
-With the completion of v0.30.0, Zenzic has solidified its foundation as the fastest, most deterministic document integrity and quality engine for Markdown graphs.
+v0.30.0 introduces the most impactful adoption improvement in Zenzic's history: **you no longer need to install Python or configure a binary path to use the VS Code extension**.
 
-Explore the complete [Finding Codes Reference](../../reference/finding-codes.md) and get started today with:
+Previously, the VS Code extension required users to have the `zenzic` Python CLI already installed on their machine — a step that introduced friction for developers unfamiliar with Python toolchains. Starting with this release, the extension's Auto-Provisioning Engine removes that barrier entirely.
+
+<!-- NOTE for Human Bridge: embed the VS Code demo GIF below once assets/demo.gif is produced.
+     Path: ../../assets/images/blog/demo.gif
+     Syntax: ![Zenzic VS Code Auto-Provisioning Demo](../../assets/images/blog/demo.gif)
+-->
+
+### How it works
+
+When the extension activates and cannot find a `zenzic` binary, it shows a single consent notification:
+
+> *"Zenzic CLI not found. Install it automatically in an isolated environment? (No changes will be made to your system Python, PATH, or shell config.)"*
+
+Click **Install**, and the Auto-Provisioning Engine takes over:
+
+1. **Detection** — checks configured path, system `$PATH`, and known binary locations (`~/.local/bin`, `~/.cargo/bin`, `~/.uv/bin`).
+2. **Isolation** — creates a dedicated virtual environment inside VS Code's own global storage directory. Your system Python and `$PATH` are never touched.
+3. **Installation** — uses `uv` for a hermetic, millisecond-fast install if available; falls back to `python3 -m venv` + `pip` on systems without `uv`.
+4. **Verification** — confirms the installed binary meets the minimum version requirement (`>= 0.30.0`) before starting the Language Server.
+5. **Persistence** — stores the binary path in VS Code `globalState` so subsequent extension activations are instant — no re-installation, no re-prompting.
+
+For teams with corporate proxies or strict package management policies, a single settings entry disables the engine: `"zenzic.autoProvision": false`.
+
+### The philosophy behind Zero-Config
+
+The Thin Client Architecture (ADR-075) was always designed to keep the extension lightweight and the Python Core sovereign. Auto-provisioning is the natural completion of that vision: the extension now manages the *acquisition* of its engine, while still delegating 100% of document analysis to the Python binary. No parsing logic crossed the TypeScript/Python boundary. No architectural invariants were compromised.
+
+---
+
+## CI/CD Integration: From Code Review to Deployment Gate
+
+For teams enforcing documentation quality in GitHub Actions, Zenzic's SARIF integration turns findings into native GitHub PR annotations:
+
+<!-- NOTE for Human Bridge: embed the SARIF PR annotation SVG below once assets/sarif-showcase.svg is produced.
+     Path: ../../assets/images/blog/sarif-showcase.svg
+     Syntax: ![Zenzic SARIF PR Annotation](../../assets/images/blog/sarif-showcase.svg)
+-->
+
+```yaml
+- uses: PythonWoods/zenzic-action@v0.30.0
+  with:
+    format: sarif
+    upload-sarif: "true"
+```
+
+Findings from Z513 (duplicate anchors), Z516 (multiple H1), and Z617 (forbidden content) appear as inline code scanning alerts in the GitHub security tab and as PR review annotations — the same deterministic diagnostics your team sees in VS Code, now enforced at merge time.
+
+---
+
+## v0.30.0 is just the beginning
+
+With v0.30.0, Zenzic has solidified two pillars simultaneously: the deepest semantic analysis engine in the Markdown tooling ecosystem, and the most frictionless installation experience for VS Code users.
+
+Every developer on your team — from the TypeScript engineer who has never touched Python, to the SRE who manages documentation pipelines — now has access to the same deterministic, security-first quality engine, with zero configuration overhead.
+
+**Get started in 30 seconds:**
 
 ```bash
+# CLI users
 pip install --upgrade zenzic
 zenzic check all --strict
+
+# VS Code users
+# Install the Zenzic extension — the engine provisions itself automatically.
 ```
+
+Explore the complete [Finding Codes Reference](../../reference/finding-codes.md), the [VS Code Extension documentation](../../editor/vscode.md), and the [GitHub Action integration guide](../../how-to/configure-ci-cd.md) to deploy the full Zenzic quality platform across your team.
