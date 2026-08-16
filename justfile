@@ -191,3 +191,11 @@ docs-serve +args="":
 
 docs-build:
 	uv run --extra docs mkdocs build --strict
+
+# Optimize blog images and animated GIFs for web performance
+optimize-assets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Optimizing animated GIFs with gifsicle..."
+    find docs/assets/images -name "*.gif" -exec gifsicle -O3 --colors 128 --lossy=80 {} -o {} \;
+    echo "✓ Assets optimized successfully."
