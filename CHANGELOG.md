@@ -40,7 +40,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- **Determinate Progress & Granular DevEx Phases**: Replaced indeterminate spinner in link validation with a determinate 0–100% progress indicator tracking real-time external URL validation counts, and added granular phase reporting for topology, snippet validation, and asset audits in `_collect_all_results()`.
+- **Determinate Progress & Granular DevEx Phases**: Replaced indeterminate spinner in link validation with a determinate 0–100% progress indicator tracking real-time external URL validation counts, and added persistent phase reporting with high-resolution millisecond execution metrics for topology, snippet validation, and asset audits in `_collect_all_results()`.
 - **External URL Exclusion Pre-filtering & Baseline Debt UX**: Added deterministic prefix exclusion filtering in `_check_external_links()` and `LinkValidator.register()`, preventing unwanted HTTP requests for URLs matching `excluded_external_urls` or CLI `--exclude-url`. Refined baseline UX to display an encouraging notification upon massive technical debt resolution (> 50 issues resolved) without new findings.
 - **Batched IPC Work Chunking in Hybrid Adaptive Engine**: Partitioned multiprocessing file tasks into dynamically sized chunks (`chunksize = max(4, N // (2 * cpu))`), drastically reducing inter-process serialization overhead and worker queue contention while preserving ADR-020 Parallel Fail-Fast security guarantees on security breach detection.
 - **$O(1)$ Navigation Tree Memoization**: Pre-computed navigation paths as an immutable `frozenset[str]` during `MkDocsAdapter` initialization, eliminating over 350,000 redundant recursive dictionary walks and accelerating cross-check topological validation.

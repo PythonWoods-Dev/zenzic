@@ -1182,9 +1182,9 @@ def _collect_all_results(
                 f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
             ]
 
-    if show_progress:
-        _console = _shared.get_console()
-        _console.print(f"  [{ZenzicPalette.DIM}]•[/] Checking orphan pages & topology...")
+    _console = _shared.get_console() if show_progress else None
+
+    _t_orphans = time.perf_counter()
     orphans = find_orphans(
         docs_root,
         exclusion_mgr,
@@ -1195,13 +1195,23 @@ def _collect_all_results(
         ignored_patterns=adapter.get_ignored_patterns(),
         adapter=adapter,
     )
+    if _console:
+        _elapsed_orphans = (time.perf_counter() - _t_orphans) * 1000
+        _console.print(
+            f"  [{ZenzicPalette.DIM}]•[/] Checking orphan pages & topology... "
+            f"[{ZenzicPalette.DIM}]({_elapsed_orphans:.1f}ms)[/]"
+        )
 
-    if show_progress:
-        _console.print(f"  [{ZenzicPalette.DIM}]•[/] Validating code snippets...")
+    _t_snippets = time.perf_counter()
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+    if _console:
+        _elapsed_snippets = (time.perf_counter() - _t_snippets) * 1000
+        _console.print(
+            f"  [{ZenzicPalette.DIM}]•[/] Validating code snippets... "
+            f"[{ZenzicPalette.DIM}]({_elapsed_snippets:.1f}ms)[/]"
+        )
 
-    if show_progress:
-        _console.print(f"  [{ZenzicPalette.DIM}]•[/] Checking unused assets & media...")
+    _t_assets = time.perf_counter()
     unused_assets = find_unused_assets(
         docs_root,
         exclusion_mgr,
@@ -1210,6 +1220,12 @@ def _collect_all_results(
         content_roots=content_roots,
         adapter_metadata_files=adapter.get_metadata_files(),
     )
+    if _console:
+        _elapsed_assets = (time.perf_counter() - _t_assets) * 1000
+        _console.print(
+            f"  [{ZenzicPalette.DIM}]•[/] Checking unused assets & media... "
+            f"[{ZenzicPalette.DIM}]({_elapsed_assets:.1f}ms)[/]"
+        )
 
     return _AllCheckResults(
         link_errors=link_errors,
