@@ -1138,111 +1138,153 @@ def _collect_all_results(
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
-    ref_reports, ext_errors = scan_docs_references(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        validate_links=strict and check_external,
-        locale_roots=locale_roots,
-        content_roots=content_roots,
-        show_progress=show_progress,
-    )
-    security_events = sum(len(r.security_findings) for r in ref_reports)
-
-    config_asset_issues: list[tuple[str, str]] = []
-    _engine = config.build_context.engine
-    if _engine == "mkdocs":
-        config_asset_issues = _mkdocs_check_assets(repo_root)
-    elif _engine == "zensical":
-        config_asset_issues = _zensical_check_assets(repo_root)
-
-    trackers = {
-        r.file_path.resolve(): r.suppression_tracker
-        for r in ref_reports
-        if r.suppression_tracker is not None
-    }
-
-    link_errors = validate_links_structured(
-        docs_root,
-        exclusion_mgr,
-        repo_root=repo_root,
-        config=config,
-        strict=strict,
-        locale_roots=locale_roots,
-        check_external=check_external,
-        trackers=trackers,
-        reports=ref_reports,
-        ext_errors=ext_errors,
-    )
-
-    for r in ref_reports:
-        if r.suppression_tracker is not None:
-            dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
-            r.rule_findings = [
-                f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
-            ]
-
-    _console = _shared.get_console() if show_progress else None
-
-    _t_orphans = time.perf_counter()
-    orphans = find_orphans(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        has_engine_config=adapter.has_engine_config(),
-        nav_paths=adapter.get_nav_paths(),
-        is_locale_dir=adapter.is_locale_dir,
-        ignored_patterns=adapter.get_ignored_patterns(),
-        adapter=adapter,
-    )
-    if _console:
-        _elapsed_orphans = (time.perf_counter() - _t_orphans) * 1000
-        _console.print(
-            f"  [{ZenzicPalette.DIM}]•[/] Checking orphan pages & topology... "
-            f"[{ZenzicPalette.DIM}]({_elapsed_orphans:.1f}ms)[/]"
+    progress = None
+    if show_progress:
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TaskProgressColumn,
+            TextColumn,
+            TimeElapsedColumn,
         )
 
-    _t_snippets = time.perf_counter()
-    snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
-    if _console:
-        _elapsed_snippets = (time.perf_counter() - _t_snippets) * 1000
-        _console.print(
-            f"  [{ZenzicPalette.DIM}]•[/] Validating code snippets... "
-            f"[{ZenzicPalette.DIM}]({_elapsed_snippets:.1f}ms)[/]"
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=_shared.get_console(),
         )
+        progress.start()
 
-    _t_assets = time.perf_counter()
-    unused_assets = find_unused_assets(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        locale_roots=locale_roots,
-        content_roots=content_roots,
-        adapter_metadata_files=adapter.get_metadata_files(),
-    )
-    if _console:
-        _elapsed_assets = (time.perf_counter() - _t_assets) * 1000
-        _console.print(
-            f"  [{ZenzicPalette.DIM}]•[/] Checking unused assets & media... "
-            f"[{ZenzicPalette.DIM}]({_elapsed_assets:.1f}ms)[/]"
-        )
-
-    return _AllCheckResults(
-        link_errors=link_errors,
-        orphans=orphans,
-        snippet_errors=snippet_errors,
-        unused_assets=unused_assets,
-        nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
-        reference_reports=ref_reports,
-        security_events=security_events,
-        directory_index_issues=find_missing_directory_indices(
+    try:
+        ref_reports, ext_errors = scan_docs_references(
             docs_root,
             exclusion_mgr,
             config=config,
-            provides_index=adapter.provides_index,
-        ),
-        config_asset_issues=config_asset_issues,
-    )
+            validate_links=strict and check_external,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
+            show_progress=show_progress,
+            progress_instance=progress,
+        )
+        security_events = sum(len(r.security_findings) for r in ref_reports)
+
+        config_asset_issues: list[tuple[str, str]] = []
+        _engine = config.build_context.engine
+        if _engine == "mkdocs":
+            config_asset_issues = _mkdocs_check_assets(repo_root)
+        elif _engine == "zensical":
+            config_asset_issues = _zensical_check_assets(repo_root)
+
+        trackers = {
+            r.file_path.resolve(): r.suppression_tracker
+            for r in ref_reports
+            if r.suppression_tracker is not None
+        }
+
+        link_errors = validate_links_structured(
+            docs_root,
+            exclusion_mgr,
+            repo_root=repo_root,
+            config=config,
+            strict=strict,
+            locale_roots=locale_roots,
+            check_external=check_external,
+            trackers=trackers,
+            reports=ref_reports,
+            ext_errors=ext_errors,
+        )
+
+        for r in ref_reports:
+            if r.suppression_tracker is not None:
+                dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
+                r.rule_findings = [
+                    f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
+                ]
+
+        if progress is not None:
+            task_orphans = progress.add_task(
+                "[cyan]Checking orphan pages & topology...[/cyan]",
+                total=1,
+            )
+            progress.start_task(task_orphans)
+            orphans = find_orphans(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                has_engine_config=adapter.has_engine_config(),
+                nav_paths=adapter.get_nav_paths(),
+                is_locale_dir=adapter.is_locale_dir,
+                ignored_patterns=adapter.get_ignored_patterns(),
+                adapter=adapter,
+            )
+            progress.update(task_orphans, completed=1)
+
+            task_snippets = progress.add_task(
+                "[cyan]Validating code snippets...[/cyan]",
+                total=1,
+            )
+            progress.start_task(task_snippets)
+            snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+            progress.update(task_snippets, completed=1)
+
+            task_assets = progress.add_task(
+                "[cyan]Checking unused assets & media...[/cyan]",
+                total=1,
+            )
+            progress.start_task(task_assets)
+            unused_assets = find_unused_assets(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                locale_roots=locale_roots,
+                content_roots=content_roots,
+                adapter_metadata_files=adapter.get_metadata_files(),
+            )
+            progress.update(task_assets, completed=1)
+        else:
+            orphans = find_orphans(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                has_engine_config=adapter.has_engine_config(),
+                nav_paths=adapter.get_nav_paths(),
+                is_locale_dir=adapter.is_locale_dir,
+                ignored_patterns=adapter.get_ignored_patterns(),
+                adapter=adapter,
+            )
+            snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+            unused_assets = find_unused_assets(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                locale_roots=locale_roots,
+                content_roots=content_roots,
+                adapter_metadata_files=adapter.get_metadata_files(),
+            )
+
+        return _AllCheckResults(
+            link_errors=link_errors,
+            orphans=orphans,
+            snippet_errors=snippet_errors,
+            unused_assets=unused_assets,
+            nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
+            reference_reports=ref_reports,
+            security_events=security_events,
+            directory_index_issues=find_missing_directory_indices(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                provides_index=adapter.provides_index,
+            ),
+            config_asset_issues=config_asset_issues,
+        )
+    finally:
+        if progress is not None:
+            progress.stop()
 
 
 def _append_z620_findings(

@@ -1566,6 +1566,7 @@ def scan_docs_references(
     locale_roots: list[tuple[Path, str]] | None = None,
     content_roots: list[Path] | None = None,
     show_progress: bool = False,
+    progress_instance: Any | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1620,6 +1621,7 @@ def scan_docs_references(
         locale_roots:   Optional locale trees injected by caller.
         content_roots:  Optional extra markdown roots injected by caller.
         show_progress:  When ``True``, display a rich progress bar on stderr.
+        progress_instance: Optional external Rich Progress instance.
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1692,9 +1694,12 @@ def scan_docs_references(
 
     # Initialise Visual Progress Bar context if requested.
     progress = None
+    owns_progress = False
     task_id = None
     task_validate_id = None
-    if show_progress:
+    if progress_instance is not None:
+        progress = progress_instance
+    elif show_progress:
         from rich.progress import (
             BarColumn,
             Progress,
@@ -1712,6 +1717,9 @@ def scan_docs_references(
             TimeElapsedColumn(),
         )
         progress.start()
+        owns_progress = True
+
+    if progress:
         _mode_label = "parallel" if use_parallel else "sequential"
         task_id = progress.add_task(
             f"[cyan]Parsing[/cyan] [dim]{len(md_files)} files ({_mode_label})...[/dim]",
@@ -1969,7 +1977,7 @@ def scan_docs_references(
         )
         return reports_seq, link_errors
     finally:
-        if progress:
+        if owns_progress and progress:
             progress.stop()
 
 

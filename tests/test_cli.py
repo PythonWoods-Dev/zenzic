@@ -1980,6 +1980,7 @@ def test_check_all_progress_bar_activation(
         locale_roots=ANY,
         content_roots=ANY,
         show_progress=True,
+        progress_instance=ANY,
     )
     mock_scan.reset_mock()
 
@@ -1992,6 +1993,7 @@ def test_check_all_progress_bar_activation(
         locale_roots=ANY,
         content_roots=ANY,
         show_progress=False,
+        progress_instance=None,
     )
     mock_scan.reset_mock()
 
@@ -2004,6 +2006,7 @@ def test_check_all_progress_bar_activation(
         locale_roots=ANY,
         content_roots=ANY,
         show_progress=False,
+        progress_instance=None,
     )
 
 
