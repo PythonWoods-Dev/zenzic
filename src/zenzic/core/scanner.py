@@ -1732,7 +1732,9 @@ def scan_docs_references(
             import os
 
             actual_workers = workers if workers is not None else os.cpu_count() or 1
-            work_items = [(f, config, rule_engine) for f in md_files]
+            chunk_size = max(4, len(md_files) // (actual_workers * 2))
+            chunks = [md_files[i : i + chunk_size] for i in range(0, len(md_files), chunk_size)]
+            work_items = [(chunk, config, rule_engine) for chunk in chunks]
             # GA-1 fix: use actual_workers for the executor (not the raw `workers`
             # marker) so max_workers always matches what telemetry reports.
             with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
@@ -1741,10 +1743,12 @@ def scan_docs_references(
                 # the first security breach (Z201–Z203).
                 # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
                 # all remaining workers are emitted as Z902 (deadlock guard).
-                futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
+                futures_map: dict[
+                    concurrent.futures.Future[list[IntegrityReport]], list[Path]
+                ] = {executor.submit(_chunk_worker, item): item[0] for item in work_items}
                 raw: list[IntegrityReport] = []
                 _abort = False
-                _pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
+                _pending: set[concurrent.futures.Future[list[IntegrityReport]]] = set(futures_map)
                 while _pending:
                     done, _pending = concurrent.futures.wait(
                         _pending,
@@ -1755,36 +1759,40 @@ def scan_docs_references(
                         # ZRT-002 deadlock guard: no worker completed within the
                         # timeout window — treat all stalled workers as Z902.
                         for fut in _pending:
-                            raw.append(_make_timeout_report(futures_map[fut]))
+                            for missing_file in futures_map[fut]:
+                                raw.append(_make_timeout_report(missing_file))
                             fut.cancel()
                             if progress and task_id is not None:
-                                progress.advance(task_id)
+                                progress.advance(task_id, advance=len(futures_map[fut]))
                         break
                     for fut in done:
-                        md_file = futures_map[fut]
+                        chunk_files = futures_map[fut]
                         if _abort:
                             if progress and task_id is not None:
-                                progress.advance(task_id)
+                                progress.advance(task_id, advance=len(chunk_files))
                             continue  # discard results after a security breach
                         try:
-                            report = fut.result()
-                            raw.append(report)
-                            if report.security_findings:
-                                # CEO-298: cancel all still-queued (PENDING) tasks.
+                            chunk_reports = fut.result()
+                            raw.extend(chunk_reports)
+                            if any(r.security_findings for r in chunk_reports):
+                                # CEO-298 / ADR-020: cancel all still-queued (PENDING) tasks.
                                 # RUNNING workers cannot be interrupted — they
                                 # complete and their results are discarded above.
                                 _abort = True
                                 for pending_fut in _pending:
                                     pending_fut.cancel()
                                     if progress and task_id is not None:
-                                        progress.advance(task_id)
+                                        progress.advance(
+                                            task_id, advance=len(futures_map[pending_fut])
+                                        )
                         except concurrent.futures.CancelledError:
                             pass  # intentional abort — no report emitted
                         except Exception as exc:  # noqa: BLE001
-                            raw.append(_make_error_report(md_file, exc))
+                            for f in chunk_files:
+                                raw.append(_make_error_report(f, exc))
 
                         if progress and task_id is not None:
-                            progress.advance(task_id)
+                            progress.advance(task_id, advance=len(chunk_files))
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
@@ -1854,7 +1862,22 @@ def scan_docs_references(
                     except OSError:
                         pass
 
-            return reports, validator_b.validate()
+            n_urls = validator_b.unique_url_count
+            if progress and task_validate_id is not None:
+                progress.update(
+                    task_validate_id,
+                    description=f"[blue]Validating links[/blue] [dim]({n_urls} external URLs)...[/dim]",
+                    total=max(1, n_urls),
+                )
+                progress.start_task(task_validate_id)
+
+            def _advance_cb() -> None:
+                if progress and task_validate_id is not None:
+                    progress.advance(task_validate_id, 1)
+
+            return reports, validator_b.validate(
+                progress_callback=_advance_cb if progress else None
+            )
 
         # Sequential path — zero overhead, full O(N) link-validation support.
         reports_seq: list[IntegrityReport] = []
@@ -1927,22 +1950,23 @@ def scan_docs_references(
                 for _sf in _r.security_findings:
                     if _sf.file_path in _locale_path_remap:
                         _sf.file_path = _locale_path_remap[_sf.file_path]
+
+        n_urls_seq = validator_seq.unique_url_count
         if progress and task_validate_id is not None:
-            n_external = sum(
-                1
-                for s in secure_scanners_seq
-                for url, _ in s.ref_map.definitions.values()
-                if url.startswith("http")
-            )
             progress.update(
                 task_validate_id,
-                description=f"[blue]Validating links[/blue] [dim]({n_external} external URLs)...[/dim]",
-                total=1,
+                description=f"[blue]Validating links[/blue] [dim]({n_urls_seq} external URLs)...[/dim]",
+                total=max(1, n_urls_seq),
             )
             progress.start_task(task_validate_id)
-        link_errors = validator_seq.validate()
-        if progress and task_validate_id is not None:
-            progress.advance(task_validate_id)
+
+        def _advance_seq_cb() -> None:
+            if progress and task_validate_id is not None:
+                progress.advance(task_validate_id, 1)
+
+        link_errors = validator_seq.validate(
+            progress_callback=_advance_seq_cb if progress else None
+        )
         return reports_seq, link_errors
     finally:
         if progress:
@@ -2036,6 +2060,32 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
         security_findings=[],
         rule_findings=[error_finding],
     )
+
+
+def _chunk_worker(
+    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None],
+) -> list[IntegrityReport]:
+    """Top-level chunk worker function for ``ProcessPoolExecutor``.
+
+    Processes a batch of files to amortise IPC serialization and task dispatch overhead.
+    Honours ADR-020 fail-fast: if any file in the chunk contains a SecurityFinding,
+    processing of subsequent files in the chunk is aborted immediately.
+
+    Args:
+        args: ``(chunk_files, config, rule_engine)`` tuple.
+
+    Returns:
+        List of :class:`IntegrityReport` for files in the chunk.
+    """
+    chunk_files, config, rule_engine = args
+    reports: list[IntegrityReport] = []
+    for md_file in chunk_files:
+        report = _worker((md_file, config, rule_engine))
+        reports.append(report)
+        if report.security_findings:
+            # ADR-020: Stop processing remaining files in this chunk immediately.
+            break
+    return reports
 
 
 def _worker(args: tuple[Path, ZenzicConfig, AdaptiveRuleEngine | None]) -> IntegrityReport:

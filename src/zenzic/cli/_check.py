@@ -1182,27 +1182,40 @@ def _collect_all_results(
                 f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
             ]
 
+    if show_progress:
+        _console = _shared.get_console()
+        _console.print(f"  [{ZenzicPalette.DIM}]•[/] Checking orphan pages & topology...")
+    orphans = find_orphans(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        has_engine_config=adapter.has_engine_config(),
+        nav_paths=adapter.get_nav_paths(),
+        is_locale_dir=adapter.is_locale_dir,
+        ignored_patterns=adapter.get_ignored_patterns(),
+        adapter=adapter,
+    )
+
+    if show_progress:
+        _console.print(f"  [{ZenzicPalette.DIM}]•[/] Validating code snippets...")
+    snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+
+    if show_progress:
+        _console.print(f"  [{ZenzicPalette.DIM}]•[/] Checking unused assets & media...")
+    unused_assets = find_unused_assets(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+        adapter_metadata_files=adapter.get_metadata_files(),
+    )
+
     return _AllCheckResults(
         link_errors=link_errors,
-        orphans=find_orphans(
-            docs_root,
-            exclusion_mgr,
-            config=config,
-            has_engine_config=adapter.has_engine_config(),
-            nav_paths=adapter.get_nav_paths(),
-            is_locale_dir=adapter.is_locale_dir,
-            ignored_patterns=adapter.get_ignored_patterns(),
-            adapter=adapter,
-        ),
-        snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
-        unused_assets=find_unused_assets(
-            docs_root,
-            exclusion_mgr,
-            config=config,
-            locale_roots=locale_roots,
-            content_roots=content_roots,
-            adapter_metadata_files=adapter.get_metadata_files(),
-        ),
+        orphans=orphans,
+        snippet_errors=snippet_errors,
+        unused_assets=unused_assets,
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
@@ -1801,10 +1814,16 @@ def check_all(
                 f"({baselined_cnt} baselined, {new_cnt} new)[/]"
             )
             if fixed_cnt > 0:
-                _footer_lines.append(
-                    f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
-                    f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
-                )
+                if fixed_cnt > 50 and new_cnt == 0:
+                    _footer_lines.append(
+                        f"[{ZenzicPalette.SUCCESS}]✨ Massive technical debt reduction detected ({fixed_cnt} issues resolved). "
+                        f"Baseline is stale. Run 'zenzic check all --update-baseline' to lock in this clean state.[/]"
+                    )
+                else:
+                    _footer_lines.append(
+                        f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
+                        f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
+                    )
 
         if _score_report.security_override:
             _dqs_line = (
