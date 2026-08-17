@@ -1207,10 +1207,11 @@ def _collect_all_results(
 
         if progress is not None:
             task_orphans = progress.add_task(
-                "[cyan]Checking orphan pages & topology...[/cyan]",
+                "Checking orphan pages & topology...",
                 total=1,
+                start=True,
             )
-            progress.start_task(task_orphans)
+            t0 = time.perf_counter()
             orphans = find_orphans(
                 docs_root,
                 exclusion_mgr,
@@ -1221,21 +1222,33 @@ def _collect_all_results(
                 ignored_patterns=adapter.get_ignored_patterns(),
                 adapter=adapter,
             )
-            progress.update(task_orphans, completed=1)
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            progress.update(
+                task_orphans,
+                completed=1,
+                description=f"Checking orphan pages & topology... [dim]({elapsed_ms:.1f}ms)[/dim]",
+            )
 
             task_snippets = progress.add_task(
-                "[cyan]Validating code snippets...[/cyan]",
+                "Validating code snippets...",
                 total=1,
+                start=True,
             )
-            progress.start_task(task_snippets)
+            t0 = time.perf_counter()
             snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
-            progress.update(task_snippets, completed=1)
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            progress.update(
+                task_snippets,
+                completed=1,
+                description=f"Validating code snippets... [dim]({elapsed_ms:.1f}ms)[/dim]",
+            )
 
             task_assets = progress.add_task(
-                "[cyan]Checking unused assets & media...[/cyan]",
+                "Checking unused assets & media...",
                 total=1,
+                start=True,
             )
-            progress.start_task(task_assets)
+            t0 = time.perf_counter()
             unused_assets = find_unused_assets(
                 docs_root,
                 exclusion_mgr,
@@ -1244,7 +1257,12 @@ def _collect_all_results(
                 content_roots=content_roots,
                 adapter_metadata_files=adapter.get_metadata_files(),
             )
-            progress.update(task_assets, completed=1)
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            progress.update(
+                task_assets,
+                completed=1,
+                description=f"Checking unused assets & media... [dim]({elapsed_ms:.1f}ms)[/dim]",
+            )
         else:
             orphans = find_orphans(
                 docs_root,

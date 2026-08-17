@@ -1804,14 +1804,6 @@ def scan_docs_references(
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
-            if getattr(config, "_global_tracker", None):
-                for _r in reports:
-                    if _r.suppression_tracker is not None:
-                        for pattern, code in getattr(
-                            _r.suppression_tracker, "consumed_global_patterns", ()
-                        ):
-                            config._global_tracker.mark_directory_policy_used(pattern, code)
-
             _run_vsm_and_urp_pass(
                 reports,
                 md_files,
@@ -1824,6 +1816,24 @@ def scan_docs_references(
                 static_assets=static_assets,
             )
 
+            if getattr(config, "_global_tracker", None):
+                for _r in reports:
+                    if _r.suppression_tracker is not None:
+                        for pattern, code in getattr(
+                            _r.suppression_tracker, "consumed_global_patterns", ()
+                        ):
+                            config._global_tracker.mark_directory_policy_used(pattern, code)
+
+            elapsed = time.monotonic() - _t0
+
+            if verbose:
+                _emit_telemetry(
+                    mode="Parallel",
+                    workers=actual_workers,
+                    n_files=len(md_files),
+                    elapsed=elapsed,
+                )
+
             # Remap locale file paths to their logical display paths.
             if _locale_path_remap:
                 for _r in reports:
@@ -1832,15 +1842,6 @@ def scan_docs_references(
                     for _sf in _r.security_findings:
                         if _sf.file_path in _locale_path_remap:
                             _sf.file_path = _locale_path_remap[_sf.file_path]
-
-            elapsed = time.monotonic() - _t0
-            if verbose:
-                _emit_telemetry(
-                    mode="Parallel",
-                    workers=actual_workers,
-                    n_files=len(md_files),
-                    elapsed=elapsed,
-                )
 
             if not validate_links:
                 return reports, []
@@ -1874,7 +1875,7 @@ def scan_docs_references(
             if progress and task_validate_id is not None:
                 progress.update(
                     task_validate_id,
-                    description=f"[blue]Validating links[/blue] [dim]({n_urls} external URLs)...[/dim]",
+                    description=f"Validating links ({n_urls} external URLs)...",
                     total=max(1, n_urls),
                 )
                 progress.start_task(task_validate_id)
@@ -1883,9 +1884,19 @@ def scan_docs_references(
                 if progress and task_validate_id is not None:
                     progress.advance(task_validate_id, 1)
 
-            return reports, validator_b.validate(
+            t0_val = time.perf_counter()
+            link_errors = validator_b.validate(
                 progress_callback=_advance_cb if progress else None
             )
+            elapsed_ms_val = (time.perf_counter() - t0_val) * 1000
+            if progress and task_validate_id is not None:
+                progress.update(
+                    task_validate_id,
+                    completed=max(1, n_urls),
+                    description=f"Validating links ({n_urls} external URLs)... [dim]({elapsed_ms_val:.1f}ms)[/dim]",
+                )
+
+            return reports, link_errors
 
         # Sequential path — zero overhead, full O(N) link-validation support.
         reports_seq: list[IntegrityReport] = []
@@ -1921,15 +1932,16 @@ def scan_docs_references(
                 elapsed=elapsed_seq,
             )
 
+        # Remap locale file paths to their logical display paths.
+        if _locale_path_remap:
+            for _r in reports_seq:
+                if _r.file_path in _locale_path_remap:
+                    _r.file_path = _locale_path_remap[_r.file_path]
+                for _sf in _r.security_findings:
+                    if _sf.file_path in _locale_path_remap:
+                        _sf.file_path = _locale_path_remap[_sf.file_path]
+
         if not validate_links:
-            # Remap locale file paths to their logical display paths.
-            if _locale_path_remap:
-                for _r in reports_seq:
-                    if _r.file_path in _locale_path_remap:
-                        _r.file_path = _locale_path_remap[_r.file_path]
-                    for _sf in _r.security_findings:
-                        if _sf.file_path in _locale_path_remap:
-                            _sf.file_path = _locale_path_remap[_sf.file_path]
             return reports_seq, []
 
         # Phase B — global URL deduplication and async HTTP validation.
@@ -1950,20 +1962,11 @@ def scan_docs_references(
                 except OSError:
                     pass
 
-        # Remap locale file paths to their logical display paths.
-        if _locale_path_remap:
-            for _r in reports_seq:
-                if _r.file_path in _locale_path_remap:
-                    _r.file_path = _locale_path_remap[_r.file_path]
-                for _sf in _r.security_findings:
-                    if _sf.file_path in _locale_path_remap:
-                        _sf.file_path = _locale_path_remap[_sf.file_path]
-
         n_urls_seq = validator_seq.unique_url_count
         if progress and task_validate_id is not None:
             progress.update(
                 task_validate_id,
-                description=f"[blue]Validating links[/blue] [dim]({n_urls_seq} external URLs)...[/dim]",
+                description=f"Validating links ({n_urls_seq} external URLs)...",
                 total=max(1, n_urls_seq),
             )
             progress.start_task(task_validate_id)
