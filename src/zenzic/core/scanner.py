@@ -1743,14 +1743,8 @@ def scan_docs_references(
             chunk_size = max(4, len(md_files) // (actual_workers * 2))
             chunks = [md_files[i : i + chunk_size] for i in range(0, len(md_files), chunk_size)]
             work_items = [(chunk, config, rule_engine) for chunk in chunks]
-            # GA-1 fix: use actual_workers for the executor (not the raw `workers`
-            # marker) so max_workers always matches what telemetry reports.
-            with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
-                # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
-                # results in completion order and cancel queued tasks immediately on
-                # the first security breach (Z201–Z203).
-                # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
-                # all remaining workers are emitted as Z902 (deadlock guard).
+            executor = concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers)
+            try:
                 futures_map: dict[
                     concurrent.futures.Future[list[IntegrityReport]], list[Path]
                 ] = {executor.submit(_chunk_worker, item): item[0] for item in work_items}
@@ -1801,6 +1795,17 @@ def scan_docs_references(
 
                         if progress and task_id is not None:
                             progress.advance(task_id, advance=len(chunk_files))
+            finally:
+                t0_teardown = time.perf_counter()
+                executor.shutdown(wait=True)
+                teardown_ms = (time.perf_counter() - t0_teardown) * 1000
+
+            if progress:
+                progress.add_task(
+                    f"Finalizing parallel workers (IPC teardown)... [dim]({teardown_ms:.1f}ms)[/dim]",
+                    total=1,
+                    completed=1,
+                )
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
@@ -1815,6 +1820,13 @@ def scan_docs_references(
                 content_roots=content_roots,
                 static_assets=static_assets,
             )
+
+            if progress and task_id is not None:
+                _parse_elapsed_ms = (time.monotonic() - _t0) * 1000
+                progress.update(
+                    task_id,
+                    description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_ms:.1f}ms)[/dim]",
+                )
 
             if getattr(config, "_global_tracker", None):
                 for _r in reports:
@@ -1921,6 +1933,13 @@ def scan_docs_references(
             content_roots=content_roots,
             static_assets=static_assets,
         )
+
+        if progress and task_id is not None:
+            _parse_elapsed_seq_ms = (time.monotonic() - _t0) * 1000
+            progress.update(
+                task_id,
+                description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_seq_ms:.1f}ms)[/dim]",
+            )
 
         elapsed_seq = time.monotonic() - _t0
 

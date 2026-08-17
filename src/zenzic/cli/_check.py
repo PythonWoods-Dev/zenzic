@@ -1128,6 +1128,7 @@ def _collect_all_results(
     strict: bool,
     check_external: bool = True,
     show_progress: bool = False,
+    init_start_time: float | None = None,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
 
@@ -1158,6 +1159,12 @@ def _collect_all_results(
             console=_shared.get_console(),
         )
         progress.start()
+        _init_ms = (time.perf_counter() - (init_start_time or time.perf_counter())) * 1000
+        progress.add_task(
+            f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
+            total=1,
+            completed=1,
+        )
 
     try:
         ref_reports, ext_errors = scan_docs_references(
@@ -1610,6 +1617,7 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
+    _t_init_start = time.perf_counter()
     _validate_only_flag(only)
 
     # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
@@ -1726,6 +1734,7 @@ def check_all(
             strict=effective_strict,
             check_external=not no_external,
             show_progress=show_progress,
+            init_start_time=_t_init_start,
         )
 
     if only:

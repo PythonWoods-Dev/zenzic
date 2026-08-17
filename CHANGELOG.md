@@ -40,7 +40,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- **Unified Rich Progress Context & Phase Telemetry**: Unified all analysis phases (Parsing, Link Validation, Orphans, Snippets, Assets) under a single cohesive Rich `Progress` context, providing uniform determinate progress bars and real-time execution timing across all sub-phases.
+- **Full Telemetry Disclosure & Unified Progress Telemetry**: Unified all analysis and environment phases (Environment & VSM Init, Parsing, Link Validation, IPC Teardown, Orphans, Snippets, Assets) under a single cohesive Rich `Progress` context, providing uniform determinate progress bars and explicit millisecond timing telemetry across all stages.
 - **External URL Exclusion Pre-filtering & Baseline Debt UX**: Added deterministic prefix exclusion filtering in `_check_external_links()` and `LinkValidator.register()`, preventing unwanted HTTP requests for URLs matching `excluded_external_urls` or CLI `--exclude-url`. Refined baseline UX to display an encouraging notification upon massive technical debt resolution (> 50 issues resolved) without new findings.
 - **Batched IPC Work Chunking in Hybrid Adaptive Engine**: Partitioned multiprocessing file tasks into dynamically sized chunks (`chunksize = max(4, N // (2 * cpu))`), drastically reducing inter-process serialization overhead and worker queue contention while preserving ADR-020 Parallel Fail-Fast security guarantees on security breach detection.
 - **$O(1)$ Navigation Tree Memoization**: Pre-computed navigation paths as an immutable `frozenset[str]` during `MkDocsAdapter` initialization, eliminating over 350,000 redundant recursive dictionary walks and accelerating cross-check topological validation.
