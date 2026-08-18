@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 <p align="center">
   <a href="https://github.com/PythonWoods/zenzic">
     <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/brand/svg/zenzic-logo-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="./docs/assets/brand/svg/zenzic-logo.svg">
       <img alt="Zenzic Documentation Quality Platform" src="./docs/assets/brand/svg/zenzic-logo-dark.svg" width="480">
     </picture>
