@@ -35,19 +35,41 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>Deterministic Document Integrity & Quality Engine for Markdown/MDX graphs.</strong><br>
-  <em>Stop broken links, leaked secrets, accessibility defects, and semantic bugs before they reach production.</em>
+  <strong>Zenzic: Deterministic Documentation Quality Platform (DQP) for Engineering-Grade Knowledge Systems.</strong><br>
+  <em>Stop broken links, leaked secrets, accessibility defects, and topological graph errors before they reach production.</em>
 </p>
 
 ---
 
-## Markdown is Production Code
+## Documentation Quality Platform (DQP)
 
-Documentation is software. Broken links, orphaned pages, leaked API keys, and invalid HTML structures degrade developer trust, damage SEO, and cause critical security incidents.
+A **Documentation Quality Platform (DQP)** enforces semantic correctness, structural topology, and governance policies across Markdown and MDX graphs. It treats documentation as a continuously validated engineering asset.
 
-Most documentation tools tell you what's wrong. Zenzic fixes it. By treating Markdown with the same rigor as compiled code, Zenzic ensures your documentation is secure, accessible, and mathematically sound. Sleep soundly knowing your docs are perfect.
+Where standard linters operate on isolated source files, a Documentation Quality Platform compiles and evaluates the entire knowledge graph as a unified, deterministic system.
 
-**Zenzic** is a fast, deterministic static analyzer and automated remediation engine for Markdown and MDX repositories. It evaluates your entire documentation graph in milliseconds—verifying cross-file links, scanning for credentials, enforcing semantic accessibility, and applying atomic fixes directly to your files.
+### Category Differentiation
+
+| Capability | Syntax Formatters & AST Linters | Prose & Style Checkers | Zenzic (DQP) |
+|:---|:---|:---|:---|
+| **Scope of Analysis** | Single file AST / formatting | Single file prose & dictionaries | Global graph topology & cross-file VSM |
+| **Link & Anchor Resolution** | None | None | $O(N)$ cross-file & framework slug parity |
+| **Security Verification** | None | None | Secret leak & path traversal guards (Exit Codes 2 & 3) |
+| **Technical Debt Management**| Inline ignores only | Config ignores | Cryptographic baselines (`.zenzic-baseline.json`) & DQS scoring |
+| **Governance & Policy** | Syntax rules | Style rules | Policy-as-Code schema enforcement & suppression budgeting |
+| **Enterprise Telemetry** | Text stdout | Text stdout | Enriched SARIF v2.1.0 for security dashboards |
+
+- **vs Syntax Formatters & AST Linters**: While syntax formatters enforce whitespace, indentation, and isolated AST structure within individual files, Zenzic validates global graph topology (Virtual Site Map), cross-file reference integrity, and structural reachability.
+- **vs Prose & Style Checkers**: While prose checkers validate dictionaries, readability scores, and stylistic tone, Zenzic enforces Policy-as-Code, tracks technical debt via cryptographic baselines, and provides deterministic security scanning against secret leaks and path traversal.
+- **Complementary Architecture**: Zenzic runs alongside syntax formatters and style checkers in modern CI/CD pipelines, acting as the overarching Documentation Quality Platform for structural, security, and governance integrity.
+
+---
+
+## Core Pillars (v0.30)
+
+- **Smart Link Graph**: Fast $O(N)$ topological graph analysis with exact slugification parity for documentation frameworks, orphan detection, and circular link diagnostics (Z410, Z411).
+- **Baseline & Regression Tracking**: Line-shift invariant debt freezing (`.zenzic-baseline.json`), allowing existing repositories to adopt strict quality gates immediately without blocking development.
+- **Policy-as-Code Governance**: Centralized configuration rules for frontmatter schemas, domain allowlists, terminology restrictions, and suppression budgeting.
+- **Ecosystem Uniformity**: 100% deterministic parity across the Zenzic CLI (Core Engine), VS Code Extension (Language Server Protocol), and GitHub Action CI/CD workflow.
 
 ---
 
