@@ -111,6 +111,18 @@ SDK v3 rules can override any of the following visitor hooks:
 
 ---
 
+## Deterministic Constraints (ADR-007 Sovereign Sandbox)
+
+To preserve mathematical determinism ($O(N)$ runtime complexity) and maintain engine security, all custom rules MUST adhere to these strict constraints:
+
+1. **Zero Network I/O**: Rules must never make HTTP, HTTPS, DNS, or socket requests.
+2. **Zero Subprocesses**: Invoking subprocesses (`subprocess.run`, `os.system`) is strictly forbidden (ADR-002).
+3. **No Probabilistic NLP**: Rules must be deterministic mathematical functions. Probabilistic models and external AI/LLM APIs are prohibited.
+4. **RE2 Regular Expressions (ADR-013)**: Regular expressions must use linear-time `google-re2` via `import zenzic.core.regex as re` to prevent Catastrophic Backtracking (ReDoS).
+5. **Pure Functions**: Rules must not mutate the filesystem, shared global state, or cross-file caches.
+
+---
+
 ## Testing SDK v3 Rules
 
 ```python

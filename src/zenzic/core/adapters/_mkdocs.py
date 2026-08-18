@@ -482,6 +482,7 @@ class MkDocsAdapter(BaseAdapter):
                 "'languages' list — remove 'extra.alternate' to avoid routing "
                 "conflicts that can cause the language switcher to disappear."
             )
+
     # ── Public contract ────────────────────────────────────────────────────────
 
     def is_locale_dir(self, part: str) -> bool:

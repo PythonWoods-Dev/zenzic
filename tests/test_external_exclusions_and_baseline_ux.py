@@ -5,12 +5,12 @@ import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from zenzic.core.validator import LinkValidator, _check_external_links
 from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
+
 
 runner = CliRunner()
 
@@ -37,9 +37,7 @@ def test_check_external_links_skips_excluded_urls(tmp_path: Path):
 
 def test_link_validator_register_filters_excluded_urls(tmp_path: Path):
     """Ensure LinkValidator.register drops excluded URLs before internal registration."""
-    config = ZenzicConfig.model_validate(
-        {"excluded_external_urls": ["https://github.com"]}
-    )
+    config = ZenzicConfig.model_validate({"excluded_external_urls": ["https://github.com"]})
     validator = LinkValidator(config, tmp_path)
     validator.register("https://github.com/PythonWoods/zenzic", tmp_path / "test.md", 1)
     validator.register("https://zenzic.dev/guide", tmp_path / "test.md", 2)
@@ -78,6 +76,7 @@ def test_baseline_ux_massive_debt_reduction(tmp_path: Path):
         for i in range(60)
     ]
     import json
+
     baseline_payload = {
         "version": "1.0",
         "created_at": "2026-08-01T00:00:00Z",

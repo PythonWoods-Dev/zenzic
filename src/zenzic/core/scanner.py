@@ -1745,9 +1745,9 @@ def scan_docs_references(
             work_items = [(chunk, config, rule_engine) for chunk in chunks]
             executor = concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers)
             try:
-                futures_map: dict[
-                    concurrent.futures.Future[list[IntegrityReport]], list[Path]
-                ] = {executor.submit(_chunk_worker, item): item[0] for item in work_items}
+                futures_map: dict[concurrent.futures.Future[list[IntegrityReport]], list[Path]] = {
+                    executor.submit(_chunk_worker, item): item[0] for item in work_items
+                }
                 raw: list[IntegrityReport] = []
                 _abort = False
                 _pending: set[concurrent.futures.Future[list[IntegrityReport]]] = set(futures_map)
@@ -1897,9 +1897,7 @@ def scan_docs_references(
                     progress.advance(task_validate_id, 1)
 
             t0_val = time.perf_counter()
-            link_errors = validator_b.validate(
-                progress_callback=_advance_cb if progress else None
-            )
+            link_errors = validator_b.validate(progress_callback=_advance_cb if progress else None)
             elapsed_ms_val = (time.perf_counter() - t0_val) * 1000
             if progress and task_validate_id is not None:
                 progress.update(

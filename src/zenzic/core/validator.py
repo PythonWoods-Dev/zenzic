@@ -1091,7 +1091,9 @@ async def _check_external_links(
     if not entries:
         return []
 
-    excluded = [p.strip() for p in (getattr(config, "excluded_external_urls", None) or []) if p.strip()]
+    excluded = [
+        p.strip() for p in (getattr(config, "excluded_external_urls", None) or []) if p.strip()
+    ]
     global_tracker = getattr(config, "_global_tracker", None)
 
     # Deduplicate: url → list[(label, lineno)]
@@ -1605,7 +1607,11 @@ class LinkValidator:
         # as stale (Z620), and skip HTTP validation for this URL.
         # This mirrors the identical filter that validate_links_async used to apply
         # before the URP unification removed that code path.
-        excluded = [p.strip() for p in (getattr(self._config, "excluded_external_urls", None) or []) if p.strip()]
+        excluded = [
+            p.strip()
+            for p in (getattr(self._config, "excluded_external_urls", None) or [])
+            if p.strip()
+        ]
         if excluded:
             global_tracker = getattr(self._config, "_global_tracker", None)
             for prefix in excluded:
