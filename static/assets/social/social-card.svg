@@ -45,5 +45,5 @@
   <!-- Testo centrato -->
   <text x="600" y="440" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="80" fill="#f8fafc" text-anchor="middle" letter-spacing="-2">Zenzic</text>
 
-  <text x="600" y="490" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="24" fill="#94a3b8" text-anchor="middle" letter-spacing="2">DETERMINISTIC DOCUMENT INTEGRITY ENGINE</text>
+  <text x="600" y="490" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="24" fill="#94a3b8" text-anchor="middle" letter-spacing="2">DOCUMENTATION QUALITY PLATFORM</text>
 </svg>
