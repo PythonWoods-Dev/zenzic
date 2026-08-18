@@ -85,7 +85,9 @@ The following assets are tracked by Zenzic to ensure they remain in the Virtual 
 - [Favicon](../favicon.ico)
 - [Icon (SVG)](../assets/brand/svg/zenzic-icon.svg)
 - [Logo (SVG)](../assets/brand/svg/zenzic-logo.svg)
+- [Logo Dark (SVG)](../assets/brand/svg/zenzic-logo-dark.svg)
 - [Logo (PNG)](../assets/brand/png/zenzic-logo.png)
+- [Logo Dark (PNG)](../assets/brand/png/zenzic-logo-dark.png)
 
 ### Barlow Fonts
 
