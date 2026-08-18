@@ -1019,6 +1019,8 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
     lines = text.splitlines()
     in_code_block = False
     in_frontmatter = False
+    in_html_script = False
+    in_html_style = False
 
     i = 0
     n = len(lines)
@@ -1042,6 +1044,22 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
             continue
 
         if in_code_block or not stripped:
+            i += 1
+            continue
+
+        if "<script" in stripped.lower():
+            in_html_script = True
+        if in_html_script:
+            if "</script>" in stripped.lower():
+                in_html_script = False
+            i += 1
+            continue
+
+        if "<style" in stripped.lower():
+            in_html_style = True
+        if in_html_style:
+            if "</style>" in stripped.lower():
+                in_html_style = False
             i += 1
             continue
 
