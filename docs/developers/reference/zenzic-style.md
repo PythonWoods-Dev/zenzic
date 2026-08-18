@@ -198,7 +198,7 @@ Before submitting a PR, verify:
 - [ ] SPDX header is present (§6).
 - [ ] No hex literal (`#rrggbb`) in `src/` outside `ZenzicPalette._*` (§9).
 - [ ] All colour references use `ZenzicPalette.*` — no removed flat constants (§9).
-- [ ] No new `.svg` file added to `static/assets/terminal/` (§10).
+- [ ] No new `.svg` file added to `docs/assets/terminal/` (§10).
 - [ ] Any text-bearing SVG inside an Markdown page is implemented as `.tsx` (§10).
 
 ---
@@ -348,5 +348,5 @@ For the detailed architectural rationale behind this directive, see [Markdown As
 
 Add to your PR checklist:
 
-- [ ] No new `.svg` file added to `static/assets/terminal/` (use a `.tsx` component).
+- [ ] No new `.svg` file added to `docs/assets/terminal/` (use a `.tsx` component).
 - [ ] Any text-bearing SVG introduced inside an Markdown page is implemented as `.tsx`.

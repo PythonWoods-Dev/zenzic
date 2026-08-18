@@ -19,12 +19,8 @@ No raw color literals are allowed in component-level styles.
 
 ## Canonical Sources
 
-1. Runtime tokens and theme behavior: `src/css/custom.css`
-2. Visual board (full static artifact): `/assets/brand/zenzic-brand-system.html`
-
-Open the full board directly:
-
-[Zenzic Brand System Visual Board](../assets/brand/zenzic-brand-system.html)
+1. Runtime tokens and theme behavior: `docs/assets/css/extra.css`
+2. Canonical vector sources: `docs/assets/brand/svg/`
 
 ---
 
@@ -47,6 +43,6 @@ Zenzic ships two badge types. Each has distinct color states driven by `ZenzicPa
 | `fail_under < score < 100` | WARNING amber `#b45309` | Advisory — not blocking |
 | `score < fail_under` | ERROR rose `#e11d48` | Gate fails — exit 1 |
 
-Static SVG sources live in `static/assets/brand/svg/`. The visual board shows all states rendered.
+Canonical SVG sources reside in `docs/assets/brand/svg/`. For usage and badge configuration, see the [Brand Ecosystem](brand-kit.md) and the [Badges guide](../how-to/add-badges.md).
 
 ---

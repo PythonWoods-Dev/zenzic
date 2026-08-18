@@ -1,5 +1,0 @@
-# Zenzic documentation site — public indexing enabled.
-User-agent: *
-Allow: /
-
-Sitemap: https://zenzic.dev/sitemap.xml

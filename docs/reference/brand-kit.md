@@ -31,10 +31,7 @@ The Zenzic Brand System enforces WCAG 2.1 AA accessibility guidelines on all use
 
 ## Brand System Reference
 
-The interactive Brand System document shows the full Color Palette, logomark variants,
-social card, typography specimens, and usage laws in a single precision-formatted page:
-
-[Open Brand System &rarr;](../assets/brand/zenzic-brand-system.html)
+The canonical [Brand System](brand-system.md) reference defines the complete Color Palette, badge states, typography specimens, and usage constraints.
 
 ## Download
 
