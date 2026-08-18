@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import posixpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
@@ -829,7 +830,27 @@ class IncrementalAnalysisEngine:
             # Z202 / Z203 — Path Traversal Detection
             if "../" in url:
                 try:
-                    resolved_docs_root = self.docs_root.resolve()
+                    rel_source = path.relative_to(self.docs_root).parent.as_posix()
+                    base = "" if rel_source == "." else rel_source
+                    norm_target = posixpath.normpath(posixpath.join(base, parsed.path))
+                    if norm_target.startswith(".."):
+                        _intent = _classify_traversal_intent(url)
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z203" if _intent == "suspicious" else "Z202",
+                                f"'{url}' resolves outside the docs directory",
+                                severity="error",
+                                matched_line=raw_line,
+                            )
+                        )
+                        continue
+                except Exception:
+                    resolved_docs_root = getattr(self, "_resolved_docs_root", None)
+                    if resolved_docs_root is None:
+                        resolved_docs_root = self.docs_root.resolve()
+                        self._resolved_docs_root = resolved_docs_root
                     source_dir = path.parent.resolve()
                     target_str = os.path.normpath(str(source_dir / parsed.path))
                     target_path = Path(target_str)
@@ -846,18 +867,6 @@ class IncrementalAnalysisEngine:
                             )
                         )
                         continue
-                except Exception:
-                    _intent = _classify_traversal_intent(url)
-                    findings.append(
-                        RuleFinding(
-                            path,
-                            lineno,
-                            "Z203" if _intent == "suspicious" else "Z202",
-                            f"'{url}' resolves outside the docs directory",
-                            severity="error",
-                            matched_line=raw_line,
-                        )
-                    )
                     continue
 
             # Z105 / Z203

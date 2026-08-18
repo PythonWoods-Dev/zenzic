@@ -17,7 +17,7 @@ from __future__ import annotations
 import contextlib
 import fnmatch
 import posixpath
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
@@ -493,6 +493,8 @@ def find_unused_assets(
     locale_roots: list[tuple[Path, str]] | None = None,
     content_roots: list[Path] | None = None,
     adapter_metadata_files: frozenset[str] = frozenset(),
+    used_assets: set[str] | None = None,
+    md_contents: Mapping[Path, str] | None = None,
 ) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
 
@@ -504,6 +506,8 @@ def find_unused_assets(
         content_roots: Optional external markdown roots injected by caller.
         adapter_metadata_files: Filenames (basename only) that the active adapter
             consumes as configuration — excluded from Z903 (Level 1b guardrail).
+        used_assets: Optional pre-computed set of referenced asset paths (pure in-memory).
+        md_contents: Optional pre-loaded mapping of Markdown file contents.
 
     Returns:
         List of Path objects relative to docs_root that are unused.
@@ -558,14 +562,34 @@ def find_unused_assets(
     if not all_assets:
         return []
 
-    used_assets: set[str] = set()
+    if used_assets is None:
+        used_assets = getattr(config, "_used_assets", None)
+
+    if used_assets is not None:
+        return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
+
+    if md_contents is None:
+        md_contents = getattr(config, "_md_contents", None)
+
+    if md_contents is not None:
+        collected: set[str] = set()
+        for md_file, content in md_contents.items():
+            if md_file.is_relative_to(docs_root):
+                rel_md = md_file.relative_to(docs_root)
+                page_dir = rel_md.parent.as_posix()
+                if page_dir == ".":
+                    page_dir = ""
+                collected |= check_asset_references(content, page_dir)
+        return [Path(p) for p in calculate_unused_assets(all_assets, collected)]
+
+    collected_used: set[str] = set()
     for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
         content = md_file.read_text(encoding="utf-8")
         rel_md = md_file.relative_to(docs_root)
         page_dir = rel_md.parent.as_posix()
         if page_dir == ".":
             page_dir = ""
-        used_assets |= check_asset_references(content, page_dir)
+        collected_used |= check_asset_references(content, page_dir)
 
     # Also collect asset references cited from locale translation trees.
     if locale_roots:
@@ -577,7 +601,7 @@ def find_unused_assets(
                 page_dir = logical_rel.parent.as_posix()
                 if page_dir == ".":
                     page_dir = ""
-                used_assets |= check_asset_references(content, page_dir)
+                collected_used |= check_asset_references(content, page_dir)
 
     if content_roots:
         for content_root, url_prefix in build_content_mounts(content_roots):
@@ -588,9 +612,9 @@ def find_unused_assets(
                 page_dir = logical_rel.parent.as_posix()
                 if page_dir == ".":
                     page_dir = ""
-                used_assets |= check_asset_references(content, page_dir)
+                collected_used |= check_asset_references(content, page_dir)
 
-    return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
+    return [Path(p) for p in calculate_unused_assets(all_assets, collected_used)]
 
 
 def find_missing_directory_indices(
@@ -769,69 +793,57 @@ class ReferenceScanner:
 
     # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
-    def harvest(self) -> Generator[HarvestEvent, None, None]:
+    def harvest(self, text: str | None = None) -> Generator[HarvestEvent, None, None]:
         """Pass 1: stream the file, extract reference definitions, run the credential scanner.
 
         Populates ``self.ref_map.definitions`` as a side effect.  Security
         findings are yielded immediately as ``("SECRET", SecurityFinding)``
         events so callers can abort with Exit Code 2 before Pass 2 begins.
-
-        Uses two independent line streams from the same file:
-
-        * **Credential stream** — every line except YAML frontmatter, including lines
-          inside fenced code blocks.  Ensures that credentials in ``bash`` or
-          unlabelled code examples are never invisible to the credential scanner.
-        * **Content stream** — lines outside fenced blocks (``_iter_content_lines``).
-          Used for reference-definition harvesting and alt-text detection so that
-          example URLs inside code blocks never produce false positives.
-
-        Reference definitions (``[id]: url``) are always outside fenced blocks by
-        CommonMark §4.7 convention, so scanning them on the content stream is
-        sufficient.  The credential scanner additionally scans every definition URL via
-        ``scan_url_for_secrets`` to catch embedded secrets in reference URLs.
-
-        Yields:
-            ``(lineno, event_type, data)`` tuples.  See module-level type alias
-            ``HarvestEvent`` for the full list of event types and data shapes.
         """
-        # ── 1.a Credential scanner pass: scan EVERY line including YAML frontmatter ─
-        # ZRT-001 fix: the credential scanner must have priority over ALL content, including
-        # YAML frontmatter.  Frontmatter values (aws_key, api_token, ...) are
-        # real secrets — we use raw enumerate() so no line is ever skipped.
-        # The Content Stream (1.b below) still uses _iter_content_lines which
-        # skips frontmatter correctly to avoid false-positive ref-def hits.
+        if text is None:
+            if not self.file_path.is_file():
+                return
+            try:
+                text = self.file_path.read_text(encoding="utf-8")
+            except OSError:
+                return
+
+        lines = text.splitlines(keepends=True)
         secret_line_nos: set[int] = set()
         credential_events: list[HarvestEvent] = []
-        with self.file_path.open(encoding="utf-8") as fh:
-            for finding in scan_lines_with_lookback(enumerate(fh, start=1), self.file_path):
-                credential_events.append((finding.line_no, "SECRET", finding))
-                secret_line_nos.add(finding.line_no)
+        for finding in scan_lines_with_lookback(enumerate(lines, start=1), self.file_path):
+            credential_events.append((finding.line_no, "SECRET", finding))
+            secret_line_nos.add(finding.line_no)
 
-        # ── 1.a.2 Privacy Gate: scan for Z204 FORBIDDEN_TERM ─────────────────
-        # Separate pass over the same file with the merged forbidden_patterns
-        # list (populated from .zenzic.local.toml by config.load()).  Only
-        # lines not already flagged by the credential scan are emitted to
-        # avoid duplicate SecurityFinding entries for the same line.
         fp = self._config.forbidden_patterns if self._config else []
         if fp:
             fp_compiled = self._config.forbidden_patterns_compiled if self._config else None
-            with self.file_path.open(encoding="utf-8") as fh:
-                for lineno, raw_line in enumerate(fh, start=1):
-                    if lineno in secret_line_nos:
-                        continue
-                    for finding in scan_line_for_forbidden_terms(
-                        raw_line,
-                        fp,
-                        self.file_path,
-                        lineno,
-                        compiled_pattern=fp_compiled,
-                    ):
-                        credential_events.append((finding.line_no, "SECRET", finding))
-                        secret_line_nos.add(finding.line_no)
+            for lineno, raw_line in enumerate(lines, start=1):
+                if lineno in secret_line_nos:
+                    continue
+                for finding in scan_line_for_forbidden_terms(
+                    raw_line,
+                    fp,
+                    self.file_path,
+                    lineno,
+                    compiled_pattern=fp_compiled,
+                ):
+                    credential_events.append((finding.line_no, "SECRET", finding))
+                    secret_line_nos.add(finding.line_no)
 
-        # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
         content_events: list[HarvestEvent] = []
-        for lineno, line in _iter_content_lines(self.file_path):
+        in_block = False
+        for lineno, line in _skip_frontmatter(lines):
+            stripped = line.strip()
+            if not in_block:
+                if stripped.startswith("```") or stripped.startswith("~~~"):
+                    in_block = True
+                    continue
+            else:
+                if stripped.startswith("```") or stripped.startswith("~~~"):
+                    in_block = False
+                continue
+
             def_match = _RE_REF_DEF.match(line)
             if def_match:
                 raw_id, url = def_match.group(1), def_match.group(2)
@@ -840,11 +852,7 @@ class ReferenceScanner:
 
                 if accepted:
                     content_events.append((lineno, "DEF", (norm_id, url)))
-
-                    # ── 1.c Credential scanner: scan URL for secrets ──────────────
                     for finding in scan_url_for_secrets(url, self.file_path, lineno):
-                        # Only emit if scan_line_for_secrets hasn't already
-                        # emitted a SECRET for this line (avoid duplicates).
                         if lineno not in secret_line_nos:
                             credential_events.append((lineno, "SECRET", finding))
                             secret_line_nos.add(lineno)
@@ -852,9 +860,6 @@ class ReferenceScanner:
                     content_events.append((lineno, "DUPLICATE_DEF", (norm_id, url)))
                 continue
 
-            # Alt-text checking is now delegated to MissingAltTextRule (Z403)
-
-        # Yield all events in line-number order
         yield from sorted(credential_events + content_events, key=lambda e: e[0])
 
     # ── Pass 2: Cross-Check & Validation ──────────────────────────────────────
@@ -974,6 +979,7 @@ def _scan_single_file(
     md_file: Path,
     config: ZenzicConfig,
     rule_engine: AdaptiveRuleEngine | None = None,
+    text: str | None = None,
 ) -> tuple[IntegrityReport, ReferenceScanner | None]:
     """Run the Three-Phase Pipeline on one Markdown file.
 
@@ -989,16 +995,26 @@ def _scan_single_file(
             more as a string for the rule pass (rules receive the full text, not
             the line-by-line generator output).  When ``None`` or empty, the
             rule pass is skipped entirely.
+        text: Optional pre-read string content of the Markdown file.
 
     Returns:
         ``(report, scanner)`` where ``scanner`` is ``None`` when the credential scanner
         detected secrets (no external URLs should be registered from such files).
     """
+    if text is None:
+        if md_file.is_file():
+            try:
+                text = md_file.read_text(encoding="utf-8")
+            except OSError:
+                text = ""
+        else:
+            text = ""
+
     scanner = ReferenceScanner(md_file, config)
     security_findings: list[SecurityFinding] = []
 
     # Pass 1 — harvest; collect security findings
-    for _lineno, event_type, data in scanner.harvest():
+    for _lineno, event_type, data in scanner.harvest(text=text):
         if event_type == "SECRET":
             security_findings.append(data)
 
@@ -1010,8 +1026,6 @@ def _scan_single_file(
 
     # Rule Engine pass — applied after reference pipeline, only when configured.
     if rule_engine:
-        text = md_file.read_text(encoding="utf-8")
-
         # Build SuppressionTracker for this file — required for Z603 DEAD_SUPPRESSION.
         # Importing here (deferred) avoids circular imports at module level.
         from zenzic.core.suppressions import SuppressionTracker
@@ -1089,9 +1103,11 @@ def _run_vsm_and_urp_pass(
     content_roots: list[Path] | None = None,
     repo_root: Path | None = None,
     static_assets: set[Path] | None = None,
+    preloaded_md_contents: dict[Path, str] | None = None,
 ) -> None:
     """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
     from zenzic.core.adapter import get_adapter
+    from zenzic.core.ast import ExtractedLink
     from zenzic.core.incremental import IncrementalAnalysisEngine
     from zenzic.core.resolver import InMemoryPathResolver, Resolved
     from zenzic.core.rules import (
@@ -1118,15 +1134,31 @@ def _run_vsm_and_urp_pass(
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
     anchors_cache: dict[Path, set[str]] = {}
-    md_contents: dict[Path, str] = {}
+    md_contents: dict[Path, str] = (
+        preloaded_md_contents if preloaded_md_contents is not None else {}
+    )
     for f in md_files:
-        if f.is_file():
+        if f not in md_contents and f.is_file():
             try:
                 text = f.read_text(encoding="utf-8")
                 md_contents[f] = text
-                anchors_cache[f] = anchors_in_file(text)
             except OSError:
                 pass
+        if f in md_contents:
+            anchors_cache[f] = anchors_in_file(md_contents[f])
+
+    used_assets: set[str] = set()
+    for f, text in md_contents.items():
+        if f.is_relative_to(docs_root):
+            rel_md = f.relative_to(docs_root)
+            page_dir = rel_md.parent.as_posix()
+            if page_dir == ".":
+                page_dir = ""
+            used_assets |= check_asset_references(text, page_dir)
+
+    with contextlib.suppress(Exception):
+        object.__setattr__(config, "_used_assets", used_assets)
+        object.__setattr__(config, "_md_contents", md_contents)
 
     vsm = build_vsm(
         adapter,
@@ -1147,19 +1179,23 @@ def _run_vsm_and_urp_pass(
         orphaned_urls = set(detect_orphans(vsm, entry_points))
         dead_end_urls = set(detect_dead_ends(vsm))
 
-    links_cache: dict[Path, list[LinkInfo]] = {
-        f: [
+    raw_extracted_links: dict[Path, list[ExtractedLink]] = {}
+    links_cache: dict[Path, list[LinkInfo]] = {}
+    extractor = PolyglotExtractor()
+    for f, text in md_contents.items():
+        extracted = extractor.extract_all_links(text)
+        raw_extracted_links[f] = extracted
+        links_cache[f] = [
             LinkInfo(
                 url=item.url,
                 lineno=item.line_no,
                 col_start=item.col_start,
                 match_text=item.raw_text,
             )
-            for item in PolyglotExtractor().extract_all_links(text)
+            for item in extracted
             if item.node_type != "ref_def" and not item.suppressed
         ]
-        for f, text in md_contents.items()
-    }
+
     resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache, repo_root=repo_root)
 
     link_graph = _build_link_graph(links_cache, resolver, frozenset(md_contents.keys()))
@@ -1172,10 +1208,11 @@ def _run_vsm_and_urp_pass(
     use_dir_urls = getattr(config, "use_directory_urls", True)
     parent_global_tracker = getattr(config, "_global_tracker", None)
 
-    for r in reports:
-        if not r.file_path.is_file():
-            continue
+    from zenzic.core.governance import PolicyEvaluator
 
+    policy_evaluator = PolicyEvaluator(config)
+
+    for r in reports:
         # In parallel mode, each report is deserialized from a worker process and
         # may carry a detached GlobalUsageTracker snapshot. Rebind to the parent
         # process tracker so directory-policy consumption (Z620 accounting)
@@ -1183,12 +1220,21 @@ def _run_vsm_and_urp_pass(
         if r.suppression_tracker is not None:
             r.suppression_tracker.global_tracker = parent_global_tracker
 
-        try:
-            text = r.file_path.read_text(encoding="utf-8")
-        except OSError:
+        text_opt = md_contents.get(r.file_path)
+        if text_opt is None:
+            if not r.file_path.is_file():
+                continue
+            try:
+                text_opt = r.file_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+        if text_opt is None:
             continue
+        text = text_opt
 
-        extracted_links = PolyglotExtractor().extract_all_links(text)
+        extracted_links = raw_extracted_links.get(r.file_path)
+        if extracted_links is None:
+            extracted_links = extractor.extract_all_links(text)
         context = ResolutionContext(
             docs_root=docs_root,
             source_file=r.file_path,
@@ -1227,13 +1273,10 @@ def _run_vsm_and_urp_pass(
         r.rule_findings.extend(active_vsm)
         r.rule_findings.extend(active_urp)
 
-        # Policy-as-Code VSM/Resolver aware checks (e.g. Z616 Cross-Namespace boundaries)
-        from zenzic.core.governance import check_policies
-
-        policy_vsm_findings = check_policies(
+        policy_vsm_findings = policy_evaluator.check(
             r.file_path,
             text,
-            config,
+            links=[i.url for i in extracted_links if i.url],
             resolver=resolver,
             vsm=vsm,
             repo_root=repo_root,
@@ -1911,9 +1954,17 @@ def scan_docs_references(
         # Sequential path — zero overhead, full O(N) link-validation support.
         reports_seq: list[IntegrityReport] = []
         secure_scanners_seq: list[ReferenceScanner] = []
+        md_contents_seq: dict[Path, str] = {}
 
         for md_file in md_files:
-            report, secure_scanner = _scan_single_file(md_file, config, rule_engine)
+            text = ""
+            if md_file.is_file():
+                try:
+                    text = md_file.read_text(encoding="utf-8")
+                    md_contents_seq[md_file] = text
+                except OSError:
+                    pass
+            report, secure_scanner = _scan_single_file(md_file, config, rule_engine, text=text)
             reports_seq.append(report)
             if validate_links and secure_scanner is not None:
                 secure_scanners_seq.append(secure_scanner)
@@ -1930,6 +1981,7 @@ def scan_docs_references(
             locale_roots=locale_roots,
             content_roots=content_roots,
             static_assets=static_assets,
+            preloaded_md_contents=md_contents_seq,
         )
 
         if progress and task_id is not None:
@@ -2007,7 +2059,7 @@ def scan_docs_references(
 #: overhead).  Above it, scan_docs_references() switches to a
 #: ProcessPoolExecutor automatically.  Exposed as a module constant so tests
 #: can override it without patching private internals.
-ADAPTIVE_PARALLEL_THRESHOLD: int = 50
+ADAPTIVE_PARALLEL_THRESHOLD: int = 1000
 
 #: Maximum wall-clock seconds a single worker may spend analysing one file.
 #: If a worker exceeds this limit it is abandoned and a Z902 timeout finding

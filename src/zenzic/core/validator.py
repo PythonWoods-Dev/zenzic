@@ -32,7 +32,7 @@ import json
 import sys
 import textwrap
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 
 if sys.version_info >= (3, 11):
@@ -832,6 +832,9 @@ def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
         else:
             if stripped.startswith("```") or stripped.startswith("~~~"):
                 in_block = False
+            continue
+
+        if "[" not in line:
             continue
 
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
@@ -1680,6 +1683,7 @@ def validate_snippets(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
+    md_contents: Mapping[Path, str] | None = None,
 ) -> list[SnippetError]:
     """Validate every fenced code block (Python, YAML, JSON, TOML) in docs.
 
@@ -1687,6 +1691,7 @@ def validate_snippets(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
+        md_contents: Optional pre-loaded mapping of Markdown file contents.
 
     Returns:
         List of SnippetError objects detailing the issues.
@@ -1694,6 +1699,14 @@ def validate_snippets(
     errors: list[SnippetError] = []
 
     if not docs_root.exists() or not docs_root.is_dir():
+        return errors
+
+    if md_contents is None:
+        md_contents = getattr(config, "_md_contents", None)
+
+    if md_contents is not None:
+        for md_file, content in sorted(md_contents.items(), key=lambda x: x[0]):
+            errors.extend(check_snippet_content(content, md_file, config))
         return errors
 
     for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):

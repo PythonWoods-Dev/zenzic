@@ -790,6 +790,10 @@ def _is_suppressed(line: str, code: str) -> bool:
 
     if code in NON_SUPPRESSIBLE_CODES:
         return False
+
+    if "zenzic" not in line:
+        return False
+
     return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
 
 
@@ -822,6 +826,8 @@ class CircularAnchorRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
         for line_no, line in enumerate(text.splitlines(), start=1):
+            if "(#" not in line:
+                continue
             if _is_suppressed(line, self.rule_id):
                 continue
             for m in _ANCHOR_LINK_RE.finditer(line):
@@ -1121,29 +1127,38 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
             if _FENCE_RE.match(stripped):
                 in_block = False
             continue
-        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
+        if "[" not in clean and "<" not in clean and "href" not in clean:
+            continue
+
         # Markdown inline/image links
-        for m in _INLINE_LINK_RE.finditer(clean):
-            raw = m.group(1).strip()
-            if not raw:
-                continue
-            url = _TITLE_STRIP_RE.sub("", raw).strip()
-            if url:
-                results.append((url, lineno, line.strip()))
-        # HTML href/src attributes (<a href>, <img src>)
-        for tag_m in _HTML_HREF_RE.finditer(clean):
-            for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
-                url = attr_m.group(1).strip()
-                if url:
-                    results.append((url, lineno, line.strip()))
-        # Markdown reference definitions: [id]: url
-        m_ref = _REF_DEF_RE.match(line)
-        if m_ref:
-            raw = m_ref.group(1).strip()
-            if raw:
+        if "[" in clean:
+            for m in _INLINE_LINK_RE.finditer(clean):
+                raw = m.group(1).strip()
+                if not raw:
+                    continue
                 url = _TITLE_STRIP_RE.sub("", raw).strip()
                 if url:
                     results.append((url, lineno, line.strip()))
+
+        # HTML href/src attributes (<a href>, <img src>)
+        if "<" in clean:
+            for tag_m in _HTML_HREF_RE.finditer(clean):
+                for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
+                    url = attr_m.group(1).strip()
+                    if url:
+                        results.append((url, lineno, line.strip()))
+
+        # Markdown reference definitions: [id]: url
+        if "]:" in line:
+            m_ref = _REF_DEF_RE.match(line)
+            if m_ref:
+                raw = m_ref.group(1).strip()
+                if raw:
+                    url = _TITLE_STRIP_RE.sub("", raw).strip()
+                    if url:
+                        results.append((url, lineno, line.strip()))
     return results
 
 
@@ -1213,6 +1228,8 @@ class MissingAltTextRule(BaseRule):
 
         findings = []
         for lineno, line in enumerate(text.splitlines(), start=1):
+            if "![" not in line and "<img" not in line and "<IMG" not in line:
+                continue
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
             # Inline Markdown images
@@ -1287,12 +1304,17 @@ class PlaceholderRule(BaseRule):
 
     def __init__(self, patterns: list[re.RegexPattern]) -> None:
         self.patterns = patterns
+        self._combined_re = (
+            re.compile("|".join(f"(?:{p.pattern})" for p in patterns)) if patterns else None
+        )
 
     @property
     def rule_id(self) -> str:
         return "Z501"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        if not self.patterns or not self._combined_re:
+            return []
         findings = []
         in_block = False
         for i, line in enumerate(text.splitlines(), start=1):
@@ -1304,6 +1326,9 @@ class PlaceholderRule(BaseRule):
             else:
                 if stripped.startswith("```") or stripped.startswith("~~~"):
                     in_block = False
+                continue
+
+            if not self._combined_re.search(line):
                 continue
 
             for pattern in self.patterns:

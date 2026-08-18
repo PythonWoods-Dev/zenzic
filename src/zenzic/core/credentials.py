@@ -50,6 +50,28 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
 _MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
 
 
+_QUICK_SUBSTRINGS: tuple[str, ...] = (
+    "sk-",
+    "ghp_",
+    "gho_",
+    "ghu_",
+    "ghs_",
+    "ghr_",
+    "GHP_",
+    "GHO_",
+    "GHU_",
+    "GHS_",
+    "GHR_",
+    "AKIA",
+    "sk_live_",
+    "xox",
+    "AIza",
+    "-----BEGIN",
+    "\\x",
+    "glpat-",
+)
+
+
 def _normalize_line_for_scan(line: str) -> str:
     """Strip Markdown noise tokens to reconstruct secrets split by obfuscation.
 
@@ -72,20 +94,31 @@ def _normalize_line_for_scan(line: str) -> str:
     Returns:
         Normalised string ready for regex scanning.
     """
+    if line.isascii() and not any(c in line for c in ("`", "+", "|", "&", "<", "{", "\r")):
+        return " ".join(line.split())
+
     # ZRT-006 hardening: strip Unicode format characters (category Cf) that
     # can be inserted invisibly to break regex matches (zero-width joiners,
     # zero-width spaces, etc.).
-    normalized = "".join(c for c in line if unicodedata.category(c) != "Cf")
+    normalized = (
+        "".join(c for c in line if unicodedata.category(c) != "Cf") if not line.isascii() else line
+    )
     # ZRT-006 hardening: decode HTML character references (&#NNN; / &#xHH;)
     # that can obfuscate secret prefixes in Markdown/MDX prose.
-    normalized = html.unescape(normalized)
+    if "&" in normalized:
+        normalized = html.unescape(normalized)
     # ZRT-007 hardening: strip HTML/MDX comments that can interleave tokens
     # e.g. ghp_ABC{/* comment */}DEF or ghp_ABC<!-- comment -->DEF
-    normalized = _HTML_COMMENT_RE.sub("", normalized)
-    normalized = _MDX_COMMENT_RE.sub("", normalized)
-    normalized = _BACKTICK_INLINE_RE.sub(r"\1", normalized)  # unwrap `...` spans
-    normalized = _CONCAT_OP_RE.sub("", normalized)  # remove + concat ops
-    normalized = _TABLE_PIPE_RE.sub(" ", normalized)  # collapse table pipes
+    if "<!--" in normalized:
+        normalized = _HTML_COMMENT_RE.sub("", normalized)
+    if "{/*" in normalized:
+        normalized = _MDX_COMMENT_RE.sub("", normalized)
+    if "`" in normalized:
+        normalized = _BACKTICK_INLINE_RE.sub(r"\1", normalized)  # unwrap `...` spans
+    if "+" in normalized:
+        normalized = _CONCAT_OP_RE.sub("", normalized)  # remove + concat ops
+    if "|" in normalized:
+        normalized = _TABLE_PIPE_RE.sub(" ", normalized)  # collapse table pipes
     return " ".join(normalized.split())  # collapse whitespace
 
 
@@ -188,6 +221,8 @@ def scan_url_for_secrets(
         :class:`SecurityFinding` for each secret pattern that matches.
     """
     path = Path(file_path)
+    if not any(s in url for s in _QUICK_SUBSTRINGS):
+        return
     for secret_type, pattern in _SECRETS:
         m = pattern.search(url)
         if m:
@@ -238,8 +273,11 @@ def scan_line_for_secrets(
     line = line[:_MAX_LINE_LENGTH]
     normalized = _normalize_line_for_scan(line)
     seen: set[str] = set()
+    line_forms = (line,) if line == normalized else (line, normalized)
 
-    for line_form in (line, normalized):
+    for line_form in line_forms:
+        if not any(s in line_form for s in _QUICK_SUBSTRINGS):
+            continue
         for secret_type, pattern in _SECRETS:
             if secret_type in seen:
                 continue
@@ -265,27 +303,30 @@ def scan_line_for_secrets(
     # re-scan the decoded text through _SECRETS.  Catches credentials that
     # have been Base64-encoded to bypass the raw-text scan (e.g. a frontmatter
     # field containing base64(ghp_...) or base64(AKIA...)).
-    for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
-        _candidate = _b64_match.group(0)
-        if len(_candidate) < 20:
-            continue
-        _decoded = _try_decode_base64(_candidate)
-        if _decoded is None:
-            continue
-        for secret_type, pattern in _SECRETS:
-            if secret_type in seen:
+    if len(normalized) >= 20 and ("=" in normalized or "+" in normalized or "/" in normalized):
+        for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
+            _candidate = _b64_match.group(0)
+            if len(_candidate) < 20:
                 continue
-            m = pattern.search(_decoded)
-            if m:
-                seen.add(secret_type)
-                yield SecurityFinding(
-                    file_path=path,
-                    line_no=line_no,
-                    secret_type=secret_type,
-                    url=line.strip(),
-                    col_start=0,  # position in decoded text is meaningless in raw line
-                    match_text=m.group(0),
-                )
+            _decoded = _try_decode_base64(_candidate)
+            if _decoded is None:
+                continue
+            if not any(s in _decoded for s in _QUICK_SUBSTRINGS):
+                continue
+            for secret_type, pattern in _SECRETS:
+                if secret_type in seen:
+                    continue
+                m = pattern.search(_decoded)
+                if m:
+                    seen.add(secret_type)
+                    yield SecurityFinding(
+                        file_path=path,
+                        line_no=line_no,
+                        secret_type=secret_type,
+                        url=line.strip(),
+                        col_start=0,  # position in decoded text is meaningless in raw line
+                        match_text=m.group(0),
+                    )
 
 
 def scan_line_for_forbidden_terms(
@@ -392,37 +433,37 @@ def scan_lines_with_lookback(
     prev_seen: set[str] = set()
 
     for lineno, raw_line in lines:
-        # 1. Scan individual line (existing logic)
+        raw_trunc = raw_line[:_MAX_LINE_LENGTH]
+        current_normalized = _normalize_line_for_scan(raw_trunc)
+
+        # 1. Scan individual line
         seen_this_line: set[str] = set()
-        for finding in scan_line_for_secrets(raw_line, file_path, lineno):
+        for finding in scan_line_for_secrets(raw_trunc, file_path, lineno):
             seen_this_line.add(finding.secret_type)
             yield finding
 
         # 2. Lookback: join previous line tail + current line head (normalised)
         if prev_normalized:
-            current_normalized = _normalize_line_for_scan(raw_line[:_MAX_LINE_LENGTH])
-            # Take last 80 chars of prev + first 80 chars of current.
-            # Secret patterns are at most ~50 chars; 80 gives generous margin.
             joined = prev_normalized[-80:] + current_normalized[:80]
-            # Skip secrets already found on this line OR the previous line
-            already_seen = seen_this_line | prev_seen
-            for secret_type, pattern in _SECRETS:
-                if secret_type in already_seen:
-                    continue
-                m = pattern.search(joined)
-                if m:
-                    yield SecurityFinding(
-                        file_path=path,
-                        line_no=lineno,
-                        secret_type=secret_type,
-                        url=raw_line.strip(),
-                        col_start=0,
-                        match_text=m.group(0),
-                    )
-                    seen_this_line.add(secret_type)
+            if any(s in joined for s in _QUICK_SUBSTRINGS):
+                already_seen = seen_this_line | prev_seen
+                for secret_type, pattern in _SECRETS:
+                    if secret_type in already_seen:
+                        continue
+                    m = pattern.search(joined)
+                    if m:
+                        yield SecurityFinding(
+                            file_path=path,
+                            line_no=lineno,
+                            secret_type=secret_type,
+                            url=raw_line.strip(),
+                            col_start=0,
+                            match_text=m.group(0),
+                        )
+                        seen_this_line.add(secret_type)
 
         # Rotate buffer
-        prev_normalized = _normalize_line_for_scan(raw_line[:_MAX_LINE_LENGTH])
+        prev_normalized = current_normalized
         prev_seen = seen_this_line
 
 

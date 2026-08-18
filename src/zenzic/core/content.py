@@ -139,18 +139,27 @@ _VOID_TAGS = {
 }
 
 
+_OPEN_TAG_RE = re.compile(r"<([a-zA-Z1-6]+)\b([^>]*)/?>", re.IGNORECASE)
+_CLOSE_TAG_RE = re.compile(r"</([a-zA-Z1-6]+)\s*>", re.IGNORECASE)
+_TAG_MASK_RE = re.compile(r"<[^>]+>")
+
+
 def _mask_html_blocks(text: str) -> str:
     """Mask raw HTML block elements and tags with spaces of equal length, preserving line breaks."""
+    if "<" not in text:
+        return text
+
     lines = text.split("\n")
     result: list[str] = []
     html_depth = 0
 
-    open_tag_re = re.compile(r"<([a-zA-Z1-6]+)\b([^>]*)/?>", re.IGNORECASE)
-    close_tag_re = re.compile(r"</([a-zA-Z1-6]+)\s*>", re.IGNORECASE)
-
     for line in lines:
+        if "<" not in line:
+            result.append(" " * len(line) if html_depth > 0 else line)
+            continue
+
         opens = []
-        for m in open_tag_re.finditer(line):
+        for m in _OPEN_TAG_RE.finditer(line):
             tag = m.group(1).lower()
             full_match = m.group(0)
             if tag in _BLOCK_TAGS and tag not in _VOID_TAGS and not full_match.endswith("/>"):
@@ -158,7 +167,7 @@ def _mask_html_blocks(text: str) -> str:
 
         closes = [
             m.group(1).lower()
-            for m in close_tag_re.finditer(line)
+            for m in _CLOSE_TAG_RE.finditer(line)
             if m.group(1).lower() in _BLOCK_TAGS
         ]
         net_change = len(opens) - len(closes)
@@ -167,7 +176,7 @@ def _mask_html_blocks(text: str) -> str:
             result.append(" " * len(line))
             html_depth = max(0, html_depth + net_change)
         else:
-            result.append(re.sub(r"<[^>]+>", lambda m: " " * len(m.group(0)), line))
+            result.append(_TAG_MASK_RE.sub(lambda m: " " * len(m.group(0)), line))
 
     return "\n".join(result)
 
@@ -470,6 +479,9 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
         if in_code_block:
             continue
 
+        if "![" not in line and "<img" not in line and "<IMG" not in line:
+            continue
+
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
         # 1. Inline Markdown images
@@ -542,6 +554,9 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
             continue
 
         if in_code_block:
+            continue
+
+        if "http://" not in line and "https://" not in line:
             continue
 
         if _MARKDOWN_REF_DEF_RE.match(line):

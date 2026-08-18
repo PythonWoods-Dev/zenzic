@@ -87,20 +87,21 @@ class SuppressionTracker:
                         open_count = 0
 
         # Parse html data-zenzic-ignore tags
-        from zenzic.core.validator import PolyglotExtractor
+        if "data-zenzic-ignore" in text:
+            from zenzic.core.validator import PolyglotExtractor
 
-        with contextlib.suppress(Exception):
-            extractor = PolyglotExtractor()
-            html_nodes = extractor.extract(text)
-            for node in html_nodes:
-                if node.suppressed:
-                    self.directives.append(
-                        SuppressionDirective(
-                            code="DATA-ZENZIC-IGNORE",
-                            line_no=node.line_no,
-                            consumed=False,
+            with contextlib.suppress(Exception):
+                extractor = PolyglotExtractor()
+                html_nodes = extractor.extract(text)
+                for node in html_nodes:
+                    if node.suppressed:
+                        self.directives.append(
+                            SuppressionDirective(
+                                code="DATA-ZENZIC-IGNORE",
+                                line_no=node.line_no,
+                                consumed=False,
+                            )
                         )
-                    )
 
     def is_suppressed(self, line_no: int, code: str) -> bool:
         """Return True if the given code is suppressed at the specified line number.
