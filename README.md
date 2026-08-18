@@ -326,7 +326,7 @@ Every SARIF diagnostic includes:
 - Direct documentation remediation URLs (`helpUri`).
 - Full rule descriptions and severity ratings (`error`, `warning`, `note`).
 
-Seamlessly feeds directly into **GitHub Code Scanning**, **SonarQube**, **GitLab SAST**, and **DefectDojo**.
+Seamlessly feeds directly into **GitHub Code Scanning**, **SonarQube**, **GitLab Security Dashboards**, and **DefectDojo**.
 
 ---
 
