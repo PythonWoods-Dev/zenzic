@@ -1456,6 +1456,26 @@ class HeadingPunctuationRule(BaseRule):
         return check_heading_punctuation(file_path, text)
 
 
+class CombinedHeadingRule(BaseRule):
+    """Single-pass combined check for Z510 + Z513 + Z516 + Z517.
+
+    When *anchors_out* is provided, heading anchor slugs are collected as a
+    side effect, eliminating the separate ``anchors_in_file()`` pass in VSM.
+    """
+
+    def __init__(self, anchors_out: "dict[Path, set[str]] | None" = None) -> None:
+        self._anchors_out = anchors_out
+
+    @property
+    def rule_id(self) -> str:
+        return "Z510"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_all_heading_rules
+
+        return check_all_heading_rules(file_path, text, anchors_out=self._anchors_out)
+
+
 class PassiveVoiceRule(BaseRule):
     """Z518: Heuristic detection of passive voice constructs in prose (opt-in)."""
 

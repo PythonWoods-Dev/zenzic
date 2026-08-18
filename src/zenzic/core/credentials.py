@@ -124,16 +124,23 @@ def _normalize_line_for_scan(line: str) -> str:
 
 # ─── Pre-compiled secret signatures ───────────────────────────────────────────
 
-_SECRETS: list[tuple[str, re.RegexPattern]] = [
-    ("openai-api-key", re.compile(r"sk-[a-zA-Z0-9]{48}")),
-    ("github-token", re.compile(r"(?i)\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b")),
-    ("aws-access-key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("stripe-live-key", re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
-    ("slack-token", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
-    ("google-api-key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
-    ("hex-encoded-payload", re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
-    ("gitlab-pat", re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
+# Per-pattern quick-prefix tuples: before invoking an RE2 search we verify that
+# at least one prefix is present via a cheap `in` check.  This reduces RE2
+# calls from N_patterns per passing line to at most 1 on average.
+_SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
+    ("openai-api-key", ("sk-",), re.compile(r"sk-[a-zA-Z0-9]{48}")),
+    (
+        "github-token",
+        ("ghp_", "gho_", "ghu_", "ghs_", "ghr_", "GHP_", "GHO_", "GHU_", "GHS_", "GHR_"),
+        re.compile(r"(?i)\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b"),
+    ),
+    ("aws-access-key", ("AKIA",), re.compile(r"AKIA[0-9A-Z]{16}")),
+    ("stripe-live-key", ("sk_live_",), re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
+    ("slack-token", ("xox",), re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
+    ("google-api-key", ("AIza",), re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
+    ("private-key", ("-----BEGIN",), re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
+    ("hex-encoded-payload", ("\\x",), re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
+    ("gitlab-pat", ("glpat-",), re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
 ]
 
 #: Maximum line length the credential scanner will scan.  Lines exceeding this limit
@@ -220,14 +227,18 @@ def scan_url_for_secrets(
     Yields:
         :class:`SecurityFinding` for each secret pattern that matches.
     """
-    path = Path(file_path)
     if not any(s in url for s in _QUICK_SUBSTRINGS):
         return
-    for secret_type, pattern in _SECRETS:
+    _path: Path | None = None
+    for secret_type, quick_prefixes, pattern in _SECRETS:
+        if not any(s in url for s in quick_prefixes):
+            continue
         m = pattern.search(url)
         if m:
+            if _path is None:
+                _path = file_path if isinstance(file_path, Path) else Path(file_path)
             yield SecurityFinding(
-                file_path=path,
+                file_path=_path,
                 line_no=line_no,
                 secret_type=secret_type,
                 url=url,
@@ -267,19 +278,21 @@ def scan_line_for_secrets(
     Yields:
         :class:`SecurityFinding` for each match found.
     """
-    path = Path(file_path)
     # F2-1 hardening: truncate pathologically long lines to prevent ReDoS
     # or excessive memory consumption. The constant is defined above.
     line = line[:_MAX_LINE_LENGTH]
     normalized = _normalize_line_for_scan(line)
     seen: set[str] = set()
     line_forms = (line,) if line == normalized else (line, normalized)
+    _path: Path | None = None  # defer Path creation until a finding is yielded
 
     for line_form in line_forms:
         if not any(s in line_form for s in _QUICK_SUBSTRINGS):
             continue
-        for secret_type, pattern in _SECRETS:
+        for secret_type, quick_prefixes, pattern in _SECRETS:
             if secret_type in seen:
+                continue
+            if not any(s in line_form for s in quick_prefixes):
                 continue
             m = pattern.search(line_form)
             if m:
@@ -289,8 +302,10 @@ def scan_line_for_secrets(
                 # secret was only detected in the normalised form (col position
                 # is meaningless after stripping Markdown noise).
                 raw_m = pattern.search(line)
+                if _path is None:
+                    _path = file_path if isinstance(file_path, Path) else Path(file_path)
                 yield SecurityFinding(
-                    file_path=path,
+                    file_path=_path,
                     line_no=line_no,
                     secret_type=secret_type,
                     url=line.strip(),  # always report the raw line for context
@@ -313,14 +328,18 @@ def scan_line_for_secrets(
                 continue
             if not any(s in _decoded for s in _QUICK_SUBSTRINGS):
                 continue
-            for secret_type, pattern in _SECRETS:
+            for secret_type, quick_prefixes, pattern in _SECRETS:
                 if secret_type in seen:
+                    continue
+                if not any(s in _decoded for s in quick_prefixes):
                     continue
                 m = pattern.search(_decoded)
                 if m:
                     seen.add(secret_type)
+                    if _path is None:
+                        _path = file_path if isinstance(file_path, Path) else Path(file_path)
                     yield SecurityFinding(
-                        file_path=path,
+                        file_path=_path,
                         line_no=line_no,
                         secret_type=secret_type,
                         url=line.strip(),
@@ -447,8 +466,10 @@ def scan_lines_with_lookback(
             joined = prev_normalized[-80:] + current_normalized[:80]
             if any(s in joined for s in _QUICK_SUBSTRINGS):
                 already_seen = seen_this_line | prev_seen
-                for secret_type, pattern in _SECRETS:
+                for secret_type, quick_prefixes, pattern in _SECRETS:
                     if secret_type in already_seen:
+                        continue
+                    if not any(s in joined for s in quick_prefixes):
                         continue
                     m = pattern.search(joined)
                     if m:

@@ -39,7 +39,7 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.validator import LinkValidator, PolyglotExtractor
+from zenzic.core.validator import LinkValidator, PolyglotExtractor, _POLYGLOT_EXTRACTOR
 from zenzic.models.config import (
     ZenzicConfig,
 )
@@ -762,6 +762,24 @@ def _iter_content_lines(
             yield lineno, line
 
 
+def _iter_content_lines_text(
+    text: str,
+) -> Generator[tuple[int, str], None, None]:
+    """In-memory variant of :func:`_iter_content_lines` — no file I/O."""
+    in_block = False
+    for lineno, line in _skip_frontmatter(text.splitlines(keepends=True)):
+        stripped = line.strip()
+        if not in_block:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = True
+                continue
+        else:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = False
+            continue
+        yield lineno, line
+
+
 class ReferenceScanner:
     """Per-file stateful scanner implementing the Three-Phase Reference Pipeline.
 
@@ -864,11 +882,15 @@ class ReferenceScanner:
 
     # ── Pass 2: Cross-Check & Validation ──────────────────────────────────────
 
-    def cross_check(self) -> list[ReferenceFinding]:
+    def cross_check(self, text: str | None = None) -> list[ReferenceFinding]:
         """Pass 2: resolve reference links against the populated ReferenceMap.
 
         Must be called **after** ``harvest()`` has been fully consumed so that
         ``self.ref_map.definitions`` is complete.
+
+        Args:
+            text: Optional pre-read file content. When provided the method uses
+                an in-memory iterator instead of re-opening the file from disk.
 
         Returns:
             List of :class:`ReferenceFinding` for dangling references (links
@@ -876,7 +898,10 @@ class ReferenceScanner:
         """
         findings: list[ReferenceFinding] = []
 
-        for lineno, line in _iter_content_lines(self.file_path):
+        line_source = (
+            _iter_content_lines_text(text) if text is not None else _iter_content_lines(self.file_path)
+        )
+        for lineno, line in line_source:
             # Blank out inline code to avoid false matches inside `[code][spans]`
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
@@ -1019,7 +1044,7 @@ def _scan_single_file(
             security_findings.append(data)
 
     # Pass 2 — cross-check (always runs; security findings are observer-only)
-    cross_findings: list[ReferenceFinding] = scanner.cross_check()
+    cross_findings: list[ReferenceFinding] = scanner.cross_check(text=text)
 
     # Pass 3 — integrity report
     report = scanner.get_integrity_report(cross_findings, security_findings)
@@ -1054,14 +1079,25 @@ def _scan_single_file(
                 import zenzic.core.regex as re
                 from zenzic.core.exclusion import translate_glob_to_re2
 
-                for pattern, codes in config.governance.directory_policies.items():
+                # Use pre-compiled patterns if cached on config (built once per scan).
+                _cached = getattr(config, "_compiled_dir_policies", None)
+                if _cached is None:
+                    _cached = []
+                    for _pat, _codes in config.governance.directory_policies.items():
+                        try:
+                            _cached.append((_pat, re.compile(translate_glob_to_re2(_pat)), _codes))
+                        except Exception:  # noqa: BLE001
+                            pass
                     with contextlib.suppress(Exception):
-                        compiled = re.compile(translate_glob_to_re2(pattern))
+                        object.__setattr__(config, "_compiled_dir_policies", _cached)
+
+                for _pat, compiled, codes in _cached:
+                    with contextlib.suppress(Exception):
                         if compiled.fullmatch(rel_path):
                             for c in codes:
                                 globally_suppressed_codes.setdefault(
                                     str(c).strip().upper(), []
-                                ).append(pattern)
+                                ).append(_pat)
 
         tracker = SuppressionTracker(
             md_file,
@@ -1075,6 +1111,26 @@ def _scan_single_file(
         #   1. Suppressed findings are silently dropped.
         #   2. Each matching directive is marked consumed=True.
         report.rule_findings = rule_engine.run_with_tracker(md_file, text, tracker)
+
+        # Inject Z201 findings derived from harvest() — single-pass, no re-scan.
+        # Z201 is non-suppressible so tracker filtering is intentionally skipped.
+        if security_findings:
+            from zenzic.core.rules import RuleFinding as _RF
+
+            z201 = [
+                _RF(
+                    rule_id="Z201",
+                    severity="error",
+                    file_path=sf.file_path,
+                    line_no=sf.line_no,
+                    message=f"Credential or secret detected: {sf.secret_type}",
+                    match_text=sf.match_text,
+                    matched_line=sf.url,
+                    col_start=sf.col_start,
+                )
+                for sf in security_findings
+            ]
+            report.rule_findings = z201 + report.rule_findings
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
@@ -1104,6 +1160,7 @@ def _run_vsm_and_urp_pass(
     repo_root: Path | None = None,
     static_assets: set[Path] | None = None,
     preloaded_md_contents: dict[Path, str] | None = None,
+    preloaded_anchors: "dict[Path, set[str]] | None" = None,
 ) -> None:
     """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
     from zenzic.core.adapter import get_adapter
@@ -1145,7 +1202,10 @@ def _run_vsm_and_urp_pass(
             except OSError:
                 pass
         if f in md_contents:
-            anchors_cache[f] = anchors_in_file(md_contents[f])
+            if preloaded_anchors and f in preloaded_anchors:
+                anchors_cache[f] = preloaded_anchors[f]
+            else:
+                anchors_cache[f] = anchors_in_file(md_contents[f])
 
     used_assets: set[str] = set()
     for f, text in md_contents.items():
@@ -1350,8 +1410,8 @@ def _run_vsm_and_urp_pass(
 
     if config.absolute_path_allowlist:
         used_allowlist: set[str] = set()
-        for text in md_contents.values():
-            for ext_link in PolyglotExtractor().extract_all_links(text):
+        for _extracted in raw_extracted_links.values():
+            for ext_link in _extracted:
                 if ext_link.url.startswith("/"):
                     for prefix in config.absolute_path_allowlist:
                         if ext_link.url.startswith(prefix):
@@ -1376,7 +1436,10 @@ def _run_vsm_and_urp_pass(
                 )
 
 
-def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
+def _build_rule_engine(
+    config: ZenzicConfig,
+    anchors_out: "dict[Path, set[str]] | None" = None,
+) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
     Load order is deterministic:
@@ -1402,8 +1465,10 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     )
 
     # Built-in rules are always active (no config gate required).
+    # CredentialScannerRule is intentionally excluded here: Z201 findings are
+    # derived from security_findings already collected in harvest() and injected
+    # into report.rule_findings in _scan_single_file(), avoiding a double-pass.
     built_in: list[BaseRule] = [
-        CredentialScannerRule(),
         EmptyLinkRule(),
         MissingAltTextRule(),
         CircularAnchorRule(),
@@ -1413,6 +1478,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
 
     from zenzic.core.rules import (
         BareUrlUsedRule,
+        CombinedHeadingRule,
         DuplicateHeadingRule,
         EmptySectionRule,
         ExcessiveSentenceLengthRule,
@@ -1429,14 +1495,11 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
 
     built_in.append(ShortContentRule(config.placeholder_max_words))
     built_in.append(PlaceholderRule(config.placeholder_patterns_compiled))
-    built_in.append(HeadingHierarchyRule())
+    built_in.append(CombinedHeadingRule(anchors_out=anchors_out))
     built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
     built_in.append(EmptySectionRule())
-    built_in.append(DuplicateHeadingRule())
     built_in.append(GenericImageAltTextRule())
     built_in.append(BareUrlUsedRule())
-    built_in.append(MultipleH1HeadingsRule())
-    built_in.append(HeadingPunctuationRule())
     built_in.append(MalformedListRule())
     if config.policies.enable_passive_voice_check:
         built_in.append(PassiveVoiceRule())
@@ -1955,6 +2018,9 @@ def scan_docs_references(
         reports_seq: list[IntegrityReport] = []
         secure_scanners_seq: list[ReferenceScanner] = []
         md_contents_seq: dict[Path, str] = {}
+        # Anchors collected as side effect of CombinedHeadingRule; reused in VSM pass.
+        preloaded_anchors_seq: dict[Path, set[str]] = {}
+        _seq_rule_engine = _build_rule_engine(config, anchors_out=preloaded_anchors_seq)
 
         for md_file in md_files:
             text = ""
@@ -1964,7 +2030,7 @@ def scan_docs_references(
                     md_contents_seq[md_file] = text
                 except OSError:
                     pass
-            report, secure_scanner = _scan_single_file(md_file, config, rule_engine, text=text)
+            report, secure_scanner = _scan_single_file(md_file, config, _seq_rule_engine, text=text)
             reports_seq.append(report)
             if validate_links and secure_scanner is not None:
                 secure_scanners_seq.append(secure_scanner)
@@ -1976,12 +2042,13 @@ def scan_docs_references(
             md_files,
             docs_root,
             config,
-            rule_engine,
+            _seq_rule_engine,
             repo_root=repo_root,
             locale_roots=locale_roots,
             content_roots=content_roots,
             static_assets=static_assets,
             preloaded_md_contents=md_contents_seq,
+            preloaded_anchors=preloaded_anchors_seq,
         )
 
         if progress and task_id is not None:
@@ -2020,16 +2087,15 @@ def scan_docs_references(
         for scanner in secure_scanners_seq:
             validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
         for r in reports_seq:
-            if not r.security_findings and r.file_path.is_file():
-                try:
-                    text = r.file_path.read_text(encoding="utf-8")
-                    for link in PolyglotExtractor().extract_all_links(text):
-                        if not link.suppressed:
-                            parsed = urlsplit(link.url)
-                            if parsed.scheme in ("http", "https"):
-                                validator_seq.register(link.url, r.file_path, link.line_no)
-                except OSError:
-                    pass
+            if not r.security_findings:
+                text = md_contents_seq.get(r.file_path, "")
+                if not text:
+                    continue
+                for link in _POLYGLOT_EXTRACTOR.extract_all_links(text):
+                    if not link.suppressed:
+                        parsed = urlsplit(link.url)
+                        if parsed.scheme in ("http", "https"):
+                            validator_seq.register(link.url, r.file_path, link.line_no)
 
         n_urls_seq = validator_seq.unique_url_count
         if progress and task_validate_id is not None:

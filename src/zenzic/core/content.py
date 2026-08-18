@@ -714,6 +714,176 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
     return findings
 
 
+def check_all_heading_rules(
+    file_path: Path,
+    text: str,
+    anchors_out: "dict[Path, set[str]] | None" = None,
+) -> list["RuleFinding"]:
+    """Combined single-pass check for Z510, Z513, Z516, Z517.
+
+    Eliminates 3 redundant ``text.splitlines()`` + line-iteration passes that
+    would occur when the 4 individual heading rules run sequentially.
+
+    When *anchors_out* is provided, heading anchors are collected as a side
+    effect, allowing :func:`anchors_in_file` to be skipped in the VSM pass.
+    """
+    from zenzic.core.rules import RuleFinding
+
+    if anchors_out is not None:
+        from zenzic.core.validator import (
+            _EXPLICIT_ANCHOR_RE as _EXP_ANC_RE,
+            _FN_DEF_RE as _FN_RE,
+            _HTML_ID_RE as _HTML_RE,
+            _INLINE_CODE_RE as _IC_RE,
+            slug_heading,
+        )
+        anchors: set[str] = set()
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+    in_code_block = False
+    in_frontmatter = False
+    prev_level = 0
+    seen_headings: dict[str, int] = {}
+    h1_count = 0
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+
+        if i == 1 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            continue
+
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        m = _ATX_HEADING_RE.match(stripped)
+        if m:
+            level = len(m.group(1))
+            raw_title = m.group(2).strip()
+            clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
+
+            # Collect heading anchor slug as side effect (if requested)
+            if anchors_out is not None:
+                anchors.add(slug_heading(raw_title))
+
+            # Z510: skipped heading level
+            if prev_level > 0 and level > prev_level + 1:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z510",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=i,
+                        message=(
+                            f"Heading level H{level} skips previous level H{prev_level} "
+                            f"(expected H{prev_level + 1} or lower)."
+                        ),
+                        matched_line=line,
+                    )
+                )
+            prev_level = level
+
+            # Z513: duplicate heading
+            norm_title = _WS_COLLAPSE_RE.sub(" ", clean_title).lower()
+            if norm_title:
+                if norm_title in seen_headings:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z513",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=i,
+                            message=f"Duplicate heading '{clean_title}' found (first occurrence at line {seen_headings[norm_title]}).",
+                            match_text=clean_title,
+                            matched_line=line,
+                        )
+                    )
+                else:
+                    seen_headings[norm_title] = i
+
+            # Z516: multiple H1
+            if level == 1:
+                h1_count += 1
+                if h1_count > 1:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z516",
+                            severity="error",
+                            file_path=file_path,
+                            line_no=i,
+                            message=(
+                                f"Multiple H1 headings detected in document ('{clean_title}'). "
+                                "Documents must have exactly one H1 title."
+                            ),
+                            match_text=clean_title,
+                            matched_line=line,
+                        )
+                    )
+
+            # Z517: trailing punctuation
+            if clean_title and clean_title[-1] in _TRAILING_INVALID_PUNCT:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z517",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=i,
+                        message=(
+                            f"Heading '{clean_title}' ends with invalid trailing punctuation '{clean_title[-1]}'. "
+                            "Headings should not end with periods, colons, or semicolons."
+                        ),
+                        match_text=clean_title,
+                        matched_line=line,
+                    )
+                )
+
+        else:
+            # Z516: HTML <h1> tags
+            m_html = _HTML_H1_RE.search(line)
+            if m_html:
+                h1_count += 1
+                html_title = m_html.group(1).strip()
+                if h1_count > 1:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z516",
+                            severity="error",
+                            file_path=file_path,
+                            line_no=i,
+                            message=(
+                                f"Multiple H1 headings detected in document ('{html_title}'). "
+                                "Documents must have exactly one H1 title."
+                            ),
+                            match_text=html_title,
+                            matched_line=line,
+                        )
+                    )
+
+            # Collect non-heading anchors as side effect (if requested)
+            if anchors_out is not None:
+                _cl = _IC_RE.sub("", line)
+                for _m in _EXP_ANC_RE.finditer(_cl):
+                    anchors.add(_m.group(1).lower())
+                _fn = _FN_RE.match(_cl)
+                if _fn:
+                    anchors.add(f"fn:{_fn.group(1).strip()}")
+                for _m in _HTML_RE.finditer(_cl):
+                    anchors.add(_m.group(1).lower())
+
+    if anchors_out is not None:
+        anchors_out[file_path] = anchors
+
+    return findings
+
+
 _PASSIVE_VOICE_RE = re.compile(
     r"(?i)\b(is|are|was|were|be|been|being)\s+([a-z]+(?:ed|en)|done|seen|made|found|built|written|read|set|put|known|taken|chosen|given|held|left|sent)\b"
 )

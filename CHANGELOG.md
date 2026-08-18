@@ -13,7 +13,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 *Upcoming changes for the next release.*
 
-## [0.30.0] - 2026-08-15
+## [0.30.0] - 2026-08-18
 
 ### Added
 
@@ -38,7 +38,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Silent-on-Success Unix Philosophy (`--quiet`, `--no-header`)**: Added `--quiet` (`-q`) and `--no-header` across all subcommands (`guard scan`, `score`, `check all`, `check links`, `check orphans`, `check placeholders`, `check references`, `check structure`, `check snippets`), muting all headers, banners, and footers to emit exactly 0 bytes when checks pass (Exit Code 0).
 - **Dogfooding Pre-Commit Secret Guard**: Added native `zenzic-guard` hook to `.pre-commit-config.yaml` and updated `.pre-commit-hooks.yaml` to pass `--quiet --no-header` by default for sub-50ms commit-stage validation.
 
+### Performance
+
+- **Sequential Parsing ~3x Speedup**: Eliminated four O(N) redundant passes across the scan pipeline. Baseline on the Zenzic docs corpus (256 files): from ~13 s to ~4.5 s on standard developer hardware.
+
+  | Root cause | Fix | Savings |
+  | :--- | :--- | :--- |
+  | `CredentialScannerRule` ran `scan_line_for_secrets()` per-line as a rule after `harvest()` had already scanned the same lines via `scan_lines_with_lookback()` | Removed from rule engine; Z201 findings injected directly from `security_findings` | ~829 ms |
+  | `directory_policies` compiled `re.compile(translate_glob_to_re2(pattern))` per file × per pattern | Patterns compiled once, cached on the config object as `_compiled_dir_policies` | ~300 ms |
+  | `cross_check()` re-opened each file from disk via `_iter_content_lines(file_path)` | New `_iter_content_lines_text(text)` + optional `text` parameter on `cross_check()` | ~302 ms |
+  | Four heading rules each did a full `text.splitlines()` + line iteration pass (Z510, Z513, Z516, Z517) | Replaced with `CombinedHeadingRule` — single pass; anchors collected as zero-cost side effect, skipping `anchors_in_file()` in VSM | ~415 ms |
+
+- **Z201 single-pass**: LSP path (`_analyze_file`) now performs the credential scan explicitly via `scan_lines_with_lookback()` — consistent with the CLI path where `harvest()` handles it.
+- **`_SECRETS` per-pattern quick prefix**: Added `tuple[str, ...]` of distinctive token prefixes per pattern entry; the credential scanner skips RE2 evaluation when the line does not contain the specific prefix.
+
 ### Fixed
+
+- **Z620 false positives** (`directory_policies` tracking): cached compiled patterns now carry the original glob string, restoring correct `GlobalUsageTracker.mark_directory_policy_used(pattern, code)` invocations. Regression introduced in the `_compiled_dir_policies` caching patch.
 
 - **Full Telemetry Disclosure & Unified Progress Telemetry**: Unified all analysis and environment phases (Environment & VSM Init, Parsing, Link Validation, IPC Teardown, Orphans, Snippets, Assets) under a single cohesive Rich `Progress` context, providing uniform determinate progress bars and explicit millisecond timing telemetry across all stages.
 - **External URL Exclusion Pre-filtering & Baseline Debt UX**: Added deterministic prefix exclusion filtering in `_check_external_links()` and `LinkValidator.register()`, preventing unwanted HTTP requests for URLs matching `excluded_external_urls` or CLI `--exclude-url`. Refined baseline UX to display an encouraging notification upon massive technical debt resolution (> 50 issues resolved) without new findings.

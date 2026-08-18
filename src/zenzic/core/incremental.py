@@ -543,6 +543,25 @@ class IncrementalAnalysisEngine:
         # Atomic Rules
         findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
+        # Credential scan — single-pass; CredentialScannerRule is excluded from
+        # the rule engine to avoid a double-pass in the CLI path (harvest() already
+        # scans there). In the LSP path harvest() is not called, so we scan here.
+        from zenzic.core.credentials import scan_lines_with_lookback
+
+        for _sf in scan_lines_with_lookback(enumerate(text.splitlines(keepends=True), 1), path):
+            findings.append(
+                RuleFinding(
+                    rule_id="Z201",
+                    severity="error",
+                    file_path=_sf.file_path,
+                    line_no=_sf.line_no,
+                    message=f"Credential or secret detected: {_sf.secret_type}",
+                    match_text=_sf.match_text,
+                    matched_line=_sf.url,
+                    col_start=_sf.col_start,
+                )
+            )
+
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
 
