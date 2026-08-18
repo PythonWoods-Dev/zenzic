@@ -1,6 +1,4 @@
 ---
-sidebar_position: 2
-sidebar_label: "Z202 - Path Traversal"
 description: "Analysis of the z202-path-traversal fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

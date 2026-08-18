@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Z501 - Placeholder Content"
 description: "Analysis of the z501-placeholder fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

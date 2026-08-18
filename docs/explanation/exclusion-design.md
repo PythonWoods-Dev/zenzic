@@ -1,5 +1,4 @@
 ---
-sidebar_label: Exclusion Design
 description: "The design rationale behind Zenzic's conscious exclusion model versus blind automation."
 ---
 

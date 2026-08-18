@@ -1,5 +1,4 @@
 ---
-sidebar_position: 11
 description: "How zenzic-action enforces security: Path Traversal Guard protocol, Exit Code Contract, Root-First discovery cascade, and Sovereign Intent."
 ---
 

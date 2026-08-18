@@ -91,3 +91,10 @@
 # Subpath fallback aliases for /docs/ base URLs
 /docs/rules/Z118/                              /rules/Z620/ 301
 /docs/tutorials/examples/z1xx-links/z118-stale-global-suppression/ /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301
+
+# ─── LAYER 7: ASSET CONSOLIDATION (v0.30.0) ──────────────────────────────────
+/static/assets/*                                /assets/:splat 301
+/assets/brand/zenzic-brand-system.html          /reference/brand-system/ 301
+/assets/brand/zenzic-brand-system               /reference/brand-system/ 301
+/explanation/mineral-path/                      /explanation/architecture/ 301
+/explanation/mineral-path                       /explanation/architecture/ 301

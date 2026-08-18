@@ -264,6 +264,9 @@ def build_vsm(
     _detect_collisions(routes)
 
     vsm_instance = VirtualSiteMap({r.url: r for r in routes})
+    from zenzic.core.validator import PolyglotExtractor
+
+    extractor = PolyglotExtractor()
     for abs_path, content in md_contents.items():
         vsm_instance.reindex_outgoing_links(
             abs_path,
@@ -271,6 +274,7 @@ def build_vsm(
             docs_root,
             extra_mounts,
             adapter,
+            extractor=extractor,
         )
 
     return vsm_instance
@@ -302,6 +306,8 @@ class VirtualSiteMap(dict[str, Route]):
         extra_mounts: list[tuple[Path, str]],
         adapter: BaseAdapter,
         canonical_url: str = "",
+        extractor: Any = None,
+        extracted_links: Any = None,
     ) -> None:
         """Rebuild the reverse-index entries emitted by `path`."""
         if not canonical_url:
@@ -316,10 +322,9 @@ class VirtualSiteMap(dict[str, Route]):
 
         targets: set[str] = set()
 
-        from zenzic.core.rules import _extract_inline_links_with_lines
-        from zenzic.core.validator import PolyglotExtractor
-
         def _register(url: str) -> None:
+            if not url or url.startswith(("http://", "https://", "data:", "mailto:", "#")):
+                return
             canonical = resolve_link_to_canonical(
                 path,
                 url,
@@ -331,12 +336,18 @@ class VirtualSiteMap(dict[str, Route]):
                 self.incoming_links.setdefault(canonical, set()).add(path)
                 targets.add(canonical)
 
-        for url, _lineno, _raw in _extract_inline_links_with_lines(content):
-            _register(url)
+        if extracted_links is not None:
+            for item in extracted_links:
+                if item.url and item.node_type != "ref_link":
+                    _register(item.url)
+        else:
+            if extractor is None:
+                from zenzic.core.validator import PolyglotExtractor
 
-        for node in PolyglotExtractor().extract(content):
-            if node.href:
-                _register(node.href)
+                extractor = PolyglotExtractor()
+            for item in extractor.extract_all_links(content):
+                if item.url and item.node_type != "ref_link":
+                    _register(item.url)
 
         if canonical_url:
             self.outgoing_links[canonical_url] = sorted(targets)

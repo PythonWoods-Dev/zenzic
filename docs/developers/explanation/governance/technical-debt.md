@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 50
 description: "The deliberate, declared list of capabilities Zenzic chose NOT to ship — and the engineering reasoning that makes each deferral a feature, not an oversight."
 ---
 

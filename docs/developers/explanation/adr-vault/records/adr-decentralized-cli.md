@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 7
 description: "ADR 004: Splitting the monolithic CLI module into a structured package — the Layer Law that keeps Core independent of CLI."
 ---
 

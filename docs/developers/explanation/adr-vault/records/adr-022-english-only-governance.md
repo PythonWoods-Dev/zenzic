@@ -1,6 +1,4 @@
 ---
-sidebar_position: 22
-sidebar_label: "022: English-Only Governance"
 description: "ADR 022: English-Only Governance & Deprecation of Bilingual Invariant"
 ---
 

@@ -1,6 +1,4 @@
 ---
-sidebar_position: 9
-sidebar_label: The Integrity Filter
 description: Why Zenzic focuses on structural integrity and security rather than prose style — and why that distinction defines a separate category of tool.
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

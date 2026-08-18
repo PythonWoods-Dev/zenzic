@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 4
 description: "ADR 009: The configuration follows the target, not the caller — preventing Context Hijacking."
 ---
 

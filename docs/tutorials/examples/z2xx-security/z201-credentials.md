@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Z201 - Credentials"
 description: "Analysis of the z201-credentials fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

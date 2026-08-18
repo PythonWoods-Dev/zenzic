@@ -458,6 +458,19 @@ class MkDocsAdapter(BaseAdapter):
         # _classify_route() can recognise and mark them REACHABLE.
         self._blog_posts_prefix: str | None = _extract_blog_dir(self._doc_config)
 
+        # Pre-compute nav paths once during initialization for O(1) retrieval.
+        raw_nav: set[str] = set()
+        _collect_nav_paths(self._doc_config.get("nav"), raw_nav)
+        nav_paths: set[str] = set()
+        for p in raw_nav:
+            p = p.lstrip("/")
+            if p.endswith(".md"):
+                nav_paths.add(p)
+            elif p.endswith("/"):
+                # MkDocs resolves 'section/' → 'section/index.md' automatically.
+                nav_paths.add(f"{p}index.md")
+        self._nav_paths: frozenset[str] = frozenset(nav_paths)
+
         # Emit a UX hint when the config is redundant: reconfigure_material
         # auto-generates the switcher, so extra.alternate is both unnecessary
         # and harmful (it competes with the plugin and can hide the switcher).
@@ -568,17 +581,7 @@ class MkDocsAdapter(BaseAdapter):
         ``blog/index.md`` are correctly classified as ``REACHABLE`` instead of
         ``ORPHAN_BUT_EXISTING``.
         """
-        raw: set[str] = set()
-        _collect_nav_paths(self._doc_config.get("nav"), raw)
-        nav_paths: set[str] = set()
-        for p in raw:
-            p = p.lstrip("/")
-            if p.endswith(".md"):
-                nav_paths.add(p)
-            elif p.endswith("/"):
-                # MkDocs resolves 'section/' → 'section/index.md' automatically.
-                nav_paths.add(f"{p}index.md")
-        return frozenset(nav_paths)
+        return self._nav_paths
 
     def has_engine_config(self) -> bool:
         """``True`` when ``mkdocs.yml`` was found on disk **or** locales were declared.

@@ -1,6 +1,4 @@
 ---
-sidebar_position: 9
-sidebar_label: "GitHub Action"
 description: "Complete reference for the Zenzic GitHub Action — inputs, outputs, exit codes, and the Zenzic Quality Gate protocol."
 ---
 

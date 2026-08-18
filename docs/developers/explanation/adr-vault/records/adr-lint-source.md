@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: -2
 description: "ADR 001: The Genesis Decision — why Zenzic analyzes raw Markdown sources and never the build output."
 ---
 

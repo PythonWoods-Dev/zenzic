@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 2
 description: "ADR 005: Z404 CONFIG_ASSET_MISSING extended to all supported engines — not just Docusaurus."
 ---
 

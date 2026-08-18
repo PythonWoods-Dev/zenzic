@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Zenzic — engine-agnostic static analyzer and credential scanner for Markdown documentation."""
+"""Zenzic — Deterministic Documentation Quality Platform (DQP) for Markdown/MDX graphs."""
 
-__version__ = "0.29.1"
-__version_name__ = "Basalt"  # Release codename stored separately from the package version.
+__version__ = "0.30.0"

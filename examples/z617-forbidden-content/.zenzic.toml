@@ -1,0 +1,2 @@
+[policies]
+forbidden_content_patterns = ["(?i)confidential"]

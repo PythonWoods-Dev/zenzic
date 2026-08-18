@@ -24,6 +24,7 @@ from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import (
     BuildContext,
     GovernanceConfig,
+    PoliciesConfig,
     ZenzicConfig,
 )
 
@@ -268,6 +269,21 @@ def explain(
         source = _source_of(field, raw_global, raw_local, section="governance")
         _add_row(gov_table, field, value, source)
     console.print(gov_table)
+    console.print()
+
+    # ── Section D: Policy-as-Code ─────────────────────────────────────────
+    pol = config.policies
+    pol_table = _make_table(f"{emoji('brand')}  Policy-as-Code")
+    pol_table.add_column("Field", style="bold", min_width=28, no_wrap=True)
+    pol_table.add_column("Active Value", min_width=24)
+    pol_table.add_column("Source", min_width=8, justify="center")
+    pol_table.add_column("Origin", min_width=22)
+
+    for field in PoliciesConfig.model_fields:
+        value = getattr(pol, field)
+        source = _source_of(field, raw_global, raw_local, section="policies")
+        _add_row(pol_table, field, value, source)
+    console.print(pol_table)
     console.print()
 
     _shared.print_footer_hint("config")

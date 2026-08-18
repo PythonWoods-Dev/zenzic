@@ -32,6 +32,9 @@ def _config_with_policies(
     forbidden_domains: list[str] | None = None,
     forbidden_keys: list[str] | None = None,
     schema_match: dict[str, str] | None = None,
+    forbidden_content: list[str] | None = None,
+    required_headings: list[str] | None = None,
+    max_complexity: int = 0,
 ) -> ZenzicConfig:
     """Build a ZenzicConfig with the given [policies] settings."""
     policies = PoliciesConfig(
@@ -39,6 +42,9 @@ def _config_with_policies(
         forbidden_external_domains=forbidden_domains or [],
         forbidden_frontmatter_keys=forbidden_keys or [],
         frontmatter_schema_match=schema_match or {},
+        forbidden_content_patterns=forbidden_content or [],
+        required_heading_patterns=required_headings or [],
+        max_document_complexity=max_complexity,
     )
     config = ZenzicConfig()
     config.policies = policies
@@ -461,3 +467,71 @@ def test_policy_evaluator_empty_policies_short_circuit() -> None:
     assert not evaluator.is_active
     assert evaluator._check_frontmatter(DUMMY_FILE, "no frontmatter") == []
     assert evaluator._check_links(DUMMY_FILE, "text", ["https://forbidden.com"]) == []
+    assert evaluator._check_forbidden_content(DUMMY_FILE, "text") == []
+    assert evaluator._check_required_headings(DUMMY_FILE, "text") == []
+    assert evaluator._check_document_complexity(DUMMY_FILE, "text") == []
+
+
+# ── Z617 FORBIDDEN_CONTENT_PATTERN ────────────────────────────────────────────
+
+
+def test_policy_evaluator_z617_forbidden_content_detected() -> None:
+    config = _config_with_policies(forbidden_content=["(?i)confidential", r"\bTODO\b"])
+    content = "# Title\n\nThis contains confidential info.\nAnd a `TODO` in code is ignored?"
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z617 = [f for f in findings if f.rule_id == "Z617"]
+    assert len(z617) >= 1
+    assert z617[0].line_no == 3
+    assert z617[0].severity == "warning"
+
+
+# ── Z618 REQUIRED_HEADING_PATTERN ─────────────────────────────────────────────
+
+
+def test_policy_evaluator_z618_required_heading_missing() -> None:
+    config = _config_with_policies(required_headings=["^Overview$", "^License$"])
+    content = "# Title\n\n## Overview\n\nSome overview."
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z618 = [f for f in findings if f.rule_id == "Z618"]
+    assert len(z618) == 1
+    assert "^License$" in z618[0].message
+    assert z618[0].severity == "warning"
+
+
+def test_policy_evaluator_z618_required_heading_satisfied() -> None:
+    config = _config_with_policies(required_headings=["^Overview$", "^License$"])
+    content = "# Title\n\n## Overview\n\n## License\n\nMIT"
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z618 = [f for f in findings if f.rule_id == "Z618"]
+    assert len(z618) == 0
+
+
+# ── Z619 MAX_DOCUMENT_COMPLEXITY ──────────────────────────────────────────────
+
+
+def test_policy_evaluator_z619_max_complexity_exceeded() -> None:
+    config = _config_with_policies(max_complexity=5)
+    content = (
+        "# Title\n\n"
+        "## Sub 1\n\n[Link 1](https://a.com)\n\n"
+        "### Sub 2\n\n[Link 2](https://b.com)\n\n"
+        "#### Sub 3\n\n[Link 3](https://c.com)\n\n"
+    )
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z619 = [f for f in findings if f.rule_id == "Z619"]
+    assert len(z619) == 1
+    assert z619[0].rule_id == "Z619"
+    assert z619[0].severity == "warning"
+
+
+def test_policy_evaluator_z619_complexity_under_threshold() -> None:
+    config = _config_with_policies(max_complexity=100)
+    content = "# Title\n\nSimple content.\n"
+    evaluator = PolicyEvaluator(config)
+    findings = evaluator.check(DUMMY_FILE, content)
+    z619 = [f for f in findings if f.rule_id == "Z619"]
+    assert len(z619) == 0

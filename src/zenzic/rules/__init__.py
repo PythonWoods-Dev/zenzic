@@ -12,7 +12,6 @@ from zenzic.core.rules import (
     Violation,
     run_rule,
 )
-from zenzic.rules.base import BaseASTRule
 
 
 __all__ = [
@@ -22,5 +21,4 @@ __all__ = [
     "Severity",
     "Violation",
     "run_rule",
-    "BaseASTRule",
 ]

@@ -32,7 +32,7 @@ import json
 import sys
 import textwrap
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 
 if sys.version_info >= (3, 11):
@@ -58,7 +58,7 @@ from zenzic.core.resolver import (
     Resolved,
 )
 from zenzic.models.config import ZenzicConfig
-from zenzic.models.references import ReferenceMap
+from zenzic.models.references import IntegrityReport, ReferenceMap
 
 
 if TYPE_CHECKING:
@@ -132,7 +132,7 @@ _REF_LINK_RE = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
 _REF_SHORTCUT_RE = re.compile(r"\[([^\]]+)\]")
 
 # Inline code span — erased before link extraction to avoid false positives.
-_INLINE_CODE_RE = re.compile(r"`[^`]+`")
+_INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 # Strips Markdown link title from href: "url 'title'" → "url".
 _TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
 # Slugification helpers used in _slugify_heading().
@@ -291,19 +291,23 @@ class PolyglotExtractor:
       prima dell'estrazione per evitare falsi positivi in esempi di codice.
     """
 
-    def extract(self, text: str) -> list[HtmlNodeInfo]:
+    def extract(self, text: str, *, _premasked: str | None = None) -> list[HtmlNodeInfo]:
         """Estrae tutti i nodi HTML rilevanti dal testo sorgente.
 
         Args:
             text: Contenuto Markdown grezzo (no I/O).
+            _premasked: Optional pre-computed buffer with comments, fences, and math masked.
 
         Returns:
             Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
             trovato fuori dai blocchi di codice.
         """
-        masked = self._mask_math(
-            self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
-        )
+        if _premasked is not None:
+            masked = self._mask_inline_code(_premasked)
+        else:
+            masked = self._mask_math(
+                self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
+            )
         nodes: list[HtmlNodeInfo] = []
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()
@@ -313,14 +317,20 @@ class PolyglotExtractor:
             nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
         return nodes
 
-    def extract_ref_defs(self, text: str) -> list[ReferenceLinkNode]:
+    def extract_ref_defs(
+        self, text: str, *, _premasked: str | None = None
+    ) -> list[ReferenceLinkNode]:
         """Estrae tutte le definizioni di link di riferimento ([label]: dest) fuori dai blocchi di codice.
 
         Implementa CommonMark §4.7 Reference Link Definition parsing via PolyglotExtractor.
         Fence-skipping obbligatorio tramite _mask_fences() e _mask_comments().
         First-definition-wins per la risoluzione dei duplicati.
         """
-        masked = self._mask_math(self._mask_fences(self._mask_comments(text)))
+        masked = (
+            _premasked
+            if _premasked is not None
+            else self._mask_math(self._mask_fences(self._mask_comments(text)))
+        )
         nodes: list[ReferenceLinkNode] = []
         seen_labels: set[str] = set()
 
@@ -346,7 +356,9 @@ class PolyglotExtractor:
             )
         return nodes
 
-    def extract_inline_links(self, text: str) -> list[ExtractedLink]:
+    def extract_inline_links(
+        self, text: str, *, _premasked: str | None = None
+    ) -> list[ExtractedLink]:
         """Extract standard Markdown inline links ([text](url)) and images (![alt](url)).
 
         Fences, HTML/MDX comments, and inline code spans are masked out prior to extraction
@@ -354,16 +366,21 @@ class PolyglotExtractor:
 
         Args:
             text: Raw markdown content.
+            _premasked: Optional pre-computed buffer with comments, fences, and math masked.
 
         Returns:
             List of :class:`ExtractedLink` with node_type="inline" or "image".
         """
-        masked = self._mask_math(self._mask_fences(self._mask_comments(text)))
+        masked = (
+            _premasked
+            if _premasked is not None
+            else self._mask_math(self._mask_fences(self._mask_comments(text)))
+        )
+        clean_text = self._mask_inline_code(masked)
         results: list[ExtractedLink] = []
 
-        for lineno, line in enumerate(masked.splitlines(), start=1):
-            clean = self._mask_inline_code(line)
-            for m in _MARKDOWN_LINK_RE.finditer(clean):
+        for lineno, line in enumerate(clean_text.splitlines(), start=1):
+            for m in _MARKDOWN_LINK_RE.finditer(line):
                 raw = m.group(1).strip()
                 if not raw:
                     continue
@@ -397,10 +414,11 @@ class PolyglotExtractor:
         Returns:
             Flat, ordered list of :class:`ExtractedLink` objects sorted by line_no and col_start.
         """
+        masked_base = self._mask_math(self._mask_fences(self._mask_comments(text)))
         extracted: list[ExtractedLink] = []
 
         # 1. HTML nodes
-        for html_node in self.extract(text):
+        for html_node in self.extract(text, _premasked=masked_base):
             if html_node.href is not None and not html_node.is_missing_href:
                 extracted.append(
                     ExtractedLink(
@@ -416,7 +434,7 @@ class PolyglotExtractor:
                 )
 
         # 2. Reference definitions
-        for ref_node in self.extract_ref_defs(text):
+        for ref_node in self.extract_ref_defs(text, _premasked=masked_base):
             extracted.append(
                 ExtractedLink(
                     url=ref_node.dest,
@@ -429,7 +447,7 @@ class PolyglotExtractor:
             )
 
         # 3. Inline Markdown links and images
-        extracted.extend(self.extract_inline_links(text))
+        extracted.extend(self.extract_inline_links(text, _premasked=masked_base))
 
         # Deterministic ordering by line number and column position
         extracted.sort(key=lambda item: (item.line_no, item.col_start))
@@ -449,9 +467,9 @@ class PolyglotExtractor:
         """Sostituisce blocchi inline code con spazi bianchi preservando gli offset."""
         from zenzic.core.validator import _INLINE_CODE_RE
 
-        lines = text.splitlines(keepends=True)
-        masked_lines = [_INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) for line in lines]
-        return "".join(masked_lines)
+        return _INLINE_CODE_RE.sub(
+            lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
+        )
 
     def _mask_fences(self, text: str) -> str:
         """Sostituisce blocchi code/pre con spazi bianchi preservando gli offset.
@@ -816,6 +834,9 @@ def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
                 in_block = False
             continue
 
+        if "[" not in line:
+            continue
+
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for pattern in (_EMPTY_INLINE_LINK_TEXT_RE, _EMPTY_REF_LINK_TEXT_RE):
             for m in pattern.finditer(clean):
@@ -854,10 +875,10 @@ def slug_heading(heading: str) -> str:
     """
     import unicodedata
 
-    heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
-    explicit = _EXPLICIT_ANCHOR_RE.search(heading_clean)
+    explicit = _EXPLICIT_ANCHOR_RE.search(heading)
     if explicit:
         return explicit.group(1).lower()
+    heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
     slug = _HTML_TAG_RE.sub("", heading_clean).strip()
     # Decompose accented characters and drop combining marks so that e.g.
     # "Integrità" → "integrita" (matching MkDocs toc extension behaviour).
@@ -1062,6 +1083,8 @@ async def _check_external_links(
     entries: list[tuple[str, str, int]],
     config: ZenzicConfig,
     repo_root: Path,
+    *,
+    progress_callback: Any | None = None,
 ) -> list[str]:
     """Concurrently validate a batch of external URLs.
 
@@ -1071,9 +1094,24 @@ async def _check_external_links(
     if not entries:
         return []
 
+    excluded = [
+        p.strip() for p in (getattr(config, "excluded_external_urls", None) or []) if p.strip()
+    ]
+    global_tracker = getattr(config, "_global_tracker", None)
+
     # Deduplicate: url → list[(label, lineno)]
     url_occurrences: dict[str, list[tuple[str, int]]] = {}
     for url, label, lineno in entries:
+        # Defense-in-depth: skip excluded external URLs even if not pre-filtered by caller
+        is_excluded = False
+        for prefix in excluded:
+            if url.startswith(prefix):
+                is_excluded = True
+                if global_tracker:
+                    global_tracker.mark_excluded_external_url_used(prefix)
+                break
+        if is_excluded:
+            continue
         url_occurrences.setdefault(url, []).append((label, lineno))
 
     cache_file = repo_root / ".zenzic_cache" / "external_links.json"
@@ -1095,6 +1133,8 @@ async def _check_external_links(
             entry = cache[url]
             if isinstance(entry, dict) and "timestamp" in entry and "status" in entry:
                 if current_time - entry["timestamp"] < ttl_seconds and entry["status"] == 200:
+                    if progress_callback:
+                        progress_callback()
                     continue  # Valid and fresh
         urls_to_check.append(url)
 
@@ -1109,7 +1149,10 @@ async def _check_external_links(
 
     async def _bounded_ping(client: httpx.AsyncClient, url: str) -> str | None:
         async with semaphore:
-            return await _ping_url(client, url, cache, current_time)
+            res = await _ping_url(client, url, cache, current_time)
+            if progress_callback:
+                progress_callback()
+            return res
 
     errors: list[str] = []
     if urls_to_check:
@@ -1268,23 +1311,28 @@ def validate_links_structured(
     locale_roots: list[tuple[Path, str]] | None = None,
     check_external: bool = True,
     trackers: dict[Path, SuppressionTracker] | None = None,
+    reports: list[IntegrityReport] | None = None,
+    ext_errors: list[str] | None = None,
 ) -> list[LinkError]:
     """Unified link validation entry point using scan_docs_references and URP rules."""
     from zenzic.core.adapters import get_adapter
     from zenzic.core.scanner import scan_docs_references
 
-    if locale_roots is None:
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
-        locale_roots = adapter.get_locale_source_roots(repo_root)
+    if reports is None:
+        if locale_roots is None:
+            adapter = get_adapter(config.build_context, docs_root, repo_root)
+            locale_roots = adapter.get_locale_source_roots(repo_root)
 
-    reports, ext_errors = scan_docs_references(
-        docs_root,
-        exclusion_manager,
-        repo_root=repo_root,
-        config=config,
-        validate_links=strict and check_external,
-        locale_roots=locale_roots,
-    )
+        reports, ext_errors = scan_docs_references(
+            docs_root,
+            exclusion_manager,
+            repo_root=repo_root,
+            config=config,
+            validate_links=strict and check_external,
+            locale_roots=locale_roots,
+        )
+    elif ext_errors is None:
+        ext_errors = []
 
     link_errors: list[LinkError] = []
     link_codes = {
@@ -1562,7 +1610,11 @@ class LinkValidator:
         # as stale (Z620), and skip HTTP validation for this URL.
         # This mirrors the identical filter that validate_links_async used to apply
         # before the URP unification removed that code path.
-        excluded = getattr(self._config, "excluded_external_urls", None) or []
+        excluded = [
+            p.strip()
+            for p in (getattr(self._config, "excluded_external_urls", None) or [])
+            if p.strip()
+        ]
         if excluded:
             global_tracker = getattr(self._config, "_global_tracker", None)
             for prefix in excluded:
@@ -1590,7 +1642,7 @@ class LinkValidator:
         """Number of distinct URLs scheduled for validation."""
         return len(self._registrations)
 
-    async def validate_async(self) -> list[str]:
+    async def validate_async(self, progress_callback: Any | None = None) -> list[str]:
         """Ping every registered URL exactly once and return error strings.
 
         Delegates to :func:`_check_external_links` which:
@@ -1610,15 +1662,17 @@ class LinkValidator:
             (url, str(occurrences[0][0]), occurrences[0][1])
             for url, occurrences in self._registrations.items()
         ]
-        return await _check_external_links(entries, self._config, self._repo_root)
+        return await _check_external_links(
+            entries, self._config, self._repo_root, progress_callback=progress_callback
+        )
 
-    def validate(self) -> list[str]:
+    def validate(self, progress_callback: Any | None = None) -> list[str]:
         """Synchronous wrapper around :meth:`validate_async`.
 
         Returns:
             Sorted list of error strings (empty when all URLs pass).
         """
-        return asyncio.run(self.validate_async())
+        return asyncio.run(self.validate_async(progress_callback=progress_callback))
 
 
 # ─── CLI / I/O wrappers ───────────────────────────────────────────────────────
@@ -1629,6 +1683,7 @@ def validate_snippets(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
+    md_contents: Mapping[Path, str] | None = None,
 ) -> list[SnippetError]:
     """Validate every fenced code block (Python, YAML, JSON, TOML) in docs.
 
@@ -1636,6 +1691,7 @@ def validate_snippets(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
+        md_contents: Optional pre-loaded mapping of Markdown file contents.
 
     Returns:
         List of SnippetError objects detailing the issues.
@@ -1643,6 +1699,14 @@ def validate_snippets(
     errors: list[SnippetError] = []
 
     if not docs_root.exists() or not docs_root.is_dir():
+        return errors
+
+    if md_contents is None:
+        md_contents = getattr(config, "_md_contents", None)
+
+    if md_contents is not None:
+        for md_file, content in sorted(md_contents.items(), key=lambda x: x[0]):
+            errors.extend(check_snippet_content(content, md_file, config))
         return errors
 
     for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):

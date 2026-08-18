@@ -1,6 +1,4 @@
 ---
-sidebar_position: 10
-sidebar_label: "Why Zenzic"
 description: "How Zenzic reduces documentation risk, removes manual QA loops, and enforces deterministic CI/CD quality gates."
 ---
 

@@ -13,46 +13,73 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 *Upcoming changes for the next release.*
 
-## [0.29.1] - 2026-08-14
-
-### Changed
-
-- **Adapter API**: Extended the `BaseAdapter` contract with the `dynamic_directories` property. This allows adapters to declare directories managed dynamically by framework plugins (e.g., MkDocs blog posts), eradicating false-positive `Z401` (Missing Directory Index) findings without requiring configuration suppressions.
-- **Adapter Isolation**: Extracted shared plugin configuration helpers to `_utils.py`, eliminating cross-adapter dependencies between `ZensicalAdapter` and `MkDocsAdapter` while preserving 100% backward compatibility for `mkdocs.yml` compat mode.
-- **Noise Reduction**: Applied global directory policies to suppress circular links (`Z106`) in documentation roots.
-
-### Security
-
-- **Supply Chain Remediation**: Upgraded `pymdown-extensions` (to `11.0.1`, remediating `CVE-2026-67422` and `CVE-2026-61632`), `GitPython` (to `3.1.59`, remediating 15 GHSA advisories), and all transitive dependencies in `uv.lock`. `pip-audit` confirms 0 known vulnerabilities.
-- **Sensitive Data Masking (CWE-312 / CWE-532)**: Masked secret values in `zenzic guard scan` JSON and table outputs (`src/zenzic/cli/_guard.py`), remediating CodeQL alert `py/clear-text-logging-sensitive-data` to prevent accidental credential leakage in CI/CD logs and terminal reports.
-- **AST Mutator Regex Hardening (CWE-116 / CWE-185)**: Replaced insecure generic HTML comment regex with deterministic suppression pattern matching and compiled RE2 expressions in `src/zenzic/core/mutator.py`, resolving CodeQL alert `py/bad-tag-filter`.
-
-### Fixed
-
-- **CLI Contract Stability**: Explicitly designated `metavar="PATH"` on the `path` argument of `zenzic check all` in `src/zenzic/cli/_check.py` to ensure CLI help contract snapshot stability across Click and Typer upstream updates.
-
-## [0.29.0] - 2026-08-13
-
-Upcoming changes for the next release.
-
-### Changed (Breaking)
-
-- **Taxonomic Refactoring (Z118 → Z620)**: Renamed finding code `Z118` (`STALE_GLOBAL_SUPPRESSION`) to `Z620` to align its identifier with its semantic DQS category (Governance & Brand, Z6xx namespace). This is a **breaking change** for users with `ignore = ["Z118"]` in `.zenzic.toml` or Z118-based SARIF/JSON parsers. Update all references from `Z118` to `Z620`.
+## [0.30.0] - 2026-08-18
 
 ### Added
 
-- **Policy-as-Code Metadata Governance (`Z612`, `Z613`)**: Introduced `Z612` (`FORBIDDEN_FRONTMATTER_KEY`) and `Z613` (`FRONTMATTER_SCHEMA_MISMATCH`) into the Policy-as-Code engine (`[policies]` configuration in `.zenzic.toml`), allowing project maintainers to forbid specific frontmatter keys and enforce RE2 regex schemas on frontmatter values.
-- **Policy-as-Code Link & Topology Governance (`Z614`, `Z615`, `Z616`)**: Introduced Zero-Trust external domain whitelist (`Z614: UNAPPROVED_DOMAIN_REFERENCE`), URL scheme whitelist enforcement (`Z615: FORBIDDEN_URL_SCHEME`), and Virtual Site Map (VSM) cross-namespace boundary control (`Z616: CROSS_NAMESPACE_LINK_FORBIDDEN`) under `[policies]` in `.zenzic.toml`. Z616 leverages the Virtual Site Map (VSM) and `InMemoryPathResolver` for zero-I/O topological boundary enforcement.
-- **Ecosystem Dependency Strategy & DQS Integrity Rules**: Codified Governance Rules 10 & 11 in `.gemini/governance/rules` enforcing strict pinning (`==`) for `zenzic-action`, minimum versioning (`>=`) for `zenzic-vscode`, and 100% mathematical category-to-escalation parity in `scorer.py`.
-- **8-Step Finding Code Protocol**: Enriched developer guidelines in `docs/developers/how-to/write-a-check.md` with the mandatory 8-step protocol for adding or modifying diagnostic codes across the core engine, scoring algorithms, and documentation surfaces.
+- **Semantic List Heuristics & Auto-Fix**:
+  - `Z520` (`MALFORMED_LIST_DETECTED`): Detects paragraphs formatted as pseudo-lists using hard newlines and semicolons/commas without Markdown list markers. Supports atomic automated fix (`zenzic fix --apply`). Penalty: 2.0 pts (Content).
+  - Added `MalformedListMutation` to the core AST `Mutator` engine, automatically transforming malformed paragraph lists into structured Markdown bullet lists.
+  - Added rule card `docs/rules/Z520.md`, updated `mkdocs.yml` navigation, scoring references, and added interactive lab scenario `z520` (`examples/z520-malformed-list/`).
+- **Editorial Style & Prose Quality Rules**: Added 5 advanced editorial style and policy-as-code linting rules:
+  - `Z518` (`PASSIVE_VOICE_DETECTED`): Detects passive voice constructs in technical prose via non-backtracking RE2 regex heuristic (opt-in via `[policies].enable_passive_voice_check`). Penalty: 1.0 pt (Content).
+  - `Z519` (`WEASEL_WORDS`): Detects vague or weakening qualifiers (e.g., "clearly", "simply", "obviously") in technical prose (opt-in via `[policies].weasel_words`). Penalty: 1.0 pt (Content).
+  - `Z617` (`FORBIDDEN_CONTENT_PATTERN`): Enforces organizational terminology standards by detecting forbidden regex patterns in prose (opt-in via `[policies].forbidden_content_patterns`). Penalty: 2.0 pts (Governance).
+  - `Z618` (`REQUIRED_HEADING_PATTERN`): Enforces structural document templates by ensuring required heading patterns exist in each document (opt-in via `[policies].required_heading_patterns`). Penalty: 3.0 pts (Governance).
+  - `Z619` (`MAX_DOCUMENT_COMPLEXITY`): Restricts cognitive load and document bloat based on prose word count, heading depth, and link density (opt-in via `[policies].max_document_complexity`). Penalty: 4.0 pts (Governance).
+- **Policy-as-Code Configuration Enhancements**: Added 5 new declarative policy keys to the `[policies]` table in `PoliciesConfig` (`forbidden_content_patterns`, `required_heading_patterns`, `max_document_complexity`, `weasel_words`, `enable_passive_voice_check`), complete with `zenzic config explain` introspection table and `zenzic init` template integration.
+- **Mirror Law Parity for Editorial Style**: Added dedicated rule cards `docs/rules/Z518.md` through `docs/rules/Z619.md`, updated `mkdocs.yml` navigation, synchronized scoring algorithm/explanation matrices, registered finding reference entries, and added interactive lab acts (`z518`, `z519`, `z617`, `z618`, `z619`).
+- **Semantic Linting & Accessibility Rules**: Implemented 5 native AST-based semantic and accessibility (a11y) rules in `zenzic.core`:
+  - `Z513` (`DUPLICATE_HEADING`): Detects duplicate headings within the same document (case/whitespace/anchor invariant), preventing ambiguous anchor collisions. Penalty: 2.0 pts (Content).
+  - `Z514` (`GENERIC_IMAGE_ALT_TEXT`): Detects generic filler words in image alt text (`![]()` and `<img>`), enforcing accessibility standards. Penalty: 2.0 pts (Content).
+  - `Z515` (`BARE_URL_USED`): Detects raw HTTP/HTTPS URLs in prose that are not enclosed in angle brackets or Markdown links. Supports automated fix (`zenzic fix --apply`). Penalty: 1.0 pt (Content).
+  - `Z516` (`MULTIPLE_H1_HEADINGS`): Enforces a single top-level `#` or `<h1>` heading per document for structural hierarchy. Severity: `error`, Penalty: 5.0 pts (Content).
+  - `Z517` (`HEADING_PUNCTUATION`): Detects invalid trailing punctuation (`.`, `:`, `;`) on headings. Supports automated fix (`zenzic fix --apply`). Penalty: 1.0 pt (Content).
+- **Silent-on-Success Unix Philosophy (`--quiet`, `--no-header`)**: Added `--quiet` (`-q`) and `--no-header` across all subcommands (`guard scan`, `score`, `check all`, `check links`, `check orphans`, `check placeholders`, `check references`, `check structure`, `check snippets`), muting all headers, banners, and footers to emit exactly 0 bytes when checks pass (Exit Code 0).
+- **Dogfooding Pre-Commit Secret Guard**: Added native `zenzic-guard` hook to `.pre-commit-config.yaml` and updated `.pre-commit-hooks.yaml` to pass `--quiet --no-header` by default for sub-50ms commit-stage validation.
+
+### Performance
+
+- **Sequential Parsing ~3x Speedup**: Eliminated four O(N) redundant passes across the scan pipeline. Baseline on the Zenzic docs corpus (256 files): from ~13 s to ~4.5 s on standard developer hardware.
+
+  | Root cause | Fix | Savings |
+  | :--- | :--- | :--- |
+  | `CredentialScannerRule` ran `scan_line_for_secrets()` per-line as a rule after `harvest()` had already scanned the same lines via `scan_lines_with_lookback()` | Removed from rule engine; Z201 findings injected directly from `security_findings` | ~829 ms |
+  | `directory_policies` compiled `re.compile(translate_glob_to_re2(pattern))` per file × per pattern | Patterns compiled once, cached on the config object as `_compiled_dir_policies` | ~300 ms |
+  | `cross_check()` re-opened each file from disk via `_iter_content_lines(file_path)` | New `_iter_content_lines_text(text)` + optional `text` parameter on `cross_check()` | ~302 ms |
+  | Four heading rules each did a full `text.splitlines()` + line iteration pass (Z510, Z513, Z516, Z517) | Replaced with `CombinedHeadingRule` — single pass; anchors collected as zero-cost side effect, skipping `anchors_in_file()` in VSM | ~415 ms |
+
+- **Z201 single-pass**: LSP path (`_analyze_file`) now performs the credential scan explicitly via `scan_lines_with_lookback()` — consistent with the CLI path where `harvest()` handles it.
+- **`_SECRETS` per-pattern quick prefix**: Added `tuple[str, ...]` of distinctive token prefixes per pattern entry; the credential scanner skips RE2 evaluation when the line does not contain the specific prefix.
 
 ### Fixed
 
-- **DQS Governance Escalation Parity (`Z620`)**: Included `Z620` (`STALE_GLOBAL_SUPPRESSION`) in `_Z6XX_CODES` in `src/zenzic/core/scorer.py`, eliminating a mathematical inconsistency where stale global suppressions were omitted from exponential penalty amplification.
-- **Documentation & Mirror Law Parity**: Synchronized DQS category weights, penalty tables, and finding catalogs across `docs/reference/scoring-algorithm.md`, `docs/explanation/scoring-system.md`, and `docs/reference/finding-codes.md`.
+- **Z620 false positives** (`directory_policies` tracking): cached compiled patterns now carry the original glob string, restoring correct `GlobalUsageTracker.mark_directory_policy_used(pattern, code)` invocations. Regression introduced in the `_compiled_dir_policies` caching patch.
+
+- **Full Telemetry Disclosure & Unified Progress Telemetry**: Unified all analysis and environment phases (Environment & VSM Init, Parsing, Link Validation, IPC Teardown, Orphans, Snippets, Assets) under a single cohesive Rich `Progress` context, providing uniform determinate progress bars and explicit millisecond timing telemetry across all stages.
+- **External URL Exclusion Pre-filtering & Baseline Debt UX**: Added deterministic prefix exclusion filtering in `_check_external_links()` and `LinkValidator.register()`, preventing unwanted HTTP requests for URLs matching `excluded_external_urls` or CLI `--exclude-url`. Refined baseline UX to display an encouraging notification upon massive technical debt resolution (> 50 issues resolved) without new findings.
+- **Batched IPC Work Chunking in Hybrid Adaptive Engine**: Partitioned multiprocessing file tasks into dynamically sized chunks (`chunksize = max(4, N // (2 * cpu))`), drastically reducing inter-process serialization overhead and worker queue contention while preserving ADR-020 Parallel Fail-Fast security guarantees on security breach detection.
+- **$O(1)$ Navigation Tree Memoization**: Pre-computed navigation paths as an immutable `frozenset[str]` during `MkDocsAdapter` initialization, eliminating over 350,000 redundant recursive dictionary walks and accelerating cross-check topological validation.
+- **Single-Pass Fused Lexer & Pre-Masked Buffers**: Refactored `PolyglotExtractor` in `validator.py` to reuse pre-masked text buffers across HTML, reference definitions, and inline Markdown link extractors, eliminating redundant RE2 tokenization and cutting millions of intermediate string allocations.
+- **Hybrid Adaptive Engine Multiprocessing Bugfix**: Fixed `workers: int | None = None` default in `scan_docs_references()`, added `RuleFinding.__reduce__()` for safe multiprocessing pickle serialization, and aggregated `consumed_global_patterns` across parallel worker reports into `config._global_tracker`. Restores 7x parallel speedup on workspaces with $\ge 50$ documents.
+- **Single-Pass CLI Architecture**: Refactored `_collect_all_results()` to pass precomputed integrity reports directly to `validate_links_structured()`, eliminating redundant second-pass scans and restoring strict $O(N)$ execution.
+- **RE2 Configuration Error Trapping**: Added comprehensive regex pattern validation with explicit user diagnostics detailing Google RE2 limitations (prohibiting lookaround assertions `(?=...)` and backreferences `\1`) in `CustomRuleConfig`, `PoliciesConfig`, and `ZenzicConfig`.
+
+### Removed
+
+- **Legacy Custom Rule API v2**: Removed deprecated `BaseASTRule` stub from `src/zenzic/rules/base.py` as scheduled in the v0.30.0 debt eradication milestone. All custom rules must use Custom Rule SDK v3 (`zenzic.sdk.ZenzicRuleV3`).
+
+### Governance
+
+- **Comprehensive Bump Coverage Invariant**: Mandated and registered complete version search/replace coverage across all repository files (`docs/`, `README.md`, `.github/`, `.pre-commit-hooks.yaml`) in `.bumpversion.toml` to guarantee zero-debt release automation.
+
+### Ecosystem
+
+- **VS Code Extension — Zero-Config Auto-Provisioning**: The companion `zenzic-vscode` extension now automatically provisions an isolated Zenzic engine if the CLI is not found on the user's system, using `uv` or `python3 -m venv`. This milestone eliminates the last remaining manual setup friction for new adopters and positions Zenzic as a truly frictionless, "install-and-forget" documentation quality platform.
 
 ## Historical Releases
 
+- v0.29.x archive: [changelogs/v0.29.x.md](./changelogs/v0.29.x.md)
 - v0.28.x archive: [changelogs/v0.28.x.md](./changelogs/v0.28.x.md)
 - v0.27.x archive: [changelogs/v0.27.x.md](./changelogs/v0.27.x.md)
 - v0.26.x archive: [changelogs/v0.26.x.md](./changelogs/v0.26.x.md)

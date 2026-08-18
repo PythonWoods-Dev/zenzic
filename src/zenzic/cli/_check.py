@@ -141,6 +141,17 @@ def check_links(
         "--only",
         help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress output except for errors.",
+    ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Suppress the Zenzic startup banner.",
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
@@ -150,6 +161,8 @@ def check_links(
     """Check for broken internal links and enforce strict warning policy when requested."""
     _validate_only_flag(only)
 
+    if ci or quiet:
+        no_header = True
     if ci:
         strict = True
         if output_format == "text":
@@ -224,7 +237,8 @@ def check_links(
         if incidents:
             raise typer.Exit(3)
         errors_count = sum(1 for f in findings if f.severity == "error")
-        if errors_count:
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
@@ -235,7 +249,8 @@ def check_links(
         if incidents:
             raise typer.Exit(3)
         errors_count = sum(1 for f in findings if f.severity == "error")
-        if errors_count:
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
     elif output_format == "github-annotations":
@@ -249,32 +264,37 @@ def check_links(
             raise typer.Exit(1)
         return
 
-    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    _shared._ui.print_header(__version__)
-    if path is not None:
-        try:
-            _hint = str(docs_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(docs_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
-    footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
-    if no_external and output_format == "text":
-        footer_lines.append(
-            f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
-            f"Credential scanner (Z201) remains active.[/]"
+    if quiet:
+        errors, warnings = reporter.render_quiet(findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
+        if no_external and output_format == "text":
+            footer_lines.append(
+                f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+                f"Credential scanner (Z201) remains active.[/]"
+            )
+        errors, warnings = reporter.render(
+            findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            ok_message="No broken links found.",
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(*footer_lines),
         )
-    errors, warnings = reporter.render(
-        findings,
-        version=__version__,
-        elapsed=elapsed,
-        docs_count=docs_count,
-        assets_count=assets_count,
-        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-        ok_message="No broken links found.",
-        show_info=show_info,
-        footer_notice=_shared.make_footer_notice(*footer_lines),
-    )
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
         raise typer.Exit(3)
@@ -305,6 +325,10 @@ def check_orphans(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output except for errors."),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="Suppress the Zenzic startup banner."
+    ),
     offline: bool = typer.Option(
         False, "--offline", help="Force flat URL resolution for offline builds."
     ),
@@ -317,6 +341,8 @@ def check_orphans(
     """Detect .md files not listed in the nav."""
     _validate_only_flag(only)
 
+    if ci or quiet:
+        no_header = True
     if ci:
         if output_format == "text":
             output_format = "github-annotations"
@@ -327,7 +353,7 @@ def check_orphans(
         _search_from = _pre.parent if _pre.is_file() else _pre
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
-    if not loaded_from_file:
+    if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
     config = _shared._apply_engine_override(config, engine)
     if offline:
@@ -391,27 +417,32 @@ def check_orphans(
             raise typer.Exit(1)
         return
 
-    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    _shared._ui.print_header(__version__)
-    if path is not None:
-        try:
-            _hint = str(docs_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(docs_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
-    errors, warnings = reporter.render(
-        findings,
-        version=__version__,
-        elapsed=elapsed,
-        docs_count=docs_count,
-        assets_count=assets_count,
-        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-        strict=True,
-        ok_message="No orphan pages found.",
-        show_info=show_info,
-        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
-    )
+    if quiet:
+        errors, warnings = reporter.render_quiet(findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        errors, warnings = reporter.render(
+            findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            strict=True,
+            ok_message="No orphan pages found.",
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+        )
     if errors or warnings:
         raise typer.Exit(1)
 
@@ -432,6 +463,10 @@ def check_snippets(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output except for errors."),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="Suppress the Zenzic startup banner."
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
@@ -441,6 +476,8 @@ def check_snippets(
     """Validate Python code blocks in documentation Markdown files."""
     _validate_only_flag(only)
 
+    if ci or quiet:
+        no_header = True
     if ci:
         if output_format == "text":
             output_format = "github-annotations"
@@ -451,7 +488,7 @@ def check_snippets(
         _search_from = _pre.parent if _pre.is_file() else _pre
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
-    if not loaded_from_file:
+    if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
@@ -509,26 +546,31 @@ def check_snippets(
             raise typer.Exit(1)
         return
 
-    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    _shared._ui.print_header(__version__)
-    if path is not None:
-        try:
-            _hint = str(docs_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(docs_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
-    errors, warnings = reporter.render(
-        findings,
-        version=__version__,
-        elapsed=elapsed,
-        docs_count=docs_count,
-        assets_count=assets_count,
-        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-        ok_message="All code snippets are syntactically valid.",
-        show_info=show_info,
-        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
-    )
+    if quiet:
+        errors, warnings = reporter.render_quiet(findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        errors, warnings = reporter.render(
+            findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            ok_message="All code snippets are syntactically valid.",
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+        )
     if errors:
         raise typer.Exit(1)
 
@@ -561,6 +603,10 @@ def check_references(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output except for errors."),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="Suppress the Zenzic startup banner."
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
@@ -583,6 +629,8 @@ def check_references(
     """
     _validate_only_flag(only)
 
+    if ci or quiet:
+        no_header = True
     if ci:
         strict = True
         if output_format == "text":
@@ -594,7 +642,7 @@ def check_references(
         _search_from = _pre.parent if _pre.is_file() else _pre
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
-    if not loaded_from_file:
+    if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
@@ -704,27 +752,32 @@ def check_references(
             raise typer.Exit(1)
         return
 
-    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    _shared._ui.print_header(__version__)
-    if path is not None:
-        try:
-            _hint = str(docs_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(docs_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
-    errors, warnings = reporter.render(
-        findings,
-        version=__version__,
-        elapsed=elapsed,
-        docs_count=docs_count,
-        assets_count=assets_count,
-        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-        strict=strict,
-        ok_message="All references resolved.",
-        show_info=show_info,
-        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
-    )
+    if quiet:
+        errors, warnings = reporter.render_quiet(findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        errors, warnings = reporter.render(
+            findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            strict=strict,
+            ok_message="All references resolved.",
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+        )
 
     breaches = sum(1 for f in findings if f.severity == "security_breach")
     if breaches:
@@ -749,6 +802,10 @@ def check_assets(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output except for errors."),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="Suppress the Zenzic startup banner."
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
@@ -758,6 +815,8 @@ def check_assets(
     """Detect unused images and assets in the documentation."""
     _validate_only_flag(only)
 
+    if ci or quiet:
+        no_header = True
     if ci:
         if output_format == "text":
             output_format = "github-annotations"
@@ -768,7 +827,7 @@ def check_assets(
         _search_from = _pre.parent if _pre.is_file() else _pre
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
-    if not loaded_from_file:
+    if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
@@ -834,27 +893,32 @@ def check_assets(
             raise typer.Exit(1)
         return
 
-    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    _shared._ui.print_header(__version__)
-    if path is not None:
-        try:
-            _hint = str(docs_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(docs_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
-    errors, warnings = reporter.render(
-        findings,
-        version=__version__,
-        elapsed=elapsed,
-        docs_count=docs_count,
-        assets_count=assets_count,
-        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-        strict=True,
-        ok_message="No unused assets found.",
-        show_info=show_info,
-        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
-    )
+    if quiet:
+        errors, warnings = reporter.render_quiet(findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        errors, warnings = reporter.render(
+            findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            strict=True,
+            ok_message="No unused assets found.",
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+        )
     if errors or warnings:
         raise typer.Exit(1)
 
@@ -875,6 +939,10 @@ def check_placeholders(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output except for errors."),
+    no_header: bool = typer.Option(
+        False, "--no-header", help="Suppress the Zenzic startup banner."
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
@@ -884,6 +952,8 @@ def check_placeholders(
     """Detect pages with < 50 words or containing TODOs/stubs."""
     _validate_only_flag(only)
 
+    if ci or quiet:
+        no_header = True
     if ci:
         if output_format == "text":
             output_format = "github-annotations"
@@ -894,7 +964,7 @@ def check_placeholders(
         _search_from = _pre.parent if _pre.is_file() else _pre
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
-    if not loaded_from_file:
+    if not loaded_from_file and not quiet:
         _shared._print_no_config_hint()
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
@@ -946,27 +1016,32 @@ def check_placeholders(
                     )
                 )
 
-    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    _shared._ui.print_header(__version__)
-    if path is not None:
-        try:
-            _hint = str(docs_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(docs_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
-    errors, warnings = reporter.render(
-        findings,
-        version=__version__,
-        elapsed=elapsed,
-        docs_count=docs_count,
-        assets_count=assets_count,
-        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-        strict=True,
-        ok_message="No placeholder stubs found.",
-        show_info=show_info,
-        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
-    )
+    if quiet:
+        errors, warnings = reporter.render_quiet(findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        errors, warnings = reporter.render(
+            findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            strict=True,
+            ok_message="No placeholder stubs found.",
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+        )
     if errors or warnings:
         raise typer.Exit(1)
 
@@ -1053,6 +1128,7 @@ def _collect_all_results(
     strict: bool,
     check_external: bool = True,
     show_progress: bool = False,
+    init_start_time: float | None = None,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
 
@@ -1063,80 +1139,177 @@ def _collect_all_results(
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
-    ref_reports, _ = scan_docs_references(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        validate_links=False,
-        locale_roots=locale_roots,
-        content_roots=content_roots,
-        show_progress=show_progress,
-    )
-    security_events = sum(len(r.security_findings) for r in ref_reports)
+    progress = None
+    if show_progress:
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TaskProgressColumn,
+            TextColumn,
+            TimeElapsedColumn,
+        )
 
-    config_asset_issues: list[tuple[str, str]] = []
-    _engine = config.build_context.engine
-    if _engine == "mkdocs":
-        config_asset_issues = _mkdocs_check_assets(repo_root)
-    elif _engine == "zensical":
-        config_asset_issues = _zensical_check_assets(repo_root)
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=_shared.get_console(),
+        )
+        progress.start()
+        _init_ms = (time.perf_counter() - (init_start_time or time.perf_counter())) * 1000
+        progress.add_task(
+            f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
+            total=1,
+            completed=1,
+        )
 
-    trackers = {
-        r.file_path.resolve(): r.suppression_tracker
-        for r in ref_reports
-        if r.suppression_tracker is not None
-    }
-
-    link_errors = validate_links_structured(
-        docs_root,
-        exclusion_mgr,
-        repo_root=repo_root,
-        config=config,
-        strict=strict,
-        locale_roots=locale_roots,
-        check_external=check_external,
-        trackers=trackers,
-    )
-
-    for r in ref_reports:
-        if r.suppression_tracker is not None:
-            dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
-            r.rule_findings = [
-                f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
-            ]
-
-    return _AllCheckResults(
-        link_errors=link_errors,
-        orphans=find_orphans(
+    try:
+        ref_reports, ext_errors = scan_docs_references(
             docs_root,
             exclusion_mgr,
             config=config,
-            has_engine_config=adapter.has_engine_config(),
-            nav_paths=adapter.get_nav_paths(),
-            is_locale_dir=adapter.is_locale_dir,
-            ignored_patterns=adapter.get_ignored_patterns(),
-            adapter=adapter,
-        ),
-        snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
-        unused_assets=find_unused_assets(
-            docs_root,
-            exclusion_mgr,
-            config=config,
+            validate_links=strict and check_external,
             locale_roots=locale_roots,
             content_roots=content_roots,
-            adapter_metadata_files=adapter.get_metadata_files(),
-        ),
-        nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
-        reference_reports=ref_reports,
-        security_events=security_events,
-        directory_index_issues=find_missing_directory_indices(
+            show_progress=show_progress,
+            progress_instance=progress,
+        )
+        security_events = sum(len(r.security_findings) for r in ref_reports)
+
+        config_asset_issues: list[tuple[str, str]] = []
+        _engine = config.build_context.engine
+        if _engine == "mkdocs":
+            config_asset_issues = _mkdocs_check_assets(repo_root)
+        elif _engine == "zensical":
+            config_asset_issues = _zensical_check_assets(repo_root)
+
+        trackers = {
+            r.file_path.resolve(): r.suppression_tracker
+            for r in ref_reports
+            if r.suppression_tracker is not None
+        }
+
+        link_errors = validate_links_structured(
             docs_root,
             exclusion_mgr,
+            repo_root=repo_root,
             config=config,
-            provides_index=adapter.provides_index,
-        ),
-        config_asset_issues=config_asset_issues,
-    )
+            strict=strict,
+            locale_roots=locale_roots,
+            check_external=check_external,
+            trackers=trackers,
+            reports=ref_reports,
+            ext_errors=ext_errors,
+        )
+
+        for r in ref_reports:
+            if r.suppression_tracker is not None:
+                dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
+                r.rule_findings = [
+                    f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
+                ]
+
+        if progress is not None:
+            task_orphans = progress.add_task(
+                "Checking orphan pages & topology...",
+                total=1,
+                start=True,
+            )
+            t0 = time.perf_counter()
+            orphans = find_orphans(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                has_engine_config=adapter.has_engine_config(),
+                nav_paths=adapter.get_nav_paths(),
+                is_locale_dir=adapter.is_locale_dir,
+                ignored_patterns=adapter.get_ignored_patterns(),
+                adapter=adapter,
+            )
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            progress.update(
+                task_orphans,
+                completed=1,
+                description=f"Checking orphan pages & topology... [dim]({elapsed_ms:.1f}ms)[/dim]",
+            )
+
+            task_snippets = progress.add_task(
+                "Validating code snippets...",
+                total=1,
+                start=True,
+            )
+            t0 = time.perf_counter()
+            snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            progress.update(
+                task_snippets,
+                completed=1,
+                description=f"Validating code snippets... [dim]({elapsed_ms:.1f}ms)[/dim]",
+            )
+
+            task_assets = progress.add_task(
+                "Checking unused assets & media...",
+                total=1,
+                start=True,
+            )
+            t0 = time.perf_counter()
+            unused_assets = find_unused_assets(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                locale_roots=locale_roots,
+                content_roots=content_roots,
+                adapter_metadata_files=adapter.get_metadata_files(),
+            )
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            progress.update(
+                task_assets,
+                completed=1,
+                description=f"Checking unused assets & media... [dim]({elapsed_ms:.1f}ms)[/dim]",
+            )
+        else:
+            orphans = find_orphans(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                has_engine_config=adapter.has_engine_config(),
+                nav_paths=adapter.get_nav_paths(),
+                is_locale_dir=adapter.is_locale_dir,
+                ignored_patterns=adapter.get_ignored_patterns(),
+                adapter=adapter,
+            )
+            snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+            unused_assets = find_unused_assets(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                locale_roots=locale_roots,
+                content_roots=content_roots,
+                adapter_metadata_files=adapter.get_metadata_files(),
+            )
+
+        return _AllCheckResults(
+            link_errors=link_errors,
+            orphans=orphans,
+            snippet_errors=snippet_errors,
+            unused_assets=unused_assets,
+            nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
+            reference_reports=ref_reports,
+            security_events=security_events,
+            directory_index_issues=find_missing_directory_indices(
+                docs_root,
+                exclusion_mgr,
+                config=config,
+                provides_index=adapter.provides_index,
+            ),
+            config_asset_issues=config_asset_issues,
+        )
+    finally:
+        if progress is not None:
+            progress.stop()
 
 
 def _append_z620_findings(
@@ -1444,6 +1617,7 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
+    _t_init_start = time.perf_counter()
     _validate_only_flag(only)
 
     # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
@@ -1560,6 +1734,7 @@ def check_all(
             strict=effective_strict,
             check_external=not no_external,
             show_progress=show_progress,
+            init_start_time=_t_init_start,
         )
 
     if only:
@@ -1724,10 +1899,16 @@ def check_all(
                 f"({baselined_cnt} baselined, {new_cnt} new)[/]"
             )
             if fixed_cnt > 0:
-                _footer_lines.append(
-                    f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
-                    f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
-                )
+                if fixed_cnt > 50 and new_cnt == 0:
+                    _footer_lines.append(
+                        f"[{ZenzicPalette.SUCCESS}]✨ Massive technical debt reduction detected ({fixed_cnt} issues resolved). "
+                        f"Baseline is stale. Run 'zenzic check all --update-baseline' to lock in this clean state.[/]"
+                    )
+                else:
+                    _footer_lines.append(
+                        f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
+                        f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
+                    )
 
         if _score_report.security_override:
             _dqs_line = (
@@ -1768,7 +1949,7 @@ def check_all(
             footer_notice=_shared.make_footer_notice(*_footer_lines),
         )
 
-    if output_format == "text":
+    if output_format == "text" and not quiet:
         print_suppression_audit_footer(suppression_audit, audit_mode=audit)
 
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")

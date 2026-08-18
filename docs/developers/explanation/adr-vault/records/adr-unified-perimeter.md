@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 8
 description: "ADR 006: Fixing theme flip and Blog locale bleed in zenzic.dev — storage namespace unification and locale-sovereign navbar links."
 ---
 

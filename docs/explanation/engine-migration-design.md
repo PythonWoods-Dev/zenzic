@@ -1,6 +1,4 @@
 ---
-sidebar_label: "Engine Migration Design"
-sidebar_position: 10
 description: "Why Zenzic lints the source, not the build — the architecture that makes engine migrations provably safe."
 ---
 

@@ -70,7 +70,17 @@ repos:
         types: [python]
         pass_filenames: false
 
-  # 7. Final Guard — score gate + badge freshness + full audit (pre-push only)
+  # 7. Local Dogfooding: Zenzic Secret Guard on staged Markdown/MDX
+  - repo: local
+    hooks:
+      - id: zenzic-guard
+        name: zenzic guard (Secret Guard)
+        entry: uv run zenzic guard scan --staged --quiet --no-header
+        language: system
+        types_or: [markdown, mdx]
+        pass_filenames: false
+
+  # 8. Final Guard — score gate + badge freshness + full audit (pre-push only)
   - repo: local
     hooks:
       - id: just-verify

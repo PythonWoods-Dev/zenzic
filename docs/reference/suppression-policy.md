@@ -1,6 +1,4 @@
 ---
-sidebar_position: 5
-sidebar_label: "Suppression Policy"
 description: "The Zenzic Suppression Policy — four governance levels, Technical Debt cost formula, inviolable security codes, and the Suppression CAP."
 ---
 

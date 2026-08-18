@@ -316,7 +316,7 @@ def test_parallel_zrt002_deadlock_guard_emits_z902(tmp_path: Path) -> None:
     import zenzic.core.scanner as scanner_mod
     from zenzic.models.references import IntegrityReport
 
-    n = ADAPTIVE_PARALLEL_THRESHOLD
+    n = 10
     repo = _make_docs(tmp_path, n_files=n)
     config = ZenzicConfig()
     docs_root = repo / config.docs_dir
@@ -336,10 +336,13 @@ def test_parallel_zrt002_deadlock_guard_emits_z902(tmp_path: Path) -> None:
     original_timeout = scanner_mod._WORKER_TIMEOUT_S
     try:
         scanner_mod._WORKER_TIMEOUT_S = 1  # shorten for test speed
-        with patch("concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor):
-            with patch("zenzic.core.scanner._worker", side_effect=_hanging_worker):
-                mgr = make_mgr(config, repo_root=repo)
-                reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
+        with patch("zenzic.core.scanner.ADAPTIVE_PARALLEL_THRESHOLD", 10):
+            with patch(
+                "concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor
+            ):
+                with patch("zenzic.core.scanner._worker", side_effect=_hanging_worker):
+                    mgr = make_mgr(config, repo_root=repo)
+                    reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
     finally:
         scanner_mod._WORKER_TIMEOUT_S = original_timeout
         _hang_event.set()  # unblock any threads still waiting (belt-and-suspenders)
@@ -356,7 +359,7 @@ def test_parallel_results_sorted_after_fail_fast(tmp_path: Path) -> None:
     from zenzic.core.credentials import SecurityFinding
     from zenzic.models.references import IntegrityReport
 
-    n = ADAPTIVE_PARALLEL_THRESHOLD
+    n = 10
     repo = _make_docs(tmp_path, n_files=n)
     config = ZenzicConfig()
     docs_root = repo / config.docs_dir
@@ -381,10 +384,11 @@ def test_parallel_results_sorted_after_fail_fast(tmp_path: Path) -> None:
             )
         return IntegrityReport(file_path=md_file, score=100.0)
 
-    with patch("concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor):
-        with patch("zenzic.core.scanner._worker", side_effect=_mock_worker):
-            mgr = make_mgr(config, repo_root=repo)
-            reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
+    with patch("zenzic.core.scanner.ADAPTIVE_PARALLEL_THRESHOLD", 10):
+        with patch("concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor):
+            with patch("zenzic.core.scanner._worker", side_effect=_mock_worker):
+                mgr = make_mgr(config, repo_root=repo)
+                reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
 
     paths = [r.file_path for r in reports]
     assert paths == sorted(paths), (

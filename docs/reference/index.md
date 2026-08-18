@@ -1,5 +1,4 @@
 ---
-sidebar_label: Overview
 description: "Checks, configuration fields, Policy-as-Code, custom rules DSL, audit mode, and discovery logic."
 ---
 

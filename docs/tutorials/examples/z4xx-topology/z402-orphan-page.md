@@ -1,6 +1,4 @@
 ---
-sidebar_position: 2
-sidebar_label: "Z402 - Orphan Page"
 description: "Analysis of the z402-orphan-page fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

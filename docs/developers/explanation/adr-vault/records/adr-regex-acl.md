@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: -1
 description: "ADR 013: Why Zenzic wraps google-re2 behind a Regex Anti-Corruption Layer to enforce ReDoS protection without degrading developer experience."
 ---
 

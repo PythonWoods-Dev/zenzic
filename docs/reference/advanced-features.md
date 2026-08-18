@@ -1,5 +1,4 @@
 ---
-sidebar_label: "Advanced Features"
 description: "Reference integrity, credential scanner detection, and programmatic usage."
 ---
 

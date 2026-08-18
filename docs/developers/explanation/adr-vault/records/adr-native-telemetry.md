@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 3
 description: "ADR 015: Zenzic validates its own DQS badge freshness natively via --check-stamp, eliminating the need for external git/bash gates in CI workflows."
 ---
 

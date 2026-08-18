@@ -1,6 +1,4 @@
 ---
-sidebar_position: 5
-sidebar_label: "Z405 - Unused Assets"
 description: "Analysis of the z405-unused-assets fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 9
 description: "ADR 008: Atomic filesystem parity between the English source tree and its Italian mirror — the Symmetry Guardrail."
 ---
 

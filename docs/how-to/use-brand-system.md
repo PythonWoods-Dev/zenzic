@@ -1,5 +1,4 @@
 ---
-sidebar_label: Use the Brand System
 description: "How to use Zenzic's semantic tokens in HTML/Jinja components and Markdown."
 ---
 
@@ -40,23 +39,13 @@ Every HTML/Jinja component must use `var(--zenzic-*)` tokens for:
 
 ## Markdown Integration Pattern
 
-Use Markdown as the normative page and keep the static HTML board as the full visual artifact.
+Use Markdown documentation as the normative source of truth for brand token mapping.
 
 Recommended pattern:
 
 1. Explain policy and token mapping in Markdown.
-2. Link to the static board for visual review.
-3. Keep both aligned when editing palette decisions.
-
-Optional embed:
-
-```html
-<iframe
-  title="Zenzic Brand System"
-  src="/assets/brand/zenzic-brand-system.html"
-  style={{ width: '100%', minHeight: 920, border: '1px solid var(--ifm-toc-border-color)', borderRadius: 'var(--ifm-pre-border-radius)' }}
-/>
-```
+2. Maintain CSS custom properties in `docs/assets/css/extra.css`.
+3. Keep tokens and documentation aligned when making design system decisions.
 
 ## Accessibility Baseline
 
@@ -96,7 +85,9 @@ The following assets are tracked by Zenzic to ensure they remain in the Virtual 
 - [Favicon](../favicon.ico)
 - [Icon (SVG)](../assets/brand/svg/zenzic-icon.svg)
 - [Logo (SVG)](../assets/brand/svg/zenzic-logo.svg)
+- [Logo Dark (SVG)](../assets/brand/svg/zenzic-logo-dark.svg)
 - [Logo (PNG)](../assets/brand/png/zenzic-logo.png)
+- [Logo Dark (PNG)](../assets/brand/png/zenzic-logo-dark.png)
 
 ### Barlow Fonts
 

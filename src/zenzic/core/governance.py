@@ -217,7 +217,7 @@ def apply_directory_policies(
 class PolicyEvaluator:
     """Stateless, deterministic evaluator for ``[policies]`` declarations (v0.28.0).
 
-    Evaluates Z610, Z611, Z612, Z613, Z614, Z615, Z616 policies against a single Markdown file.
+    Evaluates Z610, Z611, Z612, Z613, Z614, Z615, Z616, Z617, Z618, Z619 policies against a single Markdown file.
 
     Usage::
 
@@ -234,6 +234,9 @@ class PolicyEvaluator:
         self._allowed_domains: list[str] = config.policies.allowed_external_domains
         self._required_schemes: list[str] = config.policies.required_url_schemes
         self._cross_namespace: dict[str, list[str]] = config.policies.cross_namespace_restrictions
+        self._forbidden_content: list[str] = config.policies.forbidden_content_patterns
+        self._required_headings: list[str] = config.policies.required_heading_patterns
+        self._max_complexity: int = config.policies.max_document_complexity
 
     # ── Public surface ────────────────────────────────────────────────────────
 
@@ -248,6 +251,9 @@ class PolicyEvaluator:
             or self._allowed_domains
             or self._required_schemes
             or self._cross_namespace
+            or self._forbidden_content
+            or self._required_headings
+            or (self._max_complexity > 0)
         )
 
     def check(
@@ -294,7 +300,199 @@ class PolicyEvaluator:
                     )
                 )
 
+        if self._forbidden_content:
+            findings.extend(self._check_forbidden_content(file_path, content))
+
+        if self._required_headings:
+            findings.extend(self._check_required_headings(file_path, content))
+
+        if self._max_complexity > 0:
+            findings.extend(self._check_document_complexity(file_path, content))
+
         return findings
+
+    def _check_forbidden_content(self, file_path: Path, content: str) -> list[RuleFinding]:
+        """Z617 FORBIDDEN_CONTENT_PATTERN policy check."""
+        if not self._forbidden_content:
+            return []
+
+        from zenzic.core.rules import RuleFinding
+
+        findings: list[RuleFinding] = []
+        lines = content.splitlines()
+        in_code_block = False
+        in_frontmatter = False
+
+        compiled_patterns = []
+        for pat in self._forbidden_content:
+            try:
+                compiled_patterns.append((pat, re.compile(pat)))
+            except (re.error, ValueError):
+                # Skip invalid regex safely
+                continue
+
+        for i, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if i == 1 and stripped == "---":
+                in_frontmatter = True
+                continue
+            if in_frontmatter:
+                if stripped == "---":
+                    in_frontmatter = False
+                continue
+
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_code_block = not in_code_block
+                continue
+
+            if in_code_block:
+                continue
+
+            for raw_pat, compiled in compiled_patterns:
+                m = compiled.search(line)
+                if m:
+                    matched_text = m.group(0)
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z617",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=i,
+                            message=(
+                                f"Content matches forbidden pattern '{raw_pat}': '{matched_text}'. "
+                                f"Declared in [policies].forbidden_content_patterns."
+                            ),
+                            match_text=matched_text,
+                            matched_line=line,
+                        )
+                    )
+
+        return findings
+
+    def _check_required_headings(self, file_path: Path, content: str) -> list[RuleFinding]:
+        """Z618 REQUIRED_HEADING_PATTERN policy check."""
+        if not self._required_headings:
+            return []
+
+        from zenzic.core.rules import RuleFinding
+
+        lines = content.splitlines()
+        in_code_block = False
+        in_frontmatter = False
+        heading_titles: list[str] = []
+
+        for i, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if i == 1 and stripped == "---":
+                in_frontmatter = True
+                continue
+            if in_frontmatter:
+                if stripped == "---":
+                    in_frontmatter = False
+                continue
+
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_code_block = not in_code_block
+                continue
+
+            if in_code_block:
+                continue
+
+            if stripped.startswith("#"):
+                clean = stripped.lstrip("#").strip()
+                clean = re.sub(r"\s*\{#[^}]+\}\s*$", "", clean).strip()
+                if clean:
+                    heading_titles.append(clean)
+
+        findings: list[RuleFinding] = []
+        for pat in self._required_headings:
+            try:
+                compiled = re.compile(pat)
+                matched = any(compiled.search(title) for title in heading_titles)
+            except (re.error, ValueError):
+                matched = True
+
+            if not matched:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z618",
+                        severity="warning",
+                        file_path=file_path,
+                        line_no=1,
+                        message=(
+                            f"Document does not contain any heading matching required pattern '{pat}'. "
+                            f"Declared in [policies].required_heading_patterns."
+                        ),
+                        matched_line="",
+                    )
+                )
+
+        return findings
+
+    def _check_document_complexity(self, file_path: Path, content: str) -> list[RuleFinding]:
+        """Z619 MAX_DOCUMENT_COMPLEXITY policy check."""
+        if self._max_complexity <= 0:
+            return []
+
+        from zenzic.core.rules import RuleFinding
+
+        lines = content.splitlines()
+        in_code_block = False
+        in_frontmatter = False
+        word_count = 0
+        heading_count = 0
+        max_depth = 1
+        link_count = 0
+
+        for i, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if i == 1 and stripped == "---":
+                in_frontmatter = True
+                continue
+            if in_frontmatter:
+                if stripped == "---":
+                    in_frontmatter = False
+                continue
+
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_code_block = not in_code_block
+                continue
+
+            if in_code_block:
+                continue
+
+            if stripped.startswith("#"):
+                m = re.match(r"^(#{1,6})\s+", stripped)
+                if m:
+                    level = len(m.group(1))
+                    heading_count += 1
+                    if level > max_depth:
+                        max_depth = level
+            else:
+                words = [w for w in stripped.split() if w]
+                word_count += len(words)
+
+            links_in_line = len(re.findall(r"\[[^\]]+\]\([^)]+\)", line))
+            link_count += links_in_line
+
+        complexity = (word_count // 50) + (heading_count * 2) + (max_depth * 3) + (link_count * 2)
+
+        if complexity > self._max_complexity:
+            return [
+                RuleFinding(
+                    rule_id="Z619",
+                    severity="warning",
+                    file_path=file_path,
+                    line_no=1,
+                    message=(
+                        f"Document complexity score ({complexity}) exceeds the configured maximum ({self._max_complexity}). "
+                        f"Declared in [policies].max_document_complexity."
+                    ),
+                    matched_line="",
+                )
+            ]
+
+        return []
 
     # ── Internal checkers ─────────────────────────────────────────────────────
 

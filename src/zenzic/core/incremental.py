@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import posixpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
@@ -542,6 +543,25 @@ class IncrementalAnalysisEngine:
         # Atomic Rules
         findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
+        # Credential scan — single-pass; CredentialScannerRule is excluded from
+        # the rule engine to avoid a double-pass in the CLI path (harvest() already
+        # scans there). In the LSP path harvest() is not called, so we scan here.
+        from zenzic.core.credentials import scan_lines_with_lookback
+
+        for _sf in scan_lines_with_lookback(enumerate(text.splitlines(keepends=True), 1), path):
+            findings.append(
+                RuleFinding(
+                    rule_id="Z201",
+                    severity="error",
+                    file_path=_sf.file_path,
+                    line_no=_sf.line_no,
+                    message=f"Credential or secret detected: {_sf.secret_type}",
+                    match_text=_sf.match_text,
+                    matched_line=_sf.url,
+                    col_start=_sf.col_start,
+                )
+            )
+
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
 
@@ -650,7 +670,15 @@ class IncrementalAnalysisEngine:
             line_no = max(0, f.line_no - 1)
             matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
 
-            col_start = getattr(f, "col_start", 0)
+            # LSP Spec §3.15: Position.character MUST be strictly 0-indexed.
+            # Handle finding.column (1-indexed) with - 1 correction, or
+            # finding.col_start (0-indexed) safely.
+            col = getattr(f, "column", None)
+            if col is not None and col > 0:
+                col_start = max(0, col - 1)
+            else:
+                col_start = max(0, getattr(f, "col_start", 0))
+
             match_text = getattr(f, "match_text", "")
             match_len = len(match_text) if match_text else len(matched_line)
 
@@ -821,7 +849,27 @@ class IncrementalAnalysisEngine:
             # Z202 / Z203 — Path Traversal Detection
             if "../" in url:
                 try:
-                    resolved_docs_root = self.docs_root.resolve()
+                    rel_source = path.relative_to(self.docs_root).parent.as_posix()
+                    base = "" if rel_source == "." else rel_source
+                    norm_target = posixpath.normpath(posixpath.join(base, parsed.path))
+                    if norm_target.startswith(".."):
+                        _intent = _classify_traversal_intent(url)
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z203" if _intent == "suspicious" else "Z202",
+                                f"'{url}' resolves outside the docs directory",
+                                severity="error",
+                                matched_line=raw_line,
+                            )
+                        )
+                        continue
+                except Exception:
+                    resolved_docs_root = getattr(self, "_resolved_docs_root", None)
+                    if resolved_docs_root is None:
+                        resolved_docs_root = self.docs_root.resolve()
+                        self._resolved_docs_root = resolved_docs_root
                     source_dir = path.parent.resolve()
                     target_str = os.path.normpath(str(source_dir / parsed.path))
                     target_path = Path(target_str)
@@ -838,18 +886,6 @@ class IncrementalAnalysisEngine:
                             )
                         )
                         continue
-                except Exception:
-                    _intent = _classify_traversal_intent(url)
-                    findings.append(
-                        RuleFinding(
-                            path,
-                            lineno,
-                            "Z203" if _intent == "suspicious" else "Z202",
-                            f"'{url}' resolves outside the docs directory",
-                            severity="error",
-                            matched_line=raw_line,
-                        )
-                    )
                     continue
 
             # Z105 / Z203

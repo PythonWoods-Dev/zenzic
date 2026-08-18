@@ -1,6 +1,4 @@
 ---
-sidebar_position: 4
-sidebar_label: "Finding Codes"
 description: "Zenzic finding-code quick reference. Severity, penalty, exit code, and remediation for every Zxxx diagnostic identifier."
 ---
 
@@ -91,6 +89,72 @@ This rule exists to detect when a sentence in the markdown body exceeds the maxi
 **Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z512.md)
 
 This rule exists to detect when a heading section contains no body content before the next section or EOF.
+
+### Z513: DUPLICATE_HEADING {#z513}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z513.md)
+
+This rule exists to detect when two or more headings within the same document resolve to identical text, preventing ambiguous anchor collisions.
+
+### Z514: GENERIC_IMAGE_ALT_TEXT {#z514}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z514.md)
+
+This rule exists to detect when an image uses generic filler words (such as "image" or "screenshot") as its alternative text instead of providing descriptive accessibility content.
+
+### Z515: BARE_URL_USED {#z515}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z515.md)
+
+This rule exists to detect raw URLs in prose that are not properly enclosed in angle brackets (`<url>`) or formatted as Markdown links (`[text](url)`).
+
+### Z516: MULTIPLE_H1_HEADINGS {#z516}
+
+**Severity:** `error` · **Penalty:** −5.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z516.md)
+
+This rule exists to enforce that every document has at most one top-level H1 heading for structural hierarchy and document outline integrity.
+
+### Z517: HEADING_PUNCTUATION {#z517}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z517.md)
+
+This rule exists to detect headings that end with invalid trailing punctuation (such as periods, colons, or semicolons).
+
+### Z518: PASSIVE_VOICE_DETECTED {#z518}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z518.md)
+
+This rule exists to detect passive voice constructions in prose via deterministic RE2 heuristic matching, promoting direct and active technical prose.
+
+### Z519: WEASEL_WORDS {#z519}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z519.md)
+
+This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously") that weaken technical prose.
+
+### Z520: MALFORMED_LIST_DETECTED {#z520}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z520.md)
+
+This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`-`, `*`, `1.`), preventing accessibility and HTML list rendering degradation.
+
+### Z617: FORBIDDEN_CONTENT_PATTERN {#z617}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z617.md)
+
+This rule exists to detect prose content that matches any forbidden regular expression pattern declared in `[policies].forbidden_content_patterns`.
+
+### Z618: REQUIRED_HEADING_PATTERN {#z618}
+
+**Severity:** `warning` · **Penalty:** −3.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z618.md)
+
+This rule exists to enforce that documents include required section headings matching patterns declared in `[policies].required_heading_patterns`.
+
+### Z619: MAX_DOCUMENT_COMPLEXITY {#z619}
+
+**Severity:** `warning` · **Penalty:** −4.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z619.md)
+
+This rule exists to detect overly complex documents whose structural score exceeds the threshold set in `[policies].max_document_complexity`.
 
 ---
 

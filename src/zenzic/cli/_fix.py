@@ -78,7 +78,13 @@ def fix(
         exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
         files = list(iter_markdown_sources(search_dir, config, exclusion_mgr))
 
-    from zenzic.core.mutator import DeadSuppressionMutation, UntaggedCodeBlockMutation
+    from zenzic.core.mutator import (
+        BareUrlMutation,
+        DeadSuppressionMutation,
+        HeadingPunctuationMutation,
+        MalformedListMutation,
+        UntaggedCodeBlockMutation,
+    )
     from zenzic.core.scanner import _scan_single_file
 
     modified_count = 0
@@ -98,6 +104,9 @@ def fix(
                 EmptyLinkTextMutation(),
                 UntaggedCodeBlockMutation(),
                 DeadSuppressionMutation(dead_lines),
+                BareUrlMutation(),
+                HeadingPunctuationMutation(),
+                MalformedListMutation(),
             ]
         )
 

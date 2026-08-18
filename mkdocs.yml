@@ -24,6 +24,9 @@ extra_css:
 exclude_docs: |
   assets/css/README.md
 
+not_in_nav: |
+  includes/*
+
 # --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
 # navigation.tabs maps each top-level nav entry to a tab in the header.
 nav:
@@ -108,6 +111,14 @@ nav:
         - rules/Z510.md
         - rules/Z511.md
         - rules/Z512.md
+        - rules/Z513.md
+        - rules/Z514.md
+        - rules/Z515.md
+        - rules/Z516.md
+        - rules/Z517.md
+        - rules/Z518.md
+        - rules/Z519.md
+        - rules/Z520.md
         - rules/Z601.md
         - rules/Z603.md
         - rules/Z610.md
@@ -117,6 +128,9 @@ nav:
         - rules/Z614.md
         - rules/Z615.md
         - rules/Z616.md
+        - rules/Z617.md
+        - rules/Z618.md
+        - rules/Z619.md
         - rules/Z901.md
         - rules/Z902.md
         - rules/Z906.md
@@ -192,11 +206,11 @@ nav:
       - Configuration Loading: explanation/configuration-loading.md
       - Exclusion Design: explanation/exclusion-design.md
       - Structural Integrity: explanation/structural-integrity.md
+      - Auto-Fix Philosophy: explanation/auto-fix-philosophy.md
       - Engine Migration Design: explanation/engine-migration-design.md
       - The Zenzic Trinity: explanation/the-zenzic-trinity.md
       - GitHub Action Internals: explanation/github-action-internals.md
       - Privacy Gate: explanation/privacy-gate.md
-      - Mineral Path: explanation/mineral-path.md
       - Brand Philosophy: explanation/brand-philosophy.md
       - Community Index: explanation/community-index.md
 
@@ -241,6 +255,9 @@ nav:
         - developers/explanation/adr-vault/records/adr-021-parallel-audit.md
         - developers/explanation/adr-vault/records/adr-022-english-only-governance.md
         - developers/explanation/adr-vault/records/adr-075-radical-unawareness.md
+        - developers/explanation/adr-vault/records/adr-090-silent-on-success-unix-philosophy.md
+        - developers/explanation/adr-vault/records/adr-091-single-pass-ast-and-cqs.md
+        - developers/explanation/adr-vault/records/adr-092-comprehensive-bump-coverage.md
         - developers/explanation/adr-vault/records/adr-agnostic-universalism.md
         - developers/explanation/adr-vault/records/adr-bilingual-structural.md
         - developers/explanation/adr-vault/records/adr-decentralized-cli.md
@@ -299,7 +316,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.29.1"  # release sync
+  zenzic_version: "0.30.0"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

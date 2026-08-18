@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Overview"
 description: "Interactive gallery of reproducible examples for all diagnostic Z-Codes emitted by the Zenzic static analysis engine."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

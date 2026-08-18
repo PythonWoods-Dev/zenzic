@@ -242,6 +242,12 @@ def score(
             "JSON object on stdout. Intended for programmatic consumers (e.g., editor integrations)."
         ),
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress output on successful score.",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
     # ECOSYSTEM-FEAT-002: --json is a shorthand alias for --format json.
@@ -249,7 +255,7 @@ def score(
     # over --format json for ergonomic clarity.
     if json_flag:
         output_format = "json"
-    if ci:
+    if ci or quiet:
         no_header = True
 
     # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
@@ -297,11 +303,12 @@ def score(
     if save:
         report.threshold = effective_threshold
         snapshot_path = save_snapshot(repo_root, report)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
+        if not quiet:
+            _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
 
     if output_format == "json" and not check_stamp:
         print(json.dumps(report.to_dict(), indent=2))
-    elif not check_stamp:
+    elif not check_stamp and not (quiet and report.score >= effective_threshold):
         if report.score >= 80:
             score_style = ZenzicPalette.STYLE_OK
         elif report.score >= 50:
@@ -647,7 +654,7 @@ def score(
         )
         raise typer.Exit(1)
 
-    if not check_stamp:
+    if not check_stamp and not quiet:
         _shared.print_footer_hint("score", output_format=output_format)
 
 
@@ -1600,7 +1607,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.29.1"]
+dependencies = ["zenzic>=0.30.0"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"

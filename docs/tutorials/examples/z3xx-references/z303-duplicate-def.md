@@ -1,6 +1,4 @@
 ---
-sidebar_position: 3
-sidebar_label: "Z303 - Duplicate Definition"
 description: "Analysis of the z303-duplicate-def fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

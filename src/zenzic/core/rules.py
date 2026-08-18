@@ -198,6 +198,22 @@ class RuleFinding(ZenzicViolation):
         """Return ``True`` when this finding blocks a passing check."""
         return self.severity == "error"
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Support standard and inter-process pickling in worker pools."""
+        return (
+            RuleFinding,
+            (
+                self.file_path,
+                self.line_no,
+                self.rule_id,
+                self.message,
+                self.severity,
+                self.matched_line,
+                self.col_start,
+                self.match_text,
+            ),
+        )
+
 
 # ─── Violation (structured finding for VSM-aware rules) ──────────────────────
 
@@ -774,6 +790,10 @@ def _is_suppressed(line: str, code: str) -> bool:
 
     if code in NON_SUPPRESSIBLE_CODES:
         return False
+
+    if "zenzic" not in line:
+        return False
+
     return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
 
 
@@ -806,6 +826,8 @@ class CircularAnchorRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
         for line_no, line in enumerate(text.splitlines(), start=1):
+            if "(#" not in line:
+                continue
             if _is_suppressed(line, self.rule_id):
                 continue
             for m in _ANCHOR_LINK_RE.finditer(line):
@@ -1105,29 +1127,38 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
             if _FENCE_RE.match(stripped):
                 in_block = False
             continue
-        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
+        if "[" not in clean and "<" not in clean and "href" not in clean:
+            continue
+
         # Markdown inline/image links
-        for m in _INLINE_LINK_RE.finditer(clean):
-            raw = m.group(1).strip()
-            if not raw:
-                continue
-            url = _TITLE_STRIP_RE.sub("", raw).strip()
-            if url:
-                results.append((url, lineno, line.strip()))
-        # HTML href/src attributes (<a href>, <img src>)
-        for tag_m in _HTML_HREF_RE.finditer(clean):
-            for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
-                url = attr_m.group(1).strip()
-                if url:
-                    results.append((url, lineno, line.strip()))
-        # Markdown reference definitions: [id]: url
-        m_ref = _REF_DEF_RE.match(line)
-        if m_ref:
-            raw = m_ref.group(1).strip()
-            if raw:
+        if "[" in clean:
+            for m in _INLINE_LINK_RE.finditer(clean):
+                raw = m.group(1).strip()
+                if not raw:
+                    continue
                 url = _TITLE_STRIP_RE.sub("", raw).strip()
                 if url:
                     results.append((url, lineno, line.strip()))
+
+        # HTML href/src attributes (<a href>, <img src>)
+        if "<" in clean:
+            for tag_m in _HTML_HREF_RE.finditer(clean):
+                for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
+                    url = attr_m.group(1).strip()
+                    if url:
+                        results.append((url, lineno, line.strip()))
+
+        # Markdown reference definitions: [id]: url
+        if "]:" in line:
+            m_ref = _REF_DEF_RE.match(line)
+            if m_ref:
+                raw = m_ref.group(1).strip()
+                if raw:
+                    url = _TITLE_STRIP_RE.sub("", raw).strip()
+                    if url:
+                        results.append((url, lineno, line.strip()))
     return results
 
 
@@ -1197,6 +1228,8 @@ class MissingAltTextRule(BaseRule):
 
         findings = []
         for lineno, line in enumerate(text.splitlines(), start=1):
+            if "![" not in line and "<img" not in line and "<IMG" not in line:
+                continue
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
             # Inline Markdown images
@@ -1271,12 +1304,17 @@ class PlaceholderRule(BaseRule):
 
     def __init__(self, patterns: list[re.RegexPattern]) -> None:
         self.patterns = patterns
+        self._combined_re = (
+            re.compile("|".join(f"(?:{p.pattern})" for p in patterns)) if patterns else None
+        )
 
     @property
     def rule_id(self) -> str:
         return "Z501"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        if not self.patterns or not self._combined_re:
+            return []
         findings = []
         in_block = False
         for i, line in enumerate(text.splitlines(), start=1):
@@ -1288,6 +1326,9 @@ class PlaceholderRule(BaseRule):
             else:
                 if stripped.startswith("```") or stripped.startswith("~~~"):
                     in_block = False
+                continue
+
+            if not self._combined_re.search(line):
                 continue
 
             for pattern in self.patterns:
@@ -1348,6 +1389,133 @@ class EmptySectionRule(BaseRule):
         from zenzic.core.content import check_empty_sections
 
         return check_empty_sections(file_path, text)
+
+
+class DuplicateHeadingRule(BaseRule):
+    """Z513: Emit if two headings in the same document resolve to the exact same text."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z513"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_duplicate_headings
+
+        return check_duplicate_headings(file_path, text)
+
+
+class GenericImageAltTextRule(BaseRule):
+    """Z514: Emit if an image tag uses generic filler words as alt text."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z514"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_generic_image_alt_text
+
+        return check_generic_image_alt_text(file_path, text)
+
+
+class BareUrlUsedRule(BaseRule):
+    """Z515: Detect raw URLs in prose that are not wrapped in Markdown link syntax."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z515"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_bare_urls
+
+        return check_bare_urls(file_path, text)
+
+
+class MultipleH1HeadingsRule(BaseRule):
+    """Z516: Emit if a document contains more than one H1 heading."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z516"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_multiple_h1_headings
+
+        return check_multiple_h1_headings(file_path, text)
+
+
+class HeadingPunctuationRule(BaseRule):
+    """Z517: Emit if a heading ends with invalid trailing punctuation (., :, ;)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z517"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_heading_punctuation
+
+        return check_heading_punctuation(file_path, text)
+
+
+class CombinedHeadingRule(BaseRule):
+    """Single-pass combined check for Z510 + Z513 + Z516 + Z517.
+
+    When *anchors_out* is provided, heading anchor slugs are collected as a
+    side effect, eliminating the separate ``anchors_in_file()`` pass in VSM.
+    """
+
+    def __init__(self, anchors_out: dict[Path, set[str]] | None = None) -> None:
+        self._anchors_out = anchors_out
+
+    @property
+    def rule_id(self) -> str:
+        return "Z510"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_all_heading_rules
+
+        return check_all_heading_rules(file_path, text, anchors_out=self._anchors_out)
+
+
+class PassiveVoiceRule(BaseRule):
+    """Z518: Heuristic detection of passive voice constructs in prose (opt-in)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z518"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_passive_voice
+
+        return check_passive_voice(file_path, text)
+
+
+class WeaselWordsRule(BaseRule):
+    """Z519: Detect weasel words in technical prose (opt-in)."""
+
+    def __init__(self, weasel_words: list[str]) -> None:
+        self.weasel_words = weasel_words
+
+    @property
+    def rule_id(self) -> str:
+        return "Z519"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_weasel_words
+
+        return check_weasel_words(file_path, text, self.weasel_words)
+
+
+class MalformedListRule(BaseRule):
+    """Z520: Detect malformed/fake lists formatted without list markers."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z520"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.content import check_malformed_lists
+
+        return check_malformed_lists(file_path, text)
 
 
 class VSMBrokenLinkRule(BaseRule):

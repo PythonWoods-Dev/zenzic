@@ -45,7 +45,7 @@ Every card in a `<div class="grid cards" markdown>` block must have exactly:
 
 | Pattern | Why |
 | :--- | :--- |
-| React JSX `<Icon name="..." />` | **Strictly Forbidden.** Unrendered HTML tag in Material for MkDocs. |
+| Custom pseudo-tags `<Icon name="..." />` | **Strictly Forbidden.** Unrendered HTML tag in Material for MkDocs. |
 | Horizontal link chains (`·`-separated) | Creates a wall of text; impossible to scan |
 | Nested `<li>` lists inside a card | Breaks card height uniformity |
 | `---` separators inside a card | Adds visual noise without information gain |
@@ -76,7 +76,7 @@ Examples:
 
 ### Rules
 
-- **Strict No-JSX Rule**: React JSX `<Icon name="..." />` tags are strictly forbidden and will be flagged by linting.
+- **Strict Shortcode Rule**: Custom pseudo-tags like `<Icon name="..." />` are strictly forbidden. Always use native Material for MkDocs `:material-*: / :octicons-*:` shortcodes.
 - **Semantic consistency**: If an icon represents "Contribute" on one page, it must be the same icon on every page.
 - **Uniform syntax**: Every icon in a card grid uses native `:material-*: / :octicons-*:` shortcodes.
 - **No emoji in headings**: Emoji characters (`⚡`, `🛡️`, `🚀`, etc.) are permitted in running prose only. They must not be used as heading prefix decorators. Heading hierarchy communicates document structure; emoji communicates marketing enthusiasm. These are incompatible roles. Headings containing emoji will be rejected in PR review.
@@ -190,16 +190,13 @@ Before submitting a PR, verify:
 
 - [ ] Every card grid follows §1 (single action link).
 - [ ] Every admonition matches its §2 role.
-- [ ] All icons use native `:material-*: / :octicons-*:` shortcodes — no React JSX `<Icon />` tags remain.
-
-- [ ] Any new icon name is registered in `src/components/Icon.tsx` (§3).
+- [ ] All icons use native `:material-*: / :octicons-*:` shortcodes.
 - [ ] Cross-referenced H2/H3 headings have explicit `{#id}` (§4). No anchors on H1.
 - [ ] No naked code fences exist (§5).
 - [ ] SPDX header is present (§6).
 - [ ] No hex literal (`#rrggbb`) in `src/` outside `ZenzicPalette._*` (§9).
 - [ ] All colour references use `ZenzicPalette.*` — no removed flat constants (§9).
-- [ ] No new `.svg` file added to `static/assets/terminal/` (§10).
-- [ ] Any text-bearing SVG inside an Markdown page is implemented as `.tsx` (§10).
+- [ ] Any text-bearing diagram inside a Markdown page uses native HTML/Jinja or Mermaid syntax (§10).
 
 ---
 
@@ -339,8 +336,8 @@ Add to your PR checklist:
 
 !!! warning "Design Constraint"
 
-    Any vector asset intended for **exclusive use within Markdown pages** must be implemented
-    as a HTML/Jinja component (`.tsx`), never as a static `.svg` file.
+    Any diagram or structured illustration intended for **exclusive use within Markdown pages** must be implemented
+    using native HTML/Jinja templates or Mermaid code blocks, never as a static text-bearing `.svg` file.
 
 For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/mdx-asset-rationale.md).
 
@@ -348,5 +345,4 @@ For the detailed architectural rationale behind this directive, see [Markdown As
 
 Add to your PR checklist:
 
-- [ ] No new `.svg` file added to `static/assets/terminal/` (use a `.tsx` component).
-- [ ] Any text-bearing SVG introduced inside an Markdown page is implemented as `.tsx`.
+- [ ] Any text-bearing diagram or illustration inside a Markdown page is implemented via native HTML/Jinja or Mermaid.

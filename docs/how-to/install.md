@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Install & First Run"
 description: "Install Zenzic and run your first documentation quality check."
 ---
 <!-- markdownlint-disable MD024 -->

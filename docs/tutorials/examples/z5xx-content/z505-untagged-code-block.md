@@ -1,6 +1,4 @@
 ---
-sidebar_position: 4
-sidebar_label: "Z505 - Untagged Code Block"
 description: "Analysis of the z505-untagged-code-block fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

@@ -1,5 +1,4 @@
 ---
-sidebar_label: "Migration"
 description: "Upgrade guides and migration notes between Zenzic versions."
 ---
 

@@ -1,6 +1,4 @@
 ---
-sidebar_position: 3
-sidebar_label: "Z204 - Forbidden Term"
 description: "Analysis of the z204-forbidden-term fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

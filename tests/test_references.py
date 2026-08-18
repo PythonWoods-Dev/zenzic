@@ -256,7 +256,7 @@ class TestCredentialScanner:
         """Credential scanner stream reads all lines raw; hex sequence in a code block must be caught."""
         from zenzic.core.credentials import _SECRETS
 
-        hex_pattern = next(p for name, p in _SECRETS if name == "hex-encoded-payload")
+        hex_pattern = next(p for name, _pfx, p in _SECRETS if name == "hex-encoded-payload")
         payload = r"\x41\x42\x43\x44"
         assert hex_pattern.search(payload) is not None
 

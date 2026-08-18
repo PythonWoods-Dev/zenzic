@@ -17,7 +17,7 @@ body:
     attributes:
       label: Zenzic version
       description: Output of `zenzic --version`
-      placeholder: "0.4.0rc3"
+      placeholder: "0.30.0"
     validations:
       required: true
 

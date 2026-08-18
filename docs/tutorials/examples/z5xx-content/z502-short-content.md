@@ -1,6 +1,4 @@
 ---
-sidebar_position: 2
-sidebar_label: "Z502 - Short Content"
 description: "Analysis of the z502-short-content fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

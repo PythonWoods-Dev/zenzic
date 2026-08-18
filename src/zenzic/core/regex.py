@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import functools
 import re as stdlib_re  # noqa: TID252
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any, cast
@@ -55,6 +56,7 @@ def _apply_flags(pattern: str, flags: int = 0) -> str:
     return pattern.replace(r"\Z", r"\z")
 
 
+@functools.lru_cache(maxsize=4096)
 def compile(pattern: str, flags: int = 0) -> RegexPattern:  # noqa: A001
     compiled_pattern = _apply_flags(pattern, flags)
     try:

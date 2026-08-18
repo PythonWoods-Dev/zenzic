@@ -1,6 +1,4 @@
 ---
-sidebar_position: 7
-sidebar_label: "Z108 - Empty Link Text"
 description: "Analysis of the z108-empty-link-text fixture: a link whose label is empty, making it inaccessible to screen readers. Z-Code Z108 EMPTY_LINK_TEXT, exit 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

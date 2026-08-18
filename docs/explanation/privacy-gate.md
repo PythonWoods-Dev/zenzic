@@ -1,6 +1,4 @@
 ---
-sidebar_label: "Privacy Gate Architecture"
-sidebar_position: 3
 description: "Design rationale of the Zenzic Privacy Gate — the fail-closed Zero-Trust security model spanning the Z2xx finding family."
 ---
 

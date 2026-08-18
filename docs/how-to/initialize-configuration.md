@@ -1,5 +1,4 @@
 ---
-sidebar_label: Initialize Configuration
 description: "How to scaffold and initialize a new Zenzic configuration file."
 ---
 

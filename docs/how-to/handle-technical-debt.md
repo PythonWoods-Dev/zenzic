@@ -1,6 +1,4 @@
 ---
-sidebar_position: 9
-sidebar_label: "Handle Technical Debt"
 description: "Step-by-step guide to auditing, understanding, and reducing suppression debt in your Zenzic quality score."
 ---
 

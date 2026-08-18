@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 10
 description: "ADR 020: Why Zenzic uses wait(FIRST_COMPLETED) for parallel result collection and how the fail-fast coordinator works without violating Pillar 3."
 ---
 

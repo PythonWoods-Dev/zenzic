@@ -1,5 +1,4 @@
 ---
-sidebar_label: Configuration Loading
 description: "The Agnostic Citizen configuration chain and file priority logic."
 ---
 

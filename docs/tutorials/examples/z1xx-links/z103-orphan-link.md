@@ -1,6 +1,4 @@
 ---
-sidebar_position: 3
-sidebar_label: "Z103 - Orphan Link"
 description: "Walk through the z103-orphan-link fixture: a link to an existing file that is absent from site navigation, triggering Z103 ORPHAN_LINK."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

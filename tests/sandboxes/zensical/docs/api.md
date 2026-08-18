@@ -7,5 +7,6 @@ Full API reference page. Reachable, valid content.
 
 ```python
 import zensical
+
 client = zensical.Client()
 ```

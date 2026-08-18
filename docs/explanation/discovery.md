@@ -1,5 +1,4 @@
 ---
-sidebar_position: 7
 description: How Zenzic discovers documentation files and the 4-level Layered Exclusion hierarchy that controls what gets scanned.
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

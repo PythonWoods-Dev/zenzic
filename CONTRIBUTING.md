@@ -32,8 +32,153 @@ Zenzic is structured across three independent, dedicated repositories:
 Before proposing rule or core engine changes, contributors must validate impact against the live code registry and tier ownership model:
 
 - **Tier Ownership Model:** Findings are grouped into Core (Z1xx), Security (Z2xx), and Governance/Structure (Z3xx–Z6xx) domains. Keep changes in the correct band.
+- **Custom Rule SDK v3:** Authors implementing enterprise or domain-specific rules should subclass `ZenzicRuleV3` from `zenzic.sdk`. Custom rules must be deterministic, pure functions operating over AST or line streams with zero side effects.
 - **Frozen Contract Awareness:** Do not alter immutable surfaces (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) without an explicit architecture decision record (ADR).
 - **Inspect-First Workflow:** Treat `zenzic inspect codes` as the source of truth before editing examples, checks tables, or changelog narratives.
+
+---
+
+## Custom Rule SDK v3 (Enterprise Rule Development)
+
+Zenzic provides the **Custom Rule SDK v3** (`zenzic.sdk`) allowing teams to author custom, typed Python lint rules that execute alongside the built-in analyzer.
+
+> **v0.28.0 Architecture Shift:** The legacy un-typed `BaseASTRule` (v2 API) was removed in v0.28.0. All custom rules must now inherit from `ZenzicRuleV3` and declare a typed `RuleMetadata` schema.
+
+### 1. Architecture & Base Contracts
+
+Every SDK v3 rule inherits from `ZenzicRuleV3` (`from zenzic.sdk import ZenzicRuleV3, RuleMetadata`) and defines a `metadata` class attribute:
+
+```python
+from pydantic import BaseModel
+from zenzic.models.rules import RuleMetadata, RuleSeverity, TaxonomyCategory
+from zenzic.sdk import ZenzicRuleV3
+```
+
+#### The `RuleMetadata` Contract
+
+| Field | Type | Description |
+|:---|:---|:---|
+| `code` | `str` | Unique rule identifier. Must start with `ZZ-` (e.g. `ZZ-REQ-FOOTER`) to avoid collision with core codes (ADR-012). |
+| `title` | `str` | Short human-readable title. |
+| `description` | `str` | Architectural description of the invariant being verified. |
+| `severity` | `"error" \| "warning" \| "info"` | Finding severity level (default: `"warning"`). |
+| `category` | `"structural" \| "navigation" \| "content" \| "brand" \| "governance"` | Taxonomy category for Documentation Quality Score (DQS) weighting. |
+| `penalty` | `float` | DQS penalty points deducted per finding (default: `1.0`). |
+| `docs_url` | `str \| None` | Optional URL pointing to the rule's reference documentation. |
+| `supports_autofix` | `bool` | Flag indicating whether automated fixes are available. |
+
+#### Visitor Hooks
+
+Custom rules can override one or more specialized visitor hooks:
+
+- **`visit_document(self, file_path: Path, text: str) -> list[RuleFinding]`**: Inspects full raw document content (e.g. frontmatter structure, whole-page invariants, mandatory headers/footers).
+- **`visit_line(self, file_path: Path, line_no: int, line_text: str) -> list[RuleFinding]`**: Evaluates individual source lines in a single linear pass.
+- **`visit_link(self, file_path: Path, line_no: int, link_text: str, target_url: str) -> list[RuleFinding]`**: Inspects Markdown and HTML link targets and anchors.
+- **`visit_heading(self, file_path: Path, line_no: int, level: int, title: str) -> list[RuleFinding]`**: Validates heading level hierarchy and heading titles.
+- **`visit_code_block(self, file_path: Path, start_line: int, lang: str, code: str) -> list[RuleFinding]`**: Inspects fenced code blocks, syntax tags, and snippets.
+
+Findings are constructed via `self.create_finding(file_path=..., line_no=..., message=..., matched_line=..., match_text=...)`.
+
+---
+
+### 2. Complete Implementation Example
+
+The following example implements an enterprise rule enforcing that all published documents conclude with a mandatory corporate copyright footer:
+
+```python
+# .zenzic/rules/mandatory_footer.py
+from pathlib import Path
+from zenzic.core.rules import RuleFinding
+from zenzic.models.rules import RuleMetadata
+from zenzic.sdk import ZenzicRuleV3
+
+
+class MandatoryCorporateFooterRule(ZenzicRuleV3):
+    """Enforces that all published documentation files contain the standard corporate footer."""
+
+    metadata = RuleMetadata(
+        code="ZZ-REQ-FOOTER",
+        title="Mandatory Corporate Footer",
+        description="Documentation pages must conclude with the standard corporate copyright footer.",
+        severity="error",
+        category="brand",
+        penalty=2.0,
+    )
+
+    MANDATORY_FOOTER = "<!-- ACME Corp. All Rights Reserved -->"
+
+    def visit_document(self, file_path: Path, text: str) -> list[RuleFinding]:
+        if self.MANDATORY_FOOTER not in text:
+            last_line_no = max(1, len(text.splitlines()))
+            return [
+                self.create_finding(
+                    file_path=file_path,
+                    line_no=last_line_no,
+                    message="Missing required corporate footer marker.",
+                    match_text=self.MANDATORY_FOOTER,
+                )
+            ]
+        return []
+```
+
+---
+
+### 3. Strict Determinism & Sandbox Constraints
+
+To preserve mathematical determinism ($O(N)$ runtime complexity) and enforce the **Sovereign Sandbox (ADR-007)**, all custom rules MUST adhere to these non-negotiable invariants:
+
+1. **Zero Network I/O (Forbidden: HTTP, HTTPS, DNS, Sockets)**:
+   Rules must never initiate network connections. Network I/O violates offline verification guarantees and introduces non-deterministic latency.
+2. **Zero Subprocesses (Forbidden: `subprocess`, `os.system`, `popen`)**:
+   Subprocess execution is strictly forbidden. Zenzic operates under a pure zero-subprocess contract (ADR-002).
+3. **No Probabilistic NLP or Heavy ML Models**:
+   Rules must be deterministic mathematical functions. Using external LLM APIs, non-deterministic tokenizers, or stochastic models is prohibited.
+4. **RE2 Regular Expression Discipline (ADR-013)**:
+   Rules must never use the standard Python `re` module with backtracking or lookaround assertions. Use the linear-time `zenzic.core.regex` wrapper (`import zenzic.core.regex as re`) to guarantee immunity to Catastrophic Backtracking (ReDoS).
+5. **Pure Functions & Immutability**:
+   Rules must be side-effect-free: no filesystem mutations, no mutable module-level state, and no shared state across files.
+
+---
+
+### 4. Registering Custom Rules
+
+Custom rules can be registered using either of two methods:
+
+#### Method A: Project-Local Auto-Discovery (Recommended)
+
+Place custom rule Python files inside the `.zenzic/rules/` directory at the repository root:
+
+```text
+my-project/
+├── .zenzic/
+│   └── rules/
+│       ├── __init__.py
+│       └── mandatory_footer.py
+└── .zenzic.toml
+```
+
+Any class subclassing `ZenzicRuleV3` inside `.zenzic/rules/*.py` is automatically discovered, instantiated, and executed during `zenzic check all`.
+
+#### Method B: Declarative Registration in `.zenzic.toml`
+
+For installed Python packages or shared libraries, register the fully qualified class path under `[[custom_rules]]` in `.zenzic.toml`:
+
+```toml
+[[custom_rules]]
+class_name = "my_enterprise_package.rules.MandatoryCorporateFooterRule"
+```
+
+For simple single-line regex rules without Python code:
+
+```toml
+[[custom_rules]]
+id = "ZZ-NOCLICKHERE"
+pattern = "(?i)\\bclick here\\b|\\bclicca qui\\b"
+message = "Avoid generic link text. Use descriptive anchor text."
+severity = "error"
+```
+
+For extended developer guides, see [Writing Custom Rules](docs/developers/how-to/write-ast-rule.md).
 
 ---
 
@@ -69,10 +214,11 @@ just sync
 
 `just sync` installs all dependency groups via `uv sync --all-groups`.
 
-Install pre-commit hooks immediately after sync (mandatory):
+Install pre-commit and pre-push hooks immediately after sync (mandatory):
 
 ```bash
-uvx pre-commit install              # commit-stage: light hooks (ruff, format, hygiene)
+uv run --active pre-commit install              # commit-stage: light hooks (ruff, format, hygiene, guard)
+uv run --active pre-commit install -t pre-push  # push-stage: Final Guard (just verify before pushing)
 ```
 
 Configure SSH commit signing (required — all commits must appear **Verified** on GitHub):

@@ -51,6 +51,7 @@ class SuppressionTracker:
         self.file_path = file_path
         self.directives: list[SuppressionDirective] = []
         self.globally_suppressed_codes = globally_suppressed_codes or {}
+        self.consumed_global_patterns: set[tuple[str, str]] = set()
         self.global_tracker = global_tracker
         self._parse(text)
 
@@ -86,20 +87,21 @@ class SuppressionTracker:
                         open_count = 0
 
         # Parse html data-zenzic-ignore tags
-        from zenzic.core.validator import PolyglotExtractor
+        if "data-zenzic-ignore" in text:
+            from zenzic.core.validator import PolyglotExtractor
 
-        with contextlib.suppress(Exception):
-            extractor = PolyglotExtractor()
-            html_nodes = extractor.extract(text)
-            for node in html_nodes:
-                if node.suppressed:
-                    self.directives.append(
-                        SuppressionDirective(
-                            code="DATA-ZENZIC-IGNORE",
-                            line_no=node.line_no,
-                            consumed=False,
+            with contextlib.suppress(Exception):
+                extractor = PolyglotExtractor()
+                html_nodes = extractor.extract(text)
+                for node in html_nodes:
+                    if node.suppressed:
+                        self.directives.append(
+                            SuppressionDirective(
+                                code="DATA-ZENZIC-IGNORE",
+                                line_no=node.line_no,
+                                consumed=False,
+                            )
                         )
-                    )
 
     def is_suppressed(self, line_no: int, code: str) -> bool:
         """Return True if the given code is suppressed at the specified line number.
@@ -117,8 +119,9 @@ class SuppressionTracker:
         # If the finding is already globally suppressed, do NOT consume the inline directive.
         # This leaves the inline directive unconsumed, so get_dead_suppressions() emits Z603.
         if code in self.globally_suppressed_codes:
-            if self.global_tracker:
-                for pattern in self.globally_suppressed_codes[code]:
+            for pattern in self.globally_suppressed_codes[code]:
+                self.consumed_global_patterns.add((pattern, code))
+                if self.global_tracker:
                     self.global_tracker.mark_directory_policy_used(pattern, code)
             return True
 

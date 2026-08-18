@@ -1,6 +1,4 @@
 ---
-sidebar_position: 6
-sidebar_label: "The Zenzic Trinity"
 title: "The Zenzic Trinity: Code, Doc, and Action"
 description: "How the three Zenzic repositories form a Trinity of Integrity — a sovereign knowledge system where logic, intent, and enforcement are permanently synchronized."
 ---
@@ -130,7 +128,7 @@ registries and stable command outputs (`inspect capabilities`, `inspect codes`,
 ### ADR Corpus — The Decision Mirror
 
 Every architectural choice lives in a structured Markdown file with a canonical format:
-`sidebar_label`, `**Status:**`, `## Context`, `## Decision`, `## Rationale`. This makes the
+`title`, `**Status:**`, `## Context`, `## Decision`, `## Rationale`. This makes the
 decision history machine-readable by design.
 
 Together, the deterministic rule surface and the ADR corpus form a **transparent context layer**:
