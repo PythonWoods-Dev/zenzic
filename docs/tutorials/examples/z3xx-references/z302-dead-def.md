@@ -1,6 +1,4 @@
 ---
-sidebar_position: 2
-sidebar_label: "Z302 - Dead Definition"
 description: "Analysis of the z302-dead-def fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

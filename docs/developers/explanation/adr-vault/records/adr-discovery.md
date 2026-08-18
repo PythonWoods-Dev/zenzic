@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: 1
 description: "ADR 003: Design decision record for multi-source documentation discovery logic."
 ---
 

@@ -1,5 +1,4 @@
 ---
-sidebar_position: 2
 description: Technical deep dive into Zenzic's Three-Phase Pipeline, credential scanner, Adapter Protocol, Layered Exclusion Manager, and exit code contract.
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

@@ -1,6 +1,4 @@
 ---
-sidebar_position: 12
-sidebar_label: Brand System
 description: "Palette contract, semantic tokens, badge states, and HTML component styling rules for Zenzic Docs."
 ---
 

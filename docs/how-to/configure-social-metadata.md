@@ -1,5 +1,4 @@
 ---
-sidebar_label: "Social Metadata & SEO"
 description: "Configure Open Graph tags, Twitter Cards, and per-page SEO metadata in your Zensical/MkDocs project."
 ---
 

@@ -1,6 +1,4 @@
 ---
-sidebar_label: "Scoring System"
-sidebar_position: 4
 description: "The Deterministic Quality Score (DQS) — conceptual model, category weight matrix, finding codes, dual-gate architecture, worked example, and CLI breakdown."
 ---
 

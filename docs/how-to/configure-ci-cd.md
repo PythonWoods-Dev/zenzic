@@ -1,5 +1,4 @@
 ---
-sidebar_label: "CI/CD Integration"
 description: "Zero-Trust CI/CD Quality Gate integration, SARIF output, GitHub Actions, and Exit Code Contract (ADR-075)."
 ---
 

@@ -1,5 +1,4 @@
 ---
-sidebar_label: Use the Brand System
 description: "How to use Zenzic's semantic tokens in HTML/Jinja components and Markdown."
 ---
 

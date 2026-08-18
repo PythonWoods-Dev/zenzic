@@ -1,5 +1,4 @@
 ---
-sidebar_position: 2
 title: Checks Reference
 description: Six independent checks for documentation integrity — from broken links to leaked credentials.
 ---

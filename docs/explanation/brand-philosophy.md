@@ -1,5 +1,4 @@
 ---
-sidebar_label: Brand Philosophy
 description: "The architectural reasoning behind Zenzic's visual identity, lexicon, and bimodal palette."
 ---
 

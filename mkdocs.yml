@@ -24,6 +24,9 @@ extra_css:
 exclude_docs: |
   assets/css/README.md
 
+not_in_nav: |
+  includes/*
+
 # --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
 # navigation.tabs maps each top-level nav entry to a tab in the header.
 nav:

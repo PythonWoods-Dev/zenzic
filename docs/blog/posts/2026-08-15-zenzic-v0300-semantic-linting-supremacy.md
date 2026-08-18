@@ -1,14 +1,13 @@
 ---
-title: "Zenzic v0.30.0: Semantic Linting Supremacy & Frictionless Adoption"
+title: "Zenzic v0.30.0: Documentation Quality Platform & Frictionless Adoption"
 slug: zenzic-v0300-semantic-linting-supremacy
 date: 2026-08-15
 authors:
   - pythonwoods
 description: >
-  Zenzic v0.30.0 introduces native AST-based semantic linting, editorial style enforcement,
-  atomic auto-remediation, and a Zero-Config VS Code experience powered by automatic
-  engine provisioning — making professional-grade documentation quality available to every developer,
-  without any manual setup.
+  Zenzic v0.30.0 cements the Documentation Quality Platform (DQP) standard: native AST-based semantic
+  analysis, structural topology enforcement, editorial governance, atomic auto-remediation, and a
+  Zero-Config VS Code experience powered by automatic engine provisioning.
 categories:
   - Releases
   - Engineering
@@ -16,17 +15,17 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Zenzic v0.30.0 Semantic Linting Supremacy](../../assets/images/blog/launch_v0300.webp)
+![Zenzic v0.30.0 Documentation Quality Platform](../../assets/images/blog/launch_v0300.webp)
 
-Zenzic v0.30.0 is a dual milestone. On the **engine side**, it delivers the **Semantic Linting Supremacy** update: native AST-based semantic analysis, structural accessibility rules, editorial style governance, and atomic auto-remediation — the complete picture of what deterministic documentation quality looks like at the AST level. On the **adoption side**, it delivers **Frictionless Adoption**: the VS Code extension can now provision its own engine automatically, removing the last remaining manual setup step for every developer who opens a Markdown file.
+Zenzic v0.30.0 is a dual milestone. On the **engine side**, it elevates Zenzic into a full **Documentation Quality Platform (DQP)**: native AST-based semantic analysis, structural accessibility rules, editorial style governance, and atomic auto-remediation — the complete picture of what deterministic documentation quality looks like across entire Markdown/MDX knowledge graphs. On the **adoption side**, it delivers **Frictionless Adoption**: the VS Code extension can now provision its own engine automatically, removing the last remaining manual setup step for every developer who opens a Markdown file.
 
-Together, these two pillars define what v0.30.0 is about: *making the highest standard of documentation quality accessible to every developer on your team, regardless of their Python expertise or system configuration.*
+Together, these two pillars define what v0.30.0 is about: *making the highest standard of engineering-grade documentation quality accessible to every developer on your team, regardless of their Python expertise or system configuration.*
 
 <!-- more -->
 
-## Beyond Link Validation: The Need for Semantic Precision
+## Beyond Isolated Linters: The Need for Platform-Grade Integrity
 
-Traditional prose linters rely on heavy runtime dependencies, complex grammar engines, or probabilistic heuristics. While these tools attempt to catch readability issues, they often suffer from significant downsides:
+Traditional syntax formatters and prose checkers rely on isolated file scans, heavy runtime dependencies, or probabilistic heuristics. While these tools attempt to format text or catch basic typos, they fail to address knowledge system integrity:
 
 - **Slow Performance**: Multi-second execution times that cannot sustain sub-50ms Language Server Protocol (LSP) feedback loops during live editing.
 - **Flaky Auto-Fixes**: Destructive string replacements that corrupt surrounding Markdown structure, code fences, and frontmatter.
@@ -202,3 +201,9 @@ zenzic check all --strict
 ```
 
 Explore the complete [Finding Codes Reference](../../reference/finding-codes.md), the [VS Code Extension documentation](../../editor/vscode.md), and the [GitHub Action integration guide](../../how-to/configure-ci-cd.md) to deploy the full Zenzic quality platform across your team.
+
+---
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

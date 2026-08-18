@@ -1,6 +1,4 @@
 ---
-sidebar_position: 3
-sidebar_label: "Z503 - Snippet Error"
 description: "Analysis of the z503-snippet-error fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

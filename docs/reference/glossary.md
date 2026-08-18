@@ -1,5 +1,4 @@
 ---
-sidebar_position: 11
 description: "Rigorous definitions for domain terms used across Zenzic CLI, documentation, and source code."
 ---
 

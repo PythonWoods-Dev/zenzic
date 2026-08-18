@@ -1,6 +1,4 @@
 ---
-sidebar_position: 3
-sidebar_label: "Z403 - Missing Alt Text"
 description: "Analysis of the z403-missing-alt fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

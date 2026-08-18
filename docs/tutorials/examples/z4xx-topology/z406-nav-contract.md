@@ -1,6 +1,4 @@
 ---
-sidebar_position: 6
-sidebar_label: "Z406 - Nav Contract"
 description: "Walk through the z406-nav-contract fixture: mkdocs.yml declares extra.alternate with link /it/ but no Italian pages exist, triggering Z406 NAV_CONTRACT."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

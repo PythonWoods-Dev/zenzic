@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Z101 - Broken Links"
 description: "Walk through the z101-broken-links fixture: two internal link targets that do not exist on disk, triggering Z101 LINK_BROKEN at exit code 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

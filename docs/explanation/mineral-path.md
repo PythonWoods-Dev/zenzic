@@ -1,6 +1,4 @@
 ---
-sidebar_position: 8
-sidebar_label: "Release Codenames"
 description: "Mapping of Zenzic SemVer versions to their official release codenames and engineering focus areas."
 ---
 

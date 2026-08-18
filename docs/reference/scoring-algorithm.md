@@ -1,6 +1,4 @@
 ---
-sidebar_position: 6
-sidebar_label: "Scoring Algorithm"
 description: "The Zenzic scoring engine: 5-tier weight matrix, complete per-code penalty table, Gravity Cap, Governance Escalation, Suppression Debt formula, and Security Override."
 ---
 

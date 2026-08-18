@@ -1,5 +1,4 @@
 ---
-sidebar_position: 3
 description: Reference for .zenzic.toml and pyproject.toml configuration fields, types, defaults, and CLI overrides.
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

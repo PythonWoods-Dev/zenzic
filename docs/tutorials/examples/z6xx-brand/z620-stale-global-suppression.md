@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Z620 - Stale Global Suppression"
 description: "Walk through the z620-stale-global-suppression fixture: an unused global directory policy triggering Z620 at exit code 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

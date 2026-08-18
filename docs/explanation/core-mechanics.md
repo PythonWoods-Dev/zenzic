@@ -1,5 +1,4 @@
 ---
-sidebar_label: Core Mechanics
 description: "The architectural theory behind the Virtual Site Map, the dual-stream credential scanner, and the Three-Pass Pipeline."
 ---
 

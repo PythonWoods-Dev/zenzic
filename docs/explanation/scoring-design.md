@@ -1,5 +1,4 @@
 ---
-sidebar_label: Scoring Design
 description: "Redirect pointer and historical design note for the Zenzic Deterministic Quality Score (DQS)."
 ---
 

@@ -1,6 +1,4 @@
 ---
-sidebar_position: 4
-sidebar_label: "Finding Codes"
 description: "Zenzic finding-code quick reference. Severity, penalty, exit code, and remediation for every Zxxx diagnostic identifier."
 ---
 

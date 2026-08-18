@@ -1,6 +1,4 @@
 ---
-sidebar_position: 2
-sidebar_label: "Z102 - Anchor Missing"
 description: "Walk through the z102-anchor-missing fixture: a fragment link targeting a heading that does not exist, triggering Z102 ANCHOR_MISSING."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

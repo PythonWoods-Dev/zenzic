@@ -1,6 +1,5 @@
 ---
 
-sidebar_position: -3
 description: "The complete index of Zenzic Architectural Decision Records — every major technical choice, its context, and its permanent consequences."
 ---
 

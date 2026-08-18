@@ -1,5 +1,4 @@
 ---
-sidebar_position: 6
 description: "Sovereign Verification Model architecture contract — deterministic local/CI parity, zero-network execution, and immutable commit SHA pinning."
 ---
 

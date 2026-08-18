@@ -1,6 +1,4 @@
 ---
-sidebar_position: 4
-sidebar_label: "Z104 - File Not Found"
 description: "Walk through the z104-file-not-found fixture: a link pointing to api/reference.md which does not exist on disk, triggering Z104 FILE_NOT_FOUND at exit code 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

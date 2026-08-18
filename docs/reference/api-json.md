@@ -1,5 +1,4 @@
 ---
-sidebar_label: "API JSON Contract"
 description: "Canonical machine-readable JSON contract for check all, score, and suppression CAP fail-hard outputs."
 ---
 

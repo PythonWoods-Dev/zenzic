@@ -1,5 +1,4 @@
 ---
-sidebar_label: Overview
 description: "Community resources, contribution guides, and project governance."
 ---
 

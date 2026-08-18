@@ -1,5 +1,4 @@
 ---
-sidebar_label: "Brand Ecosystem"
 description: "Logos, colors, and usage guidelines for the Zenzic brand."
 ---
 

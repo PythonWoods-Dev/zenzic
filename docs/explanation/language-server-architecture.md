@@ -1,5 +1,4 @@
 ---
-sidebar_label: "Language Server Architecture"
 description: "Design and architectural philosophy behind the Zenzic Language Server (ZLS)."
 ---
 

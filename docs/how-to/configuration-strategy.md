@@ -1,5 +1,4 @@
 ---
-sidebar_label: "Configuration Strategy"
 description: "Two-file configuration model, precedence rules, and a troubleshooting matrix for common Zenzic configuration problems."
 ---
 

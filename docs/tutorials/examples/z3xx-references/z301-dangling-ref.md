@@ -1,6 +1,4 @@
 ---
-sidebar_position: 1
-sidebar_label: "Z301 - Dangling Reference"
 description: "Analysis of the z301-dangling-ref fixture."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

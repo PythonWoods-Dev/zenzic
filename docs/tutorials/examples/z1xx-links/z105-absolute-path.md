@@ -1,6 +1,4 @@
 ---
-sidebar_position: 5
-sidebar_label: "Z105 - Absolute Path"
 description: "Analysis of the z105-absolute-path fixture: a link using an absolute path starting with '/', breaking host-path portability. Z-Code Z105 ABSOLUTE_PATH, exit 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
