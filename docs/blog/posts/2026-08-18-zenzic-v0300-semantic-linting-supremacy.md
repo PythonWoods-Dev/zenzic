@@ -1,7 +1,7 @@
 ---
 title: "Zenzic v0.30.0: Documentation Quality Platform & Frictionless Adoption"
 slug: zenzic-v0300-semantic-linting-supremacy
-date: 2026-08-15
+date: 2026-08-18
 authors:
   - pythonwoods
 description: >
