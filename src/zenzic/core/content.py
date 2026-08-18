@@ -717,8 +717,8 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
 def check_all_heading_rules(
     file_path: Path,
     text: str,
-    anchors_out: "dict[Path, set[str]] | None" = None,
-) -> list["RuleFinding"]:
+    anchors_out: dict[Path, set[str]] | None = None,
+) -> list[RuleFinding]:
     """Combined single-pass check for Z510, Z513, Z516, Z517.
 
     Eliminates 3 redundant ``text.splitlines()`` + line-iteration passes that
@@ -737,6 +737,7 @@ def check_all_heading_rules(
             _INLINE_CODE_RE as _IC_RE,
             slug_heading,
         )
+
         anchors: set[str] = set()
 
     findings: list[RuleFinding] = []

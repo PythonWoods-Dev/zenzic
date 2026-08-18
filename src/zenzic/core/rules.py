@@ -1463,7 +1463,7 @@ class CombinedHeadingRule(BaseRule):
     side effect, eliminating the separate ``anchors_in_file()`` pass in VSM.
     """
 
-    def __init__(self, anchors_out: "dict[Path, set[str]] | None" = None) -> None:
+    def __init__(self, anchors_out: dict[Path, set[str]] | None = None) -> None:
         self._anchors_out = anchors_out
 
     @property

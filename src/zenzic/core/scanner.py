@@ -39,7 +39,7 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.validator import LinkValidator, PolyglotExtractor, _POLYGLOT_EXTRACTOR
+from zenzic.core.validator import _POLYGLOT_EXTRACTOR, LinkValidator, PolyglotExtractor
 from zenzic.models.config import (
     ZenzicConfig,
 )
@@ -899,7 +899,9 @@ class ReferenceScanner:
         findings: list[ReferenceFinding] = []
 
         line_source = (
-            _iter_content_lines_text(text) if text is not None else _iter_content_lines(self.file_path)
+            _iter_content_lines_text(text)
+            if text is not None
+            else _iter_content_lines(self.file_path)
         )
         for lineno, line in line_source:
             # Blank out inline code to avoid false matches inside `[code][spans]`
@@ -1084,10 +1086,8 @@ def _scan_single_file(
                 if _cached is None:
                     _cached = []
                     for _pat, _codes in config.governance.directory_policies.items():
-                        try:
+                        with contextlib.suppress(Exception):
                             _cached.append((_pat, re.compile(translate_glob_to_re2(_pat)), _codes))
-                        except Exception:  # noqa: BLE001
-                            pass
                     with contextlib.suppress(Exception):
                         object.__setattr__(config, "_compiled_dir_policies", _cached)
 
@@ -1160,7 +1160,7 @@ def _run_vsm_and_urp_pass(
     repo_root: Path | None = None,
     static_assets: set[Path] | None = None,
     preloaded_md_contents: dict[Path, str] | None = None,
-    preloaded_anchors: "dict[Path, set[str]] | None" = None,
+    preloaded_anchors: dict[Path, set[str]] | None = None,
 ) -> None:
     """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
     from zenzic.core.adapter import get_adapter
@@ -1438,7 +1438,7 @@ def _run_vsm_and_urp_pass(
 
 def _build_rule_engine(
     config: ZenzicConfig,
-    anchors_out: "dict[Path, set[str]] | None" = None,
+    anchors_out: dict[Path, set[str]] | None = None,
 ) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
@@ -1455,7 +1455,6 @@ def _build_rule_engine(
     from zenzic.core.rules import (  # deferred to keep import graph clean
         BrandObsolescenceRule,
         CircularAnchorRule,
-        CredentialScannerRule,
         CustomRule,
         EmptyLinkRule,
         MalformedFrontmatterRule,
@@ -1479,14 +1478,10 @@ def _build_rule_engine(
     from zenzic.core.rules import (
         BareUrlUsedRule,
         CombinedHeadingRule,
-        DuplicateHeadingRule,
         EmptySectionRule,
         ExcessiveSentenceLengthRule,
         GenericImageAltTextRule,
-        HeadingHierarchyRule,
-        HeadingPunctuationRule,
         MalformedListRule,
-        MultipleH1HeadingsRule,
         PassiveVoiceRule,
         PlaceholderRule,
         ShortContentRule,

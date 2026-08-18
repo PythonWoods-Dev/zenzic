@@ -875,10 +875,10 @@ def slug_heading(heading: str) -> str:
     """
     import unicodedata
 
-    heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
-    explicit = _EXPLICIT_ANCHOR_RE.search(heading_clean)
+    explicit = _EXPLICIT_ANCHOR_RE.search(heading)
     if explicit:
         return explicit.group(1).lower()
+    heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
     slug = _HTML_TAG_RE.sub("", heading_clean).strip()
     # Decompose accented characters and drop combining marks so that e.g.
     # "Integrità" → "integrita" (matching MkDocs toc extension behaviour).
