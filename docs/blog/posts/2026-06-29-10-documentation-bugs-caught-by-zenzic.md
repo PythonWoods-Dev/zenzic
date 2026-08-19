@@ -10,16 +10,16 @@ categories:
   - Documentation
   - Quality Assurance
 ---
-!!! abstract "Architectural Update"
-    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+Documentation isn't just text — it's a critical interface. When users rely on your docs to deploy infrastructure, configure security policies, or integrate APIs, a "simple typo" can lead to hours of lost productivity.
 
-Documentation isn't just text—it's a critical interface. When users rely on your docs to deploy infrastructure, configure security policies, or integrate APIs, a "simple typo" can lead to hours of lost productivity.
-
-In a docs-as-code workflow, documentation is code. And just like code, it has bugs. That's why we built Zenzic: a zero-config Markdown link and structural integrity auditor.
+In a docs-as-code workflow, documentation is code. And just like code, it has bugs. That's why we built Zenzic: a Deterministic Document Integrity Engine for Markdown/MDX graphs.
 
 Here are 10 subtle, frustrating, and downright dangerous documentation bugs that Zenzic catches automatically in your CI/CD pipelines.
 
 <!-- more -->
+
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
 ![10 Documentation Bugs Caught by Zenzic](../../assets/images/blog/10-documentation-bugs-caught-by-zenzic.webp)
 
