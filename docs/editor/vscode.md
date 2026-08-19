@@ -10,11 +10,12 @@ The extension is designed as a **Thin Client**. It contains zero parsing engines
 
 Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communicate directly with your local Zenzic Python binary (`zenzic lsp`). This guarantees 100% parity between local editor feedback and CI/CD pipeline enforcement.
 
-```text
-┌─────────────────────────┐   JSON-RPC 2.0 (stdio)   ┌──────────────────────────────┐
-│  VS Code Extension      ├─────────────────────────►│  Zenzic Language Server      │
-│  (pythonwoods-vscode)   │◄─────────────────────────┤  (zenzic lsp)                │
-└─────────────────────────┘                          └──────────────────────────────┘
+```mermaid
+flowchart LR
+    VS["VS Code Extension<br><code>pythonwoods.zenzic-vscode</code>"] <-->|"JSON-RPC 2.0 (stdio)"| ZLS["Zenzic Language Server<br><code>zenzic lsp</code>"]
+
+    style VS fill:#0284c7,stroke:#0369a1,color:#ffffff,stroke-width:2px
+    style ZLS fill:#4f46e5,stroke:#4338ca,color:#ffffff,stroke-width:2px
 ```
 
 !!! important "Minimum Core Version Requirement"
