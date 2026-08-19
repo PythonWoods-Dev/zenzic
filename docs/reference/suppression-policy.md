@@ -54,6 +54,12 @@ flowchart TD
     F -->|No| H{"Inline Comment Present? (Level 1)"}
     H -->|Yes| I["INLINE_IGNORE (+1 Debt Pt)"]
     H -->|No| J["EMIT FINDING (Exit 1)"]
+
+    style C fill:#ef4444,color:#fff
+    style E fill:#10b981,color:#fff
+    style G fill:#f59e0b,color:#fff
+    style I fill:#f59e0b,color:#fff
+    style J fill:#e11d48,color:#fff
 ```
 
 ---
@@ -62,17 +68,41 @@ flowchart TD
 
 Zenzic provides four distinct suppression levels designed for specific architectural contexts:
 
-`Level 1: Inline Comment`
-: `<!-- zenzic:ignore: ZXXX -->` comment placed at the end of a line. Silences a specific finding on a single line. Costs **1 Debt Point**.
+<div class="grid cards" markdown>
 
-`Level 2: Per-File Ignore`
-: `[governance.per_file_ignores]` configuration in `.zenzic.toml`. Silences a specific rule across a file glob. Costs **1 Debt Point per entry**.
+- :material-code-tags:{ .lg .middle } **Level 1: Inline Comment**
 
-`Level 3: Exclusion Zone`
-: `excluded_dirs` or `excluded_file_patterns` in `.zenzic.toml`. Completely removes non-documentation directories (`build/`, `dist/`) from evaluation. Costs **0 Debt Points** (Not audited).
+    ---
 
-`Level 4: Directory Policy`
-: `[governance.directory_policies]` configuration in `.zenzic.toml`. Strategic organizational exemptions for historical assets (e.g. legacy blog posts). Emits `[POLICY_EXEMPTION]` in audit mode. Costs **0 Debt Points**.
+    `<!-- zenzic:ignore: ZXXX -->` placed at the end of a line. Silences a finding on a single line.
+
+    **Cost**: `1 Debt Point`
+
+- :material-file-document-outline:{ .lg .middle } **Level 2: Per-File Ignore**
+
+    ---
+
+    `[governance.per_file_ignores]` in `.zenzic.toml`. Silences a specific rule across a file glob.
+
+    **Cost**: `1 Debt Point per entry`
+
+- :material-folder-remove-outline:{ .lg .middle } **Level 3: Exclusion Zone**
+
+    ---
+
+    `excluded_dirs` or `excluded_file_patterns` in `.zenzic.toml`. Removes directories from evaluation.
+
+    **Cost**: `0 Debt Points` (Not audited)
+
+- :material-shield-home-outline:{ .lg .middle } **Level 4: Directory Policy**
+
+    ---
+
+    `[governance.directory_policies]` in `.zenzic.toml`. Strategic organizational exemptions for legacy doc trees.
+
+    **Cost**: `0 Debt Points` (`[POLICY_EXEMPTION]`)
+
+</div>
 
 ---
 

@@ -40,6 +40,14 @@ flowchart TD
         F & G & H & I --> J["SARIF Output (zenzic-results.sarif)"]
         J --> K["GitHub Code Scanning / Inline Annotations"]
     end
+
+    style F fill:#10b981,color:#fff
+    style G fill:#f59e0b,color:#fff
+    style H fill:#ef4444,color:#fff
+    style I fill:#ef4444,color:#fff
+    style C fill:#4f46e5,color:#fff
+    style J fill:#0284c7,color:#fff
+    style K fill:#0284c7,color:#fff
 ```
 
 ---
