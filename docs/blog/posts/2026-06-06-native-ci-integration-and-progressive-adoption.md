@@ -31,6 +31,8 @@ We also introduced the `--ci` shorthand flag. It performs two actions simultaneo
 
 **The result:** Developer Experience is unified. The error is surfaced exactly where the code was changed. The cognitive overhead of mapping a terminal line number back to a file in the IDE is eliminated.
 
+---
+
 ## Progressive Adoption (`--only`)
 
 Adopting a strict linter on a mature, undocumented legacy repository usually results in thousands of initial violations. Forcing a team to fix every broken link, missing alt text, and unused asset before merging a single PR is a failure of governance. It blocks adoption.
@@ -42,6 +44,8 @@ uvx zenzic check all --ci --only Z201,Z204
 ```
 
 This is the mechanism for **Progressive Adoption**. Tech Leads can deploy Zenzic to block critical security regressions (credential leaks, path traversal) without breaking the build over structural warnings. As the documentation debt is paid down, the `--only` filter can be expanded or removed entirely to enforce the full rule matrix.
+
+---
 
 ## The End of Network Non-Determinism
 

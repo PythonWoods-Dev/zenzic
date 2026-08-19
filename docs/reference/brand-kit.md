@@ -9,6 +9,8 @@ description: "Logos, colors, and usage guidelines for the Zenzic brand."
 
 The Zenzic Brand Ecosystem defines how Zenzic is represented across open-source communities, CI/CD integrations, and documentation landscapes.
 
+---
+
 ## Official Badges
 
 The two static SVG badges are included in the Brand Kit for offline or enterprise deployments
@@ -21,6 +23,8 @@ that cannot reach `img.shields.io`:
 
 For dynamic Shields.io variants and CI/CD wiring, see the [Badges guide](../how-to/add-badges.md).
 
+---
+
 ## Color Palette
 
 The Zenzic Brand System enforces WCAG 2.1 AA accessibility guidelines on all user interfaces. Accent and secondary text colors are dynamically calibrated to preserve legibility:
@@ -28,15 +32,21 @@ The Zenzic Brand System enforces WCAG 2.1 AA accessibility guidelines on all use
 * **Secondary Text (Light Mode):** `zinc-600` (`#52525b`) is the official standard for all secondary copy, descriptions, captions, and metadata, yielding a contrast ratio of 7.8:1 on light/white surfaces.
 * **Secondary Text (Dark Mode):** `zinc-400` (`#a1a1aa`) is the official standard for all dark mode secondary text, yielding a contrast ratio of 7.0:1 on Slate Lead (`#09090b`) backgrounds.
 
+---
+
 ## Brand System Reference
 
 The canonical [Brand System](brand-system.md) reference defines the complete Color Palette, badge states, typography specimens, and usage constraints.
+
+---
 
 ## Download
 
 The complete Zenzic brand asset package (SVG + PNG) is attached to every GitHub release as `brand-kit.zip`.
 Download from the stable [GitHub Releases](https://github.com/PythonWoods/zenzic/releases) page,
 then open the latest release and fetch `brand-kit.zip` from its Assets section.
+
+---
 
 ## Integration Protocols
 

@@ -10,6 +10,8 @@ description: "Walk through the z401-missing-directory-index fixture: a guide dir
 
 <Z401MissingDirectoryIndex />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z401-missing-directory-index/` in the Zenzic
@@ -34,6 +36,8 @@ fail_under = 0
 [build_context]
 engine = "zensical"
 ```
+
+---
 
 ## Running the Example
 
@@ -65,6 +69,8 @@ verified.
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z401` finding indicates a **MISSING_DIRECTORY_INDEX** issue.
@@ -80,6 +86,8 @@ omit the directory URL or return a 404:
 - **Severity:** `Info`
 - **Impact:** Deducts **2.0 DQS points** (navigation category, weight 0.25).
 
+---
+
 ## Resolve the Issue
 
 Create `docs/guide/index.md` with a landing page for the section:
@@ -93,6 +101,8 @@ Or rename `page.md` to `index.md` if it is the only page in the directory:
 ```bash
 mv docs/guide/page.md docs/guide/index.md
 ```
+
+---
 
 ## See Also
 

@@ -9,6 +9,8 @@ description: "How to use Zenzic's semantic tokens in HTML/Jinja components and M
 
 The Zenzic visual language is token-first. All UI colors must be consumed through semantic CSS variables defined in `src/css/custom.css`.
 
+---
+
 ## HTML/Jinja components Contract
 
 Every HTML/Jinja component must use `var(--zenzic-*)` tokens for:
@@ -37,6 +39,8 @@ Every HTML/Jinja component must use `var(--zenzic-*)` tokens for:
 !!! danger "Policy Gate"
     UI pull requests are rejected if HTML/Jinja or local CSS introduces hardcoded color literals. Use semantic tokens only.
 
+---
+
 ## Markdown Integration Pattern
 
 Use Markdown documentation as the normative source of truth for brand token mapping.
@@ -47,6 +51,8 @@ Recommended pattern:
 2. Maintain CSS custom properties in `docs/assets/css/extra.css`.
 3. Keep tokens and documentation aligned when making design system decisions.
 
+---
+
 ## Accessibility Baseline
 
 The palette is tuned for documentation readability first.
@@ -54,6 +60,8 @@ The palette is tuned for documentation readability first.
 1. Body text must stay in Zinc tiers (`--zenzic-ink-*`) to preserve long-read comfort.
 2. Brand Indigo is for interaction and active state cues, not full-paragraph prose.
 3. Severity colors must remain semantic and not be reused as decorative accents.
+
+---
 
 ## A/B Palette Profiles
 
@@ -77,6 +85,8 @@ Cons: lower perceived energy on marketing-like surfaces, less aggressive CTA pop
 2. Technical Neon
 Pros: higher perceived modernity, stronger active/hover cues, more memorable interaction identity.
 Cons: can feel more intense on dense pages, requires stricter accessibility QA on edge states.
+
+---
 
 ## Brand Asset Reference
 

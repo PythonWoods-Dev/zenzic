@@ -17,6 +17,8 @@ Covered outputs:
 
 The canonical schema is `zenzic-output.schema.json` in the root of the `zenzic` repository.
 
+---
+
 ## Mandatory Suppression Fields
 
 All contract outputs above include these fields, always:
@@ -35,6 +37,8 @@ All contract outputs above include these fields, always:
 - `EXTENDED`: `0 < suppression_count <= suppression_cap` and `suppression_cap > 30`
 - `CRITICAL`: `suppression_count > suppression_cap`
 
+---
+
 ## Shape: check all JSON
 
 ```json
@@ -52,6 +56,8 @@ All contract outputs above include these fields, always:
   "debt_status": "CLEAN"
 }
 ```
+
+---
 
 ## Shape: score JSON
 
@@ -81,6 +87,8 @@ All contract outputs above include these fields, always:
 ```
 
 Optional score fields (`security_override`, `security_findings`) appear when the Security Override fires.
+
+---
 
 ## Shape: CAP Fail-Hard JSON
 
@@ -112,6 +120,8 @@ Optional score fields (`security_override`, `security_findings`) appear when the
   "playbook": "https://zenzic.dev/developers/how-to/release-governance-protocol"
 }
 ```
+
+---
 
 ## Enterprise SARIF v2.1.0 Contract
 
@@ -153,6 +163,8 @@ Each rule descriptor under `runs[0].tool.driver.rules` includes rich taxonomy an
 
 For strict machine consumers, validate payloads against `zenzic-output.schema.json` for JSON output or `tests/fixtures/sarif-2.1.0-schema.json` for SARIF output during CI.
 This prevents silent contract drift across minor releases.
+
+---
 
 ## See Also
 

@@ -10,6 +10,8 @@ description: "Architectural invariants and laws governing performance and determ
 
 These rules protect the performance and determinism guarantees of `src/zenzic/core/`. Any modification to the analysis core must respect these invariants.
 
+---
+
 ## Zero I/O in the Hot Path
 
 `src/zenzic/core/` **must never call** `Path.exists()`, `Path.is_file()`, `open()`, or any other filesystem or subprocess operation inside a per-link or per-file loop.
@@ -85,6 +87,8 @@ with open("mkdocs.yml") as f:
     config = yaml.safe_load(f)
     locale = config.get("plugins", {}).get("i18n", {}).get("default_locale", "en")
 ```
+
+---
 
 ## See Also
 

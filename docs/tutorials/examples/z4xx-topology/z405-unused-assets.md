@@ -10,10 +10,14 @@ description: "Analysis of the z405-unused-assets fixture."
 
 <Z405UnusedAssets />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z405-unused-assets/` in the Zenzic repository.
 It contains documents demonstrating the `Z405` violation.
+
+---
 
 ## Running the Example
 
@@ -44,6 +48,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z405` finding indicates a **UNUSED_ASSET** issue.
@@ -54,9 +60,13 @@ This error or warning is raised by Zenzic when an image or media asset file exis
 - **Severity:** `Warning`
 - **Impact:** Unused assets bloat the project build and result in a DQS deduction of 3.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Delete the unused asset file from the repository, or add it to the `excluded_assets` list in `.zenzic.toml` if it is loaded dynamically by the theme.
+
+---
 
 ## See Also
 

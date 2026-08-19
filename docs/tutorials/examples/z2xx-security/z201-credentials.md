@@ -10,10 +10,14 @@ description: "Analysis of the z201-credentials fixture."
 
 <Z201Credentials />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z201-credentials/` in the Zenzic repository.
 It contains documents demonstrating the `Z201` violation.
+
+---
 
 ## Running the Example
 
@@ -49,6 +53,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `2`
 
+---
+
 ## Interpreting the Output
 
 The `Z201` finding indicates a **CREDENTIAL_SECRET** issue.
@@ -59,9 +65,13 @@ This error or warning is raised by Zenzic when active secrets, API keys, tokens 
 - **Severity:** `Error (Non-suppressible)`
 - **Impact:** A credential leak forces Zenzic to instantly collapse the DQS score to 0.0 and abort the execution with Exit Code 2. This gate cannot be bypassed with --exit-zero.
 
+---
+
 ## Resolve the Issue
 
 Exit code 2 triggers a critical build failure. Immediately rotate the exposed credential, purge the version control history, and inject secrets at runtime using environment variables instead of hardcoding them.
+
+---
 
 ## See Also
 

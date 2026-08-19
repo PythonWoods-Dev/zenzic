@@ -44,6 +44,8 @@ Our objective is operational:
 
 That means reducing production risk, removing repetitive manual review loops, and making CI outcomes deterministic.
 
+---
+
 ## Documentation can be green while being broken
 
 Technical documentation is often treated as editorial content: useful, important, and reviewed when someone has time.
@@ -65,6 +67,8 @@ We built Zenzic around a different model:
 > **Documentation is production code.**
 
 Once we treat it that way, questions about reachability, references, topology, assets, navigation, and security become testable properties rather than things we hope a reviewer notices.
+
+---
 
 ## What we want to prevent
 
@@ -116,6 +120,8 @@ If the repository has not changed, CI should not randomly pass on one run and fa
 
 That requirement is why determinism is not an implementation detail in Zenzic. It is part of the product.
 
+---
+
 ## What Zenzic checks
 
 Zenzic combines document integrity, topology, quality, and security checks in one analysis pass.
@@ -146,6 +152,8 @@ These checks operate at different levels.
 Some findings can be determined from an individual source line. Others require us to understand the relationships between files, headings, links, assets, and navigation across the entire documentation repository.
 
 That distinction is fundamental to how we designed Zenzic.
+
+---
 
 ## A failure should point to the source
 
@@ -187,6 +195,8 @@ Secrets are redacted in diagnostic output while the pipeline receives a security
 
 We consider precise diagnostics part of the quality gate itself. Detecting a defect is only half the job; the result also needs to make remediation obvious.
 
+---
+
 ## Markdown Is Also a Security Boundary
 
 One of the decisions we made early was to treat documentation as an explicit security surface.
@@ -218,6 +228,8 @@ Treat documentation itself as an explicit security boundary.
 
 This gives us a useful defence-in-depth model. A repository-wide scanner protects the repository broadly, while Zenzic protects the documentation pipeline specifically.
 
+---
+
 ## The Defence Trinity
 
 We designed Zenzic around three defensive boundaries.
@@ -245,6 +257,8 @@ Together, these controls cover three different failure modes:
 references  →  security  →  filesystem boundaries
 
 We do not think these are interchangeable concerns. A documentation integrity system needs to reason about all three.
+
+---
 
 ## The Graph Behind the Files
 
@@ -283,6 +297,8 @@ We also need to ask:
 
 “Does this line describe a relationship that actually exists?”
 
+---
+
 ## Source Before Generated Output
 
 We deliberately chose to analyze raw Markdown and MDX source rather than waiting for generated HTML.
@@ -315,6 +331,8 @@ Accessibility still needs to be checked.
 
 Zenzic addresses a different layer of the problem.
 
+---
+
 ## Deterministic by Design
 
 Determinism is one of our most important engineering requirements.
@@ -345,6 +363,8 @@ The useful claim is narrower:
 The core analysis is designed to scale predictably with the amount of documentation being examined.
 
 We care about this because a CI quality gate should not become a source of unpredictable pipeline behaviour as a documentation repository grows.
+
+---
 
 ## One Command to Start
 
@@ -378,6 +398,8 @@ The principle, however, is important:
 CI needs machine-readable outcomes, not merely a coloured report that developers must interpret manually.
 
 That is why exit codes are part of the design rather than an afterthought.
+
+---
 
 ## Configuration Without Ambiguity
 
@@ -438,6 +460,8 @@ Projects adopting Zenzic should therefore consider using strict configuration va
 
 We prefer explicit configuration failures whenever a policy can materially affect a quality or security gate.
 
+---
+
 ## Configuration Is Part of the Safety Model
 
 A broken configuration should not silently fall back to defaults.
@@ -455,6 +479,8 @@ A security or quality control must fail visibly when its policy cannot be loaded
 We apply the same thinking to adapters, suppressions, and scoring.
 
 An invisible fallback may be convenient during development, but it is dangerous in a production gate because the user may believe a policy is active when it is not.
+
+---
 
 ## Suppression Debt Is Still Debt
 
@@ -502,6 +528,8 @@ A score should guide investigation.
 
 It should never replace reading the actual findings.
 
+---
+
 ## Can Zenzic Replace Existing Tools?
 
 Usually, no—not completely.
@@ -538,6 +566,8 @@ Our intended position is:
 
 Zenzic is the structural and security layer of a documentation toolchain, not the entire toolchain.
 
+---
+
 ## What Zenzic Does Not Try to Replace
 
 We think this distinction is important enough to state explicitly.
@@ -557,6 +587,8 @@ We are trying to enforce a different property:
 Documentation integrity at source level.
 
 That is the problem we designed Zenzic to solve.
+
+---
 
 ## Why Adopt It?
 
@@ -585,6 +617,8 @@ For larger repositories, the benefit is not simply finding more defects.
 
 It is moving mechanical verification from human review into an automated, repeatable gate.
 
+---
+
 ## Why Not Adopt It?
 
 We do not think everyone needs Zenzic.
@@ -609,6 +643,8 @@ Developers must learn finding codes, configure exclusions, manage suppressions, 
 A tool that produces too much noise becomes a decorative CI badge.
 
 We therefore think the adoption case should be based on measured defects found in a real repository, not on the length of the rule catalog.
+
+---
 
 ## A Reasonable Adoption Plan
 
@@ -670,6 +706,8 @@ The goal is not to maximize the number of tools.
 
 The goal is to maximize defect detection per unit of maintenance.
 
+---
+
 ## A Minimal CI Example
 
 A project can begin with a simple command:
@@ -694,6 +732,8 @@ This makes the documentation policy visible as a dedicated artifact and ensures 
 The important part is not the number of lines in the workflow.
 
 It is that the check runs before merge and produces a deterministic result that the repository can enforce.
+
+---
 
 ## Documentation Integrity as a Production Property
 

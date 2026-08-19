@@ -10,6 +10,8 @@ description: "Walk through the z104-file-not-found fixture: a link pointing to a
 
 <Z104FileNotFound />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z104-file-not-found/` in the Zenzic repository.
@@ -27,6 +29,8 @@ fail_under = 0
 [build_context]
 engine = "standalone"
 ```
+
+---
 
 ## Running the Example
 
@@ -58,6 +62,8 @@ FAILED: Hard errors detected. Exit code 1 is mandatory.
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z104` finding indicates a **FILE_NOT_FOUND** issue.
@@ -72,6 +78,8 @@ filesystem entry:
 - **Impact:** Missing link targets break navigation and deduct **8.0 DQS points**
   — the highest penalty in the Z1xx group.
 
+---
+
 ## Resolve the Issue
 
 1. Create the missing file at `docs/api/reference.md`.
@@ -82,9 +90,13 @@ filesystem entry:
 + For the complete API specification, see the [API Reference](api/index.md).
 ```
 
+---
+
 ## Footnotes Parsing Behavior
 
 Footnote definitions (such as `[^1]: footnote text`) are parsed and recognized correctly by Zenzic's link parser. Zenzic automatically ignores footnotes during the link verification process, preventing them from being mistakenly validated as filesystem links, thereby avoiding false-positive `Z104` errors.
+
+---
 
 ## See Also
 

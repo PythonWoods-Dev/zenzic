@@ -114,6 +114,8 @@ The Tailwind source files may retain `dark:` utilities for semantic clarity and 
 | `docs/assets/css/zenzic-tailwind.min.css` | Compiled Tailwind artifact (human-run Tailwind CLI; no Node.js in CI) |
 | `overrides/partials/homepage/` | Jinja2 partials rendered inside the `zz-tailwind-root` boundary |
 
+---
+
 ## See Also
 
 - [Brand System Guidelines](../../how-to/use-brand-system.md)

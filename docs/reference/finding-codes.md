@@ -9,6 +9,8 @@ description: "Zenzic finding-code quick reference. Severity, penalty, exit code,
 
 Every issue detected by Zenzic is tagged with a **canonical finding code** (`Zxxx`). This page is the quick-reference cheat sheet — severity, penalty, exit code, and the essential remediation path for every diagnostic signal.
 
+---
+
 ## Tier Model
 
 Zenzic organises diagnostics into four operational tiers:
@@ -20,6 +22,8 @@ Zenzic organises diagnostics into four operational tiers:
 | Plugin | Third-party | `<plugin-id>:<code>` | External entry-point rules |
 | Custom | Project local | `ZZxxx` | `[[custom_rules]]` declared in TOML |
 
+---
+
 ## Stability Contract
 
 The code registry is governed by immutable contract surfaces:
@@ -30,6 +34,8 @@ The code registry is governed by immutable contract surfaces:
 
 !!! tip "Deep-linking"
     Each code has a permanent anchor. You can link directly to a specific code using `./finding-codes.md#z101`.
+
+---
 
 ## Category Overview
 

@@ -90,6 +90,8 @@ Planned next layer:
 - stronger workflow pinning policy enforcement,
 - periodic evidence export for quarterly governance review.
 
+---
+
 ## See Also
 
 - [Contributing Pull Requests](../how-to/contribute/pull-requests.md)

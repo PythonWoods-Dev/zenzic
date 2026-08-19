@@ -36,6 +36,8 @@ The three paradox codes received their penalties in the migration:
 | Z111 | VIRTUAL_ROUTE_BROKEN | 8.0 pts | Structural |
 | Z113 | AUTHOR_KEY_COLLISION | 2.0 pts | Structural |
 
+---
+
 ## From Allowance to Flat-Cost
 
 The previous suppression model was allowance-based:
@@ -58,6 +60,8 @@ Every suppression deducts 1 point. The cap is exclusively a hard-fail threshold:
 
 - When $n \leq \text{cap}$: score is reduced by $n$ points. Exit code is determined by the score gate.
 - When $n > \text{cap}$: `zenzic score` exits with code 1 immediately, before score gate evaluation.
+
+---
 
 ## The Complete DQS Formula
 
@@ -92,6 +96,8 @@ $$
 
 where $\left| F_s \right|$ is the total suppression count and $\text{DebtCost} = 1$.
 
+---
+
 ## Numerical Properties
 
 **Maximum achievable score** is now $100 - n$, where $n$ is the active suppression count. A project with 10 suppressions cannot exceed 90, regardless of finding counts.
@@ -99,6 +105,8 @@ where $\left| F_s \right|$ is the total suppression count and $\text{DebtCost} =
 **Monotonicity**: $DQS$ is non-increasing in $n$. Adding a suppression never improves the score.
 
 **Score/gate coupling**: the CI gate threshold (configured via `--fail-under`) and the hard-fail suppression threshold (`suppression_cap`) are now independent. A project with a score of 80 and 29 suppressions (cap = 30) passes both. A project with a score of 95 and 31 suppressions (cap = 30) fails the cap gate regardless of the score.
+
+---
 
 ## Closing the Mapping Gap
 
@@ -119,6 +127,8 @@ two independent quality dimensions (translation completeness vs. link health / c
 quality) into a single number, making the score harder to interpret. A separate ADR is
 required to add Z602 to the DQS formula. For now, it is excluded from the penalty table, listed in `FROZEN_CODES`, and defined in `CODE_DEFINITIONS` with penalty `0.0`.
 
+---
+
 ## Migration Impact (v0.7.x → v0.8.0)
 
 Projects with active suppressions will see their DQS decrease. The magnitude is exactly the active suppression count:
@@ -130,6 +140,8 @@ $$
 For a project with 10 suppressions previously scoring 75 (under allowance model with $n \leq \text{cap}$), the new score is $75 - 10 = 65$.
 
 The suppression audit output in the CLI is unchanged. The label semantics for `[MANAGED DEBT]` and `[EXTENDED DEBT]` describe governance posture, not score exemption.
+
+---
 
 ## See Also
 

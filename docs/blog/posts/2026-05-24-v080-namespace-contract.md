@@ -15,6 +15,8 @@ and a machine-consumable route surface for external tools.
 
 Italian version available in the Italian locale mirror of this article.
 
+---
+
 ## Source Integrity Before Build Integrity
 
 Build engines and static analyzers solve different phases of the problem:
@@ -43,6 +45,8 @@ The phase difference relative to a full SSG build (which compiles, bundles, and
 emits routes) does not vary by environment — Zenzic always runs before the build
 engine is available.
 
+---
+
 ## The Namespace Contract
 
 Zenzic introduces an explicit tier model for findings and ownership.
@@ -70,6 +74,8 @@ The practical implication is simple:
 - They cannot be downgraded into decorative warnings by local convenience flags.
 - CI and local gates converge on the same enforcement semantics.
 
+---
+
 ## Open Ecosystem: JSON API Integration
 
 Zenzic exposes route truth as a machine interface:
@@ -88,6 +94,8 @@ External tools can consume this JSON directly:
 
 This removes fragile text scraping from the workflow. Tools consume contracts, not prose.
 
+---
+
 ## Bottom line
 
 The system closes a long-standing gap in documentation QA:
@@ -98,6 +106,8 @@ The system closes a long-standing gap in documentation QA:
 - Virtual-route failures are traced to physical origin, not buried in generic 404 output.
 
 That is the end of the SSG illusion.
+
+---
 
 ## Publication Decree: Sovereign Transition
 

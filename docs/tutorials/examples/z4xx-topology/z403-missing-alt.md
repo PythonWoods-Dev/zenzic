@@ -10,10 +10,14 @@ description: "Analysis of the z403-missing-alt fixture."
 
 <Z403MissingAlt />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z403-missing-alt/` in the Zenzic repository.
 It contains documents demonstrating the `Z403` violation.
+
+---
 
 ## Running the Example
 
@@ -59,6 +63,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z403` finding indicates a **MISSING_ALT** issue.
@@ -69,9 +75,13 @@ This error or warning is raised by Zenzic when an inline markdown image `![](url
 - **Severity:** `Warning`
 - **Impact:** Missing alt text violates accessibility policies, resulting in a DQS deduction of 1.0 point.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Provide clear, descriptive text within the brackets of the image definition or the `alt` parameter of the HTML tag.
+
+---
 
 ## See Also
 

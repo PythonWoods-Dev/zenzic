@@ -48,6 +48,8 @@ zenzic diff main
 
 Compares the quality score of the current branch against `main`. Exits with code 1 on regression. Suitable for pull request checks where the absolute score is acceptable but a branch-local regression is not.
 
+---
+
 ## Pattern 2 — Legacy Debt Containment
 
 The most common reason teams delay governance adoption is accumulated technical debt. A repository with hundreds of broken links in archived migration guides, deprecated API references, or legacy tutorials cannot pass a strict quality gate without a remediation campaign first — which blocks every other improvement. The result is that governance tooling goes unconfigured rather than progressively adopted. `governance.directory_policies` breaks this deadlock by fencing the debt structurally without touching the affected files.
@@ -73,6 +75,8 @@ zenzic check all --audit
 ```
 
 `--audit` bypasses all suppressions — including `governance.directory_policies` — and reports every finding with a `[POLICY_EXEMPTION]` label. Use this during periodic debt review cycles to quantify the residual finding count before deciding whether to reduce the exemption scope.
+
+---
 
 ## Pattern 3 — Sovereign I18N Parity
 

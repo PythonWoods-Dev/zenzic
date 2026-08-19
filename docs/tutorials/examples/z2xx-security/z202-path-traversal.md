@@ -10,10 +10,14 @@ description: "Analysis of the z202-path-traversal fixture."
 
 <Z202PathTraversal />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z202-path-traversal/` in the Zenzic repository.
 It contains documents demonstrating the `Z202` violation.
+
+---
 
 ## Running the Example
 
@@ -51,6 +55,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z202` finding indicates a **PATH_TRAVERSAL** issue.
@@ -61,9 +67,13 @@ This error or warning is raised by Zenzic when a link contains directory travers
 - **Severity:** `Error (Non-suppressible)`
 - **Impact:** Path traversal attempts collapse the DQS score to 0.0 and exit with Exit Code 3, representing a severe security boundary violation.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Path traversal findings represent security boundaries. Correct the path to point to a valid asset located within the documentation root.
+
+---
 
 ## See Also
 

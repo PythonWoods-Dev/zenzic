@@ -12,6 +12,8 @@ The process and requirements we describe below serve as important guardrails
 that are essential to running an Open Source project and help us prevent wasted
 effort and ensure the integrity of the codebase.
 
+---
+
 ## Local development setup
 
 Clone the repository and set up the full development environment in one step:
@@ -105,9 +107,13 @@ pytest                      # full test suite (Hypothesis dev profile — 50 exa
     The `zenzic` binary in your activated virtual environment is what you want
     — not `uvx`, which would download the published PyPI version.
 
+---
+
 ## Issue-First Policy
 
 To optimize resources and ensure contributions align with the architectural goals of the project, Zenzic enforces a strict **Issue-First Policy**. No Pull Request will be reviewed, merged, or discussed unless it is preceded by a corresponding Issue that has been formally discussed and approved by the maintainers. Always link the approved Issue in your PR description.
+
+---
 
 ## CI/CD & Draft PRs
 
@@ -116,6 +122,8 @@ To optimize resources, Zenzic's GitHub Actions trigger ONLY on pushes to `main` 
 ### Local Hooks
 
 Zenzic uses `pre-commit` for automatic mutations (e.g., updating DQS badges). The use of hooks like `post-commit` is an anti-pattern and is not supported, as it would leave the working tree dirty after the commit.
+
+---
 
 ## Styles and linting
 
@@ -137,6 +145,8 @@ styles.
 
   [.editorconfig]: https://editorconfig.org/
 
+---
+
 ## Verified commits
 
 To ensure the integrity of our project, we require [verified commits] that are
@@ -147,6 +157,8 @@ cryptographically signed. Follow the instructions on GitHub for using [gpg],
   [gpg]: https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#gpg-commit-signature-verification
   [ssh]: https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#ssh-commit-signature-verification
   [s/mime]: https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#smime-commit-signature-verification
+
+---
 
 ## Developer certificate of origin
 
@@ -160,6 +172,8 @@ Add a `Signed-off-by` line to every commit using the `-s` flag:
 ```bash
 git commit -s -m "<type>: <summary> (#<issue number>)"
 ```
+
+---
 
 ## REUSE 3.3 — Copyright headers
 
@@ -210,9 +224,13 @@ For binary files, generated assets, or formats with no comment syntax, add an
 entry to `REUSE.toml` at the repository root instead of adding inline headers.
 The pre-commit hook validates both inline headers and `REUSE.toml` entries.
 
+---
+
 ## Use of Generative AI (No AI Slop)
 
 We enforce a strict policy against unverified AI-generated code ("No AI Slop"). AI-assisted coding can be useful, but contributors must thoroughly understand, explain, and architecturally justify every single line of code proposed in a PR. Proposing code that you cannot explain will lead to immediate rejection of the contribution.
+
+---
 
 ## Commit message standards
 
@@ -243,6 +261,8 @@ Signed-off-by: ...
 
   <figcaption>Accepted commit types</figcaption>
 </figure>
+
+---
 
 ## See Also
 

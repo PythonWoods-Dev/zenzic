@@ -147,6 +147,8 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z618** | REQUIRED_HEADING_PATTERN | 3.0 pts | Governance & Brand | **Opt-In** |
 | **Z619** | MAX_DOCUMENT_COMPLEXITY | 4.0 pts | Governance & Brand | **Opt-In** |
 
+---
+
 ## Stage 3 — Governance Escalation {#governance-escalation}
 
 When Governance & Brand findings (codes $\mathcal{G} = \{Z601, Z603, Z610, Z611, Z612, Z613, Z614, Z615, Z616, Z620\}$) exceed **10 total occurrences**, an exponential penalty amplifier is applied to the Governance category deduction:

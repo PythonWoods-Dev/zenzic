@@ -17,6 +17,8 @@ With a project of this size and complexity, bugs may occur. If you think you
 have discovered a bug, you can help us by submitting an issue in our public
 [issue tracker](https://github.com/PythonWoods/zenzic/issues), following this guide.
 
+---
+
 ## Before creating an issue
 
 We aim to keep the number of open issues low by addressing bugs promptly.
@@ -118,6 +120,8 @@ checklist ensures that you have read this guide and provided us with everything
 we need to help you.
 
 __We'll take it from here.__
+
+---
 
 ## See Also
 

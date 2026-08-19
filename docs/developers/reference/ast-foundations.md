@@ -130,6 +130,8 @@ Zenzic implements an AST `Mutator` engine to execute precise, safe code modifica
 - **O(N) Linear Tokenization**: The inline tokenizer operates as a single-pass, character-by-character linear state machine ($O(N)$ complexity).
 - **Zero Subprocess Execution**: The AST compiler runs natively in-process without spawning external shell processes.
 
+---
+
 ## See Also
 
 - [Core Architecture](../../explanation/architecture.md)

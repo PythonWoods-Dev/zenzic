@@ -10,6 +10,8 @@ description: "Walk through the z102-anchor-missing fixture: a fragment link targ
 
 <Z102AnchorMissing />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z102-anchor-missing/` in the Zenzic repository.
@@ -32,6 +34,8 @@ fail_under = 0
 [build_context]
 engine = "standalone"
 ```
+
+---
 
 ## Running the Example
 
@@ -82,6 +86,8 @@ Anchor context (documentation note, not CLI output):
 - Present in `guide.md`: `#guide`, `#overview`
 - Missing in `guide.md`: `#nonexistent-section`
 
+---
+
 ## Interpreting the Output
 
 The `Z102` finding indicates a **ANCHOR_MISSING** issue.
@@ -92,13 +98,19 @@ This error or warning is raised by Zenzic when a markdown link contains a fragme
 - **Severity:** `Error`
 - **Impact:** Missing anchors lead to broken navigation within pages, resulting in a DQS deduction penalty of 5.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1 halts the CI/CD pipeline. Resolve the issue by adding the missing header to the target document, ensuring its slugified name matches the fragment, or updating the link to target a valid header.
 
+---
+
 ## Explicit Anchors & Attribute Lists
 
 Zenzic natively supports explicit block-level anchors (such as `{#id}`) and handles markdown attribute lists (e.g., `{ data-toc-label="Overview" }`) attached to headings. When compiling the header registry, Zenzic strips these attribute lists before slugifying heading text, preventing false-positive `Z102` errors.
+
+---
 
 ## See Also
 

@@ -11,9 +11,13 @@ description: "Z122 fires when an HTML anchor tag uses a jump link (javascript:vo
 
 `Z122` is triggered when an `<a>` tag specifies `href="#"` or `href="javascript:void(0)"`.
 
+---
+
 ## Why it matters
 
 Jump links are an anti-pattern in modern documentation. They usually indicate a button posing as a link, which creates accessibility issues and breaks standard navigation flow.
+
+---
 
 ## Remediation
 

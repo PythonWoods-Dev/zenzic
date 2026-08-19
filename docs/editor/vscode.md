@@ -4,6 +4,8 @@
 
 The official **Zenzic VS Code Extension** (`pythonwoods.zenzic-vscode`) brings sub-50ms deterministic diagnostics, credential scanning, and real-time topological validation directly into your authoring environment.
 
+---
+
 ## Thin Client Architecture
 
 The extension is designed as a **Thin Client**. It contains zero parsing engines, zero regex logic, and zero validation rules.
@@ -22,10 +24,14 @@ flowchart LR
     The VS Code Extension requires **Zenzic Core v0.30.0 or higher**. If the CLI is not
     already installed, the extension can provision it automatically — see [the Auto-Provisioning section](#auto-provisioning) below.
 
+---
+
 ## Requirements
 
 - **Zenzic Core**: `v0.30.0` or higher. Automatically provisioned on first use if not present (see [the Auto-Provisioning section](#auto-provisioning)).
 - **VS Code**: `v1.125.0` or higher.
+
+---
 
 ## Installation & Setup
 
@@ -46,6 +52,8 @@ flowchart LR
     # Alternative: Standard pip install
     pip install zenzic
     ```
+
+---
 
 ## Auto-Provisioning
 
@@ -76,6 +84,8 @@ To disable auto-provisioning (e.g., for corporate proxy environments or air-gapp
 
 When `autoProvision` is `false`, the extension reverts to the manual-install flow and displays an actionable error message with a link to the installation documentation.
 
+---
+
 ## Path Resolution & Local Development
 
 The extension resolves the `zenzic` executable using a strict deterministic priority order:
@@ -88,6 +98,8 @@ The extension resolves the `zenzic` executable using a strict deterministic prio
 
 !!! tip "Local Core and Rule Development"
     If you are developing Zenzic rules or working on the core engine itself, install Zenzic in editable mode (`uv pip install -e .`) inside a local `.venv`. Set `zenzic.executablePath` to `${workspaceFolder}/.venv/bin/zenzic` to ensure the extension uses your live code instead of the Auto-Provisioned version.
+
+---
 
 ## Configuration
 
@@ -125,6 +137,8 @@ The extension contributes the following commands to the Command Palette (`Ctrl+S
 | **Zenzic: Show Status / Recovery** | `zenzic.showStatus` | Re-triggers error recovery dialogs or opens the quick action menu. |
 | **Zenzic: Troubleshoot & Repair Setup** | `zenzic.troubleshoot` | Runs automated environment diagnostics and offers 1-click self-healing repairs. |
 
+---
+
 ## Inline Diagnostics & Code Actions
 
 The extension exposes real-time LSP diagnostics directly in the PROBLEMS panel and editor margin.
@@ -132,6 +146,8 @@ The extension exposes real-time LSP diagnostics directly in the PROBLEMS panel a
 Zenzic provides automated Quick Fixes for specific structural and content findings (e.g., injecting placeholder text for empty links `Z108`, adding language tags to code blocks `Z505`, and removing dead suppressions `Z603`).
 
 In addition, Zenzic offers automated "Suppress this finding" Code Actions (`<!-- zenzic:ignore:ZXXX -->`) for all suppressible diagnostics. Hovering over a finding allows you to insert an inline suppression directive on the line above with a single click. To enforce security governance, suppression Code Actions are intentionally disabled for Security findings (`Z2xx`), which must be remediated at the source.
+
+---
 
 ## Domain Boundaries & Supported Files
 

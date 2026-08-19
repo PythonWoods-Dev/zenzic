@@ -10,10 +10,14 @@ description: "Analysis of the z505-untagged-code-block fixture."
 
 <Z505UntaggedCodeBlock />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z505-untagged-code-block/` in the Zenzic repository.
 It contains documents demonstrating the `Z505` violation.
+
+---
 
 ## Running the Example
 
@@ -52,6 +56,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z505` finding indicates a **UNTAGGED_CODE_BLOCK** issue.
@@ -62,9 +68,13 @@ This error or warning is raised by Zenzic when a fenced code block (using ` ``` 
 - **Severity:** `Warning`
 - **Impact:** Untagged code blocks degrade formatting quality and incur a DQS deduction of 1.0 point.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Append a valid language tag (e.g., ` ```python ` or ` ```bash `) immediately after the opening backticks of the fenced code block.
+
+---
 
 ## See Also
 

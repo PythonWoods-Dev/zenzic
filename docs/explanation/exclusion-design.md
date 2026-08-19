@@ -9,6 +9,8 @@ description: "The design rationale behind Zenzic's conscious exclusion model ver
 
 This section details the specifications and guidelines for Exclusion Design within the Zenzic ecosystem.
 
+---
+
 ## Conscious Control vs. Blind Automation
 
 Zenzic defaults to **Conscious Control** rather than Blind Automation. Understanding this principle is the key to configuring the tool effectively in production projects.
@@ -50,6 +52,8 @@ excluded_file_patterns = ["*.it.md", "CHANGELOG*.md"]
 
 Enable it for projects with a clean, documentation-focused `.gitignore` where VCS-excluded paths genuinely map to documentation that should not be linted (e.g. auto-generated API reference in `site/`). Always audit the exclusion effect using `--show-info` after enabling.
 
+---
+
 ## Governance Score Math
 
 The `fail_under` and `suppression_cap` fields act as **orthogonal constraints**. Each active suppression deducts exactly **1 DQS point** (flat-cost model). The maximum score a project can achieve is therefore:
@@ -63,6 +67,8 @@ where $|F_s|$ is the total active suppression count. Configuring `fail_under > 1
 ### Designing Hybrid Governance Policies
 
 Setting `fail_under = 90` and `suppression_cap = 30` means: "The global repository quality must never drop below 90/100, **but** regardless of the score, we absolutely refuse to tolerate more than 30 suppressed defects." This prevents teams from hiding massive structural debt even if their active code is otherwise clean.
+
+---
 
 ## See Also
 

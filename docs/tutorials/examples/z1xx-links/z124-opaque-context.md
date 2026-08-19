@@ -11,9 +11,13 @@ description: "Z124 fires when an HTML tag contains attributes that obfuscate lin
 
 `Z124` is triggered when an `<a>` or `<img>` tag uses blacklisted attributes like `onclick` or `onmouseover`.
 
+---
+
 ## Why it matters
 
 Inline event handlers obscure the actual behavior of the link or image, bypassing standard static analysis and posing a potential security risk in documentation context.
+
+---
 
 ## Remediation
 

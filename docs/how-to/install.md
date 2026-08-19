@@ -176,6 +176,8 @@ Use `--engine` to override the detected adapter for a single run without changin
 
 > For the full design rationale behind engine-aware vs. standalone mode, see [Architecture — Sovereign CLI](../explanation/architecture.md#sovereign-cli).
 
+---
+
 ## Decommissioning Zenzic
 
 If you need to remove Zenzic from your project, the decommission process takes less than 30 seconds and leaves no trace.

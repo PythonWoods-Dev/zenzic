@@ -8,6 +8,8 @@ description: Snapshot existing technical debt into .zenzic-baseline.json to prev
 
 Zenzic provides an anti-regression engine that captures existing technical debt into a deterministic snapshot file (`.zenzic-baseline.json`). This allows engineering teams to adopt strict Quality Gates without being blocked by legacy documentation debt.
 
+---
+
 ## Core Concepts
 
 The baseline engine is designed around stable signatures and explicit visibility of debt.
@@ -79,6 +81,8 @@ When a baseline is active:
 - **Exit 1**: A new defect is introduced OR current DQS score drops below the baseline score.
 - **Resolution Hint**: If baselined issues are fixed, Zenzic displays a hint suggesting to refresh the baseline:
   `💡 2 baselined issues resolved! Run 'zenzic check --update-baseline' to refresh baseline.`
+
+---
 
 ## See Also
 

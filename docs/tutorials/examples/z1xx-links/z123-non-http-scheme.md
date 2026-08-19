@@ -11,9 +11,13 @@ description: "Z123 fires when an HTML anchor uses a non-HTTP scheme like mailto:
 
 `Z123` is triggered when an `<a>` tag uses a non-standard protocol scheme (e.g., `mailto:`, `tel:`, `ftp:`).
 
+---
+
 ## Why it matters
 
 While valid, these links cannot be verified for integrity by Zenzic's static analyzer. They are flagged as notes so reviewers are aware of unverified external dependencies.
+
+---
 
 ## Remediation
 

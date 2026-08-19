@@ -17,11 +17,15 @@ In modern CI/CD pipelines, security and performance should be structurally bound
 
 ![Why we banned Python's regex module: The algorithm behind Zenzic](../../assets/images/blog/why-we-banned-pythons-regex-module.webp)
 
+---
+
 ## The ReDoS Problem in CI/CD
 
 Many Python-based linters rely on the standard `re` module, which uses a backtracking NFA-style regex engine. When evaluating complex regex patterns against large or crafted payloads, backtracking can lead to exponential worst-case time complexity: $O(2^N)$.
 
 In a CI/CD environment, an attacker or a simple misconfiguration can introduce a payload that triggers this exponential evaluation. This can stall a pipeline for impractically long periods of time, consuming runner minutes and effectively causing a denial of service on the build infrastructure. Traditional tools attempt to mitigate this using timeouts (`SIGALRM` or runtime canaries), but these are operational bandages, not architectural solutions.
+
+---
 
 ## The Zenzic Solution: DFA and Algorithmic Separation
 

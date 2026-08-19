@@ -19,6 +19,8 @@ guidelines, we can help you much faster.
 
 In this section, we guide you through our processes.
 
+---
+
 ## Create an Issue
 
 <div class="grid cards" markdown>
@@ -62,6 +64,8 @@ In this section, we guide you through our processes.
 
 </div>
 
+---
+
 ## Contribute
 
 <div class="grid cards" markdown>
@@ -85,9 +89,13 @@ In this section, we guide you through our processes.
   [request a change]: request-a-change.md
   [make a pull request]: pull-requests.md
 
+---
+
 ## Issue-First Policy
 
 To maintain a healthy codebase and optimize maintainer resources, Zenzic enforces a strict __Issue-First Policy__. No Pull Request will be reviewed, merged, or discussed unless it is preceded by a corresponding Issue that has been formally discussed and approved by the maintainers. Always link the approved Issue in your PR description.
+
+---
 
 ## Checklist
 
@@ -126,6 +134,8 @@ community.
 
   respectful to the project? Could you just use a
   [reaction] instead?
+
+---
 
 ## Incomplete contributions
 

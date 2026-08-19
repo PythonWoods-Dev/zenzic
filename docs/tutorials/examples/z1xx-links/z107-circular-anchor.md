@@ -10,6 +10,8 @@ description: "Walk through the z107-circular-anchor fixture: a self-referential 
 
 <Z107CircularAnchor />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z107-circular-anchor/` in the Zenzic repository.
@@ -31,6 +33,8 @@ fail_under = 0
 [build_context]
 engine = "standalone"
 ```
+
+---
 
 ## Running the Example
 
@@ -66,6 +70,8 @@ verified.
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z107` finding indicates a **CIRCULAR_ANCHOR** issue.
@@ -84,6 +90,8 @@ Metadata:
 - **Severity:** `Warning`
 - **Impact:** Deducts **1.0 DQS point** (structural category, weight 0.30).
 
+---
+
 ## Resolve the Issue
 
 Replace the circular link with either a meaningful external target or remove it:
@@ -92,6 +100,8 @@ Replace the circular link with either a meaningful external target or remove it:
 - This page contains a self-referential anchor link: [Setup](#setup)
 + To jump to the next section, see [Next Steps](#next-steps).
 ```
+
+---
 
 ## See Also
 

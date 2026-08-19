@@ -10,6 +10,8 @@ description: "Walk through the z101-broken-links fixture: two internal link targ
 
 <Z101BrokenLinks />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z101-broken-links/` in the Zenzic repository.
@@ -31,6 +33,8 @@ fail_under = 0
 [build_context]
 engine = "standalone"
 ```
+
+---
 
 ## Running the Example
 
@@ -77,6 +81,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z101` finding indicates a **LINK_BROKEN** issue.
@@ -87,9 +93,13 @@ This error or warning is raised by Zenzic when a reference link points to an inv
 - **Severity:** `Error`
 - **Impact:** Broken links severely degrade the user experience and reduce the Documentation Quality Score (DQS) by deducting a penalty of 8.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1 is triggered in CI pipeline gates when broken links are detected to prevent deployment of dead references. Remediation requires creating the missing destination file or correcting the target path inside the markdown source file.
+
+---
 
 ## See Also
 

@@ -11,12 +11,16 @@ description: "Z205 fires when an HTML anchor uses a critical forbidden scheme (d
 
 `Z205` is triggered when a critical forbidden scheme like `javascript:` or `data:` is detected in an `href` or `src` attribute.
 
+---
+
 ## Why it matters
 
 These schemes introduce severe XSS (Cross-Site Scripting) vulnerabilities. Allowing `javascript:` in documentation links can lead to arbitrary code execution when clicked by readers.
 
 **This code is strictly NON-SUPPRESSIBLE.**
 Attempting to suppress it using `data-zenzic-ignore` will fail. The security gate evaluates this rule before any suppression context is parsed.
+
+---
 
 ## Remediation
 

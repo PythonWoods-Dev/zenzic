@@ -19,6 +19,8 @@ This deep dive is for software architects and technical stakeholders who want to
 
 The architecture came from five converging fronts: context fragmentation in complex repositories, dynamic-route ambiguity in static analysis, regex safety risk under adversarial inputs, deployment parity drift between local and CI, and governance blind spots that traditional SSG checks never model.
 
+---
+
 ## 1) The Fragmentation Problem: When Context Stops Scaling
 
 The initial symptom looked small: architectural decisions became less reliable during long-lived maintenance sessions. As the instruction corpus and policy body grew, operational consistency dropped. Contributors would correctly apply one rule while violating another that had already been established in the same architectural cycle.
@@ -43,6 +45,8 @@ That decision had two outputs:
 In practice, this changes the operating model from "read everything, hope for retention" to "request only the contract you need, exactly when needed."
 
 For deterministic automation workflows, this is decisive. Systems no longer parse long prose to infer architecture. They query canonical interfaces.
+
+---
 
 ## 1.5) Shift-Left Metrics You Can Verify Yourself
 
@@ -71,6 +75,8 @@ For each run, record:
 - scanned file scope (file count and mode).
 
 This provides a hardware-specific baseline without synthetic benchmarking.
+
+---
 
 ## 2) Virtual Site Map and Reverse Mapping: Solving Dynamic Routes Without Running Node.js
 
@@ -131,6 +137,8 @@ Now the error loop becomes actionable:
 
 No Node.js execution is required to get this answer. That is the mathematical core of the Zenzic route model.
 
+---
+
 ## 3) Security and ReDoS: The Incident Avoided by Design
 
 Every documentation scanner eventually faces regex complexity risk. The usual implementation path is Python's standard `re` module. It is convenient, familiar, and dangerous under adversarial patterns because catastrophic backtracking can explode runtime.
@@ -157,6 +165,8 @@ This design gives us three guarantees at once:
 - **DX continuity:** contributors use one internal import path, not backend-specific code scattered across modules.
 
 In architectural terms, the facade prevents dependency leakage. The domain model talks to a local contract; backend details stay behind the boundary. That is why security semantics can be hardened without destabilizing contributor workflows.
+
+---
 
 ## 4) Four Gates in CI/CD: Security as a Supply Chain, Not a Single Check
 
@@ -189,6 +199,8 @@ When local and remote run the same orchestration surfaces, policy drift shrinks.
 
 That matters for governance and auditability. A failed gate must mean the same thing everywhere, or the gate is procedural theater.
 
+---
+
 ## 5) The Namespace Contract: Why Tier Boundaries Changed the System
 
 Before Zenzic, code families existed but ownership semantics were still easy to blur in real contribution flows. A policy rule could be discussed like a core invariant. A plugin rule could be treated like a frozen security guardrail.
@@ -203,6 +215,8 @@ The namespace contract was formalized to prevent that bleed.
 This matters because suppression semantics and enforcement expectations are tier-dependent by design. Zenzic additionally formalizes immutable surfaces such as `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` so that security findings cannot be casually reclassified into optional style noise.
 
 Security findings are not suggestions. They are enforcement events.
+
+---
 
 ## 5.5) Adapter Refactoring: From Protocol Flexibility to ABC Contracts
 
@@ -231,6 +245,8 @@ BuildContext + repo_root
 ```
 
 MkDocs coverage was upgraded in the same cycle: multi-root discovery is now native in `MkDocsAdapter`, including recursive monorepo include traversal. Additional roots are mounted into the same VSM and reference-validation perimeter, so external docs trees no longer require manual wiring.
+
+---
 
 ## 6) Eradicating Inline Noise: Directory Policies
 
@@ -279,6 +295,8 @@ The hierarchy that emerges is deliberate:
 
 Zero-debt means the suppression cap is preserved for genuine edge cases, and the governance contract remains the authoritative source of intent.
 
+---
+
 ## Why This Is a Zero-Config Ecosystem, Not a Zero-Policy Tool
 
 Zero-config often gets misread as "minimal architecture." In Zenzic, zero-config means deterministic defaults with explicit contracts that remain inspectable.
@@ -290,6 +308,8 @@ That is why JSON inspection surfaces and tiered code contracts are first-class i
 - They stabilize governance across contributors, integrations, and CI.
 
 From an architectural perspective, Zenzic is less about adding checks and more about reducing interpretive entropy.
+
+---
 
 ## Closing Perspective
 

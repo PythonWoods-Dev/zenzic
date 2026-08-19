@@ -10,10 +10,14 @@ description: "Analysis of the z402-orphan-page fixture."
 
 <Z402OrphanPage />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z402-orphan-page/` in the Zenzic repository.
 It contains documents demonstrating the `Z402` violation.
+
+---
 
 ## Running the Example
 
@@ -43,6 +47,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z402` finding indicates a **ORPHAN_PAGE** issue.
@@ -53,9 +59,13 @@ This error or warning is raised by Zenzic when a markdown file exists in the dir
 - **Severity:** `Warning`
 - **Impact:** Orphan pages reduce discoverability and result in a DQS deduction of 4.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Add the orphaned file path to the navigation configuration file or link to it from an active page in the documentation structure.
+
+---
 
 ## See Also
 

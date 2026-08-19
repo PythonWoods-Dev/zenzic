@@ -19,6 +19,8 @@ at startup:
 The repository root is located by walking upward from the current working directory until a `.git`
 directory, a `.zenzic.toml`, or a `pyproject.toml` is found.
 
+---
+
 ## .zenzic.toml (Priority 1)
 
 The dedicated configuration file. If it exists, Zenzic reads it and ignores `pyproject.toml`
@@ -60,6 +62,8 @@ If the winning config file contains a **TOML syntax error**, Zenzic raises a `Co
 with a human-friendly message and exits immediately — silent fallback on a broken config file
 would hide mistakes. Unknown fields are silently ignored, which means adding fields not yet
 supported by your installed version is safe.
+
+---
 
 ## See Also
 
