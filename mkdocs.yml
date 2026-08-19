@@ -385,14 +385,18 @@ plugins:
       pagination_per_page: 10
       pagination_url_format: "page/{page}"
   - rss:
-
       match_path: "blog/posts/.*"
       date_from_meta:
         as_creation: date
       use_material_blog: true
       use_material_social_cards: true
       abstract_delimiter: <!-- more -->
+      abstract_chars_count: 500
+      pretty_print: true
       image: https://zenzic.dev/assets/brand/svg/zenzic-icon.svg
+      feed_description: "Engineering insights, release notes and documentation quality guides from the Zenzic team."
+      feed_ttl: 1440
+      stylesheet: /blog/rss.xsl
       feeds_filenames:
         rss_created: blog/rss.xml
         rss_updated: blog/atom.xml

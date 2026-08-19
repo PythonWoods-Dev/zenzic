@@ -11,7 +11,7 @@ categories:
 ---
 With the release of Zenzic v0.17.0, Zenzic expands its validation capabilities beyond Markdown syntax. In addition to Markdown links and assets, Zenzic can now analyze raw HTML references embedded in Markdown documents.
 
-A common limitation of Markdown-focused tooling is that raw HTML embedded inside Markdown documents may not be analyzed with the same level of validation as native Markdown constructs. When developers embed `<a>` tags or `<img>` elements directly into their Markdown to achieve specific layouts or functionality, broken links and missing assets can remain undetected.
+A common limitation of Markdown-focused tooling is that raw HTML embedded inside Markdown documents is not analyzed with the same rigor as native Markdown constructs. When developers embed anchor or image elements directly into their Markdown for custom layouts, broken links and missing assets can remain undetected.
 
 With v0.17.0, HTML links and images are analyzed by the same validation pipeline used for Markdown references.
 

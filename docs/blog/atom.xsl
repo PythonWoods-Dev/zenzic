@@ -3,9 +3,9 @@
 SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 SPDX-License-Identifier: Apache-2.0
 
-RSS 2.0 Browser Stylesheet for Zenzic Blog
-Renders a human-readable HTML page when the feed is opened in a browser.
-Feed readers receive the raw XML and ignore this stylesheet entirely.
+Atom 1.0 Browser Stylesheet for Zenzic Blog
+Renders a human-readable HTML page when the Atom feed is opened in a browser.
+Feed readers receive the raw XML and ignore this stylesheet.
 -->
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -19,7 +19,7 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
       <head>
         <meta charset="UTF-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <title><xsl:value-of select="/rss/channel/title"/> — RSS Feed</title>
+        <title><xsl:value-of select="/atom:feed/atom:title"/> — Atom Feed</title>
         <link rel="stylesheet" href="/assets/css/zenzic-tailwind.min.css"/>
         <link rel="stylesheet" href="/assets/css/extra.css"/>
         <style>
@@ -61,8 +61,8 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
             align-items: center;
             gap: 0.5rem;
             padding: 0.5rem 1.1rem;
-            background: var(--zz-rss-accent);
-            color: #fff;
+            background: #f59e0b;
+            color: #000;
             font-size: 0.82rem;
             font-weight: 600;
             border-radius: 20px;
@@ -81,12 +81,7 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
             color: var(--zz-rss-muted);
           }
           .rss-notice strong { color: var(--zz-rss-text); }
-          .rss-notice code {
-            background: #0d1117;
-            padding: 0.1em 0.35em;
-            border-radius: 3px;
-            font-size: 0.85em;
-          }
+          .rss-notice code { background: #0d1117; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.85em; }
           .rss-notice a { color: var(--zz-rss-link); }
           .rss-meta { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--zz-rss-border); }
           .rss-meta dl { display: grid; grid-template-columns: max-content 1fr; column-gap: 1.25rem; row-gap: 0.3rem; margin: 0; }
@@ -98,25 +93,9 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
           .rss-item-title { margin: 0 0 0.4rem; font-size: 1.05rem; font-weight: 700; }
           .rss-item-title a { color: #fff; text-decoration: none; }
           .rss-item-title a:hover { color: var(--zz-rss-accent); }
-          .rss-item-meta {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.45rem;
-            margin-bottom: 0.75rem;
-            font-size: 0.78rem;
-            color: var(--zz-rss-muted);
-          }
+          .rss-item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin-bottom: 0.75rem; font-size: 0.78rem; color: var(--zz-rss-muted); }
           .sep { opacity: 0.4; }
-          .rss-category {
-            display: inline-block;
-            padding: 0.1rem 0.55rem;
-            background: var(--zz-rss-badge-bg);
-            border: 1px solid var(--zz-rss-border);
-            border-radius: 20px;
-            font-size: 0.72rem;
-            color: var(--zz-rss-muted);
-          }
+          .rss-category { display: inline-block; padding: 0.1rem 0.55rem; background: var(--zz-rss-badge-bg); border: 1px solid var(--zz-rss-border); border-radius: 20px; font-size: 0.72rem; color: var(--zz-rss-muted); }
           .rss-item-description { font-size: 0.88rem; color: var(--zz-rss-text); line-height: 1.65; margin: 0 0 0.85rem; }
           .rss-item-description p { margin: 0 0 0.5em; }
           .rss-item-description code { background: var(--zz-rss-badge-bg); padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.82em; }
@@ -132,56 +111,61 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
         <header class="rss-header">
           <img class="rss-logo" src="/assets/brand/svg/zenzic-icon.svg" alt="Zenzic logo"/>
           <div class="rss-header-text">
-            <h1><xsl:value-of select="/rss/channel/title"/></h1>
-            <p><xsl:value-of select="/rss/channel/description"/></p>
+            <h1><xsl:value-of select="/atom:feed/atom:title"/></h1>
+            <p><xsl:value-of select="/atom:feed/atom:subtitle"/></p>
           </div>
-          <a class="rss-subscribe-btn" href="/blog/rss.xml">&#128231; Subscribe via RSS</a>
+          <a class="rss-subscribe-btn" href="/blog/atom.xml">&#9883; Subscribe via Atom</a>
         </header>
         <main class="rss-container">
           <div class="rss-notice">
-            <strong>This is a live RSS feed.</strong>
-            Copy <code><xsl:value-of select="/rss/channel/link"/>blog/rss.xml</code> into your feed reader to stay updated.
-            An <a href="/blog/atom.xml">Atom feed</a> is also available.
+            <strong>This is a live Atom feed (RFC 4287).</strong>
+            Copy <code><xsl:value-of select="/atom:feed/atom:link[@rel='self']/@href"/></code> into your feed reader.
+            An <a href="/blog/rss.xml">RSS 2.0 feed</a> is also available.
           </div>
           <section class="rss-meta">
             <dl>
               <dt>Site</dt>
-              <dd><a href="{/rss/channel/link}"><xsl:value-of select="/rss/channel/link"/></a></dd>
-              <dt>Language</dt>
-              <dd><xsl:value-of select="/rss/channel/language"/></dd>
-              <dt>Last built</dt>
-              <dd><xsl:value-of select="/rss/channel/lastBuildDate"/></dd>
+              <dd>
+                <a>
+                  <xsl:attribute name="href">
+                    <xsl:value-of select="/atom:feed/atom:link[@rel='alternate']/@href"/>
+                  </xsl:attribute>
+                  <xsl:value-of select="/atom:feed/atom:link[@rel='alternate']/@href"/>
+                </a>
+              </dd>
+              <dt>Updated</dt>
+              <dd><xsl:value-of select="/atom:feed/atom:updated"/></dd>
               <dt>Posts</dt>
-              <dd><xsl:value-of select="count(/rss/channel/item)"/></dd>
+              <dd><xsl:value-of select="count(/atom:feed/atom:entry)"/></dd>
             </dl>
           </section>
-          <xsl:for-each select="/rss/channel/item">
+          <xsl:for-each select="/atom:feed/atom:entry">
             <article class="rss-item">
               <h2 class="rss-item-title">
-                <a href="{link}"><xsl:value-of select="title"/></a>
+                <a href="{atom:link/@href}"><xsl:value-of select="atom:title"/></a>
               </h2>
               <div class="rss-item-meta">
-                <span><xsl:value-of select="pubDate"/></span>
-                <xsl:if test="author">
+                <span><xsl:value-of select="atom:published"/></span>
+                <xsl:if test="atom:author/atom:name">
                   <span class="sep">&#183;</span>
-                  <span><xsl:value-of select="author"/></span>
+                  <span><xsl:value-of select="atom:author/atom:name"/></span>
                 </xsl:if>
-                <xsl:if test="category">
+                <xsl:if test="atom:category">
                   <span class="sep">&#183;</span>
-                  <xsl:for-each select="category">
-                    <span class="rss-category"><xsl:value-of select="."/></span>
+                  <xsl:for-each select="atom:category">
+                    <span class="rss-category"><xsl:value-of select="@term"/></span>
                   </xsl:for-each>
                 </xsl:if>
               </div>
               <div class="rss-item-description">
-                <xsl:value-of select="description" disable-output-escaping="yes"/>
+                <xsl:value-of select="atom:summary" disable-output-escaping="yes"/>
               </div>
-              <a class="rss-read-more" href="{link}">Read full article</a>
+              <a class="rss-read-more" href="{atom:link/@href}">Read full article</a>
             </article>
           </xsl:for-each>
           <footer class="rss-footer">
             <p>
-              <a href="/"><xsl:value-of select="/rss/channel/title"/></a> &#183;
+              <a href="/"><xsl:value-of select="/atom:feed/atom:title"/></a> &#183;
               Generated with <a href="https://www.mkdocs.org/" rel="noopener">MkDocs</a>,
               <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener">Material</a> and
               <a href="https://guts.github.io/mkdocs-rss-plugin/" rel="noopener">mkdocs-rss-plugin</a>
