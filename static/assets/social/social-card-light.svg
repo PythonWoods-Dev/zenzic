@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <!-- Gradienti moderni Tech -->
+    <linearGradient id="zenzic-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <linearGradient id="zenzic-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+
+    <linearGradient id="zenzic-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#312e81"/>
+    </linearGradient>
+
+    <filter id="shadow-og-lt" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#4338ca" flood-opacity="0.25"/>
+    </filter>
+
+    <clipPath id="br-clip-og-lt">
+      <rect x="103" y="103" width="97" height="97" rx="12"/>
+    </clipPath>
+    <mask id="slash-cut-og-lt">
+      <rect x="0" y="0" width="200" height="200" fill="white"/>
+      <polygon points="166,-5 138,-5 34,205 62,205" fill="black"/>
+    </mask>
+  </defs>
+
+  <!-- Sfondo chiaro -->
+  <rect x="0" y="0" width="1200" height="630" fill="#ffffff"/>
+
+  <!-- Cerchio decorativo -->
+  <circle cx="600" cy="240" r="140" fill="#f8fafc" />
+
+  <!-- Icona grande, posizionata in alto al centro -->
+  <g transform="translate(500, 140) scale(1)" filter="url(#shadow-og-lt)">
+    <g mask="url(#slash-cut-og-lt)">
+      <rect x="0" y="0" width="97" height="97" rx="12" fill="url(#zenzic-cyan)"/>
+      <rect x="103" y="0" width="97" height="97" rx="12" fill="url(#zenzic-indigo)"/>
+      <rect x="0" y="103" width="97" height="97" rx="12" fill="url(#zenzic-indigo)"/>
+      <g clip-path="url(#br-clip-og-lt)">
+        <polygon points="103,103 200,103 200,125 155,200 103,200" fill="url(#zenzic-dark)"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Testo centrato -->
+  <text x="600" y="440" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="80" fill="#0f172a" text-anchor="middle" letter-spacing="-2">Zenzic</text>
+
+  <text x="600" y="490" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="24" fill="#64748b" text-anchor="middle" letter-spacing="2.8">DOCUMENTATION QUALITY PLATFORM</text>
+</svg>
