@@ -337,6 +337,8 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight:
       anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
 
 plugins:
   - search
