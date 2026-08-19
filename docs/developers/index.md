@@ -22,31 +22,59 @@ Operational governance and release troubleshooting start here:
 
 ---
 
-## In this section
+## Core Engineering Guides
 
-- [Writing Plugin Rules](how-to/write-plugin.md) — implement `BaseRule` subclasses, register
+<div class="grid cards" markdown>
 
-  them via `entry_points`, and satisfy the pickle / purity contract.
+- :material-puzzle-edit-outline:{ .lg .middle style="color: #6366f1;" } **[Writing Plugin Rules](how-to/write-plugin.md)**
 
-- [Writing an Adapter](how-to/implement-adapter.md) — implement the `BaseAdapter` protocol
+    ---
 
-  to teach Zenzic about a new documentation engine.
+    Implement `BaseRule` subclasses, satisfy the pickle purity contract, and register entry-points.
 
-- [Example Projects](reference/adapter-examples.md) — four self-contained runnable fixtures that
+    [:material-arrow-right: Read Guide](how-to/write-plugin.md)
 
-  demonstrate correct and incorrect Zenzic configurations.
+- :material-transit-connection-variant:{ .lg .middle style="color: #0284c7;" } **[Writing an Adapter](how-to/implement-adapter.md)**
 
-- [Governance Playbook: Troubleshooting and Invariants](how-to/release-governance-protocol.md) —
+    ---
 
-  Release A CAP policy, suppression rules, and Zenzic failure playbooks.
+    Implement the `BaseAdapter` protocol to teach Zenzic about a new documentation engine topology.
 
-- [Shared Sovereign Verification Model](explanation/sovereign-verification-model.md) —
+    [:material-arrow-right: Read Guide](how-to/implement-adapter.md)
 
-  Family-wide nox/just/CI contract: fail-closed core resolution and local == CI.
+- :material-folder-play-outline:{ .lg .middle style="color: #10b981;" } **[Example Projects](reference/adapter-examples.md)**
 
-- [Supply-Chain Assurance Profile](reference/supply-chain-assurance-profile.md) —
+    ---
 
-  Immediate advanced assurance baseline with auditable controls and runbook commands.
+    Four self-contained runnable fixtures demonstrating correct and incorrect Zenzic configurations.
+
+    [:material-arrow-right: Explore Fixtures](reference/adapter-examples.md)
+
+- :material-shield-lock-open-outline:{ .lg .middle style="color: #f59e0b;" } **[Governance Playbook](how-to/release-governance-protocol.md)**
+
+    ---
+
+    Release CAP policies, suppression rules, and failure troubleshooting playbooks.
+
+    [:material-arrow-right: Read Playbook](how-to/release-governance-protocol.md)
+
+- :material-server-security:{ .lg .middle style="color: #e11d48;" } **[Sovereign Verification Model](explanation/sovereign-verification-model.md)**
+
+    ---
+
+    Fail-closed core resolution, zero-network quality gate, and complete local-to-CI parity.
+
+    [:material-arrow-right: Read Model](explanation/sovereign-verification-model.md)
+
+- :material-certificate-outline:{ .lg .middle style="color: #6366f1;" } **[Supply-Chain Assurance](reference/supply-chain-assurance-profile.md)**
+
+    ---
+
+    Auditable supply-chain controls, security baselines, and verification runbook commands.
+
+    [:material-arrow-right: View Profile](reference/supply-chain-assurance-profile.md)
+
+</div>
 
 ---
 

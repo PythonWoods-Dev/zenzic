@@ -34,15 +34,15 @@ The code registry is governed by immutable contract surfaces:
 ## Category Overview
 
 | **Category** | **Range** | **Purpose** | **Default Severity** | **Suppressible?** |
-|---|---|---|---|---|
-| **Z0xx** | Migration & Compatibility | Engine deprecation; migration guidance | `error` | ❌ No (fatal abort) |
-| **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | `error`/`warning`/`info` | ✅ Yes |
-| **Z2xx** | Security (credential scanner) | Secret detection; path traversal; security incidents | `warning`/`security_breach`/`security_incident` | 🔒 **Never** |
-| **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | `error`/`warning` | ✅ Yes |
-| **Z4xx** | Structure | Directory indexes, orphan pages, missing alt text, config assets | `info`/`warning` | ✅ Yes |
-| **Z5xx** | Content Quality | Placeholder text, short content, snippet validation, regressions | `warning`/`error` | ✅ Yes |
-| **Z6xx** | Governance | Brand obsolescence, required frontmatter, forbidden domain references (opt-in) | `warning` | ✅ Yes |
-| **Z9xx** | Engine & System | Rule execution errors, timeouts, system-level diagnostics | `error`/`warning` | ✅ Yes |
+|---|---|---|---|:---:|
+| **Z0xx** | Migration & Compatibility | Engine deprecation; migration guidance | :material-alert-circle:{ style="color: #e11d48;" } `error` | ❌ No (fatal abort) |
+| **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
+| **Z2xx** | Security Surface | Secret detection; path traversal; security breaches | :material-shield-alert:{ style="color: #ef4444;" } `fatal` (Exit 2/3) | 🔒 **Never** |
+| **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
+| **Z4xx** | Topology & Structure | Directory indexes, orphan pages, config assets | :material-information:{ style="color: #0284c7;" } `info` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
+| **Z5xx** | Content Quality | Placeholders, short content, snippet validation | :material-alert:{ style="color: #f59e0b;" } `warning` / :material-alert-circle:{ style="color: #e11d48;" } `error` | ✅ Yes |
+| **Z6xx** | Governance | Brand obsolescence, dead suppressions, domain policies | :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
+| **Z9xx** | Engine & System | Rule execution errors, timeouts, system faults | :material-alert-circle:{ style="color: #e11d48;" } `error` | ✅ Yes |
 
 !!! info "Per-line suppression syntax"
     **Markdown (.md):** `<!-- zenzic:ignore: Zxxx -->`\
@@ -51,12 +51,12 @@ The code registry is governed by immutable contract surfaces:
 
 ### Exit Code Contract
 
-| Exit Code | Meaning | Suppressible? |
-| :---: | :--- | :--- |
-| **0** | All checks passed (or suppressed via `--exit-zero`) | — |
-| **1** | Errors and warnings detected; use `--strict` to promote warnings | ✅ Yes |
-| **2** | Security breaches (Z201, Z204). **Never** suppressed | ❌ Never |
-| **3** | Security incidents (Z203 PATH_TRAVERSAL_FATAL). **Never** suppressed, even with `--exit-zero` | ❌ Never |
+| Exit Code | Meaning | Suppressible? | Execution Impact |
+| :---: | :--- | :---: | :--- |
+| **0** | All checks passed (or suppressed via `--exit-zero`) | — | Clean Pass / Normal Completion |
+| **1** | Errors and warnings detected; use `--strict` to promote warnings | ✅ Yes | Standard Gate Failure |
+| **2** | Security breaches (Z201, Z204). **Never** suppressed | ❌ Never | **Fatal Security Override** |
+| **3** | Security incidents (Z203 PATH_TRAVERSAL_FATAL). **Never** suppressed | ❌ Never | **Fatal Boundary Breach** |
 
 ---
 
