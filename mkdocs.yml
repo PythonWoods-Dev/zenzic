@@ -326,6 +326,12 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic
       name: Zenzic on GitHub
+    - icon: fontawesome/brands/hashnode
+      link: https://hashnode.com/@Pythonwoods
+      name: PythonWoods on Hashnode
+    - icon: fontawesome/solid/screwdriver-wrench
+      link: https://devtool.io
+      name: Featured on DevTool.io
     - icon: fontawesome/solid/rss
       link: /blog/rss.xml
       name: RSS Feed

@@ -90,22 +90,15 @@ GitHub Actions runners: quality findings (exit 1) are configurable; security inc
 The Trinity is not a hierarchy — it is a **cycle**. Each repository informs and constrains the
 others:
 
-```text
-  ┌─────────────────────────────────────────────┐
-  │                                             │
-  │   Core enforces rules defined by the Soul  │
-  │          ↓                                  │
-  │   Soul records decisions made during Core  │
-  │   implementation and community review      │
-  │          ↓                                  │
-  │   Action deploys the Core into the world,  │
-  │   feeding real-world failures back to the  │
-  │   Soul as new ADR candidates               │
-  │          ↓                                  │
-  │   The Soul updates the Core invariants     │
-  │          ↑_________________________________│
-  │                                             │
-  └─────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Core["<b>Zenzic Core</b><br>Enforces rules defined by the Soul"] -->|"Implementation review"| Soul["<b>The Soul (Documentation & ADRs)</b><br>Records architectural invariants"]
+    Soul -->|"Invariants & policies"| Action["<b>Action (Delivery & CI/CD)</b><br>Deploys Core to the ecosystem"]
+    Action -->|"Real-world failures & telemetry"| Core
+
+    style Core fill:#4f46e5,stroke:#4338ca,color:#ffffff,stroke-width:2px
+    style Soul fill:#0284c7,stroke:#0369a1,color:#ffffff,stroke-width:2px
+    style Action fill:#10b981,stroke:#059669,color:#ffffff,stroke-width:2px
 ```
 
 A change to the Core that is not reflected in the Soul is a **ghost commit**. An Action that
