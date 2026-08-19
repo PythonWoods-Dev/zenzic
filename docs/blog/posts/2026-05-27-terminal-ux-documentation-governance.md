@@ -70,6 +70,8 @@ suppression audit model, and the exit code semantics.
 <span className="text-emerald-500 font-medium block mt-1">✔ All checks passed — exit 0</span>
 </ZenzicTerminal>
 
+---
+
 ## Information Density in the Run Header
 
 At the end of every `zenzic check` invocation, a single telemetry line is
@@ -132,6 +134,8 @@ capabilities, and exit-code contracts — use `zenzic inspect`.
 <span className="text-zinc-400 block">Rule Registry · 12 rules loaded</span>
 <span className="text-emerald-500 font-medium block mt-1">✔ exit 0</span>
 </ZenzicTerminal>
+
+---
 
 ## Diagnostic Rendering
 
@@ -214,6 +218,8 @@ docs/guides/install.md:47:29
 <div className="flex gap-2 items-baseline"><span className="text-rose-500">✘</span><span className="bg-rose-500/10 text-rose-400 px-1 rounded-sm text-[11px]">[Z101]</span><span className="text-zinc-300">Broken internal link → install.md</span></div>
 <div className="mt-2 text-rose-500 font-semibold text-[11px] tracking-wide">FAILED — exit 1</div>
 </ZenzicTerminal>
+
+---
 
 ## The Mathematics of Suppression Debt
 
@@ -313,6 +319,8 @@ It cannot be resolved by adding more `zenzic:ignore` directives — each
 additional directive increases the count and the debt simultaneously.
 
 <ZenzicTerminal title="zenzic check all"><span className="text-emerald-500 font-medium">✔ All checks passed — exit 0</span></ZenzicTerminal>
+
+---
 
 ## Exit Semantics as a CI Contract
 

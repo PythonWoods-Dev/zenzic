@@ -18,6 +18,8 @@ please follow this guide to submit an issue on our [issue tracker].
 
   [issue tracker]: https://github.com/PythonWoods/zenzic/issues
 
+---
+
 ## Issue template
 
 Reporting a documentation issue is usually less involved than reporting a bug,
@@ -81,6 +83,8 @@ documentation. The checklist ensures that you have read this guide and provided
 us with every piece of information we need to improve it.
 
 __We'll take it from here.__
+
+---
 
 ## See Also
 

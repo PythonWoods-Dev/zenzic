@@ -8,6 +8,8 @@ description: "Analysis of the z603-dead-suppression fixture. Demonstrates how Ze
 
 **Z-Code:** `Z603 DEAD_SUPPRESSION` · **Engine:** `standalone` · **Exit:** `0` · **Severity:** `warning`
 
+---
+
 ## What Is Z603?
 
 Z603 fires when a `<!-- zenzic:ignore: Zxxx -->` directive exists on a line
@@ -15,6 +17,8 @@ but no active finding of code `Zxxx` is produced for that line.
 
 The directive silences nothing. It is **Phantom Debt**: it consumes part of
 the 30-point governance budget without justification.
+
+---
 
 ## The Fixture
 
@@ -27,6 +31,8 @@ It has been converted to a code block to achieve a perfect 100/100 DQS.
 
 Zenzic will report Z603 on the line above because the `zenzic:ignore: Z101` directive
 never matched an active Z101 (LINK_BROKEN) finding.
+
+---
 
 ## Running the Example
 
@@ -52,6 +58,8 @@ Remove the dead comment.
 ```
 
 Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)
+
+---
 
 ## The Three Z603 Scenarios
 
@@ -88,6 +96,8 @@ aws_key = AKIA••••••••••••EXAMPLE <!-- zenzic:ignore: Z2
 → **Z201 fires** (credential scanner is non-suppressible).
 → **Z603 also fires** (the Z201 directive was never consumed).
 
+---
+
 ## Policy Isolation
 
 The `docs/tutorials/examples/**` directory is covered by a `Z603` exemption in
@@ -98,11 +108,15 @@ The `docs/tutorials/examples/**` directory is covered by a `Z603` exemption in
 "docs/tutorials/examples/**" = ["Z401", "Z506", "Z603"]
 ```
 
+---
+
 ## Resolve the Issue
 
 1. **Remove the dead comment.** If the link was recently fixed, clean up the suppression.
 2. **Never add speculative suppressions.** Add `zenzic:ignore` only after confirming an active finding on that line.
 3. **Security codes are non-suppressible.** Z201/Z202/Z203/Z204 directives are always dead — fix the underlying secret instead.
+
+---
 
 ## See Also
 

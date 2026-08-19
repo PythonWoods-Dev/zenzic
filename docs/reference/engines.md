@@ -12,6 +12,8 @@ without requiring any build framework to be installed. It is also **opinionated*
 declare an engine, you must prove it. This guide explains how to configure Zenzic for each
 supported engine and what the rules are.
 
+---
+
 ## Cross-ecosystem reach
 
 Zenzic supports checking Markdown directories natively without requiring a build engine via the Standalone engine mode. Adapters for MkDocs and Zensical provide enhanced navigation and internationalisation support.

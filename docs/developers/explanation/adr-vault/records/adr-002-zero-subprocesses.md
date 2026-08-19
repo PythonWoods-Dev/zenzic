@@ -8,22 +8,32 @@ description: "Architectural Decision Record prohibiting subprocesses within the 
 
 This section details the specifications and guidelines for ADR 002: Zero Subprocesses Policy within the Zenzic ecosystem.
 
+---
+
 ## Context
 
 Running arbitrary executables or scripts via subprocesses (e.g., `os.system`, `subprocess`) introduces severe security, portability, and determinism risks into the Core execution environment.
+
+---
 
 ## Decision
 
 Absolute prohibition of `os.system` and `subprocess` within the Core.
 
+---
+
 ## Rationale
 
 To guarantee a deterministic, safe, and portable execution environment, all logic must run strictly within the Python runtime. This adheres to the strict requirement of zero subprocesses.
+
+---
 
 ## Invariants
 
 - Zero subprocesses invoked by the Core.
 - Complete reliance on pure Python runtime.
+
+---
 
 ## Consequences
 

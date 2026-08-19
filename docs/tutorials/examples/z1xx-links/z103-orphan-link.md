@@ -10,6 +10,8 @@ description: "Walk through the z103-orphan-link fixture: a link to an existing f
 
 <Z103OrphanLink />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z103-orphan-link/` in the Zenzic repository.
@@ -35,6 +37,8 @@ nav = [
     "index.md",
 ]
 ```
+
+---
 
 ## Running the Example
 
@@ -81,6 +85,8 @@ VSM context (documentation note, not CLI output):
 - Target file state: `ORPHAN_BUT_EXISTING`
 - The file exists on disk but is absent from `zensical.toml` navigation.
 
+---
+
 ## Interpreting the Output
 
 The `Z103` finding indicates a **ORPHAN_LINK** issue.
@@ -91,9 +97,13 @@ This error or warning is raised by Zenzic when a markdown page exists and is lin
 - **Severity:** `Error`
 - **Impact:** Orphaned links can lead to isolated content pockets and result in a DQS deduction of 2.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1 is triggered. To fix this, register the target page in the `nav` section of the engine configuration file to integrate it into the site navigation hierarchy.
+
+---
 
 ## See Also
 

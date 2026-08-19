@@ -10,10 +10,14 @@ description: "Analysis of the z303-duplicate-def fixture."
 
 <Z303DuplicateDef />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z303-duplicate-def/` in the Zenzic repository.
 It contains documents demonstrating the `Z303` violation.
+
+---
 
 ## Running the Example
 
@@ -51,6 +55,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z303` finding indicates a **DUPLICATE_DEF** issue.
@@ -61,9 +67,13 @@ This error or warning is raised by Zenzic when a reference identifier is defined
 - **Severity:** `Warning`
 - **Impact:** Duplicate definitions indicate configuration inconsistencies and result in a DQS deduction of 3.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Consolidate the duplicate definitions by removing the redundant reference blocks and ensuring each identifier is declared only once.
+
+---
 
 ## See Also
 

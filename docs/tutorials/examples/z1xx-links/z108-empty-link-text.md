@@ -10,6 +10,8 @@ description: "Analysis of the z108-empty-link-text fixture: a link whose label i
 
 <Z108EmptyLinkText />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z108-empty-link-text/` in the Zenzic repository.
@@ -26,6 +28,8 @@ for a link with an empty label. The target file exists on disk (so Z101 does not
 fire), but the link has no visible text. Screen readers announce it as the bare
 word _"link"_ with no destination context, violating WCAG 2.1 §2.4.4 (Link
 Purpose). Sighted users see an invisible, apparently blank bullet point.
+
+---
 
 ## Running the Example
 
@@ -72,6 +76,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z108` finding indicates a **EMPTY_LINK_TEXT** issue.
@@ -82,9 +88,13 @@ This error or warning is raised by Zenzic when a markdown link has empty or whit
 - **Severity:** `Error`
 - **Impact:** Empty link text violates accessibility standards and incurs a DQS deduction of 1.0 point.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Add descriptive, accessible label text inside the Markdown link brackets.
+
+---
 
 ## See Also
 

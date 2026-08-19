@@ -24,6 +24,8 @@ our software meets the needs of our community.
     submitting a new idea, please take a moment to read
     the section on how we manage change requests below.
 
+---
+
 ## Before creating an issue
 
 Before you invest your time filling out a change request, please answer the
@@ -44,6 +46,8 @@ evaluate potential fit more quickly.
 
 **Keep track of all <u>search terms</u> and <u>relevant links</u>, you'll need
 them in the change request.**
+
+---
 
 ## Issue template
 
@@ -119,6 +123,8 @@ how we handle them:
 3. If the idea is out of scope, we will close the request and explain why.
 4. If the idea aligns with the project's vision, we'll move it to our backlog.
 5. Otherwise, we close the request to keep the issue tracker focused on bugs.
+
+---
 
 ## Rejected requests
 

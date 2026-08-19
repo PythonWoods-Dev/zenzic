@@ -10,6 +10,8 @@ description: "Walk through the z404-config-asset-missing fixture: mkdocs.yml log
 
 <Z404ConfigAssetMissing />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z404-config-asset-missing/` in the Zenzic
@@ -32,6 +34,8 @@ fail_under = 0
 [build_context]
 engine = "mkdocs"
 ```
+
+---
 
 ## Running the Example
 
@@ -60,6 +64,8 @@ verified.
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z404` finding indicates a **CONFIG_ASSET_MISSING** issue.
@@ -77,6 +83,8 @@ Checked fields in MkDocs Material:
 
 - `theme.logo` — resolved relative to `docs_dir`
 - `theme.favicon` — resolved relative to `docs_dir`
+
+---
 
 ## Resolve the Issue
 
@@ -96,6 +104,8 @@ theme:
 - logo: assets/logo.svg
 + logo: assets/brand-icon.png
 ```
+
+---
 
 ## See Also
 

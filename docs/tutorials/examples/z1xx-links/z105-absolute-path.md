@@ -10,6 +10,8 @@ description: "Analysis of the z105-absolute-path fixture: a link using an absolu
 
 <Z105AbsolutePath />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z105-absolute-path/` in the Zenzic repository.
@@ -26,6 +28,8 @@ resolved from the server root: when a site is hosted under a subdirectory
 `https://example.com/guide` — not to `https://example.com/my-docs/guide`.
 This silent mis-resolution makes the documentation non-portable across hosting
 environments such as GitHub Pages project sites or CDN subdirectory deployments.
+
+---
 
 ## Running the Example
 
@@ -64,6 +68,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z105` finding indicates a **ABSOLUTE_PATH** issue.
@@ -74,9 +80,13 @@ This error or warning is raised by Zenzic when a link uses an absolute path (sta
 - **Severity:** `Error`
 - **Impact:** Absolute paths reduce documentation portability, incurring a DQS deduction of 2.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Replace the root-relative path link with a document-relative path link (e.g., use `../guide/setup.md` instead of `/guide/setup.md`).
+
+---
 
 ## See Also
 

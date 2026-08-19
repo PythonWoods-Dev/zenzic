@@ -9,6 +9,8 @@ description: "The architectural reasoning behind Zenzic's visual identity, lexic
 
 The Zenzic Brand Ecosystem defines how Zenzic is represented across open-source communities, CI/CD integrations, and documentation landscapes.
 
+---
+
 ## Our Posture
 
 Zenzic is an authoritative, silent, and rigorous entity. Our branding reflects the philosophy of the tool itself:
@@ -16,6 +18,8 @@ Zenzic is an authoritative, silent, and rigorous entity. Our branding reflects t
 * **Surgical precision:** We prefer exact, technical language over vague marketing buzzwords.
 * **Zero noise:** Just like Zenzic returns exit code `0` silently when a test passes, our visual and written communication avoids unnecessary clutter.
 * **Deterministic tone:** Behavior is stated in precise, verifiable terms.
+
+---
 
 ## The Zenzic Lexicon
 
@@ -27,6 +31,8 @@ Consistency is the foundation of quality. When writing about Zenzic across any m
 * **Reference Integrity Check**: Our primary deterministic validation algorithm.
 
 *What we are not:* Zenzic is an engine-agnostic quality suite. Never refer to Zenzic as simply a "plugin," a "MkDocs utility," or a "Markdown viewer."
+
+---
 
 ## Visual Identity: The Zenzic Artifact
 
@@ -40,6 +46,8 @@ When positioning our logos or visual elements in presentations or documentation:
 * Maintain sharp, high-contrast boundaries.
 * Avoid skewing, rotating, or applying blur effects that disrupt its mathematical geometry.
 
+---
+
 ## The Bimodal Palette {#bimodal-palette}
 
 Zenzic adapts its visual frequency to the ambient light of the engineer's environment. The Indigo that guides you through a midnight audit must be different from the Indigo that greets you on a bright conference screen. This is not inconsistency — it is ergonomic design.
@@ -52,6 +60,8 @@ Zenzic adapts its visual frequency to the ambient light of the engineer's enviro
 | Borders (Dark) | `indigo-500/20` | `#6366f1` at 20% | structural | — |
 
 **Usage Specification:** The Zenzic Indigo color is a semantic indicator reserved for structural components (e.g., Navbar, Footer, Scanner Output). In Light Mode, it ensures a contrast ratio >4.5:1 for primary text. In Dark Mode, contrast levels are recalibrated for extended readability. The `backdrop-blur` layer beneath `ZenzicTerminal` panels reduces border intensity to prevent visual fatigue (WCAG 2.1 AA compliance).
+
+---
 
 ## See Also
 

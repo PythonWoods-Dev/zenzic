@@ -10,10 +10,14 @@ description: "Analysis of the z503-snippet-error fixture."
 
 <Z503SnippetError />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z503-snippet-error/` in the Zenzic repository.
 It contains documents demonstrating the `Z503` violation.
+
+---
 
 ## Running the Example
 
@@ -43,6 +47,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z503` finding indicates a **SNIPPET_ERROR** issue.
@@ -53,13 +59,19 @@ This error or warning is raised by Zenzic when a fenced code block has syntax er
 - **Severity:** `Warning`
 - **Impact:** Syntax errors in code snippets confuse developers and incur a massive DQS deduction penalty of 10.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Fix the syntax error in the Python code block to ensure it is valid Python code.
 
+---
+
 ## Custom YAML Tags Support
 
 The YAML validator used by Zenzic's Snippet Guard natively registers and supports standard PyYAML custom tags (such as `!!python/name:` or `!!python/object/apply:`) as well as unregistered custom tags (such as `!ENV` or `!file`) commonly used in MkDocs configuration files. This ensures that valid YAML files incorporating these structures are parsed successfully without throwing false-positive `Z503` exceptions.
+
+---
 
 ## See Also
 

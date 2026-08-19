@@ -10,9 +10,13 @@ description: "Analysis of the z001-config-error scenario: how syntax errors or u
 
 <Z001ConfigError />
 
+---
+
 ## Overview
 
 The configuration file `.zenzic.toml` (or `pyproject.toml`) defines the constitution of the scan: its rules, scoring parameters, and exclusion zones. When the parser encounters structural or semantic issues, it cannot safely execute the check suite. Zenzic aborts the scan immediately to prevent non-deterministic behavior.
+
+---
 
 ## The Scenario
 
@@ -27,6 +31,8 @@ name = "My Project"
 ```
 
 Because `swallowed_key` is not a valid root-level configuration option under the `ZenzicConfig` schema, Pydantic's validation fails.
+
+---
 
 ## Running the Check
 
@@ -46,6 +52,8 @@ Detailed errors in .zenzic.toml:
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z001` finding indicates a **CORE_CONFIG_STRUCTURE** issue.
@@ -54,11 +62,15 @@ The `Z001` finding indicates a **CORE_CONFIG_STRUCTURE** issue.
 - **Severity:** `Error` (Fatal)
 - **Impact:** Immediate termination. The scan aborts before any Markdown or link analysis begins.
 
+---
+
 ## Resolve the Issue
 
 1. Open `.zenzic.toml` or `pyproject.toml`.
 2. Locate the unrecognized or malformed configuration key (e.g. `swallowed_key`).
 3. Correct the key's spelling, place it inside the appropriate table/section, or remove it entirely.
+
+---
 
 ## See Also
 

@@ -10,10 +10,14 @@ description: "Analysis of the z204-forbidden-term fixture."
 
 <Z204ForbiddenTerm />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z204-forbidden-term/` in the Zenzic repository.
 It contains documents demonstrating the `Z204` violation.
+
+---
 
 ## Running the Example
 
@@ -66,6 +70,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `2`
 
+---
+
 ## Interpreting the Output
 
 The `Z204` finding indicates a **FORBIDDEN_TERM** issue.
@@ -76,9 +82,13 @@ This error or warning is raised by Zenzic when a project-specific forbidden term
 - **Severity:** `Error (Non-suppressible)`
 - **Impact:** Forbidden terms trigger an immediate halt with Exit Code 2 and zero out the security status of the project.
 
+---
+
 ## Resolve the Issue
 
 Exit code 2 triggers a policy breach. Remove the blacklisted term from the markdown text or update the forbidden term lists in your local environment configuration.
+
+---
 
 ## See Also
 

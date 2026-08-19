@@ -24,6 +24,8 @@ Today, we are eliminating the latency between authoring a defect and discovering
 
 ![Shift-Left to the Keystroke: The Zenzic VS Code Extension](../../assets/images/blog/zenzic-vs-code-extension.webp)
 
+---
+
 ## The Thin Client Architecture
 
 Most documentation linters suffer from architectural bloat, bundling heavy Node.js parsers or embedding redundant logic directly into the editor extension. This leads to high memory consumption and fragmented rule sets where the editor behaves differently than the CI pipeline.
@@ -34,6 +36,8 @@ It contains zero parsing logic, zero regex engines, and zero validation rules. I
 
 The result is absolute parity. The exact same engine that governs your GitHub Actions pipeline is now validating your keystrokes in real-time.
 
+---
+
 ## Sub-50ms Topological Feedback
 
 By leveraging the `zenzic.lsp` module and the newly decoupled `IncrementalAnalysisEngine` (introduced in Core v0.23.0), the extension maintains an in-memory `VirtualBufferOverlay`.
@@ -43,6 +47,8 @@ When a document is modified, the engine does not rebuild the entire workspace. I
 - **Z201 (Credential Leak):** Paste a GitHub token into your markdown, and it is flagged instantly.
 - **Z101 (Missing Target):** Type a link to a non-existent file, and the diagnostic appears before you save.
 - **Z102 (Broken Anchor):** Modify a heading in `file_b.md`, and any open buffer linking to that specific anchor is immediately invalidated.
+
+---
 
 ## How to Get Started
 

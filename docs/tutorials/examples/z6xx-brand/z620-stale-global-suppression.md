@@ -8,6 +8,8 @@ description: "Walk through the z620-stale-global-suppression fixture: an unused 
 
 **Z-Code:** `Z620 STALE_GLOBAL_SUPPRESSION` · **Engine:** `standalone` · **Exit:** `1`
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z620-stale-global-suppression/` in the Zenzic repository.
@@ -26,6 +28,8 @@ engine = "standalone"
 
 Because `Z101` is never triggered by `clean-page.md`, the policy is "stale" or "dead". Zenzic flags this configuration debt with `Z620`.
 
+---
+
 ## Running the Example
 
 ```bash
@@ -42,6 +46,8 @@ Expected output:
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z620` finding indicates a **STALE_GLOBAL_SUPPRESSION** issue.
@@ -51,6 +57,8 @@ This warning is raised by Zenzic when an entry in `directory_policies`, `exclude
 - **Scan Type:** `All`
 - **Severity:** `Warning` (can be promoted to `Error` via `--strict`)
 - **Impact:** Accumulation of dead policies creates configuration debt and obscures the true perimeter.
+
+---
 
 ## Resolve the Issue
 

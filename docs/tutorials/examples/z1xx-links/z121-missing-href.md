@@ -11,9 +11,13 @@ description: "Z121 fires when an HTML anchor tag lacks an href attribute or has 
 
 `Z121` is triggered when an `<a>` tag has no `href` attribute (or an empty one), or when an `<img>` tag lacks a `src` attribute.
 
+---
+
 ## Why it matters
 
 An anchor without an `href` or an image without a `src` is structurally invalid or relies on undocumented client-side scripting to function, breaking standard link-integrity checks.
+
+---
 
 ## Remediation
 

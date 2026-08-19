@@ -10,6 +10,8 @@ description: "Walk through the z406-nav-contract fixture: mkdocs.yml declares ex
 
 <Z406NavContract />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z406-nav-contract/` in the Zenzic repository.
@@ -39,6 +41,8 @@ fail_under = 0
 engine = "mkdocs"
 ```
 
+---
+
 ## Running the Example
 
 ```bash
@@ -66,6 +70,8 @@ FAILED: Hard errors detected. Exit code 1 is mandatory.
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z406` finding indicates a **NAV_CONTRACT** violation.
@@ -78,6 +84,8 @@ switcher produces a 404:
 - **Scan Type:** `Nav Contract Checker (mkdocs engine)`
 - **Severity:** `Error`
 - **Impact:** Deducts **2.0 DQS points** (brand governance category, weight 0.25).
+
+---
 
 ## Resolve the Issue
 
@@ -101,6 +109,8 @@ extra:
 -     link: /it/
 -     lang: it
 ```
+
+---
 
 ## See Also
 

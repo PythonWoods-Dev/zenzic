@@ -8,6 +8,8 @@ description: Technical deep dive into Zenzic's Three-Phase Pipeline, credential 
 
 This page describes the internal design of Zenzic for contributors and advanced users who need to understand how the tool works under the hood. For configuration and usage, see the [Configuration Reference](../reference/configuration-reference) and [Checks Reference](../reference/checks).
 
+---
+
 ## Integrity Beyond Code {#integrity-beyond-code}
 
 Zenzic extends static-analysis determinism to its build infrastructure.

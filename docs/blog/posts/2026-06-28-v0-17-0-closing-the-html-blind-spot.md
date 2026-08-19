@@ -19,6 +19,8 @@ With v0.17.0, HTML links and images are analyzed by the same validation pipeline
 
 ![Zenzic v0.17.0: HTML Validation in Markdown Documents](../../assets/images/blog/zenzic-v0170-html-validation.webp)
 
+---
+
 ## The Uniform Resolver Pipeline (URP)
 
 To support HTML validation while preserving the existing architecture, we introduced the **Uniform Resolver Pipeline (URP)**.
@@ -35,6 +37,8 @@ This unified approach introduces five new diagnostic codes for HTML validation:
 * **Z123 NON_HTTP_SCHEME**: Flags non-resolvable URI schemes such as `mailto:` and `tel:`.
 * **Z124 OPAQUE_HTML_CONTEXT**: Detects event handlers and routing-related attributes that cannot be analyzed reliably by Zenzic.
 
+---
+
 ## Security: Z205 Forbidden Scheme
 
 Raw HTML can introduce URI schemes that are unsafe or inappropriate in technical documentation. A malicious actor could attempt to embed executable payloads through schemes such as `javascript:` or `data:`.
@@ -42,6 +46,8 @@ Raw HTML can introduce URI schemes that are unsafe or inappropriate in technical
 To reduce the risk of unsafe links being introduced into documentation, v0.17.0 introduces the **Z205 FORBIDDEN_SCHEME** security rule.
 
 This is not a warning. It is a critical, **non-suppressible** violation. If Zenzic detects a forbidden scheme, it immediately halts the pipeline with an Exit 2 status. Inline suppressions such as `data-zenzic-ignore` cannot bypass this rule. In environments using SARIF for CI/CD integrations, this triggers a `toolExecutionNotifications` alert, ensuring that the build fails before the documentation can be deployed.
+
+---
 
 ## The Path Forward
 

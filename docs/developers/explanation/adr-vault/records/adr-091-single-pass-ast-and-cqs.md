@@ -8,9 +8,13 @@ description: "Architectural Decision Record establishing Single-Pass AST Compila
 
 This document details the architectural specification and contract for ADR 091: Single-Pass AST Compilation and Command-Query Segregation within the Zenzic ecosystem.
 
+---
+
 ## Context
 
 A double invocation of document scanning was discovered in the CLI collection layer, degrading end-to-end execution to $O(2N)$. Furthermore, proposals arose to merge mutation flags (`--stamp`) into read-only validation commands (`check all`), threatening the Single Responsibility Principle (SRP).
+
+---
 
 ## Decision
 
@@ -19,15 +23,21 @@ A double invocation of document scanning was discovered in the CLI collection la
    - **`zenzic check` (Query/Read-Only)**: Pure static inspection. Evaluates rules, topological references, credentials, and policies. It must never mutate any file on disk.
    - **`zenzic score` & `zenzic fix` (Command/Write)**: Mutating operations. Calculates DQS metrics, stamps status badges on disk (`--stamp`), or applies lossless AST auto-remediations.
 
+---
+
 ## Rationale
 
 Decoupling validation from mutation prevents monolithic CLI commands, guarantees predictable testability, and ensures that static analysis runs in strict linear time $O(N)$. Passing precomputed reports between modules eliminates redundant multiprocess pool coordination.
+
+---
 
 ## Invariants
 
 - Total filesystem reads remain strictly $O(N)$ across all CLI subcommands.
 - `zenzic check` subcommands are guaranteed to be side-effect free and read-only.
 - All mutating commands must be explicit and idempotent.
+
+---
 
 ## Consequences
 

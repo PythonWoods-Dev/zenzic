@@ -10,10 +10,14 @@ description: "Analysis of the z502-short-content fixture."
 
 <Z502ShortContent />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z502-short-content/` in the Zenzic repository.
 It contains documents demonstrating the `Z502` violation.
+
+---
 
 ## Running the Example
 
@@ -50,6 +54,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z502` finding indicates a **SHORT_CONTENT** issue.
@@ -60,9 +66,13 @@ This error or warning is raised by Zenzic when the word count of the page falls 
 - **Severity:** `Warning`
 - **Impact:** Short content indicates poor content depth and incurs a DQS deduction of 1.0 point.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Write comprehensive technical documentation to meet the minimum word count, or bypass the file using the `governance.per_file_ignores` configuration.
+
+---
 
 ## See Also
 

@@ -12,6 +12,8 @@ The adapter pattern is the core architectural mechanism that allows Zenzic to va
 
 By abstracting site layouts and navigation contracts into a unified protocol (`BaseAdapter`), Zenzic decouples the validation engine from engine-specific behaviors.
 
+---
+
 ## Architectural Trade-offs: Engine-Aware vs. Sovereign Modes
 
 Zenzic adapters fall into two major paradigms: **Engine-Aware** (e.g., `MkDocsAdapter`) and **Zero-Assumption / Sovereign** (e.g., `StandaloneAdapter`).

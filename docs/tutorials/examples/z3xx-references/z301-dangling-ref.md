@@ -10,10 +10,14 @@ description: "Analysis of the z301-dangling-ref fixture."
 
 <Z301DanglingRef />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z301-dangling-ref/` in the Zenzic repository.
 It contains documents demonstrating the `Z301` violation.
+
+---
 
 ## Running the Example
 
@@ -50,6 +54,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z301` finding indicates a **DANGLING_REF** issue.
@@ -60,9 +66,13 @@ This error or warning is raised by Zenzic when a reference-style link (e.g. `[my
 - **Severity:** `Warning`
 - **Impact:** Dangling references lead to unrendered markdown links, resulting in a DQS deduction of 4.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Define the missing reference block at the bottom of the document (e.g. `[ref_id]: https://example.com`) or correct the typo in the link reference.
+
+---
 
 ## See Also
 

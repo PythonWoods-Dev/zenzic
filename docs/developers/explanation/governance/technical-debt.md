@@ -107,6 +107,8 @@ Three commitments govern this page:
 When you contribute a deferral here, you are not admitting weakness — you
 are protecting the next contributor from rediscovering the same trade-off.
 
+---
+
 ## See Also
 
 - [Finding Codes Index](../../../reference/finding-codes.md)

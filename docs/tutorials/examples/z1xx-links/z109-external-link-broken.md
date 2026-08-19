@@ -10,6 +10,8 @@ description: "Walk through the z109-external-link-broken fixture: an external UR
 
 <Z109ExternalLinkBroken />
 
+---
+
 ## The Fixture
 
 The fixture lives at `examples/z109-external-link-broken/` in the Zenzic repository.
@@ -29,6 +31,8 @@ fail_under = 0
 [build_context]
 engine = "standalone"
 ```
+
+---
 
 ## Running the Example
 
@@ -63,6 +67,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `1`
 
+---
+
 ## Interpreting the Output
 
 The `Z109` finding indicates an **EXTERNAL_LINK_BROKEN** issue.
@@ -73,9 +79,13 @@ This error is raised by Zenzic when an external link references a URL that canno
 - **Severity:** `Error`
 - **Impact:** Broken external links degrade the user experience and reduce the Documentation Quality Score (DQS) by deducting a penalty of 3.0 points.
 
+---
+
 ## Resolve the Issue
 
 Correct the external link target to a valid URL, or remove the link if the resource is no longer available.
+
+---
 
 ## See Also
 

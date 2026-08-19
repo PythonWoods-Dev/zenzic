@@ -40,6 +40,8 @@ imperfect options:
 
 v0.20.0 introduces a third path: the **Custom Rules API v2**.
 
+---
+
 ## Drop a `.py` File, Get a New Lint Rule
 
 The design principle is radical simplicity. Create `.zenzic/rules/` in your repository, drop a
@@ -85,6 +87,8 @@ class NoDraftHeadingRule(BaseASTRule):
 
 Run `zenzic check all`. `NoDraftHeadingRule` is active. No other step required.
 
+---
+
 ## The Sandbox: Deterministic Visitation Budget
 
 Giving users access to the AST raises an immediate safety concern: what prevents an infinite loop
@@ -115,6 +119,8 @@ This design is:
 - **Windows-compatible** — no signals, no threads.
 - **GIL-safe** — all execution is strictly single-threaded.
 - **Deterministic** — the same input always produces the same budget consumption.
+
+---
 
 ## Auto-Fix Expansion: Z121 and Z603
 
@@ -147,6 +153,8 @@ previously broken at that location, but no one cleaned up the annotation.
 `zenzic fix` now surgically removes dead suppression comments and `data-zenzic-ignore` HTML
 attributes. The removal is byte-precise — no surrounding whitespace or newlines are disturbed.
 
+---
+
 ## The `fixable` Metadata Field
 
 To make the auto-fix surface discoverable, v0.20.0 adds a `fixable: bool` field to every
@@ -165,6 +173,8 @@ To make the auto-fix surface discoverable, v0.20.0 adds a `fixable: bool` field 
 
 The `finding-codes.md` reference page now carries **Fixable: Yes** badges for Z108, Z121, and Z603.
 
+---
+
 ## The "Dogfooding Paradox" & HTML Suppression
 
 During the validation of Zenzic's own documentation, we encountered a unique engineering puzzle: testing links to feed files (like RSS or Atom) that are dynamically generated at build time. Since these files do not exist during the linting stage, they trigger a `Z104 (FILE_NOT_FOUND)` error.
@@ -172,6 +182,8 @@ During the validation of Zenzic's own documentation, we encountered a unique eng
 Applying `data-zenzic-ignore` to raw HTML `<a>` tags correctly suppresses HTML hygiene findings (`Z12x`), but the link resolver pipeline (URP) still attempted to resolve the link, triggering a persistent `Z104` leak.
 
 In v0.20.0, we resolved this by short-circuiting the resolver pipeline for suppressed HTML nodes. If `node.suppressed` is true, Zenzic bypasses URP resolution entirely for that element, and updates the `SuppressionTracker` to mark the `DATA-ZENZIC-IGNORE` directive as consumed, preventing `Z603 (DEAD_SUPPRESSION)` warnings from firing.
+
+---
 
 ## Strict Architectural Invariants Preserved
 
@@ -184,6 +196,8 @@ v0.20.0 did not bend any of the engine's core constraints:
 | No Inference runtime | ✅ Maintained — no new ML dependencies |
 | Zero Crash policy | ✅ Maintained — Z901/Z902 absorb all custom rule failures |
 | Single-threaded sandbox | ✅ Maintained — no `ThreadPoolExecutor`, no `SIGALRM` |
+
+---
 
 ## What's Next
 

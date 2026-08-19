@@ -245,6 +245,8 @@ The credential scanner scans **every line of every file** during Pass 1, includi
 
     Rotate the exposed credential immediately, then remove or replace the offending line. Do not commit the secret into repository history.
 
+---
+
 ## See Also
 
 - [Finding Codes Index](./finding-codes.md)

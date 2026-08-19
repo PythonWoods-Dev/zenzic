@@ -87,6 +87,8 @@ For sighted users, the omission is largely invisible. For screen-reader users, t
 
 Accessibility defects of this type rarely generate build failures, which makes them particularly likely to persist unnoticed.
 
+---
+
 ## Why Conventional Validation Often Misses These Issues
 
 The common characteristic of all three findings is that they exist beyond the surface structure of Markdown.
@@ -113,6 +115,8 @@ Determining whether the contents of that block are valid TOML requires a second 
 
 The same principle applies to accessibility and link analysis. Detecting meaningful defects often requires understanding the structure and intent of content rather than merely validating its textual representation.
 
+---
+
 ## AST-Based Documentation Analysis
 
 To perform this deeper inspection, Zenzic constructs an Abstract Syntax Tree (AST) from each document and analyzes the resulting structure rather than treating the file as undifferentiated text.
@@ -127,6 +131,8 @@ Examples include:
 - validating relationships between documents rather than evaluating files in isolation.
 
 The goal is not to replace traditional linters. Instead, it is to extend validation into areas where documentation behaves more like executable code than prose.
+
+---
 
 ## The Agent Incident
 
@@ -143,6 +149,8 @@ Because the AST parser outputs highly structured data—providing exact file pat
 It is an interesting side-effect of automation: generating a report so mathematically precise that it is assumed to be machine-generated. We clarified that while the data was extracted via CLI, the triage was strictly human-in-the-loop.
 
 The maintainers reviewed the reports, validated them as accurate, and immediately patched their codebase (resolved in [#135](https://github.com/zensical/docs/pull/135)).
+
+---
 
 ## Conclusion
 

@@ -22,6 +22,8 @@ This release represents a fundamental shift in how Zenzic understands and intera
 
 ![Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix](../../assets/images/blog/zenzic-v0190-the-ast-foundations.webp)
 
+---
+
 ## The Shift from Regex to a Lossless AST
 
 Relying exclusively on regex is exceptionally fast but ultimately constrained. Complex Markdown constructs—like nested blockquotes, tables, and layered emphasis—cannot be safely understood or mutated using flat string matching.
@@ -30,11 +32,15 @@ To solve this, we implemented a full **Abstract Syntax Tree (AST)** using the Co
 
 Most importantly, our AST is **lossless**. When Zenzic serializes the tree back into a string, it guarantees byte-for-byte identity with the original input. This is the cornerstone of safe document mutation: Zenzic can surgically alter a specific node without altering a single space or newline anywhere else in the document.
 
+---
+
 ## The O(N) Inline Tokenizer
 
 Markdown parsing is notoriously vulnerable to catastrophic backtracking, particularly when handling unclosed tags or nested emphasis (e.g., `***text***`).
 
 To preserve our strict performance guarantees, we engineered a custom inline tokenizer that operates entirely without backtracking. By utilizing a character-by-character state machine, the tokenizer scans the string linearly. This ensures that the engine processes even severely malformed Markdown in strictly $O(N)$ time, preserving Zenzic's resilience against ReDoS (Regular expression Denial of Service) and maintaining its incredible speed.
+
+---
 
 ## `zenzic fix` and the Atomic Write Barrier
 
@@ -47,6 +53,8 @@ However, modifying source files programmatically introduces the risk of data des
 3. **Atomic Replacement:** Only after the OS confirms the write was successful does Zenzic issue an atomic `os.replace()` call.
 
 This guarantees that a source file is never partially written or corrupted. The original file remains completely intact until the exact microsecond it is safely replaced by the corrected version.
+
+---
 
 ## Hostile Precision in File Mutation
 

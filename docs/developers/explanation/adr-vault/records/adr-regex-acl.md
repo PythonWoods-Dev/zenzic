@@ -51,6 +51,8 @@ The options examined were:
   presents a `re`-like API to the rest of the core while strictly enforcing
   RE2 as the only runtime engine.
 
+---
+
 ## Decision
 
 We adopt **Option C**.
@@ -79,6 +81,8 @@ lookahead, or other non-RE2 syntax, those patterns are rewritten into
 RE2-compatible forms or the surrounding code is adjusted to perform the missing
 semantic filtering outside the regex engine.
 
+---
+
 ## Rationale
 
 This decision preserves both sides of the contract that matter:
@@ -102,6 +106,8 @@ Option B was rejected because it would destroy the purpose of the migration.
 A security invariant that degrades silently under pressure is not an invariant.
 It is theatre.
 
+---
+
 ## Invariants
 
 These constraints are permanent consequences of ADR-013:
@@ -120,6 +126,8 @@ These constraints are permanent consequences of ADR-013:
    code.
 5. **Warnings are treated as defects.** If the regex layer emits deprecation or
    compatibility warnings during tests, the implementation is incomplete.
+
+---
 
 ## Consequences
 
@@ -145,6 +153,8 @@ The system impact and operational consequences resulting from this architectural
   checks in Python.
 - **Performance scrutiny increases.** Rewriting patterns away from advanced
   constructs can change hot-path behaviour and must be measured, not assumed.
+
+---
 
 ## Anti-Corruption Boundary
 

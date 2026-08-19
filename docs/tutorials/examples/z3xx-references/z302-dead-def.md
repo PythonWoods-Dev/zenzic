@@ -10,10 +10,14 @@ description: "Analysis of the z302-dead-def fixture."
 
 <Z302DeadDef />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z302-dead-def/` in the Zenzic repository.
 It contains documents demonstrating the `Z302` violation.
+
+---
 
 ## Running the Example
 
@@ -39,6 +43,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z302` finding indicates a **DEAD_DEF** issue.
@@ -49,9 +55,13 @@ This error or warning is raised by Zenzic when a reference definition (e.g. `[re
 - **Severity:** `Warning`
 - **Impact:** Dead definitions represent redundant text metadata and result in a DQS deduction of 1.0 point.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Delete the unused reference definition block from the document, or use the reference in a reference-style link.
+
+---
 
 ## See Also
 

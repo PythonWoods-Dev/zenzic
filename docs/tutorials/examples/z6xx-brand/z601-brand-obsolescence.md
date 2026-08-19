@@ -10,10 +10,14 @@ description: "Analysis of the z601-brand-obsolescence fixture."
 
 <Z601BrandObsolescence />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z601-brand-obsolescence/` in the Zenzic repository.
 It contains documents demonstrating the `Z601` violation.
+
+---
 
 ## Running the Example
 
@@ -74,6 +78,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z601` finding indicates a **BRAND_OBSOLESCENCE** issue.
@@ -84,9 +90,13 @@ This error or warning is raised by Zenzic when a deprecated, obsolete, or unauth
 - **Severity:** `Warning`
 - **Impact:** Brand obsolescence violations incur a DQS deduction of 2.0 points, which can scale exponentially if repeated.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Replace the obsolete brand terms in your text with the current product or release terminology.
+
+---
 
 ## See Also
 

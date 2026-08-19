@@ -4,6 +4,8 @@
 
 > **ADR coverage:** ADR-075 (Radical Unawareness), ADR-020 (Mirror Law), ADR-013 (RE2 Discipline)
 
+---
+
 ## JSON-RPC `stdio` Interface
 
 The `LanguageServer` class in `zenzic.lsp.server` acts as a **stateless transport proxy**: it reads JSON-RPC 2.0 messages from `stdin` and writes responses and notifications to `stdout`. It holds no knowledge of file relationships, graph topology, or cross-document dependencies.
@@ -18,6 +20,8 @@ Supported lifecycle events:
 | `textDocument/didClose` | Evict buffer from overlay |
 | `textDocument/hover` | Query VSM route for typed `ZenzicDiagnostic`, serialize at boundary |
 | `workspace/didChangeWatchedFiles` | Patch VSM route table O(1) per change |
+
+---
 
 ## Strict Diagnostic Typing
 
@@ -40,6 +44,8 @@ The `to_lsp_dict()` method is the **single serialization boundary**. Untyped dic
 
 Internal `ZenzicDiagnostic` instances retain unformatted, raw messages to preserve core engine independence.
 
+---
+
 ## VirtualBufferOverlay
 
 `VirtualBufferOverlay` (in `zenzic.models.vsm`) serves two purposes:
@@ -55,6 +61,8 @@ overlay.update(uri, content)                               # O(links in buffer)
 overlay.remove(uri)                                        # O(total URLs in index)
 ```
 
+---
+
 ## Incremental VSM Update Mechanism
 
 Upon a `didChange` event, the `LanguageServer` delegates analysis entirely to the transport-agnostic `IncrementalAnalysisEngine` (in `zenzic.core.incremental`).
@@ -67,6 +75,8 @@ The engine executes the following deterministic O(K) pipeline:
 4. **Targeted validation** — the `AdaptiveRuleEngine` and Uniform Resolver Pipeline (URP) checks run *only* against the modified file and its topological dependents.
 5. **Typed store (Mirror Law)** — the engine computes `list[ZenzicDiagnostic]` instances and stores them on the respective `Route.diagnostics` fields.
 6. **Serialization boundary** — the engine returns a mapping of URIs to typed diagnostics. The `LanguageServer` then serializes these via `[d.to_lsp_dict() for d in typed_diags]` to produce the JSON-RPC `publishDiagnostics` payload. This is the only location where typed diagnostics are converted to dicts.
+
+---
 
 ## Client Version Handshake & Capability Governance
 

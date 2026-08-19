@@ -10,10 +10,14 @@ description: "Analysis of the z501-placeholder fixture."
 
 <Z501Placeholder />
 
+---
+
 ## The Fixture
 
 The fixture lives in `examples/z501-placeholder/` in the Zenzic repository.
 It contains documents demonstrating the `Z501` violation.
+
+---
 
 ## Running the Example
 
@@ -138,6 +142,8 @@ Refer to ../../../reference/finding-codes.md for remediation · Try
 
 Exit code: `0`
 
+---
+
 ## Interpreting the Output
 
 The `Z501` finding indicates a **PLACEHOLDER** issue.
@@ -158,9 +164,13 @@ In this specific example:
 - **Severity:** `Warning`
 - **Impact:** Placeholder text indicates incomplete documentation and results in a DQS deduction of 2.0 points.
 
+---
+
 ## Resolve the Issue
 
 Exit code 1. Complete the placeholder section with concrete technical content and remove the placeholder markers.
+
+---
 
 ## See Also
 

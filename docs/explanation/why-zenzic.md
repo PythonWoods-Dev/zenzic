@@ -97,6 +97,8 @@ penalty, so score movement is predictable and reviewable.
 - **API portal validation**: prevent broken route references and hidden navigation regressions.
 - **Docs-as-code CI pipelines**: block regressions early with deterministic gate behavior.
 
+---
+
 ## See Also
 
 - [Core Architecture](./architecture.md)

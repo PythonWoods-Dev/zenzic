@@ -130,6 +130,8 @@ Canonical inline syntax:
 
 > This section has moved — see [Developer Troubleshooting](./troubleshooting.md#common-zenzic-blocks).
 
+---
+
 ## 7) Shared Sovereign Verification Model (Family Repositories)
 
 The zenzic family repositories share one deterministic gate model for `nox`,

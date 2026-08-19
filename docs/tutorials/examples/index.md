@@ -8,6 +8,8 @@ description: "Interactive gallery of reproducible examples for all diagnostic Z-
 
 This section contains interactive, reproducible examples of every diagnostic code emitted by Zenzic.
 
+---
+
 ## Quick-Run Pattern
 
 To run any of these scenarios locally:
@@ -18,9 +20,13 @@ uvx zenzic lab z101      # run the Z101 scenario
 uvx zenzic lab all       # run all 20 scenarios
 ```
 
+---
+
 ## Diagnostic Categories
 
 <DocCardList />
+
+---
 
 ## Feature-to-Example Matrix
 
