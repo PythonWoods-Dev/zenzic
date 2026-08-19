@@ -2,7 +2,6 @@
 template: home.html
 title: "Zenzic — Deterministic Document Integrity Engine"
 hide:
-  - navigation
   - toc
   - path
   - feedback

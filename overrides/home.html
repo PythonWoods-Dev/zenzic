@@ -12,8 +12,19 @@
 {# Escaping the documentation grid entirely #}
 {% block tabs %}
   <style>
-    /* Hide the default MkDocs main container to prevent blank space below our full-width layout */
-    .md-main { display: none !important; }
+    /* On the homepage, hide the default markdown content and desktop sidebar */
+    .md-content { display: none !important; }
+    @media screen and (min-width: 76.25em) {
+      .md-sidebar--primary { display: none !important; }
+      .md-main { display: none !important; }
+    }
+    @media screen and (max-width: 76.1875em) {
+      .md-main { padding: 0 !important; margin: 0 !important; }
+      .md-main__inner { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+      .md-sidebar--secondary { display: none !important; }
+      .md-sidebar--primary { z-index: 100 !important; }
+      .md-overlay { z-index: 99 !important; }
+    }
   </style>
     <div class="zz-tailwind-root flex flex-col min-h-screen relative w-full dark:bg-zinc-950 bg-white" style="margin-top: -64px;">
     <main class="flex-grow pt-16">
