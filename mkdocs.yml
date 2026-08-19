@@ -21,6 +21,11 @@ extra_css:
   # Preflight (CSS Reset) is DISABLED to prevent interference with Material base typography.
   # See docs/assets/css/README.md for the build protocol.
 
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+
 exclude_docs: |
   assets/css/README.md
 
