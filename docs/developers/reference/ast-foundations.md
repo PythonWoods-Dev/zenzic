@@ -60,6 +60,11 @@ flowchart TD
         F -->|Z1xx/Z3xx/Z4xx/Z5xx| G["Quality Score (DQS)"]
         F -->|Z2xx Security Breaches| H["Fatal Security Override (Exit 2/3)"]
     end
+
+    style C fill:#4f46e5,color:#fff
+    style D fill:#0284c7,color:#fff
+    style G fill:#10b981,color:#fff
+    style H fill:#ef4444,color:#fff
 ```
 
 ---

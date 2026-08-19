@@ -51,6 +51,8 @@ For a lower-level setup or if you do not have `nox` installed yet, install with 
     pip install pytest pytest-cov ruff mypy pre-commit reuse mkdocs-material mkdocstrings[python] mkdocs-minify-plugin mkdocs-static-i18n
     ```
 
+    Standard pip editable install. Manual installation of all test, lint, docs, and build dependencies.
+
 ### Dependency groups {#dependency-groups}
 
 Zenzic uses [PEP 735](https://peps.python.org/pep-0735/) dependency groups to keep CI fast

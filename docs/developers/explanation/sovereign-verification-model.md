@@ -30,6 +30,9 @@ flowchart TD
     C & E & G --> I{"Contains src/zenzic?"}
     I -->|Yes| J["Execute Sovereign Local Core Engine"]
     I -->|No| H
+
+    style H fill:#ef4444,color:#fff
+    style J fill:#10b981,color:#fff
 ```
 
 ---

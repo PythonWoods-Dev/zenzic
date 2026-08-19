@@ -19,7 +19,7 @@ Ensure Python 3.10 or higher is installed on your system. Select your preferred 
 
 === "uv (Recommended)"
 
-    !!! tip "Zero Environment Contamination"
+    !!! tip "Zero Environment Contamination (Recommended)"
         We strongly recommend using `uv` or `uvx` to execute Zenzic in isolated environments without dependency conflicts.
 
     **Global Binary Install:**
@@ -41,6 +41,9 @@ Ensure Python 3.10 or higher is installed on your system. Select your preferred 
 
 === "pip"
 
+    !!! info "Standard Environment Installation"
+        Installs Zenzic via `pip` into an active virtual environment or global user site.
+
     **Virtual Environment Install:**
     ```bash title="Terminal"
     python -m venv .venv
@@ -57,14 +60,17 @@ Ensure Python 3.10 or higher is installed on your system. Select your preferred 
 
 === "Git Source Execution"
 
-    Execute directly from GitHub without local installation:
+    !!! example "Ephemeral & Version-Pinned Execution"
+        Execute Zenzic directly from the GitHub repository using `uvx` without maintaining a local git clone or manual package updates.
+
+    **Execute latest main branch:**
     ```bash title="Terminal"
     uvx --from git+https://github.com/PythonWoods/zenzic zenzic .
     ```
 
-    Pin to a specific version tag for deterministic execution:
+    **Pin to a specific version tag for deterministic execution:**
     ```bash title="Terminal"
-    uvx --from git+https://github.com/PythonWoods/zenzic@v0.25.0 zenzic .
+    uvx --from git+https://github.com/PythonWoods/zenzic@v0.30.0 zenzic .
     ```
 
 ### Static analysis only — no build runtime required {#lean-agnostic}

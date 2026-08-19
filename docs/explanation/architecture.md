@@ -62,6 +62,12 @@ flowchart TD
         K -->|Z202 Path Traversal| O["Exit 3 (Boundary Security Violation)"]
         K --> P["SARIF / JSON / GitHub Annotations Output"]
     end
+
+    style L fill:#10b981,color:#fff
+    style M fill:#f59e0b,color:#fff
+    style N fill:#ef4444,color:#fff
+    style O fill:#ef4444,color:#fff
+    style P fill:#0284c7,color:#fff
 ```
 
 !!! note "ADR-075 Invariant: Radical Unawareness"
@@ -551,6 +557,8 @@ flowchart LR
     CMD --> CB["@app.callback()\nconfigure_console()"]
     CB --> EXEC["Command executes\nwith correct console"]
 
+    style BANNER fill:#4f46e5,color:#fff
+    style EXEC fill:#10b981,color:#fff
 ```
 
 The banner always writes to **stdout** (the shared `_shared.console`) so it uses the same color-detection stream as the subsequent command output. The Typer callback runs *after* the banner, which is acceptable — the module-level console already uses `force_terminal=None` (auto-detect) at startup.
