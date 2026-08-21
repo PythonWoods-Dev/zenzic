@@ -15,7 +15,7 @@ categories:
 
 Zenzic v0.27.0 expands the engine from a structural validator into a full **Deterministic Quality Platform**, introducing evolutionary baseline tracking, topological graph analysis, mathematical content readability linting, and formal TOML configuration validation.
 
-![Zenzic v0.27.0: Deterministic Quality Platform](../../assets/images/blog/launch_v0270.webp)
+<img src="../../assets/images/blog/launch_v0270.webp" class="hero-cover" alt="Zenzic v0.27.0: Deterministic Quality Platform">
 
 <!-- more -->
 

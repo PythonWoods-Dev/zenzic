@@ -15,7 +15,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Zenzic v0.30.0 Documentation Quality Platform](../../assets/images/blog/launch_v0300.webp)
+<img src="../../assets/images/blog/launch_v0300.webp" class="hero-cover" alt="Zenzic v0.30.0 Documentation Quality Platform">
 
 Zenzic v0.30.0 is a dual milestone. On the **engine side**, it elevates Zenzic into a full **Documentation Quality Platform (DQP)**: native AST-based semantic analysis, structural accessibility rules, editorial style governance, and atomic auto-remediation — the complete picture of what deterministic documentation quality looks like across entire Markdown/MDX knowledge graphs. On the **adoption side**, it delivers **Frictionless Adoption**: the VS Code extension can now provision its own engine automatically, removing the last remaining manual setup step for every developer who opens a Markdown file.
 

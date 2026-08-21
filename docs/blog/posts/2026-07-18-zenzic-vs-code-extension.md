@@ -22,7 +22,7 @@ Today, we are eliminating the latency between authoring a defect and discovering
 
 <!-- more -->
 
-![Shift-Left to the Keystroke: The Zenzic VS Code Extension](../../assets/images/blog/zenzic-vs-code-extension.webp)
+<img src="../../assets/images/blog/zenzic-vs-code-extension.webp" class="hero-cover" alt="Shift-Left to the Keystroke: The Zenzic VS Code Extension">
 
 ---
 

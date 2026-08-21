@@ -13,7 +13,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Zenzic v0.28.0 Governance & Extensibility Launch](../../assets/images/blog/launch_v0280.webp)
+<img src="../../assets/images/blog/launch_v0280.webp" class="hero-cover" alt="Zenzic v0.28.0 Governance & Extensibility Launch">
 
 Zenzic v0.28.0 finalizes the **Governance & Extensibility** milestone. This release transitions the engine from implicit structural validation to explicit, declarative governance, while providing enterprise-grade compliance artifacts.
 

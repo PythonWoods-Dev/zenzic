@@ -15,7 +15,7 @@ In modern CI/CD pipelines, security and performance should be structurally bound
 
 <!-- more -->
 
-![Why we banned Python's regex module: The algorithm behind Zenzic](../../assets/images/blog/why-we-banned-pythons-regex-module.webp)
+<img src="../../assets/images/blog/why-we-banned-pythons-regex-module.webp" class="hero-cover" alt="Why we banned Python's regex module: The algorithm behind Zenzic">
 
 ---
 

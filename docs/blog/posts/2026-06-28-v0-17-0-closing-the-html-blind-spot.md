@@ -17,7 +17,7 @@ With v0.17.0, HTML links and images are analyzed by the same validation pipeline
 
 <!-- more -->
 
-![Zenzic v0.17.0: HTML Validation in Markdown Documents](../../assets/images/blog/zenzic-v0170-html-validation.webp)
+<img src="../../assets/images/blog/zenzic-v0170-html-validation.webp" class="hero-cover" alt="Zenzic v0.17.0: HTML Validation in Markdown Documents">
 
 ---
 

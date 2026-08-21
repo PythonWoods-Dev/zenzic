@@ -13,7 +13,7 @@ Running Tailwind CSS components inside a MkDocs Material documentation site intr
 
 <!-- more -->
 
-![The Tailwind/MkDocs Material Bridge: A Surgical CSS Pattern](../../assets/images/blog/tailwind-mkdocs-material-bridge.webp)
+<img src="../../assets/images/blog/tailwind-mkdocs-material-bridge.webp" class="hero-cover" alt="The Tailwind/MkDocs Material Bridge: A Surgical CSS Pattern">
 
 ---
 
