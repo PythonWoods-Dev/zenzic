@@ -37,6 +37,7 @@ zenzic.code-workspace
 .cursor/
 .ai/
 .claude/
+.human/
 .agent/
 .deepcode/
 .redteam/
