@@ -13,6 +13,31 @@
 | Date     | 2026-08-15 |
 | Status   | Stable |
 
+## v0.30.0 — Epic Summary
+
+This release concludes **Epic 2: Semantic Linting Supremacy**, the second major quality pillar of the Zenzic engine, and delivers a complete performance, design-system, and accessibility overhaul of the documentation site.
+
+### Core Engine — Semantic Linting (Epic 2)
+
+| Feature | Finding Codes | Description |
+| :--- | :--- | :--- |
+| **Semantic Linting & A11y** | `Z513–Z517` | Duplicate headings, excessive sentence length, empty sections, generic alt text, bare URLs |
+| **Editorial Style & Policy-as-Code** | `Z518–Z519`, `Z617–Z619` | Passive voice detection, weasel words (opt-in), forbidden content patterns, required heading patterns, max document complexity |
+| **Semantic List Heuristics** | `Z520` | Malformed list detection with deterministic AST heuristics |
+
+### Performance — Extreme Speed Optimizations
+
+- **O(1) Navigation Memoization**: Navigation graph is computed once and cached; subsequent topology queries are `O(1)` dictionary lookups.
+- **Batched IPC**: Inter-process communication between LSP server and Core engine is batched to eliminate per-finding round-trips.
+- **Fused Lexer**: Token scanning and rule matching fused into a single O(n) pass, eliminating redundant AST walks.
+
+### Documentation Site — Design System & Accessibility
+
+- **Engineered Frame Image System** (`extra.css`): Standard images receive `border-radius`, multi-layer `box-shadow`, and hover lift with brand glow. Cover images use `.hero-cover` with elevated glow treatment.
+- **WCAG 2.1 AA Contrast Fixes**: Tailwind classes `text-zinc-400/500`, `text-rose-400`, `text-amber-400/500` overridden via `extra.css` using calibrated `--zz-*` semantic tokens. All contrast ratios now ≥ 4.5:1 (AA).
+- **PageSpeed Optimization** (`V030_FRONTEND_PERFORMANCE_OPTIMIZATION`): KaTeX loaded on-demand only on pages containing `.arithmatex` elements, with SHA-384 Subresource Integrity (SRI) hashes and `crossorigin="anonymous"`. Homepage transfers 0 bytes of KaTeX.
+- **Technical SEO & Sitemap Hygiene** (`V0.30-14-SEO-REDIRECT-HYGIENE`): Removed obsolete `scoring-design.md`, excluded `includes/*` from sitemap, corrected broken 301 redirect.
+
 ## Release Checklist
 
 Before tagging, every item must be green:
