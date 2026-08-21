@@ -20,7 +20,7 @@ This release represents a fundamental shift in how Zenzic understands and intera
 
 <!-- more -->
 
-<img src="../../assets/images/blog/zenzic-v0190-the-ast-foundations.webp" class="hero-cover" alt="Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix">
+![Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix](../../assets/images/blog/zenzic-v0190-the-ast-foundations.webp)
 
 ---
 

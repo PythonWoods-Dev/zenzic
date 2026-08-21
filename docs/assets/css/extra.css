@@ -1041,13 +1041,22 @@ html:has(.zz-tailwind-root) .md-header__source {
    PHASE A — Image Design System: "Engineered Frame" (V030_DOCS_DESIGN_SYSTEM)
    Standard images in blog posts and documentation get a subtle professional
    frame treatment: rounded corners, a containment border, layered shadow,
-   and a gentle hover lift. Hero / cover images use an elevated glow style.
-   Use class="no-frame" on any <img> to opt out entirely.
-   Use class="hero-cover" on the first/cover image for the elevated treatment.
+   and a gentle hover lift.
+
+   Cover/hero images (the first image in a blog post body) get an elevated
+   borderless glow treatment. They are targeted via structural CSS selector
+   (.md-content--post .md-typeset > p:first-of-type > img) since MkDocs
+   renders Markdown images as <p><img></p> and we cannot inject classes
+   into the img tag without breaking MkDocs path resolution.
+
+   To opt an image out of the frame entirely, add the CSS class .no-frame:
+     ![alt](src){ .no-frame }
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Standard image frame ─────────────────────────────────────────────────── */
-.md-typeset .md-content__inner img:not(.no-frame):not(.hero-cover) {
+/* Applies to all content images EXCEPT: author avatars (.md-author img),
+   social cards, and images inside nav/header/footer, and images opted out. */
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img) {
   border-radius: 0.5rem;
   border: 1px solid var(--zz-border-subtle);
   background-color: var(--zz-surface-1);
@@ -1069,7 +1078,7 @@ html:has(.zz-tailwind-root) .md-header__source {
 }
 
 /* Light mode shadow is softer — dark frames on white look heavier */
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.hero-cover) {
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.06),
     0 3px 8px rgba(0, 0, 0, 0.10),
@@ -1077,7 +1086,7 @@ html:has(.zz-tailwind-root) .md-header__source {
 }
 
 /* Hover: subtle lift + brand glow */
-.md-typeset .md-content__inner img:not(.no-frame):not(.hero-cover):hover {
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
   transform: translateY(-3px);
   border-color: var(--zz-brand-light);
   box-shadow:
@@ -1086,7 +1095,7 @@ html:has(.zz-tailwind-root) .md-header__source {
     0 0 0 3px rgba(129, 140, 248, 0.12);
 }
 
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.hero-cover):hover {
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
   border-color: var(--zz-brand);
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.08),
@@ -1094,12 +1103,16 @@ html:has(.zz-tailwind-root) .md-header__source {
     0 0 0 3px rgba(79, 70, 229, 0.10);
 }
 
-/* ── Hero / Cover image ───────────────────────────────────────────────────── */
-/* Apply .hero-cover to the first image of a blog post for an elevated treatment.
-   No containment border — instead a soft brand glow that signals editorial intent. */
-.md-typeset .md-content__inner img.hero-cover {
+/* ── Blog Post Hero / Cover image ─────────────────────────────────────────── */
+/* The first paragraph that contains only an image in a blog post body is
+   the cover image. Targeting: blog post article > first <p> > <img>.
+   MkDocs Material blog renders <article class="md-content__inner md-typeset">
+   and Markdown images become <p><img alt="..." src="..."></p>.
+   We override the standard frame here with an elevated, borderless glow. */
+.md-content--post .md-typeset > p:first-of-type > img,
+.md-content--post .md-typeset > p:first-child > img {
   border-radius: 0.75rem;
-  border: none;
+  border: none !important;
   display: block;
   max-width: 100%;
   height: auto;
@@ -1112,7 +1125,8 @@ html:has(.zz-tailwind-root) .md-header__source {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img.hero-cover {
+[data-md-color-scheme="default"] .md-content--post .md-typeset > p:first-of-type > img,
+[data-md-color-scheme="default"] .md-content--post .md-typeset > p:first-child > img {
   box-shadow:
     0 0 0 1px var(--zz-border-subtle),
     0 4px 12px rgba(0, 0, 0, 0.10),
@@ -1120,7 +1134,8 @@ html:has(.zz-tailwind-root) .md-header__source {
     0 0 40px rgba(79, 70, 229, 0.07);
 }
 
-.md-typeset .md-content__inner img.hero-cover:hover {
+.md-content--post .md-typeset > p:first-of-type > img:hover,
+.md-content--post .md-typeset > p:first-child > img:hover {
   transform: translateY(-2px) scale(1.002);
   box-shadow:
     0 0 0 1px var(--zz-brand-light),
@@ -1156,22 +1171,27 @@ html:has(.zz-tailwind-root) .md-header__source {
 
 /* ── Mobile: disable hover lift (touch devices don't hover) ─────────────────── */
 @media (hover: none) {
-  .md-typeset .md-content__inner img:not(.no-frame):not(.hero-cover):hover,
-  .md-typeset .md-content__inner img.hero-cover:hover {
+  .md-typeset .md-content__inner img:not(.no-frame):hover,
+  .md-content--post .md-typeset > p:first-of-type > img:hover,
+  .md-content--post .md-typeset > p:first-child > img:hover {
     transform: none;
   }
 }
 
 /* ── Responsiveness guard ─────────────────────────────────────────────────── */
 @media screen and (max-width: 44.9375em) {
-  .md-typeset .md-content__inner img:not(.no-frame):not(.hero-cover) {
+  .md-typeset .md-content__inner img:not(.no-frame) {
     margin: 1.25rem auto;
   }
 
-  .md-typeset .md-content__inner img.hero-cover {
+  .md-content--post .md-typeset > p:first-of-type > img,
+  .md-content--post .md-typeset > p:first-child > img {
     margin-bottom: 1.75rem;
   }
 }
+
+
+
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PHASE B — Contrast Accessibility Fixes (WCAG 2.1 AA)

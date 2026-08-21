@@ -18,7 +18,7 @@ categories:
 
 ## Markdown Is Production Code: Why We Built Zenzic
 
-<img src="../../assets/images/blog/markdown_is_code.webp" class="hero-cover" alt="Markdown is Production Code">
+![Markdown is Production Code](../../assets/images/blog/markdown_is_code.webp)
 
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 

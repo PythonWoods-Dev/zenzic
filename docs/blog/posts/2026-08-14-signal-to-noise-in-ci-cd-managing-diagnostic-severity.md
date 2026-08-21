@@ -14,7 +14,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-<img src="../../assets/images/blog/signal_to_noise.webp" class="hero-cover" alt="Signal to Noise Ratio">
+![Signal to Noise Ratio](../../assets/images/blog/signal_to_noise.webp)
 
 A static analyzer is only as useful as its signal-to-noise ratio.
 
