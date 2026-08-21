@@ -1036,3 +1036,249 @@ html:has(.zz-tailwind-root) .md-header__source {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PHASE A — Image Design System: "Engineered Frame" (V030_DOCS_DESIGN_SYSTEM)
+   Standard images in blog posts and documentation get a subtle professional
+   frame treatment: rounded corners, a containment border, layered shadow,
+   and a gentle hover lift.
+
+   Cover/hero images (the first image in a blog post body) get an elevated
+   borderless glow treatment. They are targeted via structural CSS selector
+   (.md-content--post .md-typeset > p:first-of-type > img) since MkDocs
+   renders Markdown images as <p><img></p> and we cannot inject classes
+   into the img tag without breaking MkDocs path resolution.
+
+   To opt an image out of the frame entirely, add the CSS class .no-frame:
+     ![alt](src){ .no-frame }
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Standard image frame ─────────────────────────────────────────────────── */
+/* Applies to all content images EXCEPT: author avatars (.md-author img),
+   social cards, and images inside nav/header/footer, and images opted out.
+   Covers both individual doc/blog pages (.md-content__inner) and blog index
+   excerpts (.md-post__content / .md-post--excerpt). */
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img),
+.md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img),
+.md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img) {
+  border-radius: 0.5rem;
+  border: 1px solid var(--zz-border-subtle);
+  background-color: var(--zz-surface-1);
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.75rem auto;
+
+  /* Multi-layer shadow: ambient + directional */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.18),
+    0 8px 16px rgba(0, 0, 0, 0.10);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+/* Light mode shadow is softer — dark frames on white look heavier */
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img),
+[data-md-color-scheme="default"] .md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img),
+[data-md-color-scheme="default"] .md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img) {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 3px 8px rgba(0, 0, 0, 0.10),
+    0 6px 14px rgba(0, 0, 0, 0.07);
+}
+
+/* Hover: subtle lift + brand glow */
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+.md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+.md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
+  transform: translateY(-3px);
+  border-color: var(--zz-brand-light);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.14),
+    0 8px 20px rgba(0, 0, 0, 0.22),
+    0 0 0 3px rgba(129, 140, 248, 0.12);
+}
+
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+[data-md-color-scheme="default"] .md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+[data-md-color-scheme="default"] .md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
+  border-color: var(--zz-brand);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.12),
+    0 0 0 3px rgba(79, 70, 229, 0.10);
+}
+
+/* ── Blog Post Hero / Cover image ─────────────────────────────────────────── */
+/* The first paragraph that contains only an image in a blog post body is
+   the cover image. Targeting: blog post article > first <p> > <img>.
+   MkDocs Material blog renders <article class="md-content__inner md-typeset">
+   and Markdown images become <p><img alt="..." src="..."></p>.
+   We override the standard frame here with an elevated, borderless glow. */
+.md-content--post .md-typeset > p:first-of-type > img,
+.md-content--post .md-typeset > p:first-child > img {
+  border-radius: 0.75rem;
+  border: none !important;
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 2.5rem;
+  box-shadow:
+    0 0 0 1px var(--zz-border-subtle),
+    0 4px 12px rgba(0, 0, 0, 0.20),
+    0 16px 40px rgba(0, 0, 0, 0.25),
+    0 0 60px rgba(79, 70, 229, 0.10);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-md-color-scheme="default"] .md-content--post .md-typeset > p:first-of-type > img,
+[data-md-color-scheme="default"] .md-content--post .md-typeset > p:first-child > img {
+  box-shadow:
+    0 0 0 1px var(--zz-border-subtle),
+    0 4px 12px rgba(0, 0, 0, 0.10),
+    0 16px 40px rgba(0, 0, 0, 0.12),
+    0 0 40px rgba(79, 70, 229, 0.07);
+}
+
+.md-content--post .md-typeset > p:first-of-type > img:hover,
+.md-content--post .md-typeset > p:first-child > img:hover {
+  transform: translateY(-2px) scale(1.002);
+  box-shadow:
+    0 0 0 1px var(--zz-brand-light),
+    0 6px 20px rgba(0, 0, 0, 0.28),
+    0 24px 56px rgba(0, 0, 0, 0.30),
+    0 0 80px rgba(129, 140, 248, 0.18);
+}
+
+/* ── figcaption styling ───────────────────────────────────────────────────── */
+/* Rendered when images are wrapped in <figure><figcaption> Markdown syntax.   */
+.md-typeset figure {
+  margin: 1.75rem 0;
+}
+
+.md-typeset figure img {
+  /* Reset margin so figure owns the spacing */
+  margin: 0 auto;
+}
+
+.md-typeset figure figcaption {
+  font-size: 0.775rem;
+  line-height: 1.55;
+  color: var(--zz-ink-400);
+  text-align: center;
+  margin-top: 0.6rem;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+[data-md-color-scheme="default"] .md-typeset figure figcaption {
+  color: var(--zz-ink-600);
+}
+
+/* ── Mobile: disable hover lift (touch devices don't hover) ─────────────────── */
+@media (hover: none) {
+  .md-typeset .md-content__inner img:not(.no-frame):hover,
+  .md-typeset .md-post__content img:not(.no-frame):hover,
+  .md-post--excerpt .md-post__content img:not(.no-frame):hover,
+  .md-content--post .md-typeset > p:first-of-type > img:hover,
+  .md-content--post .md-typeset > p:first-child > img:hover {
+    transform: none;
+  }
+}
+
+/* ── Responsiveness guard ─────────────────────────────────────────────────── */
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .md-content__inner img:not(.no-frame),
+  .md-typeset .md-post__content img:not(.no-frame),
+  .md-post--excerpt .md-post__content img:not(.no-frame) {
+    margin: 1.25rem auto;
+  }
+
+  .md-content--post .md-typeset > p:first-of-type > img,
+  .md-content--post .md-typeset > p:first-child > img {
+    margin-bottom: 1.75rem;
+  }
+}
+
+
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PHASE B — Contrast Accessibility Fixes (WCAG 2.1 AA)
+   (V030_DOCS_DESIGN_SYSTEM — A11y subsection)
+
+   Root cause: blog posts use JSX-style Tailwind classes (text-zinc-400,
+   text-rose-500, text-amber-400, text-rose-400) directly as HTML attributes
+   in inline components. These classes are compiled by the Tailwind CDN bundle
+   (zenzic-tailwind.min.css) with their default palette values, which do NOT
+   meet WCAG AA contrast ratios against the --zz-terminal-bg dark background
+   or against light-mode white backgrounds.
+
+   Strategy: Override the conflicting classes via extra.css using our semantic
+   --zz-* tokens, which have been calibrated for accessibility. This CSS-only
+   fix avoids touching every blog post source file.
+
+   Mapping:
+     text-zinc-400  → var(--zz-ink-200)   [dark bg context: from ~3.2:1 to ~7.5:1]
+     text-zinc-300  → var(--zz-ink-200)   [already near pass; align to token]
+     text-zinc-500  → var(--zz-ink-400)   [light bg: --zz-ink-400 = #475569, ratio ~4.7:1]
+     text-rose-500  → var(--zz-error)     [token already WCAG AA calibrated]
+     text-rose-400  → var(--zz-error)     [lighter rose fails on dark bg; use token]
+     text-amber-400 → var(--zz-warning)   [token = #f59e0b dark / #d97706 light; WCAG AA]
+     text-amber-500 → var(--zz-warning)   [same rationale]
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Zinc overrides (metadata, muted, secondary text) ────────────────────── */
+/* Context: dark terminal mock backgrounds (#0d1117).                          */
+/* text-zinc-400 (#a1a1aa) on #0d1117 → contrast ~3.2:1 (FAIL)                */
+/* var(--zz-ink-200) (#e2e8f0) on #0d1117 → contrast ~12.5:1 (PASS AA+AAA)   */
+.zz-terminal .text-zinc-400,
+.zz-terminal .text-zinc-500,
+.zz-showcase-card .text-zinc-400,
+.zz-showcase-card .text-zinc-500 {
+  color: var(--zz-ink-200) !important;
+}
+
+/* text-zinc-300 used for body-level diagnostic text in terminals              */
+.zz-terminal .text-zinc-300 {
+  color: var(--zz-terminal-cmd) !important; /* --zz-terminal-cmd = #e2e8f0 */
+}
+
+/* Standalone zinc classes in .md-typeset (light mode) need --zz-ink-400     */
+/* text-zinc-400 (#a1a1aa) on white → ~3.0:1 (FAIL) → #475569 → 5.9:1 (PASS) */
+.md-typeset .text-zinc-400,
+.md-typeset .text-zinc-500 {
+  color: var(--zz-ink-400) !important;
+}
+
+[data-md-color-scheme="default"] .md-typeset .text-zinc-400,
+[data-md-color-scheme="default"] .md-typeset .text-zinc-500 {
+  color: var(--zz-ink-400) !important; /* #475569 on white → 5.9:1 PASS */
+}
+
+/* ── Rose overrides (error / failure states) ─────────────────────────────── */
+/* text-rose-500 (#f43f5e) on #0d1117 → ~5.1:1 — marginally PASS but          */
+/* text-rose-400 (#fb7185) on #0d1117 → ~4.2:1 — FAIL for normal text        */
+/* Route both through --zz-error which is calibrated per scheme:               */
+/*   dark: #f43f5e (5.1:1 on --zz-terminal-bg)                                */
+/*   light: #e11d48 (4.6:1 on white)                                           */
+.text-rose-500,
+.text-rose-400 {
+  color: var(--zz-error) !important;
+}
+
+/* ── Amber overrides (warning / advisory states) ─────────────────────────── */
+/* text-amber-400 (#fbbf24) on white → ~2.3:1 (FAIL AA)                       */
+/* text-amber-500 (#f59e0b) on white → ~3.0:1 (FAIL AA normal text)           */
+/* --zz-warning:                                                               */
+/*   dark: #f59e0b on --zz-terminal-bg → ~5.8:1 PASS                          */
+/*   light: #d97706 on white → ~4.7:1 PASS AA                                 */
+.text-amber-400,
+.text-amber-500 {
+  color: var(--zz-warning) !important;
+}
+

@@ -37,7 +37,7 @@ This means:
 ## The Cost Formula {#formula}
 
 $$
- ext{debt} = n
+\text{debt} = n
 $$
 
 Where:
