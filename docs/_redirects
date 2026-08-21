@@ -34,6 +34,10 @@
 /developers/explanation/adr-zero-subprocesses            /developers/explanation/adr-vault/records/adr-002-zero-subprocesses/ 301
 /developers/how-to/adapter-examples/                     /developers/how-to/implement-adapter/ 301
 /developers/how-to/adapter-examples                      /developers/how-to/implement-adapter/ 301
+/developers/governance/                                  /developers/explanation/governance/ 301
+/developers/governance                                   /developers/explanation/governance/ 301
+/docs/developers/governance/                             /developers/explanation/governance/ 301
+/docs/developers/governance                              /developers/explanation/governance/ 301
 /explanation/scoring-design                              /explanation/scoring-system/ 301
 /explanation/scoring-design/                             /explanation/scoring-system/ 301
 /vscode                                                  /editor/vscode/ 301
@@ -43,7 +47,7 @@
 /github-action                                          /reference/zenzic-action/ 301
 /github-action/                                         /reference/zenzic-action/ 301
 
-# ─── LAYER 3: BLOG CANONICAL SLUGS ───────────────────────────────────────────
+# ─── LAYER 3: BLOG CANONICAL SLUGS & TAGS ─────────────────────────────────────
 /blog/welcome                                 /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/                                /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
@@ -53,9 +57,24 @@
 /blog/rss.xsl                                 /rss.xsl 301
 /blog/atom.xsl                                /rss.xsl 301
 
+# Legacy Blog Tags Taxonomy -> Blog Home
+/blog/tags/logs/page/2/                       /blog/ 301
+/blog/tags/logs/page/2                        /blog/ 301
+/blog/tags/logs/                              /blog/ 301
+/blog/tags/logs                               /blog/ 301
+/blog/tags/chronicles/                        /blog/ 301
+/blog/tags/chronicles                         /blog/ 301
+/blog/tags/*                                  /blog/ 301
+
 # ─── LAYER 4: STRUCTURAL MIRRORS (Known Folders) ─────────────────────────────
 /it/docs/how-to/examples/*                     /tutorials/examples/:splat 301
 /it/docs/tutorials/examples/*                  /tutorials/examples/:splat 301
+/docs/how-to/examples/*                        /tutorials/examples/:splat 301
+/docs/how-to/examples/                         /tutorials/examples/ 301
+/docs/how-to/examples                          /tutorials/examples/ 301
+/how-to/examples/*                             /tutorials/examples/:splat 301
+/how-to/examples/                              /tutorials/examples/ 301
+/how-to/examples                               /tutorials/examples/ 301
 /docs/how-to/*                                 /how-to/:splat 301
 /docs/reference/*                              /reference/:splat 301
 /docs/explanation/*                            /explanation/:splat 301
@@ -81,12 +100,26 @@
 /it/developers/explanation/adr-vault/records/adr-bilingual-structural/ /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
 /it/developers/explanation/adr-vault/records/adr-decentralized-cli/   /developers/explanation/adr-vault/records/adr-decentralized-cli/ 301
 
-# ─── LAYER 6: TAXONOMIC REFACTORING (v0.29.0) ──────────────────────────────────
+# ─── LAYER 6: TAXONOMIC REFACTORING (v0.29.0 & v0.30.0) ────────────────────────
 # Deprecated rule Z118 -> Z620 server-side 301 redirects for Cloudflare Pages
 /rules/Z118/                                   /rules/Z620/ 301
 /rules/Z118                                    /rules/Z620/ 301
 /tutorials/examples/z1xx-links/z118-stale-global-suppression/ /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301
 /tutorials/examples/z1xx-links/z118-stale-global-suppression /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301
+
+# Deprecated rule Z602 (i18n-parity removed via ADR-022) -> Z6xx brand examples index
+/docs/how-to/examples/z6xx-brand/z602-i18n-parity/             /tutorials/examples/z6xx-brand/ 301
+/docs/how-to/examples/z6xx-brand/z602-i18n-parity              /tutorials/examples/z6xx-brand/ 301
+/how-to/examples/z6xx-brand/z602-i18n-parity/                 /tutorials/examples/z6xx-brand/ 301
+/how-to/examples/z6xx-brand/z602-i18n-parity                  /tutorials/examples/z6xx-brand/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity/              /tutorials/examples/z6xx-brand/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity               /tutorials/examples/z6xx-brand/ 301
+
+# Explicit Z202 Path Traversal example aliases
+/docs/how-to/examples/z2xx-security/z202-path-traversal/       /tutorials/examples/z2xx-security/z202-path-traversal/ 301
+/docs/how-to/examples/z2xx-security/z202-path-traversal        /tutorials/examples/z2xx-security/z202-path-traversal/ 301
+/how-to/examples/z2xx-security/z202-path-traversal/           /tutorials/examples/z2xx-security/z202-path-traversal/ 301
+/how-to/examples/z2xx-security/z202-path-traversal            /tutorials/examples/z2xx-security/z202-path-traversal/ 301
 
 # Subpath fallback aliases for /docs/ base URLs
 /docs/rules/Z118/                              /rules/Z620/ 301
