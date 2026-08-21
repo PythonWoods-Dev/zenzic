@@ -1055,8 +1055,12 @@ html:has(.zz-tailwind-root) .md-header__source {
 
 /* ── Standard image frame ─────────────────────────────────────────────────── */
 /* Applies to all content images EXCEPT: author avatars (.md-author img),
-   social cards, and images inside nav/header/footer, and images opted out. */
-.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img) {
+   social cards, and images inside nav/header/footer, and images opted out.
+   Covers both individual doc/blog pages (.md-content__inner) and blog index
+   excerpts (.md-post__content / .md-post--excerpt). */
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img),
+.md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img),
+.md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img) {
   border-radius: 0.5rem;
   border: 1px solid var(--zz-border-subtle);
   background-color: var(--zz-surface-1);
@@ -1078,7 +1082,9 @@ html:has(.zz-tailwind-root) .md-header__source {
 }
 
 /* Light mode shadow is softer — dark frames on white look heavier */
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img) {
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img),
+[data-md-color-scheme="default"] .md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img),
+[data-md-color-scheme="default"] .md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.06),
     0 3px 8px rgba(0, 0, 0, 0.10),
@@ -1086,7 +1092,9 @@ html:has(.zz-tailwind-root) .md-header__source {
 }
 
 /* Hover: subtle lift + brand glow */
-.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+.md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+.md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
   transform: translateY(-3px);
   border-color: var(--zz-brand-light);
   box-shadow:
@@ -1095,7 +1103,9 @@ html:has(.zz-tailwind-root) .md-header__source {
     0 0 0 3px rgba(129, 140, 248, 0.12);
 }
 
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+[data-md-color-scheme="default"] .md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
+[data-md-color-scheme="default"] .md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
   border-color: var(--zz-brand);
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.08),
@@ -1172,6 +1182,8 @@ html:has(.zz-tailwind-root) .md-header__source {
 /* ── Mobile: disable hover lift (touch devices don't hover) ─────────────────── */
 @media (hover: none) {
   .md-typeset .md-content__inner img:not(.no-frame):hover,
+  .md-typeset .md-post__content img:not(.no-frame):hover,
+  .md-post--excerpt .md-post__content img:not(.no-frame):hover,
   .md-content--post .md-typeset > p:first-of-type > img:hover,
   .md-content--post .md-typeset > p:first-child > img:hover {
     transform: none;
@@ -1180,7 +1192,9 @@ html:has(.zz-tailwind-root) .md-header__source {
 
 /* ── Responsiveness guard ─────────────────────────────────────────────────── */
 @media screen and (max-width: 44.9375em) {
-  .md-typeset .md-content__inner img:not(.no-frame) {
+  .md-typeset .md-content__inner img:not(.no-frame),
+  .md-typeset .md-post__content img:not(.no-frame),
+  .md-post--excerpt .md-post__content img:not(.no-frame) {
     margin: 1.25rem auto;
   }
 
