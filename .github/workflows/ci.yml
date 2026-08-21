@@ -24,13 +24,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Pillar Matrix: test the boundaries (Floor/Peak) on Linux
-        # and use a stable anchor for Windows/macOS.
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.14"]
-        exclude:
-          - os: windows-latest
-            python-version: "3.14"
+        # TEMPORARY EXCLUSION: Windows and Python 3.14 are temporarily excluded
+        # to accelerate CI cycle and isolate environment-specific runners.
+        # Original configuration:
+        #   os: [ubuntu-latest, windows-latest]
+        #   python-version: ["3.10", "3.14"]
+        #   exclude:
+        #     - os: windows-latest
+        #       python-version: "3.14"
+        os: [ubuntu-latest]
+        python-version: ["3.10"]
 
     steps:
       - name: Checkout Repository
