@@ -47,8 +47,8 @@
 /blog/welcome                                 /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/                                /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
-/blog/obsidian-masterclass/                   /blog/2026/05/24/engineering-v080-deep-dive/ 301
-/blog/obsidian-masterclass                    /blog/2026/05/24/engineering-v080-deep-dive/ 301
+/blog/obsidian-masterclass/                   /blog/2026/05/24/engineering-deep-dive-v080-architecture/ 301
+/blog/obsidian-masterclass                    /blog/2026/05/24/engineering-deep-dive-v080-architecture/ 301
 /blog/2026/07/18/2026-07-18-zenzic-vs-code-extension/ /blog/2026/07/18/zenzic-vs-code-extension/ 301
 /blog/rss.xsl                                 /rss.xsl 301
 /blog/atom.xsl                                /rss.xsl 301

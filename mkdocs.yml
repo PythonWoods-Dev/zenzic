@@ -17,17 +17,20 @@ copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 extra_css:
   - assets/css/zenzic-tailwind.min.css
   - assets/css/extra.css
+  - https://unpkg.com/katex@0/dist/katex.min.css
   # EXTERNAL BUILD ARTIFACT — compiled by human-run Tailwind CLI (no Node.js in CI).
   # Preflight (CSS Reset) is DISABLED to prevent interference with Material base typography.
   # See docs/assets/css/README.md for the build protocol.
 
 extra_javascript:
   - javascripts/mathjax.js
-  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
 
 
 exclude_docs: |
   assets/css/README.md
+  includes/*
 
 not_in_nav: |
   includes/*
@@ -204,7 +207,6 @@ nav:
       - System Architecture: explanation/architecture.md
       - Language Server Architecture: explanation/language-server-architecture.md
       - Core Mechanics: explanation/core-mechanics.md
-      - Scoring Design: explanation/scoring-design.md
       - Scoring System: explanation/scoring-system.md
       - Baseline Tracking: explanation/baseline-tracking.md
       - Discovery Engine: explanation/discovery.md
@@ -400,6 +402,10 @@ plugins:
       feeds_filenames:
         rss_created: blog/rss.xml
         rss_updated: blog/atom.xml
+  - minify:
+      minify_html: true
+      minify_css: true
+      minify_js: false
 
 # MkDocs strict-mode link validation.
 # tutorials/examples/ pages intentionally contain extensionless/malformed links
