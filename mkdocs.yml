@@ -17,15 +17,12 @@ copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 extra_css:
   - assets/css/zenzic-tailwind.min.css
   - assets/css/extra.css
-  - https://unpkg.com/katex@0/dist/katex.min.css
   # EXTERNAL BUILD ARTIFACT — compiled by human-run Tailwind CLI (no Node.js in CI).
   # Preflight (CSS Reset) is DISABLED to prevent interference with Material base typography.
   # See docs/assets/css/README.md for the build protocol.
 
 extra_javascript:
   - javascripts/mathjax.js
-  - https://unpkg.com/katex@0/dist/katex.min.js
-  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
 
 
 exclude_docs: |
