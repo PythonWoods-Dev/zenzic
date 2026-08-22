@@ -49,7 +49,10 @@ flowchart TD
 : If no valid local core directory containing `src/zenzic` is located, verification halts immediately with a fatal error. Automatic PyPI fallback is strictly prohibited.
 
 `Immutable SHA Pinning (ADR-089)`
-: All GitHub Action workflows and submodules pin core dependencies by immutable commit SHA digest (`# x-zenzic-core-pin @ <sha>`), preventing supply chain tampering.
+: All GitHub Action `uses:` references and pre-commit `rev:` keys within the Zenzic ecosystem pin dependencies by immutable 40-character commit SHA digest, preventing supply chain tampering. This invariant applies to all three ecosystem repositories: `zenzic`, `zenzic-action`, and `zenzic-vscode`.
+
+  > **Amendment — 2026-08-22 (V031)**: The original phrasing ("All GitHub Action workflows and submodules") was ambiguous regarding satellite repository scope. This amendment supersedes it. ADR-089 is now formally declared as an **ecosystem-wide mandate** covering all three repositories by name. `zenzic-action` was already compliant via voluntary adoption with self-enforcement (`check-pinning` recipe). `zenzic-vscode` is brought into compliance as of this directive. Mutable tag references are a prohibited pattern in all Zenzic ecosystem workflows.
+
 
 ---
 
