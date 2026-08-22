@@ -39,39 +39,50 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>Zenzic: Deterministic Documentation Quality Platform (DQP) for Engineering-Grade Knowledge Systems.</strong><br>
-  <em>Stop broken links, leaked secrets, accessibility defects, and topological graph errors before they reach production.</em>
+  <strong>Formatters handle syntax. Prose linters handle grammar. Zenzic protects the graph—and optionally enforces lightweight editorial policy without a separate tool.</strong><br>
+  <em>The Deterministic Document Integrity Engine for Specification-Driven Development and AI-assisted engineering.</em>
 </p>
 
 ---
 
-## Documentation Quality Platform (DQP)
+## The Deterministic Document Integrity Engine
 
-A **Documentation Quality Platform (DQP)** enforces semantic correctness, structural topology, and governance policies across Markdown and MDX graphs. It treats documentation as a continuously validated engineering asset.
+In the era of AI-driven coding and autonomous agent workflows, technical documentation is generated faster than human teams can audit. AI writes specifications, API docs, and architecture records with convincing grammar — but silently hallucinates route anchors, breaks table semantics, violates enum contracts, and fragments the knowledge graph.
 
-Where standard linters operate on isolated source files, a Documentation Quality Platform compiles and evaluates the entire knowledge graph as a unified, deterministic system.
+**Zenzic is the compiler for your documentation graph.** It treats technical documentation as a strictly validated, topologically connected software architecture.
+
+```text
+  AI Agents / Engineers ───> Markdown Specs ───> [ ZENZIC COMPILER ] ───> Verified Knowledge Graph
+                                                   │
+                                                   ├── O(N) AST Table & Semantic Validation
+                                                   ├── Virtual Site Map (VSM) Topo-Routing
+                                                   ├── Multi-Namespace Graph Traceability
+                                                   └── Zero-Tolerance Security Gates (Exit 2/3)
+```
 
 ### Category Differentiation
 
-| Capability | Syntax Formatters & AST Linters | Prose & Style Checkers | Zenzic (DQP) |
+| Capability | Syntax Formatters & Linters | Prose & Grammar Checkers | Zenzic Integrity Engine |
 |:---|:---|:---|:---|
-| **Scope of Analysis** | Single file AST / formatting | Single file prose & dictionaries | Global graph topology & cross-file VSM |
+| **Scope of Analysis** | Single-file syntax & whitespace | Single-file grammar & spelling | Global document graph & cross-file VSM |
+| **Specification Validation** | None | None | AST table structure (`Z521`), cell enums (`Z522`), heading sequence (`Z523`) |
+| **Graph Traceability** | None | None | Cross-namespace reference coverage (`Z412`) & reachability (`Z410`, `Z411`) |
 | **Link & Anchor Resolution** | None | None | $O(N)$ cross-file & framework slug parity |
 | **Security Verification** | None | None | Secret leak & path traversal guards (Exit Codes 2 & 3) |
-| **Technical Debt Management**| Inline ignores only | Config ignores | Cryptographic baselines (`.zenzic-baseline.json`) & DQS scoring |
-| **Governance & Policy** | Syntax rules | Style rules | Policy-as-Code schema enforcement & suppression budgeting |
-| **Enterprise Telemetry** | Text stdout | Text stdout | Enriched SARIF v2.1.0 for security dashboards |
+| **Technical Debt Management**| Inline comments only | Config ignores | Cryptographic baselines (`.zenzic-baseline.json`) & DQS scoring |
+| **Enterprise Governance** | None | Style rules | Policy-as-Code schemas, domain allowlists, suppression budgeting |
 
-- **vs Syntax Formatters & AST Linters**: While syntax formatters enforce whitespace, indentation, and isolated AST structure within individual files, Zenzic validates global graph topology (Virtual Site Map), cross-file reference integrity, and structural reachability.
-- **vs Prose & Style Checkers**: While prose checkers validate dictionaries, readability scores, and stylistic tone, Zenzic enforces Policy-as-Code, tracks technical debt via cryptographic baselines, and provides deterministic security scanning against secret leaks and path traversal.
-- **Complementary Architecture**: Zenzic runs alongside syntax formatters and style checkers in modern CI/CD pipelines, acting as the overarching Documentation Quality Platform for structural, security, and governance integrity.
+- **vs Syntax Formatters**: While formatters enforce whitespace, indentation, and isolated syntax rules within individual files, Zenzic validates the entire document graph (Virtual Site Map), cross-file reference integrity, table specifications, and graph traceability.
+- **vs Prose & Grammar Checkers**: While grammar checkers evaluate spelling and stylistic tone, Zenzic enforces Policy-as-Code contracts, validates structured table specifications, tracks technical debt via cryptographic baselines, and prevents secret leaks or path traversal.
+- **Complementary Architecture**: Zenzic runs seamlessly alongside formatters and style checkers in modern CI/CD pipelines, serving as the definitive compiler that guarantees your documentation graph remains mathematically sound.
 
 ---
 
-## Core Pillars (v0.30)
+## Core Pillars (v0.31)
 
-- **Smart Link Graph**: Fast $O(N)$ topological graph analysis with exact slugification parity for documentation frameworks, orphan detection, and circular link diagnostics (Z410, Z411).
-- **Baseline & Regression Tracking**: Line-shift invariant debt freezing (`.zenzic-baseline.json`), allowing existing repositories to adopt strict quality gates immediately without blocking development.
+- **Specification-Driven Development (SDD)**: Declarative validation of AI-generated documentation, requiring mandatory table columns (`Z521`), allowed cell enum values (`Z522`), heading sequences (`Z523`), and cross-directory traceability (`Z412`).
+- **Smart Link Graph**: Fast $O(N)$ topological graph analysis with exact slugification parity for documentation frameworks, orphan detection, and circular link diagnostics (`Z410`, `Z411`).
+- **Baseline & Regression Tracking**: Line-shift invariant debt freezing (`.zenzic-baseline.json`), allowing existing repositories to adopt strict quality gates immediately without blocking active development.
 - **Policy-as-Code Governance**: Centralized configuration rules for frontmatter schemas, domain allowlists, terminology restrictions, and suppression budgeting.
 - **Ecosystem Uniformity**: 100% deterministic parity across the Zenzic CLI (Core Engine), VS Code Extension (Language Server Protocol), and GitHub Action CI/CD workflow.
 
@@ -79,19 +90,30 @@ Where standard linters operate on isolated source files, a Documentation Quality
 
 ## ⚡ Quick Start (< 60 Seconds)
 
-### 1. Install Zenzic
+### 1. Installation & Distribution Options
 
-Get started in 2 seconds with uv:
+Choose the distribution track that fits your workflow ([full guide](https://zenzic.dev/docs/how-to/install/)):
+
+```yaml
+# Track 1 — Pre-commit (Recommended: isolated, pinned, zero environment contamination)
+# Add to .pre-commit-config.yaml:
+repos:
+  - repo: https://github.com/PythonWoods/zenzic
+    rev: v0.30.0
+    hooks:
+      - id: zenzic-guard
+```
+
+```toml
+# Track 2 — Project Dependency (Docs-as-Code: locked with uv/poetry/pip)
+# Add to pyproject.toml:
+[project.optional-dependencies]
+docs = ["zenzic~=0.30.0"]
+```
 
 ```bash
-# Recommended: isolated tool install via uv
-uv tool install zenzic
-
-# Or run ephemerally without installing
+# Track 3 — Ephemeral / Global (One-off audits of any repository)
 uvx zenzic@0.30.0 check all
-
-# Or via standard pip
-pip install --upgrade zenzic
 ```
 
 ### 2. Initialize and Verify Your Repository
@@ -169,27 +191,44 @@ Remediation must be lossless and idempotent:
 - Injects missing language tags on code blocks (`Z505`).
 - Cleans up dead inline suppressions (`Z603`).
 
-### 4. Deterministic Quality Score (DQS)
+### 4. Deterministic Quality Score (DQS) & Mathematical Transparency
 
-Zenzic calculates a mathematical health score (0–100) based on active findings, severities, and technical debt. Enforce strict team standards in CI (`fail_under = 90`) and track improvements over time with status badges.
+Zenzic calculates an exact, deterministic health score (0–100) based on active findings, category weights, and technical debt. Enforce strict team standards in CI (`fail_under = 90`) and track improvements over time with status badges.
+
+To inspect the full mathematical ledger with individual category deductions and technical debt penalties, use `--breakdown`:
 
 ```text
-$ zenzic score
+$ zenzic score --breakdown
 
-✨ Quality Score: 94/100
+* Quality Score: 98/100
+  Base Score: 100
 
-╭─ Quality Breakdown ──────────────────────────────────────╮
-│   Category     Issues  Weight  Raw Pts  Applied Pts      │
-├──────────────────────────────────────────────────────────┤
-│ ✓ structural      0      30%      0           0          │
-│ ✓ navigation      0      25%      0           0          │
-│ ✗ content         2      20%     -4          -4          │
-│ ✓ brand           0      25%      0           0          │
-├──────────────────────────────────────────────────────────┤
-│   Σ Subtotal                                96           │
-╰──────────────────────────────────────────────────────────╯
-  ! Technical Debt (2 suppressions)          -2 pts
-  = Final Quality Score                      94 / 100
+                            Quality Breakdown
+╭──────┬──────────────────────┬────────┬────────┬─────────┬─────────────╮
+│  -   │ Category             │ Issues │ Weight │ Raw Pts │ Applied Pts │
+├──────┼──────────────────────┼────────┼────────┼─────────┼─────────────┤
+│  *   │ structural           │      0 │    30% │       0 │           0 │
+│  *   │ navigation           │      0 │    25% │       0 │           0 │
+│  *   │ content              │      0 │    20% │       0 │           0 │
+│  *   │ brand                │      0 │    25% │       0 │           0 │
+├──────┼──────────────────────┼────────┼────────┼─────────┼─────────────┤
+│      │ Σ Category Penalties │        │        │         │           0 │
+╰──────┴──────────────────────┴────────┴────────┴─────────┴─────────────╯
+  ! Technical Debt (2 suppressions): -2 pts
+  = Final Score: 100 - 2 = 98
+
+DQS MATHEMATICAL TRANSPARENCY
+  Base Score:                100.0 pts
+  - Structural Penalty:        -0.0 pts
+  - Navigation Penalty:        -0.0 pts
+  - Content Penalty:        -0.0 pts
+  - Brand Penalty:        -0.0 pts
+  ─────────────────────────────────────
+  Total Category Penalties:   -0.0 pts
+  - Gravity Cap Loss:           -0.0 pts (Brand bucket zeroed cap)
+  - Technical Debt Penalty:     -2.0 pts (2 suppression(s) x -1.0 pt)
+  ─────────────────────────────────────
+  Final Score: 100 - 2.0 = 98.0
 ```
 
 ### 5. Policy-as-Code Governance
@@ -363,7 +402,7 @@ Zenzic provides consistent, identical analysis across every development touchpoi
 
 | Platform | Primary Use Case | Delivery |
 | :--- | :--- | :--- |
-| **[Zenzic CLI (Core)](https://github.com/PythonWoods/zenzic)** | Local development, batch auto-fixes, and scriptable audits | `uv tool install zenzic` |
+| **[Zenzic CLI (Core)](https://github.com/PythonWoods/zenzic)** | Local development, batch auto-fixes, and scriptable audits | Pre-commit / PyPI (`uv`/`pip`) |
 | **[VS Code Extension][zenzic-vscode]** | Real-time wavy-line diagnostics, LSP Quick Fixes (`Ctrl+.`), and status telemetry | [VS Code Marketplace][zenzic-vscode] |
 | **[GitHub Action][zenzic-action]** | CI/CD pull request gate, SARIF Code Scanning alerts, and merge blocking | [GitHub Marketplace][zenzic-action] |
 

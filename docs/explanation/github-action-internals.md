@@ -80,6 +80,7 @@ The wrapper validates the SARIF as JSON before handing it to `codeql-action/uplo
 
 ```python
 import json, os
+
 json.load(open(os.environ["ZENZIC_SARIF_FILE"]))
 ```
 

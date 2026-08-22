@@ -23,8 +23,9 @@ This section details the specifications and guidelines for Editor Integration wi
 
 **Resolution:**
 
-1. Install Zenzic globally via `uv tool install zenzic`.
+1. Install Zenzic in your project virtual environment (Track 2: `uv add --dev zenzic` or `pip install zenzic`), which the VS Code extension automatically discovers.
 2. Or configure `zenzic.executablePath` in VS Code settings with the full path to your virtual environment binary (e.g., `/home/user/project/.venv/bin/zenzic`).
+3. Or install as an isolated global tool (Track 3: `uv tool install zenzic`).
 
 ---
 

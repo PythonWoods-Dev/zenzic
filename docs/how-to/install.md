@@ -13,83 +13,126 @@ in local development, as a pre-commit hook, in CI pipelines, or for one-off audi
 
 ---
 
-## Installation Options
+## Canonical Distribution Hierarchy
 
-Ensure Python 3.10 or higher is installed on your system. Select your preferred installation method:
+To guarantee deterministic quality without environment contamination or dependency collisions, Zenzic recommends three distinct distribution tracks in order of priority:
 
-=== "uv (Recommended)"
+```text
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  Track 1: Pre-commit (Recommended)  ──> Isolated, Pinned, Zero-Drift   │
+  │  Track 2: Project Dependency        ──> Docs-as-Code, uv/pip lockfile │
+  │  Track 3: Global / Ephemeral         ──> One-Off Audits, Non-Python   │
+  └────────────────────────────────────────────────────────────────────────┘
+```
 
-    !!! tip "Zero Environment Contamination (Recommended)"
-        We strongly recommend using `uv` or `uvx` to execute Zenzic in isolated environments without dependency conflicts.
+---
 
-    **Global Binary Install:**
+### Track 1: Pre-commit (Recommended) {#track-1-pre-commit}
+
+!!! tip "Zero Environment Contamination & Maximum Determinism"
+    Pre-commit runs Zenzic in a dedicated, isolated virtual environment managed by `pre-commit`. It prevents dependency collisions with your host project or system libraries (e.g., `pydantic` or `google-re2` version conflicts) and guarantees reproducible execution across every contributor workstation.
+
+Add Zenzic to your `.pre-commit-config.yaml`:
+
+```yaml title=".pre-commit-config.yaml"
+repos:
+  - repo: https://github.com/PythonWoods/zenzic
+    rev: v0.30.0  # Pinned release tag for reproducible local audits
+    hooks:
+      # Fast staged-file credential & forbidden pattern scanner (<50ms per commit)
+      - id: zenzic-guard
+
+      # Optional: full repository graph & link integrity audit (ideal for pre-push)
+      # - id: zenzic-verify
+      #   stages: [pre-push]
+```
+
+Install the git hook into your repository:
+
+```bash title="Terminal"
+pre-commit install
+# Optional: install pre-push stage if using zenzic-verify
+pre-commit install --hook-type pre-push
+```
+
+---
+
+### Track 2: Project Dependency (Docs-as-Code) {#track-2-project-dependency}
+
+!!! info "Native Lockfile & VS Code IDE Auto-Discovery"
+    If your project already uses a Python toolchain (`uv`, `poetry`, `pdm`, or `pip-tools`), declaring Zenzic as a project dependency locks its version alongside your documentation tooling (e.g., MkDocs or Zensical).
+
+Add Zenzic to your `pyproject.toml` with a compatible-release range:
+
+```toml title="pyproject.toml"
+[project.optional-dependencies]
+docs = [
+    "zenzic~=0.30.0",
+]
+```
+
+Install and synchronize your environment:
+
+=== "uv"
+
     ```bash title="Terminal"
-    uv tool install zenzic
-    zenzic check all
-    ```
+    # Add to dev/docs dependency group
+    uv add --dev "zenzic~=0.30.0"
 
-    **Ephemeral Execution (Zero Installation):**
-    ```bash title="Terminal"
-    uvx zenzic check all
-    ```
-
-    **Project Dev Dependency:**
-    ```bash title="Terminal"
-    uv add --dev zenzic
-    uvx zenzic check all
+    # Synchronize and run via uv
+    uv run zenzic check all
     ```
 
 === "pip"
 
-    !!! info "Standard Environment Installation"
-        Installs Zenzic via `pip` into an active virtual environment or global user site.
-
-    **Virtual Environment Install:**
     ```bash title="Terminal"
     python -m venv .venv
-    source .venv/bin/activate   # Windows: .venv\Scripts\activate
-    pip install zenzic
+    source .venv/bin/activate  # Windows: .venv\Scripts\activate
+    pip install "zenzic~=0.30.0"
     zenzic check all
     ```
 
-    **User Global Install:**
+**Advantages of Track 2:**
+
+- **VS Code Extension Integration**: The [Zenzic VS Code Extension](../editor/vscode.md) automatically discovers the active `.venv/bin/zenzic` executable.
+- **Unified Lockfile**: Guarantees identical execution between local developers running `uv run zenzic` and CI pipelines running `just check`.
+
+---
+
+### Track 3: Global / Ephemeral Execution (One-Off Audits) {#track-3-global-ephemeral}
+
+!!! warning "Dependency Conflict Notice"
+    Global installations share system packages and may suffer from version drift or collisions. Track 3 is intended for quick audits of non-Python repositories or machines without `pre-commit` installed. For daily development, prefer **Track 1** or **Track 2**.
+
+=== "Ephemeral Run (uvx)"
+
+    ```bash title="Terminal"
+    # Execute immediately in a temporary isolated environment
+    uvx zenzic@0.30.0 check all
+    ```
+
+=== "Global Binary (uv tool)"
+
+    ```bash title="Terminal"
+    # Install as an isolated global CLI tool
+    uv tool install zenzic
+    zenzic check all
+    ```
+
+=== "User Global (pip)"
+
     ```bash title="Terminal"
     pip install --user zenzic
     zenzic check all
     ```
 
-=== "Git Source Execution"
-
-    !!! example "Ephemeral & Version-Pinned Execution"
-        Execute Zenzic directly from the GitHub repository using `uvx` without maintaining a local git clone or manual package updates.
-
-    **Execute latest main branch:**
-    ```bash title="Terminal"
-    uvx --from git+https://github.com/PythonWoods/zenzic zenzic .
-    ```
-
-    **Pin to a specific version tag for deterministic execution:**
-    ```bash title="Terminal"
-    uvx --from git+https://github.com/PythonWoods/zenzic@v0.30.0 zenzic .
-    ```
+---
 
 ### Static analysis only — no build runtime required {#lean-agnostic}
 
-Zenzic reads configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`) as plain
-text. It does **not** execute the build engine or its plugins.
+Zenzic reads configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`) as plain text. It does **not** execute your build engine (MkDocs, Hugo, Docusaurus) or its runtime plugins.
 
-Do **not** install MkDocs, Material for MkDocs, or any build plugin in your linting
-environment. They are not needed. The linting environment has one dependency: `zenzic`.
-
-```bash title="Terminal"
-# Audit any project without build dependencies
-uvx zenzic check all
-```
-
-!!! note "Third-party engine adapters"
-    Third-party adapters (e.g. a hypothetical `zenzic-hugo-adapter`) are separate
-    installable packages — not extras of `zenzic` itself. No extra is required for
-    `StandaloneAdapter` (plain Markdown folders).
+Do **not** install heavy build dependencies into your linting environment. The linting environment has one dependency: `zenzic`.
 
 ---
 

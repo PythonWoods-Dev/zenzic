@@ -1232,12 +1232,22 @@ def _run_vsm_and_urp_pass(
 
     orphaned_urls: set[str] = set()
     dead_end_urls: set[str] = set()
+    traceability_violations: dict[str, tuple[str, list[str]]] = {}
     if hasattr(adapter, "get_entry_points"):
-        from zenzic.core.topology import detect_dead_ends, detect_orphans
+        from zenzic.core.topology import (
+            detect_dead_ends,
+            detect_orphans,
+            detect_traceability_violations,
+        )
 
         entry_points = adapter.get_entry_points(vsm)
         orphaned_urls = set(detect_orphans(vsm, entry_points))
         dead_end_urls = set(detect_dead_ends(vsm))
+        if config.policies and config.policies.traceability_targets:
+            for url, _rel_src, target_glob, req_sources in detect_traceability_violations(
+                vsm, config.policies.traceability_targets, docs_root=docs_root, repo_root=repo_root
+            ):
+                traceability_violations[url] = (target_glob, req_sources)
 
     raw_extracted_links: dict[Path, list[ExtractedLink]] = {}
     links_cache: dict[Path, list[LinkInfo]] = {}
@@ -1384,6 +1394,18 @@ def _run_vsm_and_urp_pass(
                             matched_line="",
                         )
                     )
+            if canonical_url in traceability_violations:
+                target_glob, req_sources = traceability_violations[canonical_url]
+                r.rule_findings.append(
+                    RuleFinding(
+                        r.file_path,
+                        1,
+                        "Z412",
+                        f"Document matches traceability target '{target_glob}' but has no inbound references from required source namespaces {req_sources}",
+                        severity="warning",
+                        matched_line="",
+                    )
+                )
 
         if cycle_nodes and r.file_path in links_cache:
             for link in links_cache[r.file_path]:

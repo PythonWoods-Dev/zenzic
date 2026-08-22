@@ -1332,7 +1332,7 @@ def init(
         "\n[bold green]✨ Zenzic initialized successfully![/]\n\n"
         "[bold]Next steps:[/]\n"
         "  1. Run [bold cyan]zenzic check all[/] to see your baseline.\n"
-        "  2. To automate Zenzic in CI/CD or pre-commit, see:\n"
+        "  2. To automate Zenzic in pre-commit hooks or CI/CD, see:\n"
         "     [link=https://zenzic.dev/docs/how-to/configure-ci-cd]"
         "https://zenzic.dev/docs/how-to/configure-ci-cd[/link]"
     )

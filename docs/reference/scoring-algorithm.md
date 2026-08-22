@@ -64,8 +64,8 @@ If no Z2xx finding is detected, the engine calculates per-category scores using 
 | :--- | :--- | :--- | ---: | ---: |
 | Security Gate | — | Z2xx | — | score = 0 |
 | Structural | `structural` | Z101–Z105, Z107–Z109, Z113, Z121, Z124, Z410, Z411 | 30% | 30 pts |
-| Navigation | `navigation` | Z301–Z303, Z402 | 25% | 25 pts |
-| Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z520 | 20% | 20 pts |
+| Navigation | `navigation` | Z301–Z303, Z402, Z412 | 25% | 25 pts |
+| Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z523 | 20% | 20 pts |
 | Governance & Brand | `brand` | Z620, Z404–Z406, Z601, Z603, Z610–Z619 | 25% | 25 pts |
 
 ### Category Penalty Formula
@@ -117,6 +117,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z406** | NAV_CONTRACT | 5.0 pts | Governance & Brand | Default |
 | **Z410** | UNREACHABLE_GRAPH_NODE | 3.0 pts | Structural Integrity | Default |
 | **Z411** | DEAD_END_NODE | 2.0 pts | Structural Integrity | Default |
+| **Z412** | TRACEABILITY_BROKEN | 4.0 pts | Navigation Graph | **Opt-In** |
 | **Z501** | PLACEHOLDER | 3.0 pts | Content Excellence | Default |
 | **Z502** | SHORT_CONTENT | 2.0 pts | Content Excellence | Default |
 | **Z503** | SNIPPET_ERROR | 5.0 pts | Content Excellence | Default |
@@ -134,6 +135,9 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z518** | PASSIVE_VOICE_DETECTED | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z519** | WEASEL_WORDS | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z520** | MALFORMED_LIST_DETECTED | 2.0 pts | Content Excellence | Default |
+| **Z521** | REQUIRED_TABLE_COLUMN | 2.0 pts | Content Excellence | **Opt-In** |
+| **Z522** | TABLE_CELL_ENUM | 2.0 pts | Content Excellence | **Opt-In** |
+| **Z523** | HEADING_ORDER_VIOLATION | 2.0 pts | Content Excellence | **Opt-In** |
 | **Z601** | BRAND_OBSOLESCENCE | 2.0 pts | Governance & Brand | Default |
 | **Z603** | DEAD_SUPPRESSION | 1.0 pt | Governance & Brand | Technical Debt |
 | **Z610** | REQUIRED_FRONTMATTER_MISSING | 3.0 pts | Governance & Brand | **Opt-In** |

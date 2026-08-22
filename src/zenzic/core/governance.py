@@ -237,6 +237,9 @@ class PolicyEvaluator:
         self._forbidden_content: list[str] = config.policies.forbidden_content_patterns
         self._required_headings: list[str] = config.policies.required_heading_patterns
         self._max_complexity: int = config.policies.max_document_complexity
+        self._required_table_columns: dict[str, list[str]] = config.policies.required_table_columns
+        self._table_cell_enums: dict[str, list[str]] = config.policies.table_cell_enums
+        self._required_heading_order: list[str] = config.policies.required_heading_order
 
     # ── Public surface ────────────────────────────────────────────────────────
 
@@ -254,6 +257,9 @@ class PolicyEvaluator:
             or self._forbidden_content
             or self._required_headings
             or (self._max_complexity > 0)
+            or self._required_table_columns
+            or self._table_cell_enums
+            or self._required_heading_order
         )
 
     def check(
@@ -308,6 +314,23 @@ class PolicyEvaluator:
 
         if self._max_complexity > 0:
             findings.extend(self._check_document_complexity(file_path, content))
+
+        if self._required_table_columns:
+            from zenzic.core.content import check_required_table_columns
+
+            findings.extend(
+                check_required_table_columns(file_path, content, self._required_table_columns)
+            )
+
+        if self._table_cell_enums:
+            from zenzic.core.content import check_table_cell_enums
+
+            findings.extend(check_table_cell_enums(file_path, content, self._table_cell_enums))
+
+        if self._required_heading_order:
+            from zenzic.core.content import check_heading_order
+
+            findings.extend(check_heading_order(file_path, content, self._required_heading_order))
 
         return findings
 

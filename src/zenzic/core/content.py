@@ -11,6 +11,7 @@ with strict line-number fidelity.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -1127,5 +1128,190 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
             i = j
         else:
             i += 1
+
+    return findings
+
+
+def check_required_table_columns(
+    file_path: Path,
+    text: str,
+    required_table_columns: dict[str, list[str]],
+) -> list[RuleFinding]:
+    """Z521: Detect Markdown tables missing required column headers."""
+    if not required_table_columns:
+        return []
+
+    from zenzic.core.ast import Heading, TableNode
+    from zenzic.core.parser import parse
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    ast = parse(text)
+    current_heading = ""
+
+    for child in ast.children:
+        if isinstance(child, Heading):
+            current_heading = "".join(getattr(c, "text", "") for c in child.children).strip()
+            continue
+
+        if isinstance(child, TableNode):
+            table_headers = [h.strip() for h in child.headers]
+            lower_headers = {h.lower() for h in table_headers}
+
+            for ctx_pattern, req_cols in required_table_columns.items():
+                applies = False
+                if ctx_pattern == "*":
+                    applies = True
+                elif current_heading:
+                    with contextlib.suppress(Exception):
+                        if re.search(ctx_pattern, current_heading):
+                            applies = True
+
+                if applies:
+                    for req_col in req_cols:
+                        if req_col.lower() not in lower_headers:
+                            findings.append(
+                                RuleFinding(
+                                    rule_id="Z521",
+                                    severity="warning",
+                                    file_path=file_path,
+                                    line_no=child.line_no,
+                                    message=(
+                                        f"Table missing required column '{req_col}' "
+                                        f"(declared in [policies].required_table_columns under context '{ctx_pattern}')."
+                                    ),
+                                    matched_line=child.raw_lines[0] if child.raw_lines else "",
+                                )
+                            )
+
+    return findings
+
+
+def check_table_cell_enums(
+    file_path: Path,
+    text: str,
+    table_cell_enums: dict[str, list[str]],
+) -> list[RuleFinding]:
+    """Z522: Detect table cells containing values outside allowed enum lists."""
+    if not table_cell_enums:
+        return []
+
+    from zenzic.core.ast import TableNode
+    from zenzic.core.parser import parse
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    ast = parse(text)
+
+    # Normalize enum map: lower_col_name -> (original_col_name, set_of_lower_allowed_values, original_allowed_list)
+    enum_map: dict[str, tuple[str, set[str], list[str]]] = {}
+    for col_name, allowed_vals in table_cell_enums.items():
+        norm_vals = {v.strip("`'\" ").lower() for v in allowed_vals}
+        enum_map[col_name.lower()] = (col_name, norm_vals, allowed_vals)
+
+    for child in ast.children:
+        if not isinstance(child, TableNode):
+            continue
+
+        # Match columns
+        matched_cols: list[tuple[int, str, set[str], list[str]]] = []
+        for idx, h in enumerate(child.headers):
+            h_clean = h.strip().lower()
+            if h_clean in enum_map:
+                orig_name, norm_vals, orig_list = enum_map[h_clean]
+                matched_cols.append((idx, orig_name, norm_vals, orig_list))
+
+        if not matched_cols:
+            continue
+
+        for row in child.rows:
+            if row.is_header:
+                continue
+
+            for col_idx, orig_name, norm_vals, orig_list in matched_cols:
+                if col_idx < len(row.cells):
+                    cell = row.cells[col_idx]
+                    cell_val = cell.text.strip("`'\" ")
+                    if cell_val and cell_val.lower() not in norm_vals:
+                        line_no = child.line_no + row.row_index + 1
+                        findings.append(
+                            RuleFinding(
+                                rule_id="Z522",
+                                severity="warning",
+                                file_path=file_path,
+                                line_no=line_no,
+                                message=(
+                                    f"Table cell value '{cell.text}' in column '{orig_name}' is not in allowed "
+                                    f"enum list {orig_list} (declared in [policies].table_cell_enums)."
+                                ),
+                                matched_line=row.raw_line,
+                            )
+                        )
+
+    return findings
+
+
+def check_heading_order(
+    file_path: Path,
+    text: str,
+    required_heading_order: list[str],
+) -> list[RuleFinding]:
+    """Z523: Detect headings that violate the required sequential order."""
+    if not required_heading_order:
+        return []
+
+    from zenzic.core.rules import RuleFinding
+
+    findings: list[RuleFinding] = []
+    lines = text.splitlines()
+
+    compiled_patterns = []
+    for idx, pat in enumerate(required_heading_order):
+        with contextlib.suppress(Exception):
+            compiled_patterns.append((idx, pat, re.compile(pat)))
+
+    if not compiled_patterns:
+        return []
+
+    max_idx_seen = -1
+    last_matched_pat = ""
+    in_code_block = False
+
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        m = _ATX_HEADING_RE.match(stripped)
+        if not m:
+            continue
+
+        heading_title = m.group(2).strip()
+
+        # Check if heading_title matches any pattern in required_heading_order
+        for p_idx, p_str, p_re in compiled_patterns:
+            if p_re.search(heading_title):
+                if p_idx < max_idx_seen:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z523",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=i,
+                            message=(
+                                f"Heading '{heading_title}' matches pattern '{p_str}' (order position {p_idx + 1}) "
+                                f"but appears after heading matching '{last_matched_pat}' (order position {max_idx_seen + 1}). "
+                                "Headings must appear in strictly ascending sequential order."
+                            ),
+                            matched_line=line,
+                        )
+                    )
+                else:
+                    max_idx_seen = p_idx
+                    last_matched_pat = p_str
+                break
 
     return findings

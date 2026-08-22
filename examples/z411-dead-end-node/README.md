@@ -28,4 +28,4 @@ Exit code **1**.
 
 ## Fix
 
-Add an outgoing link to another page in `deadend.md`, or suppress the warning with `<!-- zenzic:ignore:Z411 -->`.
+Add an outgoing link to another page in `deadend.md`, or configure suppression in `.zenzic.toml` using `[governance.per_file_ignores]` (topological finding per ADR-093).

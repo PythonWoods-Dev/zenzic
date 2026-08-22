@@ -91,6 +91,7 @@ The new SDK exposes the `ZenzicRuleV3` base class and requires a typed `RuleMeta
 ```python
 from zenzic.sdk import ZenzicRuleV3, RuleMetadata
 
+
 class MyCustomRule(ZenzicRuleV3):
     metadata = RuleMetadata(
         code="ZZ-CUSTOM",

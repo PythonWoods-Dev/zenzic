@@ -54,6 +54,7 @@ def check(self, vsm, config):
     if not (docs_root / resolved_path).exists():
         yield Finding(...)
 
+
 # ✅ Correct — asks the VSM
 def check(self, vsm, config):
     if route_info.status == RouteStatus.ORPHAN_AND_ABSENT:

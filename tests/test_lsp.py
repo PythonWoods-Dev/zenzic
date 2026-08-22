@@ -1636,6 +1636,47 @@ def test_lsp_code_action_suppression(tmp_path) -> None:
     assert "Fix Z108: Inject placeholder link text ('TODO')" in titles
     assert "Suppress Z108 for this line" in titles
 
+    # 4. Test Z412 / Z410 (Topological findings - NON_INLINE_SUPPRESSIBLE_CODES per ADR-093)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 204,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 10},
+                            },
+                            "code": "Z412",
+                            "source": "Zenzic",
+                            "message": "[Z412] Target document is untraceable",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 1
+    assert actions[0]["title"] == "Suppress Z412 (configure via .zenzic.toml)"
+    assert "disabled" in actions[0]
+    assert "directory_policies" in actions[0]["disabled"]["reason"]
+
 
 # ─── LSP-FIX-017 & Filesystem Truth tests ─────────────────────────────────────
 

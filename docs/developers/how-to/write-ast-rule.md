@@ -29,11 +29,13 @@ class LegacyRule(BaseASTRule):
     def __init__(self) -> None:
         super().__init__(rule_id="LOCAL-001", severity="error")
 
-    def visit_block_node(self, node: BlockNode, file_path: Path) -> Generator[RuleFinding, None, None]:
-        ...
+    def visit_block_node(
+        self, node: BlockNode, file_path: Path
+    ) -> Generator[RuleFinding, None, None]: ...
 
-    def visit_html_node(self, node: object, file_path: Path) -> Generator[RuleFinding, None, None]:
-        ...
+    def visit_html_node(
+        self, node: object, file_path: Path
+    ) -> Generator[RuleFinding, None, None]: ...
 ```
 
 ### After (Custom Rule SDK v3 — Current)
@@ -128,6 +130,7 @@ To preserve mathematical determinism ($O(N)$ runtime complexity) and maintain en
 ```python
 from pathlib import Path
 from zenzic.sdk.examples import NoTodoRule
+
 
 def test_no_todo_rule(tmp_path: Path) -> None:
     rule = NoTodoRule()

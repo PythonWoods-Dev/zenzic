@@ -1281,4 +1281,3 @@ html:has(.zz-tailwind-root) .md-header__source {
 .text-amber-500 {
   color: var(--zz-warning) !important;
 }
-

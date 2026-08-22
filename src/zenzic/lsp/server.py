@@ -802,7 +802,11 @@ class LanguageServer:
             return
 
         from zenzic.core import regex as re
-        from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
+        from zenzic.core.codes import (
+            CODE_DEFINITIONS,
+            NON_INLINE_SUPPRESSIBLE_CODES,
+            NON_SUPPRESSIBLE_CODES,
+        )
         from zenzic.core.mutator import (
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
@@ -874,7 +878,20 @@ class LanguageServer:
                         }
                         code_actions.append(action)
 
-            if diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
+            if diag_code and diag_code in NON_INLINE_SUPPRESSIBLE_CODES:
+                suppress_action = {
+                    "title": f"Suppress {diag_code} (configure via .zenzic.toml)",
+                    "kind": "quickfix",
+                    "diagnostics": [diag],
+                    "disabled": {
+                        "reason": (
+                            f"{diag_code} is a topological finding. "
+                            "Configure suppression in .zenzic.toml via [directory_policies] or [per_file_ignores]."
+                        )
+                    },
+                }
+                code_actions.append(suppress_action)
+            elif diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
                 insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
                 # Use a large character index to append to the end of the line
                 insert_char = 9999

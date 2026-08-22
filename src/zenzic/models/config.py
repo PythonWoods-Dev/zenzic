@@ -350,6 +350,42 @@ class PoliciesConfig(BaseModel):
             "Strictly opt-in."
         ),
     )
+    required_table_columns: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a heading/context pattern (or '*' for all tables) to a list "
+            "of required column header names. Missing columns emit Z521 REQUIRED_TABLE_COLUMN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"*": ["Status", "Description"], "^API Reference$": ["Method", "Endpoint"]}'
+        ),
+    )
+    table_cell_enums: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping column header names to allowed string enum values. "
+            "Cells with values outside this whitelist emit Z522 TABLE_CELL_ENUM. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"Status": ["draft", "review", "stable"]}'
+        ),
+    )
+    required_heading_order: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of RE2 regex heading patterns that must appear in strictly ascending sequential order. "
+            "Out-of-order headings emit Z523 HEADING_ORDER_VIOLATION. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["^Overview$", "^Usage$", "^API Reference$"]'
+        ),
+    )
+    traceability_targets: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a target documentation glob pattern to a list of source documentation glob patterns. "
+            "Target documents not linked by at least one matching source document emit Z412 TRACEABILITY_BROKEN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"docs/specs/**": ["docs/architecture/**"]}'
+        ),
+    )
 
     @field_validator("required_url_schemes")
     @classmethod
@@ -371,7 +407,12 @@ class PoliciesConfig(BaseModel):
                 ) from err
         return v
 
-    @field_validator("forbidden_content_patterns", "required_heading_patterns", "weasel_words")
+    @field_validator(
+        "forbidden_content_patterns",
+        "required_heading_patterns",
+        "required_heading_order",
+        "weasel_words",
+    )
     @classmethod
     def _validate_re2_list_patterns(cls, v: list[str]) -> list[str]:
         for pattern in v:

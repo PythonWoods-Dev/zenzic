@@ -304,13 +304,13 @@ panel = Panel("...", border_style=ZenzicPalette.STYLE_ERR)
 
 ```python
 # FORBIDDEN — hex literal outside ZenzicPalette
-text = Text.from_markup("[#4f46e5]Zenzic[/]")   # ✗
+text = Text.from_markup("[#4f46e5]Zenzic[/]")  # ✗
 
 # FORBIDDEN — flat constant import (removed in)
-from zenzic.ui import INDIGO, EMERALD            # ✗
+from zenzic.ui import INDIGO, EMERALD  # ✗
 
 # FORBIDDEN — inline alias
-P = ZenzicPalette                              # ✗  use full qualification
+P = ZenzicPalette  # ✗  use full qualification
 ```
 
 ### Updating the palette

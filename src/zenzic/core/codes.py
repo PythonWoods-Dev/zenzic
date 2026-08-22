@@ -26,7 +26,6 @@ Z1xx — Link Integrity
     Z112  (reserved)           — slot free; not used in v0.17.0
     Z113  AUTHOR_KEY_COLLISION — duplicate author key across blog author configs
     Z114  LARGE_PAGINATION_SET — blog pagination set exceeds 200-page threshold (info)
-    Z620  STALE_GLOBAL_SUPPRESSION — global configuration rule was never used during the scan
     Z120  UNKNOWN_HTML_ATTRIBUTE — HTML attribute not in Safe-Core list (Polyglot Extractor — v0.17.0)
     Z121  MISSING_OR_EMPTY_HREF  — <a>/<img> tag has no href/src, or it is empty
     Z122  JUMP_LINK_DETECTED     — href="#" detected (placeholder or opaque JS anchor)
@@ -45,15 +44,18 @@ Z3xx — Reference Integrity
     Z302  DEAD_DEF             — reference definition never used by any link
     Z303  DUPLICATE_DEF        — reference ID defined more than once
 
-Z4xx — Structure
+Z4xx — Navigation & Structure
     Z401  MISSING_DIRECTORY_INDEX — directory lacks an index page (Standalone Mode)
     Z402  ORPHAN_PAGE          — Markdown file not listed in the site navigation
     Z403  MISSING_ALT          — image element has no alt text
     Z404  CONFIG_ASSET_MISSING — infrastructure asset referenced in engine config not found on disk
-     Z405  UNUSED_ASSET         — asset file not referenced by any documentation page
-     Z406  NAV_CONTRACT         — navigation contract violation
+    Z405  UNUSED_ASSET         — asset file not referenced by any documentation page
+    Z406  NAV_CONTRACT         — navigation contract violation
+    Z410  UNREACHABLE_GRAPH_NODE — document is isolated and unreachable from navigation entry points
+    Z411  DEAD_END_NODE        — document has no outgoing links and forms a structural dead end
+    Z412  TRACEABILITY_BROKEN  — target document has no inbound links from required source namespaces
 
-Z5xx — Content Quality
+Z5xx — Content Quality & Specification-Driven Development (SDD)
     Z501  PLACEHOLDER          — page contains stub / TODO content
     Z502  SHORT_CONTENT        — page word count below minimum threshold
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
@@ -71,14 +73,24 @@ Z5xx — Content Quality
     Z518  PASSIVE_VOICE_DETECTED — passive voice construction detected (opt-in)
     Z519  WEASEL_WORDS          — weasel word detected in technical prose (opt-in)
     Z520  MALFORMED_LIST_DETECTED — fake list formatted with newlines and semicolons/commas without list markers
+    Z521  REQUIRED_TABLE_COLUMN — Markdown table missing required column header (opt-in)
+    Z522  TABLE_CELL_ENUM       — table cell value not in allowed enum list (opt-in)
+    Z523  HEADING_ORDER_VIOLATION — headings appear out of configured sequential order (opt-in)
 
-Z6xx — Governance (opt-in)
-     Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
-     Z610  REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document (v0.28.0)
-     Z611  FORBIDDEN_DOMAIN_REFERENCE  — link references a domain forbidden by [policies] (v0.28.0)
-     Z617  FORBIDDEN_CONTENT_PATTERN — content matches forbidden regex pattern
-     Z618  REQUIRED_HEADING_PATTERN — document lacks required heading pattern
-     Z619  MAX_DOCUMENT_COMPLEXITY  — document complexity exceeds configured threshold
+Z6xx — Governance (Policy-as-Code)
+    Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
+    Z603  DEAD_SUPPRESSION     — inline suppression exists on a line with no active finding
+    Z610  REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document (v0.28.0)
+    Z611  FORBIDDEN_DOMAIN_REFERENCE  — link references a domain forbidden by [policies] (v0.28.0)
+    Z612  FORBIDDEN_FRONTMATTER_KEY   — document contains forbidden frontmatter key (opt-in)
+    Z613  FRONTMATTER_SCHEMA_MISMATCH — frontmatter value violates regex schema pattern (opt-in)
+    Z614  UNAPPROVED_DOMAIN_REFERENCE — link references domain outside allowed whitelist (opt-in)
+    Z615  FORBIDDEN_URL_SCHEME        — link uses forbidden URL scheme (opt-in)
+    Z616  CROSS_NAMESPACE_LINK_FORBIDDEN — forbidden cross-namespace link detected (opt-in)
+    Z617  FORBIDDEN_CONTENT_PATTERN   — content matches forbidden regex pattern (opt-in)
+    Z618  REQUIRED_HEADING_PATTERN    — document lacks required heading pattern (opt-in)
+    Z619  MAX_DOCUMENT_COMPLEXITY     — document complexity exceeds configured threshold (opt-in)
+    Z620  STALE_GLOBAL_SUPPRESSION    — global configuration rule was never used during the scan
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
@@ -88,7 +100,7 @@ Z9xx — Engine / System
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import Final, NamedTuple
 
 
 # ── Code Definition — Single Source of Truth ─────────────────────────────────
@@ -181,6 +193,22 @@ NON_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
     }
 )
 
+# Graph-level and file-level findings that CANNOT be suppressed via inline comments
+# (see ADR-093).  They must be governed in .zenzic.toml via directory_policies or per_file_ignores.
+NON_INLINE_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
+    {
+        "Z401",  # MISSING_DIRECTORY_INDEX
+        "Z402",  # ORPHAN_PAGE
+        "Z404",  # CONFIG_ASSET_MISSING
+        "Z405",  # UNUSED_ASSET
+        "Z406",  # NAV_CONTRACT
+        "Z410",  # UNREACHABLE_GRAPH_NODE
+        "Z411",  # DEAD_END_NODE
+        "Z412",  # TRACEABILITY_BROKEN
+        "Z620",  # STALE_GLOBAL_SUPPRESSION
+    }
+)
+
 PLUGIN_FORBIDDEN_EXITS: frozenset[int] = frozenset({2, 3})
 
 
@@ -248,6 +276,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z406": CodeDefinition("warning", 2.0, "brand"),  # NAV_CONTRACT
     "Z410": CodeDefinition("warning", 5.0, "structural"),  # UNREACHABLE_GRAPH_NODE
     "Z411": CodeDefinition("warning", 5.0, "structural"),  # DEAD_END_NODE
+    "Z412": CodeDefinition(
+        "warning", 4.0, "navigation", fixable=False
+    ),  # TRACEABILITY_BROKEN (v0.31.0) — graph topology, suppressed via directory_policies
     # ── Z5xx — Content Quality ────────────────────────────────────────────────
     "Z501": CodeDefinition("warning", 2.0, "content"),  # PLACEHOLDER
     "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
@@ -268,6 +299,15 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z520": CodeDefinition(
         "warning", 2.0, "content", fixable=True
     ),  # MALFORMED_LIST_DETECTED (v0.30.0)
+    "Z521": CodeDefinition(
+        "warning", 2.0, "content", fixable=False
+    ),  # REQUIRED_TABLE_COLUMN (v0.31.0, opt-in) — non-fixable (requires semantic data)
+    "Z522": CodeDefinition(
+        "warning", 2.0, "content", fixable=False
+    ),  # TABLE_CELL_ENUM (v0.31.0, opt-in) — non-fixable (requires human enum selection)
+    "Z523": CodeDefinition(
+        "warning", 2.0, "content", fixable=False
+    ),  # HEADING_ORDER_VIOLATION (v0.31.0, opt-in) — non-fixable (requires section restructuring)
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
@@ -280,16 +320,16 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z616": CodeDefinition("error", 8.0, "brand"),  # CROSS_NAMESPACE_LINK_FORBIDDEN (v0.29.0)
     "Z617": CodeDefinition("warning", 2.0, "brand"),  # FORBIDDEN_CONTENT_PATTERN (v0.30.0)
     "Z618": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_HEADING_PATTERN (v0.30.0)
-    "Z619": CodeDefinition("warning", 4.0, "brand"),  # MAX_DOCUMENT_COMPLEXITY (v0.30.0)
+    "Z619": CodeDefinition("warning", 3.0, "brand"),  # MAX_DOCUMENT_COMPLEXITY (v0.30.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
-    "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
+    "Z901": CodeDefinition("error", 0.0, None),  # RULE_ENGINE_ERROR — HALT gate
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
-    "Z906": CodeDefinition("note", 0.0, None),  # NO_FILES_FOUND — informational
+    "Z906": CodeDefinition("note", 0.0, None),  # NO_FILES_FOUND
 }
 
 
 #: Human-readable name for each code (for report headers).
-CODE_NAMES: dict[str, str] = {
+CODE_NAMES: Final[dict[str, str]] = {
     "Z000": "UNSUPPORTED_ENGINE",
     "Z001": "CORE_CONFIG_STRUCTURE",
     "Z101": "LINK_BROKEN",
@@ -328,6 +368,7 @@ CODE_NAMES: dict[str, str] = {
     "Z406": "NAV_CONTRACT",
     "Z410": "UNREACHABLE_GRAPH_NODE",
     "Z411": "DEAD_END_NODE",
+    "Z412": "TRACEABILITY_BROKEN",
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
@@ -345,6 +386,9 @@ CODE_NAMES: dict[str, str] = {
     "Z518": "PASSIVE_VOICE_DETECTED",
     "Z519": "WEASEL_WORDS",
     "Z520": "MALFORMED_LIST_DETECTED",
+    "Z521": "REQUIRED_TABLE_COLUMN",
+    "Z522": "TABLE_CELL_ENUM",
+    "Z523": "HEADING_ORDER_VIOLATION",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z603": "DEAD_SUPPRESSION",
     "Z610": "REQUIRED_FRONTMATTER_MISSING",
@@ -409,6 +453,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z406": "Navigation contract violation detected",
     "Z410": "Document is isolated and unreachable from the navigation entry points",
     "Z411": "Document has no outgoing links and forms a structural dead end",
+    "Z412": "Document lacks required inbound links from specified documentation namespaces (graph traceability broken)",
     # Z5xx — Content Quality
     "Z501": "Page contains placeholder or stub content",
     "Z502": "Page word count is below the minimum threshold",
@@ -427,6 +472,9 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z518": "Passive voice construction detected — consider using active voice for clearer technical writing",
     "Z519": "Weasel word detected in technical prose — use direct, assertive language instead",
     "Z520": "Malformed list detected in paragraph — convert to a standard Markdown list with '- ' for accessibility and semantic rendering",
+    "Z521": "Table matching configured context lacks a required column header",
+    "Z522": "Table cell contains a value outside the allowed enumeration whitelist for this column",
+    "Z523": "Configured required headings appear out of expected sequential order in document flow",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",

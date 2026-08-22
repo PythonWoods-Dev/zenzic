@@ -82,6 +82,38 @@ class StrongNode(InlineNode):
     marker: str = "**"
 
 
+@dataclass
+class TableCell(Node):
+    """A table cell containing inline nodes and text."""
+
+    text: str = ""
+    align: str = "left"  # "left", "center", "right"
+    is_header: bool = False
+    col_index: int = 0
+    row_index: int = 0
+
+
+@dataclass
+class TableRow(Node):
+    """A row in a Markdown table."""
+
+    cells: list[TableCell] = field(default_factory=list)
+    is_header: bool = False
+    row_index: int = 0
+    raw_line: str = ""
+
+
+@dataclass
+class TableNode(BlockNode):
+    """A GFM Markdown table block."""
+
+    headers: list[str] = field(default_factory=list)
+    rows: list[TableRow] = field(default_factory=list)
+    raw_lines: list[str] = field(default_factory=list)
+    alignments: list[str] = field(default_factory=list)
+    line_no: int = 1
+
+
 @dataclass(frozen=True)
 class ExtractedLink:
     """Unified node representing any link candidate extracted from Markdown or HTML content.

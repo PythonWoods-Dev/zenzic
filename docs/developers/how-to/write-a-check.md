@@ -44,8 +44,7 @@ In the appropriate sub-app module (e.g., `src/zenzic/cli/_check.py`):
 
 ```python
 @check_app.command(name="metadata")
-def check_metadata(path: Path = ...) -> None:
-    ...
+def check_metadata(path: Path = ...) -> None: ...
 ```
 
 No changes to `__init__.py`, `main.py`, or `_metadata.py` are required.

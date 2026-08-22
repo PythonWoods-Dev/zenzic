@@ -34,9 +34,11 @@ functions or closures cannot be pickled and **will be rejected**.
 # ✓ correct — importable as my_rules.NoDraftRule
 class NoDraftRule(BaseRule): ...
 
+
 # ✗ wrong — not pickleable; will raise PluginContractError at load time
 def make_rule():
     class NoDraftRule(BaseRule): ...
+
     return NoDraftRule()
 ```
 
@@ -55,7 +57,8 @@ incorrectly.
 ```python
 # ✓ compiled regex is pickleable
 class NoDraftRule(BaseRule):
-    _pattern = re.compile(r"(?i)\bDRAFT\b")   # class-level attribute
+    _pattern = re.compile(r"(?i)\bDRAFT\b")  # class-level attribute
+
 
 # ✓ also fine as an instance attribute set in __init__
 class NoDraftRule(BaseRule):
@@ -90,6 +93,7 @@ class NoDraftRule(BaseRule):
 import re
 from pathlib import Path
 from zenzic.rules import BaseRule, RuleFinding
+
 
 class NoInternalHostnameRule(BaseRule):
     """Flag occurrences of the internal hostname in public documentation."""
@@ -223,18 +227,19 @@ from collections.abc import Mapping
 from zenzic.core.rules import BaseRule, RuleFinding
 from zenzic.models.vsm import Route
 
+
 class NoOrphanLinkRule(BaseRule):
     @property
     def rule_id(self) -> str:
         return "MYORG-002"
 
     def check(self, file_path, text):
-        return []   # no standalone check; requires VSM context
+        return []  # no standalone check; requires VSM context
 
     def check_vsm(self, file_path, text, vsm: Mapping[str, Route], anchors_cache):
         # vsm maps canonical URL → Route; consult vsm[url].status
         ...
-        return []   # return list[Violation]
+        return []  # return list[Violation]
 ```
 
 See [`BaseRule`][api-baserule] in the API reference for the complete interface.
@@ -250,6 +255,7 @@ setup required:
 from zenzic.rules import run_rule
 from my_org_rules.rules import NoInternalHostnameRule
 
+
 def test_internal_hostname_detected():
     findings = run_rule(
         NoInternalHostnameRule(),
@@ -258,6 +264,7 @@ def test_internal_hostname_detected():
     assert len(findings) == 1
     assert findings[0].rule_id == "MYORG-001"
     assert findings[0].severity == "error"
+
 
 def test_clean_content_passes():
     findings = run_rule(NoInternalHostnameRule(), "All public content here.")

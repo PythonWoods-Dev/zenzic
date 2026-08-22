@@ -71,6 +71,7 @@ from zenzic.core.adapters import RouteMetadata
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.models.vsm import RouteStatus
 
+
 class MyEngineAdapter(BaseAdapter):
     """Adapter for MyEngine documentation projects."""
 
@@ -159,7 +160,6 @@ class MyEngineAdapter(BaseAdapter):
     def watched_config_files(self) -> frozenset[str]:
         """Return configuration filenames that trigger a VSM rebuild in LSP mode."""
         return frozenset({"myengine.toml"})
-
 
     def provides_index(self, directory_path: Path) -> bool:
         """Return whether this engine serves an index page for the directory."""
@@ -265,6 +265,7 @@ def from_repo(
     config = {}
     if config_path.exists():
         import tomllib
+
         with config_path.open("rb") as f:
             config = tomllib.load(f)
     return cls(config, docs_root)
@@ -412,9 +413,11 @@ verify protocol compliance:
 from zenzic.core.adapters import BaseAdapter
 from my_engine_adapter.adapter import MyEngineAdapter
 
+
 def test_satisfies_protocol() -> None:
     adapter = MyEngineAdapter(config={}, docs_root=Path("/tmp/docs"))
     assert isinstance(adapter, BaseAdapter)
+
 
 def test_nav_paths_relative() -> None:
     adapter = MyEngineAdapter(

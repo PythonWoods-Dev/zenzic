@@ -58,6 +58,39 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 }
 
 
+def _is_zensical_theme(mkdocs_content: str) -> bool:
+    """Inspect mkdocs.yml content for theme: zensical without full YAML parsing.
+
+    Robust against false positives in comments, nav items, or plugins.
+    """
+    lines = mkdocs_content.splitlines()
+    in_theme_block = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if not line.startswith((" ", "\t")):
+            if line.startswith("theme:"):
+                remainder = line[6:].strip()
+                remainder_clean = remainder.split("#", 1)[0].strip().strip("\"'")
+                if remainder_clean == "zensical":
+                    return True
+                in_theme_block = True
+                continue
+            else:
+                in_theme_block = False
+        elif in_theme_block:
+            clean_indented = stripped.split("#", 1)[0].strip()
+            if clean_indented.startswith("name:"):
+                val = clean_indented[5:].strip().strip("\"'")
+                if val == "zensical":
+                    return True
+            elif clean_indented.strip("\"'") == "zensical":
+                return True
+    return False
+
+
 def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical", "standalone"]:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
@@ -65,8 +98,9 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
 
     1. ``.zenzic-vsm.json``   → ``"prebuilt"``
     2. ``zensical.toml``      → ``"zensical"``
-    3. ``mkdocs.yml``         → ``"mkdocs"``
-    4. No marker found        → ``"standalone"`` (universal fallback mode)
+    3. ``mkdocs.yml`` / ``mkdocs.yaml`` with theme: zensical → ``"zensical"`` (compat input)
+    4. ``mkdocs.yml`` / ``mkdocs.yaml`` → ``"mkdocs"``
+    5. No marker found        → ``"standalone"`` (universal fallback mode)
 
     This function is called when ``BuildContext.engine == "auto"`` (the default),
     replacing the previous implicit assumption that the engine was MkDocs.
@@ -75,8 +109,23 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
         return "prebuilt"
     if (repo_root / "zensical.toml").is_file():
         return "zensical"
-    if (repo_root / "mkdocs.yml").is_file():
+
+    mkdocs_file: Path | None = None
+    for name in ("mkdocs.yml", "mkdocs.yaml"):
+        candidate = repo_root / name
+        if candidate.is_file():
+            mkdocs_file = candidate
+            break
+
+    if mkdocs_file is not None:
+        try:
+            content = mkdocs_file.read_text(encoding="utf-8", errors="replace")
+            if _is_zensical_theme(content):
+                return "zensical"
+        except OSError:
+            pass
         return "mkdocs"
+
     return "standalone"
 
 

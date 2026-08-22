@@ -213,12 +213,12 @@ reports, link_errors = scan_docs_references(
     Path("."),
     exclusion_mgr,
     config=config,
-    validate_links=True,   # set False to skip HTTP validation
+    validate_links=True,  # set False to skip HTTP validation
 )
 
 for report in reports:
     if report.security_findings:
-        raise SystemExit(2)   # your code is responsible for exit-code enforcement
+        raise SystemExit(2)  # your code is responsible for exit-code enforcement
     for finding in report.findings:
         print(finding)
 
@@ -264,7 +264,9 @@ reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config, worke
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config, workers=None)
 
 # With external link validation (works in both sequential and parallel mode)
-reports, link_errors = scan_docs_references(Path("."), exclusion_mgr, config=config, validate_links=True, workers=None)
+reports, link_errors = scan_docs_references(
+    Path("."), exclusion_mgr, config=config, validate_links=True, workers=None
+)
 ```
 
 **Determinism guarantee:** results are always sorted by `file_path` regardless
@@ -490,6 +492,7 @@ The **Custom Rule SDK v3** (`ZenzicRuleV3` + `RuleMetadata`) provides a typed fr
 from pathlib import Path
 from zenzic.sdk import ZenzicRuleV3, RuleMetadata
 from zenzic.core.rules import RuleFinding
+
 
 class ForbiddenInternalUrlRule(ZenzicRuleV3):
     metadata = RuleMetadata(

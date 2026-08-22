@@ -65,11 +65,11 @@ construction time.
 ```python
 # _assert_regex_canary() in rules.py — runs automatically for every CustomRule
 _CANARY_STRINGS = (
-    "a" * 30 + "b",   # classic (a+)+  trigger
-    "A" * 25 + "!",   # uppercase variant
-    "1" * 20 + "x",   # numeric variant
+    "a" * 30 + "b",  # classic (a+)+  trigger
+    "A" * 25 + "!",  # uppercase variant
+    "1" * 20 + "x",  # numeric variant
 )
-_CANARY_TIMEOUT_S = 0.1   # 100 ms
+_CANARY_TIMEOUT_S = 0.1  # 100 ms
 ```
 
 Test your pattern before committing:
@@ -135,8 +135,8 @@ for lineno, line in _iter_content_lines(file_path):  # Content: filtered
 with file_path.open(encoding="utf-8") as fh:
     shared = _skip_frontmatter(fh)
     for lineno, line in shared:
-        list(scan_line_for_secrets(...))   # ← blind to frontmatter
-    for lineno, line in shared:            # ← already exhausted
+        list(scan_line_for_secrets(...))  # ← blind to frontmatter
+    for lineno, line in shared:  # ← already exhausted
         ...
 ```
 
@@ -174,6 +174,7 @@ include:
 ```python
 def test_resolution_context_is_pickleable():
     import pickle
+
     ctx = ResolutionContext(docs_root=Path("/docs"), source_file=Path("/docs/a.md"))
     assert pickle.loads(pickle.dumps(ctx)) == ctx
 ```

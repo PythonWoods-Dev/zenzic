@@ -82,6 +82,14 @@ This rule exists to detect when an active document has no outgoing navigational 
 
 ---
 
+### Z412: TRACEABILITY_BROKEN {#z412}
+
+**Severity:** `warning` · **Penalty:** −4.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z412.md)
+
+This rule exists to verify that target specification documents have at least one incoming reference from configured source namespaces (`[policies].traceability_targets`), ensuring complete cross-architecture traceability.
+
+---
+
 ### Z510: HEADING_HIERARCHY {#z510}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z510.md)
@@ -167,6 +175,30 @@ This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously")
 **Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z520.md)
 
 This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`-`, `*`, `1.`), preventing accessibility and HTML list rendering degradation.
+
+---
+
+### Z521: REQUIRED_TABLE_COLUMN {#z521}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z521.md)
+
+This rule exists to detect Markdown tables that omit required column headers specified in `[policies].required_table_columns`.
+
+---
+
+### Z522: TABLE_CELL_ENUM {#z522}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z522.md)
+
+This rule exists to validate that table cells in designated columns only contain approved enumeration values declared in `[policies].table_cell_enums`.
+
+---
+
+### Z523: HEADING_ORDER_VIOLATION {#z523}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z523.md)
+
+This rule exists to enforce that document headings appear in the strictly ascending sequential order defined in `[policies].required_heading_order`.
 
 ---
 

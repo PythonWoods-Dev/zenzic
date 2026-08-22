@@ -66,9 +66,32 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
 
 ## Workflow Integration Examples {#github-actions-zenzic-credential-gate}
 
-=== "GitHub Action Wrapper (Recommended)"
+=== "Pre-Commit Hook (.pre-commit-config.yaml — Recommended Local Gate)"
 
-    The official [`PythonWoods/zenzic-action`](https://github.com/PythonWoods/zenzic-action) provides zero-config integration with automatic SARIF upload:
+    Shift-left quality enforcement by blocking secret leaks and structural errors on developer workstations before commits are pushed:
+
+    ```yaml title=".pre-commit-config.yaml"
+    repos:
+      - repo: https://github.com/PythonWoods/zenzic
+        rev: v0.30.0  # Pinned version for deterministic local verification
+        hooks:
+          # Fast staged-file credential & forbidden pattern scanner (<50ms per commit)
+          - id: zenzic-guard
+
+          # Optional: full repository graph & link integrity audit (pre-push stage)
+          # - id: zenzic-verify
+          #   stages: [pre-push]
+    ```
+
+    You can also automatically scaffold or update your local configuration using:
+
+    ```bash title="Terminal"
+    zenzic guard init
+    ```
+
+=== "GitHub Action Wrapper (Automated CI & SARIF Annotations)"
+
+    The official [`PythonWoods/zenzic-action`](https://github.com/PythonWoods/zenzic-action) serves as the CI-side counterpart to local pre-commit hooks, providing zero-config pull request enforcement and automatic SARIF upload:
 
     ```yaml title=".github/workflows/zenzic.yml"
     name: Zenzic Documentation Quality Gate
@@ -84,9 +107,9 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
         runs-on: ubuntu-latest
         permissions:
           contents: read
-          security-events: write
+          security-events: write  # Required for SARIF Code Scanning alerts
         steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v4
 
           - name: Execute Zenzic Quality Gate
             uses: PythonWoods/zenzic-action@v2
@@ -97,29 +120,7 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
               fail-on-error: "true"
     ```
 
-=== "Pre-Commit Hook (.pre-commit-config.yaml)"
-
-    Integrate Zenzic directly into local developer workflows and git hooks via `pre-commit`:
-
-    ```yaml title=".pre-commit-config.yaml"
-    repos:
-      - repo: https://github.com/PythonWoods/zenzic
-        rev: v0.30.0
-        hooks:
-          # Fast staged-file credential and forbidden pattern check (sub-50ms)
-          - id: zenzic-guard
-
-          # Full documentation integrity quality gate
-          - id: zenzic-verify
-    ```
-
-    You can also automatically scaffold or update your `.pre-commit-hooks.yaml` using:
-
-    ```bash title="Terminal"
-    zenzic guard init
-    ```
-
-=== "uvx (Zero Installation Pipeline)"
+=== "uvx (Zero Installation CI Step)"
 
     Run Zenzic ephemerally without installing Python or build dependencies on the CI runner:
 
@@ -133,10 +134,10 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
       zenzic:
         runs-on: ubuntu-latest
         steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v4
 
           - name: Audit Documentation Graph
-            run: uvx zenzic check all --ci
+            run: uvx zenzic@0.30.0 check all --ci
     ```
 
 === "GitLab CI Pipeline"
@@ -151,7 +152,7 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
       stage: test
       image: ghcr.io/astral-sh/uv:latest
       script:
-        - uvx zenzic check all --ci --format json --save zenzic-report.json
+        - uvx zenzic@0.30.0 check all --ci --format json --save zenzic-report.json
       artifacts:
         reports:
           codequality: zenzic-report.json

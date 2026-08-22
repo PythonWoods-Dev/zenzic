@@ -47,14 +47,16 @@ architectural rule in the CLI layer:
 ```python
 # ✅ Correct — in any _check.py / _clean.py / _standalone.py command
 from . import _shared
+
 _shared.get_ui().print_header(__version__)
 _shared.get_console().print("output")
 
 # ❌ FORBIDDEN — never do this in a command module
 from rich.console import Console
 from mypackage.ui import LegacyInterfaceV1
-console = Console(...)          # breaks shared state
-ui = LegacyInterfaceV1(console) # creates an orphaned instance
+
+console = Console(...)  # breaks shared state
+ui = LegacyInterfaceV1(console)  # creates an orphaned instance
 ```
 
 For the design rationale behind UI state sharing, see [ADR 004 — Unified Console State](../explanation/adr-vault/records/adr-decentralized-cli.md#4-unified-console-state-visual-state-manager).

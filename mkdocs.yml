@@ -107,6 +107,7 @@ nav:
         - rules/Z406.md
         - rules/Z410.md
         - rules/Z411.md
+        - rules/Z412.md
         - rules/Z501.md
         - rules/Z502.md
         - rules/Z503.md
@@ -124,6 +125,9 @@ nav:
         - rules/Z518.md
         - rules/Z519.md
         - rules/Z520.md
+        - rules/Z521.md
+        - rules/Z522.md
+        - rules/Z523.md
         - rules/Z601.md
         - rules/Z603.md
         - rules/Z610.md
@@ -262,6 +266,7 @@ nav:
         - developers/explanation/adr-vault/records/adr-090-silent-on-success-unix-philosophy.md
         - developers/explanation/adr-vault/records/adr-091-single-pass-ast-and-cqs.md
         - developers/explanation/adr-vault/records/adr-092-comprehensive-bump-coverage.md
+        - developers/explanation/adr-vault/records/adr-093-topological-suppression-non-inline.md
         - developers/explanation/adr-vault/records/adr-agnostic-universalism.md
         - developers/explanation/adr-vault/records/adr-bilingual-structural.md
         - developers/explanation/adr-vault/records/adr-decentralized-cli.md

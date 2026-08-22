@@ -208,12 +208,12 @@ The unified routing metadata returned by `get_route_info()`:
 ```python
 @dataclass(slots=True)
 class RouteMetadata:
-    canonical_url: str        # URL path the engine serves (e.g. "/guide/install/")
-    status: RouteStatus       # REACHABLE, ORPHAN_BUT_EXISTING, IGNORED, CONFLICT
-    slug: str | None = None   # Frontmatter slug override
-    route_base_path: str = "/" # URL prefix from docs plugin preset
-    is_proxy: bool = False    # True for build-generated routes with no source file
-    version: str | None = None # Optional version label (for future versioning support)
+    canonical_url: str  # URL path the engine serves (e.g. "/guide/install/")
+    status: RouteStatus  # REACHABLE, ORPHAN_BUT_EXISTING, IGNORED, CONFLICT
+    slug: str | None = None  # Frontmatter slug override
+    route_base_path: str = "/"  # URL prefix from docs plugin preset
+    is_proxy: bool = False  # True for build-generated routes with no source file
+    version: str | None = None  # Optional version label (for future versioning support)
 ```
 
 ---

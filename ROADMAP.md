@@ -35,36 +35,41 @@ Before advancing the core feature set, the following infrastructural and validat
 - `[x]` **Editorial Style Enforcement (`Z518`, `Z519`, `Z617`–`Z619`):** Deterministic heuristics for passive voice, weasel words, forbidden/required content patterns, and document complexity.
 - `[x]` **Semantic List Heuristics (`Z520`):** Automatic detection of malformed/fake lists formatted with semicolons/commas.
 
-### [v0.31] — Docusaurus Bridge Architecture
+### [v0.31] — Epic 3: Specification-Driven Development (SDD)
+
+*Validating AI-generated technical documentation, structured table semantics, heading sequence, and graph traceability.*
+
+- **AST Table Extraction (`TableNode`):** Native $O(N)$ table parsing in the core polyglot extractor without external parser dependencies.
+- **Table Semantics (`Z521`, `Z522`):** Deterministic enforcement of required table columns (`Z521`) and allowed cell enumeration values (`Z522`).
+- **Heading Order Enforcement (`Z523`):** Sequence validation for required heading patterns (e.g., "Overview" preceding "API").
+- **Graph Traceability (`Z412`):** Cross-directory documentation link coverage verification evaluated natively via the Virtual Site Map (VSM).
+- **Ecosystem Marketing & Positioning Overhaul:** Positioning Zenzic as the premier document integrity engine protecting documentation graphs against AI slop.
+
+### [v0.32] — Docusaurus Bridge Architecture
 
 *The first concrete implementation of the adapter ecosystem & automated remediation audit.*
 
 - **`@zenzic/plugin-docusaurus`:** Validate the artifact-based Virtual Site Map (VSM) model outside the Python Core, allowing deterministic validation of Docusaurus routing without framework coupling.
 - **Auto-Fix Audit for Non-Fixable Rules:** Perform a systematic AST audit across all `fixable=False` finding codes to identify viable candidates for atomic auto-remediation expansion in the Mutator engine.
 
-### [v0.32] — Sphinx Adapter (GH #51)
+### [v0.33] — Sphinx Adapter (GH #51)
 
 *Extending open-source compatibility to the Python ecosystem.*
 
 - **Native Sphinx Parsing:** Parse `conf.py` and `.rst` files natively without invoking the `sphinx-build` subprocess, translating Sphinx cross-references into the standard VSM.
 
-### [v0.33] — Hugo Adapter (GH #50)
+### [v0.34] — Hugo Adapter (GH #50) & Multi-Repo Graph (GH #7)
 
-*Extending open-source compatibility to the Go ecosystem.*
+*Extending open-source compatibility to the Go ecosystem & distributed graph validation.*
 
 - **Native Hugo Parsing:** Parse `hugo.toml` and frontmatter conventions to deterministically replicate Hugo's permalink generation rules within the Zenzic VSM.
-
-### [v0.34] — Multi-Repository Documentation Graph & Connectivity (GH #7)
-
-*Enterprise-scale topology validation & visual graph intelligence.*
-
-- **Artifact Composition:** Allow Zenzic to aggregate multiple VSM artifacts to detect broken cross-repository references and routing inconsistencies across distributed documentation.
-- **Smart Link Graph & Connectivity Analysis:** In-depth topological clustering and visual dead-end detection across interconnected documentation nodes.
+- **Artifact Composition & Connectivity Analysis:** Aggregate multiple VSM artifacts to detect broken cross-repository references and routing inconsistencies across distributed documentation.
 
 ### [v0.35] — Operational Excellence
 
-*Advanced observability and developer experience.*
+*Advanced observability, developer experience, and incremental performance.*
 
+- **Synthetic Benchmark Corpus & CLI Incremental Cache:** Large-scale benchmark generation and `.zenzic_cache/vsm.db` disk caching for sub-100ms incremental local scans.
 - **Performance Telemetry Engine:** Opt-in, deterministic metrics for operational governance and runtime optimization.
 - **VS Code Configuration Autocomplete:** Inject JSON Schema validation into the IDE for `.zenzic.toml` files.
 
@@ -85,4 +90,4 @@ These constraints apply across every future release. No feature may violate them
 
 ---
 
-Roadmap last updated: 2026-08-15.
+Roadmap last updated: 2026-08-22.
