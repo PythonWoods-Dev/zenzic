@@ -80,6 +80,9 @@ def _finding_severity(code: str) -> str:
     """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
 
     Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
+    ``"security_breach"`` for Z205 (Tier-0 'Exit 2 — never suppressible' set,
+    alongside Z201/Z204 which reach this severity via the credential-scanner
+    bridge in ``_map_credential_to_finding`` instead of this function),
     ``"info"`` for note-level informational codes (Z106, Z114, Z906), and the
     CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
     Unknown codes default to ``"error"`` since the validator only emits findings
@@ -87,6 +90,8 @@ def _finding_severity(code: str) -> str:
     """
     if code == "Z203":
         return "security_incident"
+    if code == "Z205":
+        return "security_breach"
     defn = CODE_DEFINITIONS.get(code)
     if defn is None:
         return "error"

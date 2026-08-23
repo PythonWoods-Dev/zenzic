@@ -823,6 +823,49 @@ class TestZenzicReporter:
 
 
 # ---------------------------------------------------------------------------
+# _finding_severity — Z2xx non-suppressible severity mapping
+# ---------------------------------------------------------------------------
+
+
+class TestFindingSeverityZ2xxMapping:
+    """``_finding_severity()`` must map every code in the Tier-0 'Exit 2:
+    never suppressible' set (Z201, Z204, Z205) to ``"security_breach"``.
+
+    Z201/Z204 normally reach ``Finding.severity`` via the credential-scanner
+    bridge (``_map_credential_to_finding``), which hardcodes
+    ``severity="security_breach"`` and never calls ``_finding_severity()``.
+    Z205 is detected by a rule check and reaches ``Finding.severity`` via
+    ``_finding_severity(err.code)`` instead — which, before this fix, fell
+    through to the raw ``CodeDefinition.severity`` catalog value (``"error"``)
+    because only Z203 had a special case. This test targets the function
+    directly, independent of which code path a given code takes today.
+    """
+
+    def test_z205_maps_to_security_breach(self) -> None:
+        from zenzic.cli._check import _finding_severity
+
+        assert _finding_severity("Z205") == "security_breach", (
+            "Z205 FORBIDDEN_SCHEME is listed in the Tier-0 'Exit 2 — never "
+            "suppressible' set alongside Z201/Z204 and must map to "
+            "'security_breach', not the raw CodeDefinition severity ('error')."
+        )
+
+    def test_z203_still_maps_to_security_incident(self) -> None:
+        """Regression guard: fixing Z205 must not disturb Z203's Exit 3 mapping."""
+        from zenzic.cli._check import _finding_severity
+
+        assert _finding_severity("Z203") == "security_incident"
+
+    def test_z202_still_maps_to_plain_error(self) -> None:
+        """Z202 PATH_TRAVERSAL is not in the Tier-0 Exit-2 set (only Z203 is
+        Exit 3) — it must remain a plain 'error' (Exit 1), not be swept into
+        this fix."""
+        from zenzic.cli._check import _finding_severity
+
+        assert _finding_severity("Z202") == "error"
+
+
+# ---------------------------------------------------------------------------
 # check references — rule_findings surfaced in CLI output
 # ---------------------------------------------------------------------------
 

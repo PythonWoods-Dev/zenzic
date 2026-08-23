@@ -150,8 +150,11 @@ before merging.
 ## Obligation 4 — Mutation Score ≥ 90% for Core Changes
 
 Any PR that modifies `src/zenzic/core/` must maintain or improve the mutation score on
-the affected module. The current baseline for `rules.py` is **86.7%** (242/279 mutants
-killed). Target for rc1: **≥ 90%**.
+the affected module. Target for rc1: **≥ 90%**.
+
+Run the mutation suite to see the current baseline for `rules.py` — do not rely on a
+number written in this document, since a hardcoded figure goes stale on the next release
+and nothing forces it to be updated:
 
 ```bash
 nox -s mutation

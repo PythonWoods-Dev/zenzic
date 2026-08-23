@@ -145,6 +145,62 @@ class TestCredentialBreachE2E:
         )
 
 
+# ── Forbidden Scheme — Exit 2 (Z205, part of the Tier-0 "never suppressible" set) ──
+
+
+class TestForbiddenSchemeE2E:
+    """Z205 FORBIDDEN_SCHEME must exit 2 — it is listed alongside Z201/Z204 in
+    the Tier-0 invariant "Exit 2: Credential Scanner Breach (Z201, Z204, Z205).
+    Never suppressible." Regression for: Z205 is detected by a rule check (not
+    the credential-scanner bridge in ``_map_credential_to_finding``), so its
+    ``Finding.severity`` was derived from ``CodeDefinition.severity`` via
+    ``_finding_severity()`` — which returns the raw catalog value ``"error"``
+    for Z205 instead of ``"security_breach"``, since only Z203 has a special
+    case in that function. The result: Z205 was exiting 1, not 2, and was
+    exposed to the same suppression machinery as an ordinary error.
+    """
+
+    _FORBIDDEN_SCHEME_DOC = """\
+        # Interactive Widget
+
+        This page embeds a widget link using a scheme that must never be
+        permitted in published documentation, regardless of context.
+
+        <a href="javascript:alert(document.cookie)">Click for details</a>
+    """
+
+    def test_forbidden_scheme_exits_2(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """check all exits 2 when a javascript: scheme href is present."""
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 2, (
+            f"Z205 must exit 2 (security_breach) per the Tier-0 'Z201, Z204, "
+            f"Z205 — never suppressible' contract, got {result.exit_code}.\n"
+            f"Output:\n{result.stdout}"
+        )
+        assert "SECURITY BREACH DETECTED" in result.stdout
+        assert "forbidden scheme 'javascript:' detected" in result.stdout
+
+    def test_forbidden_scheme_exit_2_not_suppressed_by_exit_zero(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--exit-zero must NOT suppress Z205's Exit 2 — documented contract."""
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--exit-zero"])
+
+        assert result.exit_code == 2, (
+            f"--exit-zero must not suppress Z205's Exit 2 (security_breach), "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
 # ── --exit-zero suppresses Exit 1 (general errors) ──────────────────────────
 
 
