@@ -32,6 +32,7 @@ With Zenzic v0.31.0, we formalize our **Canonical 3-Track Distribution Hierarchy
 Modern documentation sites are not just folders of static text; they are sophisticated static applications with complex dependency trees (`pydantic`, `google-re2`, `mkdocs`, `material`).
 
 When team members execute linters installed globally:
+
 1. **Dependency Hell & Version Drift**: Developer A runs an outdated binary with older regex rules, while Developer B runs a cutting-edge version that flags newly introduced Policy-as-Code violations.
 2. **Environment Contamination**: Shared Python environments suffer from library version collisions (e.g., conflicting Pydantic v1 vs v2 dependencies between linters and build tools).
 3. **CI/CD Asymmetry**: Local builds succeed on developer laptops but fail remotely in GitHub Actions due to differing CLI versions and baseline signatures.
@@ -88,9 +89,10 @@ docs = [
 ]
 ```
 
-Using compatible-release ranges (`>=0.31,<0.32`) allows minor patch updates while preventing breaking API changes. 
+Using compatible-release ranges (`>=0.31,<0.32`) allows minor patch updates while preventing breaking API changes.
 
 **Key Benefits of Track 2:**
+
 - **Lockfile Reproducibility**: `uv sync` ensures every engineer and CI runner uses bit-exact bytecode.
 - **VS Code Extension Auto-Discovery**: The Zenzic VS Code Extension automatically locates the virtualenv binary (`.venv/bin/zenzic`) without requiring manual path configuration.
 
@@ -108,6 +110,7 @@ uvx zenzic@0.30.0 check all
 As with `rev:` in Track 1, pin `uvx zenzic@X.Y.Z` to a specific tagged release rather than leaving it unpinned or copy-pasting an old version indefinitely.
 
 Track 3 is ideal for:
+
 - One-off security audits of unfamiliar repositories.
 - Non-Python projects (Node.js, Go, Rust) that do not use `pre-commit`.
 - Ad-hoc debugging of documentation graph topology.

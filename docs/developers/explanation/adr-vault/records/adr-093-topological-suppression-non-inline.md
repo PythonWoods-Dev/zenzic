@@ -13,6 +13,7 @@ This document details the architectural specification and contract for ADR 093: 
 ## Context
 
 Findings emitted by static analysis engines fall into two fundamentally distinct semantic domains:
+
 1. **Line-Anchored Content Findings** (`Z1xx`, `Z403`, `Z5xx`, `Z6xx`): Bound to a concrete text token, HTML element, heading, or code fence on a specific line number.
 2. **Graph-Level & File-Level Topological Findings** (`Z401`, `Z402`, `Z404`, `Z405`, `Z406`, `Z410`, `Z411`, `Z412`, `Z620`): Bound to the global Virtual Site Map (VSM), navigation manifests, or workspace boundary.
 
@@ -22,8 +23,9 @@ Historically, inline HTML comments (`<!-- zenzic:ignore: Zxxx -->` and `data-zen
 
 ## Decision
 
-1. **Topological Non-Inline Invariant**:  
+1. **Topological Non-Inline Invariant**:
    Graph-level and file-level findings are codified as `NON_INLINE_SUPPRESSIBLE_CODES`:
+
    ```python
    NON_INLINE_SUPPRESSIBLE_CODES = frozenset(
        {
@@ -39,16 +41,18 @@ Historically, inline HTML comments (`<!-- zenzic:ignore: Zxxx -->` and `data-zen
        }
    )
    ```
+
    Inline suppression comments (Markdown `<!-- zenzic:ignore: Zxxx -->` or HTML `data-zenzic-ignore="Zxxx"`) are strictly forbidden and non-functional for these codes.
 
-2. **Explicit TOML Governance**:  
+2. **Explicit TOML Governance**:
    Topological findings can ONLY be suppressed through centralized configuration in `.zenzic.toml` using `[governance.directory_policies]` or `[governance.per_file_ignores]`.
 
-3. **Preservation of `Z403` (`MISSING_ALT`)**:  
+3. **Preservation of `Z403` (`MISSING_ALT`)**:
    `Z403` is anchored to a concrete `<img>` or `![]()` element on a specific line of Markdown and remains inline-suppressible.
 
-4. **LSP UX Determinism via `disabled.reason`**:  
+4. **LSP UX Determinism via `disabled.reason`**:
    The Language Server Protocol server (`src/zenzic/lsp/server.py`) must NOT emit line-insertion QuickFix edits for `NON_INLINE_SUPPRESSIBLE_CODES`. Instead, it emits an informative CodeAction utilizing the LSP 3.16+ `disabled.reason` specification:
+
    ```json
    {
      "title": "Suppress Z412 (configure via .zenzic.toml)",
@@ -66,7 +70,9 @@ Historically, inline HTML comments (`<!-- zenzic:ignore: Zxxx -->` and `data-zen
 Topological findings represent systemic structure rather than localized typographical syntax.
 
 ### Why Not Automated `WorkspaceEdit` on `.zenzic.toml`?
+
 Injecting configuration lines into `.zenzic.toml` automatically from the LSP was rejected for critical architectural reasons:
+
 - **TOML Root Key Law**: Under TOML 1.0 specifications and Zenzic configuration contracts, root-level keys (`docs_dir`, `fail_under`) must strictly precede table headers (`[...]`). Automated text insertion into unparsed TOML files risks placing root keys below tables or malforming table headers.
 - **Comment & Formatting Preservation**: Modifying TOML without full round-trip AST preservation strips developer comments and custom spacing.
 - **Intentionality of Governance**: Topological debt represents structural decisions that require deliberate engineering oversight, not casual one-click editor suppression.

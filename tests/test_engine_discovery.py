@@ -10,11 +10,7 @@ from zenzic.core.adapters._factory import discover_engine
 def test_discover_engine_pure_mkdocs(tmp_path: Path) -> None:
     mkdocs_file = tmp_path / "mkdocs.yml"
     mkdocs_file.write_text(
-        "site_name: My MkDocs Site\n"
-        "theme:\n"
-        "  name: material\n"
-        "nav:\n"
-        "  - Home: index.md\n",
+        "site_name: My MkDocs Site\ntheme:\n  name: material\nnav:\n  - Home: index.md\n",
         encoding="utf-8",
     )
     assert discover_engine(tmp_path) == "mkdocs"
@@ -23,10 +19,7 @@ def test_discover_engine_pure_mkdocs(tmp_path: Path) -> None:
 def test_discover_engine_inline_zensical_theme(tmp_path: Path) -> None:
     mkdocs_file = tmp_path / "mkdocs.yml"
     mkdocs_file.write_text(
-        "site_name: My Zensical Site\n"
-        "theme: zensical\n"
-        "nav:\n"
-        "  - Home: index.md\n",
+        "site_name: My Zensical Site\ntheme: zensical\nnav:\n  - Home: index.md\n",
         encoding="utf-8",
     )
     assert discover_engine(tmp_path) == "zensical"
@@ -50,9 +43,7 @@ def test_discover_engine_multiline_zensical_theme(tmp_path: Path) -> None:
 def test_discover_engine_zensical_quoted_theme(tmp_path: Path) -> None:
     mkdocs_file = tmp_path / "mkdocs.yaml"
     mkdocs_file.write_text(
-        "site_name: My Zensical Site\n"
-        "theme:\n"
-        '  name: "zensical"\n',
+        'site_name: My Zensical Site\ntheme:\n  name: "zensical"\n',
         encoding="utf-8",
     )
     assert discover_engine(tmp_path) == "zensical"

@@ -52,7 +52,7 @@ flowchart TD
 : All GitHub Action `uses:` references and pre-commit `rev:` keys within the Zenzic ecosystem pin dependencies by immutable 40-character commit SHA digest, preventing supply chain tampering. This invariant applies to all three ecosystem repositories: `zenzic`, `zenzic-action`, and `zenzic-vscode`.
 
   > **Amendment — 2026-08-22 (V031)**: The original phrasing ("All GitHub Action workflows and submodules") was ambiguous regarding satellite repository scope. This amendment supersedes it. ADR-089 is now formally declared as an **ecosystem-wide mandate** covering all three repositories by name. `zenzic-action` was already compliant via voluntary adoption with self-enforcement (`check-pinning` recipe). `zenzic-vscode` is brought into compliance as of this directive. Mutable tag references are a prohibited pattern in all Zenzic ecosystem workflows.
-
+  >
   > **Scope Clarification — Consumer-Facing Hooks vs. Internal Dependencies**: ADR-089's SHA-pinning mandate governs this project's own internal dependency references — the `uses:` steps in `zenzic`, `zenzic-action`, and `zenzic-vscode` CI workflows, and the `rev:` keys in this ecosystem's own `.pre-commit-config.yaml` files. It does **not** extend to how external users are instructed to consume Zenzic's published hooks in their own repositories. Documentation, articles, and the `.pre-commit-hooks.yaml` distribution examples correctly show `rev: vX.Y.Z` release-tag pinning for `zenzic-guard` / `zenzic-verify` — matching standard ecosystem convention (`ruff-pre-commit`, `black`, and similar tools) and remaining fully compliant with ADR-089. Consumer-facing tag pinning is a deliberate design decision, not a violation requiring remediation.
 ---
 
