@@ -17,9 +17,20 @@ categories:
 
 > **Formatters handle syntax. Prose linters handle grammar. Zenzic protects the graph—and optionally enforces lightweight editorial policy without a separate tool.**
 
-As AI coding agents and LLM-assisted workflows increasingly generate software architecture and technical documentation, a critical engineering bottleneck has emerged: **the knowledge graph integrity gap**.
+AI coding agents — regardless of which one you use — are remarkably good at writing Markdown that *looks* correct. The prose reads well. The headings are grammatically sound. The tables render cleanly in your editor preview. And yet, somewhere in that confident output, a required column silently disappeared.
 
-AI agents generate syntactically valid Markdown with convincing grammar. However, they frequently hallucinate anchor slugs, omit required table columns in API contracts, invent informal cell status values, scramble document section sequences, and create untraceable specification silos disconnected from the wider architecture.
+Here's a real shape of the problem: an agent is asked to add a new endpoint to an API reference table. It does. But the table it regenerates looks like this:
+
+```markdown
+| Endpoint | Method |
+| :--- | :--- |
+| /v1/users | GET |
+| /v1/sessions | POST |
+```
+
+Looks fine, right? Except the original contract for that table required an `Auth` column — every endpoint needs to document whether it's public, requires a bearer token, or needs an admin scope. The agent generated a plausible, well-formatted table. It just didn't know, and had no way of enforcing, that `Auth` was a mandatory field in *this specific table*, in *this specific document*. Nothing in Markdown syntax says a table must have a given column. Nothing in prose grammar catches it either. The PR looks clean, CI is green, and the missing column ships straight into your architecture docs — where a downstream engineer, or another agent, reads the table, assumes it's complete, and builds against an endpoint they think is public.
+
+This is not a hypothetical edge case. It's a direct consequence of how these tools work: an AI agent generates output based on local context and pattern-matching against nearby examples, not against a formally declared schema for your repository's documentation. Multiply this across dozens of tables, hundreds of headings, and a growing set of specification documents that are supposed to stay traceable to your architecture records, and you get a slow, silent erosion of your knowledge graph's integrity — one plausible-looking PR at a time. This is **the knowledge graph integrity gap**, and it is the engineering bottleneck Zenzic v0.31.0 is built to close.
 
 Zenzic v0.31.0 delivers **Specification-Driven Development (SDD)** — turning your Markdown documentation into a strictly typed, topologically verified data model.
 
@@ -171,16 +182,27 @@ Like all Zenzic capabilities, Specification-Driven Development is governed by th
 
 ---
 
-## Getting Started with v0.31.0
+## Try It in 30 Seconds
 
-Upgrade via `uv` or `pip`:
+The fastest way to see this on your own repository is the pre-commit hook — no global install, no environment pollution, just an isolated, pinned check on your staged files:
+
+<!-- Publication gate: do not publish before the v0.31.0 tag exists on GitHub. -->
+
+```yaml title=".pre-commit-config.yaml"
+repos:
+  - repo: https://github.com/PythonWoods/zenzic
+    rev: v0.30.0
+    hooks:
+      - id: zenzic-guard
+```
+
+(`rev:` should track the latest tagged release rather than being copy-pasted indefinitely — check the repository's release tags before pinning.)
+
+If you just want to point Zenzic at a repository for a one-off local test without adding it to your workflow yet, you can run it ephemerally with `uvx`, pinned to a specific version:
 
 ```bash
-# Isolated tool upgrade via uv
-uv tool install --upgrade zenzic
-
-# Or via standard pip
-pip install --upgrade zenzic
+# One-off local test only — not the recommended default workflow
+uvx zenzic@0.30.0 check all
 ```
 
 Add your project's SDD policies to `.zenzic.toml`:
@@ -199,4 +221,4 @@ required_heading_order = ["^Overview$", "^API Reference$"]
 "specs/**" = ["architecture/**"]
 ```
 
-Run `zenzic check all` to verify your documentation graph.
+Run `zenzic check all` to verify your documentation graph. See [Deterministic Tooling & The Pre-Commit Distribution Model](2026-08-23-deterministic-tooling-and-pre-commit.md) for the full three-track distribution hierarchy, including project-dependency and pre-push tiers.

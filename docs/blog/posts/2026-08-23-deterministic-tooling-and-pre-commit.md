@@ -17,7 +17,9 @@ categories:
 
 > **Global tools create global collisions. Pinned environments guarantee deterministic quality.**
 
-In documentation engineering, static analysis tools are frequently recommended as global system binaries (`pip install --user` or `brew install`). While convenient for an initial 10-second evaluation, floating global installations create severe architectural liabilities when scaling across engineering teams and CI pipelines.
+If your documentation quality tool is installed globally on each engineer's machine — `pip install --user`, `brew install`, or a bare `uv tool install` — you don't actually have a quality gate. You have a suggestion that happens to run on whichever version each person installed, whenever they last remembered to update it.
+
+In documentation engineering, static analysis tools are frequently recommended as global system binaries. While convenient for an initial 10-second evaluation, floating global installations create severe architectural liabilities when scaling across engineering teams and CI pipelines.
 
 With Zenzic v0.31.0, we formalize our **Canonical 3-Track Distribution Hierarchy**: prioritizing isolated pre-commit hooks and project-locked dependencies over floating global binaries.
 
@@ -54,10 +56,12 @@ To resolve these failure modes, Zenzic defines three distinct distribution track
 
 Pre-commit provides complete virtual environment isolation. The `pre-commit` framework creates and manages a dedicated, isolated sandbox for Zenzic, ensuring zero interference with your project's runtime dependencies while pinning the exact version tag.
 
+<!-- Publication gate: do not publish before the v0.31.0 tag exists on GitHub. -->
+
 ```yaml title=".pre-commit-config.yaml"
 repos:
   - repo: https://github.com/PythonWoods/zenzic
-    rev: v0.31.0
+    rev: v0.30.0
     hooks:
       # Sub-50ms secret and forbidden pattern check on staged files
       - id: zenzic-guard
@@ -98,8 +102,10 @@ Track 3 is demoted from default status but remains essential for specific scenar
 
 ```bash title="Ephemeral Execution via uvx"
 # Audit any repository instantly without installing dependencies
-uvx zenzic@0.31.0 check all
+uvx zenzic@0.30.0 check all
 ```
+
+As with `rev:` in Track 1, pin `uvx zenzic@X.Y.Z` to a specific tagged release rather than leaving it unpinned or copy-pasting an old version indefinitely.
 
 Track 3 is ideal for:
 - One-off security audits of unfamiliar repositories.
@@ -111,3 +117,5 @@ Track 3 is ideal for:
 ## Conclusion: Determinism Starts at the Commit Boundary
 
 Quality gates must be deterministic, isolated, and frictionless. By shifting quality enforcement to pinned pre-commit hooks and lockfile-managed dependencies, teams eliminate "works on my machine" friction and ensure their documentation graphs remain mathematically verifiable from the first commit to production deployment.
+
+For the specification-level failure modes this distribution model exists to guard against — missing table columns, invalid cell values, scrambled heading order, and broken traceability — see [Zenzic v0.31.0: Specification-Driven Development & AI Knowledge Graph Integrity](2026-08-22-zenzic-v0310-specification-driven-development.md).
