@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 This document describes the planned milestone trajectory for Zenzic, the **Deterministic Document Integrity Engine for Markdown/MDX graphs**.
 Dates are targets, not commitments. All milestones are subject to revision.
 
-For the current release history and completed milestones (up to `v0.29.x`), see [CHANGELOG.md](CHANGELOG.md).
+For the current release history and completed milestones (up to `v0.30.x`), see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -25,15 +25,7 @@ Before advancing the core feature set, the following infrastructural and validat
 
 ## Milestone Sequence
 
-> For completed milestones (`v0.23` through `v0.29`), see [CHANGELOG.md](CHANGELOG.md).
-
-### [v0.30] — Semantic Linting Supremacy
-
-*Expanding AST-based semantic linting, structural accessibility, editorial style enforcement, and list heuristics.*
-
-- `[x]` **Semantic Linting & Accessibility (`Z513`–`Z517`):** Native AST-based detection of duplicate headings, missing image alt text, bare URLs, multiple H1 headings, and heading punctuation.
-- `[x]` **Editorial Style Enforcement (`Z518`, `Z519`, `Z617`–`Z619`):** Deterministic heuristics for passive voice, weasel words, forbidden/required content patterns, and document complexity.
-- `[x]` **Semantic List Heuristics (`Z520`):** Automatic detection of malformed/fake lists formatted with semicolons/commas.
+> For completed milestones (`v0.23` through `v0.30`), see [CHANGELOG.md](CHANGELOG.md).
 
 ### [v0.31] — Epic 3: Specification-Driven Development (SDD)
 
