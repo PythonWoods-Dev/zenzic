@@ -24,6 +24,7 @@ from rich.text import Text
 from zenzic import __version__
 from zenzic.cli._check import (
     _collect_all_results,
+    _filter_flat_findings,
     _to_findings,
 )
 from zenzic.cli._shared import (
@@ -81,6 +82,14 @@ class _Act:
     show_info: bool = False
     docs_root_override: str | None = None
     single_file: str | None = None
+    emitted_code: str | None = None
+    """Override for the code the engine actually emits, when it differs from
+    ``code`` (the gallery lookup key / directory name). Used to filter ``lab``
+    output. Only set when the engine consolidates a catalog code into a
+    different one at runtime (e.g. Z109/Z104 are both reported as Z101) --
+    the gallery entry keeps its historical key so ``zenzic lab z109`` still
+    works, but filtering targets the code that is really emitted.
+    """
 
 
 _GALLERY: dict[str, _Act] = {
@@ -122,9 +131,13 @@ _GALLERY: dict[str, _Act] = {
     "z109": _Act(
         code="z109",
         title="External Link Broken",
-        description="Z109 EXTERNAL_LINK_BROKEN — external URL references that resolve to missing pages",
+        description=(
+            "Z109 EXTERNAL_LINK_BROKEN — external URL unreachable; consolidated "
+            "and reported as Z101 LINK_BROKEN by the current engine"
+        ),
         example_dir="z109-external-link-broken",
         expected_pass=False,
+        emitted_code="Z101",
     ),
     "z201": _Act(
         code="z201",
@@ -362,9 +375,13 @@ _GALLERY: dict[str, _Act] = {
     "z104": _Act(
         code="z104",
         title="File Not Found",
-        description="Z104 FILE_NOT_FOUND — link target file missing from the filesystem; penalty 8.0, exit 1",
+        description=(
+            "Z104 FILE_NOT_FOUND — link target file missing from the filesystem; "
+            "consolidated and reported as Z101 LINK_BROKEN by the current engine"
+        ),
         example_dir="z104-file-not-found",
         expected_pass=False,
+        emitted_code="Z101",
     ),
     "z107": _Act(
         code="z107",
@@ -572,6 +589,7 @@ class _ActResult:
     engine: str
     docs_count: int = 0
     assets_count: int = 0
+    collateral_hidden: int = 0
 
     @property
     def total_files(self) -> int:
@@ -591,8 +609,17 @@ class _ActResult:
         return self.errors > 0 or self.warnings > 0
 
 
-def _run_act(act: _Act, examples_root: Path) -> _ActResult:
-    """Run all checks for *act* against its example directory."""
+def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResult:
+    """Run all checks for *act* against its example directory.
+
+    By default, output is filtered to only the scenario's own code (plus any
+    fatal config codes) via the same ``--only`` mechanism used by ``check
+    all`` -- the raw list otherwise mixes in incidental findings that the
+    minimal gallery fixture also happens to trigger (e.g. short-content or
+    dead-end-node warnings), which is not what the scenario is teaching.
+    Pass ``show_all=True`` (``zenzic lab <code> --all``) to see the complete,
+    unfiltered finding list instead.
+    """
     example_dir = examples_root / act.example_dir
     from zenzic.core.exceptions import ConfigurationError
 
@@ -630,13 +657,25 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     )
     elapsed = time.monotonic() - t0
 
-    findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir, config=config)
+    only_str = (act.emitted_code or act.code.upper()) if not show_all else None
 
     from zenzic.cli._check import _append_z620_findings
     from zenzic.cli._governance import _apply_directory_policies
 
-    findings = _apply_directory_policies(findings, config)
-    _append_z620_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
+    unfiltered_findings: list[Finding] = _to_findings(
+        results, docs_root, repo_root=example_dir, config=config
+    )
+    unfiltered_findings = _apply_directory_policies(unfiltered_findings, config)
+    _append_z620_findings(
+        unfiltered_findings, config, example_dir, check_all=True, check_external_urls=True
+    )
+
+    collateral_hidden = 0
+    if only_str:
+        findings = _filter_flat_findings(unfiltered_findings, only_str)
+        collateral_hidden = len(unfiltered_findings) - len(findings)
+    else:
+        findings = unfiltered_findings
 
     if single_file is not None:
         sf_rel = str(single_file.relative_to(example_dir))
@@ -668,6 +707,7 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
         engine=config.build_context.engine,
         docs_count=docs_count,
         assets_count=assets_count,
+        collateral_hidden=collateral_hidden,
     )
 
 
@@ -763,8 +803,17 @@ def _print_act_seal(r: _ActResult) -> None:
     )
     seal_items: list[Text] = [
         Text.from_markup(f"[{ZenzicPalette.DIM}]{files_line}[/]"),
-        Text(),
     ]
+    if r.collateral_hidden:
+        n = r.collateral_hidden
+        shown_code = r.act.emitted_code or r.act.code.upper()
+        seal_items.append(
+            Text.from_markup(
+                f"[{ZenzicPalette.DIM}]{n} unrelated finding{'s' if n != 1 else ''} hidden"
+                f" (not {shown_code}) {emoji('dot')} pass --all to see everything[/]"
+            )
+        )
+    seal_items.append(Text())
     if r.met_expectation:
         verdict = f"{emoji('check')} {r.act.code.upper()} — {r.act.title} — expectation met."
         seal_items.append(Text.from_markup(f"[bold {ZenzicPalette.SUCCESS}]{verdict}[/]"))
@@ -820,6 +869,16 @@ def lab(
         "-l",
         help="Print the gallery index without running checks.",
     ),
+    show_all: bool = typer.Option(
+        False,
+        "--all",
+        help=(
+            "Show the full, unfiltered finding list instead of only the "
+            "scenario's own code. By default, findings unrelated to the "
+            "requested code (e.g. incidental Z411/Z502 noise from a minimal "
+            "fixture page) are hidden."
+        ),
+    ),
 ) -> None:
     """Zenzic Lab — interactive showcase of bundled documentation examples.
 
@@ -830,7 +889,12 @@ def lab(
         [bold cyan]zenzic lab z101[/]   -- run the Z101 LINK_BROKEN scenario
         [bold cyan]zenzic lab z201[/]   -- run the Z201 CREDENTIAL_SECRET scenario
         [bold cyan]zenzic lab all[/]    -- run all gallery scenarios
+        [bold cyan]zenzic lab z101 --all[/] -- show every finding, not just Z101
         [bold cyan]zenzic lab --list[/] -- print gallery index without running
+
+    By default, each scenario's output is filtered to only the finding
+    code(s) it exists to demonstrate. Pass --all to see the complete,
+    unfiltered check output for the fixture instead.
     """
     con = get_console()
     con.print()
@@ -883,7 +947,7 @@ def lab(
                 Text.from_markup(f"[bold]{act.description}[/]"),
             )
         )
-        result = _run_act(act, examples_root)
+        result = _run_act(act, examples_root, show_all=show_all)
         act_results.append(result)
 
     if len(act_results) == 1:
