@@ -93,6 +93,16 @@
             "type": "string"
           }
         },
+        "security_breaches": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run — never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
+        },
+        "security_incidents": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run — never suppressible, Exit 3."
+        },
         "suppression_count": {
           "type": "integer",
           "minimum": 0

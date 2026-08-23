@@ -283,11 +283,15 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "unused_assets",
         "nav_contract",
         "references",
+        "security_breaches",
+        "security_incidents",
         "suppression_count",
         "suppression_cap",
         "suppression_debt_pts",
         "debt_status",
     }
+    assert data["security_breaches"] == 0
+    assert data["security_incidents"] == 0
     assert data["suppression_count"] == 0
     assert data["suppression_cap"] == 30
     assert data["suppression_debt_pts"] == 0

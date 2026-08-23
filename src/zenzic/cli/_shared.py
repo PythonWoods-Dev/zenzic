@@ -266,6 +266,8 @@ def _output_check_all_json_findings(
             msg for msg in results.nav_contract_errors if _is_allowed("(nav)", 0, "Z406")
         ],
         "references": ref_errors,
+        "security_breaches": sum(1 for f in all_findings if f.severity == "security_breach"),
+        "security_incidents": sum(1 for f in all_findings if f.severity == "security_incident"),
         "suppression_count": suppression_audit.total if suppression_audit else 0,
         "suppression_cap": suppression_audit.cap if suppression_audit else 0,
         "suppression_debt_pts": suppression_audit.excess if suppression_audit else 0,
