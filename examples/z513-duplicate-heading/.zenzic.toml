@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z513 DUPLICATE_HEADING gallery example
+#
+# docs/index.md contains two headings ("Configuration") that resolve to the
+# exact same text. Zenzic's built-in DuplicateHeadingRule (Z513) is always
+# active and flags duplicate heading text — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z513 ×1 — duplicate heading text)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

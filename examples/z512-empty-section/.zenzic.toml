@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z512 EMPTY_SECTION gallery example
+#
+# docs/index.md has a heading ("Empty Section") immediately followed by
+# another heading with zero body content between them. Zenzic's built-in
+# EmptySectionRule (Z512) is always active and flags empty sections — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z512 ×1 — heading with no body content)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
