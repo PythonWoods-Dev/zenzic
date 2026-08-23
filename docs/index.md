@@ -190,12 +190,11 @@ Formal schema validation for `.zenzic.toml` (`Z110` TOML syntax errors, `Z111` s
 <div class="zz-feature-visual">
 <div class="zz-showcase-card">
   <h4 style="margin-top: 0; margin-bottom: 0.5rem; color: var(--zz-ink-400); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em;">.zenzic.toml</h4>
-  <pre style="color: var(--zz-ink-200); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.5;"><code><span style="color: var(--zz-brand-light);">[engine]</span>
-<span style="color: var(--zz-terminal-meta);"># Validation prevents bad config execution</span>
+  <pre style="color: var(--zz-ink-200); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.5;"><code><span style="color: var(--zz-terminal-meta);"># Validation prevents bad config execution</span>
 max_sentence_length = <span style="color: var(--zz-success);">"40"</span> <span style="color: var(--zz-error);"># Z111: Expected int, got str</span>
 
 <span style="color: var(--zz-brand-light);">[policies]</span>
-disallowed_domains = [<span style="color: var(--zz-success);">"example.com"</span>]</code></pre>
+forbidden_external_domains = [<span style="color: var(--zz-success);">"example.com"</span>]</code></pre>
 </div>
 </div>
 
@@ -222,7 +221,7 @@ disallowed_domains = [<span style="color: var(--zz-success);">"example.com"</spa
       <span class="zz-terminal__cmd">zenzic init &amp;&amp; zenzic check all</span>
     </div>
     <div class="zz-terminal__line zz-terminal__line--error">
-      <span class="zz-terminal__code">[Z104]</span>
+      <span class="zz-terminal__code">[Z101]</span>
       <span>'missing.md' resolves to nowhere — the target file does not exist.</span>
     </div>
     <div class="zz-terminal__line zz-terminal__line--fatal">FAILED: Hard errors detected. Exit code 1.</div>
