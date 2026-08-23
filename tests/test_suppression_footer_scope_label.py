@@ -66,7 +66,9 @@ def _make_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     return tmp_path, clean
 
 
-def test_single_file_footer_labels_project_wide_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_single_file_footer_labels_project_wide_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Scanning clean.md alone must show the footer's project-wide scope
     explicitly, since the number shown still reflects the whole project."""
     root, clean_file = _make_sandbox(tmp_path)
@@ -82,7 +84,9 @@ def test_single_file_footer_labels_project_wide_scope(tmp_path: Path, monkeypatc
     )
 
 
-def test_full_project_scan_footer_unlabeled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_full_project_scan_footer_unlabeled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Regression guard: a full-project scan (no target) must NOT gain a
     spurious per-file/project-wide label — the label is only meaningful
     (and only added) when a single-file target narrows other output."""
