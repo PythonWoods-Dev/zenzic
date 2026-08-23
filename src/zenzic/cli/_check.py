@@ -241,6 +241,9 @@ def check_links(
         incidents = sum(1 for f in findings if f.severity == "security_incident")
         if incidents:
             raise typer.Exit(3)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -253,6 +256,9 @@ def check_links(
         incidents = sum(1 for f in findings if f.severity == "security_incident")
         if incidents:
             raise typer.Exit(3)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -263,6 +269,9 @@ def check_links(
         incidents = sum(1 for f in findings if f.severity == "security_incident")
         if incidents:
             raise typer.Exit(3)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -303,6 +312,9 @@ def check_links(
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
         raise typer.Exit(3)
+    breaches = sum(1 for f in findings if f.severity == "security_breach")
+    if breaches:
+        raise typer.Exit(2)
     if errors or (strict and warnings):
         raise typer.Exit(1)
 
@@ -1351,6 +1363,24 @@ def _to_findings(
     """Convert all result types into a flat list of :class:`Finding`."""
     findings: list[Finding] = []
 
+    # Local, call-scoped cache: a file can appear in both snippet_errors and
+    # reference_reports (e.g. one page with both a snippet issue and a
+    # dangling reference), and each category independently re-reads the file
+    # for `source_line` context. This dedupes reads *within this call only*
+    # — deduping across the seven independent sub-checks in
+    # _collect_all_results would require scanner.py/validator.py to expose
+    # raw file content on their result objects, which they don't; that's a
+    # larger, out-of-scope change tracked separately.
+    _content_cache: dict[Path, list[str] | None] = {}
+
+    def _cached_lines(path: Path) -> list[str] | None:
+        if path not in _content_cache:
+            try:
+                _content_cache[path] = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                _content_cache[path] = None
+        return _content_cache[path]
+
     def _rel(path: Path) -> str:
         try:
             return path.relative_to(repo_root).as_posix()
@@ -1384,13 +1414,10 @@ def _to_findings(
 
     for s_err in results.snippet_errors:
         src = ""
-        if s_err.line_no > 0 and s_err.file_path.is_file():
-            try:
-                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
-                if 0 < s_err.line_no <= len(lines):
-                    src = lines[s_err.line_no - 1].strip()
-            except OSError:
-                pass
+        if s_err.line_no > 0:
+            lines = _cached_lines(s_err.file_path)
+            if lines and 0 < s_err.line_no <= len(lines):
+                src = lines[s_err.line_no - 1].strip()
         findings.append(
             Finding(
                 rel_path=_rel(s_err.file_path),
@@ -1426,12 +1453,7 @@ def _to_findings(
 
     for report in results.reference_reports:
         rel = _rel(report.file_path)
-        _lines: list[str] = []
-        if report.file_path.is_file():
-            try:
-                _lines = report.file_path.read_text(encoding="utf-8").splitlines()
-            except OSError:
-                pass
+        _lines = _cached_lines(report.file_path) or []
         for ref_f in report.findings:
             src = ""
             if _lines and 0 < ref_f.line_no <= len(_lines):

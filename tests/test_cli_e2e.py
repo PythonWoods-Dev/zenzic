@@ -201,6 +201,79 @@ class TestForbiddenSchemeE2E:
         )
 
 
+# ── check links — Exit 2 gap (single-subcommand parity with check_all) ──────
+
+
+class TestCheckLinksSecurityBreachExitCodeE2E:
+    """``zenzic check links`` must exit 2 on a security_breach finding, in
+    every output format — same contract ``check_all`` already honors.
+
+    Regression for: check_links' four output branches (json, sarif,
+    github-annotations, text) each only checked ``severity == "security_incident"``
+    (Exit 3) and ``severity == "error"`` (Exit 1) before returning/raising —
+    none of them checked ``severity == "security_breach"`` at all, so a Z205
+    finding (FORBIDDEN_SCHEME, in link_codes and therefore routed through
+    check_links) fell through to Exit 1 instead of the Tier-0-mandated Exit 2.
+    Discovered during V031_PRE_RELEASE_FINAL_CLOSURE while auditing check_all's
+    blast radius for the Z205 severity fix; not fixed there per that
+    directive's declared scope. Fixed here.
+    """
+
+    _FORBIDDEN_SCHEME_DOC = TestForbiddenSchemeE2E._FORBIDDEN_SCHEME_DOC
+
+    def test_check_links_text_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links"])
+
+        assert result.exit_code == 2, (
+            f"check links (text) must exit 2 on a Z205 security_breach finding, "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_links_json_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "json"])
+
+        assert result.exit_code == 2, (
+            f"check links --format json must exit 2 on a Z205 security_breach "
+            f"finding, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_links_sarif_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "sarif"])
+
+        assert result.exit_code == 2, (
+            f"check links --format sarif must exit 2 on a Z205 security_breach "
+            f"finding, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_links_github_annotations_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "github-annotations"])
+
+        assert result.exit_code == 2, (
+            f"check links --format github-annotations must exit 2 on a Z205 "
+            f"security_breach finding, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
 # ── --exit-zero suppresses Exit 1 (general errors) ──────────────────────────
 
 
