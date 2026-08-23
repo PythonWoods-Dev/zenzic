@@ -369,6 +369,8 @@ The link target exists in the VSM but is not reachable through any navigation st
 **Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z104.md)
 
 Low-level filesystem error: the engine could not open a file referenced by a link.
+Cataloged separately, but the current engine consolidates and emits this
+condition under **`Z101` LINK_BROKEN** rather than `Z104` — see [Z101](#z101).
 
 ```text
 blog/post.md:12: '/blog/zenzic-v070' not found in the site map
@@ -438,6 +440,8 @@ Inline Markdown link or collapsed reference link has empty or whitespace-only vi
 **Severity:** `error` · **Penalty:** −3.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z109-external-link-broken.md) · [↗ Rule Specification](../rules/Z109.md)
 
 An external URL returned an HTTP error status code (e.g. 404, 500) or was completely unreachable due to a connection timeout or DNS resolution failure during scan.
+Cataloged separately, but the current engine consolidates and emits this
+condition under **`Z101` LINK_BROKEN** rather than `Z109` — see [Z101](#z101).
 
 **Fix:**
 

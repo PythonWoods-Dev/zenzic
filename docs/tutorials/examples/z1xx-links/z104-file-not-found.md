@@ -1,12 +1,12 @@
 ---
-description: "Walk through the z104-file-not-found fixture: a link pointing to api/reference.md which does not exist on disk, triggering Z104 FILE_NOT_FOUND at exit code 1."
+description: "Walk through the z104-file-not-found fixture: a link pointing to api/reference.md which does not exist on disk, consolidated and reported under Z101 LINK_BROKEN by the current engine, exit code 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 # Z104 — File Not Found
 
-**Z-Code:** `Z104 FILE_NOT_FOUND` · **Engine:** `standalone` · **Exit:** `1`
+**Cataloged as:** `Z104 FILE_NOT_FOUND` · **Emitted as:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
 <Z104FileNotFound />
 
@@ -45,7 +45,7 @@ Expected output:
 ```text
 standalone · 1 file (1 docs, 0 assets) · 0.0s · 67 files/s
 
-docs/index.md:11:44  x  [Z104]  'api/reference.md' not found in docs
+docs/index.md:11:44  x  [Z101]  'api/reference.md' not found in docs
 
      9  │  ## API Reference
     10  │
@@ -66,17 +66,19 @@ Exit code: `1`
 
 ## Interpreting the Output
 
-The `Z104` finding indicates a **FILE_NOT_FOUND** issue.
+The `Z101` finding indicates a **LINK_BROKEN** issue (this scenario is cataloged
+as `Z104 FILE_NOT_FOUND`, but the engine reports it under the consolidated
+`Z101` code — see [Z104 rule specification](../../../rules/Z104.md)).
 
 This error is raised when a relative link in a Markdown page points to a file
-path that does not exist in the `docs_dir` tree. Unlike `Z101 LINK_BROKEN` (which
-covers structural routing issues), Z104 is the precise signal for a missing
-filesystem entry:
+path that does not exist in the `docs_dir` tree. `Z101 LINK_BROKEN` covers
+this and other structural routing issues (broken internal links, missing
+files, broken external links) under one shared code:
 
 - **Scan Type:** `Link Validator`
 - **Severity:** `Error`
 - **Impact:** Missing link targets break navigation and deduct **8.0 DQS points**
-  — the highest penalty in the Z1xx group.
+  (the `Z101` penalty — the highest in the Z1xx group).
 
 ---
 

@@ -1,12 +1,12 @@
 ---
-description: "Walk through the z109-external-link-broken fixture: an external URL that cannot be reached, triggering Z109 EXTERNAL_LINK_BROKEN."
+description: "Walk through the z109-external-link-broken fixture: an external URL that cannot be reached, consolidated and reported under Z101 LINK_BROKEN by the current engine."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 # Z109 — External Link Broken
 
-**Z-Code:** `Z109 EXTERNAL_LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
+**Cataloged as:** `Z109 EXTERNAL_LINK_BROKEN` · **Emitted as:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
 <Z109ExternalLinkBroken />
 
@@ -22,7 +22,10 @@ The source document is `docs/index.md`, which contains an external link pointing
 | 7    | `[Broken Link](https://this-domain-does-not-exist-at-all-xyz.com)` | `https://this-domain-does-not-exist-at-all-xyz.com` | ✘ |
 
 Neither the domain exists nor does it return a success status code.
-Zenzic fires Z109 for this broken external link.
+`Z109 EXTERNAL_LINK_BROKEN` is defined in the finding-codes catalog for this
+condition, but the current engine reports all unreachable links — internal or
+external — under the consolidated `Z101 LINK_BROKEN` code. Zenzic fires
+`Z101` for this broken external link.
 
 ```toml title="examples/z109-external-link-broken/.zenzic.toml"
 docs_dir = "docs"
@@ -47,7 +50,7 @@ Expected output:
 ```text
 standalone - 1 file (1 docs, 0 assets) - 0.0s - 65 files/s
 
-docs/index.md:7:2  x  [Z109]  external link 'https://this-domain-does-not-exist-at-all-xyz.com' is broken
+docs/index.md:7:2  x  [Z101]  external link 'https://this-domain-does-not-exist-at-all-xyz.com' is broken
 
      5  │
      6  │  Here is a broken external link:
@@ -71,13 +74,13 @@ Exit code: `1`
 
 ## Interpreting the Output
 
-The `Z109` finding indicates an **EXTERNAL_LINK_BROKEN** issue.
+The `Z101` finding indicates a **LINK_BROKEN** issue (this scenario is cataloged as `Z109 EXTERNAL_LINK_BROKEN`, but the engine reports it under the consolidated `Z101` code — see [Z109 rule specification](../../../rules/Z109.md)).
 
 This error is raised by Zenzic when an external link references a URL that cannot be resolved, timed out, or returned an HTTP status error (e.g., 404, 500). In this specific example:
 
 - **Scan Type:** `Link Validator`
 - **Severity:** `Error`
-- **Impact:** Broken external links degrade the user experience and reduce the Documentation Quality Score (DQS) by deducting a penalty of 3.0 points.
+- **Impact:** Broken external links degrade the user experience and reduce the Documentation Quality Score (DQS). As a `Z101 LINK_BROKEN` finding, this deducts a penalty of 8.0 points (the `Z101` penalty; `Z109`'s cataloged 3.0-point penalty does not apply since the engine does not emit `Z109`).
 
 ---
 
