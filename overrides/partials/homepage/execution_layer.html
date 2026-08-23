@@ -38,7 +38,7 @@
     3  │  See the [intro page](./intro.md) for details.</pre>
         </div>
         <div class="space-y-1">
-          <div><span class="dark:text-zinc-400 text-zinc-600">docs/index.md:3:8</span>  <span class="text-rose-500">✘</span>  <span class="bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded-sm font-medium">[Z104]</span>  <span>'./intro.md' not found in docs</span></div>
+          <div><span class="dark:text-zinc-400 text-zinc-600">docs/index.md:3</span>  <span class="text-rose-500">✘</span>  <span class="bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded-sm font-medium">[Z101]</span>  <span>'./intro.md' resolves to '/intro/' which is not in the Virtual Site Map — the target file may not exist</span></div>
           <pre class="dark:bg-zinc-900/40 bg-white border dark:border-zinc-800/40 border-zinc-200 rounded-md px-3 py-2 dark:text-zinc-400 text-zinc-600 whitespace-pre overflow-x-auto">    1  │  # Welcome
     2  │
     3  ❱  See the [intro page](./intro.md) for details.
@@ -65,8 +65,8 @@
         <div class="dark:text-zinc-700 text-zinc-300 select-none">────────────────────────────────────────────────────────────────────────────────</div>
         <div class="space-y-1.5">
           <div>Summary: <span class="text-rose-500">✘ 1 security breach</span>  <span class="text-rose-500">✘ 2 errors</span>  <span class="text-amber-500">⚠ 4 warnings</span>  <span class="dark:text-zinc-500 text-zinc-500">💡 0 info</span>  <span class="dark:text-zinc-500 text-zinc-500">• 3 files with findings</span></div>
-          <div class="text-rose-500 font-semibold tracking-wide">FAILED: Hard errors detected. Exit code 1 is mandatory.</div>
-          <div class="dark:text-zinc-500 text-zinc-500">Refer to https://zenzic.dev/reference/finding-codes for remediation · Try 'zenzic check --help' for options.</div>
+          <div class="text-rose-500 font-semibold tracking-wide">FAILED: Security breaches detected. Exit code 2 is mandatory.</div>
+          <div class="dark:text-zinc-500 text-zinc-500">Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try 'zenzic check --help' for options.</div>
           <div class="dark:text-zinc-500 text-zinc-500">🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)</div>
         </div>
       </div>
