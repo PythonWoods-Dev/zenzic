@@ -895,6 +895,10 @@ def lab(
     By default, each scenario's output is filtered to only the finding
     code(s) it exists to demonstrate. Pass --all to see the complete,
     unfiltered check output for the fixture instead.
+
+    Exit code: 0 when every requested scenario meets its expectation, 1 if
+    any scenario does not — this makes ``zenzic lab all`` usable as a
+    regression gate (e.g. in CI) rather than only an interactive demo.
     """
     con = get_console()
     con.print()
@@ -954,3 +958,6 @@ def lab(
         _print_act_seal(act_results[0])
     elif len(act_results) > 1:
         _print_summary(act_results)
+
+    if any(not r.met_expectation for r in act_results):
+        raise typer.Exit(1)
