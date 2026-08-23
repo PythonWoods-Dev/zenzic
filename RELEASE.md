@@ -43,7 +43,7 @@ This release concludes **Epic 2: Semantic Linting Supremacy**, the second major 
 Before tagging, every item must be green:
 
 - [ ] `just verify` — exits 0 (pre-commit hooks → pytest → `zenzic score --stamp` → badge freshness → `zenzic check all --strict`)
-- [ ] `zenzic lab all` — all 20 scenarios exit with expected code
+- [ ] `zenzic lab all` — all gallery scenarios exit with expected code (`zenzic lab all` now exits non-zero if any scenario fails, so this check is enforceable in CI, not just visual — see CHANGELOG.md)
 - [ ] `zenzic score --stamp` committed — badge in README.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
 - [ ] `pyproject.toml` version matches the tag (`0.30.0`)
