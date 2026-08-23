@@ -46,16 +46,21 @@ All contract outputs above include these fields, always:
   "links": [],
   "orphans": [],
   "snippets": [],
-  "placeholders": [],
   "unused_assets": [],
   "references": [],
   "nav_contract": [],
+  "security_breaches": 0,
+  "security_incidents": 0,
   "suppression_count": 0,
   "suppression_cap": 30,
   "suppression_debt_pts": 0,
   "debt_status": "CLEAN"
 }
 ```
+
+`security_breaches` and `security_incidents` are integer counts of `Z2xx`/`Z203`-severity
+findings in the run, present so a JSON consumer can detect a security breach or path-traversal
+incident without parsing issue message text or relying solely on the process exit code.
 
 ---
 

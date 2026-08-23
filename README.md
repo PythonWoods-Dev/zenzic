@@ -84,7 +84,7 @@ In the era of AI-driven coding and autonomous agent workflows, technical documen
 - **Smart Link Graph**: Fast $O(N)$ topological graph analysis with exact slugification parity for documentation frameworks, orphan detection, and circular link diagnostics (`Z410`, `Z411`).
 - **Baseline & Regression Tracking**: Line-shift invariant debt freezing (`.zenzic-baseline.json`), allowing existing repositories to adopt strict quality gates immediately without blocking active development.
 - **Policy-as-Code Governance**: Centralized configuration rules for frontmatter schemas, domain allowlists, terminology restrictions, and suppression budgeting.
-- **Ecosystem Uniformity**: 100% deterministic parity across the Zenzic CLI (Core Engine), VS Code Extension (Language Server Protocol), and GitHub Action CI/CD workflow.
+- **Ecosystem Uniformity**: the Zenzic CLI (Core Engine), VS Code Extension (Language Server Protocol), and GitHub Action CI/CD workflow share the same rule engine, config loader, and adapter resolution — deterministic by construction (same input, same output) wherever they run the same code path. Topology detection (orphan/dead-end pages) is the one area where the CLI and LSP currently use two independent algorithms rather than one shared primitive; see [`Known Limitations`](CHANGELOG.md#unreleased) in the changelog.
 
 ---
 
@@ -324,7 +324,7 @@ The `zenzic` CLI provides a complete suite of developer commands for local workf
 | `zenzic fix` | Automatically apply idempotent AST mutations | `--dry-run`, `--apply` |
 | `zenzic score` | Calculate DQS metrics and update status badges | `--stamp`, `--check-stamp`, `--badge-json` |
 | `zenzic audit` | Generate formal compliance and technical debt reports | `--format markdown`, `--output <file>` |
-| `zenzic lab` | Interactive finding lab and scenario runner | `list`, `run <act-id>`, `inspect <act-id>` |
+| `zenzic lab` | Interactive finding lab and scenario runner | `<code>` (e.g. `z101`), `all`, `--list`, `--all` |
 | `zenzic init` | Scaffold `.zenzic.toml` configuration or plugin template | `--pyproject`, `--local`, `--engine <name>`, `--plugin` |
 | `zenzic config explain` | Introspect active policies, discovery paths, and rules | `--all`, `--json` |
 
@@ -398,7 +398,7 @@ Under **ADR-075 (Radical Unawareness)**, Zenzic guarantees a strict exit code co
 
 ## 🌐 The Unified Zenzic Ecosystem
 
-Zenzic provides consistent, identical analysis across every development touchpoint:
+Zenzic runs the same rule engine and finding codes across every development touchpoint (with one tracked exception — see [`Known Limitations`](CHANGELOG.md#unreleased)):
 
 | Platform | Primary Use Case | Delivery |
 | :--- | :--- | :--- |

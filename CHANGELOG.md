@@ -47,9 +47,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Z205 Exit-Code/Severity Contract (Tier-0)**:
   - `Z205` (`FORBIDDEN_SCHEME`) now maps to `security_breach` severity in `_finding_severity()`, restoring the Tier-0-mandated Exit 2 and non-suppressible behavior it shares with `Z201`/`Z204`. Previously fell through to its raw catalog severity (`error`, Exit 1) since it never passes through the credential-scanner bridge that sets `security_breach` for `Z201`/`Z204`.
+- **`check links` Exit-Code Gap for Security Breaches**:
+  - `zenzic check links` now exits 2 (and honors `security_breach` severity) in every output format (text, JSON, SARIF, GitHub annotations), matching `check all`'s existing behavior. Previously it only checked `security_incident` (Exit 3) and `error` (Exit 1) — a `Z205`-class finding fell through to Exit 1 instead of the Tier-0-mandated Exit 2.
+- **`check all --format json` Missing Security-Breach Marker**:
+  - The `checkAllReport` JSON payload now includes `security_breaches` and `security_incidents` integer count fields, so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code. `zenzic-output.schema.json` updated to match.
+- **`zenzic lab` Exit Code Now Reflects Scenario Pass/Fail**:
+  - `zenzic lab <code>`/`zenzic lab all` now exit 1 if any scenario does not meet its expectation, and 0 otherwise — previously always exited 0 regardless of the printed PASS/FAIL verdict, which defeated `lab all`'s use as a regression gate (e.g. in CI).
+- **`check <file>` VSM Scoping Bug for Files Outside `docs_dir`**:
+  - `zenzic check all <file>` (and other single-file `check` invocations) on a file outside the configured `docs_dir` (e.g. `CHANGELOG.md`, `README.md`) now preserves the full site's VSM instead of rebuilding one scoped to just that file's parent directory. Previously this produced false `Z103`/`Z410`-style "unreachable" findings for links to the rest of the real site. Matches the Language Server's existing behavior (`_resolve_docs_root()` always resolves the full workspace, never re-scoped per file).
+- **Z107 False Positive on Same-Page Cross-References**:
+  - Two same-page cross-reference links in `docs/reference/finding-codes.md` whose visible text collided with their target anchor's slug (tripping `Z107 CIRCULAR_ANCHOR`'s same-text-as-fragment heuristic even though they correctly pointed to a different section) were reworded. `Z107`'s underlying rule logic — it should compare a link's position against its target's heading location, not just text-vs-fragment slug equality — remains a known false-positive source, tracked separately.
 - **LSP Code Action UX Determinism for Topological Findings (ADR-093)**:
   - The Language Server Protocol server (`src/zenzic/lsp/server.py`) now recognizes `NON_INLINE_SUPPRESSIBLE_CODES` (`Z401`, `Z402`, `Z404`, `Z405`, `Z406`, `Z410`, `Z411`, `Z412`, `Z620`).
   - Instead of offering an ineffective inline comment QuickFix edit, the LSP emits a standard `disabled` CodeAction explaining: *"Zxxx is a topological finding. Configure suppression in .zenzic.toml via [directory_policies] or [per_file_ignores]."*, eliminating misleading edits and protecting the TOML Root Key Law.
+
+### Known Limitations
+
+- **CLI/LSP Topology Model Divergence**: the CLI's `check_all` pipeline and the Language Server's `IncrementalAnalysisEngine` do not share a common analysis primitive. Most steps (file discovery, rule engine construction/execution, config loading, adapter resolution) genuinely are shared; the two areas that are not are per-file content caching within a single CLI run (partially addressed this release — see below) and, more significantly, orphan/topology detection: the CLI's `Z402` (nav-membership-based) and the LSP's `Z410`/`Z411` (VSM-graph-reachability-based) are two independent algorithms for related-but-not-identical concepts. Formally tracked as an open architectural decision, not silently accepted — see the forthcoming ADR in `docs/developers/explanation/adr-vault/`.
+  - This release's caching fix: `_to_findings` no longer re-reads a file's content twice within a single call when that file appears in both `snippet_errors` and `reference_reports`. This addresses only the redundant read *inside* `_to_findings` — the seven independent sub-checks in `_collect_all_results` (`find_orphans`, `find_unused_assets`, `validate_snippets`, etc.) still walk and read files independently of each other; deduplicating across those would require `scanner.py`/`validator.py` to expose raw file content on their result objects, which is a larger change than this release's scope.
 
 ## Historical Releases
 

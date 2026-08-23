@@ -846,10 +846,11 @@ patterns.
 | **`3`** | **SECURITY INCIDENT — Path Traversal Guard: link targets an OS system directory** |
 
 !!! danger "Exit code 2 is reserved for security events"
-    Exit code 2 is issued by `zenzic check references` and `zenzic check all` when the credential scanner detects a
-    known credential pattern embedded in a reference URL. It is never used for ordinary check
-    failures. If you receive exit code 2, treat it as a build-blocking security incident and
-    **rotate the exposed credential immediately**.
+    Exit code 2 is issued by `zenzic check references`, `zenzic check links`, and `zenzic check all`
+    whenever a `security_breach`-severity finding (`Z201` credential/secret, `Z204` forbidden term,
+    `Z205` forbidden URL scheme) is detected, in every output format (text, JSON, SARIF, GitHub
+    annotations). It is never used for ordinary check failures. If you receive exit code 2, treat
+    it as a build-blocking security incident and **rotate the exposed credential immediately**.
 
 !!! danger "Exit code 3 — Path Traversal Guard Incident"
     Exit code 3 is issued when the path traversal guard detects a link that resolves to an OS
@@ -896,10 +897,11 @@ zenzic check all --format json > report.json
   "links":         [],
   "orphans":       [],
   "snippets":      [],
-  "placeholders":  [],
   "unused_assets": [],
-  "references":    [],
   "nav_contract":  [],
+  "references":    [],
+  "security_breaches": 0,
+  "security_incidents": 0,
   "suppression_count": 0,
   "suppression_cap": 30,
   "suppression_debt_pts": 0,
@@ -907,9 +909,12 @@ zenzic check all --format json > report.json
 }
 ```
 
-Each key holds a list of issue strings or objects. An empty list means the check passed.
-`nav_contract` validates `extra.alternate` links in `mkdocs.yml` against the Virtual Site Map
-— always empty for non-MkDocs projects.
+Each of `links`/`orphans`/`snippets`/`unused_assets`/`nav_contract`/`references` holds a list
+of issue strings or objects — an empty list means that check passed. `nav_contract` validates
+`extra.alternate` links in `mkdocs.yml` against the Virtual Site Map — always empty for
+non-MkDocs projects. `security_breaches` and `security_incidents` are integer counts, so a JSON
+consumer can detect a `Z2xx` security breach or `Z203` path-traversal incident without parsing
+issue message text or relying solely on the process exit code.
 
 For the authoritative machine contract (including `score --format json` and CAP fail-hard payloads),
 see [API JSON Contract](./api-json).
@@ -1318,11 +1323,14 @@ If `--kind` is invalid, the command exits `1` and emits the error to stderr when
 ## Interactive Lab {#lab}
 
 ```bash
-zenzic lab [CODE] [--list]
+zenzic lab [CODE] [--list] [--all]
 ```
 
 `zenzic lab` is an interactive showcase that runs bundled Z-code gallery scenarios against
-Zenzic and reports whether each scenario met its expected outcome.
+Zenzic and reports whether each scenario met its expected outcome. The gallery currently
+covers 60+ scenarios spanning link integrity, security, topology, editorial style, and
+Specification-Driven Development rules — see `zenzic lab --list` for the full, current index
+rather than relying on a fixed count here.
 
 ### Scenario selection
 
@@ -1330,17 +1338,15 @@ Zenzic and reports whether each scenario met its expected outcome.
 | :--- | :--- |
 | `zenzic lab` | Display the gallery menu |
 | `zenzic lab z101` | Run a single Z-code scenario |
-| `zenzic lab all` | Run all 5 gallery scenarios in sequence |
+| `zenzic lab all` | Run every gallery scenario in sequence |
 | `zenzic lab --list` | Print the gallery index without running |
+| `zenzic lab z101 --all` | Show every finding for the scenario, not just its own code — by default, output is filtered to the code the scenario demonstrates |
 
-### Gallery
+### Exit code
 
-| Z-Code | Title | Expects |
-| :---: | :--- | :---: |
-| `Z101` | Link Integrity | FAIL |
-| `Z201` | Credential Scanner | BREACH |
-| `Z405` | Asset Integrity | FAIL |
-| `Z601` | Brand Obsolescence | FAIL |
+`zenzic lab` exits `0` when every requested scenario meets its expectation, and `1` if any
+scenario does not — this makes `zenzic lab all` usable as a regression gate (e.g. in CI),
+not only as an interactive demo.
 
 ### Outcome labels
 
@@ -1366,6 +1372,9 @@ zenzic lab all
 
 # Run a single Z-code scenario
 zenzic lab z101
+
+# Show the complete, unfiltered finding list for one scenario
+zenzic lab z521 --all
 
 # Print the gallery index without running
 zenzic lab --list
