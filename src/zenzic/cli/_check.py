@@ -1146,6 +1146,7 @@ def _collect_all_results(
     check_external: bool = True,
     show_progress: bool = False,
     init_start_time: float | None = None,
+    rule_engine_target: Path | None = None,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
 
@@ -1193,6 +1194,7 @@ def _collect_all_results(
             content_roots=content_roots,
             show_progress=show_progress,
             progress_instance=progress,
+            rule_engine_target=rule_engine_target,
         )
         security_events = sum(len(r.security_findings) for r in ref_reports)
 
@@ -1762,6 +1764,7 @@ def check_all(
             check_external=not no_external,
             show_progress=show_progress,
             init_start_time=_t_init_start,
+            rule_engine_target=_single_file,
         )
 
     if only:
@@ -1789,10 +1792,39 @@ def check_all(
     _findings_counts: dict[str, int] = {}
     for _f in all_findings:
         _findings_counts[_f.code] = _findings_counts.get(_f.code, 0) + 1
+
+    # DQS scope parity: Z-code finding penalties above are already scoped to
+    # _single_file (all_findings was filtered before this point). The
+    # suppression/technical-debt penalty must match that scope instead of
+    # always reflecting the whole project — otherwise a single-file scan
+    # silently mixes "this file's findings" with "the whole project's debt",
+    # an undocumented hybrid a user has no way to detect from the score
+    # alone. suppression_audit itself (used for the CAP fail-hard gate above,
+    # and passed as-is to SARIF/text reporting) stays project-wide on
+    # purpose: the suppression cap is a project-level governance ceiling,
+    # not a per-file concept. Only the score/JSON-payload view is rescoped.
+    _score_suppression_audit = suppression_audit
+    if _single_file is not None:
+        try:
+            _sf_rel_for_score = str(_single_file.relative_to(docs_root))
+        except ValueError:
+            # Target lives outside docs_root (e.g. CHANGELOG.md at repo root) —
+            # inline_hotspots is keyed relative to docs_root, so a target
+            # outside it cannot carry an inline suppression by construction.
+            _sf_inline_count = 0
+        else:
+            _sf_inline_count = suppression_audit.inline_hotspots.get(_sf_rel_for_score, 0)
+        _score_suppression_audit = SuppressionAudit(
+            inline_count=_sf_inline_count,
+            per_file_count=0,
+            cap=suppression_audit.cap,
+            inline_hotspots=({_sf_rel_for_score: _sf_inline_count} if _sf_inline_count else {}),
+        )
+
     _score_report = compute_score(
         _findings_counts,
-        suppression_count=suppression_audit.total,
-        suppression_cap=suppression_audit.cap,
+        suppression_count=_score_suppression_audit.total,
+        suppression_cap=_score_suppression_audit.cap,
     )
 
     if update_baseline:
@@ -1822,7 +1854,7 @@ def check_all(
 
     if output_format == "json":
         _shared._output_check_all_json_findings(
-            results, all_findings, repo_root, docs_root, config, suppression_audit
+            results, all_findings, repo_root, docs_root, config, _score_suppression_audit
         )
 
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
@@ -1977,7 +2009,9 @@ def check_all(
         )
 
     if output_format == "text" and not quiet:
-        print_suppression_audit_footer(suppression_audit, audit_mode=audit)
+        print_suppression_audit_footer(
+            suppression_audit, audit_mode=audit, scoped_to_single_file=_single_file is not None
+        )
 
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")
     if incidents:

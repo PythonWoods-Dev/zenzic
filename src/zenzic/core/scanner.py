@@ -1690,6 +1690,7 @@ def scan_docs_references(
     content_roots: list[Path] | None = None,
     show_progress: bool = False,
     progress_instance: Any | None = None,
+    rule_engine_target: Path | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1745,6 +1746,16 @@ def scan_docs_references(
         content_roots:  Optional extra markdown roots injected by caller.
         show_progress:  When ``True``, display a rich progress bar on stderr.
         progress_instance: Optional external Rich Progress instance.
+        rule_engine_target: When set, restricts rule-engine execution (AST
+                        parsing + all Z1xx-Z6xx content/editorial rules) to
+                        this single resolved file. Every other file still
+                        runs the cheap reference/security/link pipeline
+                        (Pass 1-3) so link resolution, credential scanning,
+                        and VSM topology remain correct project-wide — only
+                        the expensive per-file rule pass is skipped for
+                        non-target files. Forces sequential execution
+                        (parallel mode is pointless when only one file's
+                        rule findings are kept).
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1782,6 +1793,17 @@ def scan_docs_references(
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
 
+    # A rule-engine target outside docs_root (e.g. CHANGELOG.md/README.md at
+    # repo root) is never discovered by iter_markdown_sources(docs_root, ...)
+    # above, since it only walks docs_root. Inject it explicitly so its own
+    # rule pass still runs — otherwise the target would silently receive
+    # zero rule-engine findings while docs_root's full VSM/topology scan
+    # continues unaffected.
+    if rule_engine_target is not None:
+        _resolved_target_for_injection = rule_engine_target.resolve(strict=False)
+        if _resolved_target_for_injection not in {f.resolve(strict=False) for f in md_files}:
+            md_files.append(_resolved_target_for_injection)
+
     static_assets: set[Path] = set()
     if docs_root.is_dir():
         for fpath in walk_files(docs_root, set(config.excluded_dirs), exclusion_manager, config):
@@ -1813,7 +1835,9 @@ def scan_docs_references(
     if not md_files:
         return [], []
 
-    use_parallel = workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD
+    use_parallel = (
+        workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD and rule_engine_target is None
+    )
 
     # Initialise Visual Progress Bar context if requested.
     progress = None
@@ -2038,6 +2062,9 @@ def scan_docs_references(
         # Anchors collected as side effect of CombinedHeadingRule; reused in VSM pass.
         preloaded_anchors_seq: dict[Path, set[str]] = {}
         _seq_rule_engine = _build_rule_engine(config, anchors_out=preloaded_anchors_seq)
+        _resolved_rule_engine_target = (
+            rule_engine_target.resolve(strict=False) if rule_engine_target is not None else None
+        )
 
         for md_file in md_files:
             text = ""
@@ -2047,7 +2074,22 @@ def scan_docs_references(
                     md_contents_seq[md_file] = text
                 except OSError:
                     pass
-            report, secure_scanner = _scan_single_file(md_file, config, _seq_rule_engine, text=text)
+            # When scoped to a single target, skip the expensive rule pass
+            # (AST parsing + all Z1xx-Z6xx rules) for every other file — Pass
+            # 1-3 (security/link/reference) still run below via
+            # _scan_single_file, and _run_vsm_and_urp_pass falls back to the
+            # standalone anchors_in_file() for VSM topology on files that
+            # never ran CombinedHeadingRule, so link/anchor resolution stays
+            # correct project-wide.
+            _file_rule_engine = (
+                _seq_rule_engine
+                if _resolved_rule_engine_target is None
+                or md_file.resolve(strict=False) == _resolved_rule_engine_target
+                else None
+            )
+            report, secure_scanner = _scan_single_file(
+                md_file, config, _file_rule_engine, text=text
+            )
             reports_seq.append(report)
             if validate_links and secure_scanner is not None:
                 secure_scanners_seq.append(secure_scanner)

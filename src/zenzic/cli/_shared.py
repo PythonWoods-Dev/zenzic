@@ -240,14 +240,27 @@ def _output_check_all_json_findings(
     ref_errors = []
     for r in results.reference_reports:
         rel = _rel(r.file_path)
+        try:
+            rel_d = r.file_path.relative_to(repo_root / config.docs_dir)
+        except ValueError:
+            rel_d = r.file_path
+        # Both loops below deliberately include every severity (error AND
+        # warning) — the field is named "references", not "reference_errors",
+        # and text/SARIF output already report both. Filtering by severity
+        # here alone would make this field inconsistent with itself
+        # (Z1xx warnings dropped, Z5xx/Z6xx warnings kept) as well as with
+        # every other output format.
         for f in r.findings:
-            if not f.is_warning:
-                if _is_allowed(rel, f.line_no, f.issue):
-                    try:
-                        rel_d = r.file_path.relative_to(repo_root / config.docs_dir)
-                    except ValueError:
-                        rel_d = r.file_path
-                    ref_errors.append(f"{rel_d}:{f.line_no} [{f.issue}] — {f.detail}")
+            if _is_allowed(rel, f.line_no, f.issue):
+                ref_errors.append(f"{rel_d}:{f.line_no} [{f.issue}] — {f.detail}")
+        # rule_findings (Z1xx-Z6xx AST/content/editorial rules, e.g. Z502
+        # SHORT_CONTENT, Z512 HEADING_SECTION_EMPTY) is a separate attribute
+        # from findings (Z1xx/Z3xx reference-pipeline output) — previously
+        # never read here, so any rule-engine finding was silently absent
+        # from this field regardless of severity.
+        for rf in r.rule_findings:
+            if _is_allowed(rel, rf.line_no, rf.rule_id):
+                ref_errors.append(f"{rel_d}:{rf.line_no} [{rf.rule_id}] — {rf.message}")
 
     report = {
         "links": [

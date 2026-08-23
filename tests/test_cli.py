@@ -2028,6 +2028,7 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=True,
         progress_instance=ANY,
+        rule_engine_target=ANY,
     )
     mock_scan.reset_mock()
 
@@ -2041,6 +2042,7 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=False,
         progress_instance=None,
+        rule_engine_target=ANY,
     )
     mock_scan.reset_mock()
 
@@ -2054,6 +2056,7 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=False,
         progress_instance=None,
+        rule_engine_target=ANY,
     )
 
 

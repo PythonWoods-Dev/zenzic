@@ -225,7 +225,21 @@ paths_to_mutate = [
 ]
 # pytest_add_cli_args_test_selection specifies which tests to run (replaces tests_dir).
 pytest_add_cli_args_test_selection = ["tests/"]
-also_copy = ["src/"]
+# Every entry here is required either by the hatchling build backend
+# (README.md for [project].readme; examples/ for
+# [tool.hatch.build.targets.wheel.force-include]) or by tests that read a
+# root-level file directly (zenzic-baseline.schema.json,
+# zenzic-output.schema.json — schema-compliance tests). Enumerated by
+# reading [project]/[build-system]/[tool.hatch.*] directly, not discovered
+# by trial and error — if either section gains a new file reference in the
+# future, add it here too.
+also_copy = [
+    "src/",
+    "README.md",
+    "examples/",
+    "zenzic-baseline.schema.json",
+    "zenzic-output.schema.json",
+]
 # Override importlib mode: mutmut v3's import-graph analyser requires classic
 # prepend mode to trace source→test links (our addopts sets importlib mode).
 pytest_add_cli_args = ["--import-mode=prepend"]
