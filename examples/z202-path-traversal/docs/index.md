@@ -19,3 +19,6 @@ docs/index.md:11:  Z202  PATH_TRAVERSAL  '../../private/secret.txt' escapes the 
 Z202 is non-suppressible. Exit code 2.
 
 Run `zenzic check links` to reproduce the finding.
+
+For background on why documentation tooling enforces a strict root boundary,
+see the [OWASP path traversal reference](https://owasp.org/www-community/attacks/Path_Traversal).

@@ -24,3 +24,7 @@ docs/index.md:13:  Z505  UNTAGGED_CODE_BLOCK  fenced code block has no language 
 ```
 
 Run `zenzic check content` to reproduce the finding.
+
+Language tags on fenced code blocks do more than enable syntax
+highlighting — many static site generators also use them to select the
+correct linter or validator for that snippet during a build.
