@@ -65,13 +65,10 @@ def test_apply_target_preserves_full_docs_root_for_file_outside_docs_dir(
 
     config = ZenzicConfig(docs_dir=Path("docs"))
 
-    patched_config, single_file, docs_root, _hint = _apply_target(
-        repo_root, config, "CHANGELOG.md"
-    )
+    patched_config, single_file, docs_root, _hint = _apply_target(repo_root, config, "CHANGELOG.md")
 
     assert single_file == changelog.resolve(), (
-        "single_file must resolve to the requested target for the caller's "
-        "post-hoc filter to work"
+        "single_file must resolve to the requested target for the caller's post-hoc filter to work"
     )
     assert docs_root == (repo_root / "docs").resolve(), (
         f"docs_root must stay the configured full docs_dir ({(repo_root / 'docs').resolve()}), "
@@ -95,9 +92,7 @@ def test_apply_target_still_scopes_file_inside_docs_dir(tmp_path: Path) -> None:
 
     config = ZenzicConfig(docs_dir=Path("docs"))
 
-    patched_config, single_file, docs_root, _hint = _apply_target(
-        repo_root, config, "docs/page.md"
-    )
+    patched_config, single_file, docs_root, _hint = _apply_target(repo_root, config, "docs/page.md")
 
     assert single_file == page.resolve()
     assert docs_root == docs_dir.resolve()
