@@ -45,6 +45,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Z205 Exit-Code/Severity Contract (Tier-0)**:
+  - `Z205` (`FORBIDDEN_SCHEME`) now maps to `security_breach` severity in `_finding_severity()`, restoring the Tier-0-mandated Exit 2 and non-suppressible behavior it shares with `Z201`/`Z204`. Previously fell through to its raw catalog severity (`error`, Exit 1) since it never passes through the credential-scanner bridge that sets `security_breach` for `Z201`/`Z204`.
 - **LSP Code Action UX Determinism for Topological Findings (ADR-093)**:
   - The Language Server Protocol server (`src/zenzic/lsp/server.py`) now recognizes `NON_INLINE_SUPPRESSIBLE_CODES` (`Z401`, `Z402`, `Z404`, `Z405`, `Z406`, `Z410`, `Z411`, `Z412`, `Z620`).
   - Instead of offering an ineffective inline comment QuickFix edit, the LSP emits a standard `disabled` CodeAction explaining: *"Zxxx is a topological finding. Configure suppression in .zenzic.toml via [directory_policies] or [per_file_ignores]."*, eliminating misleading edits and protecting the TOML Root Key Law.
