@@ -53,7 +53,7 @@ COMMANDS: tuple[CommandMeta, ...] = (
         panel="Core",
         short_help="Run documentation quality checks.",
         long_help="Run documentation quality checks.",
-        usage_hint="Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try 'zenzic check --help' for options.",
+        usage_hint="Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try 'zenzic check --help' for options.",
     ),
     CommandMeta(
         name="clean",

@@ -63,7 +63,7 @@ def test_sarif_enrichment_and_schema_validation(capsys) -> None:
     z101_rule = rules[0]
     assert z101_rule["id"] == "Z101"
     assert z101_rule["name"] == "LinkBroken"
-    assert z101_rule["helpUri"] == "https://zenzic.dev/docs/reference/finding-codes#z101"
+    assert z101_rule["helpUri"] == "https://zenzic.dev/reference/finding-codes/#z101"
     assert z101_rule["defaultConfiguration"]["level"] == "error"
     assert z101_rule["properties"]["category"] == "structural"
     assert z101_rule["properties"]["penalty"] == 8.0

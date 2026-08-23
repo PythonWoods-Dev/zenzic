@@ -357,7 +357,7 @@ def _output_sarif_findings(
             )
             penalty = rule_def.penalty
             level = rule_def.severity
-            help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+            help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
             short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
         elif rules_map and rule_id in rules_map:
             rule_obj = rules_map[rule_id]
@@ -368,20 +368,20 @@ def _output_sarif_findings(
                 level = _sarif_level(getattr(meta, "severity", "warning"))
                 help_uri = (
                     getattr(meta, "docs_url", None)
-                    or f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+                    or f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
                 )
                 short_desc = getattr(meta, "description", getattr(meta, "title", rule_id))
             else:
                 category = "custom"
                 penalty = 1.0
                 level = "warning"
-                help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+                help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
                 short_desc = rule_id
         else:
             category = "custom" if rule_id.startswith("ZZ-") else "uncategorized"
             penalty = 1.0 if rule_id.startswith("ZZ-") else 0.0
             level = "warning"
-            help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+            help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
             short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
 
         rule_entry: dict[str, object] = {
