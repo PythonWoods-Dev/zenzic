@@ -237,6 +237,11 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z110": CodeDefinition("error", 0.0, None),  # CONFIG_SYNTAX_ERROR — malformed TOML
     "Z111": CodeDefinition("error", 0.0, None),  # CONFIG_SCHEMA_ERROR — invalid schema/type
     "Z112": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY
+    # Z113/Z114: confirmed dead code (no live emission site) as of 2026-08-24.
+    # Pending Tech Lead decision (implement vs. deprecate) — see
+    # .claude/state/03-priority-table.md, item "Z113 (AUTHOR_KEY_COLLISION) and
+    # Z114 (LARGE_PAGINATION_SET) Are Both Confirmed Dead Code" for full context.
+    # Do not remove or "fix" without that decision.
     "Z113": CodeDefinition(
         "error", 2.0, "structural"
     ),  # AUTHOR_KEY_COLLISION — ADR-031 paradox resolved

@@ -1078,19 +1078,6 @@ class _AllCheckResults:
     directory_index_issues: list[Path]
     config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
 
-    @property
-    def failed(self) -> bool:
-        ref_errors = any(r.has_errors for r in self.reference_reports)
-        return bool(
-            self.link_errors
-            or self.orphans
-            or self.snippet_errors
-            or self.unused_assets
-            or self.nav_contract_errors
-            or ref_errors
-            or self.security_events
-        )
-
 
 def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
     """Destructively filter CheckResults keeping only the specified Z-codes."""
