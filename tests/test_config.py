@@ -114,6 +114,20 @@ def test_placeholder_patterns_compiled_on_init(tmp_path: Path) -> None:
     assert not config.placeholder_patterns_compiled[1].search("wipe the floor")
 
 
+def test_baseline_stale_days_defaults_to_none(tmp_path: Path) -> None:
+    """baseline_stale_days is None when not set — Core's own constant is the fallback."""
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.baseline_stale_days is None
+
+
+def test_baseline_stale_days_loaded_from_zenzic_toml(tmp_path: Path) -> None:
+    """baseline_stale_days overrides the Core default when set in .zenzic.toml."""
+    (tmp_path / ".zenzic.toml").write_text("baseline_stale_days = 14\n")
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.baseline_stale_days == 14
+    assert loaded is True
+
+
 # ─── pyproject.toml support (ISSUE #5) ───────────────────────────────────────
 
 

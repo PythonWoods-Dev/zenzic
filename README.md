@@ -231,6 +231,8 @@ DQS MATHEMATICAL TRANSPARENCY
   Final Score: 100 - 2.0 = 98.0
 ```
 
+`zenzic score --json` also reports `baseline_status` (`fresh`, `stale`, or `absent`) and `baseline_age_days`, derived from the age of the saved snapshot (`.zenzic-score.json`, written by `zenzic score --save`). The staleness threshold defaults to 7 days and is configurable via `baseline_stale_days` in `.zenzic.toml`. The VS Code extension's Quality Status Panel surfaces this alongside the score, so a workspace that hasn't been re-scored in a while is visible without re-checking manually.
+
 ### 5. Policy-as-Code Governance
 
 Define organizational conventions directly in `.zenzic.toml`:

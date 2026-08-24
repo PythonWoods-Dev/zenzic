@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from unittest.mock import ANY, patch
 
@@ -1636,6 +1637,237 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
 # ---------------------------------------------------------------------------
 
 
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_status_absent_when_no_snapshot(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports baseline_status='absent' when no .zenzic-score.json exists."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["baseline_status"] == "absent"
+    assert data["baseline_age_days"] is None
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_status_fresh_within_threshold(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports baseline_status='fresh' for a recently saved snapshot."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    (tmp_path / ".zenzic-score.json").write_text("{}", encoding="utf-8")
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["baseline_status"] == "fresh"
+    assert data["baseline_age_days"] == 0
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_status_stale_beyond_threshold(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports baseline_status='stale' when the snapshot exceeds the threshold."""
+    from zenzic.core.scorer import DEFAULT_BASELINE_STALE_DAYS, CategoryScore, ScoreReport
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text("{}", encoding="utf-8")
+    old_time = time.time() - (DEFAULT_BASELINE_STALE_DAYS + 1) * 86400
+    os.utime(snapshot, (old_time, old_time))
+
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["baseline_status"] == "stale"
+    assert data["baseline_age_days"] >= DEFAULT_BASELINE_STALE_DAYS + 1
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_stale_days_config_override(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """A .zenzic.toml baseline_stale_days override changes the fresh/stale boundary."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+    from zenzic.models.config import ZenzicConfig
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text("{}", encoding="utf-8")
+    old_time = time.time() - 2 * 86400  # 2 days old
+    os.utime(snapshot, (old_time, old_time))
+
+    custom_cfg = ZenzicConfig(baseline_stale_days=1)
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (custom_cfg, True)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    # 2 days old, threshold=1 day → stale (would be "fresh" under the default 7-day threshold)
+    assert data["baseline_status"] == "stale"
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_trend_none_when_no_baseline(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports score_trend=None when no snapshot exists to compare against."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=91,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["score_trend"] is None
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_trend_computed_from_saved_snapshot(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json's score_trend reflects the delta against the saved snapshot."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "score": 80,
+                "threshold": 0,
+                "categories": [
+                    {
+                        "name": "structural",
+                        "weight": 0.30,
+                        "issues": 2,
+                        "category_score": 0.5,
+                        "contribution": 0.15,
+                        "raw_penalty": 15.0,
+                        "is_capped": False,
+                    }
+                ],
+                "suppression_count": 0,
+                "suppression_cap": 30,
+                "suppression_debt_pts": 0,
+                "debt_status": "CLEAN",
+            }
+        ),
+        encoding="utf-8",
+    )
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=91,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["score_trend"] == {
+        "baseline_score": 80,
+        "current_score": 91,
+        "delta": 11,
+    }
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_trend_none_when_snapshot_incompatible(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json degrades gracefully (score_trend=None) for a legacy-schema snapshot."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text(json.dumps({"schema_version": 1, "score": 80}), encoding="utf-8")
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=91,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["score_trend"] is None
+
+
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
@@ -1733,6 +1965,20 @@ def test_score_breakdown(_run: object, _cfg: object, _root: object) -> None:
     assert "Base Score:" in result.stdout
     assert "Total Category Penalties:" in result.stdout
     assert "Technical Debt Penalty:" in result.stdout
+
+    single_char_separator_lines = [line for line in result.stdout.splitlines() if line == "━"]
+    assert not single_char_separator_lines, (
+        "Expected compact ━ separator lines (one line, many characters), not one line per "
+        f"character; found {len(single_char_separator_lines)} single-character separator lines "
+        "in the output — this is the fragmented-separator regression."
+    )
+    full_width_separator_lines = [
+        line for line in result.stdout.splitlines() if line.count("━") >= 40
+    ]
+    assert len(full_width_separator_lines) >= 2, (
+        "Expected at least 2 full-width ━ separator lines (before the category breakdown and "
+        f"before the mathematical transparency section); found {full_width_separator_lines!r}"
+    )
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)

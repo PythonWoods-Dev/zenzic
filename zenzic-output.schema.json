@@ -236,6 +236,51 @@
         },
         "debt_status": {
           "$ref": "#/$defs/debtStatus"
+        },
+        "baseline_status": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "absent"
+          ],
+          "description": "Freshness of the saved score snapshot (.zenzic-score.json) at the time of this run. 'absent' when no snapshot exists yet."
+        },
+        "baseline_age_days": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Age of the saved score snapshot in days, or null when baseline_status is 'absent'."
+        },
+        "score_trend": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Delta against the saved snapshot, or null when no snapshot exists or it cannot be parsed.",
+          "required": [
+            "baseline_score",
+            "current_score",
+            "delta"
+          ],
+          "properties": {
+            "baseline_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "current_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "delta": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

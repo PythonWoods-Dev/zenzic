@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import json
 import sys
+import time
 from pathlib import Path
 
 
@@ -28,11 +29,15 @@ from zenzic.core.scanner import (
     find_repo_root,
 )
 from zenzic.core.scorer import (
+    DEFAULT_BASELINE_STALE_DAYS,
     CategoryScore,
     ScoreReport,
     compute_score,
     load_snapshot,
     save_snapshot,
+)
+from zenzic.core.scorer import (
+    _SNAPSHOT_FILENAME as _SCORE_SNAPSHOT_FILENAME,
 )
 from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
@@ -184,6 +189,52 @@ def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
     return True
 
 
+def _compute_baseline_freshness(repo_root: Path, config: ZenzicConfig) -> tuple[str, float | None]:
+    """Read the saved score snapshot's mtime and classify it fresh/stale/absent.
+
+    This is deliberately CLI-layer I/O — ``compute_score()``/``ScoreReport`` stay
+    pure (Determinism invariant). Returns ``(baseline_status, baseline_age_days)``;
+    ``baseline_age_days`` is ``None`` only when no snapshot exists.
+    """
+    snapshot_path = repo_root / _SCORE_SNAPSHOT_FILENAME
+    if not snapshot_path.is_file():
+        return "absent", None
+
+    threshold_days = config.baseline_stale_days
+    if threshold_days is None:
+        threshold_days = DEFAULT_BASELINE_STALE_DAYS
+
+    age_seconds = max(0.0, time.time() - snapshot_path.stat().st_mtime)
+    age_days = age_seconds / 86400
+    status = "stale" if age_days >= threshold_days else "fresh"
+    return status, age_days
+
+
+def _compute_score_trend(
+    repo_root: Path, current_score: int
+) -> dict[str, int] | None:
+    """Compare the current score against the saved snapshot, if one exists.
+
+    Reuses ``load_snapshot()`` — the same JSON file already touched by
+    ``_compute_baseline_freshness`` — so no second `zenzic` subprocess or LSP
+    call is ever needed to surface a trend indicator. Returns ``None`` when no
+    snapshot exists or it cannot be parsed (e.g. legacy pre-v2 schema); a
+    missing/incompatible baseline is a graceful "no trend to show", not an
+    error the caller needs to handle differently from the "absent" case.
+    """
+    try:
+        baseline = load_snapshot(repo_root)
+    except ConfigurationError:
+        return None
+    if baseline is None:
+        return None
+    return {
+        "baseline_score": baseline.score,
+        "current_score": current_score,
+        "delta": current_score - baseline.score,
+    }
+
+
 # ── score command ─────────────────────────────────────────────────────────────
 
 
@@ -307,7 +358,14 @@ def score(
             _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
 
     if output_format == "json" and not check_stamp:
-        print(json.dumps(report.to_dict(), indent=2))
+        payload = report.to_dict()
+        baseline_status, baseline_age_days = _compute_baseline_freshness(repo_root, config)
+        payload["baseline_status"] = baseline_status
+        payload["baseline_age_days"] = (
+            round(baseline_age_days, 2) if baseline_age_days is not None else None
+        )
+        payload["score_trend"] = _compute_score_trend(repo_root, report.score)
+        print(json.dumps(payload, indent=2))
     elif not check_stamp and not (quiet and report.score >= effective_threshold):
         if report.score >= 80:
             score_style = ZenzicPalette.STYLE_OK
@@ -513,7 +571,8 @@ def score(
                         f"  [yellow]![/] [bold]{code}[/] ({name}): {count} occurrence(s) (no DQS penalty)"
                     )
 
-            _shared.console.print("\n[dim]━[/]" * 50)
+            _shared.console.print()
+            _shared.console.print("[dim]━[/]" * 50)
             _shared.console.print("[bold cyan]DQS MATHEMATICAL TRANSPARENCY[/]")
             _shared.console.print("  [bold]Base Score:[/bold]                100.0 pts")
 

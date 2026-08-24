@@ -544,6 +544,19 @@ fail_under = 80
 
 > See [Exclusion Design — Governance Score Math](../explanation/exclusion-design.md#governance-score-math) for the flat-cost model and hybrid governance policy design.
 
+### `baseline_stale_days` {#baseline-stale-days}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` (optional) |
+| **Default** | `None` — falls back to Core's built-in default of `7` |
+
+Age in days after which the saved score snapshot (`.zenzic-score.json`, written by `zenzic score --save`) is considered stale. `zenzic score --json` reports this as `baseline_status` (`"fresh"`, `"stale"`, or `"absent"` when no snapshot exists yet) and `baseline_age_days`, letting editor integrations (e.g. the VS Code Quality Status Panel) surface the signal without recomputing it.
+
+```toml
+baseline_stale_days = 14
+```
+
 ### `strict` {#strict}
 
 | | |

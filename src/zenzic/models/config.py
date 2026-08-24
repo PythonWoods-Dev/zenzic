@@ -705,6 +705,14 @@ class ZenzicConfig(BaseModel):
             "The --fail-under CLI flag overrides this value when explicitly provided."
         ),
     )
+    baseline_stale_days: int | None = Field(
+        default=None,
+        description=(
+            "Age in days after which the saved score snapshot (.zenzic-score.json) is "
+            "considered stale in `zenzic score --json`'s baseline_status field. "
+            "None (default) falls back to Core's DEFAULT_BASELINE_STALE_DAYS (7)."
+        ),
+    )
     strict: bool = Field(
         default=False,
         description=(

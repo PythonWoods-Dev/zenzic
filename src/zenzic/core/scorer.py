@@ -93,6 +93,13 @@ _Z6XX_CODES: frozenset[str] = frozenset(
 _SOVEREIGN_SUPPRESSION_CAP: int = 30
 _DEBT_STATUS_VALUES: frozenset[str] = frozenset({"CLEAN", "MANAGED", "EXTENDED", "CRITICAL"})
 
+# Default age (in days) after which a saved score snapshot (.zenzic-score.json) is
+# considered stale.  A plain constant only — no filesystem access.  Reading the
+# snapshot's actual mtime and comparing it against this threshold (or a
+# .zenzic.toml override) is CLI-layer I/O, deliberately kept out of this module
+# to preserve compute_score()/ScoreReport's purity (Determinism invariant).
+DEFAULT_BASELINE_STALE_DAYS: int = 7
+
 
 def classify_suppression_debt_status(suppression_count: int, suppression_cap: int) -> str:
     """Classify suppression debt posture for machine-readable contract consumers."""

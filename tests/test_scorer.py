@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.scorer import (
+    DEFAULT_BASELINE_STALE_DAYS,
     ScoreReport,
     compute_score,
     load_snapshot,
@@ -221,6 +222,12 @@ def test_unknown_code_contributes_zero_deduction() -> None:
     """Unknown Zxxx codes are silently ignored (no deduction)."""
     report = compute_score({"Z999": 100})
     assert report.score == 100
+
+
+def test_default_baseline_stale_days_is_a_plain_constant() -> None:
+    """DEFAULT_BASELINE_STALE_DAYS is a pure, I/O-free constant (no filesystem access)."""
+    assert DEFAULT_BASELINE_STALE_DAYS == 7
+    assert isinstance(DEFAULT_BASELINE_STALE_DAYS, int)
 
 
 def test_to_dict_structure() -> None:
