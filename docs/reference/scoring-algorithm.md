@@ -106,7 +106,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z203** | PATH_TRAVERSAL_FATAL | Security | Inviolable Override | Security Gate |
 | **Z204** | FORBIDDEN_TERM | Security | Inviolable Override | Security Gate |
 | **Z205** | FORBIDDEN_SCHEME | Security | Inviolable Override | Security Gate |
-| **Z301** | DANGLING_REF | 2.0 pts | Navigation Graph | Default |
+| **Z301** | DANGLING_REF | 4.0 pts | Navigation Graph | Default |
 | **Z302** | DEAD_DEF | 1.0 pt | Navigation Graph | Default |
 | **Z303** | DUPLICATE_DEF | 2.0 pts | Navigation Graph | Default |
 | **Z401** | MISSING_DIRECTORY_INDEX | 3.0 pts | Navigation Graph | Default |

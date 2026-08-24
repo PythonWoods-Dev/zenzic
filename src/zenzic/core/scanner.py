@@ -921,7 +921,7 @@ class ReferenceScanner:
                             detail=(
                                 f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
                             ),
-                            is_warning=False,
+                            is_warning=True,
                         )
                     )
 

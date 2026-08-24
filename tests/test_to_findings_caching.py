@@ -64,7 +64,7 @@ def test_to_findings_reads_shared_file_content_only_once(tmp_path: Path) -> None
                         line_no=4,
                         issue="Z301",
                         detail="Reference 'missing' is undefined.",
-                        is_warning=False,
+                        is_warning=True,  # Z301 is "warning" per codes.py's CODE_DEFINITIONS
                     )
                 ],
             )

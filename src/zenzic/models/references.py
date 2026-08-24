@@ -152,15 +152,18 @@ class ReferenceFinding:
             ``"duplicate-def"``  — same ID defined more than once (first wins)
             ``"missing-alt"``    — image has no alt text
         detail: Human-readable description.
-        is_warning: ``True`` for non-blocking issues (Dead Definitions, duplicate
-            defs, missing alt-text).  ``False`` for hard errors (Dangling References).
+        is_warning: ``True`` for a non-blocking (``--strict``-gated) finding.
+            Every code the reference pipeline emits (Z301 DANGLING_REF, Z302
+            DEAD_DEF, Z303 DUPLICATE_DEF) is classified ``"warning"`` in
+            ``codes.py``'s ``CODE_DEFINITIONS`` — the single source of truth
+            — so this is always ``True`` for findings this pipeline produces.
     """
 
     file_path: Path
     line_no: int
     issue: str
     detail: str
-    is_warning: bool = False
+    is_warning: bool = True
 
 
 # ─── Integrity report ─────────────────────────────────────────────────────────
