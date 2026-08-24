@@ -637,12 +637,9 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z111, Z113–114",
+        codes="Z113–114",
         name="Blog Integrity Guard",
-        capability=(
-            "Zensical blog integrity — virtual route resolution (tag/author/paginated), "
-            "duplicate author keys, large pagination set threshold"
-        ),
+        capability="Zensical blog integrity — duplicate author keys, large pagination set threshold",
         primary_exit=1,
         non_suppressible=False,
     ),
