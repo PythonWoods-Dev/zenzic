@@ -39,9 +39,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Ecosystem Positioning Overhaul**:
   - Updated tagline and core value proposition across `zenzic`, `zenzic-action`, and `zenzic-vscode` READMEs: *"Formatters handle syntax. Prose linters handle grammar. Zenzic protects the graph—and optionally enforces lightweight editorial policy without a separate tool."*, focusing on protecting documentation graphs from AI hallucinations.
 - **Mirror Law Parity Protocol (10 Mandatory Targets)**:
-  - Formally expanded the Mirror Law protocol in `.claude/references/03-dqs-and-mirror-law.md` to 10 mandatory targets, elevating the `zenzic init` template (`templates.py`) and the VS Code IntelliSense JSON Schema (`zenzic.schema.json`) alongside core codes, scorer, scoring algorithm, scoring system, finding codes encyclopedia, rule cards, mkdocs nav, and lab fixtures.
+  - Formally expanded the Mirror Law protocol to 10 mandatory targets, elevating the `zenzic init` template (`templates.py`) and the VS Code IntelliSense JSON Schema (`zenzic.schema.json`) alongside core codes, scorer, scoring algorithm, scoring system, finding codes encyclopedia, rule cards, mkdocs nav, and lab fixtures.
 - **CLI Init Configuration Template Remediation**:
   - Synchronized `zenzic init` templates (`templates.py`) across `.zenzic.toml`, `.zenzic.local.toml`, and `pyproject.toml` with all 16 Policy-as-Code fields including the 4 new SDD policies, updated GitHub Action snippets to `pythonwoods/zenzic-action@v2`, purged obsolete `Z120-Z124` polyglot comments, and added topological rule codes (`Z410`, `Z411`, `Z412`, `Z620`) to default `directory_policies` examples.
+
+### Removed
+
+- **`Z113` (`AUTHOR_KEY_COLLISION`) and `Z114` (`LARGE_PAGINATION_SET`) — BREAKING**:
+  - Both codes are removed entirely from `codes.py`'s `CODE_DEFINITIONS`/`CODE_NAMES` registry, their rule cards, `finding-codes.md`, `cli.md`, `scoring-algorithm.md`, `scoring-system.md`, and the `zenzic inspect capabilities` "Blog Integrity Guard" scanner listing. Neither code ever had live detection logic since introduction — confirmed by exhaustive grep across the engine (no emission site in `scanner.py`, `validator.py`, `rules.py`, or any adapter) — so `zenzic inspect capabilities` was presenting an always-active scanner that in fact never ran. Removed rather than retained as an unimplemented placeholder, consistent with this project's existing precedent for a fully-superseded code identity (`Z118` → `Z620`): no stub, no deprecated-but-present marker. `docs/rules/Z113.md` and `Z114.md` are deleted; `docs/_redirects` now sends both URLs (and their historical `/docs/`-prefixed crawl variants) to the `rules/` index rather than a specific successor page, since none exists. Any external tooling, saved baseline, or custom rule configuration referencing `Z113`/`Z114` by name should be updated — these identifiers no longer exist in the registry.
 
 ### Fixed
 

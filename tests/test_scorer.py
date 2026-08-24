@@ -316,14 +316,6 @@ def test_z111_config_schema_error_score() -> None:
     assert r_z111.score == 0
 
 
-def test_z113_structural_penalty() -> None:
-    """Z113 AUTHOR_KEY_COLLISION: -2.0 pts from structural bucket (ADR-031)."""
-    report = compute_score({"Z113": 1})
-    structural = next(c for c in report.categories if c.name == "structural")
-    assert structural.issues == 1
-    assert report.score == 98
-
-
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
 
 

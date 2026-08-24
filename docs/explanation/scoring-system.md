@@ -19,7 +19,7 @@ The Quality Score is a weighted composite of four distinct check categories:
 
 | Category | Primary Commands | Finding Codes | Weight | Bucket Cap |
 | :--- | :--- | :--- | :---: | :---: |
-| **Structural Integrity** | `zenzic check links` | `Z101`–`Z105`, `Z107`–`Z109`, `Z113`, `Z121`, `Z124`, `Z410`–`Z411` | **30%** | 30 pts |
+| **Structural Integrity** | `zenzic check links` | `Z101`–`Z105`, `Z107`–`Z109`, `Z121`, `Z124`, `Z410`–`Z411` | **30%** | 30 pts |
 | **Navigation Graph** | `zenzic check orphans` | `Z301`–`Z303`, `Z402`, `Z412` | **25%** | 25 pts |
 | **Brand & Governance** | `zenzic check assets` | `Z620`, `Z404`–`Z406`, `Z601`, `Z603`, `Z610`–`Z619` | **25%** | 25 pts |
 | **Content Excellence** | `zenzic check all` | `Z120`, `Z122`, `Z403`, `Z501`–`Z503`, `Z505`–`Z506`, `Z510`–`Z523` | **20%** | 20 pts |

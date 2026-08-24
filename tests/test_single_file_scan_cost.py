@@ -152,9 +152,9 @@ def test_single_file_scan_still_detects_target_rule_engine_finding(
     # findings present — confirmed pre-existing via a direct git-stash/re-run
     # comparison (identical `references: []` before and after this session's
     # fix, both single-file and full-project) and now tracked as its own
-    # release-blocking item: V031_CHECK_ALL_JSON_LEGACY_REFERENCES_EMPTY
-    # (.claude/state/03-priority-table.md). Text output is the channel
-    # confirmed correct here, so it's the correctness oracle for this test.
+    # release-blocking item: V031_CHECK_ALL_JSON_LEGACY_REFERENCES_EMPTY.
+    # Text output is the channel confirmed correct here, so it's the
+    # correctness oracle for this test.
     result = runner.invoke(app, ["check", "all", "docs/short.md"])
 
     assert "Z502" in result.stdout, (
@@ -195,8 +195,8 @@ def test_single_file_scan_detects_rule_finding_for_target_outside_docs_root(
     engine on itself and report its own Z502, not silently skip it.
 
     This is the confirmed regression test for
-    V031_SINGLE_FILE_OUTSIDE_DOCS_ROOT_NEVER_RULE_SCANNED
-    (.claude/state/03-priority-table.md): `_apply_target()` correctly keeps
+    V031_SINGLE_FILE_OUTSIDE_DOCS_ROOT_NEVER_RULE_SCANNED:
+    `_apply_target()` correctly keeps
     `docs_root` pinned to the full configured tree for VSM/topology
     correctness, but no code path injects an out-of-tree target into
     `scan_docs_references()`'s file enumeration — so the rule engine never

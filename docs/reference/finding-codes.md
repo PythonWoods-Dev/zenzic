@@ -242,7 +242,7 @@ Every finding code carries a **severity** that determines its DQS math contribut
 
 **`warning`** findings subtract their penalty points. They are invisible to the CI gate in default mode. With `--strict`, warnings are promoted to errors and become gate-blocking.
 
-**`note` / 0.0** findings are purely informational telemetry. They never subtract points, never fail the gate, and are hidden by default (`--show-info` is required to display them). Z106 (CIRCULAR_LINK) and Z114 (LARGE_PAGINATION_SET) are examples.
+**`note` / 0.0** findings are purely informational telemetry. They never subtract points, never fail the gate, and are hidden by default (`--show-info` is required to display them). Z106 (CIRCULAR_LINK) is an example.
 
 ### Override Penalties: FATAL and HALT
 
@@ -484,29 +484,6 @@ An entry in the `absolute_path_allowlist` configuration was never matched by any
 
 1. Open `.zenzic.toml` (or `pyproject.toml`) and locate `absolute_path_allowlist`.
 2. Remove the unused entry from the list.
-
----
-
-### Z113: AUTHOR_KEY_COLLISION {#z113}
-
-**Severity:** `error` · **Penalty:** −2.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes
-
-Duplicate author key declared across two or more blog author config files.
-
-**Fix:**
-
-1. Ensure each author config file has a unique key.
-2. Resolve any naming collisions.
-
----
-
-### Z114: LARGE_PAGINATION_SET {#z114}
-
-**Severity:** `info` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z114.md)
-
-Blog pagination set exceeds the 200-page informational threshold.
-
-**Fix:** No action required (informational only). Review the size of the blog.
 
 ---
 

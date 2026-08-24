@@ -83,7 +83,7 @@ def _finding_severity(code: str) -> str:
     ``"security_breach"`` for Z205 (Tier-0 'Exit 2 — never suppressible' set,
     alongside Z201/Z204 which reach this severity via the credential-scanner
     bridge in ``_map_credential_to_finding`` instead of this function),
-    ``"info"`` for note-level informational codes (Z106, Z114, Z906), and the
+    ``"info"`` for note-level informational codes (Z106, Z906), and the
     CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
     Unknown codes default to ``"error"`` since the validator only emits findings
     when it detects a genuine problem.

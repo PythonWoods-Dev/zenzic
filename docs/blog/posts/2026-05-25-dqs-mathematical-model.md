@@ -36,6 +36,9 @@ The three paradox codes received their penalties in the migration:
 | Z111 | VIRTUAL_ROUTE_BROKEN | 8.0 pts | Structural |
 | Z113 | AUTHOR_KEY_COLLISION | 2.0 pts | Structural |
 
+!!! note "Historical snapshot"
+    This table reflects the code registry as of v0.8.0. `Z111` has since been reassigned to a different meaning (`CONFIG_SCHEMA_ERROR`), and `Z113` has been removed entirely — codes referenced in this historical example may since have been renamed or removed.
+
 ---
 
 ## From Allowance to Flat-Cost

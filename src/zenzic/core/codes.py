@@ -24,8 +24,6 @@ Z1xx — Link Integrity
     Z110  CONFIG_SYNTAX_ERROR  — malformed TOML syntax in configuration file; ConfigurationError before analysis
     Z111  CONFIG_SCHEMA_ERROR  — invalid schema structure or type in configuration file; ZenzicConfigError before analysis
     Z112  STALE_ALLOWLIST_ENTRY — stale absolute path allowlist entry declared in .zenzic.toml
-    Z113  AUTHOR_KEY_COLLISION — duplicate author key across blog author configs
-    Z114  LARGE_PAGINATION_SET — blog pagination set exceeds 200-page threshold (info)
     Z120  UNKNOWN_HTML_ATTRIBUTE — HTML attribute not in Safe-Core list (Polyglot Extractor — v0.17.0)
     Z121  MISSING_OR_EMPTY_HREF  — <a>/<img> tag has no href/src, or it is empty
     Z122  JUMP_LINK_DETECTED     — href="#" detected (placeholder or opaque JS anchor)
@@ -237,15 +235,6 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z110": CodeDefinition("error", 0.0, None),  # CONFIG_SYNTAX_ERROR — malformed TOML
     "Z111": CodeDefinition("error", 0.0, None),  # CONFIG_SCHEMA_ERROR — invalid schema/type
     "Z112": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY
-    # Z113/Z114: confirmed dead code (no live emission site) as of 2026-08-24.
-    # Pending Tech Lead decision (implement vs. deprecate) — see
-    # .claude/state/03-priority-table.md, item "Z113 (AUTHOR_KEY_COLLISION) and
-    # Z114 (LARGE_PAGINATION_SET) Are Both Confirmed Dead Code" for full context.
-    # Do not remove or "fix" without that decision.
-    "Z113": CodeDefinition(
-        "error", 2.0, "structural"
-    ),  # AUTHOR_KEY_COLLISION — ADR-031 paradox resolved
-    "Z114": CodeDefinition("note", 0.0, None),  # LARGE_PAGINATION_SET — informational threshold
     "Z620": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
     # ── Z12x — HTML Integrity (Polyglot Extractor — v0.17.0) ──────────────────
     # Emitted by PolyglotExtractor for raw HTML <a>/<img> tags in Markdown.
@@ -347,8 +336,6 @@ CODE_NAMES: Final[dict[str, str]] = {
     "Z110": "CONFIG_SYNTAX_ERROR",
     "Z111": "CONFIG_SCHEMA_ERROR",
     "Z112": "STALE_ALLOWLIST_ENTRY",
-    "Z113": "AUTHOR_KEY_COLLISION",
-    "Z114": "LARGE_PAGINATION_SET",
     "Z620": "STALE_GLOBAL_SUPPRESSION",
     "Z120": "UNKNOWN_HTML_ATTRIBUTE",
     "Z121": "MISSING_OR_EMPTY_HREF",
@@ -428,8 +415,6 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z110": "Malformed TOML syntax in configuration file (.zenzic.toml)",
     "Z111": "Invalid schema structure or type in configuration file (.zenzic.toml)",
     "Z112": "Stale absolute_path_allowlist entry declared in configuration but never matched by any scanned link",
-    "Z113": "Duplicate author key declared across two or more blog author config files",
-    "Z114": "Blog pagination set exceeds the 200-page informational threshold",
     "Z620": "Global configuration rule was never used during the scan — remove the dead configuration",
     # Z12x — HTML Integrity (Polyglot Extractor — v0.17.0)
     "Z120": "HTML attribute not in Safe-Core list — declare intent or suppress with data-zenzic-ignore",
@@ -638,13 +623,6 @@ CORE_SCANNERS: list[CoreScanner] = [
         codes="Z406",
         name="Nav Contract Enforcer",
         capability="Navigation contract violation — page presence against declared nav structure",
-        primary_exit=1,
-        non_suppressible=False,
-    ),
-    CoreScanner(
-        codes="Z113–114",
-        name="Blog Integrity Guard",
-        capability="Zensical blog integrity — duplicate author keys, large pagination set threshold",
         primary_exit=1,
         non_suppressible=False,
     ),
