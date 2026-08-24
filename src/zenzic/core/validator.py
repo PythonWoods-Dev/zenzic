@@ -1343,7 +1343,7 @@ def validate_links_structured(
         "Z105",
         "Z106",
         "Z108",
-        "Z110",
+        "Z112",
         "Z620",
         "Z120",
         "Z121",

@@ -1712,7 +1712,7 @@ def test_cli_z001_outputs_sarif(
 
 
 def test_stale_allowlist_entry(tmp_path: Path) -> None:
-    """Verify that Z110 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
+    """Verify that Z112 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
     from zenzic.core.validator import validate_links_structured
     from zenzic.models.config import ZenzicConfig
 
@@ -1736,9 +1736,9 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
         check_external=False,
     )
 
-    z110_errors = [e for e in errors if e.error_type == "Z110"]
+    z110_errors = [e for e in errors if e.error_type == "Z112"]
     assert len(z110_errors) == 1
-    assert z110_errors[0].error_type == "Z110"
+    assert z110_errors[0].error_type == "Z112"
     assert "/unused/" in z110_errors[0].message
     assert z110_errors[0].file_path == tmp_path / ".zenzic.toml"
     assert ".zenzic.toml:1: Stale absolute_path_allowlist entry" in z110_errors[0].message
@@ -1757,9 +1757,9 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
         check_external=False,
     )
 
-    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z110"]
+    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z112"]
     assert len(z110_errors_pyproject) == 1
-    assert z110_errors_pyproject[0].error_type == "Z110"
+    assert z110_errors_pyproject[0].error_type == "Z112"
     assert "/unused/" in z110_errors_pyproject[0].message
     assert z110_errors_pyproject[0].file_path == tmp_path / "pyproject.toml"
     assert (

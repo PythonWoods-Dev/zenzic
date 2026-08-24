@@ -1,14 +1,14 @@
 ---
-description: "Analysis of the z110-stale-allowlist scenario: an unused entry in absolute_path_allowlist triggers Z110 STALE_ALLOWLIST_ENTRY."
+description: "Analysis of the z112-stale-allowlist scenario: an unused entry in absolute_path_allowlist triggers Z112 STALE_ALLOWLIST_ENTRY."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Z110 — Stale Allowlist Entry
+# Z112 — Stale Allowlist Entry
 
-**Z-Code:** `Z110 STALE_ALLOWLIST_ENTRY` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
+**Z-Code:** `Z112 STALE_ALLOWLIST_ENTRY` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
-<Z110StaleAllowlist />
+<Z112StaleAllowlist />
 
 ---
 
@@ -42,7 +42,7 @@ zenzic check links --strict
 Expected output:
 
 ```text
-.zenzic.toml:1:1  x  [Z110]  Stale absolute_path_allowlist entry: '/legacy/path/' is never referenced in links.
+.zenzic.toml:1:1  x  [Z112]  Stale absolute_path_allowlist entry: '/legacy/path/' is never referenced in links.
 ```
 
 Exit code: `1` (if run with `--strict` or if `strict = true` is set in config; otherwise exits with `0` as a warning).
@@ -51,7 +51,7 @@ Exit code: `1` (if run with `--strict` or if `strict = true` is set in config; o
 
 ## Interpreting the Output
 
-The `Z110` finding indicates a **STALE_ALLOWLIST_ENTRY** issue.
+The `Z112` finding indicates a **STALE_ALLOWLIST_ENTRY** issue.
 
 - **Scan Tier:** Link Validator / Configuration Hygiene
 - **Severity:** `Warning`

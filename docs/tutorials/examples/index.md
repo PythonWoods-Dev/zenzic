@@ -41,7 +41,7 @@ uvx zenzic lab all       # run all 20 scenarios
 | Z107 | Self-referential anchor link | [z107-circular-anchor](z1xx-links/z107-circular-anchor) |
 | Z108 | Empty link text | [z108-empty-link-text](z1xx-links/z108-empty-link-text) |
 | Z109 | External link is broken | [z109-external-link-broken](z1xx-links/z109-external-link-broken) |
-| Z110 | Stale absolute path allowlist entry | [z110-stale-allowlist](z1xx-links/z110-stale-allowlist) |
+| Z112 | Stale absolute path allowlist entry | [z112-stale-allowlist](z1xx-links/z112-stale-allowlist) |
 | Z201 | Credential / secret detection | [z201-credentials](z2xx-security/z201-credentials) |
 | Z202 | Docs-root path traversal | [z202-path-traversal](z2xx-security/z202-path-traversal) |
 | Z204 | Forbidden governance term | [z204-forbidden-term](z2xx-security/z204-forbidden-term) |

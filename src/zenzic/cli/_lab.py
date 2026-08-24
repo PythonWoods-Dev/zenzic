@@ -114,6 +114,13 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z111-config-schema-error",
         expected_pass=False,
     ),
+    "z112": _Act(
+        code="z112",
+        title="Stale Allowlist Entry",
+        description="Z112 STALE_ALLOWLIST_ENTRY — unused absolute_path_allowlist entry in .zenzic.toml; exit 0 (warning)",
+        example_dir="z112-stale-allowlist",
+        expected_pass=True,
+    ),
     "z620": _Act(
         code="z620",
         title="Stale Global Suppression",

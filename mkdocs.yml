@@ -83,6 +83,7 @@ nav:
         - rules/Z109.md
         - rules/Z110.md
         - rules/Z111.md
+        - rules/Z112.md
         - rules/Z113.md
         - rules/Z114.md
         - rules/Z620.md
@@ -156,7 +157,7 @@ nav:
         - tutorials/examples/z1xx-links/z107-circular-anchor.md
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
-        - tutorials/examples/z1xx-links/z110-stale-allowlist.md
+        - tutorials/examples/z1xx-links/z112-stale-allowlist.md
         - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
         - tutorials/examples/z1xx-links/z121-missing-href.md
         - tutorials/examples/z1xx-links/z122-jump-link.md

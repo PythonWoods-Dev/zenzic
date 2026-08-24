@@ -1451,7 +1451,7 @@ def _run_vsm_and_urp_pass(
                     RuleFinding(
                         target_path,
                         1,
-                        "Z110",
+                        "Z112",
                         f"{target_path.name}:1: Stale absolute_path_allowlist entry '{entry}': no link matched this prefix across all scanned files",
                         severity="warning",
                     )
