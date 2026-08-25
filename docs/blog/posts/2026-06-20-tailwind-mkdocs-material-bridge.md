@@ -35,7 +35,7 @@ Fixed `px` values are immune — `max-w-[1400px]` works correctly. But that is n
 
 **Per-class `!important` overrides.** Same surface area problem as above.
 
-**Server-side body class.** MkDocs Material supports `extra.body_class` in page frontmatter. Adding a per-page variable creates a template coupling: the Jinja2 override must now read page metadata to decide whether to apply a class. The CSS fix becomes load-bearing documentation.
+**Server-side body class.** MkDocs Material has no built-in frontmatter key for setting a per-page body class — achieving the same effect would require a custom MkDocs hook (`on_page_markdown`/`on_post_page`) reading a custom frontmatter field and injecting the class at render time. That's a heavier template coupling than a config key: the Jinja2 override must now depend on custom Python hook code, not just page metadata. The CSS fix becomes load-bearing documentation either way.
 
 ---
 
