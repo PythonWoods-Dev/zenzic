@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
 import zenzic.core.regex as re
-from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, code_severity
 from zenzic.core.exclusion import translate_glob_to_re2
 from zenzic.models.config import ZenzicConfig
 
@@ -378,7 +378,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z617",
-                            severity="warning",
+                            severity=code_severity("Z617"),
                             file_path=file_path,
                             line_no=i,
                             message=(
@@ -439,7 +439,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z618",
-                        severity="warning",
+                        severity=code_severity("Z618"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -504,7 +504,7 @@ class PolicyEvaluator:
             return [
                 RuleFinding(
                     rule_id="Z619",
-                    severity="warning",
+                    severity=code_severity("Z619"),
                     file_path=file_path,
                     line_no=1,
                     message=(
@@ -535,7 +535,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z610",
-                        severity="warning",
+                        severity=code_severity("Z610"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -553,7 +553,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z612",
-                        severity="warning",
+                        severity=code_severity("Z612"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -578,7 +578,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z613",
-                            severity="error",
+                            severity=code_severity("Z613"),
                             file_path=file_path,
                             line_no=1,
                             message=(
@@ -627,7 +627,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z614",
-                            severity="error",
+                            severity=code_severity("Z614"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -659,7 +659,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z611",
-                            severity="warning",
+                            severity=code_severity("Z611"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -705,7 +705,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z615",
-                        severity="warning",
+                        severity=code_severity("Z615"),
                         file_path=file_path,
                         line_no=line_no,
                         message=(
@@ -859,7 +859,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z616",
-                            severity="error",
+                            severity=code_severity("Z616"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(

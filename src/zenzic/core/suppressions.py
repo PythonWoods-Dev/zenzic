@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from zenzic.core import regex as re
-from zenzic.core.codes import NON_INLINE_SUPPRESSIBLE_CODES, NON_SUPPRESSIBLE_CODES
+from zenzic.core.codes import (
+    NON_INLINE_SUPPRESSIBLE_CODES,
+    NON_SUPPRESSIBLE_CODES,
+    code_severity,
+)
 from zenzic.core.sovereign_context import get_sovereign_context
 
 
@@ -163,7 +167,7 @@ class SuppressionTracker:
                         line_no=d.line_no,
                         rule_id="Z603",
                         message=msg,
-                        severity="warning",
+                        severity=code_severity("Z603"),
                     )
                 )
         return findings
@@ -259,7 +263,7 @@ class GlobalUsageTracker:
                         line_no=line_no,
                         rule_id="Z620",
                         message=f"Global policy '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
-                        severity="warning",
+                        severity=code_severity("Z620"),
                     )
                 )
 
@@ -271,7 +275,7 @@ class GlobalUsageTracker:
                     line_no=line_no,
                     rule_id="Z620",
                     message=f"Excluded file pattern '{pattern}' did not match any files during traversal.",
-                    severity="warning",
+                    severity=code_severity("Z620"),
                 )
             )
 
@@ -284,7 +288,7 @@ class GlobalUsageTracker:
                         line_no=line_no,
                         rule_id="Z620",
                         message=f"Excluded external URL '{url}' was never skipped (the URL was not found in checked files).",
-                        severity="warning",
+                        severity=code_severity("Z620"),
                     )
                 )
 

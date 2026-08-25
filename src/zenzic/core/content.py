@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import zenzic.core.regex as re
+from zenzic.core.codes import code_severity
 
 
 if TYPE_CHECKING:
@@ -75,7 +76,7 @@ def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
                 findings.append(
                     RuleFinding(
                         rule_id="Z510",
-                        severity="warning",
+                        severity=code_severity("Z510"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -210,7 +211,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
                 findings.append(
                     RuleFinding(
                         rule_id="Z511",
-                        severity="warning",
+                        severity=code_severity("Z511"),
                         file_path=file_path,
                         line_no=start_line,
                         message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
@@ -307,7 +308,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                 findings.append(
                     RuleFinding(
                         rule_id="Z512",
-                        severity="warning",
+                        severity=code_severity("Z512"),
                         file_path=file_path,
                         line_no=current_heading_line,
                         message=f"Heading section '{current_heading}' contains no body content before next section or EOF.",
@@ -329,7 +330,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
         findings.append(
             RuleFinding(
                 rule_id="Z512",
-                severity="warning",
+                severity=code_severity("Z512"),
                 file_path=file_path,
                 line_no=current_heading_line,
                 message=f"Heading section '{current_heading}' contains no body content before next section or EOF.",
@@ -439,7 +440,7 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 findings.append(
                     RuleFinding(
                         rule_id="Z513",
-                        severity="warning",
+                        severity=code_severity("Z513"),
                         file_path=file_path,
                         line_no=i,
                         message=f"Duplicate heading '{clean_title}' found (first occurrence at line {first_line}).",
@@ -493,7 +494,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
                 findings.append(
                     RuleFinding(
                         rule_id="Z514",
-                        severity="warning",
+                        severity=code_severity("Z514"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -515,7 +516,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
                     findings.append(
                         RuleFinding(
                             rule_id="Z514",
-                            severity="warning",
+                            severity=code_severity("Z514"),
                             file_path=file_path,
                             line_no=i,
                             message=(
@@ -578,7 +579,7 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
             findings.append(
                 RuleFinding(
                     rule_id="Z515",
-                    severity="warning",
+                    severity=code_severity("Z515"),
                     file_path=file_path,
                     line_no=i,
                     message=(
@@ -629,7 +630,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 findings.append(
                     RuleFinding(
                         rule_id="Z516",
-                        severity="error",
+                        severity=code_severity("Z516"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -650,7 +651,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 findings.append(
                     RuleFinding(
                         rule_id="Z516",
-                        severity="error",
+                        severity=code_severity("Z516"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -700,7 +701,7 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
                 findings.append(
                     RuleFinding(
                         rule_id="Z517",
-                        severity="warning",
+                        severity=code_severity("Z517"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -781,7 +782,7 @@ def check_all_heading_rules(
                 findings.append(
                     RuleFinding(
                         rule_id="Z510",
-                        severity="warning",
+                        severity=code_severity("Z510"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -800,7 +801,7 @@ def check_all_heading_rules(
                     findings.append(
                         RuleFinding(
                             rule_id="Z513",
-                            severity="warning",
+                            severity=code_severity("Z513"),
                             file_path=file_path,
                             line_no=i,
                             message=f"Duplicate heading '{clean_title}' found (first occurrence at line {seen_headings[norm_title]}).",
@@ -818,7 +819,7 @@ def check_all_heading_rules(
                     findings.append(
                         RuleFinding(
                             rule_id="Z516",
-                            severity="error",
+                            severity=code_severity("Z516"),
                             file_path=file_path,
                             line_no=i,
                             message=(
@@ -835,7 +836,7 @@ def check_all_heading_rules(
                 findings.append(
                     RuleFinding(
                         rule_id="Z517",
-                        severity="warning",
+                        severity=code_severity("Z517"),
                         file_path=file_path,
                         line_no=i,
                         message=(
@@ -857,7 +858,7 @@ def check_all_heading_rules(
                     findings.append(
                         RuleFinding(
                             rule_id="Z516",
-                            severity="error",
+                            severity=code_severity("Z516"),
                             file_path=file_path,
                             line_no=i,
                             message=(
@@ -929,7 +930,7 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
             findings.append(
                 RuleFinding(
                     rule_id="Z518",
-                    severity="warning",
+                    severity=code_severity("Z518"),
                     file_path=file_path,
                     line_no=i,
                     message=(
@@ -993,7 +994,7 @@ def check_weasel_words(
             findings.append(
                 RuleFinding(
                     rule_id="Z519",
-                    severity="warning",
+                    severity=code_severity("Z519"),
                     file_path=file_path,
                     line_no=i,
                     message=(
@@ -1113,7 +1114,7 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
             findings.append(
                 RuleFinding(
                     rule_id="Z520",
-                    severity="warning",
+                    severity=code_severity("Z520"),
                     file_path=file_path,
                     line_no=first_line_no,
                     message=(
@@ -1173,7 +1174,7 @@ def check_required_table_columns(
                             findings.append(
                                 RuleFinding(
                                     rule_id="Z521",
-                                    severity="warning",
+                                    severity=code_severity("Z521"),
                                     file_path=file_path,
                                     line_no=child.line_no,
                                     message=(
@@ -1237,7 +1238,7 @@ def check_table_cell_enums(
                         findings.append(
                             RuleFinding(
                                 rule_id="Z522",
-                                severity="warning",
+                                severity=code_severity("Z522"),
                                 file_path=file_path,
                                 line_no=line_no,
                                 message=(
@@ -1298,7 +1299,7 @@ def check_heading_order(
                     findings.append(
                         RuleFinding(
                             rule_id="Z523",
-                            severity="warning",
+                            severity=code_severity("Z523"),
                             file_path=file_path,
                             line_no=i,
                             message=(
