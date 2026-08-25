@@ -84,7 +84,7 @@ Zenzic fits alongside your existing formatting and prose tooling without overlap
 | **AST Table Contract Enforcement (Columns/Enums)** | :material-minus-circle-outline: Out of Scope | :material-minus-circle-outline: Out of Scope | :material-check-circle:{ .zenzic-score-100 } Native SDD Engine (`Z521`, `Z522`) |
 | **Heading Structure & Sequential Templates** | :material-minus-circle-outline: Out of Scope | :material-minus-circle-outline: Out of Scope | :material-check-circle:{ .zenzic-score-100 } Native SDD Engine (`Z523`) |
 | **Multi-Namespace Graph Traceability** | :material-minus-circle-outline: Out of Scope | :material-minus-circle-outline: Out of Scope | :material-check-circle:{ .zenzic-score-100 } Native VSM Topology (`Z412`) |
-| **Zero-Leak Secret & Privacy Gate (Exit 2/3)** | :material-minus-circle-outline: Out of Scope | :material-minus-circle-outline: Out of Scope | :material-check-circle:{ .zenzic-score-100 } Native Security Engine (`Z201`–`Z205`) |
+| **Zero-Leak Secret & Privacy Gate (Non-Suppressible)** | :material-minus-circle-outline: Out of Scope | :material-minus-circle-outline: Out of Scope | :material-check-circle:{ .zenzic-score-100 } Native Security Engine (`Z201`–`Z205`) |
 | **Deterministic DQS Mathematical Score (0–100)** | :material-minus-circle-outline: Out of Scope | :material-minus-circle-outline: Out of Scope | :material-check-circle:{ .zenzic-score-100 } Native Algorithmic Ledger |
 
 ¹ *Note: Zenzic's editorial policy checks (such as passive voice `Z518` and weasel words `Z519`) are lightweight RE2-based regex heuristics designed for fast CI guardrails, not full natural language grammar parsing.*

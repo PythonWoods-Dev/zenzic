@@ -250,7 +250,10 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z124": CodeDefinition("error", 1.0, "structural"),  # OPAQUE_HTML_CONTEXT
     # ── Z2xx — Security ───────────────────────────────────────────────────────
     # Score collapses to 0 via Security Override; never in DQS category bucket.
-    # Exit codes 2–3; non-suppressible (see NON_SUPPRESSIBLE_CODES).
+    # All five are non-suppressible (see NON_SUPPRESSIBLE_CODES). Exit codes are
+    # NOT uniform across the range: Z201/Z204/Z205 -> Exit 2, Z203 -> Exit 3,
+    # but Z202 deliberately stays at plain Exit 1 (see ZenzicExitCode's
+    # docstring and tests/test_cli.py::test_z202_still_maps_to_plain_error).
     "Z201": CodeDefinition("error", 0.0, None),  # CREDENTIAL_SECRET
     "Z202": CodeDefinition("error", 0.0, None),  # PATH_TRAVERSAL
     "Z203": CodeDefinition("error", 0.0, None),  # PATH_TRAVERSAL_FATAL
