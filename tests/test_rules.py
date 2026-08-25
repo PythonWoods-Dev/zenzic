@@ -1688,7 +1688,10 @@ class TestCircularAnchorRule:
         assert len(findings) == 1
         assert findings[0].rule_id == "Z107"
         assert findings[0].line_no == 1
-        assert findings[0].severity == "warning"
+        # "error" per codes.py's CODE_DEFINITIONS (the SSoT) -- this used to
+        # assert "warning", locking in a hardcoded-severity bug (fixed in
+        # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP).
+        assert findings[0].severity == "error"
 
     def test_z107_matches_multi_word_anchor(self) -> None:
         """[Foo Bar](#foo-bar) → slug('Foo Bar') == 'foo-bar' → Z107."""

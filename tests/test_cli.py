@@ -196,13 +196,18 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     # to hardcode severity="error" here, which caused every snippet syntax
     # error to hard-fail unconditionally (fixed in
     # V031_SEVERITY_HARDCODE_ARCHITECTURAL_REMEDIATION, same bug shape as
-    # Z301/Z406). `check snippets` has no --strict flag at all, so a warning
-    # can never be promoted to a hard failure on this subcommand -- tracked
-    # separately as its own gap, not fixed here.
+    # Z301/Z406). `check snippets` originally had no --strict flag at all,
+    # so a warning could never be promoted to a hard failure on this
+    # subcommand -- that gap is closed in
+    # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP, verified below.
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
     assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z503" in result.stdout
+
+    result_strict = runner.invoke(app, ["check", "snippets", "--strict"])
+    assert result_strict.exit_code == 1
+    assert "Z503" in result_strict.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -264,10 +269,20 @@ def test_check_placeholders_with_findings(_refs, _cfg, _root) -> None:
     ]
     _refs.return_value = ([rep], [])
 
+    # check_placeholders used to hardcode strict=True unconditionally --
+    # every warning-level finding hard-failed even without --strict, and the
+    # reporter would misleadingly print "Warnings promoted to errors via
+    # --strict flag" even though no such flag was passed. Fixed in
+    # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP: strict is now a real,
+    # gated flag, default False, consistent with check_links/check_all.
     result = runner.invoke(app, ["check", "placeholders"])
-    assert result.exit_code == 1
+    assert result.exit_code == 0
     assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z502" in result.stdout
+
+    result_strict = runner.invoke(app, ["check", "placeholders", "--strict"])
+    assert result_strict.exit_code == 1
+    assert "Z502" in result_strict.stdout
 
 
 # ---------------------------------------------------------------------------

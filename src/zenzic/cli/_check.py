@@ -466,6 +466,12 @@ def check_orphans(
 
 @check_app.command(name="snippets")
 def check_snippets(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
@@ -496,6 +502,7 @@ def check_snippets(
     if ci or quiet:
         no_header = True
     if ci:
+        strict = True
         if output_format == "text":
             output_format = "github-annotations"
 
@@ -551,7 +558,8 @@ def check_snippets(
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
         errors_count = sum(1 for f in findings if f.severity == "error")
-        if errors_count:
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
@@ -559,7 +567,8 @@ def check_snippets(
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
-        if errors_count:
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
 
@@ -588,7 +597,7 @@ def check_snippets(
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
-    if errors:
+    if errors > 0 or (strict and warnings > 0):
         raise typer.Exit(1)
 
 
@@ -942,6 +951,12 @@ def check_assets(
 
 @check_app.command(name="placeholders")
 def check_placeholders(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
@@ -972,6 +987,7 @@ def check_placeholders(
     if ci or quiet:
         no_header = True
     if ci:
+        strict = True
         if output_format == "text":
             output_format = "github-annotations"
 
@@ -1054,12 +1070,12 @@ def check_placeholders(
             docs_count=docs_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-            strict=True,
+            strict=strict,
             ok_message="No placeholder stubs found.",
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
-    if errors or warnings:
+    if errors > 0 or (strict and warnings > 0):
         raise typer.Exit(1)
 
 

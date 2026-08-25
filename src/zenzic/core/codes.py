@@ -98,7 +98,7 @@ Z9xx — Engine / System
 
 from __future__ import annotations
 
-from typing import Final, NamedTuple
+from typing import Final, Literal, NamedTuple, cast
 
 
 # ── Code Definition — Single Source of Truth ─────────────────────────────────
@@ -318,6 +318,32 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
     "Z906": CodeDefinition("note", 0.0, None),  # NO_FILES_FOUND
 }
+
+
+def code_severity(code: str) -> Literal["error", "warning", "info"]:
+    """Return *code*'s ``CODE_DEFINITIONS`` severity, translated to the
+    vocabulary Core finding objects accept: ``"error"``, ``"warning"``, or
+    ``"info"`` (``CODE_DEFINITIONS`` itself stores the third state as
+    ``"note"`` -- this is not a CLI-only display overlay, ``rules.py``'s own
+    ``RuleFinding.severity`` is typed ``Literal["error", "warning", "info"]``
+    and has never accepted ``"note"``).
+
+    This is the Core-layer SSoT lookup for any subsystem that constructs a
+    finding object and needs its severity (e.g. ``rules.py``'s
+    ``RuleFinding``). The Z2xx security-breach/security-incident
+    reclassification is a separate, CLI-layer-only concern -- see
+    ``_check.py``'s ``_finding_severity()`` for that translation.
+
+    Raises:
+        KeyError: if *code* is not a registered code. Every call site here
+            passes a hardcoded, known-valid code literal (e.g. ``"Z107"``),
+            so an unknown code is a bug in the caller, not a runtime
+            condition to silently default around.
+    """
+    severity = CODE_DEFINITIONS[code].severity
+    if severity == "note":
+        return "info"
+    return cast(Literal["error", "warning"], severity)
 
 
 #: Human-readable name for each code (for report headers).

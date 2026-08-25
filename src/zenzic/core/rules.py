@@ -72,6 +72,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.sovereign_context import get_sovereign_context
 
@@ -584,7 +585,7 @@ class AdaptiveRuleEngine:
                         line_no=0,
                         rule_id="Z902",
                         message=(f"Rule '{rule.rule_id}' exceeded execution limit: {exc.message}"),
-                        severity="error",
+                        severity=code_severity("Z902"),
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -597,7 +598,7 @@ class AdaptiveRuleEngine:
                             f"Rule '{rule.rule_id}' raised an unexpected exception: "
                             f"{type(exc).__name__}: {exc}"
                         ),
-                        severity="error",
+                        severity=code_severity("Z901"),
                     )
                 )
         return findings
@@ -681,7 +682,7 @@ class AdaptiveRuleEngine:
                         message=(
                             f"Rule '{rule.rule_id}' exceeded execution limit in check_vsm: {exc.message}"
                         ),
-                        severity="error",
+                        severity=code_severity("Z902"),
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -694,7 +695,7 @@ class AdaptiveRuleEngine:
                             f"Rule '{rule.rule_id}' raised an unexpected exception "
                             f"in check_vsm: {type(exc).__name__}: {exc}"
                         ),
-                        severity="error",
+                        severity=code_severity("Z901"),
                     )
                 )
         return findings
@@ -844,7 +845,7 @@ class CircularAnchorRule(BaseRule):
                                 f"'[{link_text}](#{fragment})' slugifies to its own fragment. "
                                 "Replace with a meaningful target or remove the link."
                             ),
-                            severity="warning",
+                            severity=code_severity("Z107"),
                             matched_line=line,
                             col_start=m.start(),
                             match_text=m.group(0),
@@ -897,7 +898,7 @@ class UntaggedCodeBlockRule(BaseRule):
                                     "Add a language tag (e.g. ```python, ```bash, ```toml) "
                                     "to enable syntax highlighting and snippet validation."
                                 ),
-                                severity="warning",
+                                severity=code_severity("Z505"),
                                 matched_line=line,
                                 col_start=0,
                                 match_text=line.rstrip(),
@@ -958,7 +959,7 @@ class MalformedFrontmatterRule(BaseRule):
                         "frontmatter block; 'template:', 'title:', and all metadata "
                         "directives will be ignored by most engines otherwise."
                     ),
-                    severity="error",
+                    severity=code_severity("Z506"),
                     matched_line=first_line,
                     col_start=0,
                     match_text=stripped,
@@ -1057,7 +1058,7 @@ class BrandObsolescenceRule(BaseRule):
                             f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
                             "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
                         ),
-                        severity="warning",
+                        severity=code_severity("Z601"),
                         matched_line=line,
                         col_start=m.start(),
                         match_text=m.group(0),
@@ -1178,7 +1179,7 @@ class CredentialScannerRule(BaseRule):
                 findings.append(
                     RuleFinding(
                         rule_id="Z201",
-                        severity="error",
+                        severity=code_severity("Z201"),
                         file_path=file_path,
                         line_no=sec.line_no,
                         match_text=sec.match_text,
@@ -1204,7 +1205,7 @@ class EmptyLinkRule(BaseRule):
             findings.append(
                 RuleFinding(
                     rule_id="Z108",
-                    severity="error",
+                    severity=code_severity("Z108"),
                     file_path=file_path,
                     line_no=lineno,
                     col_start=col_start,
@@ -1240,7 +1241,7 @@ class MissingAltTextRule(BaseRule):
                     findings.append(
                         RuleFinding(
                             rule_id="Z403",
-                            severity="warning",
+                            severity=code_severity("Z403"),
                             file_path=file_path,
                             line_no=lineno,
                             message=f"Image '{url}' has no alt text.",
@@ -1257,7 +1258,7 @@ class MissingAltTextRule(BaseRule):
                     findings.append(
                         RuleFinding(
                             rule_id="Z403",
-                            severity="warning",
+                            severity=code_severity("Z403"),
                             file_path=file_path,
                             line_no=lineno,
                             message=f"HTML <img> tag has no alt text: {src[:60]}",
@@ -1290,7 +1291,7 @@ class ShortContentRule(BaseRule):
             return [
                 RuleFinding(
                     rule_id="Z502",
-                    severity="warning",
+                    severity=code_severity("Z502"),
                     file_path=file_path,
                     line_no=_first_content_line(text),
                     message=f"Page has only {visible} words (minimum {self.min_words}).",
@@ -1337,7 +1338,7 @@ class PlaceholderRule(BaseRule):
                     findings.append(
                         RuleFinding(
                             rule_id="Z501",
-                            severity="warning",
+                            severity=code_severity("Z501"),
                             file_path=file_path,
                             line_no=i,
                             message=f"Found placeholder text matching pattern: '{pattern.pattern}'",
