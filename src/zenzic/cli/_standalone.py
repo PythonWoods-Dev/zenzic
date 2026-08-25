@@ -1122,7 +1122,7 @@ def explain(
             "Z601": [("governance.brand_obsolescence", "brand_obsolescence list")],
             "Z204": [("forbidden_patterns", "forbidden_patterns list")],
             "Z501": [("placeholder_patterns", "placeholder_patterns list")],
-            "Z502": [("short_content_threshold", "short_content_threshold")],
+            "Z502": [("placeholder_max_words", "placeholder_max_words (minimum word count)")],
             "Z402": [("excluded_dirs", "excluded_dirs (removes pages from nav scope)")],
         }
         # Global: .zenzic.toml presence
@@ -1184,6 +1184,14 @@ def explain(
                                 "Rule fires on default patterns.",
                             )
                         )
+                elif val is not None:
+                    genealogy_rows.append(
+                        (
+                            f"  {label}",
+                            f"[yellow]{val}[/]",
+                            "Configured value for this rule.",
+                        )
+                    )
 
         # Per-file suppression status for this rule
         suppressed_patterns = [
