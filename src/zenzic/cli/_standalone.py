@@ -29,15 +29,13 @@ from zenzic.core.scanner import (
     find_repo_root,
 )
 from zenzic.core.scorer import (
+    _SNAPSHOT_FILENAME as _SCORE_SNAPSHOT_FILENAME,
     DEFAULT_BASELINE_STALE_DAYS,
     CategoryScore,
     ScoreReport,
     compute_score,
     load_snapshot,
     save_snapshot,
-)
-from zenzic.core.scorer import (
-    _SNAPSHOT_FILENAME as _SCORE_SNAPSHOT_FILENAME,
 )
 from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
@@ -210,9 +208,7 @@ def _compute_baseline_freshness(repo_root: Path, config: ZenzicConfig) -> tuple[
     return status, age_days
 
 
-def _compute_score_trend(
-    repo_root: Path, current_score: int
-) -> dict[str, int] | None:
+def _compute_score_trend(repo_root: Path, current_score: int) -> dict[str, int] | None:
     """Compare the current score against the saved snapshot, if one exists.
 
     Reuses ``load_snapshot()`` — the same JSON file already touched by
