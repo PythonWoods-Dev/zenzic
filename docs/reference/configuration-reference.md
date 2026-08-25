@@ -238,14 +238,12 @@ Case-insensitive strings that flag a page as containing placeholder text.
     ```
     To add a custom regex while keeping the defaults, you must explicitly re-declare the default patterns alongside your new ones.
 
-The default list includes both English and Italian patterns:
+The default list:
 
 ```toml
 # Default patterns (shown for reference — override to customise)
 placeholder_patterns = [
-  "\\btodo\\b", "\\bfixme\\b", "\\bwip\\b", "\\btbd\\b",
-  "\\bstub\\b", "\\bda completare\\b", "\\bin costruzione\\b",
-  "\\bin lavorazione\\b", "\\bbozza\\b", "\\bprossimamente\\b"
+  '\btodo\b', '\bfixme\b', '\bwip\b', '\btbd\b'
 ]
 ```
 
