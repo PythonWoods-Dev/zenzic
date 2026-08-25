@@ -394,7 +394,7 @@ by Zenzic when the Zensical engine is active.  Links to these resources are flag
 docs/
 ├── index.md
 ├── features.md
-└── _private/           ← Zensical ignores this directory entirely
+└── _private/           ← Zenzic's ZensicalAdapter ignores this directory entirely
     └── notes.md        ← links to this file → UNREACHABLE_LINK
 ```
 
@@ -413,9 +413,12 @@ This rule applies to any path segment starting with `_`:
 | `_drafts/test.md` | `IGNORED` → `UNREACHABLE_LINK` |
 | `public/page.md` | `REACHABLE` — served normally |
 
-!!! note "MkDocs does not have this rule"
-    MkDocs does not treat underscore-prefixed directories as private.  Only Zensical
-    enforces the `_`-prefix convention.  When switching engines, audit any `_`-prefixed
+!!! note "This is Zenzic's own convention, not a Zensical platform feature"
+    Neither MkDocs nor Zensical itself treats underscore-prefixed directories as private —
+    verified against Zensical's own official documentation, which describes no such
+    convention. This is a modeling choice Zenzic's `ZensicalAdapter` applies internally
+    (`_zensical.py`) when the Zensical engine is active; MkDocs-engine and Standalone-engine
+    projects are unaffected. When switching engines, audit any `_`-prefixed
     directories in your docs tree.
 
 ---
