@@ -1227,56 +1227,89 @@ def generate_virtual_site_map(
 def check_nav_contract(
     repo_root: Path,
     exclusion_manager: LayeredExclusionManager,
+    engine: str = "mkdocs",
 ) -> list[str]:
-    """Validate ``extra.alternate`` links against the Virtual Site Map.
+    """Validate alternate-language links against the Virtual Site Map.
 
-    Loads ``mkdocs.yml``, projects the full set of URLs the build engine will
-    generate via :func:`generate_virtual_site_map`, then checks that every
-    ``extra.alternate`` link resolves to a URL that exists in that map.
+    Loads the active engine's config -- ``mkdocs.yml``'s ``extra.alternate``
+    for ``engine="mkdocs"``, or ``zensical.toml``'s ``[project.extra].alternate``
+    for ``engine="zensical"`` (confirmed structurally identical -- same
+    name/link/lang shape per entry -- against Zensical's own official docs,
+    zensical.org/docs/setup/language/) -- projects the full set of URLs the
+    build engine will generate via :func:`generate_virtual_site_map`, then
+    checks that every alternate link resolves to a URL that exists in that
+    map.
 
     No heuristics, no regex on URL patterns.  If a link is not in the VSM,
     it is a 404 — regardless of *why* the author wrote it.
 
     Args:
         repo_root: Repository root directory.
+        engine: Active build engine ("mkdocs" or "zensical"). Determines
+            which config file and alternate-links field are read.
 
     Returns:
         List of human-readable error strings (empty = no violations).
     """
-    from zenzic.core.adapter import find_config_file
-
     errors: list[str] = []
-    config_file = find_config_file(repo_root)
-    if config_file is None:
-        return errors
-    with config_file.open(encoding="utf-8") as f:
-        try:
-            doc_config: dict[str, Any] = (
-                yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
-            )
-        except yaml.YAMLError:
-            return errors
 
-    # ── Extract docs_structure ────────────────────────────────────────────────
-    docs_structure: str = "suffix"  # default assumption
-    plugins = doc_config.get("plugins", [])
-    if isinstance(plugins, list):
-        for plugin in plugins:
-            if not isinstance(plugin, dict):
-                continue
-            i18n = plugin.get("i18n")
-            if not isinstance(i18n, dict):
-                continue
-            docs_structure = i18n.get("docs_structure", "suffix")
-            break
+    if engine == "zensical":
+        from zenzic.core.adapters._zensical import find_zensical_config
+
+        config_file = find_zensical_config(repo_root)
+        if config_file is None:
+            return errors
+        try:
+            with config_file.open("rb") as f:
+                doc_config: dict[str, Any] = tomllib.load(f) or {}
+        except (tomllib.TOMLDecodeError, OSError):
+            return errors
+        project = doc_config.get("project")
+        if not isinstance(project, dict):
+            project = {}
+        docs_dir = project.get("docs_dir", "docs")
+        # Zensical i18n directory-structure ("suffix" vs "folder") detection
+        # is out of this fix's scope -- "suffix" is the same default already
+        # assumed for mkdocs when no i18n plugin config is present.
+        docs_structure = "suffix"
+        extra = project.get("extra") or {}
+        source_label = "zensical.toml [project.extra].alternate"
+    else:
+        from zenzic.core.adapter import find_config_file
+
+        config_file = find_config_file(repo_root)
+        if config_file is None:
+            return errors
+        with config_file.open(encoding="utf-8") as f:
+            try:
+                doc_config = (
+                    yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
+                )
+            except yaml.YAMLError:
+                return errors
+
+        # ── Extract docs_structure ────────────────────────────────────────
+        docs_structure = "suffix"  # default assumption
+        plugins = doc_config.get("plugins", [])
+        if isinstance(plugins, list):
+            for plugin in plugins:
+                if not isinstance(plugin, dict):
+                    continue
+                i18n = plugin.get("i18n")
+                if not isinstance(i18n, dict):
+                    continue
+                docs_structure = i18n.get("docs_structure", "suffix")
+                break
+
+        docs_dir = doc_config.get("docs_dir", "docs")
+        extra = doc_config.get("extra") or {}
+        source_label = "mkdocs.yml extra.alternate"
 
     # ── Build the Virtual Site Map ────────────────────────────────────────────
-    docs_dir = doc_config.get("docs_dir", "docs")
     docs_root_path = repo_root / docs_dir
     vsm = generate_virtual_site_map(docs_root_path, docs_structure, exclusion_manager)
 
-    # ── Validate every extra.alternate link against the VSM ──────────────────
-    extra = doc_config.get("extra") or {}
+    # ── Validate every alternate link against the VSM ─────────────────────────
     alternate = extra.get("alternate", []) if isinstance(extra, dict) else []
     if not isinstance(alternate, list):
         return errors
@@ -1292,7 +1325,7 @@ def check_nav_contract(
         normalised = link if link.endswith("/") else link + "/"
         if normalised not in vsm:
             errors.append(
-                f"mkdocs.yml extra.alternate[{lang}]: link '{link}' does not "
+                f"{source_label}[{lang}]: link '{link}' does not "
                 f"correspond to any URL the build engine will generate. "
                 f"The Virtual Site Map contains no entry for '{normalised}'. "
                 f"Use a path that maps to an existing source file "

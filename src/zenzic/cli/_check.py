@@ -1353,7 +1353,13 @@ def _collect_all_results(
             orphans=orphans,
             snippet_errors=snippet_errors,
             unused_assets=unused_assets,
-            nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
+            nav_contract_errors=check_nav_contract(
+                repo_root,
+                exclusion_mgr,
+                engine=config.build_context.engine
+                if hasattr(config, "build_context")
+                else "mkdocs",
+            ),
             reference_reports=ref_reports,
             security_events=security_events,
             directory_index_issues=find_missing_directory_indices(
