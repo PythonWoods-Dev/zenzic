@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from zenzic.core import regex as re
-from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+from zenzic.core.codes import NON_INLINE_SUPPRESSIBLE_CODES, NON_SUPPRESSIBLE_CODES
 from zenzic.core.sovereign_context import get_sovereign_context
 
 
@@ -114,6 +114,14 @@ class SuppressionTracker:
         if code in NON_SUPPRESSIBLE_CODES:
             return False
 
+        # ADR-093: graph-level and file-level findings cannot be suppressed
+        # via inline comments -- only .zenzic.toml governance applies. Same
+        # mechanism as NON_SUPPRESSIBLE_CODES above: leave the directive
+        # unconsumed so get_dead_suppressions() reports it as Z603, with a
+        # message distinguishing this cause from an ordinary dead comment.
+        if code in NON_INLINE_SUPPRESSIBLE_CODES:
+            return False
+
         code = code.upper()
 
         # If the finding is already globally suppressed, do NOT consume the inline directive.
@@ -141,6 +149,12 @@ class SuppressionTracker:
             if not d.consumed:
                 if d.code == "DATA-ZENZIC-IGNORE":
                     msg = "data-zenzic-ignore attribute does not suppress any active html hygiene finding. Remove the dead attribute."
+                elif d.code in NON_INLINE_SUPPRESSIBLE_CODES:
+                    msg = (
+                        f"{d.code} cannot be suppressed via inline comments (ADR-093) -- "
+                        "it is governed only through .zenzic.toml's directory_policies or "
+                        "per_file_ignores. Remove this comment and use TOML governance instead."
+                    )
                 else:
                     msg = "Inline suppression directive does not suppress any active finding. Remove the dead comment."
                 findings.append(

@@ -193,6 +193,157 @@ class TestZ603DeadSuppression:
 
 
 # ---------------------------------------------------------------------------
+# V031_ADR093_ENFORCEMENT_FIX — NON_INLINE_SUPPRESSIBLE_CODES enforcement
+# ---------------------------------------------------------------------------
+#
+# ADR-093 declares Z401, Z402, Z404, Z405, Z406, Z410, Z411, Z412, Z620
+# "CANNOT be suppressed via inline comments" -- but until this fix,
+# is_suppressed() never consulted NON_INLINE_SUPPRESSIBLE_CODES at all, so
+# an inline directive for Z410/Z411 was silently honored (their
+# RuleFinding construction sites in scanner.py do call is_suppressed()).
+# The other 7 codes were safe only by accident -- nothing in their
+# construction path calls is_suppressed() at all -- not by design.
+#
+# Mirrors the existing NON_SUPPRESSIBLE_CODES precedent (Scenario C above)
+# exactly: is_suppressed() returns False, the directive is left unconsumed,
+# and get_dead_suppressions() reports it as Z603 -- but with a distinct,
+# ADR-093-specific message so a user sees *why* their comment did nothing
+# (governed only via .zenzic.toml), not the generic "no active finding"
+# text meant for a genuinely stale/mistargeted comment.
+
+
+class TestNonInlineSuppressibleCodesEnforcement:
+    """Scenario D: ADR-093 -- NON_INLINE_SUPPRESSIBLE_CODES is now enforced
+    by is_suppressed(), not just referenced by LSP CodeAction gating.
+    """
+
+    def test_d_z410_inline_directive_never_suppresses_and_is_flagged_dead(self) -> None:
+        """Z410 is in NON_INLINE_SUPPRESSIBLE_CODES: is_suppressed() must
+        return False (the finding still surfaces) and the directive must be
+        reported as Z603 with the ADR-093-specific message, not silently
+        honored -- this is the exact live bug this directive closes.
+        """
+        text = "# Orphaned page\n<!-- zenzic:ignore: Z410 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        assert len(tracker.directives) == 1
+        assert tracker.directives[0].code == "Z410"
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z410")
+        assert suppressed is False
+
+        assert tracker.directives[0].consumed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert dead[0].line_no == 2
+        assert "ADR-093" in dead[0].message
+        assert "directory_policies" in dead[0].message or "per_file_ignores" in dead[0].message
+
+    def test_d_z411_inline_directive_never_suppresses_and_is_flagged_dead(self) -> None:
+        """Same as Z410, for Z411 -- the second confirmed-exploitable code."""
+        text = "# Dead-end page\n<!-- zenzic:ignore: Z411 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z411")
+        assert suppressed is False
+        assert tracker.directives[0].consumed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+
+    def test_d_z412_inline_directive_never_suppresses_by_design_not_accident(self) -> None:
+        """Z412 was safe today only because its construction site never
+        calls is_suppressed() -- not because the invariant was enforced.
+        This proves is_suppressed() itself is now correct for Z412 too, so
+        a future refactor that wires Z412's construction through
+        is_suppressed() (e.g. "for consistency with Z410/Z411") cannot
+        silently reintroduce the exploit.
+        """
+        text = "# Traceability-broken page\n<!-- zenzic:ignore: Z412 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z412")
+        assert suppressed is False
+        assert tracker.directives[0].consumed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+
+    def test_d_z401_inline_directive_never_suppresses(self) -> None:
+        """One representative of the 5 remaining NON_INLINE_SUPPRESSIBLE_CODES
+        members (Z401, Z402, Z404, Z405, Z406) not individually exercised
+        above -- same enforcement, same message contract.
+        """
+        text = "# Directory missing an index\n<!-- zenzic:ignore: Z401 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z401")
+        assert suppressed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+
+    def test_d_z620_inline_directive_never_suppresses(self) -> None:
+        """Z620 (STALE_GLOBAL_SUPPRESSION) is also in
+        NON_INLINE_SUPPRESSIBLE_CODES. It is a TOML-config-level staleness
+        check with no realistic inline-comment use case, but is_suppressed()
+        must still be correct for it -- same mechanism, no special-casing.
+        """
+        text = "# Some page\n<!-- zenzic:ignore: Z620 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z620")
+        assert suppressed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+
+    def test_d_generic_dead_suppression_message_unchanged_for_ordinary_codes(self) -> None:
+        """Regression guard: an ordinary suppressible code (Z101) whose
+        directive was never consumed because no matching finding existed
+        must still get the *original* generic message -- the two Z603
+        causes (no active finding vs. non-inline-suppressible code) must
+        remain distinguishable, not collapse into one message.
+        """
+        text = "[Valid link](./other.md) <!-- zenzic:ignore: Z101 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        # is_suppressed() is never called for Z101 here (no Z101 finding to
+        # check against) -- directive stays unconsumed, same as Scenario A.
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert dead[0].message == (
+            "Inline suppression directive does not suppress any active finding. "
+            "Remove the dead comment."
+        )
+        assert "ADR-093" not in dead[0].message
+
+    def test_d_lsp_code_action_gating_consumers_unaffected(self) -> None:
+        """The two existing NON_INLINE_SUPPRESSIBLE_CODES consumers
+        (lsp/server.py's CodeAction gating) are independent of
+        is_suppressed() -- they import the frozenset directly, not through
+        SuppressionTracker. This fix adds a second, CLI-side consumer; it
+        does not touch or remove the LSP-side one.
+        """
+        from zenzic.core.codes import NON_INLINE_SUPPRESSIBLE_CODES
+
+        assert "Z410" in NON_INLINE_SUPPRESSIBLE_CODES
+        assert "Z411" in NON_INLINE_SUPPRESSIBLE_CODES
+        assert "Z412" in NON_INLINE_SUPPRESSIBLE_CODES
+
+
+# ---------------------------------------------------------------------------
 # SuppressionTracker parsing contract
 # ---------------------------------------------------------------------------
 

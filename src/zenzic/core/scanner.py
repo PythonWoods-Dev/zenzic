@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.codes import code_severity
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
@@ -1120,7 +1121,7 @@ def _scan_single_file(
             z201 = [
                 _RF(
                     rule_id="Z201",
-                    severity="error",
+                    severity=code_severity("Z201"),
                     file_path=sf.file_path,
                     line_no=sf.line_no,
                     message=f"Credential or secret detected: {sf.secret_type}",
@@ -1376,7 +1377,7 @@ def _run_vsm_and_urp_pass(
                             1,
                             "Z410",
                             f"Document is isolated and unreachable from defined entry points: '{canonical_url}'",
-                            severity="warning",
+                            severity=code_severity("Z410"),
                             matched_line="",
                         )
                     )
@@ -1390,7 +1391,7 @@ def _run_vsm_and_urp_pass(
                             1,
                             "Z411",
                             f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
-                            severity="warning",
+                            severity=code_severity("Z411"),
                             matched_line="",
                         )
                     )
@@ -1402,7 +1403,7 @@ def _run_vsm_and_urp_pass(
                         1,
                         "Z412",
                         f"Document matches traceability target '{target_glob}' but has no inbound references from required source namespaces {req_sources}",
-                        severity="warning",
+                        severity=code_severity("Z412"),
                         matched_line="",
                     )
                 )
@@ -1423,7 +1424,7 @@ def _run_vsm_and_urp_pass(
                                             link.lineno,
                                             "Z106",
                                             f"'{link.url}' is part of a circular link cycle",
-                                            severity="error",
+                                            severity=code_severity("Z106"),
                                             matched_line="",
                                             col_start=link.col_start,
                                             match_text=link.match_text,
@@ -1453,7 +1454,7 @@ def _run_vsm_and_urp_pass(
                         1,
                         "Z112",
                         f"{target_path.name}:1: Stale absolute_path_allowlist entry '{entry}': no link matched this prefix across all scanned files",
-                        severity="warning",
+                        severity=code_severity("Z112"),
                     )
                 )
 
@@ -2224,7 +2225,7 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
             "Worker stalled — possible I/O hang, network timeout, or process crash. "
             "Custom rule patterns are DFA-safe (ZRT-007); this is a systemic stall."
         ),
-        severity="error",
+        severity=code_severity("Z902"),
     )
     return IntegrityReport(
         file_path=md_file,
@@ -2256,7 +2257,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
             f"Worker for '{md_file.name}' raised an unexpected exception: "
             f"{type(exc).__name__}: {exc}"
         ),
-        severity="error",
+        severity=code_severity("Z901"),
     )
     return IntegrityReport(
         file_path=md_file,
