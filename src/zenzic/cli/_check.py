@@ -211,6 +211,20 @@ def check_links(
     _roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _roots if _roots else None
 
+    # Scan once, share the reports with validate_links_structured() (via its
+    # own `reports=` reuse parameter) so credential-scan results already
+    # computed during this same pass aren't discarded. See
+    # V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK: harvest() already
+    # runs the credential scanner unconditionally as part of this scan; this
+    # subcommand previously threw its output away instead of surfacing it.
+    reports, ext_errors = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        validate_links=strict and not no_external,
+        locale_roots=locale_roots,
+    )
     link_errors = validate_links_structured(
         docs_root,
         exclusion_mgr,
@@ -219,6 +233,8 @@ def check_links(
         strict=strict,
         locale_roots=locale_roots,
         check_external=not no_external,
+        reports=reports,
+        ext_errors=ext_errors,
     )
     elapsed = time.monotonic() - t0
 
@@ -235,6 +251,9 @@ def check_links(
         )
         for err in link_errors
     ]
+    for report in reports:
+        for sf in report.security_findings:
+            findings.append(_map_credential_to_finding(sf, repo_root))
     _append_z620_findings(
         findings, config, repo_root, check_all=False, check_external_urls=not no_external
     )
@@ -1052,6 +1071,12 @@ def check_placeholders(
                         match_text=rule_f.match_text or "",
                     )
                 )
+        # harvest() already runs the credential scanner unconditionally as
+        # part of scan_docs_references() above; surface its results instead
+        # of discarding them. See
+        # V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK.
+        for sf in report.security_findings:
+            findings.append(_map_credential_to_finding(sf, repo_root))
 
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
@@ -1079,6 +1104,12 @@ def check_placeholders(
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
+    incidents = sum(1 for f in findings if f.severity == "security_incident")
+    if incidents:
+        raise typer.Exit(3)
+    breaches = sum(1 for f in findings if f.severity == "security_breach")
+    if breaches:
+        raise typer.Exit(2)
     if errors > 0 or (strict and warnings > 0):
         raise typer.Exit(1)
 

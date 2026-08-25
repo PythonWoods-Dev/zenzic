@@ -274,6 +274,58 @@ class TestCheckLinksSecurityBreachExitCodeE2E:
         )
 
 
+# ── check links / check placeholders — Credential Scanner Wiring Gap ────────
+
+
+class TestCheckLinksPlaceholdersCredentialScanE2E:
+    """``zenzic check links`` and ``zenzic check placeholders`` must invoke the
+    credential scanner and exit 2 on a Z201 breach, in parity with
+    ``check_all``/``check_references``.
+
+    Regression for: both subcommands already call scan_docs_references()
+    (check_placeholders directly, check_links via validate_links_structured())
+    -- the credential scanner runs on every file, every time, as part of that
+    pipeline's harvest() pass -- but neither subcommand ever reads the
+    resulting IntegrityReport.security_findings, so a real credential leak
+    produced zero signal and an ordinary exit 0/1 through these two entry
+    points, silently violating the Tier-0 "Exit 2: Credential Scanner Breach
+    -- Never suppressible" contract. Discovered during
+    V031_CHECK_LINKS_PLACEHOLDERS_EXIT2_GAP (2026-08-24), fixed here
+    (V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK, 2026-08-25) --
+    the fix costs no extra scan time, since the scan already ran; it only
+    adds a loop over already-computed security_findings, mirroring
+    check_all's existing _map_credential_to_finding pattern.
+    """
+
+    _BREACH_DOC = TestCredentialBreachE2E._BREACH_DOC
+
+    def test_check_links_exits_2_on_credential_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links"])
+
+        assert result.exit_code == 2, (
+            f"check links must exit 2 on a Z201 security_breach finding, "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_placeholders_exits_2_on_credential_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "placeholders"])
+
+        assert result.exit_code == 2, (
+            f"check placeholders must exit 2 on a Z201 security_breach finding, "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
 # ── --exit-zero suppresses Exit 1 (general errors) ──────────────────────────
 
 

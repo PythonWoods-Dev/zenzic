@@ -87,6 +87,9 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
+    # reports=/ext_errors= were added so check_links can reuse the single
+    # scan_docs_references() pass (and its credential-scan results) instead
+    # of discarding them -- see V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK.
     mock_links.assert_called_once_with(
         (_ROOT / "docs").resolve(),
         ANY,
@@ -95,6 +98,8 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
         strict=True,
         locale_roots=None,
         check_external=True,
+        reports=ANY,
+        ext_errors=ANY,
     )
 
 
