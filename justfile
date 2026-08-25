@@ -79,8 +79,9 @@ verify: _check-hooks release-contracts check-pinning docs-build
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
     {{ runner }} pip-audit
-    @echo "==> [3/5] Test suite..."
-    {{ runner }} pytest tests/
+    @echo "==> [3/5] Test suite (coverage measured; enforcement pending)..."
+    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=0
+    @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
     @echo "==> [4/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [5/5] Score computation and badge stamp (zenzic score --stamp)..."
