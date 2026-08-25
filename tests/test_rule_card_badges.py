@@ -75,3 +75,64 @@ def test_rule_card_badge_matches_codes_py(path: Path) -> None:
         f"{code}: badge shows Category '{match.group('category')}', codes.py says category={defn.category!r} "
         f"-> should display '{expected_category}'"
     )
+
+
+# ── Auto-Fixable / Opt-In badge line ─────────────────────────────────────────
+# Regression coverage for V031_FINAL_SEVERITY_SWEEP_AND_CONTENT_REMEDIATION's
+# corpus-wide sweep (scripts/sweep_rule_card_badges_v2.py): 14 pages found
+# with a wrong Auto-Fixable or Opt-In value (Z108/Z603 Auto-Fixable;
+# Z518/Z519/Z610-Z619 Opt-In), all fixed in that same directive.
+#
+# Opt-In ground truth is NOT the "(opt-in)" tag in codes.py's own module
+# docstring -- that tag was itself found incomplete (missing Z412/Z610/Z611,
+# since fixed in codes.py, but the *tag* is documentation, not code; this
+# test verifies the doc pages against the real gating condition directly,
+# the same way the sweep script does, so it can't silently drift again if a
+# future docstring edit reintroduces a gap).
+_OPT_IN_CODES: frozenset[str] = frozenset(
+    {
+        "Z412",  # scanner.py: gated behind config.policies.traceability_targets
+        "Z518",  # scanner.py: gated behind config.policies.enable_passive_voice_check
+        "Z519",  # scanner.py: gated behind config.policies.weasel_words
+        "Z521",  # governance.py: gated behind self._required_table_columns
+        "Z522",  # governance.py: gated behind self._table_cell_enums
+        "Z523",  # governance.py: gated behind self._required_heading_order
+        "Z610",  # governance.py: gated behind self._required_keys (frontmatter policy group)
+        "Z611",  # governance.py: gated behind self._forbidden_domains (link policy group)
+        "Z612",  # governance.py: gated behind self._forbidden_keys (frontmatter policy group)
+        "Z613",  # governance.py: gated behind self._schema_match (frontmatter policy group)
+        "Z614",  # governance.py: gated behind self._allowed_domains (link policy group)
+        "Z615",  # governance.py: gated behind self._required_schemes (link policy group)
+        "Z616",  # governance.py: gated behind self._cross_namespace (link policy group)
+        "Z617",  # governance.py: gated behind self._forbidden_content
+        "Z618",  # governance.py: gated behind self._required_headings
+        "Z619",  # governance.py: gated behind self._max_complexity > 0
+    }
+)
+
+FIXABLE_OPT_IN_PATTERN = re.compile(
+    r"Auto-Fixable: \*\*(?P<fixable>Yes|No)\*\* \| Opt-In: \*\*(?P<optin>Yes|No)\*\*"
+)
+
+
+@pytest.mark.parametrize("path", _rule_card_paths(), ids=lambda p: p.stem)
+def test_rule_card_auto_fixable_and_opt_in_matches_source(path: Path) -> None:
+    code = path.stem
+    defn = CODE_DEFINITIONS.get(code)
+    assert defn is not None, f"{code} has a rule card but no CODE_DEFINITIONS entry in codes.py"
+
+    text = path.read_text(encoding="utf-8")
+    match = FIXABLE_OPT_IN_PATTERN.search(text)
+    assert match is not None, f"{path}: no parseable Auto-Fixable/Opt-In badge line found"
+
+    expected_fixable = "Yes" if defn.fixable else "No"
+    expected_optin = "Yes" if code in _OPT_IN_CODES else "No"
+
+    assert match.group("fixable") == expected_fixable, (
+        f"{code}: badge shows Auto-Fixable '{match.group('fixable')}', "
+        f"codes.py says fixable={defn.fixable!r} -> should display '{expected_fixable}'"
+    )
+    assert match.group("optin") == expected_optin, (
+        f"{code}: badge shows Opt-In '{match.group('optin')}', "
+        f"real gating condition says opt-in={code in _OPT_IN_CODES} -> should display '{expected_optin}'"
+    )

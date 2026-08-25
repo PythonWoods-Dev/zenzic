@@ -51,7 +51,7 @@ Z4xx — Navigation & Structure
     Z406  NAV_CONTRACT         — navigation contract violation
     Z410  UNREACHABLE_GRAPH_NODE — document is isolated and unreachable from navigation entry points
     Z411  DEAD_END_NODE        — document has no outgoing links and forms a structural dead end
-    Z412  TRACEABILITY_BROKEN  — target document has no inbound links from required source namespaces
+    Z412  TRACEABILITY_BROKEN  — target document has no inbound links from required source namespaces (opt-in)
 
 Z5xx — Content Quality & Specification-Driven Development (SDD)
     Z501  PLACEHOLDER          — page contains stub / TODO content
@@ -78,8 +78,8 @@ Z5xx — Content Quality & Specification-Driven Development (SDD)
 Z6xx — Governance (Policy-as-Code)
     Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
     Z603  DEAD_SUPPRESSION     — inline suppression exists on a line with no active finding
-    Z610  REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document (v0.28.0)
-    Z611  FORBIDDEN_DOMAIN_REFERENCE  — link references a domain forbidden by [policies] (v0.28.0)
+    Z610  REQUIRED_FRONTMATTER_MISSING — required frontmatter key absent from document (v0.28.0, opt-in)
+    Z611  FORBIDDEN_DOMAIN_REFERENCE  — link references a domain forbidden by [policies] (v0.28.0, opt-in)
     Z612  FORBIDDEN_FRONTMATTER_KEY   — document contains forbidden frontmatter key (opt-in)
     Z613  FRONTMATTER_SCHEMA_MISMATCH — frontmatter value violates regex schema pattern (opt-in)
     Z614  UNAPPROVED_DOMAIN_REFERENCE — link references domain outside allowed whitelist (opt-in)
