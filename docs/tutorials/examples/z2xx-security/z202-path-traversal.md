@@ -65,7 +65,7 @@ This error or warning is raised by Zenzic when a link contains directory travers
 
 - **Scan Type:** `Path Traversal Guard`
 - **Severity:** `Error (Non-suppressible)`
-- **Impact:** Path traversal attempts collapse the DQS score to 0.0 and exit with Exit Code 3, representing a severe security boundary violation.
+- **Impact:** Path traversal attempts collapse the DQS score to 0.0 and exit with Exit Code 1, representing a severe security boundary violation. (The fatal variant, `Z203`, is reserved for traversal targeting OS system directories such as `/etc/` or `/root/` and exits with Exit Code 3 instead.)
 
 ---
 

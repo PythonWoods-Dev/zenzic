@@ -144,10 +144,13 @@ class ZenzicExitCode:
     * ``SUCCESS`` (0) — all checks passed; documentation is clean.
     * ``QUALITY`` (1) — quality findings (broken links, orphans, …);
       suppressible by ``--exit-zero``.
-    * ``CREDENTIAL_LEAK`` (2) — credential detected (Z201);
-      **never** suppressible.
-    * ``PATH_TRAVERSAL_FATAL`` (3) — system path traversal (Z202/Z203);
-      **never** suppressible.
+    * ``CREDENTIAL_LEAK`` (2) — credential or forbidden-term/scheme detected
+      (Z201, Z204, Z205); **never** suppressible.
+    * ``PATH_TRAVERSAL_FATAL`` (3) — path traversal targeting an OS system
+      directory (Z203 only); **never** suppressible. Z202 (ordinary
+      docs-root-boundary traversal) is also non-suppressible but remains a
+      plain ``QUALITY`` (1) finding — it is deliberately *not* escalated to
+      Exit 3, confirmed by ``tests/test_cli.py::test_z202_still_maps_to_plain_error``.
 
     Usage in CLI layer::
 
