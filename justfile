@@ -73,14 +73,14 @@ lint:
     {{ runner }} pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ → structural audit → score + stamp.
+# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ (coverage enforced) → structural audit → score + stamp.
 verify: _check-hooks release-contracts check-pinning docs-build
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
     {{ runner }} pip-audit
-    @echo "==> [3/5] Test suite (coverage measured; enforcement pending)..."
-    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=0
+    @echo "==> [3/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml)..."
+    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
     @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
     @echo "==> [4/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
