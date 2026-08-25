@@ -39,6 +39,7 @@ from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
 
 from zenzic.core.ast import ExtractedLink
+from zenzic.core.codes import code_severity
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     ResolutionContext,
@@ -552,7 +553,7 @@ class IncrementalAnalysisEngine:
             findings.append(
                 RuleFinding(
                     rule_id="Z201",
-                    severity="error",
+                    severity=code_severity("Z201"),
                     file_path=_sf.file_path,
                     line_no=_sf.line_no,
                     message=f"Credential or secret detected: {_sf.secret_type}",
@@ -592,7 +593,7 @@ class IncrementalAnalysisEngine:
                     line_no=s_err.line_no,
                     rule_id=s_err.code,
                     message=s_err.message,
-                    severity="error",
+                    severity=code_severity(s_err.code),
                 )
             )
 
@@ -610,7 +611,7 @@ class IncrementalAnalysisEngine:
                     1,
                     "Z410",
                     f"Document is isolated and unreachable from the navigation entry points: '{canonical_url}'",
-                    severity="warning",
+                    severity=code_severity("Z410"),
                     matched_line="",
                 )
             )
@@ -621,7 +622,7 @@ class IncrementalAnalysisEngine:
                     1,
                     "Z411",
                     f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
-                    severity="warning",
+                    severity=code_severity("Z411"),
                     matched_line="",
                 )
             )
@@ -739,7 +740,7 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z205",
                         f"forbidden scheme '{node.z205_scheme}' detected",
-                        severity="error",
+                        severity=code_severity("Z205"),
                         matched_line=ctx,
                         col_start=0,
                         match_text=node.raw_tag,
@@ -752,7 +753,7 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z124",
                         f"opaque attribute '{attr}' detected",
-                        severity="error",
+                        severity=code_severity("Z124"),
                         matched_line=ctx,
                         col_start=0,
                         match_text=node.raw_tag,
@@ -765,7 +766,7 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z121",
                         "missing href or src",
-                        severity="error",
+                        severity=code_severity("Z121"),
                         matched_line=ctx,
                         col_start=0,
                         match_text=node.raw_tag,
@@ -778,7 +779,7 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z122",
                         "href='#' detected",
-                        severity="error",
+                        severity=code_severity("Z122"),
                         matched_line=ctx,
                         col_start=0,
                         match_text=node.raw_tag,
@@ -791,7 +792,7 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z120",
                         f"unknown attribute '{attr}'",
-                        severity="error",
+                        severity=code_severity("Z120"),
                         matched_line=ctx,
                         col_start=0,
                         match_text=node.raw_tag,
@@ -804,7 +805,7 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z123",
                         f"non-HTTP scheme '{node.info_scheme}'",
-                        severity="info",
+                        severity=code_severity("Z123"),
                         matched_line=ctx,
                         col_start=0,
                         match_text=node.raw_tag,
@@ -854,13 +855,14 @@ class IncrementalAnalysisEngine:
                     norm_target = posixpath.normpath(posixpath.join(base, parsed.path))
                     if norm_target.startswith(".."):
                         _intent = _classify_traversal_intent(url)
+                        _code = "Z203" if _intent == "suspicious" else "Z202"
                         findings.append(
                             RuleFinding(
                                 path,
                                 lineno,
-                                "Z203" if _intent == "suspicious" else "Z202",
+                                _code,
                                 f"'{url}' resolves outside the docs directory",
-                                severity="error",
+                                severity=code_severity(_code),
                                 matched_line=raw_line,
                             )
                         )
@@ -875,13 +877,14 @@ class IncrementalAnalysisEngine:
                     target_path = Path(target_str)
                     if not target_path.is_relative_to(resolved_docs_root):
                         _intent = _classify_traversal_intent(url)
+                        _code = "Z203" if _intent == "suspicious" else "Z202"
                         findings.append(
                             RuleFinding(
                                 path,
                                 lineno,
-                                "Z203" if _intent == "suspicious" else "Z202",
+                                _code,
                                 f"'{url}' resolves outside the docs directory",
-                                severity="error",
+                                severity=code_severity(_code),
                                 matched_line=raw_line,
                             )
                         )
@@ -898,7 +901,7 @@ class IncrementalAnalysisEngine:
                             lineno,
                             "Z203",
                             f"Path traversal targeting OS system directories: '{url}'",
-                            severity="error",
+                            severity=code_severity("Z203"),
                             matched_line=raw_line,
                         )
                     )
@@ -914,7 +917,7 @@ class IncrementalAnalysisEngine:
                                 lineno,
                                 "Z105",
                                 f"absolute path '{url}' found",
-                                severity="error",
+                                severity=code_severity("Z105"),
                                 matched_line=raw_line,
                             )
                         )
@@ -957,7 +960,7 @@ class IncrementalAnalysisEngine:
                                 lineno,
                                 "Z104",
                                 f"'{rel_url}' not found in docs",
-                                severity="error",
+                                severity=code_severity("Z104"),
                                 matched_line=raw_line,
                                 col_start=link.col_start,
                                 match_text=link.raw_text,
@@ -976,7 +979,7 @@ class IncrementalAnalysisEngine:
                                 lineno,
                                 "Z102",
                                 f"anchor '#{anchor}' not found",
-                                severity="error",
+                                severity=code_severity("Z102"),
                                 matched_line=raw_line,
                             )
                         )
@@ -1003,7 +1006,7 @@ class IncrementalAnalysisEngine:
                                     lineno,
                                     "Z102",
                                     f"anchor '#{anchor}' not found in '{parsed.path}'",
-                                    severity="error",
+                                    severity=code_severity("Z102"),
                                     matched_line=raw_line,
                                 )
                             )

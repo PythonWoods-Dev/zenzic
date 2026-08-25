@@ -16,7 +16,7 @@ from zenzic.core.adapters import get_adapter
 from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
 from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
-from zenzic.core.codes import CODE_DEFINITIONS
+from zenzic.core.codes import CODE_DEFINITIONS, code_severity
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -82,22 +82,26 @@ def _finding_severity(code: str) -> str:
     Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
     ``"security_breach"`` for Z205 (Tier-0 'Exit 2 — never suppressible' set,
     alongside Z201/Z204 which reach this severity via the credential-scanner
-    bridge in ``_map_credential_to_finding`` instead of this function),
-    ``"info"`` for note-level informational codes (Z106, Z906), and the
-    CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
-    Unknown codes default to ``"error"`` since the validator only emits findings
+    bridge in ``_map_credential_to_finding`` instead of this function), and
+    the base SSoT severity (``"error"``, ``"warning"``, or ``"info"`` —
+    derived from ``codes.py`` via ``code_severity()``, the same Core-layer
+    helper ``rules.py`` and ``incremental.py`` use) for all others. Unknown
+    codes default to ``"error"`` since the validator only emits findings
     when it detects a genuine problem.
+
+    This is the CLI-layer wrapper around ``code_severity()``: the Z2xx
+    security-breach/security-incident reclassification is a CLI-only
+    reporting concern (exit-code contract), not part of the Core severity
+    vocabulary ``RuleFinding.severity`` accepts.
     """
     if code == "Z203":
         return "security_incident"
     if code == "Z205":
         return "security_breach"
-    defn = CODE_DEFINITIONS.get(code)
-    if defn is None:
+    try:
+        return code_severity(code)
+    except KeyError:
         return "error"
-    if defn.severity == "note":
-        return "info"
-    return defn.severity  # "error" or "warning"
 
 
 # ── Check commands ────────────────────────────────────────────────────────────
