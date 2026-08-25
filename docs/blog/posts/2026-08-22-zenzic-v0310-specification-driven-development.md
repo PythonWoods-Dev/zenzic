@@ -259,7 +259,7 @@ The SDD rule suite is the most obvious functional addition, but it is not the on
 
 ## Ecosystem-Wide Parity & The 10-Target Mirror Law
 
-Like all Zenzic capabilities, Specification-Driven Development is governed by the **Mirror Law (ADR-020)** — ensuring 100% synchronous parity across all 10 mandatory targets: Core codes, Scorer, Scoring documentation, Finding Codes catalog, Rule Specification Cards, MkDocs navigation, Lab scenarios, `zenzic init` templates, VS Code IntelliSense schemas, and Test suites.
+Like all Zenzic capabilities, Specification-Driven Development is governed by the **Mirror Law (ADR-020)** — ensuring 100% synchronous parity across all 10 mandatory targets: Core codes, Scorer, Scoring algorithm documentation, Scoring system documentation, Finding Codes catalog, Rule Specification Cards, MkDocs navigation, Lab scenarios, `zenzic init` templates, and VS Code IntelliSense schemas.
 
 The reason for such a protocol is straightforward. When the same contract is represented in several places, those representations can drift. A rule can exist in the engine but disappear from the documentation. A configuration option can exist in the parser but not in the generated template. A finding code can be emitted by the analyzer but be absent from the reference documentation. Parity checks make those inconsistencies visible.
 
