@@ -234,10 +234,15 @@ class TestZ404ConfigAssetMissing:
 
 
 class TestZ406NavContract:
-    def test_z406_produces_exactly_one_error(self) -> None:
+    def test_z406_produces_exactly_one_warning(self) -> None:
+        # Z406 is "warning" per codes.py's CODE_DEFINITIONS (the SSoT). This
+        # test used to assert errors==1, warnings==0, locking in a bug where
+        # _check.py hardcoded severity="error" for Z406 instead of deriving
+        # it via _finding_severity() -- fixed in
+        # V031_Z406_SEVERITY_FIX_AND_SYSTEMIC_SWEEP (same bug shape as Z301).
         _, errors, warnings = _run("z406")
-        assert errors == 1
-        assert warnings == 0
+        assert errors == 0
+        assert warnings == 1
 
     def test_z406_finding_code_is_z406(self) -> None:
         findings, _, _ = _run("z406")

@@ -192,8 +192,15 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     ],
 )
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
+    # Z503 is "warning" per codes.py's CODE_DEFINITIONS (the SSoT) -- it used
+    # to hardcode severity="error" here, which caused every snippet syntax
+    # error to hard-fail unconditionally (fixed in
+    # V031_SEVERITY_HARDCODE_ARCHITECTURAL_REMEDIATION, same bug shape as
+    # Z301/Z406). `check snippets` has no --strict flag at all, so a warning
+    # can never be promoted to a hard failure on this subcommand -- tracked
+    # separately as its own gap, not fixed here.
     result = runner.invoke(app, ["check", "snippets"])
-    assert result.exit_code == 1
+    assert result.exit_code == 0
     assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z503" in result.stdout
 

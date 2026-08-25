@@ -411,7 +411,7 @@ def check_orphans(
             rel_path=_rel(docs_root / path),
             line_no=0,
             code="Z402",
-            severity="warning",
+            severity=_finding_severity("Z402"),
             message="Physical file not listed in navigation.",
         )
         for path in orphans
@@ -542,7 +542,7 @@ def check_snippets(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
                 code="Z503",
-                severity="error",
+                severity=_finding_severity("Z503"),
                 message=s_err.message,
                 source_line=src,
             )
@@ -741,7 +741,7 @@ def check_references(
                 rel_path="(external-urls)",
                 line_no=0,
                 code="Z101",
-                severity="error",
+                severity=_finding_severity("Z101"),
                 message=err_str,
             )
         )
@@ -887,7 +887,7 @@ def check_assets(
             rel_path=_rel(docs_root / path),
             line_no=0,
             code="Z405",
-            severity="warning",
+            severity=_finding_severity("Z405"),
             message="File not referenced in any documentation page.",
         )
         for path in unused
@@ -1396,7 +1396,7 @@ def _to_findings(
                 rel_path=_rel(docs_root / path),
                 line_no=0,
                 code="Z402",
-                severity="warning",
+                severity=_finding_severity("Z402"),
                 message="Physical file not listed in navigation.",
             )
         )
@@ -1412,7 +1412,7 @@ def _to_findings(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
                 code="Z503",
-                severity="error",
+                severity=_finding_severity("Z503"),
                 message=s_err.message,
                 source_line=src,
             )
@@ -1424,7 +1424,7 @@ def _to_findings(
                 rel_path=_rel(docs_root / path),
                 line_no=0,
                 code="Z405",
-                severity="warning",
+                severity=_finding_severity("Z405"),
                 message="File not referenced in any documentation page.",
             )
         )
@@ -1435,7 +1435,7 @@ def _to_findings(
                 rel_path="(nav)",
                 line_no=0,
                 code="Z406",
-                severity="error",
+                severity=_finding_severity("Z406"),
                 message=msg,
             )
         )
@@ -1496,7 +1496,7 @@ def _to_findings(
                 rel_path=_rel(docs_root / dir_path),
                 line_no=0,
                 code="Z401",
-                severity="info",
+                severity=_finding_severity("Z401"),
                 message=(
                     "Directory contains Markdown files but has no index page — "
                     "the directory URL may return a 404."
@@ -1510,7 +1510,7 @@ def _to_findings(
                 rel_path=rel_path,
                 line_no=0,
                 code="Z404",
-                severity="warning",
+                severity=_finding_severity("Z404"),
                 message=message,
             )
         )
