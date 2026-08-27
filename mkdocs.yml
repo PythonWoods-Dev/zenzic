@@ -193,6 +193,7 @@ nav:
       - Suppression Policy: reference/suppression-policy.md
       - DQS Scoring Algorithm: reference/scoring-algorithm.md
       - Engine Adapters: reference/engines.md
+      - Tested Compatibility Matrix: reference/compatibility.md
       - Advanced Features: reference/advanced-features.md
       - JSON & SARIF API: reference/api-json.md
       - Brand Kit: reference/brand-kit.md
@@ -262,6 +263,7 @@ nav:
         - developers/explanation/adr-vault/records/adr-021-parallel-audit.md
         - developers/explanation/adr-vault/records/adr-022-english-only-governance.md
         - developers/explanation/adr-vault/records/adr-075-radical-unawareness.md
+        - developers/explanation/adr-vault/records/adr-089-ecosystem-wide-immutable-sha-pinning.md
         - developers/explanation/adr-vault/records/adr-090-silent-on-success-unix-philosophy.md
         - developers/explanation/adr-vault/records/adr-091-single-pass-ast-and-cqs.md
         - developers/explanation/adr-vault/records/adr-092-comprehensive-bump-coverage.md

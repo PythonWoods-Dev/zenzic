@@ -7,7 +7,7 @@ description: "Configure Open Graph tags, Twitter Cards, and per-page SEO metadat
 
 # Configure Social Metadata & SEO
 
-Zensical and MkDocs handle social metadata at two levels: **site-wide defaults** in `zensical.toml` (or `mkdocs.yml`), and **per-page overrides** in each Markdown file's frontmatter. This guide shows both, using Zenzic's own configuration as the reference model.
+Zensical and MkDocs handle social metadata at two levels: **site-wide defaults** in `zensical.toml` (or `mkdocs.yml`), and **per-page overrides** in each Markdown file's frontmatter. This guide shows both with illustrative examples.
 
 ---
 
@@ -105,17 +105,26 @@ accept a URL and display which tags they resolved.
 ## Zenzic & Social Assets
 
 Zenzic does not validate external social URLs, but it **does** detect unused
-static assets. If you add a custom social card PNG and never reference it in
-frontmatter or configuration, Zenzic will flag it as an unused asset on the
-next `zenzic check all` run.
-
-Exclude intentional source-only files in `.zenzic.toml`:
+static assets (`Z405`) — and its asset-reference scanner only recognizes real
+Markdown/HTML links (`[text](path)`, `<img src="...">`, `<a href="...">`).
+It does **not** parse frontmatter keys (`image: ...`) or `[extra]`/`zensical.toml`
+config values as references. This means a social card PNG referenced only via
+frontmatter — including the examples above — **will** be flagged as unused
+unless explicitly excluded:
 
 ```toml
 # .zenzic.toml
 excluded_assets = [
     "assets/social/*.svg",   # SVG sources — not served as OG images
+    "assets/social/*.png",   # OG/Twitter card images — referenced only via frontmatter/config
 ]
+```
+
+The same key is available under `[tool.zenzic]` in `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.zenzic]
+excluded_assets = ["assets/social/*.svg", "assets/social/*.png"]
 ```
 
 ---

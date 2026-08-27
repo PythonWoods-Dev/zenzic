@@ -383,6 +383,8 @@ Documentation frameworks use varying link slugification, asset pathing, and dire
 - **Zensical**: Validates multi-language document hierarchies and configuration trees.
 - **Standalone / Standard Markdown**: Performs universal link and asset resolution across any arbitrary directory structure.
 
+See the [Tested Compatibility Matrix](https://zenzic.dev/reference/compatibility/) for specific tested versions and verification method per engine.
+
 ---
 
 ## 🚦 CI/CD Enforcement & Exit Code Contract

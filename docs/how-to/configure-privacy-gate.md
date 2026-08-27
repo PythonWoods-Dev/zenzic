@@ -53,9 +53,12 @@ forbidden_patterns = [
 ]
 ```
 
-Patterns are matched as literal strings, case-insensitive. RE2 DFA syntax is supported
-for patterns that require regex matching — see the [Configuration Reference](../reference/configuration-reference.md)
-for the full `forbidden_patterns` specification.
+Patterns are matched as literal, case-insensitive strings — regular expressions are not
+supported for `[governance] forbidden_patterns` (`Z204`). Internally, patterns are compiled
+into a single escaped RE2 union for O(1) matching regardless of pattern count, but this is a
+performance optimization, not a user-facing regex feature. See the
+[Configuration Reference](../reference/configuration-reference.md) for the full
+`forbidden_patterns` specification.
 
 ### 3. Verify `.gitignore`
 
@@ -98,21 +101,21 @@ Z204 therefore does not fire in CI unless you explicitly provision patterns via 
     EOF
 ```
 
-Alternatively, pass patterns at runtime using the `--forbidden` flag (if available in your
-Zenzic version) rather than writing a file.
+There is no CLI flag to pass patterns at runtime — provisioning `.zenzic.local.toml` (as above)
+is the only mechanism.
 
 ---
 
 ## Precedence
 
-Configuration is resolved in the following order (later entries override earlier):
+`.zenzic.toml` and `pyproject.toml [tool.zenzic]` are **not** merged — `.zenzic.toml` is used
+if present; `pyproject.toml [tool.zenzic]` is only read as a fallback when it's absent. See the
+[Configuration Reference](../reference/configuration-reference.md#override-priority) for the
+full precedence chain.
 
-1. `.zenzic.toml` — shared project defaults
-2. `pyproject.toml [tool.zenzic]` — embedded alternative to `.zenzic.toml`
-3. `.zenzic.local.toml` — machine-local overlay (additive merge for list fields)
-
-For `forbidden_patterns`, the overlay is **additive**: patterns in `.zenzic.local.toml`
-are appended to any patterns declared in `.zenzic.toml`. They do not replace them.
+`.zenzic.local.toml` sits on top of whichever of those is active, and for `forbidden_patterns`
+specifically, the overlay is **additive**: patterns in `.zenzic.local.toml` are appended to any
+patterns declared in the shared file. They do not replace them.
 
 ---
 

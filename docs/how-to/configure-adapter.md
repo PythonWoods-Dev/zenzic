@@ -10,7 +10,7 @@ description: "Configure adapter behavior, locale settings, and engine-specific o
 Zenzic uses an **adapter** to obtain engine-specific knowledge — nav structure, i18n directories,
 and locale patterns — without importing or executing any build framework.
 
-> For the complete `[build_context]` field reference, adapter discovery rules, and ZensicalAdapter nav format, see [Configuration Reference — `[build_context]`](../reference/configuration-reference.md#build-context).
+> For the complete `[build_context]` field reference, adapter discovery rules, and ZensicalAdapter nav format, see [Configuration Reference — `[build_context]`](../reference/configuration-reference.md#build-context). For the specific engine version each adapter is tested against, see the [Tested Compatibility Matrix](../reference/compatibility.md).
 
 ---
 
@@ -25,14 +25,19 @@ default_locale = "en"       # ISO 639-1 code of the default locale
 locales        = ["it"]     # non-default locale directory names (e.g. docs/it/, docs/fr/)
 ```
 
-> **TOML ordering:** `[build_context]` must be the **last** section in `.zenzic.toml`.
+The same section is available under `[tool.zenzic.build_context]` when embedding configuration in `pyproject.toml` instead:
+
+```toml title="pyproject.toml"
+[tool.zenzic.build_context]
+engine = "mkdocs"
+```
 
 ---
 
 ## `--engine` flag (one-off override)
 
-The `--engine` flag on `zenzic check orphans` and `zenzic check all` overrides
-`build_context.engine` for a single run without touching `.zenzic.toml`:
+The `--engine` flag on `zenzic check orphans`, `zenzic check all`, `zenzic clean assets`, and
+`zenzic init` overrides `build_context.engine` for a single run without touching `.zenzic.toml`:
 
 ```bash
 zenzic check orphans --engine zensical
@@ -64,9 +69,11 @@ Zenzic then uses Auto-Discovery: it inspects the project root for known manifest
 the correct adapter automatically.
 
 !!! info "Auto-Discovery priority order"
-    1. `zensical.toml` → `ZensicalAdapter`
-    3. `mkdocs.yml` → `MkDocsAdapter`
-    4. No manifest found → `StandaloneAdapter`
+    1. `.zenzic-vsm.json` → prebuilt VSM artifact (skips adapter discovery entirely)
+    2. `zensical.toml` → `ZensicalAdapter`
+    3. `mkdocs.yml` / `mkdocs.yaml` with `theme: zensical` → `ZensicalAdapter` (compat)
+    4. `mkdocs.yml` / `mkdocs.yaml` → `MkDocsAdapter`
+    5. No manifest found → `StandaloneAdapter`
 
 ```toml
 # .zenzic.toml — explicit engine declaration required

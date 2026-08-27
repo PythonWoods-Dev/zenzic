@@ -149,14 +149,14 @@ from its configuration files and pre-populates `[build_context]` accordingly:
 zenzic init
 ```
 
-**Example output when `mkdocs.yml` is present:**
+**Example output when `mkdocs.yml` is present** (rendered inside a bordered "Zenzic Init" panel):
 
 ```text
-Created .zenzic.toml
-  Engine pre-set to mkdocs (detected from mkdocs.yml).
+✔ .zenzic.toml created.
+✔ .zenzic.local.toml will be scaffolded next (machine-local, gitignored).
+💡 Engine: mkdocs (auto-detected).
 
-Edit the file to enable rules, adjust directories, or set a quality threshold.
-Run zenzic check all to validate your documentation.
+Run zenzic check all to verify your documentation.
 ```
 
 If no engine config file is found, `zenzic init` produces an engine-agnostic scaffold (Standalone
@@ -170,7 +170,7 @@ Hint panel that suggests `zenzic init`:
 ╭─ 💡 Zenzic Tip ─────────────────────────────────────────────────────╮
 │ Using built-in defaults — no .zenzic.toml found.                      │
 │ Run zenzic init to create a project configuration file.              │
-│ Customise docs directory, excluded paths, engine adapter, and rules. │
+│ Customise docs directory, excluded paths, engine adapter, and lint rules. │
 ╰──────────────────────────────────────────────────────────────────────╯
 ```
 

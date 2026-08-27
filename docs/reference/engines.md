@@ -48,13 +48,12 @@ the `zenzic.adapters` entry-point group is a valid Zenzic adapter — for any SS
 
 Zenzic ships adapters for specific major-version lines. Declaring a different engine is a configuration error: Zenzic will emit `Z000 UNSUPPORTED_ENGINE` and abort.
 
-| Engine | Supported versions | Notes |
-| :--- | :--- | :--- |
-| MkDocs | `1.x` | Series frozen at `1.6.1`; no `1.7` planned. v2 is a separate project requiring a dedicated adapter |
-| Zensical | `0.0.x` | Pre-release; API is volatile. Adapter is updated in lockstep |
-| Standalone | — | Engine-agnostic; version is irrelevant |
-
-Zenzic does **not** invoke the engine binary — it reads configuration files as plain data. Version constraints apply to the **config-file schema**, not to the installed engine binary. If your project runs a newer engine than listed, the adapter may still work; report an issue only if you observe an actual parse error or a false positive traceable to a schema change.
+For the specific tested version, verification method, and last-verified date per engine, see
+the [Tested Compatibility Matrix](compatibility.md). Zenzic does **not** invoke the engine
+binary — it reads configuration files as plain data. Version constraints apply to the
+**config-file schema**, not to the installed engine binary. If your project runs a newer
+engine than listed there, the adapter may still work; report an issue only if you observe an
+actual parse error or a false positive traceable to a schema change.
 
 ---
 

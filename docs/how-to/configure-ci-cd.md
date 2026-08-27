@@ -52,13 +52,13 @@ flowchart TD
 
 ---
 
-## Exit Code Contract (ADR-075)
+## Exit Code Contract
 
 Zenzic enforces a non-negotiable exit code contract across all operating systems, CI runners, and output formats (`text`, `json`, `sarif`):
 
-!!! danger "Exit Code Contract (ADR-075)"
+!!! danger "Exit Code Contract"
     - **`Exit 0` — Success**: All statically-detectable links, anchors, references, and structural rules passed (or warnings suppressed within budget).
-    - **`Exit 1` — Quality Gate Failure**: Hard errors detected (broken links `Z101`, orphan pages `Z402`, placeholder text `Z501`) or `suppression_cap` exceeded.
+    - **`Exit 1` — Quality Gate Failure**: Hard errors (e.g. broken links `Z101`) always trigger this. Warning-severity findings — including orphan pages `Z402` and placeholder text `Z501`, both `warning`-severity by default — only trigger it under `--strict` (which `--ci`, used throughout this page's examples, enables automatically). `suppression_cap` exceeded also triggers this.
     - **`Exit 2` — Fatal Credential Scanner Breach**: Hardcoded API keys, tokens, or private secrets detected (`Z201`). Non-suppressible.
     - **`Exit 3` — Security Boundary Violation**: Path traversal attempt (`Z202/Z203`) or forbidden scheme detected. Non-suppressible.
 
@@ -83,7 +83,10 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
           #   stages: [pre-push]
     ```
 
-    You can also automatically scaffold or update your local configuration using:
+    `zenzic guard init` scaffolds or updates a separate file — `.pre-commit-hooks.yaml`, the
+    hook-*definition* file a repo publishes so other projects can consume its hooks (this is
+    the file `zenzic` itself ships at its own repository root). It does not write to the
+    `.pre-commit-config.yaml` shown above, which downstream consumers edit by hand:
 
     ```bash title="Terminal"
     zenzic guard init
@@ -152,11 +155,15 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
       stage: test
       image: ghcr.io/astral-sh/uv:latest
       script:
-        - uvx zenzic@0.30.0 check all --ci --format json --save zenzic-report.json
+        - uvx zenzic@0.30.0 check all --ci --format json > zenzic-report.json
       artifacts:
-        reports:
-          codequality: zenzic-report.json
+        paths:
+          - zenzic-report.json
     ```
+
+    Zenzic's `--format json` output is a category-keyed object, not GitLab's required
+    `codequality` array-of-objects schema — do not declare it under `artifacts.reports.codequality`.
+    Upload it as a plain artifact (above) for manual inspection or a custom conversion step.
 
 ---
 
@@ -166,11 +173,13 @@ Zenzic generates machine-readable output for programmatic consumption:
 
 ```bash title="Terminal"
 # Generate SARIF report for GitHub Code Scanning
-zenzic check all --format sarif --save zenzic-results.sarif
+zenzic check all --format sarif > zenzic-results.sarif
 
 # Generate JSON report for custom dashboard ingestion
-zenzic check all --format json --save zenzic-results.json
+zenzic check all --format json > zenzic-results.json
 ```
+
+Both formats print to stdout — redirect to a file as shown. `--save` is not a flag on `zenzic check`; it exists only on `zenzic score` (`--save`, no filename argument — always writes the fixed `.zenzic-score.json` path).
 
 ---
 
