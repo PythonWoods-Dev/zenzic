@@ -105,18 +105,23 @@ accept a URL and display which tags they resolved.
 ## Zenzic & Social Assets
 
 Zenzic does not validate external social URLs, but it **does** detect unused
-static assets (`Z405`) — and its asset-reference scanner only recognizes real
-Markdown/HTML links (`[text](path)`, `<img src="...">`, `<a href="...">`).
-It does **not** parse frontmatter keys (`image: ...`) or `[extra]`/`zensical.toml`
-config values as references. This means a social card PNG referenced only via
-frontmatter — including the examples above — **will** be flagged as unused
-unless explicitly excluded:
+static assets (`Z405`). Its asset-reference scanner recognizes real
+Markdown/HTML links (`[text](path)`, `<img src="...">`, `<a href="...">`) and,
+as of this release, the frontmatter `image:` key shown above — a PNG
+referenced only that way is correctly counted as used and will not be
+flagged.
+
+It does **not** recognize references made at the site-wide config level
+(`[extra] social_image` in `mkdocs.yml`/`zensical.toml`) — only per-page
+frontmatter. If your project sets a default social image only through
+site-wide config, exclude it explicitly. SVG source files (kept only as
+design sources, never referenced by any page or config) also still need
+explicit exclusion:
 
 ```toml
 # .zenzic.toml
 excluded_assets = [
-    "assets/social/*.svg",   # SVG sources — not served as OG images
-    "assets/social/*.png",   # OG/Twitter card images — referenced only via frontmatter/config
+    "assets/social/*.svg",   # SVG sources — not served as OG images, never referenced
 ]
 ```
 
@@ -124,7 +129,7 @@ The same key is available under `[tool.zenzic]` in `pyproject.toml`:
 
 ```toml title="pyproject.toml"
 [tool.zenzic]
-excluded_assets = ["assets/social/*.svg", "assets/social/*.png"]
+excluded_assets = ["assets/social/*.svg"]
 ```
 
 ---

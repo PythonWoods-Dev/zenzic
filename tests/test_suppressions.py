@@ -18,6 +18,7 @@ three mandatory TDD scenarios mandated by the Architecture Governance Board:
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from zenzic.core.rules import _is_suppressed
 from zenzic.core.suppressions import SuppressionTracker
@@ -433,6 +434,62 @@ def test_global_usage_tracker_toml_line_resolution(tmp_path: Path) -> None:
         "docs/assets/**" in msg and line_no == 3 for msg, line_no in lines_by_pattern.items()
     )
     assert any("docs/blog/**" in msg and line_no == 4 for msg, line_no in lines_by_pattern.items())
+
+
+def test_global_usage_tracker_flags_stale_per_file_ignores() -> None:
+    """A per_file_ignores entry that never suppressed anything must be flagged Z620,
+    exactly like a stale directory_policies/excluded_file_patterns/excluded_external_urls
+    entry already is."""
+    from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
+
+    config = ZenzicConfig(
+        governance=GovernanceConfig(per_file_ignores={"docs/legacy.md": ["Z502"]})
+    )
+    tracker = GlobalUsageTracker(config)
+
+    # Never marked used — should be reported stale.
+    stale = tracker.get_stale_findings(check_all=True)
+    messages = [f.message for f in stale]
+    assert any("docs/legacy.md" in msg and "Z502" in msg for msg in messages)
+
+
+def test_global_usage_tracker_per_file_ignore_marked_used_not_stale() -> None:
+    """Once mark_per_file_ignore_used() fires (mirroring the other three sources'
+    mark_*_used methods), the entry must no longer be reported stale."""
+    from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
+
+    config = ZenzicConfig(
+        governance=GovernanceConfig(per_file_ignores={"docs/legacy.md": ["Z502"]})
+    )
+    tracker = GlobalUsageTracker(config)
+    tracker.mark_per_file_ignore_used("docs/legacy.md", "Z502")
+
+    assert ("docs/legacy.md", "Z502") not in tracker.unused_per_file_ignores
+    stale = tracker.get_stale_findings(check_all=True)
+    assert not any("docs/legacy.md" in f.message for f in stale)
+
+
+def test_apply_per_file_ignores_marks_tracker_used(tmp_path: Path) -> None:
+    """apply_per_file_ignores() must call mark_per_file_ignore_used() on the tracker
+    when it actually suppresses a finding — mirroring apply_directory_policies()'s
+    existing call to mark_directory_policy_used()."""
+    from zenzic.core.governance import apply_per_file_ignores
+    from zenzic.core.suppressions import GlobalUsageTracker
+    from zenzic.models.config import GovernanceConfig, ZenzicConfig
+
+    config = ZenzicConfig(
+        governance=GovernanceConfig(per_file_ignores={"docs/legacy.md": ["Z502"]})
+    )
+    tracker = GlobalUsageTracker(config)
+    config._global_tracker = tracker
+
+    finding = SimpleNamespace(code="Z502", file_path=Path("docs/legacy.md"))
+    result = apply_per_file_ignores([finding], config, repo_root=Path("."), docs_root=Path("docs"))
+
+    assert result == []
+    assert ("docs/legacy.md", "Z502") not in tracker.unused_per_file_ignores
 
 
 def test_global_usage_tracker_topology_policy_pair_consumption() -> None:

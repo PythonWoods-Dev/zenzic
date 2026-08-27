@@ -130,11 +130,18 @@ def apply_per_file_ignores(
             filtered.append(finding)
             continue
 
-        suppressed = any(
-            (fnmatch(rel_path, pattern) or (docs_rel is not None and fnmatch(docs_rel, pattern)))
-            and code in codes
-            for pattern, codes in normalized_map.items()
-        )
+        suppressed = False
+        for pattern, allowed_codes in normalized_map.items():
+            matches = fnmatch(rel_path, pattern) or (
+                docs_rel is not None and fnmatch(docs_rel, pattern)
+            )
+            if matches and code in allowed_codes:
+                suppressed = True
+                tracker = getattr(config, "_global_tracker", None)
+                if tracker:
+                    tracker.mark_per_file_ignore_used(pattern, code)
+                break
+
         if suppressed:
             continue
         filtered.append(finding)

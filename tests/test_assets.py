@@ -48,6 +48,31 @@ def test_find_unused_assets(tmp_path: Path) -> None:
     assert unused[0].name == "unused.png"
 
 
+def test_frontmatter_image_reference_not_flagged_unused(tmp_path: Path) -> None:
+    repo = tmp_path / "my_repo"
+    docs = repo / "docs"
+    docs.mkdir(parents=True)
+
+    assets_dir = docs / "assets" / "social"
+    assets_dir.mkdir(parents=True)
+    (assets_dir / "card.png").touch()
+
+    md = docs / "post.md"
+    md.write_text(
+        "---\n"
+        "title: A post\n"
+        "image: assets/social/card.png\n"
+        "---\n\n"
+        "Body text with no markdown link to the card image.\n"
+    )
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
+
+    assert unused == []
+
+
 def test_excluded_assets_not_reported(tmp_path: Path) -> None:
     repo = tmp_path / "my_repo"
     docs = repo / "docs"

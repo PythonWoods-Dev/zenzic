@@ -351,10 +351,23 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     Returns:
         Set of normalised asset paths relative to docs root.
     """
+    from zenzic.core.governance import _parse_frontmatter_dict
     from zenzic.core.validator import PolyglotExtractor
 
     extractor = PolyglotExtractor()
     referenced: set[str] = set()
+
+    # 0. Frontmatter `image` key (e.g. social card / OG image references —
+    #    see docs/how-to/configure-social-metadata.md) — not a markdown-body
+    #    link, so invisible to the AST/HTML/inline-link passes below.
+    frontmatter = _parse_frontmatter_dict(text)
+    fm_image = frontmatter.get("image")
+    if fm_image and not fm_image.startswith(("http://", "https://", "data:", "#")):
+        clean_url = unquote(fm_image.split("?")[0].split("#")[0])
+        base = page_dir if page_dir else "."
+        normalized = posixpath.normpath(posixpath.join(base, clean_url))
+        if not normalized.startswith(".."):
+            referenced.add(normalized)
 
     # 1. AST Reference Link Definitions ([label]: dest) from PolyglotExtractor
     for ref_node in extractor.extract_ref_defs(text):

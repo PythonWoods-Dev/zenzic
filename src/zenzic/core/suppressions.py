@@ -202,13 +202,14 @@ def _resolve_toml_line(
 
 
 class GlobalUsageTracker:
-    """Tracks global policy usage (Z620) for directory_policies, excluded_file_patterns, and excluded_external_urls."""
+    """Tracks global policy usage (Z620) for directory_policies, excluded_file_patterns, excluded_external_urls, and per_file_ignores."""
 
     def __init__(self, config: "ZenzicConfig"):
         self.config = config
         self.unused_dir_policies: set[tuple[str, str]] = set()
         self.unused_file_patterns: set[str] = set()
         self.unused_ext_urls: set[str] = set()
+        self.unused_per_file_ignores: set[tuple[str, str]] = set()
 
         if getattr(config, "governance", None) and config.governance.directory_policies:
             for pattern, codes in config.governance.directory_policies.items():
@@ -223,6 +224,11 @@ class GlobalUsageTracker:
             for url in config.excluded_external_urls:
                 self.unused_ext_urls.add(url)
 
+        if getattr(config, "governance", None) and config.governance.per_file_ignores:
+            for pattern, codes in config.governance.per_file_ignores.items():
+                for code in codes:
+                    self.unused_per_file_ignores.add((pattern, str(code).strip().upper()))
+
     def mark_directory_policy_used(self, pattern: str, code: str) -> None:
         normalized = code.upper()
         self.unused_dir_policies.discard((pattern, normalized))
@@ -235,6 +241,13 @@ class GlobalUsageTracker:
 
     def mark_excluded_external_url_used(self, url: str) -> None:
         self.unused_ext_urls.discard(url)
+
+    def mark_per_file_ignore_used(self, pattern: str, code: str) -> None:
+        normalized = code.upper()
+        self.unused_per_file_ignores.discard((pattern, normalized))
+        if normalized in _TOPOLOGY_POLICY_CODES:
+            for sibling in _TOPOLOGY_POLICY_CODES:
+                self.unused_per_file_ignores.discard((pattern, sibling))
 
     def get_stale_findings(
         self,
@@ -288,6 +301,19 @@ class GlobalUsageTracker:
                         line_no=line_no,
                         rule_id="Z620",
                         message=f"Excluded external URL '{url}' was never skipped (the URL was not found in checked files).",
+                        severity=code_severity("Z620"),
+                    )
+                )
+
+        if check_all:
+            for pattern, code in sorted(self.unused_per_file_ignores):
+                line_no = _resolve_toml_line(origin, pattern, toml_lines)
+                findings.append(
+                    RuleFinding(
+                        file_path=origin,
+                        line_no=line_no,
+                        rule_id="Z620",
+                        message=f"Per-file ignore '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
                         severity=code_severity("Z620"),
                     )
                 )
