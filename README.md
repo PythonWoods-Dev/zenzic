@@ -92,7 +92,7 @@ In the era of AI-driven coding and autonomous agent workflows, technical documen
 
 ### 1. Installation & Distribution Options
 
-Choose the distribution track that fits your workflow ([full guide](https://zenzic.dev/docs/how-to/install/)):
+Choose the distribution track that fits your workflow ([full guide](https://zenzic.dev/how-to/install/)):
 
 ```yaml
 # Track 1 — Pre-commit (Recommended: isolated, pinned, zero environment contamination)
@@ -249,7 +249,7 @@ max_document_complexity = 45
 
 ### 6. Custom Rule SDK v3
 
-Extend Zenzic with organization-specific invariants. The **[Custom Rule SDK v3](https://zenzic.dev/docs/developers/how-to/write-ast-rule/)** (`zenzic.sdk`) lets you author typed, deterministic AST visitor plugins in Python with guaranteed $O(N)$ execution and full SARIF integration.
+Extend Zenzic with organization-specific invariants. The **[Custom Rule SDK v3](https://zenzic.dev/developers/how-to/write-ast-rule/)** (`zenzic.sdk`) lets you author typed, deterministic AST visitor plugins in Python with guaranteed $O(N)$ execution and full SARIF integration.
 
 ---
 
@@ -413,10 +413,10 @@ Zenzic runs the same rule engine and finding codes across every development touc
 ## 📖 Documentation & Guides
 
 - **[Quick Start Tutorial](https://zenzic.dev/tutorials/first-audit/)**: Step-by-step introduction.
-- **[Finding Codes Catalog](https://zenzic.dev/docs/reference/finding-codes/)**: Complete reference for all `Z1xx`–`Z6xx` finding codes.
-- **[Policy-as-Code Guide](https://zenzic.dev/docs/how-to/configuration-strategy/)**: Enforce repository standards.
-- **[Custom Rule SDK v3](https://zenzic.dev/docs/developers/how-to/write-ast-rule/)**: Author deterministic, typed Python linting plugins.
-- **[CI/CD Configuration](https://zenzic.dev/docs/how-to/configure-ci-cd/)**: Set up automated GitHub Actions pipelines.
+- **[Finding Codes Catalog](https://zenzic.dev/reference/finding-codes/)**: Complete reference for all `Z1xx`–`Z6xx` finding codes.
+- **[Policy-as-Code Guide](https://zenzic.dev/how-to/configuration-strategy/)**: Enforce repository standards.
+- **[Custom Rule SDK v3](https://zenzic.dev/developers/how-to/write-ast-rule/)**: Author deterministic, typed Python linting plugins.
+- **[CI/CD Configuration](https://zenzic.dev/how-to/configure-ci-cd/)**: Set up automated GitHub Actions pipelines.
 
 For deep architectural explanations, configuration strategies, and the full finding taxonomy, visit [zenzic.dev](https://zenzic.dev).
 
