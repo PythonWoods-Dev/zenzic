@@ -95,6 +95,45 @@ class TestPathTraversalGuardE2E:
             f"got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
 
+    def test_z203_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z203 finding for a single dangerous
+        link, not two — regression for the missing Z202/Z203 entries in
+        _check.py's rule-finding skip-list, which let the same RuleFinding
+        surface once via validate_links_structured()'s LinkError path and
+        again via the generic rule-finding loop."""
+        sandbox = tmp_path / "traversal"
+        shutil.copytree(_TRAVERSAL_SANDBOX, sandbox)
+        monkeypatch.chdir(sandbox)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.stdout.count("[Z203]") == 1, (
+            f"Expected exactly one [Z203] finding, got "
+            f"{result.stdout.count('[Z203]')}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_z203_status_message_reports_correct_exit_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The printed verdict must say Exit code 3, matching the process's
+        actual exit code — regression for reporter.py's message-selection
+        chain, which had no branch for `incidents_count` and silently fell
+        through to the generic 'Exit code 1 is mandatory' text."""
+        sandbox = tmp_path / "traversal"
+        shutil.copytree(_TRAVERSAL_SANDBOX, sandbox)
+        monkeypatch.chdir(sandbox)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 3
+        assert "Exit code 3 is mandatory" in result.stdout, (
+            f"Expected the verdict to name Exit code 3 (matching the actual "
+            f"exit code), got:\n{result.stdout}"
+        )
+        assert "Exit code 1 is mandatory" not in result.stdout
+
 
 # ── Credential Breach — Exit 2 (credential leak) ────────────────────────────────
 

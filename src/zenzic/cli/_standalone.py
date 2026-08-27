@@ -477,7 +477,7 @@ def score(
 
             _shared.console.print()
             _shared.console.print("[bold cyan]DETAILED CATEGORY BREAKDOWN[/]")
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
 
             # Helper to map codes to display categories
             def get_display_category(c: str) -> str:
@@ -568,7 +568,7 @@ def score(
                     )
 
             _shared.console.print()
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
             _shared.console.print("[bold cyan]DQS MATHEMATICAL TRANSPARENCY[/]")
             _shared.console.print("  [bold]Base Score:[/bold]                100.0 pts")
 
@@ -606,7 +606,7 @@ def score(
             _shared.console.print(
                 f"  [bold]Final Score: 100 - {total_penalties_val:.1f} = {report.score:.1f}[/bold]"
             )
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
 
         if report.score == 100:
             from rich.console import Group

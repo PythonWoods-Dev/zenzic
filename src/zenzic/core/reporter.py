@@ -434,7 +434,14 @@ class ZenzicReporter:
         has_failures = has_hard_failures or has_strict_failures
         if has_failures:
             if has_hard_failures:
-                if breaches_count and policy_count:
+                if incidents_count:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
+                            " Security incidents detected. Exit code 3 is mandatory."
+                        )
+                    )
+                elif breaches_count and policy_count:
                     renderables.append(
                         Text.from_markup(
                             f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"

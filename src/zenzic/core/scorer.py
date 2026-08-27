@@ -51,7 +51,7 @@ from zenzic.core.exceptions import ConfigurationError
 _WEIGHTS: dict[str, float] = {
     "structural": 0.30,  # Z101, Z102, Z104, Z105, Z107, Z108, Z112 — Structural Integrity
     "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z401, Z402 — Navigation & Logic
-    "content": 0.20,  # Z403, Z501, Z502, Z503, Z505 — Content Quality
+    "content": 0.20,  # Content Quality — see CODE_DEFINITIONS category="content" (SSoT)
     "brand": 0.25,  # Z404, Z405, Z406, Z601 — Governance & Brand
 }
 

@@ -706,6 +706,11 @@ class AdaptiveRuleEngine:
 #: Matches a same-page anchor link: [text](#fragment) — not cross-file.
 _ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
 
+#: Matches an ATX heading line, for tracking which section contains a given
+#: line (used by CircularAnchorRule to distinguish a true self-reference from
+#: a cross-section link that merely shares its own link text's slug).
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+
 #: Fenced code block line: captures the fence chars and the full info string.
 #: CEO-138: info string may contain language + metadata (e.g. ``python title="x"``
 #: showLineNumbers). CEO-140: closing fence detection requires empty info string
@@ -811,10 +816,14 @@ def _slugify(text: str) -> str:
 class CircularAnchorRule(BaseRule):
     """Z107 — Detect self-referential anchor links.
 
-    Flags any ``[text](#fragment)`` where ``slug(text) == fragment``.  Such
-    links appear to reference a heading further down the page but actually
-    reference the element the reader is already reading — a no-op that
-    indicates a mis-copied heading.
+    Flags any ``[text](#fragment)`` where ``slug(text) == fragment`` *and*
+    the link sits inside the very section that fragment names — a true
+    no-op that indicates a mis-copied heading.  A link whose text happens to
+    slugify to the same fragment but which lives inside a *different*
+    section (e.g. ``[Z101](#z101)`` written from within a ``## Z104``
+    section, navigating to the distinct ``## Z101`` section elsewhere on the
+    page) is legitimate cross-section navigation, not a self-reference, and
+    is never flagged.
 
     Cross-file links (``[text](other.md#fragment)``) and external URLs are
     never flagged.
@@ -826,7 +835,11 @@ class CircularAnchorRule(BaseRule):
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
+        current_heading_slug: str | None = None
         for line_no, line in enumerate(text.splitlines(), start=1):
+            heading_match = _HEADING_RE.match(line.strip())
+            if heading_match:
+                current_heading_slug = _slugify(heading_match.group(2))
             if "(#" not in line:
                 continue
             if _is_suppressed(line, self.rule_id):
@@ -834,6 +847,8 @@ class CircularAnchorRule(BaseRule):
             for m in _ANCHOR_LINK_RE.finditer(line):
                 link_text = m.group(1)
                 fragment = m.group(2)
+                if current_heading_slug is not None and current_heading_slug != fragment.lower():
+                    continue
                 if _slugify(link_text) == fragment.lower():
                     findings.append(
                         RuleFinding(

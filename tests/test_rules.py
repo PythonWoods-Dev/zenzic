@@ -1726,6 +1726,24 @@ class TestCircularAnchorRule:
         assert len(findings) == 1
         assert findings[0].col_start == text.index("[Foo]")
 
+    def test_z107_true_self_reference_still_flagged(self) -> None:
+        """Link text/fragment match AND the link sits under that very heading
+        → genuine no-op self-reference → still flagged."""
+        rule = self._rule()
+        text = "## Foo\n\nSee [Foo](#foo) above.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+
+    def test_z107_no_false_positive_cross_section_reference(self) -> None:
+        """[Z101](#z101) written from inside a *different* section (## Z104)
+        must NOT be flagged: it navigates to a distinct section that merely
+        shares a name with its own link text, not a circular no-op."""
+        rule = self._rule()
+        text = "## Z104\n\nSee also [Z101](#z101) for the related code.\n\n## Z101\n\nDetails.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
 
 # ─── UntaggedCodeBlockRule (Z505) ─────────────────────────────────────────────
 
