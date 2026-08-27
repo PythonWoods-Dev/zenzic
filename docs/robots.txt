@@ -5,5 +5,12 @@
 # Deployed to https://zenzic.dev/robots.txt via Cloudflare Pages.
 
 User-agent: *
+
+# Impedisce a Google di scansionare la sottocartella "fantasma" che causa duplicazione
+Disallow: /docs/
+
+# Permette la scansione di tutto il resto (il tuo sito reale)
 Allow: /
+
+# Indica la posizione corretta della sitemap pulita
 Sitemap: https://zenzic.dev/sitemap.xml
