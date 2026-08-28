@@ -70,7 +70,6 @@ nav:
       - Finding Codes Index: reference/finding-codes.md
       - Core Rule Checks: reference/checks.md
       - Rule Specification Cards:
-        - rules/Z000.md
         - rules/Z001.md
         - rules/Z101.md
         - rules/Z102.md

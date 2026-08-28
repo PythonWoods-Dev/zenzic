@@ -46,7 +46,10 @@ the `zenzic.adapters` entry-point group is a valid Zenzic adapter — for any SS
 
 ## Supported Engine Versions
 
-Zenzic ships adapters for specific major-version lines. Declaring a different engine is a configuration error: Zenzic will emit `Z000 UNSUPPORTED_ENGINE` and abort.
+Zenzic ships adapters for specific major-version lines. Declaring an `engine` value outside the
+six supported identifiers (`prebuilt`, `vsm`, `mkdocs`, `zensical`, `standalone`, `auto`) is a
+configuration error: Zenzic will emit `Z001 CORE_CONFIG_STRUCTURE` and abort before any file is
+scanned.
 
 For the specific tested version, verification method, and last-verified date per engine, see
 the [Tested Compatibility Matrix](compatibility.md). Zenzic does **not** invoke the engine

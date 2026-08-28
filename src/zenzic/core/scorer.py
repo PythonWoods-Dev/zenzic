@@ -49,10 +49,10 @@ from zenzic.core.exceptions import ConfigurationError
 # ─── Weights ──────────────────────────────────────────────────────────────────
 
 _WEIGHTS: dict[str, float] = {
-    "structural": 0.30,  # Z101, Z102, Z104, Z105, Z107, Z108, Z112 — Structural Integrity
-    "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z401, Z402 — Navigation & Logic
+    "structural": 0.30,  # Structural Integrity — see CODE_DEFINITIONS category="structural" (SSoT)
+    "navigation": 0.25,  # Navigation & Logic — see CODE_DEFINITIONS category="navigation" (SSoT)
     "content": 0.20,  # Content Quality — see CODE_DEFINITIONS category="content" (SSoT)
-    "brand": 0.25,  # Z404, Z405, Z406, Z601 — Governance & Brand
+    "brand": 0.25,  # Governance & Brand — see CODE_DEFINITIONS category="brand" (SSoT)
 }
 
 # ─── Penalty Table — derived from CODE_DEFINITIONS (SSoT) ────────────────────

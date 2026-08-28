@@ -94,3 +94,25 @@ def test_baseline_ux_massive_debt_reduction(tmp_path: Path):
     assert res.exit_code == 0
     assert "Massive technical debt reduction detected (60 issues resolved)" in res.output
     assert "Run 'zenzic check all --update-baseline' to lock in this clean state." in res.output
+
+
+def test_update_baseline_verdict_message_matches_real_exit_code(tmp_path: Path) -> None:
+    """`--update-baseline` marks every current finding as baselined in the same
+
+    run, so the real exit code is 0 (nothing unbaselined, no regression) — the
+    printed verdict must not claim "Exit code 1 is mandatory" when the actual
+    exit code is 0. Regression for reporter.py's has_hard_failures, which was
+    computed from raw finding counts with no reference to is_baselined, while
+    the real exit-code decision in _check.py is baseline-aware.
+    """
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+    doc = tmp_path / "docs" / "index.md"
+    doc.parent.mkdir(parents=True)
+    doc.write_text("# Home\n\n[broken link](nonexistent.md)\n\nTODO: write this section\n")
+
+    res = runner.invoke(app, ["check", "all", str(tmp_path), "--update-baseline", "--no-header"])
+
+    assert res.exit_code == 0, res.output
+    assert "Exit code 1 is mandatory" not in res.output, (
+        f"Verdict claimed Exit 1 is mandatory while the real exit code was 0:\n{res.output}"
+    )

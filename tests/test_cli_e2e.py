@@ -135,6 +135,37 @@ class TestPathTraversalGuardE2E:
         assert "Exit code 1 is mandatory" not in result.stdout
 
 
+# ── Z108 double-emission — same skip-list bug shape as Z202/Z203 above ──────────
+
+_Z108_GALLERY_EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "z108-empty-link-text"
+
+
+class TestZ108DoubleEmissionE2E:
+    """Z108 must not double-emit, same root cause as the fixed Z202/Z203 bug."""
+
+    def test_z108_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z108 finding for a single empty
+        link, not two — regression for the missing Z108 entry in
+        _check.py's rule-finding skip-list, the same bug shape as the
+        already-fixed Z202/Z203 double-emission: Z108 is a member of
+        validator.py's link_codes set, so its RuleFinding already surfaces
+        once via validate_links_structured()'s LinkError path and, without
+        the skip-list entry, a second time via the generic rule-finding
+        loop."""
+        sandbox = tmp_path / "z108"
+        shutil.copytree(_Z108_GALLERY_EXAMPLE, sandbox)
+        monkeypatch.chdir(sandbox)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.stdout.count("[Z108]") == 1, (
+            f"Expected exactly one [Z108] finding, got "
+            f"{result.stdout.count('[Z108]')}.\nOutput:\n{result.stdout}"
+        )
+
+
 # ── Credential Breach — Exit 2 (credential leak) ────────────────────────────────
 
 

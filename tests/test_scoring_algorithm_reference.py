@@ -44,7 +44,6 @@ CATEGORY_LABELS: dict[str, str] = {
 SPECIAL_CATEGORY_LABELS: dict[str, str] = {
     # Pre-scan configuration guards -- non-suppressible, fire before any
     # analysis begins.
-    "Z000": "Configuration Guard",
     "Z001": "Configuration Guard",
     "Z110": "Configuration Guard",
     "Z111": "Configuration Guard",

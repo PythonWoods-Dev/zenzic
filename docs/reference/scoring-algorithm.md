@@ -84,7 +84,6 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 
 | Code | Name | Penalty | Category | Opt-In / Active |
 | :--- | :--- | :---: | :--- | :--- |
-| **Z000** | UNSUPPORTED_ENGINE | 0.0 pts | Configuration Guard | Fatal Guard |
 | **Z001** | CORE_CONFIG_STRUCTURE | 0.0 pts | Configuration Guard | Fatal Guard |
 | **Z101** | LINK_BROKEN | 8.0 pts | Structural Integrity | Default |
 | **Z102** | ANCHOR_MISSING | 5.0 pts | Structural Integrity | Default |

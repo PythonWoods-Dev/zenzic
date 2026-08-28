@@ -1522,6 +1522,7 @@ def _to_findings(
                 "Z104",
                 "Z105",
                 "Z106",
+                "Z108",
                 "Z112",
                 "Z120",
                 "Z121",
@@ -2065,6 +2066,7 @@ def check_all(
             strict=effective_strict,
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(*_footer_lines),
+            baseline_active=active_baseline is not None,
         )
 
     if output_format == "text" and not quiet:

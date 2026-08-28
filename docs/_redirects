@@ -1388,8 +1388,10 @@
 /it/docs/tutorials/first-audit                                              /tutorials/first-audit/ 301
 /docs/rules/                                                                /rules/ 301
 /docs/rules                                                                 /rules/ 301
-/docs/rules/Z000/                                                           /rules/Z000/ 301
-/docs/rules/Z000                                                            /rules/Z000/ 301
+/docs/rules/Z000/                                                           /rules/Z001/ 301
+/docs/rules/Z000                                                            /rules/Z001/ 301
+/rules/Z000/                                                                /rules/Z001/ 301
+/rules/Z000                                                                 /rules/Z001/ 301
 /docs/rules/Z001/                                                           /rules/Z001/ 301
 /docs/rules/Z001                                                            /rules/Z001/ 301
 /docs/rules/Z101/                                                           /rules/Z101/ 301

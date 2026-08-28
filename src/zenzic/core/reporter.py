@@ -189,6 +189,7 @@ class ZenzicReporter:
         ok_message: str | None = None,
         show_info: bool = False,
         footer_notice: FooterNotice | None = None,
+        baseline_active: bool = False,
     ) -> tuple[int, int]:
         """Print the full Zenzic Report.
 
@@ -203,6 +204,14 @@ class ZenzicReporter:
                 secure."`` (all-clear panel) or ``"All checks passed."`` (with
                 warnings).  Individual commands should pass a specific message
                 such as ``"No broken links found."``.
+            baseline_active: When ``True``, the printed verdict ("FAILED: Hard
+                errors detected. Exit code 1 is mandatory.") is computed from
+                unbaselined findings only, matching the caller's real
+                baseline-aware exit-code decision. Non-suppressible security
+                findings (breach/incident) always fail regardless — a baseline
+                cannot exempt them. The returned ``(error_count, warning_count)``
+                tuple and the printed summary line's counts are unaffected —
+                both remain raw totals; only the FAILED/OK verdict changes.
 
         Returns:
             ``(error_count, warning_count)`` — breaches are counted separately
@@ -427,10 +436,24 @@ class ZenzicReporter:
 
         # ── Status line (verdict) ─────────────────────────────────────────────
         renderables.append(Text())  # breathing before verdict
+        # Non-suppressible security findings always fail regardless of baseline;
+        # plain errors and strict-promoted warnings are baseline-sensitive, matching
+        # _check.py's real exit-code decision (unbaselined_defects).
+        if baseline_active:
+            verdict_errors = sum(1 for f in findings if f.severity == "error" and not f.is_baselined)
+            verdict_warnings = sum(
+                1 for f in findings if f.severity == "warning" and not f.is_baselined
+            )
+        else:
+            verdict_errors = errors
+            verdict_warnings = warnings
         has_hard_failures = (
-            (breaches_count > 0) or (policy_count > 0) or (incidents_count > 0) or (errors > 0)
+            (breaches_count > 0)
+            or (policy_count > 0)
+            or (incidents_count > 0)
+            or (verdict_errors > 0)
         )
-        has_strict_failures = strict and warnings > 0
+        has_strict_failures = strict and verdict_warnings > 0
         has_failures = has_hard_failures or has_strict_failures
         if has_failures:
             if has_hard_failures:

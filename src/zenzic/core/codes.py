@@ -7,8 +7,7 @@ Every finding Zenzic emits carries a stable machine-readable code of the form
 
 Schema
 ------
-Z0xx — Migration & Compatibility
-    Z000  UNSUPPORTED_ENGINE   — unsupported/removed engine identifier; ConfigurationError before analysis
+Z0xx — Configuration Guard
     Z001  CORE_CONFIG_STRUCTURE — invalid configuration structure; ZenzicConfigError before analysis
 
 Z1xx — Link Integrity
@@ -168,7 +167,6 @@ class ZenzicExitCode:
 
 FROZEN_CODES: frozenset[str] = frozenset(
     {
-        "Z000",
         "Z110",  # CONFIG_SYNTAX_ERROR — malformed .zenzic.toml
         "Z111",  # CONFIG_SCHEMA_ERROR — invalid .zenzic.toml schema
         "Z201",
@@ -219,9 +217,8 @@ PLUGIN_FORBIDDEN_EXITS: frozenset[int] = frozenset({2, 3})
 # Adding a new code requires a single entry here — nowhere else.
 
 CODE_DEFINITIONS: dict[str, CodeDefinition] = {
-    # ── Z0xx — Migration & Compatibility ──────────────────────────────────────
+    # ── Z0xx — Configuration Guard ──────────────────────────────────────────
     # Aborts config loading before any analysis; not in the DQS penalty table.
-    "Z000": CodeDefinition("error", 0.0, None),
     "Z001": CodeDefinition("error", 0.0, None),  # CORE_CONFIG_STRUCTURE
     # ── Z1xx — Link Integrity & Configuration Validation ──────────────────────
     "Z101": CodeDefinition("error", 8.0, "structural"),  # LINK_BROKEN
@@ -354,7 +351,6 @@ def code_severity(code: str) -> Literal["error", "warning", "info"]:
 
 #: Human-readable name for each code (for report headers).
 CODE_NAMES: Final[dict[str, str]] = {
-    "Z000": "UNSUPPORTED_ENGINE",
     "Z001": "CORE_CONFIG_STRUCTURE",
     "Z101": "LINK_BROKEN",
     "Z102": "ANCHOR_MISSING",
@@ -431,8 +427,7 @@ CODE_NAMES: Final[dict[str, str]] = {
 #: Short description of each code for SARIF ``shortDescription`` and human display.
 #: Single source of truth — never duplicate these strings in other modules.
 CODE_DESCRIPTIONS: dict[str, str] = {
-    # Z0xx — Migration & Compatibility
-    "Z000": "Unsupported or removed engine identifier in .zenzic.toml — configuration guard raised before analysis begins",
+    # Z0xx — Configuration Guard
     "Z001": "Invalid configuration structure — configuration guard raised before analysis begins",
     # Z1xx — Link Integrity
     "Z101": "Link target not found in the Virtual Site Map",

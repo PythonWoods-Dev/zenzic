@@ -41,7 +41,7 @@ The code registry is governed by immutable contract surfaces:
 
 | **Category** | **Range** | **Purpose** | **Default Severity** | **Suppressible?** |
 |---|---|---|---|:---:|
-| **Z0xx** | Migration & Compatibility | Engine deprecation; migration guidance | :material-alert-circle:{ style="color: #e11d48;" } `error` | ❌ No (fatal abort) |
+| **Z0xx** | Configuration Guard | Invalid `.zenzic.toml`/`pyproject.toml` structure, raised before any file is scanned | :material-alert-circle:{ style="color: #e11d48;" } `error` | ❌ No (fatal abort) |
 | **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes (except Z110/Z111, never) |
 | **Z2xx** | Security Surface | Secret detection; path traversal; security breaches | :material-shield-alert:{ style="color: #ef4444;" } `fatal` (Exit 2, or Exit 3 for Z203 only — Z202 stays Exit 1) | 🔒 **Never** |
 | **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
@@ -96,7 +96,7 @@ Penalty: FATAL
 
 Displayed for **Z0xx** (configuration abort) and **Z2xx** (Security Codes). These codes do not subtract points incrementally — they trigger a **Security Override** that collapses the entire DQS to **0/100** unconditionally.
 
-- **Z0xx** (e.g. Z000 `UNSUPPORTED_ENGINE`): Fatal configuration error. Execution halts before any scan begins. Exit 1.
+- **Z0xx** (Z001 `CORE_CONFIG_STRUCTURE`): Fatal configuration error. Execution halts before any scan begins. Exit 1.
 - **Z2xx** (Z201–Z205): Security Breach or Security Incident. The score collapses to 0 regardless of all other findings. Exit 2 (breach) or Exit 3 (incident, Z203 only). **Cannot be suppressed.**
 
 > The FATAL label replaces `0.0` in the Penalty column to prevent the dangerous misreading that security codes are "harmless" because they carry no incremental point deduction.
@@ -130,28 +130,9 @@ Examples:
 
 ---
 
-## Z0xx — Migration & Compatibility
+## Z0xx — Configuration Guard
 
-Migration and legacy engine compatibility diagnostic findings.
-
----
-
-### Z000: UNSUPPORTED_ENGINE {#z000}
-
-**Severity:** `error` (fatal abort) · **Penalty:** none · **Exit:** 1 · **Suppressible:** No · [↗ Rule Specification](../rules/Z000.md)
-
-Fatal configuration error: the adapter factory encountered a deprecated or removed engine alias in `.zenzic.toml`. Execution stops before any scan begins — Z000 does not appear in `--format json` output.
-
-**Fix:**
-
-1. Open `.zenzic.toml` and set `engine = "standalone"` (or `"mkdocs"`, `"zensical"`).
-2. Remove any legacy engine alias.
-
----
-
-## Z1xx — Link Integrity
-
-Diagnostic findings related to link targets, anchors, and Virtual Site Map resolution.
+Configuration structure validation findings — raised before any Markdown file is scanned.
 
 ---
 
@@ -160,6 +141,12 @@ Diagnostic findings related to link targets, anchors, and Virtual Site Map resol
 **Severity:** `error` · **Penalty:** none · **Exit:** 1 · **Suppressible:** No · [↗ Rule Specification](../rules/Z001.md)
 
 This rule exists to detect when an invalid configuration structure is detected (ZenzicConfigError before analysis).
+
+---
+
+## Z1xx — Link Integrity
+
+Diagnostic findings related to link targets, anchors, and Virtual Site Map resolution.
 
 ---
 
