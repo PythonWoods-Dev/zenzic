@@ -181,3 +181,20 @@ def test_core_scanners_z202_z203_not_merged_under_one_exit_code() -> None:
     assert len(z203_entries) == 1, "Z203 must have exactly one dedicated CORE_SCANNERS entry"
     assert z202_entries[0].primary_exit == 1, "Z202's primary_exit must stay 1"
     assert z203_entries[0].primary_exit == 3, "Z203's primary_exit must be 3"
+
+
+def test_inspect_capabilities_docstring_scanner_count_matches_registry() -> None:
+    """The docstring's stated scanner count must stay in sync with CORE_SCANNERS.
+
+    A previously hardcoded, unsynced count ("seven scanners") went stale after
+    CORE_SCANNERS grew — this locks the docstring's count to the live registry
+    length so a future CORE_SCANNERS change can't silently desync it again.
+    """
+    from zenzic.cli._inspect import _inspect_capabilities
+    from zenzic.core.codes import CORE_SCANNERS
+
+    doc = _inspect_capabilities.__doc__ or ""
+    expected = f"{len(CORE_SCANNERS)} scanners"
+    assert expected in doc, (
+        f"Docstring must state the live scanner count ({expected!r}); got: {doc!r}"
+    )

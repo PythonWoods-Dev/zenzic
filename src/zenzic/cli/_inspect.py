@@ -27,7 +27,7 @@ inspect_app = _shared.create_app(
 def _inspect_capabilities() -> None:
     """Show the full Zenzic scanner arsenal.
 
-    **Section A — Core Scanners (Built-in):** scanners compiled into
+    **Section A — Core Scanners (Built-in):** 16 scanners compiled into
     Zenzic itself.  The credential scanner (Z201) exits with code 2; the path
     traversal guard's fatal check (Z203, OS system directories) exits with code 3.
     Z202 (ordinary docs-root-boundary traversal) is also non-suppressible but stays

@@ -55,6 +55,21 @@ class TestHtmlSuppressionStrictness:
 # ---------------------------------------------------------------------------
 
 
+def test_is_suppressed_docstring_lists_all_security_codes() -> None:
+    """CEO-152 docstring must list every security-classified non-suppressible code.
+
+    `NON_SUPPRESSIBLE_CODES` also includes Z110/Z111 (config-syntax/schema
+    errors) -- those are deliberately excluded from this "Security findings"
+    framing since they are not security findings, only non-suppressible for
+    an unrelated reason (config integrity).
+    """
+    from zenzic.core.rules import _is_suppressed
+
+    doc = _is_suppressed.__doc__ or ""
+    for code in ("Z201", "Z202", "Z203", "Z204", "Z205"):
+        assert code in doc, f"CEO-152 docstring must list {code} as a security finding"
+
+
 class TestJsxSuppressionStrictness:
     def test_positive_strict_match(self) -> None:
         line = "OldBrand was the codename. {/* zenzic:ignore: Z601 - historical */}"
@@ -163,8 +178,8 @@ class TestZ603DeadSuppression:
         """Scenario C: Z201 is non-suppressible → is_suppressed always False,
         directive never consumed → Z603 fires.
 
-        This is the Inviolability Law: security codes (Z201, Z202, Z203, Z204)
-        are never suppressible.  If a developer adds:
+        This is the Inviolability Law: security codes (Z201, Z202, Z203, Z204,
+        Z205) are never suppressible.  If a developer adds:
             AKIA... <!-- zenzic:ignore: Z201 - expected key -->
 
         Zenzic MUST still emit Z201 (credential scanner fires unconditionally).

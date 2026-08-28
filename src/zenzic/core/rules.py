@@ -785,8 +785,8 @@ def _is_suppressed(line: str, code: str) -> bool:
     Each suppression comment silences **only** the specified diagnostic code
     on the tagged line.  To suppress multiple codes, add multiple comments.
 
-    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203, Z204)
-    always return ``False`` unconditionally.  Security findings are facts,
+    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203, Z204,
+    Z205) always return ``False`` unconditionally.  Security findings are facts,
     not suggestions — a credential leak cannot be declared a false positive.
     """
     from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
