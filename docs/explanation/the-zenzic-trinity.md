@@ -40,7 +40,7 @@ The Core enforces the law. It does not decide the law.
 
 ## 2. The Documentation — The Soul {#documentation-the-soul}
 
-The [`zenzic-doc`](https://github.com/PythonWoods/zenzic) repository is the project's
+The [`zenzic-doc`](https://github.com/PythonWoods/zenzic-doc) repository is the project's
 **Constitutional Layer**. It is not merely a user manual — it is the source of truth that defines
 *why* the engine exists and *why* every rule is the way it is.
 
@@ -120,9 +120,11 @@ registries and stable command outputs (`inspect capabilities`, `inspect codes`,
 
 ### ADR Corpus — The Decision Mirror
 
-Every architectural choice lives in a structured Markdown file with a canonical format:
-`title`, `**Status:**`, `## Context`, `## Decision`, `## Rationale`. This makes the
-decision history machine-readable by design.
+Every architectural choice lives in a structured Markdown file. `## Context` and `## Decision`
+are universal across the ADR corpus; most records also carry `## Rationale` (or, in a minority,
+`## Consequences`) and a `**Status:**`/`**Date:**` metadata line, though the exact metadata
+fields aren't fully standardized across every record yet. This makes the decision history
+readable and traceable by design, even where the metadata schema is still converging.
 
 Together, the deterministic rule surface and the ADR corpus form a **transparent context layer**:
 
