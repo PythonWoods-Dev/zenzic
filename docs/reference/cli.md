@@ -1237,9 +1237,10 @@ zenzic inspect capabilities   # Show all built-in scanners, plugin rules, and en
 
 `zenzic inspect capabilities` shows Zenzic's complete scanner arsenal in two sections:
 
-**Section A — Core Scanners (Built-in):** scanners compiled into Zenzic itself from the canonical registry. The credential scanner
-(Z201) and path traversal guard (Z202–203) use dedicated exit codes (2 and 3 respectively) that are never
-suppressible with `--exit-zero`.
+**Section A — Core Scanners (Built-in):** 16 scanners compiled into Zenzic itself from the canonical registry. The credential
+scanner (Z201) exits with code 2; the path traversal guard's fatal check (Z203, OS system directories) exits with
+code 3. Z202 (ordinary docs-root-boundary traversal) is also non-suppressible but stays at plain Exit 1 — it is
+deliberately not escalated to Exit 3. None of these four are suppressible with `--exit-zero`.
 
 **Section B — Extensible Rules (Plugin System):** rules registered via the `zenzic.rules`
 entry-point group from any installed third-party package.

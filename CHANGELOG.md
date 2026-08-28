@@ -53,6 +53,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **6 `docs/reference/` Pages Misattributed Exit 3 to Z202 — Same Conflation Pattern, Docs Only**:
+  - `glossary.md`, `suppression-policy.md` (table row + callout), `cli.md` (Arsenal Inspection section, stale copy of the now-fixed `_inspect.py` docstring), `zenzic-action.md` (Exit Code Contract table), and `api-json.md` (`security_breaches`/`security_incidents` field description, ambiguous `Z2xx` shorthand) all stated or implied that `Z202` shares `Z203`'s Exit 3. `Z202` has always deliberately stayed at plain Exit 1 (unchanged, already test-locked). All 6 corrected to distinguish `Z202` (Exit 1, non-suppressible but not escalated) from `Z203` (fatal, Exit 3). No code behavior changed — documentation only.
 - **`zenzic inspect capabilities` Misattributed Exit 3 to Z202**:
   - The "Core Scanners" table's `CORE_SCANNERS` registry (`codes.py`) previously listed a single merged `Z202-203` row with `primary_exit=3`, implying `Z202` (ordinary docs-root-boundary traversal) shares `Z203`'s (fatal, OS-system-directory traversal) Exit 3. `Z202` has always deliberately stayed at plain Exit 1 in the actual exit-code logic (unchanged, already test-locked by `tests/test_cli.py::test_z202_still_maps_to_plain_error`) — this was a display-only defect in the introspection table, not a real exit-code bug. Split into two entries, `Z202` (Exit 1) and `Z203` (fatal, Exit 3), each independently non-suppressible; `zenzic inspect capabilities`'s docstring corrected to match. New regression test: `tests/test_codes.py::test_core_scanners_z202_z203_not_merged_under_one_exit_code`.
 - **Severity SSoT Invariant Now Enforced Across All Seven Finding-Construction Subsystems**:

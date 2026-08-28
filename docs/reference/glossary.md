@@ -88,7 +88,7 @@ The 4-level hierarchy that determines which files and directories Zenzic scans:
 
 ### Path Traversal Guard {#path-traversal-guard}
 
-A security classification applied when a documentation link resolves to an OS system directory (`/etc/`, `/var/`, `/sys/`). Fires `Z202`/`Z203` and forces non-suppressible **Exit 3**.
+A security classification applied when a documentation link resolves to an OS system directory (`/etc/`, `/var/`, `/sys/`). Fires `Z203` and forces non-suppressible **Exit 3**. The related, less severe `Z202` (ordinary docs-root-boundary traversal) is also non-suppressible but stays at plain Exit 1 — it is deliberately not escalated to Exit 3.
 
 ---
 

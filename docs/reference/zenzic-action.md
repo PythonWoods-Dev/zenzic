@@ -52,7 +52,7 @@ Source: [github.com/PythonWoods/zenzic-action](https://github.com/PythonWoods/ze
 | `0` | Clean | All checks passed — score at or above `fail_under` | — |
 | `1` | Quality | One or more findings; score may be below `fail_under` | Yes (`fail-on-error: "false"`) |
 | **`2`** | **Credential** | **Z201 CREDENTIAL_SECRET detected — scan aborted** | **Never** |
-| **`3`** | **Path Traversal** | **Z202/Z203 PATH_TRAVERSAL detected — scan aborted** | **Never** |
+| **`3`** | **Path Traversal (fatal)** | **Z203 PATH_TRAVERSAL_FATAL detected — scan aborted** | **Never** |
 
 Exit codes 2 and 3 are **never suppressed** by `fail-on-error: "false"`, `--exit-zero`, or any other flag. The wrapper enforces this unconditionally — security findings are facts, not findings to be negotiated.
 

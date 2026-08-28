@@ -58,9 +58,10 @@ All contract outputs above include these fields, always:
 }
 ```
 
-`security_breaches` and `security_incidents` are integer counts of `Z2xx`/`Z203`-severity
-findings in the run, present so a JSON consumer can detect a security breach or path-traversal
-incident without parsing issue message text or relying solely on the process exit code.
+`security_breaches` counts `Z201`/`Z204`/`Z205`-severity findings; `security_incidents` counts
+`Z203`-severity findings. `Z202` (ordinary path traversal, plain Exit 1) is excluded from both.
+These fields let a JSON consumer detect a security breach or fatal path-traversal incident
+without parsing issue message text or relying solely on the process exit code.
 
 ---
 

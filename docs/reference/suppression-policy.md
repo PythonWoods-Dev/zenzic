@@ -117,11 +117,12 @@ Zenzic enforces a strict boundary between suppressible quality checks and **invi
 | **Graph Topology** | `Z401`–`Z406` | Missing directory indexes, orphan pages | ✅ Yes | Deducts score / Exit 1 |
 | **Content Quality** | `Z501`–`Z506` | Placeholder text, untagged code blocks | ✅ Yes | Deducts score / Exit 1 |
 | **Brand Governance**| `Z601`–`Z603` | Brand obsolescence, dead suppressions | ✅ Yes | Deducts score / Exit 1 |
-| **Security Surface**| `Z201` | Credential Scanner (Tokens, API Keys) | ❌ **NEVER** | **Fatal Exit 2** |
-| **Security Surface**| `Z202`–`Z203` | Path Traversal Guard (Boundary Violation) | ❌ **NEVER** | **Fatal Exit 3** |
+| **Security Surface** | `Z201` | Credential Scanner (Tokens, API Keys) | ❌ **NEVER** | **Fatal Exit 2** |
+| **Security Surface** | `Z202` | Path Traversal Guard (Boundary Violation) | ❌ **NEVER** | Exit 1 (not escalated) |
+| **Security Surface** | `Z203` | Path Traversal Guard (Fatal, OS System Directory) | ❌ **NEVER** | **Fatal Exit 3** |
 
 !!! danger "Inviolable Security Surface (Z201–Z205)"
-    Security findings (**Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**) unconditionally bypass all directory policies, per-file ignores, and inline comments. They are non-suppressible security facts that trigger exit codes 2 and 3 regardless of any TOML configuration.
+    Security findings (**Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**) unconditionally bypass all directory policies, per-file ignores, and inline comments. They are non-suppressible security facts. `Z201`, `Z204`, and `Z205` trigger exit code 2; `Z203` triggers exit code 3. `Z202` stays at plain exit code 1 — non-suppressible but deliberately not escalated to Exit 3 — regardless of any TOML configuration.
 
 ---
 
