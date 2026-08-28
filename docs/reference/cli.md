@@ -953,7 +953,7 @@ zenzic check references --format json --strict
 
 Exit codes are preserved in JSON mode: exit 0 when only warnings are found,
 exit 1 on errors (or warnings under `--strict`), exit 2 on credential scanner breaches,
-exit 3 on path traversal guard path traversal — the same contract as text output.
+exit 3 on a fatal path traversal incident — the same contract as text output.
 
 ---
 
@@ -996,10 +996,12 @@ in this reference page.
 | Z203 PATH_TRAVERSAL_FATAL | `Z203` | `error` |
 | Z204 FORBIDDEN_TERM | `Z204` | `error` |
 | Z301–Z303 Reference Integrity | `Z301`–`Z303` | `warning` |
-| Z401–Z406 Structure | `Z401`–`Z406` | `warning` |
+| Z401 Structure | `Z401` | `note` |
+| Z402–Z406 Structure | `Z402`–`Z406` | `warning` |
 | Z501–Z505 Content Quality | `Z501`–`Z505` | `warning` |
 | Z601 Governance | `Z601` | `warning` |
-| Z901–Z902 System | `Z901`–`Z902` | `warning` |
+| Z901 System | `Z901` | `error` |
+| Z902 System | `Z902` | `warning` |
 | Z906 NO_FILES_FOUND | `Z906` | `note` |
 
 ### Example SARIF output
@@ -1080,7 +1082,6 @@ exits with code 1:
 ```text
 ERROR: Unknown engine adapter 'hugo'.
 Installed adapters: mkdocs, standalone, zensical
-Install a third-party adapter or choose from the list above.
 ```
 
 Third-party adapters are discovered automatically once installed — no Zenzic update required.
@@ -1111,19 +1112,25 @@ zenzic diff [PATH]             # Diff a remote project against its saved baselin
 
 ### How the score is computed
 
-Each check category carries a fixed weight that reflects its impact on the reader experience:
+Findings are grouped into four weighted categories, each with a point cap:
 
-| Category | Weight | Rationale |
-| :--- | ---: | :--- |
-| links | 35 % | A broken link is an immediate dead end for the reader |
-| orphans | 20 % | Unreachable pages are invisible — they might as well not exist |
-| snippets | 20 % | Invalid code examples actively mislead developers |
-| placeholders | 15 % | Placeholder content signals an unfinished or abandoned page |
-| assets | 10 % | Unused assets are waste, but they do not block the reader |
+| Category | Weight | Bucket Cap |
+| :--- | ---: | ---: |
+| structural | 30 % | 30 pts |
+| navigation | 25 % | 25 pts |
+| content | 20 % | 20 pts |
+| brand (governance) | 25 % | 25 pts |
 
-Within each category, the score decays linearly: the first issue costs 20 % of the category
-weight, the second costs another 20 %, floored at zero. A category with five or more issues
-contributes nothing to the total. The weighted contributions are summed and rounded to an integer.
+Each finding code has a fixed per-occurrence point penalty (see the [Finding Codes
+Catalog](./finding-codes.md)). A category's raw penalty is the sum of `penalty × count` for every
+code in that category found in the project, capped at the category's bucket cap — a category can
+never contribute a negative score, only reduce its own bucket toward zero. Governance (`Z6xx`)
+findings beyond 10 total occurrences receive an exponential amplifier (doubling every 5 excess
+findings) before the cap is applied. If the brand bucket is fully zeroed, the total score is capped
+at 70 regardless of the other three categories (the Gravity Cap). Active suppressions each cost a
+flat 1 point, subtracted after the category penalties. The final score is `100 - Σ(category
+penalties) - suppression debt`, rounded to an integer. See [Scoring
+Algorithm](./scoring-algorithm.md) for the complete formulas and per-code penalty table.
 
 ### Regression tracking
 
@@ -1214,16 +1221,16 @@ BRAND CATEGORY (Weight: 25%, Max: 25.0 pts)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DQS MATHEMATICAL TRANSPARENCY
   Base Score:                100.0 pts
-  + Structural Contribution:   +30.0 pts (max 30.0)
-  + Navigation Contribution:   +25.0 pts (max 25.0)
-  + Content Contribution:   +20.0 pts (max 20.0)
-  + Brand Contribution:   +25.0 pts (max 25.0)
+  - Structural Penalty:        -0.0 pts
+  - Navigation Penalty:        -0.0 pts
+  - Content Penalty:        -0.0 pts
+  - Brand Penalty:        -0.0 pts
   ─────────────────────────────────────
-  Category Subtotal:          100.0 / 100.0 pts
+  Total Category Penalties:   -0.0 pts
   - Gravity Cap Loss:           -0.0 pts (Brand bucket zeroed cap)
   - Technical Debt Penalty:     -0.0 pts (0 suppression(s) x -1.0 pt)
   ─────────────────────────────────────
-  Final Quality Score:        100 / 100
+  Final Score: 100 - 0.0 = 100.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -1388,6 +1395,7 @@ zenzic lab --list
 | :--- | :--- | :--- |
 | `uvx zenzic ...` | Downloads and runs in an **isolated, ephemeral** environment | One-off jobs, pre-commit hooks, CI with no project install phase |
 | `uvx --from zenzic zenzic ...` | Runs via `uvx` with explicit package source | When you want explicit package resolution while staying outside project env |
+| `uv run zenzic ...` | Runs the project's own declared dependency (Track 2) inside its managed venv | A project that lists `zenzic` in `pyproject.toml`, where local runs should match CI exactly |
 | `zenzic ...` (bare) | Requires Zenzic on `$PATH` | Developer machines with a global install |
 
 !!! tip "CI recommendation"
