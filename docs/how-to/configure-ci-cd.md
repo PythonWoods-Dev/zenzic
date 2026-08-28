@@ -33,7 +33,7 @@ flowchart TD
         E -->|Clean Run / Warnings| F["Exit Code 0 (Success)"]
         E -->|Quality / Link Defect| G["Exit Code 1 (Gate Failure)"]
         E -->|Z201 Secret Leak| H["Exit Code 2 (Fatal Security Breach)"]
-        E -->|Z202 Path Traversal| I["Exit Code 3 (Security Boundary Violation)"]
+        E -->|Z203 Fatal Path Traversal| I["Exit Code 3 (Security Boundary Violation)"]
     end
 
     subgraph Transport ["SARIF & PR Annotations"]
@@ -59,8 +59,8 @@ Zenzic enforces a non-negotiable exit code contract across all operating systems
 !!! danger "Exit Code Contract"
     - **`Exit 0` — Success**: All statically-detectable links, anchors, references, and structural rules passed (or warnings suppressed within budget).
     - **`Exit 1` — Quality Gate Failure**: Hard errors (e.g. broken links `Z101`) always trigger this. Warning-severity findings — including orphan pages `Z402` and placeholder text `Z501`, both `warning`-severity by default — only trigger it under `--strict` (which `--ci`, used throughout this page's examples, enables automatically). `suppression_cap` exceeded also triggers this.
-    - **`Exit 2` — Fatal Credential Scanner Breach**: Hardcoded API keys, tokens, or private secrets detected (`Z201`). Non-suppressible.
-    - **`Exit 3` — Security Boundary Violation**: Path traversal attempt (`Z202/Z203`) or forbidden scheme detected. Non-suppressible.
+    - **`Exit 2` — Fatal Security Breach**: Hardcoded credentials (`Z201`), forbidden terms (`Z204`), or forbidden URL schemes (`Z205`). Non-suppressible.
+    - **`Exit 3` — Security Boundary Violation**: Fatal path traversal (`Z203`). Non-suppressible. (`Z202`, ordinary path traversal, stays a plain Exit 1 finding — not escalated.)
 
 ---
 

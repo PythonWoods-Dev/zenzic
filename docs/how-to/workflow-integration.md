@@ -43,24 +43,16 @@ MkDocs projects typically use `uv run mkdocs build` or a `justfile`. Gate the bu
 ```just title="justfile"
 # Quality Gate — Zenzic must pass before MkDocs builds
 build:
-  uv run zenzic check all --strict
+    uv run zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
     uv run mkdocs build --strict
 ```
 
-Or if you prefer a bare shell recipe without uv:
-
-```just title="justfile"
-build:
-    uv run zenzic check all --strict
-    uv run mkdocs build --strict
-```
-
-For `Makefile` users:
+For `Makefile` users (recipe lines must be tab-indented, not space-indented):
 
 ```makefile title="Makefile"
 build:
- uv run zenzic check all --strict
- uv run mkdocs build --strict
+	uv run zenzic check all --strict $(ZENZIC_EXTRA_ARGS)
+	uv run mkdocs build --strict
 ```
 
 Both commands in the recipe run sequentially. A non-zero exit from `zenzic check all`
@@ -100,7 +92,7 @@ a **detector**.
 | Code | Meaning | Gate behaviour |
 | :--- | :--- | :--- |
 | `0` | All checks passed | Build proceeds |
-| `1` | Quality findings (links, orphans, placeholders) | Build blocked by default; add `--no-fail-under` to allow |
+| `1` | Quality findings (links, orphans, placeholders) | Build blocked by default; use `--exit-zero` to always exit 0 instead |
 | `2` | credential scanner finding — credential detected | Always blocked. Never suppressible. |
 | `3` | Path traversal guard — system path traversal | Always blocked. Never suppressible. |
 
@@ -139,7 +131,7 @@ unchanged. Unset, it expands to empty and the gate behaves at full strictness.
 
     ```bash
     just build
-    # ✘ [EXTERNAL_LINK] blog/example.md:12: 'https://zenzic.dev/blog/' returned HTTP 404
+    # [Z109] External URL returned an HTTP error or could not be reached: 'https://zenzic.dev/blog/'
     # FAILED: Hard errors detected. Exit code 1 is mandatory.
     ```
 

@@ -122,15 +122,27 @@ suppression_cap = 45           # adjusted for a large i18n project
 suppression_cap_fail_hard = true
 ```
 
+The same keys are available under `[tool.zenzic.governance]` in `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.zenzic.governance]
+suppression_cap = 45
+suppression_cap_fail_hard = true
+```
+
 Setting the cap to the current suppression count gives you a governance floor: new suppressions will immediately escalate the cost and eventually trigger `suppression_cap_fail_hard`.
 
 ---
 
 ## Why Security Violations Cannot Be Suppressed {#security}
 
-Findings in the Z2xx Security Gate category — `Z201 CREDENTIAL_SECRET`, `Z202 PATH_TRAVERSAL`, `Z203 PATH_TRAVERSAL_FATAL`, and `Z204 FORBIDDEN_TERM` — cannot be suppressed by any mechanism.
+Findings in the Z2xx Security Gate category cannot be suppressed by any mechanism. See the
+[Suppression Policy — Inviolable Security Surface](../reference/suppression-policy.md) for the
+full code list and exit-code contract; note the codes' exit codes differ (`Z201`/`Z204` exit 2,
+`Z203` exit 3, `Z202` exits 1 — not escalated by design).
 
-A `<!-- zenzic:ignore: Z2XX -->` comment is **silently ignored**. The finding is still emitted. The exit code is still 2 or 3. The score collapses to 0.
+A `<!-- zenzic:ignore: Z2XX -->` comment is **silently ignored**. The finding is still emitted.
+The score collapses to 0.
 
 This is by design. Security findings are facts, not style opinions. You cannot assume responsibility for a credential leak and call it a validated exception.
 

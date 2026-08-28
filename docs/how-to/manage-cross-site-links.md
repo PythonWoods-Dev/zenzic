@@ -26,7 +26,7 @@ them — without weakening Z105 elsewhere.
 
 | Situation | Use this | Don't use |
 |---|---|---|
-| One isolated line in one file legitimately matches a rule | `<!-- zenzic:ignore: Zxxx -->` (or `<!-- zenzic:ignore: Zxxx -->` for Markdown) | — |
+| One isolated line in one file legitimately matches a rule | `<!-- zenzic:ignore: Zxxx -->` for Markdown (or `{/* zenzic:ignore: Zxxx */}` for MDX) | — |
 | Multiple cross-plugin links in different files | Inline ignores — one per link | — |
 
 The decision rule: **if it is a property of one line, it belongs inline.**
@@ -35,10 +35,31 @@ The decision rule: **if it is a property of one line, it belongs inline.**
 
 ## Cross-Instance Prefix Handling
 
-!!! danger "`[link_validation]` removed"
-    The `[link_validation]` TOML schema — including `absolute_path_allowlist` — is unsupported and raises a TOML validation error at startup. A `.zenzic.toml` that still declares `[link_validation]` must be updated.
+Declare the cross-instance prefixes your project legitimately owns in `absolute_path_allowlist` — a
+root-level `.zenzic.toml` key. Any absolute link matching a listed prefix is exempt from `Z105`:
 
-    For cross-instance links that Z105 flags, use inline ignores at each affected line.
+```toml
+# .zenzic.toml
+absolute_path_allowlist = [
+    "/developers/",   # cross-instance links into the Developer area
+]
+```
+
+The same key is available under `[tool.zenzic]` in `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.zenzic]
+absolute_path_allowlist = ["/developers/"]
+```
+
+If an allowlist entry is never actually matched by a scanned link, it is reported as
+`Z110 STALE_ALLOWLIST_ENTRY` — remove entries once nothing references them.
+
+!!! note "History"
+    The nested `[link_validation]` TOML *section* (with its own submodel) was removed at v0.7
+    in favor of adapter auto-discovery. `absolute_path_allowlist` itself was later reinstated
+    as a flat, root-level key — it is not, and has never been, gone as a capability; only its
+    old nested location changed.
 
 ---
 

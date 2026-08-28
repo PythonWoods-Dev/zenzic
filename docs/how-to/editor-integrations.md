@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Configure Third-Party Editors (Neovim, Helix, Emacs, Zed)
+# Configure Third-Party Editors (Neovim, Helix, Emacs)
 
 While Zenzic provides an official thin-client extension for VS Code, the **Zenzic Language Server (ZLS)** implements standard Language Server Protocol (LSP v3.17) over `stdio` (JSON-RPC 2.0).
 

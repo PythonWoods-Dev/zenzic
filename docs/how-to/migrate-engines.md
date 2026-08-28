@@ -1,5 +1,5 @@
 ---
-description: "Upgrade guides and migration notes between Zenzic versions."
+description: "How to switch your documentation build engine from MkDocs to Zensical with Zenzic as a safety net."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
@@ -141,17 +141,13 @@ Install Zensical alongside (or instead of) MkDocs:
 uv pip install zensical   # or: pip install zensical
 ```
 
-You can now test your documentation against the Zensical engine without even creating a `zensical.toml`. By running Zenzic with the Zensical engine, the **Transparent Proxy** mode activates:
+You can now test your documentation against the Zensical engine without even creating a `zensical.toml`. `ZensicalAdapter` falls back to reading your existing `mkdocs.yml` when no `zensical.toml` is present:
 
 ```bash
 zenzic check all --engine zensical
 ```
 
-Zenzic will read your existing `mkdocs.yml` and validate how Zensical would interpret it. Look for Zenzic banner to confirm the bridge is active:
-
-```text
-NOTICE: Zensical engine active via mkdocs.yml compatibility bridge.
-```
+Zenzic will read your existing `mkdocs.yml` and validate how Zensical would interpret it.
 
 Run the documentation build to verify it produces correct output:
 
@@ -169,8 +165,9 @@ zenzic diff              # should report zero delta against the pre-migration ba
 
 ### Step 3 — Declare Zensical identity (optional)
 
-If you want Zenzic to enforce the Zensical structural contract — requiring `zensical.toml`
-to be present and using `ZensicalAdapter` for nav extraction — update `.zenzic.toml`:
+If you want Zenzic to enforce the Zensical structural contract using `ZensicalAdapter` for nav
+extraction — `zensical.toml` is not required at this point either, the adapter falls back to
+`mkdocs.yml` exactly as in Step 2 — update `.zenzic.toml`:
 
 ```toml
 # .zenzic.toml
@@ -193,13 +190,13 @@ nav = [
 ]
 ```
 
-!!! tip "Flexible Identity — Transparent Bridge"
+!!! tip "Flexible Identity"
     Declare `engine = "zensical"` in `.zenzic.toml` before `zensical.toml` exists. Zenzic reads
-    your existing `mkdocs.yml` via the Transparent Bridge and validates it against the Zensical
-    structural contract. Switch the engine declaration, run `zenzic check all`, see the
-    result — no Markdown file touched, no pipeline broken.
+    your existing `mkdocs.yml` and validates it against the Zensical structural contract.
+    Switch the engine declaration, run `zenzic check all`, see the result — no Markdown file
+    touched, no pipeline broken.
 
-    While the compatibility bridge is active, Zenzic emits warnings for MkDocs-specific keys
+    While reading `mkdocs.yml` in this fallback mode, Zenzic emits warnings for MkDocs-specific keys
     that Zensical ignores: `remote_branch`, `remote_name`, `exclude_docs`, `draft_docs`,
     `not_in_nav`, `validation`, `strict`, `hooks`, and `watch`.
 

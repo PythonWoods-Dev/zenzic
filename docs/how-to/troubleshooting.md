@@ -33,7 +33,12 @@ This section details the specifications and guidelines for Editor Integration wi
 
 **Symptom:** Status bar shows `$(error) Zenzic: Outdated Core` or notification requests upgrading.
 
-**Cause:** The installed Zenzic Core binary version is lower than the required minimum baseline (`v0.23.1`).
+**Cause:** The installed Zenzic Core binary version is lower than the VS Code extension's
+required minimum. The extension checks this at startup and reports the exact minimum it
+needs directly in the error notification (`Zenzic extension requires Zenzic Core vX.Y.Z or
+higher`) — that message is the live source of truth; this page does not repeat the number,
+since it changes with every `zenzic-vscode` release and is not tracked by any version-bump
+tooling shared with this documentation.
 
 **Resolution:** Update the Zenzic executable to the latest version:
 
@@ -59,8 +64,11 @@ This section details the specifications and guidelines for Configuration within 
 
 ### External link check is slow or needs suppression
 
-External link validation only runs when `--strict` is passed. Omitting the flag disables all network requests entirely.
-To permanently suppress specific URLs without removing strict mode, add their prefixes to `excluded_external_urls` in `.zenzic.toml`:
+External link validation (Pass 3) only runs under `--strict` (confirmed live: without `--strict`,
+no network requests happen and a broken external link is not flagged at all). `--no-external`
+additionally suppresses it even when `--strict` is passed — use it for air-gapped or offline
+`--strict` runs.
+To permanently suppress specific URLs without disabling external validation, add their prefixes to `excluded_external_urls` in `.zenzic.toml`:
 
 ```toml title=".zenzic.toml"
 excluded_external_urls = [
@@ -73,7 +81,7 @@ excluded_external_urls = [
 
 ### `zenzic:ignore` does not suppress a Z2xx finding
 
-Z2xx codes (`Z201`, `Z202`, `Z203`, `Z204`) are **non-suppressible**. They bypass the
+Z2xx codes (`Z201`, `Z202`, `Z203`, `Z204`, `Z205`) are **non-suppressible**. They bypass the
 suppression system entirely. The `zenzic:ignore` directive has no effect on these codes.
 
 **Resolution:** Remove the content that triggers the finding. There is no configuration
@@ -87,7 +95,7 @@ Possible causes:
 
 | Cause | Diagnostic | Fix |
 |:------|:-----------|:----|
-| File not found | `zenzic config show` → check `forbidden_patterns` list | Verify path: `.zenzic.local.toml` must be in the repo root |
+| File not found | `zenzic config explain` → check `forbidden_patterns` list | Verify path: `.zenzic.local.toml` must be in the repo root |
 | Pattern uses PCRE syntax | Pattern silently not matched | Use RE2 DFA syntax. Lookaheads and backreferences are not supported |
 | File is git-ignored and not present in CI | Z204 only fires locally | Provision patterns via CI secret (see [Privacy Gate](./configure-privacy-gate.md)) |
 
@@ -111,24 +119,23 @@ Only repo-specific entries not in the system exclusion list belong in `excluded_
 ### `fail_under` threshold not respected
 
 `fail_under` applies to the **Documentation Quality Score (DQS)**, not to individual
-finding counts. A score of 0 from the Security Override (Z2xx present) always exits 2
-regardless of `fail_under`.
+finding counts. A score of 0 from the Security Override does not by itself force an exit
+code above 1 — the real security-breach codes (`Z201`, `Z204`, `Z205`) already exit 2 on
+their own via the credential-scanner bridge, and `Z203` exits 3, independent of `fail_under`.
+`Z202` is the one Z2xx code that deliberately stays at a plain exit 1.
 
-Verify the effective threshold:
+Verify the effective threshold and where it's set:
 
 ```bash
-zenzic config show | grep fail_under
+zenzic config explain
 ```
 
 ---
 
 ### Score is 0 but no credentials are present
 
-Z204 (`FORBIDDEN_TERM`) also triggers the Security Override. Run:
-
-```bash
-zenzic check all --verbose
-```
+Z204 (`FORBIDDEN_TERM`) also triggers the Security Override. Run `zenzic check all` — every
+`Z204` finding is printed by default, with the matched line and file:
 
 Look for `Z204` in the output. If `forbidden_patterns` in `.zenzic.local.toml` matches
 content in your documentation, the score collapses to 0.
