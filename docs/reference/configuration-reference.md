@@ -32,7 +32,7 @@ Zenzic resolves configuration using a **4-level hierarchy** — the most specifi
 - `--exclude-dir` *adds* to the list already defined in the config file.
 - `--include-dir` is a **force override**: a directory excluded in `.zenzic.toml` but included via `--include-dir` will be scanned. The only exception is Level 1 System Guardrails (`node_modules`, `.git`, etc.) — these cannot be force-included.
 
-When a config file is present but contains a TOML syntax error, Zenzic raises a `ConfigurationError` with a Rich-formatted message. It will **never** silently fall back to defaults when a file exists but cannot be parsed.
+When a config file is present but contains a TOML syntax error, Zenzic raises a `ZenzicConfigError` with a Rich-formatted message. It will **never** silently fall back to defaults when a file exists but cannot be parsed.
 
 ### Standalone `.zenzic.toml`
 
@@ -140,6 +140,14 @@ Expected provenance semantics:
 - `global` -> `.zenzic.toml`
 - `default` -> built-in fallback
 
+!!! warning "Track 2 (`pyproject.toml`) provenance is not reported"
+    `zenzic config explain` only reads `.zenzic.toml` directly for its "Global config" status line.
+    A project configured exclusively via `[tool.zenzic]` in `pyproject.toml` will report
+    `global: not found — using built-in defaults`, even though `zenzic check`/`score`/etc. did
+    successfully load that configuration. Track 2 users should not rely on this command's
+    provenance summary — the underlying values shown are still correct, only the reported
+    *source* of a Track-2-only field is misleading.
+
 Example (governance override):
 
 ```text
@@ -206,6 +214,19 @@ Minimum number of lines for a fenced code block to be syntax-checked. Set to `3`
 snippet_min_lines = 3
 ```
 
+### `max_sentence_length` {#max-sentence-length}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` |
+| **Default** | `40` |
+
+Maximum words allowed in a sentence before triggering `Z511` `EXCESSIVE_SENTENCE_LENGTH`.
+
+```toml
+max_sentence_length = 60
+```
+
 ### `placeholder_max_words` {#placeholder-max-words}
 
 | | |
@@ -260,6 +281,19 @@ When `true`, same-page anchor links (`#section`) are validated against headings 
 validate_same_page_anchors = true
 ```
 
+### `absolute_path_allowlist` {#absolute-path-allowlist}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+
+Absolute path prefixes allowed in links — a match exempts the link from `Z105`. An entry never matched by any scanned link is reported as `Z110` `STALE_ALLOWLIST_ENTRY`.
+
+```toml
+absolute_path_allowlist = ["/api/"]
+```
+
 ---
 
 ## Exclusion Settings {#exclusion-settings}
@@ -284,9 +318,9 @@ excluded_dirs = ["includes", "stylesheets", "overrides", "snippets"]
 !!! info "System Guardrails (always excluded)"
     The following directories are excluded unconditionally, regardless of configuration:
 
-    `.git`, `.github`, `.venv`, `node_modules`, `.nox`, `.tox`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `__pycache__`, `.cache`, `.hypothesis`, `.temp`
+    `.git`, `.github`, `_zenzic_core`, `.zenzic_cache`, `.venv`, `node_modules`, `.nox`, `.tox`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.hypothesis`, `build`, `dist`, `temp`, `.temp`, `tmp`, `mutants`, `out`, `.vscode-test`
 
-    These represent the **L1 System Guardrails** layer. No configuration can override them.
+    These represent the **L1 System Guardrails** layer (`SYSTEM_EXCLUDED_DIRS`). No configuration can override them.
 
 ### `excluded_file_patterns` {#excluded-file-patterns}
 
@@ -447,16 +481,18 @@ The `[build_context]` table tells Zenzic which documentation engine produced the
 
 | | |
 | :--- | :--- |
-| **Type** | `str` |
+| **Type** | `Literal["prebuilt", "vsm", "mkdocs", "zensical", "standalone", "auto"]` |
 | **Default** | `"auto"` |
 
-Build engine identifier. Used by the adapter factory to select the correct path-resolution strategy. Built-in adapters: `mkdocs`, `zensical`, `standalone`.
+Build engine identifier. Used by the adapter factory to select the correct path-resolution strategy. Built-in adapters: `prebuilt`, `vsm`, `mkdocs`, `zensical`, `standalone`.
 
 When set to `"auto"` (the default), Zenzic probes the project root at runtime using **engine auto-discovery**, scanning for engine config files in priority order:
 
-1. `zensical.toml` → `zensical`
-2. `mkdocs.yml` → `mkdocs`
-3. *(no match)* → `standalone`
+1. `.zenzic-vsm.json` → `prebuilt`
+2. `zensical.toml` → `zensical`
+3. `mkdocs.yml`/`mkdocs.yaml` with `theme: zensical` → `zensical` (compat)
+4. `mkdocs.yml`/`mkdocs.yaml` → `mkdocs`
+5. *(no match)* → `standalone`
 
 For production CI, pin the engine explicitly to skip discovery overhead:
 
@@ -519,6 +555,20 @@ When `true`, missing locale-tree assets and pages fall back to the default-local
 ```toml
 [build_context]
 fallback_to_default = false
+```
+
+### `offline_mode` {#offline-mode}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+
+When `true`, adapters force a flat URL structure (e.g. `use_directory_urls = false`) for offline builds.
+
+```toml
+[build_context]
+offline_mode = true
 ```
 
 ---
@@ -595,7 +645,7 @@ Configure project identity and release naming metadata.
 | **Default** | `""` |
 | **Section** | `[project_metadata]` |
 
-The current release codename. Used as the protected term in `brand_obsolescence` enforcement — Zenzic emits Z601 if this string appears as an obsolete term in documentation.
+The current release codename, shown in `zenzic --version` and related metadata output. It has no effect on Z601 detection — obsolete brand terms are declared separately via `governance.brand_obsolescence` (see below).
 
 ```toml
 [project_metadata]
@@ -649,7 +699,7 @@ brand_obsolescence = [
 ]
 ```
 
-**Pattern matching:** case-sensitive whole-word scan. The term `"Deprecated"` does not match `"DeprecatedFeature"` or `"deprecated"`.
+**Pattern matching:** case-insensitive whole-word scan. The term `"Deprecated"` matches `"deprecated"` but not `"DeprecatedFeature"`.
 
 **Scope:** applies to all files within the active `docs_dir` scan scope, subject to the standard exclusion hierarchy.
 
@@ -681,7 +731,22 @@ Strategic directory-level policy exemptions (zero debt). In `--audit` mode,
 these findings are surfaced with the `[POLICY_EXEMPTION]` label.
 
 !!! tip "Z620 (Stale Global Suppression)"
-    Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z620** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
+    Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `per_file_ignores`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z620** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
+
+### `suppression_cap` {#suppression-cap}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` (`>= 0`) |
+| **Default** | `30` |
+| **Section** | `[governance]` |
+
+Maximum number of active suppressions (inline `zenzic:ignore` comments plus `per_file_ignores` entries) allowed before the debt is considered excessive.
+
+```toml
+[governance]
+suppression_cap = 50
+```
 
 ### `suppression_cap_scope` {#suppression-cap-scope}
 
@@ -845,7 +910,7 @@ Dictionary mapping source namespace path prefixes to a list of forbidden target 
 
 ## Custom Rules {#custom-rules}
 
-Project-specific lint rules can be declared inline without writing Python. Each entry applies a regex pattern line-by-line to every `.md` file.
+Project-specific lint rules. Each entry is either a regex pattern applied line-by-line to every `.md` file, or a `class_name` reference to a Python class for AST-level analysis (Custom Rule SDK v3).
 
 ```toml
 [[custom_rules]]
@@ -863,10 +928,13 @@ severity = "warning"
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `str` | (required) | Stable unique identifier (e.g. `"ZZ001"`) |
-| `pattern` | `str` | (required) | Regex applied to each content line |
-| `message` | `str` | (required) | Human-readable explanation shown in findings |
+| `id` | `str \| None` | `None` | Stable unique identifier, must start with `"ZZ-"` (e.g. `"ZZ-NOINTERNAL"`) |
+| `pattern` | `str \| None` | `None` | Regex applied to each content line (regex-flavor rules only) |
+| `message` | `str \| None` | `None` | Human-readable explanation shown in findings (regex-flavor rules only) |
 | `severity` | `str` | `"error"` | `"error"`, `"warning"`, or `"info"` |
+| `class_name` | `str \| None` | `None` | Dotted import path to a Custom Rule SDK v3 class for AST-level rules (mutually exclusive with `pattern`) |
+
+None of the fields are enforced as required at the schema level — a regex-flavor entry missing `id`, `pattern`, or `message` is silently skipped by the scanner rather than raising a load-time error.
 
 ---
 
@@ -968,16 +1036,22 @@ Avoid common syntax and order pitfalls when editing `.zenzic.toml`.
 ### Field Order is Law {#field-order}
 
 In TOML, every key written **after** a `[section]` header belongs to that section, not to the root.
-Zenzic loads the root with `_build_from_data`, which filters against `ZenzicConfig.model_fields` — any key nested inside an unknown section is silently discarded.
+Zenzic actively defends against this: before loading, it scans every table (including unrecognized
+ones) for any of ~20 known root-level field names. If a root field name is found nested inside a
+table, Zenzic raises a **fatal** `ZenzicConfigError` and refuses to load — it does not silently
+discard the value.
 
-**Wrong — all root fields after `[project]` are swallowed:**
+**Wrong — this raises a fatal error, it does not silently ignore the misplaced fields:**
 
 ```toml
 [project]
 name = "My Project"
 
-# ❌ These lines look like root settings but they are INSIDE [project]
-# Zenzic ignores them — the section is unknown
+# ❌ These lines look like root settings but they are INSIDE [project].
+# Zenzic detects this and raises:
+#   FATAL CONFIGURATION ERROR: The root key 'docs_dir' was found inside
+#   the '[project]' section. In TOML, root keys must be declared at the
+#   absolute top of the file before any [tables] are opened.
 placeholder_patterns = []
 docs_dir = "docs"
 ```
@@ -996,9 +1070,10 @@ engine = "zensical"
 base_url = "/"
 ```
 
-### Unknown Sections Emit a Warning {#unknown-sections}
+### Unrecognized Sections With No Swallowed Root Key Emit a Warning {#unknown-sections}
 
-Zenzic, Zenzic emits a `WARNING` when it encounters an unrecognised TOML section (e.g. `[project]`) instead of discarding it silently.
+An unrecognized TOML section (e.g. `[project]`) whose keys do **not** collide with any known
+root-level field name is not fatal — Zenzic emits a `WARNING` and ignores that section's contents.
 If you see:
 
 ```text
