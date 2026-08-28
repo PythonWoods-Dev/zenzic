@@ -20,7 +20,7 @@ The two permitted I/O phases are:
 
 | Phase | Where | What |
 | ----- | ----- | ---- |
-| **Pass 1** | `validate_links_async` preamble | `rglob` traversal to build `md_contents` and `known_assets` |
+| **Pass 1** | `scan_docs_references` preamble | `walk_files` traversal (`os.walk`-based, not `rglob`) to build `md_contents` and the per-file reference maps |
 | **`InMemoryPathResolver` construction** | `__init__` | Building `_lookup_map` from the pre-read content dict |
 
 Everything after Pass 1 must use only in-memory data structures:

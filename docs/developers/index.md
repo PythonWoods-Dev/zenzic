@@ -87,13 +87,13 @@ Zenzic uses [`just`](https://github.com/casey/just) as its interactive command r
 |:--------|:------------|
 | `just sync` | Install / update all dependency groups (`uv sync --all-groups`) |
 | `just check` | **Self-lint — run Zenzic on its own documentation (strict)** |
-| `just test` | Run the test suite (delegates to `nox -s tests`, Hypothesis **dev** profile) |
-| `just test-full` | Run the test suite with Hypothesis **ci** profile (500 examples) |
-| `just verify` | **Pre-push gate: lint-all + build + verify-codes + strict audit + score stamp + freshness check** |
-| `just build` | Build the documentation site (fast, no strict enforcement) |
-| `just build-prod` | Build the documentation site (strict mode, mirrors CI) |
-| `just serve [port]` | Start the live-reload documentation server (default port 8000) |
-| `just clean` | Remove generated artefacts (`site/`, `dist/`, `.hypothesis/`, caches, score file) |
+| `just test` | Run the test suite directly via `pytest -n auto` (parallel, no coverage), Hypothesis **dev** profile |
+| `just test-full` | Run the test suite via `nox -s tests` with Hypothesis **ci** profile (500 examples) |
+| `just verify` | **Pre-push gate: pre-commit hooks + pip-audit + pytest (coverage enforced) + `zenzic check all --strict` + `zenzic score --stamp`** |
+| `just docs-build` | Build the documentation site (`mkdocs build --strict` — always strict, no fast/non-strict variant) |
+| `just docs-serve [args]` | Start the live-reload documentation server |
+| `just check-badges` | Verify badge freshness (`zenzic score --check-stamp`) without mutating anything — the CI-safe counterpart to `just verify`'s stamp step |
+| `just clean` | Remove generated artefacts (`dist/`, `.pytest_cache/`, `.hypothesis/`, `.zenzic-score.json`, `coverage.json` — **not** `site/`) |
 
 The Zenzic self-linting duty — `just check` — is the first command to run after
 any documentation change. Run `just verify` before every push to `main`.
@@ -122,7 +122,8 @@ HYPOTHESIS_PROFILE=purity just test  # pre-release
 <summary>Mutation testing</summary>
 
 Use `nox -s mutation` to run [mutmut](https://mutmut.readthedocs.io/) against
-`src/zenzic/core/rules.py`. This is deliberately **not** part of `just verify`
+`src/zenzic/core/rules.py`, `credentials.py`, and `reporter.py` (`[tool.mutmut]`
+in `pyproject.toml`). This is deliberately **not** part of `just verify`
 — run it manually after working on the rule engine:
 
 ```bash

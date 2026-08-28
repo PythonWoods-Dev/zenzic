@@ -25,7 +25,7 @@ flowchart TD
     D -->|Yes| E["2. Use CI Topology Path"]
     D -->|No| F{"Does ../zenzic Exist?"}
     F -->|Yes| G["3. Use Sibling Topology Path"]
-    F -->|No| H["FAIL-CLOSED STOP (Exit 1)\nPyPI Network Fallback Prohibited"]
+    F -->|No| H["FAIL-CLOSED STOP (Exit 2)\nPyPI Network Fallback Prohibited"]
 
     C & E & G --> I{"Contains src/zenzic?"}
     I -->|Yes| J["Execute Sovereign Local Core Engine"]
