@@ -997,11 +997,13 @@ class ZenzicConfig(BaseModel):
                     )
 
     @classmethod
-    def load(cls, repo_root: Path) -> tuple[ZenzicConfig, bool]:
+    def load(cls, repo_root: Path, *, config_file: Path | None = None) -> tuple[ZenzicConfig, bool]:
         """Load configuration following the Agnostic Citizen priority chain.
 
         Priority order (first match wins):
 
+        0. *config_file*, if given — an explicit override path, bypassing
+           discovery entirely. Used by ``--config PATH`` on the CLI.
         1. ``.zenzic.toml`` at *repo_root* — the authoritative sovereign config.
         2. ``[tool.zenzic]`` table in ``pyproject.toml`` at *repo_root*.
         3. Built-in defaults (``loaded_from_file`` returned as ``False``).
@@ -1011,22 +1013,71 @@ class ZenzicConfig(BaseModel):
         Rich-formatted message — silent fallback would hide user mistakes.
 
         Args:
-            repo_root: Repository root that may contain config files.
+            repo_root: Repository root that may contain config files. Also
+                used as the base for ``.zenzic.local.toml`` overlay lookup
+                and any relative paths inside the loaded config, even when
+                *config_file* is given.
+            config_file: Optional explicit path to a TOML file to load
+                instead of the normal ``.zenzic.toml``/``pyproject.toml``
+                discovery. Does not have to live under *repo_root*. Must
+                exist and parse as valid TOML — a missing or malformed
+                override raises rather than silently falling through to
+                discovery, matching the existing "no silent fallback"
+                contract for the two discovered paths.
 
         Returns:
             A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
-            ``True`` when either ``.zenzic.toml`` or ``pyproject.toml`` was
-            found and parsed, ``False`` when built-in defaults are in use.
+            ``True`` when *config_file*, ``.zenzic.toml``, or
+            ``pyproject.toml`` was found and parsed, ``False`` when built-in
+            defaults are in use.
 
         Raises:
             :class:`~zenzic.core.exceptions.ZenzicConfigError`: When a
-                config file is present but cannot be parsed.
+                config file is present but cannot be parsed, or when an
+                explicit *config_file* override does not exist.
         """
         from pydantic import ValidationError
 
         from zenzic.core.exceptions import (
             ZenzicConfigError,  # deferred to avoid circular import
         )
+
+        # ── Priority 0: explicit config_file override ──────────────────────────
+        if config_file is not None:
+            if not config_file.is_file():
+                raise ZenzicConfigError(
+                    f"[bold red]{config_file}[/] does not exist.\n\n"
+                    "The --config path must point to an existing TOML file.",
+                    context={"config_path": str(config_file), "file": str(config_file)},
+                )
+            try:
+                with config_file.open("rb") as f:
+                    data = tomllib.load(f)
+            except tomllib.TOMLDecodeError as exc:
+                raise ZenzicConfigError(
+                    f"[bold red]{config_file}[/] contains a syntax error and cannot be loaded.\n"
+                    f"  [red]{exc}[/]\n\n"
+                    "Fix the TOML syntax error and re-run Zenzic.",
+                    context={"config_path": str(config_file), "file": str(config_file)},
+                ) from exc
+            cls._validate_no_swallowed_root_keys(data)
+            try:
+                config = cls._build_from_data(data)
+                config.origin_file = config_file
+                cls._apply_local_toml(config, repo_root)
+            except ValidationError as exc:
+                errors_str = "\n".join(
+                    f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                    for err in exc.errors()
+                )
+                raise ZenzicConfigError(
+                    f"Configuration validation failed in [bold red]{config_file}[/]:\n{errors_str}",
+                    context={"errors": exc.errors(), "file": str(config_file)},
+                ) from exc
+            from zenzic.core.suppressions import GlobalUsageTracker
+
+            config._global_tracker = GlobalUsageTracker(config)
+            return config, True
 
         # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
         zenzic_toml = repo_root / ".zenzic.toml"

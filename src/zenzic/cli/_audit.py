@@ -79,10 +79,22 @@ def audit(
         bool,
         typer.Option("--ci", help="Run in CI mode."),
     ] = False,
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config",
+            help=(
+                "Explicit path to a Zenzic TOML config file, bypassing the normal "
+                ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+                "the repository root."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Generate a formal compliance audit report detailing active policies, DQS score, technical debt, and architectural state."""
     repo_root = Path.cwd()
-    config, _ = ZenzicConfig.load(repo_root)
+    _config_file_override = Path(config_path).resolve() if config_path else None
+    config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
 
     if offline and config.build_context.offline_mode is not True:
         config.build_context.offline_mode = True

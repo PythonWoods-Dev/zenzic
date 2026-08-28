@@ -54,6 +54,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
     | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
     | `--no-external` | — | `false` | Skip HTTP validation of external URLs (Pass 3). Credential scanner (Z201) always active regardless. |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
 
     **Additional flags on `check references`:**
 
@@ -87,12 +88,18 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--stamp` | — | `false` | Updates README.md status badge with the newly computed DQS score. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
     | `--json` | — | `false` | Shorthand for `--format json`. Suppresses all rich/text output and emits a single JSON object on `stdout`. Preferred for programmatic consumers (e.g., editor integrations, shell scripts). |
-    | `--strict` | `-s` | `false` | Includes external HTTP link validation in score calculation. |
     | `--breakdown` | — | `false` | Expands category breakdown showing individual Z-Codes and transparent penalty math. |
     | `--save` | — | `false` | Saves score snapshot to `.zenzic-score.json` for use with `zenzic diff`. |
     | `--check-stamp` | — | `false` | Verifies badge stamp files contain the current score URL. Exits 1 if any badge is stale. |
     | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
+
+    !!! note "External link validation always runs"
+        `zenzic score` (and `zenzic diff`) always validate external HTTP/HTTPS links as
+        part of scoring — there is no `--strict` flag and no `--no-external` opt-out on
+        either command (unlike `zenzic check all`, which gates external validation
+        behind `--strict` and can skip it via `--no-external`).
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -157,6 +164,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--only` | — | — | Comma-separated list of Z-Codes to include in audit findings. |
     | `--baseline` | — | — | Path to custom baseline snapshot file. |
     | `--ci` | — | `false` | Run in CI mode (non-interactive, explicit exit codes). |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
 
     **Audit Report & Determinism:**
 
@@ -181,12 +189,16 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--strict` | `-s` | `false` | Treat warnings as errors. The score gate is controlled exclusively by `--fail-under`. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
     | `--threshold` | — | `0` | Exit non-zero only if score dropped by more than this many points (0 = any drop). |
     | `--base` | — | — | Path to a JSON report file to use as baseline instead of the saved snapshot. |
     | `--no-header` | — | `false` | Suppress the Zenzic banner. |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
+
+    !!! note "External link validation always runs"
+        Same as `zenzic score` — external HTTP/HTTPS link validation always runs on
+        `zenzic diff`; there is no `--strict` flag and no `--no-external` opt-out.
 
     | Argument | Description |
     | :--- | :--- |
@@ -413,7 +425,9 @@ otherwise be non-blocking.
 | `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (Z109) |
 | `check all --strict` | Activates external URL validation (Z109) + promotes warnings to errors |
 | `check references --strict` | Treats Dead Definitions (unused reference links) as hard errors |
-| `score --strict` / `diff --strict` | Runs link check in strict mode |
+
+`zenzic score` and `zenzic diff` do not have a `--strict` flag — external HTTP/HTTPS link
+validation always runs unconditionally on both commands, with no opt-out.
 
 The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting Z109 on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
 

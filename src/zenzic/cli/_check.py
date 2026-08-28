@@ -1685,6 +1685,16 @@ def check_all(
         "--baseline",
         help="Path to a baseline snapshot file to consume (defaults to .zenzic-baseline.json if present in workspace root).",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1696,13 +1706,15 @@ def check_all(
     _validate_only_flag(only)
 
     # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
+    # Plain CLI-usage error: Exit 1, not Exit 2 (reserved for security breaches
+    # per the Tier-0 Exit Code Contract).
     if strict and exit_zero:
         typer.echo(
             "ERROR: --strict and --exit-zero are mutually exclusive. "
             "--strict promotes warnings to errors; --exit-zero suppresses all exit codes.",
             err=True,
         )
-        raise typer.Exit(2)
+        raise typer.Exit(1)
 
     if ci:
         strict = True
@@ -1717,9 +1729,10 @@ def check_all(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, loaded_from_file = ZenzicConfig.load(repo_root)
+        config, loaded_from_file = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except RuntimeError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc

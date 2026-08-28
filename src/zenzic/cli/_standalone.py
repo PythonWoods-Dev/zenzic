@@ -240,12 +240,6 @@ def score(
         help="Repository root or docs directory to score (default: configured docs directory).",
         show_default=False,
     ),
-    strict: bool | None = typer.Option(
-        None,
-        "--strict",
-        "-s",
-        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
-    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
     ),
@@ -295,6 +289,16 @@ def score(
         "-q",
         help="Suppress output on successful score.",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
     # ECOSYSTEM-FEAT-002: --json is a shorthand alias for --format json.
@@ -311,9 +315,10 @@ def score(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, _ = ZenzicConfig.load(repo_root)
+        config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except (RuntimeError, ConfigurationError) as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -722,12 +727,6 @@ def diff(
         help="Repository root or docs directory to compare (default: configured docs directory).",
         show_default=False,
     ),
-    strict: bool | None = typer.Option(
-        None,
-        "--strict",
-        "-s",
-        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
-    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
     ),
@@ -752,6 +751,16 @@ def diff(
         "--ci",
         help="CI shorthand: sets --no-header.",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Compare current documentation score against the saved snapshot.
 
@@ -769,9 +778,10 @@ def diff(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, _ = ZenzicConfig.load(repo_root)
+        config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except (RuntimeError, ConfigurationError) as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -815,12 +825,15 @@ def diff(
     delta = current.score - baseline.score
 
     # ── FATAL / HALT semantic detection ──────────────────────────────────────
-    # Z0xx (config abort) and Z2xx (security) collapse score to 0 unconditionally.
+    # Z2xx (security) collapses score to 0 unconditionally. Z0xx (config abort,
+    # e.g. Z001) can never appear here: ZenzicConfig.load() above already raised
+    # ConfigurationError and returned Exit 1 before _run_all_checks() was ever
+    # called, so no Z0xx code can reach current.findings_counts — confirmed dead
+    # branch, removed rather than left checking an unreachable prefix
+    # (V031_CODE_BACKLOG_BATCH1_EXECUTION_AND_PROACTIVE_ADVISORY_CODIFICATION).
     from zenzic.core.codes import CODE_DEFINITIONS
 
-    _fatal_codes = sorted(
-        c for c in current.findings_counts if c.startswith("Z0") or c.startswith("Z2")
-    )
+    _fatal_codes = sorted(c for c in current.findings_counts if c.startswith("Z2"))
     has_fatal = bool(_fatal_codes) or current.security_override
     # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z504).
     _halt_codes = sorted(
@@ -1333,7 +1346,9 @@ def init(
                 "These flags target different init modes.",
                 err=True,
             )
-            raise typer.Exit(2)
+            # Plain CLI-usage error: Exit 1, matching --local+--pyproject's
+            # exit code below (Exit 2 is reserved for security breaches).
+            raise typer.Exit(1)
         _scaffold_plugin(repo_root, plugin, force)
         return
 

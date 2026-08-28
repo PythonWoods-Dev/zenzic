@@ -1351,6 +1351,49 @@ def _fatal_report() -> object:
     )
 
 
+def _z0xx_only_report() -> object:
+    """ScoreReport with a synthetic Z0xx-prefixed key and no real Z2xx/security finding.
+
+    Z0xx codes (config abort, e.g. Z001) can never actually reach
+    findings_counts in practice — ZenzicConfig.load() raises ConfigurationError
+    and exits 1 before _run_all_checks() is ever called. This fixture forces
+    the scenario synthetically to lock the *intended* contract: diff's fatal
+    detection considers Z2xx only, not a stale "Z0xx or Z2xx" prefix check.
+    """
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    cats = [
+        CategoryScore(
+            name="structural", weight=0.30, issues=1, category_score=0.9, contribution=0.27
+        ),
+        CategoryScore(
+            name="navigation", weight=0.25, issues=0, category_score=1.0, contribution=0.25
+        ),
+        CategoryScore(name="content", weight=0.20, issues=0, category_score=1.0, contribution=0.20),
+        CategoryScore(name="brand", weight=0.25, issues=0, category_score=1.0, contribution=0.25),
+    ]
+    return ScoreReport(score=100, findings_counts={"Z001": 1}, categories=cats)
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_z0xx_only_does_not_trigger_fatal(_root, _cfg, mock_run, _excl, tmp_path: Path) -> None:
+    """A synthetic Z0xx-only findings_counts entry must NOT trigger FATAL/Exit 2.
+
+    Locks diff's fatal detection to Z2xx (security) only, guarding against the
+    removed "Z0xx or Z2xx" prefix check being silently reintroduced.
+    """
+    mock_run.return_value = _z0xx_only_report()
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--format", "json", "--base", str(baseline)])
+    assert result.exit_code != 2, result.output
+    data = json.loads(result.stdout)
+    assert data["fatal_override"] is False
+    assert data["fatal_codes"] == []
+
+
 def _halt_report() -> object:
     """ScoreReport simulating a Z504 Quality Regression gate (HALT, warning+0.0 penalty)."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
@@ -2276,34 +2319,163 @@ def test_init_next_steps_ci_cd_link_has_no_phantom_docs_prefix(
     assert "zenzic.dev/how-to/configure-ci-cd" in result.output
 
 
-def test_init_plugin_local_conflict_exits_2(
+def test_init_plugin_local_conflict_exits_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--plugin combined with --local must exit 2 with an informative error."""
+    """--plugin combined with --local is a plain CLI-usage error: exit 1, not Exit 2
+
+    (Exit 2 is reserved for security breaches — Tier-0 Exit Code Contract).
+    """
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--plugin", "myrule", "--local"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 1, result.output
     assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
 
 
-def test_init_plugin_pyproject_conflict_exits_2(
+def test_init_plugin_pyproject_conflict_exits_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--plugin combined with --pyproject must exit 2 with an informative error."""
+    """--plugin combined with --pyproject is a plain CLI-usage error: exit 1, not Exit 2."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--plugin", "myrule", "--pyproject"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 1, result.output
     assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
 
 
 def test_init_plugin_alone_does_not_conflict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--plugin without conflicting flags must not exit 2 (scaffold runs)."""
+    """--plugin without conflicting flags must not raise a conflict (scaffold runs)."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--plugin", "myrule"])
-    # Exit 0 = scaffold created. Any non-2 exit is fine here.
-    assert result.exit_code != 2, result.output
+    # Exit 0 = scaffold created. Any non-1 exit is fine here (no conflict raised).
+    assert result.exit_code != 1, result.output
+
+
+def test_init_flag_conflicts_use_the_same_exit_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All of init's flag-conflict checks must agree on one exit code.
+
+    Regression guard: --plugin+--local/--pyproject and --local+--pyproject
+    previously diverged (Exit 2 vs Exit 1) for structurally identical
+    "these flags cannot combine" errors, with no principled reason for the
+    difference (V031_CODE_BACKLOG_BATCH1_EXECUTION_AND_PROACTIVE_ADVISORY_CODIFICATION).
+    This test locks all three conflict pairs to the same exit code so a third
+    site can't silently reintroduce the divergence.
+    """
+    monkeypatch.chdir(tmp_path)
+    plugin_local = runner.invoke(app, ["init", "--plugin", "myrule", "--local"])
+    plugin_pyproject = runner.invoke(app, ["init", "--plugin", "myrule", "--pyproject"])
+    local_pyproject = runner.invoke(app, ["init", "--local", "--pyproject"])
+    assert plugin_local.exit_code == plugin_pyproject.exit_code == local_pyproject.exit_code == 1
+
+
+def test_check_all_config_flag_loads_explicit_override_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--config PATH must load that exact file instead of discovering .zenzic.toml.
+
+    Proves real end-to-end threading (CLI option → ZenzicConfig.load(config_file=...))
+    by pointing docs_dir at a directory only the override config names.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "wrong_docs").mkdir()
+    (tmp_path / "wrong_docs" / "index.md").write_text("# Wrong\n")
+    override_docs = tmp_path / "right_docs"
+    override_docs.mkdir()
+    (override_docs / "index.md").write_text("# Right\n")
+
+    # A .zenzic.toml at repo_root pointing at the WRONG docs dir — must be ignored
+    # entirely once --config names a different file.
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "wrong_docs"\n')
+
+    configs_dir = tmp_path / "configs"
+    configs_dir.mkdir()
+    override_config = configs_dir / "prod.toml"
+    override_config.write_text('docs_dir = "right_docs"\n')
+
+    result = runner.invoke(
+        app, ["check", "all", "--config", str(override_config), "--format", "json", "--quiet"]
+    )
+    assert result.exit_code in (0, 1), result.output
+    payload = json.loads(result.stdout)
+    # The override config's docs_dir ("right_docs") was scanned — its page heading
+    # ("Right") appears in the findings. "wrong_docs" (from .zenzic.toml, which the
+    # override must take priority over) was never scanned at all.
+    assert "Right" in json.dumps(payload)
+    assert "Wrong" not in json.dumps(payload)
+
+
+def test_check_all_config_flag_missing_file_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--config pointing at a nonexistent file must fail, not silently fall back to discovery."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["check", "all", "--config", str(tmp_path / "nope.toml")])
+    assert result.exit_code != 0
+
+
+def test_score_config_flag_loads_explicit_override_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic score --config PATH loads that exact file instead of discovering .zenzic.toml."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "wrong_docs").mkdir()
+    (tmp_path / "wrong_docs" / "index.md").write_text("# Wrong\n")
+    (tmp_path / "right_docs").mkdir()
+    (tmp_path / "right_docs" / "index.md").write_text("# Right\n")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "wrong_docs"\n')
+    override_config = tmp_path / "prod.toml"
+    override_config.write_text('docs_dir = "right_docs"\n')
+
+    result = runner.invoke(
+        app, ["score", "--config", str(override_config), "--format", "json", "--no-header"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    # Only "right_docs" (from the override config) was scored: 1 issue for the
+    # short page. "wrong_docs" (from .zenzic.toml) must be entirely ignored.
+    assert payload["categories"][2]["issues"] >= 1  # content category
+
+
+def test_score_config_flag_missing_file_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic score --config pointing at a nonexistent file must fail cleanly."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["score", "--config", str(tmp_path / "nope.toml")])
+    assert result.exit_code != 0
+    assert "does not exist" in result.output or "ERROR" in result.output
+
+
+def test_diff_config_flag_threaded_to_config_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic diff --config PATH loads that exact file (proven via a missing-file error)."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["diff", "--config", str(tmp_path / "nope.toml")])
+    assert result.exit_code != 0
+    assert "does not exist" in result.output or "ERROR" in result.output
+
+
+def test_audit_config_flag_threaded_to_config_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic audit --config PATH loads that exact file instead of discovering .zenzic.toml."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "right_docs").mkdir()
+    (tmp_path / "right_docs" / "index.md").write_text("# Right\n")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "wrong_docs"\n')
+    override_config = tmp_path / "prod.toml"
+    override_config.write_text('docs_dir = "right_docs"\n')
+
+    result = runner.invoke(app, ["audit", "--config", str(override_config), "--format", "json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    # docs_dir "wrong_docs" (from .zenzic.toml) does not exist on disk at all — if
+    # the override config file were ignored, this would find 0 files, not 1.
+    assert payload["executive_summary"]["total_files"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -2311,10 +2483,10 @@ def test_init_plugin_alone_does_not_conflict(
 # ---------------------------------------------------------------------------
 
 
-def test_check_all_strict_exit_zero_conflict_exits_2() -> None:
-    """--strict and --exit-zero together must exit 2 with mutual-exclusion message."""
+def test_check_all_strict_exit_zero_conflict_exits_1() -> None:
+    """--strict and --exit-zero together is a plain CLI-usage error: exit 1, not Exit 2."""
     result = runner.invoke(app, ["check", "all", "--strict", "--exit-zero"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 1, result.output
     assert "mutually exclusive" in result.output.lower() or "exclusive" in result.output.lower()
 
 

@@ -42,6 +42,56 @@ def test_load_config_custom(tmp_path: Path) -> None:
     assert loaded is True
 
 
+def test_load_config_file_override_takes_priority_over_zenzic_toml(tmp_path: Path) -> None:
+    """An explicit config_file override wins over .zenzic.toml at repo_root (priority 0)."""
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "root_docs"\n')
+    override_dir = tmp_path / "configs"
+    override_dir.mkdir()
+    override_path = override_dir / "prod.zenzic.toml"
+    override_path.write_text('docs_dir = "override_docs"\n')
+
+    config, loaded = ZenzicConfig.load(tmp_path, config_file=override_path)
+    assert config.docs_dir == Path("override_docs")
+    assert loaded is True
+    assert config.origin_file == override_path
+
+
+def test_load_config_file_override_used_when_no_repo_root_config_exists(tmp_path: Path) -> None:
+    """An explicit config_file override works even when repo_root has no config at all."""
+    override_path = tmp_path / "custom-name.toml"
+    override_path.write_text('docs_dir = "custom_docs"\n')
+
+    config, loaded = ZenzicConfig.load(tmp_path, config_file=override_path)
+    assert config.docs_dir == Path("custom_docs")
+    assert loaded is True
+
+
+def test_load_config_file_override_missing_file_raises(tmp_path: Path) -> None:
+    """An explicit config_file override pointing at a nonexistent file must raise, not fall back."""
+    missing = tmp_path / "does-not-exist.toml"
+    with pytest.raises(ConfigurationError, match="does not exist|not found"):
+        ZenzicConfig.load(tmp_path, config_file=missing)
+
+
+def test_load_config_file_override_invalid_toml_raises(tmp_path: Path) -> None:
+    """An explicit config_file override with malformed TOML must raise — not silently fall back."""
+    override_path = tmp_path / "broken.toml"
+    override_path.write_text("invalid [ toml")
+    with pytest.raises(ConfigurationError, match="syntax error"):
+        ZenzicConfig.load(tmp_path, config_file=override_path)
+
+
+def test_load_config_file_override_applies_local_toml_overlay(tmp_path: Path) -> None:
+    """An explicit config_file override still layers .zenzic.local.toml on top."""
+    override_path = tmp_path / "shared.zenzic.toml"
+    override_path.write_text('docs_dir = "shared_docs"\nfail_under = 0\n')
+    (tmp_path / ".zenzic.local.toml").write_text("[core]\nfail_under = 80\n")
+
+    config, _ = ZenzicConfig.load(tmp_path, config_file=override_path)
+    assert config.docs_dir == Path("shared_docs")
+    assert config.fail_under == 80
+
+
 def test_excluded_dirs_always_contains_system_guardrails(tmp_path: Path) -> None:
     """User-defined excluded_dirs must never remove system guardrails (.git, .venv, etc.)."""
     toml_content = """\
