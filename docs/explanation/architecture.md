@@ -61,7 +61,7 @@ flowchart TD
         K -->|Clean / Warnings| L["Exit 0 (Success)"]
         K -->|DQS / Link Errors| M["Exit 1 (Gate Failure)"]
         K -->|Z201 Credential Leak| N["Exit 2 (Fatal Security Breach)"]
-        K -->|Z202 Path Traversal| O["Exit 3 (Boundary Security Violation)"]
+        K -->|Z203 Path Traversal Fatal| O["Exit 3 (Boundary Security Violation)"]
         K --> P["SARIF / JSON / GitHub Annotations Output"]
     end
 
@@ -83,7 +83,7 @@ flowchart TD
 
 ### Pass 1 -- Harvest and Credential Scan {#pass-1}
 
-Pass 1 reads every `.md` and `.md` file under `docs/` and performs three coordinated operations:
+Pass 1 reads every `.md` and `.mdx` file under `docs/` and performs three coordinated operations:
 
 | Stream | What it reads | Purpose |
 | :--- | :--- | :--- |
@@ -127,7 +127,7 @@ The report includes:
 
 The link validator (`validate_links_async`) operates independently with its own multi-pass structure:
 
-**Pass 1** -- Read all `.md`/`.md` files into memory, extract inline links and reference links, compute heading anchor slugs per file. Construct the `InMemoryPathResolver` once from the complete file map.
+**Pass 1** -- Read all `.md`/`.mdx` files into memory, extract inline links and reference links, compute heading anchor slugs per file. Construct the `InMemoryPathResolver` once from the complete file map.
 
 **Pass 1.5** -- Build the link adjacency graph and run iterative DFS cycle detection. The cycle registry is a `frozenset[str]` -- O(1) membership checks in Pass 2. Total complexity: Theta(V+E).
 
@@ -286,10 +286,9 @@ content regardless of the active adapter:
 | Short content | Z502 | None — word count after frontmatter strip |
 | Missing directory index | Z401 | `adapter.provides_index()` — uniform across engines |
 
-The `examples/matrix/` directory in this repository contains the living proof: identical
-adversarial-validation vectors produce identical findings across `standalone`, `mkdocs`, and
-`zensical` engines. The integrity-baseline fixtures produce an identical Zenzic Audit Badge on all
-three. Zero asymmetries.
+The `examples/` gallery (organized per finding code, e.g. `examples/z201-credentials/`) exercises
+the same adversarial-validation vectors regardless of which engine a given fixture declares in
+its `.zenzic.toml` — the table above lists the specific asymmetries this design closes.
 
 ### Link Resolution and Slug Mapping {#link-resolution}
 
@@ -307,6 +306,8 @@ The resolver is initialised once during Pass 1 with a complete in-memory file ma
 
 | Alias prefix | Resolves to | Engine |
 | :--- | :--- | :--- |
+| `@site/docs/` | `docs_root` | All (Docusaurus-style alias) |
+| `@site/` | `repo_root` | All (Docusaurus-style alias) |
 
 **Key property:** alias resolution happens entirely in memory. No disk I/O is performed; the resolver consults only the file index built during Pass 1. This preserves the Zero-I/O hot-path invariant (Core Law 1).
 
@@ -484,10 +485,10 @@ The scan engine automatically selects sequential or parallel execution based on 
 
 | Condition | Mode | Behaviour |
 | :--- | :--- | :--- |
-| `workers = 1` (default) or file count < 50 | Sequential | Zero process-spawn overhead. Full O(N) I/O. |
-| `workers != 1` and file count >= 50 | Parallel | `ProcessPoolExecutor` with per-file distribution |
+| `workers = 1` (default) or file count < 1000 | Sequential | Zero process-spawn overhead. Full O(N) I/O. |
+| `workers != 1` and file count >= 1000 | Parallel | `ProcessPoolExecutor` with per-file distribution |
 
-The threshold (50 files) is a conservative heuristic: below it, process-spawn overhead exceeds the parallelism benefit. Results are always sorted by `file_path` regardless of execution mode.
+The threshold (1000 files) is a conservative heuristic: below it, process-spawn overhead exceeds the parallelism benefit. Results are always sorted by `file_path` regardless of execution mode.
 
 ---
 
@@ -517,22 +518,10 @@ The CLI is structured as a **package** (`src/zenzic/cli/`), not a monolithic mod
 
 ### Package layout {#cli-package-layout}
 
-```text
-
-src/zenzic/cli/
-├── __init__.py       # Public re-export surface for main.py — no logic
-├── _shared.py        # Visual State Guardian: console singleton, _ui singleton, utilities
-├── _check.py         # check_app sub-app + 7 check commands
-├── _clean.py         # clean_app sub-app + clean assets
-├── _config_explain.py # explain command + config introspection surface
-├── _governance.py    # config_app sub-app + governance profile commands
-├── _guard.py         # guard_app sub-app + secret-guard scan/init commands
-├── _inspect.py       # inspect_app sub-app + capabilities command
-├── _lab.py           # lab command — interactive example showcase
-├── _metadata.py      # SSOT for top-level command metadata and help panels
-└── _standalone.py    # score, diff, init commands
-
-```
+See [CLI Architecture](../developers/reference/cli-architecture.md) for the current, canonical
+module map — this page previously carried its own copy of that table, which drifted out of sync
+(missing several modules added since). Deferring to one source of truth rather than restating it
+here.
 
 ### UI State Manager {#ui-state-manager}
 
@@ -545,7 +534,7 @@ src/zenzic/cli/
 
 `configure_console()` — called by the `--no-color` / `--force-color` Typer callback in `main.py` — **replaces** both singletons atomically. Because every command calls `get_ui()` / `get_console()` at invocation time rather than import time, they always receive the instance that reflects the user's color flags.
 
-**Invariant:** `force_terminal` on the module-level `Console` is always `None` (auto-detect via `sys.stdout.isatty()`). Passing `force_terminal=False` silently disables color even in interactive terminals — this is a latent bug pattern the architecture explicitly guards against.
+**Invariant:** `force_terminal` on the module-level `Console` defaults to auto-detect (`None`) and evaluates to `True` only when the `FORCE_COLOR` environment variable is set and `NO_COLOR` is not — otherwise it stays `None`, letting Rich auto-detect via `sys.stdout.isatty()`. Passing `force_terminal=False` silently disables color even in interactive terminals — this is a latent bug pattern the architecture explicitly guards against.
 
 ### Startup banner flow {#cli-banner-flow}
 
@@ -641,4 +630,4 @@ allowed to drift. This is the Sovereign Parity principle (ZRT-010).
 
 The Exclusion Zone model extends beyond structural correctness. A codebase or documentation suite that contains stale brand identifiers carries a different kind of debt: **narrative debt**. A page that still refers to a codename contradicts the contract it is trying to document.
 
-Zenzic addresses this through the [`[governance]`](../reference/configuration-reference.md) configuration block and the [Z601 BRAND_OBSOLESCENCE](../reference/finding-codes.md#z601) finding. Format-aware, per-line suppression is available for intentional historical references using the appropriate comment syntax for the file type (`.md` vs. `.md`).
+Zenzic addresses this through the [`[governance]`](../reference/configuration-reference.md) configuration block and the [Z601 BRAND_OBSOLESCENCE](../reference/finding-codes.md#z601) finding. Format-aware, per-line suppression is available for intentional historical references using the appropriate comment syntax for the file type (`.md` vs. `.mdx`).

@@ -62,14 +62,16 @@ contributors, and processed by build pipelines that may hold access to productio
 A single leaked API key in a Markdown file — committed in a rush, pushed to a public
 repository — is a supply-chain incident, not an editorial oversight.
 
-Security rules are **non-suppressible by design**. Exit codes 2 and 3 bypass `--exit-zero`
-and `fail-on-error: false` unconditionally:
+Security rules are **non-suppressible by design** — none of them can be silenced by
+`zenzic:ignore`, and their exit codes bypass `--exit-zero` and `fail-on-error: false`
+unconditionally. `Z202` is the one exception to the *exit code* pattern here: it stays a plain
+exit 1 rather than escalating, but remains just as non-suppressible as the rest:
 
 | Finding Code | Name | What it catches | Exit |
 | :--- | :--- | :--- | :---: |
 | [`Z201`](../reference/finding-codes.md#z201) | `CREDENTIAL_SECRET` | Credentials, API keys, tokens in any source line | 2 |
-| [`Z202`](../reference/finding-codes.md#z202) | `PATH_TRAVERSAL` | System path escape in a link or config value | 3 |
-| [`Z203`](../reference/finding-codes.md#z203) | `PATH_TRAVERSAL_SUSPICIOUS` | Relative traversal patterns escaping the docs root | 3 |
+| [`Z202`](../reference/finding-codes.md#z202) | `PATH_TRAVERSAL` | Relative traversal patterns escaping the docs root | 1 |
+| [`Z203`](../reference/finding-codes.md#z203) | `PATH_TRAVERSAL_FATAL` | Traversal targeting an OS system directory in a link or config value | 3 |
 
 See [Exclusion Zone](./privacy-gate.md) and [The Zenzic Trinity](./the-zenzic-trinity.md)
 for the complete exit code contract.
@@ -104,7 +106,7 @@ contract between the author and every tool in the pipeline.
 You might ask: why does Zenzic implement `Z505 (Untagged Code Blocks)` when static analysis tools
 like `markdownlint` already detect this?
 
-The answer is **[Pillar 2: Zero Subprocesses](./the-zenzic-trinity.md)**.
+The answer is **[Pillar 2: Zero Subprocesses](../developers/explanation/governance/index.md#the-supreme-law-the-three-pillars)**.
 
 Traditional Markdown tools require a full Node.js runtime and hundreds of megabytes of
 `node_modules`. For a Python-based DevOps pipeline, a security-conscious enterprise, or any

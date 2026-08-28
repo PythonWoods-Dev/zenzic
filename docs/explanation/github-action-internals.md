@@ -20,11 +20,11 @@ For day-to-day usage (copy-paste YAML, input reference), see the [CI/CD Integrat
 ```text
 action.yml            ← public contract (inputs, outputs, env injection)
     │
-    ├─▶  uvx zenzic guard scan       ← Defense-in-Depth (when guard-scan: "true")
+    ├─▶  uv tool install --isolated --force --quiet zenzic   ← provisioned once per run
     │
     └─▶  zenzic-action-wrapper.sh   ← enforcement layer (security, exit codes, SARIF)
               │
-              └─▶  uvx zenzic check all   ← Zenzic Core (analysis engine)
+              └─▶  zenzic check all       ← Zenzic Core (analysis engine, invoked from PATH)
 ```
 
 `action.yml` injects caller-supplied values as environment variables. The wrapper validates, sanitises, and orchestrates the execution. It **never trusts raw inputs** — every path is guarded before it reaches the filesystem or the CLI.
@@ -96,8 +96,8 @@ Zenzic defines four exit codes. The wrapper propagates them **without remapping*
 |:---:|---|:---:|
 | `0` | Clean — all checks passed | — |
 | `1` | Documentation findings (broken links, orphans, dead refs, etc.) | ✅ via `fail-on-error: false` |
-| `2` | **SECURITY** — credential pattern detected (credential scanner / Z201) | ❌ Never |
-| `3` | **SECURITY** — system path traversal (path traversal guard / Z202–Z203) | ❌ Never |
+| `2` | **SECURITY** — credential pattern, forbidden term, or forbidden URL scheme (Z201/Z204/Z205) | ❌ Never |
+| `3` | **SECURITY** — path traversal targeting an OS system directory (Z203 only — ordinary boundary violations, Z202, stay a plain exit 1) | ❌ Never |
 
 Exits `2` and `3` terminate the job unconditionally. Neither `fail-on-error: "false"` nor any other input can suppress them. This is enforced in the wrapper's exit logic, not in `action.yml`, so it cannot be circumvented by overriding action inputs.
 

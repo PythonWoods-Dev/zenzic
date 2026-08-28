@@ -107,9 +107,9 @@ Because the graph is computed entirely in memory during Pass 1.5, topological gr
 
 ## Baseline Engine & Line-Shift Invariant Signatures {#baseline-engine}
 
-Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant SHA-256 signatures:
+Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant signatures, truncated to the first 16 hex characters (64 bits) of a SHA-256 digest:
 
-$$\text{Signature} = \text{SHA256}[\text{RuleCode} + \text{PosixPath} + \text{ContextTarget}]$$
+$$\text{Signature} = \text{SHA256}[\text{RuleCode} : \text{PosixPath} : \text{ContextTarget}]\text{[:16]}$$
 
 By excluding line numbers from the signature computation:
 
