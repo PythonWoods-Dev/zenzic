@@ -31,21 +31,26 @@ def _fake_result(code: str, *, met: bool) -> _ActResult:
     if met:
         # expected_pass scenarios: errors == 0 satisfies met_expectation.
         # expected_breach scenarios: has_breach True satisfies it.
+        # expected_incident scenarios: has_incident True satisfies it.
         # default (expected fail) scenarios: errors > 0 satisfies it.
         if act.expected_pass:
-            errors, warnings, has_breach = 0, 0, False
+            errors, warnings, has_breach, has_incident = 0, 0, False, False
         elif act.expected_breach:
-            errors, warnings, has_breach = 0, 0, True
+            errors, warnings, has_breach, has_incident = 0, 0, True, False
+        elif act.expected_incident:
+            errors, warnings, has_breach, has_incident = 0, 0, False, True
         else:
-            errors, warnings, has_breach = 1, 0, False
+            errors, warnings, has_breach, has_incident = 1, 0, False, False
     else:
         # Force the opposite of whatever the scenario expects.
         if act.expected_pass:
-            errors, warnings, has_breach = 1, 0, False
+            errors, warnings, has_breach, has_incident = 1, 0, False, False
         elif act.expected_breach:
-            errors, warnings, has_breach = 0, 0, False
+            errors, warnings, has_breach, has_incident = 0, 0, False, False
+        elif act.expected_incident:
+            errors, warnings, has_breach, has_incident = 0, 0, False, False
         else:
-            errors, warnings, has_breach = 0, 0, False
+            errors, warnings, has_breach, has_incident = 0, 0, False, False
     return _ActResult(
         act=act,
         errors=errors,
@@ -55,6 +60,7 @@ def _fake_result(code: str, *, met: bool) -> _ActResult:
         engine="standalone",
         docs_count=1,
         assets_count=0,
+        has_incident=has_incident,
     )
 
 
@@ -87,6 +93,29 @@ def test_lab_all_exits_0_when_every_scenario_meets_expectation() -> None:
         f"lab all must exit 0 when every scenario meets its expectation, "
         f"got {result.exit_code}.\nOutput:\n{result.stdout}"
     )
+
+
+def test_z203_gallery_scenario_registered_and_runs_live() -> None:
+    """Z203 (PATH_TRAVERSAL_FATAL) must have a real gallery entry and fixture.
+
+    Regression for: Z201/Z202/Z204/Z205 (its Z2xx siblings) all had both an
+    examples/z2NN-*/ fixture and a _GALLERY["z203"] registration; Z203 had
+    neither (Mirror Law Target 8 gap). Unlike the other tests in this file,
+    this one deliberately does NOT mock ``_run_act`` — it exercises the real
+    bundled ``examples/z203-fatal-path-traversal`` fixture end-to-end so the
+    fixture content and the classifier it's meant to demonstrate
+    (``_classify_traversal_intent`` in ``zenzic.core.validator``) are both
+    verified live, not just asserted from source.
+    """
+    assert "z203" in _GALLERY, "Z203 must be registered in _lab.py's _GALLERY"
+
+    result = runner.invoke(app, ["lab", "z203"])
+    assert result.exit_code == 0, (
+        f"zenzic lab z203 must exit 0 (scenario met its expectation) against "
+        f"the real bundled fixture, got {result.exit_code}.\nOutput:\n{result.stdout}"
+    )
+    assert "Z203" in result.stdout
+    assert "/etc/" in result.stdout or "etc/passwd" in result.stdout
 
 
 def test_lab_all_exits_nonzero_when_one_scenario_fails() -> None:

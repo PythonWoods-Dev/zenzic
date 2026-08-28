@@ -1126,13 +1126,27 @@ def _scan_single_file(
         #   2. Each matching directive is marked consumed=True.
         report.rule_findings = rule_engine.run_with_tracker(md_file, text, tracker)
 
-        # Inject Z201 findings derived from harvest() — single-pass, no re-scan.
-        # Z201 is non-suppressible so tracker filtering is intentionally skipped.
+        # Inject Z201/Z204 findings derived from harvest() — single-pass, no re-scan.
+        # Both codes are non-suppressible so tracker filtering is intentionally
+        # skipped. harvest() yields FORBIDDEN_TERM findings (Z204) alongside
+        # credential/secret findings (Z201) — mirror the branch already used by
+        # _map_credential_to_finding() above so the two codes aren't conflated.
         if security_findings:
             from zenzic.core.rules import RuleFinding as _RF
 
-            z201 = [
+            security_rule_findings = [
                 _RF(
+                    rule_id="Z204",
+                    severity=code_severity("Z204"),
+                    file_path=sf.file_path,
+                    line_no=sf.line_no,
+                    message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
+                    match_text=sf.match_text,
+                    matched_line=sf.url,
+                    col_start=sf.col_start,
+                )
+                if sf.secret_type == "FORBIDDEN_TERM"  # noqa: S105  # Categorical finding identifier
+                else _RF(
                     rule_id="Z201",
                     severity=code_severity("Z201"),
                     file_path=sf.file_path,
@@ -1144,7 +1158,7 @@ def _scan_single_file(
                 )
                 for sf in security_findings
             ]
-            report.rule_findings = z201 + report.rule_findings
+            report.rule_findings = security_rule_findings + report.rule_findings
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies

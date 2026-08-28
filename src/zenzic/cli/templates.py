@@ -352,7 +352,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "# ---------------------------------------------------------------------------\n"
     "# Zenzic — Documentation Quality System\n"
-    "# Full reference: https://zenzic.dev/docs/reference/configuration/\n"
+    "# Full reference: https://zenzic.dev/reference/configuration-reference/\n"
     "# Precedence: pyproject.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
     "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
     "# ---------------------------------------------------------------------------\n"

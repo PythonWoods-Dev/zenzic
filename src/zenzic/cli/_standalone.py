@@ -1396,8 +1396,8 @@ def init(
         "[bold]Next steps:[/]\n"
         "  1. Run [bold cyan]zenzic check all[/] to see your baseline.\n"
         "  2. To automate Zenzic in pre-commit hooks or CI/CD, see:\n"
-        "     [link=https://zenzic.dev/docs/how-to/configure-ci-cd]"
-        "https://zenzic.dev/docs/how-to/configure-ci-cd[/link]"
+        "     [link=https://zenzic.dev/how-to/configure-ci-cd/]"
+        "https://zenzic.dev/how-to/configure-ci-cd/[/link]"
     )
     _shared.print_footer_hint("init")
 
@@ -1470,12 +1470,12 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
             added_str = " and ".join(f"[bold]{a}[/]" for a in additions)
             gitignore_line = (
                 f"[yellow]🛡️ Security Note:[/] Added {added_str} "
-                "to your [bold].gitignore[/] to preserve local sovereignty.\\n"
+                "to your [bold].gitignore[/] to preserve local sovereignty.\n"
             )
         else:
-            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\\n"
+            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\n"
     else:
-        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\\n"
+        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\n"
 
     _shared.console.print(
         Panel(

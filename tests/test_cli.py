@@ -1123,6 +1123,33 @@ def test_init_pyproject_flag_appends_tool_section(
     assert ".zenzic.local.toml" in (repo / ".gitignore").read_text(encoding="utf-8")
 
 
+def test_init_pyproject_section_comment_has_no_phantom_docs_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[tool.zenzic] header comment must not bake in a phantom /docs/-prefixed URL.
+
+    Regression for: PYPROJECT_TOML_SECTION_TEMPLATE's "Full reference:"
+    comment pointed at https://zenzic.dev/docs/reference/configuration/ — the
+    real page is docs/reference/configuration-reference.md, served at
+    /reference/configuration-reference/ (no /docs/ prefix, and the slug was
+    also wrong), same defect class already fixed in README.md this session.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "myapp"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 0, result.output
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "zenzic.dev/docs/" not in content, (
+        f"Phantom /docs/-prefixed URL in pyproject.toml comment:\n{content}"
+    )
+    assert "zenzic.dev/reference/configuration-reference" in content
+
+
 def test_init_preserves_existing_local_file_and_backfills_gitignore(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2178,6 +2205,75 @@ def test_init_local_flag_scaffolds_only_local_toml(
         encoding="utf-8"
     )
     assert not (tmp_path / ".zenzic.toml").exists()
+
+
+def test_init_local_flag_gitignore_note_renders_real_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 'Zenzic Local Sandbox' panel must render a real line break, not '\\n'.
+
+    Regression for: the gitignore-status lines appended in ``_scaffold_local_toml``
+    (``_standalone.py``) were built with a literal ``"...\\\\n"`` (double-escaped)
+    instead of a real ``"\\n"``, so the panel printed the two literal characters
+    backslash-n instead of breaking to a new line. Covers the "additions made"
+    branch (site 1: gitignore created/appended).
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert "\\n" not in result.output, (
+        f"Literal backslash-n leaked into panel output:\n{result.output}"
+    )
+    assert "Security Note" in result.output
+
+
+def test_init_local_flag_gitignore_already_protects_note_renders_real_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers the "already protects" branch (site 2) for the same '\\n' bug."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".gitignore").write_text(".zenzic.local.toml\n.zenzic_cache/\n", encoding="utf-8")
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert "\\n" not in result.output, (
+        f"Literal backslash-n leaked into panel output:\n{result.output}"
+    )
+    assert "already protects" in result.output
+
+
+def test_init_local_flag_no_git_repo_note_renders_real_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers the "no Git repository detected" branch (site 3) for the same '\\n' bug."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert "\\n" not in result.output, (
+        f"Literal backslash-n leaked into panel output:\n{result.output}"
+    )
+    assert "No Git repository detected" in result.output
+
+
+def test_init_next_steps_ci_cd_link_has_no_phantom_docs_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """'Next steps' CI/CD link must not bake in a phantom /docs/-prefixed URL.
+
+    Regression for: the link pointed at
+    https://zenzic.dev/docs/how-to/configure-ci-cd — mkdocs serves
+    docs/how-to/configure-ci-cd.md at /how-to/configure-ci-cd/ (docs_dir is
+    stripped from the served path, same defect class already fixed in
+    README.md this session), so the shipped link 404s.
+    """
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0, result.output
+    assert "zenzic.dev/docs/" not in result.output, (
+        f"Phantom /docs/-prefixed URL in 'Next steps' output:\n{result.output}"
+    )
+    assert "zenzic.dev/how-to/configure-ci-cd" in result.output
 
 
 def test_init_plugin_local_conflict_exits_2(

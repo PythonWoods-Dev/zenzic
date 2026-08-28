@@ -79,6 +79,13 @@ class _Act:
     example_dir: str
     expected_pass: bool
     expected_breach: bool = False
+    expected_incident: bool = False
+    """True for scenarios whose finding carries ``severity="security_incident"``
+    (currently Z203 only) — Exit Code 3, distinct from ``expected_breach``'s
+    ``"security_breach"``/Exit Code 2. Neither ``errors`` (severity=="error")
+    nor ``has_breach`` (severity=="security_breach") observes this severity,
+    so it needs its own expectation flag; see :attr:`_ActResult.has_incident`.
+    """
     show_info: bool = False
     docs_root_override: str | None = None
     single_file: str | None = None
@@ -202,6 +209,14 @@ _GALLERY: dict[str, _Act] = {
         description="Z202 PATH_TRAVERSAL — link escapes the docs root boundary; non-suppressible, exit 1 (error)",
         example_dir="z202-path-traversal",
         expected_pass=False,
+    ),
+    "z203": _Act(
+        code="z203",
+        title="Fatal Path Traversal",
+        description="Z203 PATH_TRAVERSAL_FATAL — traversal targets an OS system directory (/etc/, /root/, ...); non-suppressible, exit 3 (security incident)",
+        example_dir="z203-fatal-path-traversal",
+        expected_pass=False,
+        expected_incident=True,
     ),
     "z204": _Act(
         code="z204",
@@ -597,6 +612,7 @@ class _ActResult:
     docs_count: int = 0
     assets_count: int = 0
     collateral_hidden: int = 0
+    has_incident: bool = False
 
     @property
     def total_files(self) -> int:
@@ -611,6 +627,8 @@ class _ActResult:
     def met_expectation(self) -> bool:
         if self.act.expected_breach:
             return self.has_breach
+        if self.act.expected_incident:
+            return self.has_incident
         if self.act.expected_pass:
             return self.errors == 0
         return self.errors > 0 or self.warnings > 0
@@ -705,6 +723,7 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
     )
 
     has_breach = any(f.severity == "security_breach" for f in findings)
+    has_incident = any(f.severity == "security_incident" for f in findings)
     return _ActResult(
         act=act,
         errors=errors,
@@ -715,6 +734,7 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
         docs_count=docs_count,
         assets_count=assets_count,
         collateral_hidden=collateral_hidden,
+        has_incident=has_incident,
     )
 
 
@@ -726,6 +746,10 @@ def _status_cell(r: _ActResult) -> str:
         if r.has_breach:
             return "[bold red]BREACH[/] [green]✓[/]"
         return "[yellow]BREACH expected -- not triggered[/] [red]✗[/]"
+    if r.act.expected_incident:
+        if r.has_incident:
+            return "[bold red]INCIDENT[/] [green]✓[/]"
+        return "[yellow]INCIDENT expected -- not triggered[/] [red]✗[/]"
     if r.act.expected_pass:
         if r.errors == 0:
             return "[bold green]PASS[/] [green]✓[/]"
@@ -852,7 +876,12 @@ def _print_gallery_index() -> None:
     table.add_column("Description", style=ZenzicPalette.WARNING)
     table.add_column("Expects", justify="center", min_width=8)
     for act in sorted(_GALLERY.values(), key=lambda a: a.code):
-        expects = "[red]BREACH[/]" if act.expected_breach else "[yellow]FAIL[/]"
+        if act.expected_breach:
+            expects = "[red]BREACH[/]"
+        elif act.expected_incident:
+            expects = "[red]INCIDENT[/]"
+        else:
+            expects = "[yellow]FAIL[/]"
         table.add_row(act.code.upper(), act.title, act.description, expects)
     con.print(table)
     con.print(

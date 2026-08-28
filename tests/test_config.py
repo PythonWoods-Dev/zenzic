@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -434,6 +435,51 @@ def test_build_from_data_legacy_obsolete_names_migrated(
     assert "OldBrand" in config.governance.brand_obsolescence
     assert "AnotherOld" in config.governance.brand_obsolescence
     assert any("Deprecated" in r.message for r in caplog.records)
+
+
+def test_build_from_data_unknown_section_warning_survives_rich_markup(
+    tmp_path: Path,
+) -> None:
+    """The unknown-section warning must render intact through RichHandler(markup=True).
+
+    Regression for: ``setup_cli_logging()`` attaches a ``RichHandler`` with
+    ``markup=True`` (see ``core/logging.py``). The warning's ``[%s]``
+    interpolation and its literal ``"[section]"`` text are both valid-looking
+    Rich markup tags (e.g. ``[project]``, ``[section]``) — unescaped, Rich
+    silently strips them instead of printing them, so the actual offending
+    section name never reaches the user. ``caplog`` captures the raw log
+    record before Rich rendering and cannot see this; this test renders
+    through a real ``RichHandler`` to catch it.
+    """
+    import logging
+
+    from rich.console import Console
+    from rich.logging import RichHandler
+
+    (tmp_path / ".zenzic.toml").write_text("[project]\nname = 'foo'\n")
+
+    logger = logging.getLogger("zenzic")
+    buf = StringIO()
+    handler = RichHandler(
+        console=Console(file=buf, no_color=True, width=200),
+        show_time=False,
+        show_path=False,
+        markup=True,
+    )
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    try:
+        ZenzicConfig.load(tmp_path)
+    finally:
+        logger.removeHandler(handler)
+
+    rendered = buf.getvalue()
+    assert "[project]" in rendered, (
+        f"Section name 'project' swallowed by Rich markup rendering, got:\n{rendered!r}"
+    )
+    assert "[section]" in rendered, (
+        f"Literal '[section]' text swallowed by Rich markup rendering, got:\n{rendered!r}"
+    )
 
 
 def test_config_rejects_swallowed_root_keys(tmp_path: Path) -> None:

@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z203 PATH_TRAVERSAL_FATAL gallery example
+#
+# docs/index.md contains a link that escapes the docs/ root boundary AND
+# targets an OS system directory:
+#   ../../../../etc/passwd
+# Escaping docs/ alone is Z202 (non-fatal, exit 1). Targeting a system
+# directory (/etc/, /root/, /var/, /proc/, /sys/, /usr/) upgrades the
+# finding to Z203 PATH_TRAVERSAL_FATAL — non-suppressible, exit 3.
+#
+# Expected results:
+#   zenzic check links   → EXIT 3  (Z203 ×1 — fatal path traversal, non-suppressible)
+#   zenzic check all     → EXIT 3
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

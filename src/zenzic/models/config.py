@@ -864,20 +864,22 @@ class ZenzicConfig(BaseModel):
                 "policies",
             }
         )
+        from rich.markup import escape as _md_escape
+
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
                     _cfg_log.warning(
-                        ".zenzic.toml: unknown section [%s] will be ignored — "
+                        ".zenzic.toml: unknown section \\[%s] will be ignored — "
                         "all keys nested inside it are silently discarded. "
                         "Root-level settings (e.g. placeholder_patterns, docs_dir) "
-                        "must appear BEFORE any [section] header.",
-                        key,
+                        "must appear BEFORE any \\[section] header.",
+                        _md_escape(str(key)),
                     )
                 else:
                     _cfg_log.warning(
                         ".zenzic.toml: unknown key '%s' will be ignored.",
-                        key,
+                        _md_escape(str(key)),
                     )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
         if "build_context" in data and isinstance(data["build_context"], dict):
