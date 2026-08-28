@@ -3,7 +3,12 @@
 #
 # Zenzic Deterministic Routing Kernel v15 (SEO-Safe & Explicit 1:1 Hash Map)
 # Strategy: Zero wildcards. Explicit 1:1 static routing for 100% of GSC crawled URLs.
-# Dead paths return 404 by design (ADR-018). Soft-404s and cascading 404s eliminated.
+# A predecessor of this file (v12, "Nuclear Static") used broad wildcard catch-alls
+# (`/it/* -> /`, `/docs/* -> /`) — see changelogs/v0.18.x.md. Those were replaced by
+# this explicit 1:1 model: a wildcard match is a hard short-circuit at Cloudflare's
+# edge with no fallback, so one broad rule can silently swallow many pages that each
+# need their own distinct destination. Dead paths return 404 by design, not a
+# wildcard fallback — soft-404s and cascading 404s eliminated.
 
 # === LAYER 1: CANONICAL BASE HYGIENE ======================================
 /docs                                                                       / 301
