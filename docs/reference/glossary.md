@@ -33,7 +33,7 @@ See: [CLI Reference](./cli.md)
 
 ### Credential Scanner Violation {#credential-scanner-violation}
 
-An exception raised by the credential scanner's IO Middleware (`safe_read_line`) when a secret is detected during metadata extraction. `ShieldViolation` is intentionally fatal — it prevents secrets from entering any parser by halting processing immediately (Exit 2).
+An exception raised by the credential scanner's IO Middleware (`safe_read_line`) when a secret is detected during metadata extraction. `CredentialViolation` is intentionally fatal — it prevents secrets from entering any parser by halting processing immediately (Exit 2).
 
 ---
 
@@ -108,11 +108,11 @@ A per-file data structure populated during Pass 1 of the Three-Pass Pipeline sto
 
 ### System Guardrails (L1) {#system-guardrails}
 
-The immutable set of directories (`.git`, `.venv`, `node_modules`, `__pycache__`) that Zenzic always excludes unconditionally.
+The immutable set of directories (`.git`, `.venv`, `node_modules`, `build`, `dist`, and others — see `SYSTEM_EXCLUDED_DIRS`) that Zenzic always excludes unconditionally.
 
 ---
 
-### Three-Pass Pipeline {#two-pass-pipeline}
+### Three-Pass Pipeline {#three-pass-pipeline}
 
 Zenzic's core analysis pipeline processing each Markdown file in three sequential passes:
 

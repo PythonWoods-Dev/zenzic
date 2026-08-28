@@ -138,6 +138,9 @@ suppression_cap = 30
 suppression_cap_fail_hard = true
 ```
 
+The same fields also work nested under `[tool.zenzic.governance]` in `pyproject.toml` (Track 2) — see
+[Embedded in `pyproject.toml`](./configuration-reference.md#embedded-in-pyprojecttoml).
+
 The CLI and CI pipelines report active debt state in the audit footer and through formal `zenzic audit` reports:
 
 ```text title="Terminal"
