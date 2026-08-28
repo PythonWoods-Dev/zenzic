@@ -53,6 +53,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **2 Blog Posts Had the Z202/Z203 Exit-3 Conflation Not Time-Scoped as Historical**:
+  - `2026-06-27-v016-magnetite.md` presented an exit-code table as "a stable, platform-agnostic exit-code contract" (not framed as a version-specific snapshot) grouping `Z202`/`Z203` under Exit 3 — corrected to name `Z203` only. `2026-05-25-dqs-mathematical-model.md`'s Security Override formula stated the set as `{Z201, Z202, Z203, Z204}` without disclosing this was the v0.8.0-era set; `Z205` was added in v0.17.0, after this post was written — added a "Historical snapshot" note matching the same post's existing precedent for its Z103/Z111/Z113 table. Documentation only.
 - **`cli.md`'s "How the Score Is Computed" Section Described an Obsolete Scoring Model from Before v0.6.x**:
   - Replaced the stale `links/orphans/snippets/placeholders/assets` decay-based description (which directly contradicted the current `structural/navigation/content/brand` bucket-cap model — and contradicted the page's own `--breakdown` example directly below it) with an accurate description of the real model, cross-linking `scoring-algorithm.md` for the full formulas. The adjacent "DQS MATHEMATICAL TRANSPARENCY" example block, whose labels and a fabricated "Category Subtotal" line matched no real CLI output at all, was replaced with a live-captured real example. Documentation only — no code behavior changed.
 - **`docs/reference/finding-codes.md`: 8 Diagnostic-Code Entries (Z410-Z412, Z510-Z523, Z617-Z619) Had No Category Header — Structurally Orphaned, Not Reachable Under Their Correct `## Z4xx`/`Z5xx`/`Z6xx` Sections**:
