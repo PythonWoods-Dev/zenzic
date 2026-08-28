@@ -746,7 +746,7 @@ def check_references(
                     rel_path=rel,
                     line_no=ref_f.line_no,
                     code=ref_f.issue,
-                    severity="warning" if ref_f.is_warning else "error",
+                    severity=_finding_severity(ref_f.issue),
                     message=ref_f.detail,
                     source_line=src,
                 )
@@ -1509,7 +1509,7 @@ def _to_findings(
                     rel_path=rel,
                     line_no=ref_f.line_no,
                     code=ref_f.issue,
-                    severity="warning" if ref_f.is_warning else "error",
+                    severity=_finding_severity(ref_f.issue),
                     message=ref_f.detail,
                     source_line=src,
                 )

@@ -936,7 +936,7 @@ class ReferenceScanner:
                             detail=(
                                 f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
                             ),
-                            is_warning=True,
+                            is_warning=code_severity("Z301") == "warning",
                         )
                     )
 
@@ -984,7 +984,7 @@ class ReferenceScanner:
                     line_no=def_line,
                     issue="Z302",
                     detail=(f"Reference '[{norm_id}]: {url}' is defined but never used."),
-                    is_warning=True,
+                    is_warning=code_severity("Z302") == "warning",
                 )
             )
 
@@ -1000,7 +1000,7 @@ class ReferenceScanner:
                         f"Reference ID '[{norm_id}]' is defined more than once. "
                         "First definition wins (CommonMark §4.7)."
                     ),
-                    is_warning=True,
+                    is_warning=code_severity("Z303") == "warning",
                 )
             )
 

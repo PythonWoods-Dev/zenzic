@@ -231,8 +231,15 @@ def inspect_codes(
         if code.startswith("Z0") or code.startswith("Z2"):
             return "[bold red]FATAL[/bold red]"
         # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z504,
-        # Z901, Z902) — show HALT to signal CI exit rather than math cost.
-        if defn.severity == "warning" and defn.penalty == 0.0:
+        # Z902) — show HALT to signal CI exit rather than math cost.
+        # Z901 is the one error-severity exception: it also unconditionally
+        # blocks the pipeline (via the normal error path, not the
+        # governance-gate mechanism warnings need) and also carries a 0.0
+        # penalty (never reaches DQS scoring) — same practical HALT outcome,
+        # reached a different way. Not a general "error + 0.0 => HALT" rule:
+        # Z110/Z111 are also error+0.0 but are genuinely FATAL config-abort
+        # codes, a separate category with its own known display gap.
+        if (defn.severity == "warning" and defn.penalty == 0.0) or code == "Z901":
             return "[bold red]HALT[/bold red]"
         # note + 0.0 = genuinely informational; never blocks CI (Fail-Visible rule).
         if defn.penalty == 0.0:

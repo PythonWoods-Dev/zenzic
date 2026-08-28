@@ -107,7 +107,7 @@ Displayed for **Z0xx** (configuration abort) and **Z2xx** (Security Codes). Thes
 Penalty: HALT
 ```
 
-Displayed for **`warning`-severity codes with a 0.0 penalty** — codes that do not subtract math points but act as **hard pipeline blockers** through the CI gate logic rather than through the scoring formula.
+Displayed for **`warning`-severity codes with a 0.0 penalty** — codes that do not subtract math points but act as **hard pipeline blockers** through the CI gate logic rather than through the scoring formula. **Z901** is the one `error`-severity exception: it also carries a 0.0 penalty and also unconditionally blocks the pipeline, just via the normal error path rather than the governance-gate mechanism warnings need.
 
 Examples:
 
@@ -115,7 +115,7 @@ Examples:
 |---|---|---|
 | Z504 | QUALITY_REGRESSION | Triggers when the current DQS regresses below the saved baseline. Not scored itself (that would be circular). Blocks `zenzic diff` gate. |
 | Z901 | RULE_ENGINE_ERROR | Scanner crash. Partial results may be unreliable; pipeline cannot pass. |
-| Z902 | RULE_TIMEOUT | Scanner timed out (ReDoS risk). Partial results are untrustworthy. |
+| Z902 | RULE_TIMEOUT | Worker process stalled past the timeout window. Partial results are untrustworthy. |
 
 > HALT codes are the most semantically dangerous codes in the table: they look like `warning` entries with no visible cost, but they unconditionally block CI when triggered. The HALT label makes this explicit.
 
@@ -1038,13 +1038,15 @@ An unhandled exception in a core rule or plugin. Zenzic's fail-visible principle
 
 **Severity:** `warning` · **Penalty:** none (system-level) · **Exit:** 1 · **Suppressible:** Yes
 
-A rule exceeded the execution time limit (default > 30s). Almost always caused by catastrophic backtracking in a custom regex — a ReDoS risk that can also silently disable a security gate.
+In parallel scan mode (1000+ files), a file's worker process failed to complete within the timeout window (default 30s, `_WORKER_TIMEOUT_S`) — a **file-level** stall, not a per-rule one. `[[custom_rules]]` regex patterns cannot cause this: they compile with Google RE2 (ZRT-007), a DFA engine with no backtracking, so catastrophic-backtracking ReDoS is not possible for them. A stall is typically an I/O hang, a network stall, a worker process crash, or — for an installed Python plugin rule (`zenzic.rules` entry-point group, distinct from TOML regex rules) — genuinely slow or blocking code inside that plugin's `check()` method.
+
+Live-verified: the real elapsed wall-clock time before `zenzic check all` returns can exceed the timeout window itself — the coordinator gives up *logically* (emits Z902) once the window elapses, but still waits for the stalled worker process to actually terminate before the command can exit.
 
 **Fix:**
 
-1. Review custom regex patterns in `.zenzic.toml`.
-2. Simplify patterns: avoid nested quantifiers like `(a+)+`.
-3. Use non-backtracking alternatives where possible.
+1. If using a Python plugin rule, check it for slow I/O, network calls, or blocking operations inside `check()`.
+2. Rule out a transient environment issue (disk I/O contention, network latency) — Z902 is more often a systemic stall than a rule-authoring bug.
+3. `[[custom_rules]]` regex patterns are not a possible cause — RE2 rejects unsafe patterns at config-load time (`PluginContractError`), before this timeout mechanism is ever reached.
 
 ---
 
