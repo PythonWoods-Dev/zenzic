@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from zenzic.core.ui import emoji
 from zenzic.main import app
 
 
@@ -289,7 +290,7 @@ class TestCredentialBreachE2E:
             f"Expected exactly one POLICY VIOLATION DETECTED panel, got "
             f"{result.stdout.count('POLICY VIOLATION DETECTED')}.\nOutput:\n{result.stdout}"
         )
-        assert "✘ 0 errors" in result.stdout, (
+        assert f"{emoji('cross')} 0 errors" in result.stdout, (
             f"Expected 0 errors (the wrong-severity duplicate must not survive "
             f"as a normal error-severity finding):\n{result.stdout}"
         )
