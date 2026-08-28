@@ -139,7 +139,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     ---
 
-    Migrate documentation seamlessly between MkDocs, Zensical, and Docusaurus.
+    Migrate documentation seamlessly between MkDocs and Zensical.
 
     [:material-arrow-right: Read Guide](migrate-engines.md)
 

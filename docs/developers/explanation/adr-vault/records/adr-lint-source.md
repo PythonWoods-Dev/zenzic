@@ -101,9 +101,12 @@ is consumed.
 
 By analyzing source files rather than build output, Zenzic is inherently
 engine-agnostic. The same `check links` command validates an MkDocs project,
-a Docusaurus site, and a Zensical wiki — because all three share the same
-raw Markdown format. Engine-specific URL conventions are encoded in the adapter
-layer (not in the validator), making the core engine permanently portable.
+a Zensical wiki, or a Standalone repository — because all three share the same
+raw Markdown format. (An earlier version of this principle was also demonstrated
+against a Docusaurus site, before that adapter was removed in `v0.14.0` — see
+[ADR 006](./adr-unified-perimeter.md).) Engine-specific URL conventions are
+encoded in the adapter layer (not in the validator), making the core engine
+permanently portable.
 
 ### 3. Deterministic Analysis
 

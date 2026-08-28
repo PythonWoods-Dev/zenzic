@@ -68,8 +68,10 @@ These ADRs document the structural decisions for the current architecture.
 ## Documentation Site Decisions
 
 These ADRs document architectural decisions specific to this documentation site
-(`zenzic.dev`) — choices about how the Docusaurus site is built, localized, and
-maintained.
+(`zenzic.dev`). The one ADR currently in this section is historical: it describes
+choices made while `zenzic.dev` was still built with Docusaurus, before that
+adapter was permanently removed in `v0.14.0` (see [ADR 006](./records/adr-unified-perimeter.md)).
+The site is built with MkDocs today.
 
 | ADR | Title |
 |-----|-------|

@@ -130,7 +130,7 @@ Install and synchronize your environment:
 
 ### Static analysis only — no build runtime required {#lean-agnostic}
 
-Zenzic reads configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`) as plain text. It does **not** execute your build engine (MkDocs, Hugo, Docusaurus) or its runtime plugins.
+Zenzic reads configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`) as plain text. It does **not** execute your build engine (MkDocs, Zensical, or any other static site generator) or its runtime plugins.
 
 Do **not** install heavy build dependencies into your linting environment. The linting environment has one dependency: `zenzic`.
 
