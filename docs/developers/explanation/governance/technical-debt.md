@@ -23,67 +23,101 @@ follow-through.
 
 ## Open Entries
 
-This section details the specifications and guidelines for Open Entries within the Zenzic ecosystem.
+Capabilities Zenzic has deliberately not shipped yet, and the reasoning behind
+each deferral.
 
-### Z108 STALE_ALLOWLIST_ENTRY
+### CLI/LSP Topology Model Divergence
 
-**Category:** Configuration hygiene
-**Status:** Deferred
-**Tracked:** GitHub issue (tracked for future resolution)
-**Related:** ADR 011 (removed in v0.8.0)
+**Category:** Architecture — orphan/topology detection
+**Status:** Deferred — formally tracked, not silently accepted
+**Tracked:** Forthcoming ADR in [ADR Vault](../adr-vault/index.md)
+**Related:** `CHANGELOG.md` → `### Known Limitations`
 
 #### What was deferred
 
-A check that warns when a prefix declared in
-`[link_validation] absolute_path_allowlist` is never actually referenced by
-any link in the project — i.e. the allowlist entry has become **stale** and
-can be safely removed.
+A single, shared analysis primitive for orphan/topology detection across the
+CLI and the Language Server. Most other pipeline steps — file discovery, rule
+engine construction/execution, config loading, adapter resolution — are
+already shared between the two. Topology detection is the one significant
+area that is not: the CLI's `Z402` (nav-membership-based) and the LSP's
+`Z410`/`Z411` (VSM-graph-reachability-based) are two independent algorithms
+for related-but-not-identical concepts. A narrower gap in the same family:
+`zenzic check all <file>` still cannot be near-instant — the rule-engine pass
+now skips non-target files, but full VSM construction and Pass 1-3
+security/topology scanning still run project-wide by design, so total time
+stays proportional to project size, not target-file size.
 
 #### Why we deferred it
 
-The check is conceptually simple but architecturally expensive:
+Unifying `Z402`'s nav-membership model with `Z410`/`Z411`'s
+VSM-graph-reachability model is a genuine architectural decision, not a
+mechanical refactor — the two approaches answer subtly different questions
+("is this page in the nav?" vs. "is this page reachable from an entry point
+in the VSM graph?"), and collapsing them into one primitive requires deciding
+which semantics wins, or whether both need to keep existing under a shared
+implementation. That decision needs a real ADR, not an ad hoc code change
+buried in an unrelated release.
 
-1. **Pillar 3 violation.** Z110 and Z105 are pure per-link / per-file
-   functions — they decide independently in each `pytest-xdist` worker with
-   no shared state. A "used / unused" determination requires aggregating
-   results across **every** scanned file in **every** worker, then
-   reconciling at the end of the run. Introducing aggregate state into the
-   validator pass would force a Pillar 3 redesign in a release cycle whose stated
-   goal is *consolidation*, not refactor.
-2. **Wrong category.** Linting the *content* of documentation and linting
-   the *configuration* of the engine itself are different problem spaces.
-   Mixing them inflates the validator's scope and obscures which findings
-   are about user-authored content vs. project setup.
-3. **YAGNI signal absent.** No real-world reports of stale allowlist
-   entries exist yet. The current Technical Debt Ledger already has the feature at
-   all. Adding a hygiene check for a problem that has never been observed
-   would be premature.
+#### What we will do
 
-#### What we will do in
+Write the ADR that reconciles the two topology models, then implement the
+shared primitive it specifies. Near-instant single-file CLI checking needs
+the same kind of persistent-process architecture the LSP already has — no
+broader change is currently planned for the CLI without one. Until the ADR
+exists, the divergence stays open and explicitly disclosed rather than
+silently worked around.
 
-The natural home for this check is a dedicated configuration-audit surface
-under the existing introspection family (today: `zenzic config explain`):
-unreferenced allowlist entries, contradictory `excluded_dirs` patterns,
-deprecated keys, etc. This separates **content lint** (the validator pass)
-from **config audit** (the inspector pass) and keeps both passes pure.
+#### Mitigation
 
-#### Mitigation in
-
-`.zenzic.toml` is small, version-controlled, and code-reviewed at every PR.
-A stale allowlist entry is a code-review concern during stabilization, promoted to a
-tooling concern during the inspector audit phase. The risk window is bounded: a stale entry can at
-worst silence a legitimate Z105 finding for a prefix that no longer needs
-silencing — it cannot create false positives, leak data, or weaken any
-security check.
+Both algorithms are independently correct for what they check today — this
+is a duplication-of-effort and maintenance-cost problem, not a correctness
+gap. Neither the CLI's `Z402` nor the LSP's `Z410`/`Z411` produces wrong
+findings because of this divergence; a project running both surfaces may see
+the two disagree at the margins on edge cases neither model was designed to
+share.
 
 ---
 
 ## Closed Entries
 
-This section will accrue entries as deferred items ship. Each closed entry
-will name the version that resolved it and link to the merged PR.
+Each closed entry names what shipped and links to the finding code (or PR)
+that resolved it.
 
-### (none yet — this is the first public Technical Debt Ledger with a published record.)
+### Z112 STALE_ALLOWLIST_ENTRY (logged here as "Z108" while open)
+
+**Resolved as:** `Z112` (`STALE_ALLOWLIST_ENTRY`, `warning`, 1.0 pt,
+`structural` category) — see `CHANGELOG.md`'s `[Unreleased]` section for the
+full renumbering rationale.
+
+#### What shipped
+
+A check that warns when a prefix declared in
+`[link_validation] absolute_path_allowlist` is never actually referenced by
+any link in the project. Live emission site in `scanner.py`'s
+`_run_vsm_and_urp_pass`, wired through `validator.py` and `_check.py`. Neither
+of this entry's originally-cited candidate numbers were used: `Z108` was
+already live for an unrelated check (`EMPTY_LINK_TEXT`) by the time this
+shipped, and `Z110` (this entry's other original candidate) was already
+`CONFIG_SYNTAX_ERROR`. `Z112` — a previously-reserved, unused slot — was
+free.
+
+#### How the original deferral concern was addressed
+
+The original entry deferred this on a "Pillar 3" concern: Z110/Z105 decide
+independently per link/file with no shared state, and a "used/unused"
+determination needs the results of every scanned file reconciled together.
+The shipped check avoids redesigning per-file worker independence to get
+there. It runs as one aggregation pass over already-collected per-file link
+data (`raw_extracted_links`, built during `_run_vsm_and_urp_pass`), in the
+main process, after the parallel per-file pass has already returned its
+results — the same place the VSM/topology passes already do their own
+post-aggregation work, not a new pattern introduced for this check.
+The entry's other two original deferral reasons ("wrong category," mixing
+content lint with config audit; "YAGNI signal absent," no real-world reports)
+were the softer of the three and are not separately re-litigated here — the
+check shipped as a `structural`-category content-lint finding rather than
+under a dedicated config-audit surface, the alternative home the original
+entry proposed.
 
 ---
 

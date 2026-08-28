@@ -41,11 +41,11 @@ Fixed `px` values are immune — `max-w-[1400px]` works correctly. But that is n
 
 ## The Bridge
 
-The solution uses a single CSS `:has()` rule scoped to a semantic anchor class:
+The solution scopes the reset directly to a semantic anchor class — not to `<html>`:
 
 ```css
-html:has(.zz-tailwind-root) {
-  font-size: 100% !important;
+.zz-tailwind-root {
+  font-size: 16px !important;
 }
 ```
 
@@ -55,20 +55,22 @@ The class `zz-tailwind-root` is applied to the outermost `<div>` in `overrides/h
 <div class="zz-tailwind-root flex flex-col min-h-screen …">
 ```
 
-`zz-tailwind-root` has no visual definition. It is purely a signal. When the DOM contains this class, the bridge activates. When it does not — every regular documentation page — the MkDocs Material default is fully preserved.
+We deliberately did **not** reach for `:has()` here, even though it is the tool most people reach for first in this situation (`html:has(.zz-tailwind-root) { font-size: 100% }`). That version resets the base font-size for the *entire* `<html>` subtree whenever the wrapper is present anywhere on the page — including the MkDocs Material header, sidebar, and TOC, which live outside the wrapper in the DOM but would still inherit the reset from `<html>`. Scoping the rule to `.zz-tailwind-root` directly means only the wrapper's own subtree gets the `16px` base; everything outside it keeps the site's normal `125%` accessibility scaling untouched.
+
+`:has()` still earns its place elsewhere on this same page — one rule uses it to hide the header's GitHub stats widget only when the landing-page wrapper is present, a page-wide toggle where `:has()`'s reach is exactly what's wanted, not a liability.
 
 ---
 
-## Why `:has()` Is the Right Primitive
+## Why a Direct Reset, Not `html:has()`
 
-The CSS `:has()` relational pseudo-class allows a parent element selector to depend on the presence of a descendant. When the `<html>` element's subtree contains `.zz-tailwind-root`, the rule fires. Otherwise, it is a no-op with zero specificity impact on unrelated pages.
+The CSS `:has()` relational pseudo-class lets a parent selector depend on the presence of a descendant — genuinely the right primitive when the effect you want *is* page-wide once some condition is met, like the header-widget toggle above. The rem-scaling fix wants the opposite: an effect confined to one wrapper's own subtree. A plain class selector already gives us that with a tighter, more predictable scope, so that's what we used.
 
-This is:
+The result is:
 
-- **Scoped** without coupling to server state
+- **Scoped to the wrapper's own subtree** — not the whole page
 - **Pure client-side** — no Jinja2 logic, no TOML metadata, no JavaScript
-- **Zero regression surface** — the rule cannot affect pages that do not opt in
-- **Browser-native** in all evergreen engines since mid-2023
+- **Zero regression surface** — the rule cannot affect the header, sidebar, or any page that doesn't carry the wrapper
+- **Simple** — no relational selector needed for this particular rule
 
 ---
 

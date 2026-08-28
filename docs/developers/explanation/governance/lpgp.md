@@ -7,6 +7,19 @@ description: Structural Improvement Plan for the Zenzic Landing Page.
 
 # Landing Page Governance Plan (LPGP)
 
+!!! note "Historical — superseded by the current homepage structure"
+
+    This plan is dated 2026-06-29 and describes a 4-section funnel (Hero →
+    Value Prop → Live Demo → CI Integration). The homepage that actually
+    shipped grew well past this plan: `overrides/home.html` today assembles
+    8 distinct partials (`hero`, `execution_layer`, `failure_topology`,
+    `diagnostic_output`, `adapter_surface`, `enterprise_section`,
+    `governance_gate`, `suppression_policy`), in an order and with content
+    this document never anticipated. Kept as a point-in-time record of the
+    original structural intent, not maintained in sync with the live
+    homepage — see `overrides/home.html` and `overrides/partials/homepage/`
+    directly for the current, authoritative structure.
+
 **Subject:** Structural Improvement Plan for the Landing Page
 **Objective:** Optimize information density, spatial precision, and the visual communication of Zenzic's rigor.
 
