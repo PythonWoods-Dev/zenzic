@@ -228,7 +228,20 @@ def inspect_codes(
             return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
         # Z0xx (config abort) and Z2xx (security codes) collapse the score to 0
         # and halt the pipeline unconditionally — show FATAL, not 0.0.
-        if code.startswith("Z0") or code.startswith("Z2"):
+        # Z110/Z111 are the one prefix exception: genuinely config-abort codes
+        # (same FROZEN_CODES class as Z000/Z001 — construct a fabricated
+        # score=0.0 report and return early, the same practical "nothing else
+        # gets scanned" outcome), just numbered in the "Z1xx" range for
+        # historical reasons. They are LSP-diagnostic-only in practice —
+        # load_config_with_diagnostics() (models/config.py), their sole
+        # construction site, is only reached by incremental.py's LSP flow;
+        # every zenzic check * command pre-loads config and always passes it
+        # non-None into scan_docs_references(), so its config-is-None branch
+        # (the only place Z110/Z111 are ever built) never executes there —
+        # they cannot fire via any CLI command today. Shown as FATAL anyway:
+        # zenzic inspect codes is a general code reference, not scoped to
+        # CLI-reachability, and 0.0 would misleadingly imply harmless.
+        if code.startswith("Z0") or code.startswith("Z2") or code in ("Z110", "Z111"):
             return "[bold red]FATAL[/bold red]"
         # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z504,
         # Z902) — show HALT to signal CI exit rather than math cost.
@@ -236,9 +249,7 @@ def inspect_codes(
         # blocks the pipeline (via the normal error path, not the
         # governance-gate mechanism warnings need) and also carries a 0.0
         # penalty (never reaches DQS scoring) — same practical HALT outcome,
-        # reached a different way. Not a general "error + 0.0 => HALT" rule:
-        # Z110/Z111 are also error+0.0 but are genuinely FATAL config-abort
-        # codes, a separate category with its own known display gap.
+        # reached a different way.
         if (defn.severity == "warning" and defn.penalty == 0.0) or code == "Z901":
             return "[bold red]HALT[/bold red]"
         # note + 0.0 = genuinely informational; never blocks CI (Fail-Visible rule).

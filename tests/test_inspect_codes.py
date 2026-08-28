@@ -50,3 +50,34 @@ def test_z906_still_renders_as_plain_zero() -> None:
     lines = [line for line in result.stdout.splitlines() if "Z906" in line]
     assert lines, f"Z906 row not found in output:\n{result.stdout}"
     assert "HALT" not in lines[0], f"Z906 row must not show HALT, got:\n{lines[0]}"
+
+
+def test_z110_renders_as_fatal_not_plain_zero() -> None:
+    """Z110 (CONFIG_SYNTAX_ERROR) must render FATAL, not 0.0.
+
+    Z110 is severity="error" + penalty=0.0, same shape as Z901 -- but unlike
+    Z901 (a within-scan rule-engine error), Z110/Z111 are genuinely
+    config-abort codes, the same class as Z000/Z001, just numbered in the
+    "Z1xx" range for historical reasons. _inspect.py's FATAL branch only
+    string-matches a Z0/Z2 prefix and misses them. This locks the display
+    to FATAL, matching Z000/Z001's existing display and Z110/Z111's
+    membership in FROZEN_CODES alongside them.
+    """
+    result = runner.invoke(app, ["inspect", "codes"])
+    assert result.exit_code == 0, result.output
+
+    lines = [line for line in result.stdout.splitlines() if "Z110" in line]
+    assert lines, f"Z110 row not found in output:\n{result.stdout}"
+    assert "FATAL" in lines[0], f"Z110 row must show FATAL, got:\n{lines[0]}"
+    assert "0.0" not in lines[0], f"Z110 row must not show plain 0.0, got:\n{lines[0]}"
+
+
+def test_z111_renders_as_fatal_not_plain_zero() -> None:
+    """Z111 (CONFIG_SCHEMA_ERROR) must render FATAL, not 0.0. See test_z110 for reasoning."""
+    result = runner.invoke(app, ["inspect", "codes"])
+    assert result.exit_code == 0, result.output
+
+    lines = [line for line in result.stdout.splitlines() if "Z111" in line]
+    assert lines, f"Z111 row not found in output:\n{result.stdout}"
+    assert "FATAL" in lines[0], f"Z111 row must show FATAL, got:\n{lines[0]}"
+    assert "0.0" not in lines[0], f"Z111 row must not show plain 0.0, got:\n{lines[0]}"

@@ -1736,10 +1736,11 @@ def scan_docs_references(
       External URL validation is performed in the main process after all
       workers complete.
 
-    The threshold default (50 files) is a conservative heuristic: below it,
-    ``ProcessPoolExecutor`` spawn overhead (~200–400 ms on a cold interpreter)
-    exceeds the parallelism benefit.  Override with ``workers=N`` to select a
-    specific pool size when parallel mode is active.
+    The :data:`ADAPTIVE_PARALLEL_THRESHOLD` default is a conservative
+    heuristic: below it, ``ProcessPoolExecutor`` spawn overhead (~200–400 ms
+    on a cold interpreter) exceeds the parallelism benefit.  Override with
+    ``workers=N`` to select a specific pool size when parallel mode is
+    active.
 
     **Determinism guarantee:** results are always sorted by ``file_path``
     regardless of execution mode.

@@ -116,3 +116,29 @@ def test_update_baseline_verdict_message_matches_real_exit_code(tmp_path: Path) 
     assert "Exit code 1 is mandatory" not in res.output, (
         f"Verdict claimed Exit 1 is mandatory while the real exit code was 0:\n{res.output}"
     )
+
+
+def test_update_baseline_dqs_line_shows_gate_passed_not_failed(tmp_path: Path) -> None:
+    """`--update-baseline`'s "DQS Final Score" line must say "(Gate Passed)", not "(Gate Failed)".
+
+    Same scenario and same root cause as
+    test_update_baseline_verdict_message_matches_real_exit_code, in a
+    different function: _check.py's _gate_failed (used only for the DQS
+    line's "Gate Failed"/"Gate Passed" label) was computed from raw
+    all_findings counts with no is_baselined filter — one screen away from
+    reporter.py's already-fixed has_hard_failures, the identical bug shape.
+    """
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+    doc = tmp_path / "docs" / "index.md"
+    doc.parent.mkdir(parents=True)
+    doc.write_text("# Home\n\n[broken link](nonexistent.md)\n\nTODO: write this section\n")
+
+    res = runner.invoke(app, ["check", "all", str(tmp_path), "--update-baseline", "--no-header"])
+
+    assert res.exit_code == 0, res.output
+    assert "(Gate Passed)" in res.output, (
+        f"DQS line should say Gate Passed (real exit code is 0):\n{res.output}"
+    )
+    assert "(Gate Failed)" not in res.output, (
+        f"DQS line claimed Gate Failed while the real exit code was 0:\n{res.output}"
+    )

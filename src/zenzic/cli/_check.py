@@ -2037,11 +2037,24 @@ def check_all(
                 f"{'s' if _score_report.security_findings != 1 else ''} detected)[/]"
             )
         else:
-            _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
+            # Non-suppressible security findings always fail regardless of
+            # baseline; plain errors and strict-promoted warnings are
+            # baseline-sensitive, matching the real exit-code decision
+            # (unbaselined_defects, below) and reporter.py's baseline_active
+            # verdict fix (same bug shape, one screen away).
+            if active_baseline is not None:
+                _pre_errors = sum(
+                    1 for _f in all_findings if _f.severity == "error" and not _f.is_baselined
+                )
+                _pre_warnings = sum(
+                    1 for _f in all_findings if _f.severity == "warning" and not _f.is_baselined
+                )
+            else:
+                _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
+                _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
             _pre_breaches = sum(
                 1 for _f in all_findings if _f.severity in {"security_breach", "security_incident"}
             )
-            _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
             _gate_failed = (
                 _pre_breaches > 0 or _pre_errors > 0 or (effective_strict and _pre_warnings > 0)
             )
