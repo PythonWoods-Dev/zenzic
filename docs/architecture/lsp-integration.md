@@ -40,7 +40,7 @@ class ZenzicDiagnostic:
 The `to_lsp_dict()` method is the **single serialization boundary**. Untyped dicts are never used for diagnostic payloads; `Any` is forbidden in the diagnostic model. At the serialization boundary, `to_lsp_dict()` formats the diagnostic payload per LSP 3.16/3.17 specifications:
 
 - Prepends the Z-Code prefix to the emitted `message` string (`[{code}] {message}`).
-- Includes the `codeDescription` property with `href` pointing to `https://zenzic.dev/docs/reference/finding-codes#{code}`.
+- Includes the `codeDescription` property with `href` pointing to `https://zenzic.dev/reference/finding-codes/#{code}`.
 
 Internal `ZenzicDiagnostic` instances retain unformatted, raw messages to preserve core engine independence.
 
