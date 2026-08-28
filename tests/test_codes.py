@@ -156,3 +156,28 @@ def test_z103_is_structural_with_penalty() -> None:
     assert defn.severity == "error", "Z103.severity should be 'error'"
     assert defn.penalty > 0.0, "Z103.penalty should be > 0"
     assert defn.category == "structural", "Z103.category should be 'structural'"
+
+
+# ── CORE_SCANNERS Z202/Z203 exit-code display (regression) ────────────────────
+
+
+def test_core_scanners_z202_z203_not_merged_under_one_exit_code() -> None:
+    """CORE_SCANNERS must never group Z202 and Z203 under a shared 'codes' entry.
+
+    Z202 (ordinary docs-root-boundary traversal) stays Exit 1; only Z203
+    (fatal, OS-system-directory traversal) escalates to Exit 3. A merged
+    "Z202-203" display entry previously implied both share Exit 3, which
+    `zenzic inspect capabilities` rendered as a factually wrong Exit-3 row
+    for Z202.
+    """
+    from zenzic.core.codes import CORE_SCANNERS
+
+    merged = [s for s in CORE_SCANNERS if "Z202" in s.codes and "Z203" in s.codes]
+    assert merged == [], f"Z202 and Z203 must not share a CORE_SCANNERS entry: {merged}"
+
+    z202_entries = [s for s in CORE_SCANNERS if s.codes == "Z202"]
+    z203_entries = [s for s in CORE_SCANNERS if s.codes == "Z203"]
+    assert len(z202_entries) == 1, "Z202 must have exactly one dedicated CORE_SCANNERS entry"
+    assert len(z203_entries) == 1, "Z203 must have exactly one dedicated CORE_SCANNERS entry"
+    assert z202_entries[0].primary_exit == 1, "Z202's primary_exit must stay 1"
+    assert z203_entries[0].primary_exit == 3, "Z203's primary_exit must be 3"

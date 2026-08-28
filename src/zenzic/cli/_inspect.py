@@ -27,9 +27,12 @@ inspect_app = _shared.create_app(
 def _inspect_capabilities() -> None:
     """Show the full Zenzic scanner arsenal.
 
-    **Section A — Core Scanners (Built-in):** seven scanners compiled into
-    Zenzic itself.  The credential scanner (Z201) and path traversal guard (Z202–203) exit with
-    codes 2 and 3 respectively — neither is suppressible with ``--exit-zero``.
+    **Section A — Core Scanners (Built-in):** scanners compiled into
+    Zenzic itself.  The credential scanner (Z201) exits with code 2; the path
+    traversal guard's fatal check (Z203, OS system directories) exits with code 3.
+    Z202 (ordinary docs-root-boundary traversal) is also non-suppressible but stays
+    at plain Exit 1 — it is deliberately not escalated to Exit 3.
+    None of these four are suppressible with ``--exit-zero``.
 
     **Section B — Extensible Rules (Plugin System):** rules registered via the
     ``zenzic.rules`` entry-point group from any installed third-party package.

@@ -588,10 +588,20 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=True,
     ),
     CoreScanner(
-        codes="Z202\u2013203",
+        codes="Z202",
         name="Path Traversal Guard",
         capability=(
             "Path-traversal boundary enforcement \u2014 rejects any link escaping the docs/ root"
+        ),
+        primary_exit=1,
+        non_suppressible=True,
+    ),
+    CoreScanner(
+        codes="Z203",
+        name="Path Traversal Guard (fatal)",
+        capability=(
+            "Fatal path-traversal detection \u2014 traversal targeting an OS system "
+            "directory (/etc/, /root/, ...)"
         ),
         primary_exit=3,
         non_suppressible=True,
