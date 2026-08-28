@@ -15,6 +15,7 @@ Gap closed: ``docs/internal/arch_gaps.md`` § "Security Pipeline Coverage".
 
 from __future__ import annotations
 
+import json
 import shutil
 import textwrap
 from pathlib import Path
@@ -199,6 +200,124 @@ class TestCredentialBreachE2E:
             f"Expected exit 2 (security_breach), got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
         assert "ZENZIC" in (result.stdout + result.stderr)
+
+    def test_z201_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z201 finding for a single leaked
+        credential, not two — same root-cause family as the already-fixed
+        Z202/Z203/Z108 double-emission bugs: a Z201 RuleFinding is injected
+        into report.rule_findings (scanner.py _scan_single_file) AND
+        report.security_findings is independently converted via
+        _map_credential_to_finding() in the same _to_findings() pass — without
+        a skip-list entry, the rule_findings copy surfaces a second time.
+
+        The duplicate is not merely cosmetic: it carries severity="error"
+        (from bare code_severity("Z201")) instead of "security_breach" (the
+        CLI-layer Z2xx reclassification _map_credential_to_finding applies),
+        so it renders through the normal bracketed-list path ("[Z201] ...")
+        rather than the SECURITY BREACH DETECTED panel the correct copy uses
+        — the two copies are visually distinct, not an obvious repeat. The
+        secret-type message text is the one signal common to both renderings.
+        """
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.stdout.count("aws-access-key") == 1, (
+            f"Expected exactly one aws-access-key finding, got "
+            f"{result.stdout.count('aws-access-key')}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_z201_finding_not_double_emitted_in_sarif(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same regression as above, verified in --format sarif output.
+
+        SARIF is used here (not --format json) because check_all's JSON
+        summary shape deduplicates by (rel_path, line_no, code) before
+        counting security_breaches, masking the duplicate; SARIF's results
+        array is unfiltered and reflects the real underlying Finding count.
+        """
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--format", "sarif"])
+        payload = json.loads(result.stdout)
+        z201_results = [r for r in payload["runs"][0]["results"] if r["ruleId"] == "Z201"]
+        assert len(z201_results) == 1, (
+            f"Expected exactly one Z201 SARIF result, got {len(z201_results)}.\n"
+            f"Output:\n{result.stdout}"
+        )
+
+    def test_z204_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z204 finding for a single forbidden
+
+        term, not two — same root-cause family as Z201/Z202/Z203/Z108: a Z204
+        RuleFinding is injected into report.rule_findings
+        (scanner.py:_scan_single_file) AND report.security_findings is
+        independently converted via _map_credential_to_finding() in the same
+        _to_findings() pass. Same wrong-severity duplicate shape as Z201: the
+        rule_findings copy uses bare code_severity("Z204") ("error"), not the
+        CLI-layer "security_breach" reclassification, so it renders through
+        the normal bracketed-list path rather than the POLICY VIOLATION
+        DETECTED panel the correct copy uses.
+        """
+        _make_sandbox(
+            tmp_path,
+            {
+                ".zenzic.local.toml": '[core]\nforbidden_patterns = ["InternalCodename"]\n',
+                "docs/index.md": (
+                    "# Cloud Setup\n\n"
+                    "This page mentions InternalCodename in the body text, "
+                    "which is a forbidden project term.\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        # "InternalCodename" legitimately appears twice within a single
+        # finding's own panel (the "Finding:" message quotes it, the "Term:"
+        # line repeats it) -- count POLICY VIOLATION DETECTED panels instead,
+        # one per underlying Finding.
+        assert result.stdout.count("POLICY VIOLATION DETECTED") == 1, (
+            f"Expected exactly one POLICY VIOLATION DETECTED panel, got "
+            f"{result.stdout.count('POLICY VIOLATION DETECTED')}.\nOutput:\n{result.stdout}"
+        )
+        assert "✘ 0 errors" in result.stdout, (
+            f"Expected 0 errors (the wrong-severity duplicate must not survive "
+            f"as a normal error-severity finding):\n{result.stdout}"
+        )
+
+    def test_z204_finding_not_double_emitted_in_sarif(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same regression as above, verified in --format sarif output."""
+        _make_sandbox(
+            tmp_path,
+            {
+                ".zenzic.local.toml": '[core]\nforbidden_patterns = ["InternalCodename"]\n',
+                "docs/index.md": (
+                    "# Cloud Setup\n\n"
+                    "This page mentions InternalCodename in the body text, "
+                    "which is a forbidden project term.\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--format", "sarif"])
+        payload = json.loads(result.stdout)
+        z204_results = [r for r in payload["runs"][0]["results"] if r["ruleId"] == "Z204"]
+        assert len(z204_results) == 1, (
+            f"Expected exactly one Z204 SARIF result, got {len(z204_results)}.\n"
+            f"Output:\n{result.stdout}"
+        )
 
     def test_credential_scanner_exit_2_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
