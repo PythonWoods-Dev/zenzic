@@ -195,6 +195,13 @@ class SecurityFinding:
             Used by the reporter for surgical caret rendering.
         match_text: The matched secret substring (unredacted).
             The reporter is responsible for obfuscating this before display.
+        is_likely_placeholder: ``True`` when :func:`_is_likely_placeholder`
+            deterministically classifies ``match_text`` as a documented
+            example/dummy value rather than a genuine secret. A fixed,
+            rule-based classification — never a probabilistic confidence
+            score, which would violate Tier-0 Invariant #1 (Determinism &
+            Pure Functions). Never suppresses the finding; it is a display
+            hint only.
     """
 
     file_path: Path
@@ -203,6 +210,48 @@ class SecurityFinding:
     url: str
     col_start: int = 0
     match_text: str = ""
+    is_likely_placeholder: bool = False
+
+
+# Case-insensitive substring markers. Any match_text containing one of these
+# is a documented convention for example/dummy credentials, never a real
+# generated secret (e.g. AWS's own published example key AKIAIOSFODNN7EXAMPLE).
+_PLACEHOLDER_MARKERS: tuple[str, ...] = (
+    "EXAMPLE",
+    "PLACEHOLDER",
+    "YOUR_API_KEY",
+    "YOUR_KEY",
+    "REDACTED",
+    "CHANGEME",
+    "DUMMY",
+    "SAMPLE",
+)
+
+
+def _is_likely_placeholder(match_text: str) -> bool:
+    """Deterministic, rule-based placeholder classification.
+
+    True when *match_text* contains a well-known placeholder marker
+    (case-insensitive) or a run of 8+ identical characters (e.g.
+    ``"XXXXXXXX"``, ``"00000000"``) — both are common documented-example/
+    dummy-token conventions and do not occur in a real generated secret.
+    Not a confidence score: a fixed lookup and a fixed structural check,
+    nothing probabilistic (Tier-0 Invariant #1).
+    """
+    upper = match_text.upper()
+    if any(marker in upper for marker in _PLACEHOLDER_MARKERS):
+        return True
+    run_char = ""
+    run_len = 0
+    for ch in match_text:
+        if ch == run_char:
+            run_len += 1
+        else:
+            run_char = ch
+            run_len = 1
+        if run_len >= 8:
+            return True
+    return False
 
 
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
@@ -244,6 +293,7 @@ def scan_url_for_secrets(
                 url=url,
                 col_start=m.start(),
                 match_text=m.group(0),
+                is_likely_placeholder=_is_likely_placeholder(m.group(0)),
             )
 
 
@@ -311,6 +361,7 @@ def scan_line_for_secrets(
                     url=line.strip(),  # always report the raw line for context
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
+                    is_likely_placeholder=_is_likely_placeholder(match_text),
                 )
 
     # ── Phase 3: Base64 speculative decoding (CEO-194) ────────────────────────
@@ -345,6 +396,7 @@ def scan_line_for_secrets(
                         url=line.strip(),
                         col_start=0,  # position in decoded text is meaningless in raw line
                         match_text=m.group(0),
+                        is_likely_placeholder=_is_likely_placeholder(m.group(0)),
                     )
 
 
@@ -397,6 +449,7 @@ def scan_line_for_forbidden_terms(
                 url=line.strip(),
                 col_start=m.start(),
                 match_text=m.group(0),
+                is_likely_placeholder=_is_likely_placeholder(m.group(0)),
             )
         return
 
@@ -412,6 +465,7 @@ def scan_line_for_forbidden_terms(
                 url=line.strip(),
                 col_start=idx,
                 match_text=line[idx : idx + len(term)],
+                is_likely_placeholder=_is_likely_placeholder(line[idx : idx + len(term)]),
             )
             return  # one finding per line — first-match wins
 
@@ -480,6 +534,7 @@ def scan_lines_with_lookback(
                             url=raw_line.strip(),
                             col_start=0,
                             match_text=m.group(0),
+                            is_likely_placeholder=_is_likely_placeholder(m.group(0)),
                         )
                         seen_this_line.add(secret_type)
 

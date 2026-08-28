@@ -234,6 +234,7 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
             source_line=sf.url,
             col_start=sf.col_start,
             match_text=sf.match_text,
+            is_likely_placeholder=sf.is_likely_placeholder,
         )
 
     return Finding(
@@ -245,6 +246,7 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
         source_line=sf.url,
         col_start=sf.col_start,
         match_text=sf.match_text,
+        is_likely_placeholder=sf.is_likely_placeholder,
     )
 
 

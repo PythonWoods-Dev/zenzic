@@ -30,6 +30,7 @@ class Finding:
     col_start: int = 0
     match_text: str = ""
     is_baselined: bool = False
+    is_likely_placeholder: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -255,13 +256,24 @@ class ZenzicReporter:
         if breach_findings:
             for bf in breach_findings:
                 self._con.print()
+                placeholder_tag = (
+                    f"  [{ZenzicPalette.DIM}][LIKELY PLACEHOLDER][/]"
+                    if bf.is_likely_placeholder
+                    else ""
+                )
                 if bf.code == "Z204":
                     self._con.print(
-                        Text("\u2718 POLICY VIOLATION DETECTED", style="bold white on #8b0000")
+                        Text.from_markup(
+                            "[bold white on #8b0000]\u2718 POLICY VIOLATION DETECTED[/]"
+                            f"{placeholder_tag}"
+                        )
                     )
                 else:
                     self._con.print(
-                        Text("\u2718 SECURITY BREACH DETECTED", style="bold white on #8b0000")
+                        Text.from_markup(
+                            "[bold white on #8b0000]\u2718 SECURITY BREACH DETECTED[/]"
+                            f"{placeholder_tag}"
+                        )
                     )
                 self._con.print(
                     Text.from_markup(f"  {emoji('cross')} [bold]Finding:[/]    {_esc(bf.message)}")

@@ -344,8 +344,13 @@ def _output_sarif_findings(
                 }
             ],
         }
+        properties: dict[str, object] = {}
         if f.severity in _SARIF_SECURITY_SEVERITY:
-            result["properties"] = {"security-severity": _SARIF_SECURITY_SEVERITY[f.severity]}
+            properties["security-severity"] = _SARIF_SECURITY_SEVERITY[f.severity]
+        if f.is_likely_placeholder:
+            properties["is_likely_placeholder"] = True
+        if properties:
+            result["properties"] = properties
         sarif_results.append(result)
 
     rules: list[dict[str, object]] = []
