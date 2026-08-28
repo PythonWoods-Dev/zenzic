@@ -880,6 +880,8 @@ def _print_gallery_index() -> None:
             expects = "[red]BREACH[/]"
         elif act.expected_incident:
             expects = "[red]INCIDENT[/]"
+        elif act.expected_pass:
+            expects = "[green]PASS[/]"
         else:
             expects = "[yellow]FAIL[/]"
         table.add_row(act.code.upper(), act.title, act.description, expects)

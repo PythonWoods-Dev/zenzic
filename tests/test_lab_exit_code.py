@@ -118,6 +118,38 @@ def test_z203_gallery_scenario_registered_and_runs_live() -> None:
     assert "/etc/" in result.stdout or "etc/passwd" in result.stdout
 
 
+def test_gallery_index_shows_pass_for_expected_pass_scenarios() -> None:
+    """The `zenzic lab` (no-arg) gallery index's Expects column must show PASS,
+    not FAIL, for expected_pass=True scenarios.
+
+    Regression for: `_print_gallery_index()` (`_lab.py`) branched
+    `expected_breach` -> BREACH and `expected_incident` -> INCIDENT, but had no
+    branch for `expected_pass` -- those 4 real scenarios (z112, z620, z401,
+    z123) fell through to the `else` arm and displayed FAIL, misleadingly
+    labeling a "this configuration is fine" demo scenario as a failure before
+    the user has run anything.
+    """
+    pass_scenarios = [code for code, act in _GALLERY.items() if act.expected_pass]
+    assert set(pass_scenarios) >= {"z112", "z620", "z401", "z123"}, (
+        f"Expected the 4 known expected_pass=True scenarios, got: {pass_scenarios}"
+    )
+
+    result = runner.invoke(app, ["lab", "--list"])
+    assert result.exit_code == 0, result.output
+
+    lines = result.output.splitlines()
+    for code in pass_scenarios:
+        matching = [line for line in lines if code.upper() in line]
+        assert matching, f"{code.upper()} row not found in gallery index output"
+        for line in matching:
+            assert "FAIL" not in line, (
+                f"{code} (expected_pass=True) shows FAIL in gallery index:\n{line}"
+            )
+            assert "PASS" in line, (
+                f"{code} (expected_pass=True) should show PASS in gallery index:\n{line}"
+            )
+
+
 def test_lab_all_exits_nonzero_when_one_scenario_fails() -> None:
     call_count = 0
 
