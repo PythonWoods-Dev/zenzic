@@ -9,7 +9,7 @@ description: "Palette contract, semantic tokens, badge states, and HTML componen
 
 The Zenzic visual language is token-first.
 All UI colors must be consumed through semantic CSS variables defined in
-`src/css/custom.css`.
+`docs/assets/css/extra.css`.
 
 No raw color literals are allowed in component-level styles.
 
@@ -24,7 +24,7 @@ No raw color literals are allowed in component-level styles.
 
 ## Badge States
 
-Zenzic ships two badge types. Each has distinct color states driven by `ZenzicPalette`.
+Zenzic ships two badge types as hand-authored static SVGs, each with distinct color states matching the token palette above.
 
 ### Audit badge — binary gate
 
@@ -41,6 +41,6 @@ Zenzic ships two badge types. Each has distinct color states driven by `ZenzicPa
 | `fail_under < score < 100` | WARNING amber `#b45309` | Advisory — not blocking |
 | `score < fail_under` | ERROR rose `#e11d48` | Gate fails — exit 1 |
 
-Canonical SVG sources reside in `docs/assets/brand/svg/`. For usage and badge configuration, see the [Brand Ecosystem](brand-kit.md) and the [Badges guide](../how-to/add-badges.md).
+The `passing`/`score = 100` states shown above reside in `docs/assets/brand/svg/` (the docs-site canonical location, built by MkDocs). The `failing`/`amber` states are not part of the docs build; their source files live separately in `static/assets/brand/svg/`. For usage and badge configuration, see the [Brand Ecosystem](brand-kit.md) and the [Badges guide](../how-to/add-badges.md).
 
 ---
