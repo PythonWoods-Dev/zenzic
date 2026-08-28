@@ -19,7 +19,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     ---
 
-    The 4-layer architecture: Client Entrypoints, Core Engine, Adapter Layer, and Deterministic Gate.
+    The Three-Phase Pipeline: Client Entrypoint Layer, Layered Exclusion & Engine Resolution, Incremental Analysis Engine, and the Deterministic Reporter & Gate.
 
     [:material-arrow-right: Explore Architecture](architecture.md)
 
@@ -43,7 +43,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     ---
 
-    Lossless AST compilation, Virtual Site Map (VSM) indexing, and polyglot link extraction.
+    Why Zenzic governs structural integrity and security rather than prose style, and the Integrity Filter that decides which rules ship in the Core.
 
     [:material-arrow-right: Read Foundations](structural-integrity.md)
 

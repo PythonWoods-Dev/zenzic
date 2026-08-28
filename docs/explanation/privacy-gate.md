@@ -5,7 +5,7 @@ description: "Design rationale of the Zenzic Privacy Gate — the fail-closed Ze
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Privacy Gate Architecture (Zero-Trust in CI/CD)
+# Privacy Gate Architecture
 
 The Privacy Gate is the security contract that prevents documentation pipelines
 from publishing sensitive material. It is intentionally designed as a
@@ -56,6 +56,7 @@ the Z2xx security domain in the Z-Code Gallery.
 - [Z202 (Path Traversal)](../reference/finding-codes.md#z202)
 - [Z203 (Path Traversal Fatal)](../reference/finding-codes.md#z203)
 - [Z204 (Forbidden Term)](../reference/finding-codes.md#z204)
+- [Z205 (Forbidden Scheme)](../reference/finding-codes.md#z205)
 
 For technical signatures, examples, and remediation playbooks, use the
 [Z2xx Security family in the Finding Codes Gallery](../reference/finding-codes.md#z201).

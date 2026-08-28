@@ -24,7 +24,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     The design philosophy and long-term direction behind Zenzic.
 
-    [:material-arrow-right: Read](../explanation/privacy-gate.md)
+    [:material-arrow-right: Read](../explanation/brand-philosophy.md)
 
 - :material-scale-balance: &nbsp; __License__
 
@@ -69,4 +69,4 @@ ecosystem tools referenced in this documentation are third-party projects.
 
 Zenzic is distributed under the Apache-2.0 license.
 
-<!-- --8<-- --> "LICENSE"
+--8<-- "LICENSE"
