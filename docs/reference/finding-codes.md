@@ -42,9 +42,9 @@ The code registry is governed by immutable contract surfaces:
 | **Category** | **Range** | **Purpose** | **Default Severity** | **Suppressible?** |
 |---|---|---|---|:---:|
 | **Z0xx** | Migration & Compatibility | Engine deprecation; migration guidance | :material-alert-circle:{ style="color: #e11d48;" } `error` | ❌ No (fatal abort) |
-| **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
-| **Z2xx** | Security Surface | Secret detection; path traversal; security breaches | :material-shield-alert:{ style="color: #ef4444;" } `fatal` (Exit 2/3) | 🔒 **Never** |
-| **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
+| **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes (except Z110/Z111, never) |
+| **Z2xx** | Security Surface | Secret detection; path traversal; security breaches | :material-shield-alert:{ style="color: #ef4444;" } `fatal` (Exit 2, or Exit 3 for Z203 only — Z202 stays Exit 1) | 🔒 **Never** |
+| **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
 | **Z4xx** | Topology & Structure | Directory indexes, orphan pages, config assets | :material-information:{ style="color: #0284c7;" } `info` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
 | **Z5xx** | Content Quality | Placeholders, short content, snippet validation | :material-alert:{ style="color: #f59e0b;" } `warning` / :material-alert-circle:{ style="color: #e11d48;" } `error` | ✅ Yes |
 | **Z6xx** | Governance | Brand obsolescence, dead suppressions, domain policies | :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
@@ -61,168 +61,8 @@ The code registry is governed by immutable contract surfaces:
 | :---: | :--- | :---: | :--- |
 | **0** | All checks passed (or suppressed via `--exit-zero`) | — | Clean Pass / Normal Completion |
 | **1** | Errors and warnings detected; use `--strict` to promote warnings | ✅ Yes | Standard Gate Failure |
-| **2** | Security breaches (Z201, Z204). **Never** suppressed | ❌ Never | **Fatal Security Override** |
+| **2** | Security breaches (Z201, Z204, Z205). **Never** suppressed | ❌ Never | **Fatal Security Override** |
 | **3** | Security incidents (Z203 PATH_TRAVERSAL_FATAL). **Never** suppressed | ❌ Never | **Fatal Boundary Breach** |
-
----
-
-### Z410: UNREACHABLE_GRAPH_NODE {#z410}
-
-**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z410.md)
-
-This rule exists to detect when an internal document is physically present but unreachable from any node in the Virtual Site Map.
-
----
-
-### Z411: DEAD_END_NODE {#z411}
-
-**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z411.md)
-
-This rule exists to detect when an active document has no outgoing navigational edges to the rest of the site structure.
-
----
-
-### Z412: TRACEABILITY_BROKEN {#z412}
-
-**Severity:** `warning` · **Penalty:** −4.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z412.md)
-
-This rule exists to verify that target specification documents have at least one incoming reference from configured source namespaces (`[policies].traceability_targets`), ensuring complete cross-architecture traceability.
-
----
-
-### Z510: HEADING_HIERARCHY {#z510}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z510.md)
-
-This rule exists to detect when a heading level skips one or more levels in the document hierarchy.
-
----
-
-### Z511: EXCESSIVE_SENTENCE_LENGTH {#z511}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z511.md)
-
-This rule exists to detect when a sentence in the markdown body exceeds the maximum configured word limit.
-
----
-
-### Z512: EMPTY_SECTION {#z512}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z512.md)
-
-This rule exists to detect when a heading section contains no body content before the next section or EOF.
-
----
-
-### Z513: DUPLICATE_HEADING {#z513}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z513.md)
-
-This rule exists to detect when two or more headings within the same document resolve to identical text, preventing ambiguous anchor collisions.
-
----
-
-### Z514: GENERIC_IMAGE_ALT_TEXT {#z514}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z514.md)
-
-This rule exists to detect when an image uses generic filler words (such as "image" or "screenshot") as its alternative text instead of providing descriptive accessibility content.
-
----
-
-### Z515: BARE_URL_USED {#z515}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z515.md)
-
-This rule exists to detect raw URLs in prose that are not properly enclosed in angle brackets (`<url>`) or formatted as Markdown links (`[text](url)`).
-
----
-
-### Z516: MULTIPLE_H1_HEADINGS {#z516}
-
-**Severity:** `error` · **Penalty:** −5.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z516.md)
-
-This rule exists to enforce that every document has at most one top-level H1 heading for structural hierarchy and document outline integrity.
-
----
-
-### Z517: HEADING_PUNCTUATION {#z517}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z517.md)
-
-This rule exists to detect headings that end with invalid trailing punctuation (such as periods, colons, or semicolons).
-
----
-
-### Z518: PASSIVE_VOICE_DETECTED {#z518}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z518.md)
-
-This rule exists to detect passive voice constructions in prose via deterministic RE2 heuristic matching, promoting direct and active technical prose.
-
----
-
-### Z519: WEASEL_WORDS {#z519}
-
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z519.md)
-
-This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously") that weaken technical prose.
-
----
-
-### Z520: MALFORMED_LIST_DETECTED {#z520}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z520.md)
-
-This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`-`, `*`, `1.`), preventing accessibility and HTML list rendering degradation.
-
----
-
-### Z521: REQUIRED_TABLE_COLUMN {#z521}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z521.md)
-
-This rule exists to detect Markdown tables that omit required column headers specified in `[policies].required_table_columns`.
-
----
-
-### Z522: TABLE_CELL_ENUM {#z522}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z522.md)
-
-This rule exists to validate that table cells in designated columns only contain approved enumeration values declared in `[policies].table_cell_enums`.
-
----
-
-### Z523: HEADING_ORDER_VIOLATION {#z523}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z523.md)
-
-This rule exists to enforce that document headings appear in the strictly ascending sequential order defined in `[policies].required_heading_order`.
-
----
-
-### Z617: FORBIDDEN_CONTENT_PATTERN {#z617}
-
-**Severity:** `warning` · **Penalty:** −2.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z617.md)
-
-This rule exists to detect prose content that matches any forbidden regular expression pattern declared in `[policies].forbidden_content_patterns`.
-
----
-
-### Z618: REQUIRED_HEADING_PATTERN {#z618}
-
-**Severity:** `warning` · **Penalty:** −3.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z618.md)
-
-This rule exists to enforce that documents include required section headings matching patterns declared in `[policies].required_heading_patterns`.
-
----
-
-### Z619: MAX_DOCUMENT_COMPLEXITY {#z619}
-
-**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z619.md)
-
-This rule exists to detect overly complex documents whose structural score exceeds the threshold set in `[policies].max_document_complexity`.
 
 ---
 
@@ -257,7 +97,7 @@ Penalty: FATAL
 Displayed for **Z0xx** (configuration abort) and **Z2xx** (Security Codes). These codes do not subtract points incrementally — they trigger a **Security Override** that collapses the entire DQS to **0/100** unconditionally.
 
 - **Z0xx** (e.g. Z000 `UNSUPPORTED_ENGINE`): Fatal configuration error. Execution halts before any scan begins. Exit 1.
-- **Z2xx** (Z201–Z204): Security Breach or Security Incident. The score collapses to 0 regardless of all other findings. Exit 2 (breach) or Exit 3 (incident). **Cannot be suppressed.**
+- **Z2xx** (Z201–Z205): Security Breach or Security Incident. The score collapses to 0 regardless of all other findings. Exit 2 (breach) or Exit 3 (incident, Z203 only). **Cannot be suppressed.**
 
 > The FATAL label replaces `0.0` in the Penalty column to prevent the dangerous misreading that security codes are "harmless" because they carry no incremental point deduction.
 
@@ -369,8 +209,10 @@ The link target exists in the VSM but is not reachable through any navigation st
 **Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z104.md)
 
 Low-level filesystem error: the engine could not open a file referenced by a link.
-Cataloged separately, but the current engine consolidates and emits this
-condition under **`Z101` LINK_BROKEN** rather than `Z104` — see the [LINK_BROKEN entry](#z101).
+In a full `zenzic check` scan, this condition is consolidated and emitted under
+**`Z101` LINK_BROKEN** rather than `Z104` — see the [LINK_BROKEN entry](#z101). The Language
+Server's incremental analysis engine (used for live editor diagnostics) is a separate code path
+and **does** emit a genuine, distinct `Z104` for a missing local asset file.
 
 ```text
 blog/post.md:12: '/blog/zenzic-v070' not found in the site map
@@ -754,6 +596,30 @@ A conflict between the physical file structure and the engine's navigation confi
 
 ---
 
+### Z410: UNREACHABLE_GRAPH_NODE {#z410}
+
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z410.md)
+
+This rule exists to detect when an internal document is physically present but unreachable from any node in the Virtual Site Map.
+
+---
+
+### Z411: DEAD_END_NODE {#z411}
+
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z411.md)
+
+This rule exists to detect when an active document has no outgoing navigational edges to the rest of the site structure.
+
+---
+
+### Z412: TRACEABILITY_BROKEN {#z412}
+
+**Severity:** `warning` · **Penalty:** −4.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z412.md)
+
+This rule exists to verify that target specification documents have at least one incoming reference from configured source namespaces (`[policies].traceability_targets`), ensuring complete cross-architecture traceability.
+
+---
+
 ## Z5xx — Content Quality
 
 Diagnostic findings related to prose quality, sentence length, and structural formatting.
@@ -856,6 +722,118 @@ The opening frontmatter delimiter on line 1 of the file is not exactly `---`. An
 
 ---
 
+### Z510: HEADING_HIERARCHY {#z510}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z510.md)
+
+This rule exists to detect when a heading level skips one or more levels in the document hierarchy.
+
+---
+
+### Z511: EXCESSIVE_SENTENCE_LENGTH {#z511}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z511.md)
+
+This rule exists to detect when a sentence in the markdown body exceeds the maximum configured word limit.
+
+---
+
+### Z512: EMPTY_SECTION {#z512}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z512.md)
+
+This rule exists to detect when a heading section contains no body content before the next section or EOF.
+
+---
+
+### Z513: DUPLICATE_HEADING {#z513}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z513.md)
+
+This rule exists to detect when two or more headings within the same document resolve to identical text, preventing ambiguous anchor collisions.
+
+---
+
+### Z514: GENERIC_IMAGE_ALT_TEXT {#z514}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z514.md)
+
+This rule exists to detect when an image uses generic filler words (such as "image" or "screenshot") as its alternative text instead of providing descriptive accessibility content.
+
+---
+
+### Z515: BARE_URL_USED {#z515}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z515.md)
+
+This rule exists to detect raw URLs in prose that are not properly enclosed in angle brackets (`<url>`) or formatted as Markdown links (`[text](url)`).
+
+---
+
+### Z516: MULTIPLE_H1_HEADINGS {#z516}
+
+**Severity:** `error` · **Penalty:** −5.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z516.md)
+
+This rule exists to enforce that every document has at most one top-level H1 heading for structural hierarchy and document outline integrity.
+
+---
+
+### Z517: HEADING_PUNCTUATION {#z517}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z517.md)
+
+This rule exists to detect headings that end with invalid trailing punctuation (such as periods, colons, or semicolons).
+
+---
+
+### Z518: PASSIVE_VOICE_DETECTED {#z518}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z518.md)
+
+This rule exists to detect passive voice constructions in prose via deterministic RE2 heuristic matching, promoting direct and active technical prose.
+
+---
+
+### Z519: WEASEL_WORDS {#z519}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z519.md)
+
+This rule exists to detect weasel words (e.g., "clearly", "simply", "obviously") that weaken technical prose.
+
+---
+
+### Z520: MALFORMED_LIST_DETECTED {#z520}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z520.md)
+
+This rule exists to detect pseudo-lists in paragraphs that use newlines and semicolons/commas but lack Markdown list markers (`-`, `*`, `1.`), preventing accessibility and HTML list rendering degradation.
+
+---
+
+### Z521: REQUIRED_TABLE_COLUMN {#z521}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z521.md)
+
+This rule exists to detect Markdown tables that omit required column headers specified in `[policies].required_table_columns`.
+
+---
+
+### Z522: TABLE_CELL_ENUM {#z522}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z522.md)
+
+This rule exists to validate that table cells in designated columns only contain approved enumeration values declared in `[policies].table_cell_enums`.
+
+---
+
+### Z523: HEADING_ORDER_VIOLATION {#z523}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z523.md)
+
+This rule exists to enforce that document headings appear in the strictly ascending sequential order defined in `[policies].required_heading_order`.
+
+---
+
 ## Z6xx — Governance
 
 Diagnostic findings related to brand governance, deprecation, suppression audit state, and Policy-as-Code violations (v0.28.0).
@@ -900,13 +878,14 @@ any active finding. Remove the dead comment.
 
 - A broken link was fixed but the `zenzic:ignore` comment was left behind.
 - A suppression was added speculatively ("just in case") for a link that was never actually broken.
-- A developer attempted to suppress a **security code** (Z201–Z204) — the Inviolability Law rejects these silently, making the directive permanently dead.
+- A developer attempted to suppress a **security code** (Z201–Z205) — the Inviolability Law rejects these silently, making the directive permanently dead.
+- A developer attempted to suppress a **topological code** (e.g. Z401, Z402, Z404, Z405, Z406, Z410–Z412, Z620) via an inline comment — these are governed only through `.zenzic.toml`'s `directory_policies`/`per_file_ignores` (ADR-093) and inline directives never consume them either.
 
 **Fix:**
 
 1. Remove the dead `<!-- zenzic:ignore: Zxxx -->` comment from the flagged line.
 2. If the suppression was legitimate (the finding was recently fixed), cleaning the comment is the correct action — it eliminates Technical Debt.
-3. If you suppressed Z201/Z202/Z203/Z204: those codes are **non-suppressible**. Remove the comment and address the underlying security finding.
+3. If you suppressed Z201/Z202/Z203/Z204/Z205: those codes are **non-suppressible**. Remove the comment and address the underlying security finding.
 
 !!! warning "Inviolability Law & Z603"
     Attempting `<!-- zenzic:ignore: Z201 -->` above a real credential **does not suppress Z201**. The credential scanner fires unconditionally. The suppression directive is therefore never consumed, and **Z603 fires on top of Z201** — two findings for one bad line.
@@ -1015,6 +994,30 @@ An internal link originates from a restricted source namespace and resolves to a
 [policies.cross_namespace_restrictions]
 "docs/public" = ["docs/internal"]
 ```
+
+---
+
+### Z617: FORBIDDEN_CONTENT_PATTERN {#z617}
+
+**Severity:** `warning` · **Penalty:** −2.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z617.md)
+
+This rule exists to detect prose content that matches any forbidden regular expression pattern declared in `[policies].forbidden_content_patterns`.
+
+---
+
+### Z618: REQUIRED_HEADING_PATTERN {#z618}
+
+**Severity:** `warning` · **Penalty:** −3.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z618.md)
+
+This rule exists to enforce that documents include required section headings matching patterns declared in `[policies].required_heading_patterns`.
+
+---
+
+### Z619: MAX_DOCUMENT_COMPLEXITY {#z619}
+
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z619.md)
+
+This rule exists to detect overly complex documents whose structural score exceeds the threshold set in `[policies].max_document_complexity`.
 
 ---
 
