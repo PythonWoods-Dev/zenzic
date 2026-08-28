@@ -254,8 +254,7 @@ nav:
         - architecture/lsp-integration.md
       - ADR Vault:
         - developers/explanation/adr-vault/index.md
-        - ADR Records Index: developers/explanation/adr-vault/records/index.md
-
+        - developers/explanation/adr-vault/records/index.md
         - developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md
         - developers/explanation/adr-vault/records/adr-007-sovereign-sandbox.md
         - developers/explanation/adr-vault/records/adr-020-mirror-law.md

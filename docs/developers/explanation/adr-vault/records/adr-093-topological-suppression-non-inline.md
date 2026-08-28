@@ -96,4 +96,4 @@ Using the LSP `disabled.reason` protocol provides complete UX transparency, guid
 - Elimination of dead or misleading inline suppression comments in repositories.
 - Deterministic and auditable documentation quality governance.
 
-For operational protocols, see the [Release Governance Protocol](../../../how-to/release-governance-protocol.md) and the [ADR Vault Records Index](./index.md).
+For operational protocols, see the [Release Governance Protocol](../../../how-to/release-governance-protocol.md) and the [ADR Vault](../index.md).
