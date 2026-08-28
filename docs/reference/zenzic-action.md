@@ -17,19 +17,21 @@ Source: [github.com/PythonWoods/zenzic-action](https://github.com/PythonWoods/ze
 
 | Input | Default | Required | Description |
 | :--- | :--- | :---: | :--- |
+| `working-directory` | `.` | No | Directory to run Zenzic in, relative to the workspace root. |
 | `version` | `<version>` | No | Zenzic version to install (`latest` or an exact version pin). Pin to a specific version for reproducible CI. |
 | `format` | `sarif` | No | Output format: `text`, `json`, or `sarif`. |
 | `sarif-file` | `zenzic-results.sarif` | No | SARIF output path. Must be a **relative** path inside the workspace. Absolute paths and `..` traversal sequences are rejected by the wrapper. |
 | `upload-sarif` | `true` | No | Upload SARIF to GitHub Code Scanning. Requires `security-events: write` permission. |
 | `strict` | `false` | No | Treat warnings as errors — promotes all `warning`-severity findings to `error`. |
-| `ci` | `false` | No | Run with `--ci` to enable `--strict` and inline GitHub PR annotations. |
-| `only` | `""` | No | Comma-separated list of Z-Codes to filter. Enables Progressive Adoption. |
 | `fail-on-error` | `true` | No | Fail the workflow step on exit 1 (quality findings). Does **not** suppress exit 2 or 3. |
 | `config-file` | *(auto)* | No | Explicit path to a `.zenzic.toml` config file. Auto-discovers `.zenzic.toml` → `.github/.zenzic.toml` when omitted. |
 | `audit` | `false` | No | Sovereign audit mode — bypasses all `zenzic:ignore` inline comments and `governance.per_file_ignores` entries. Reveals the true, unfiltered documentation state. |
 | `diff-base` | *(snapshot)* | No | Path to a JSON baseline file for `zenzic diff` comparison. When set, the action compares the current score against this file instead of the saved `.zenzic-score.json`. Use an artifact from `main` to implement the Zenzic Quality Gate. |
 | `guard-scan` | `false` | No | Run `zenzic guard scan` as a Defense-in-Depth step **before** the main quality gate. Catches hardcoded credentials and forbidden patterns that bypassed pre-commit hooks. Failure is always fatal — not governed by `fail-on-error`. |
 | `check-stamp` | `true` | No | Run `zenzic score --check-stamp` after governance scoring. Fails the workflow when badge markers in `badge_stamp_files` are stale. Set to `false` to opt out. |
+| `generate_audit_report` | `false` | No | Generate a formal compliance audit report (`zenzic-audit.json`) and upload it as a workflow artifact. |
+
+The wrapper always passes `--ci` to every `zenzic` invocation — there is no input to opt out of it; there is no `only`/Z-code-filter input.
 
 ---
 
@@ -39,9 +41,9 @@ Source: [github.com/PythonWoods/zenzic-action](https://github.com/PythonWoods/ze
 | :--- | :--- |
 | `sarif-file` | Path to the generated SARIF file. |
 | `findings-count` | Total number of findings reported. Security findings (exit 2/3) force a minimum of 1. |
-| `score` | Documentation Quality Score (0–100). Populated when `format: json` or when `diff-base` is set. Empty string in other modes. |
+| `score` | Documentation Quality Score (0–100). Populated whenever the DQS Governance Gate runs (any `format`, not just `json`) — skipped only in audit mode or after a security exit (2/3). |
 | `suppression-debt-pts` | Technical Debt points deducted from the score due to active suppressions. `0` when no suppressions are active or when audit mode is enabled. |
-| `cap-exceeded` | `"true"` when the suppression CAP was exceeded and blocked the build; `"false"` otherwise. |
+| `cap-exceeded` | `"true"` when the suppression CAP was exceeded and blocked the build; `"false"` otherwise. CAP detection only runs for `format: sarif` — always `"false"` for `text`/`json` output, even if the CAP was genuinely exceeded. |
 
 ---
 
