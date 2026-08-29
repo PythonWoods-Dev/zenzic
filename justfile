@@ -200,3 +200,14 @@ optimize-assets:
     echo "==> Optimizing animated GIFs with gifsicle..."
     find docs/assets/images -name "*.gif" -exec gifsicle -O3 --colors 128 --lossy=80 {} -o {} \;
     echo "✓ Assets optimized successfully."
+
+# Run the "Power Triad" sandbox for a landing-page terminal screenshot (broken
+# link, path traversal, leaked credential) — output is meant to be captured
+# manually, not asserted on
+screenshot-hero:
+    cd tests/sandboxes/hero_specimen && {{runner}} zenzic check all --strict
+
+# Run the circular-link sandbox for a terminal screenshot demonstrating Z106
+# CIRCULAR_LINK detection — output is meant to be captured manually
+screenshot-circular:
+    cd tests/sandboxes/screenshot_circular && {{runner}} zenzic check all --show-info

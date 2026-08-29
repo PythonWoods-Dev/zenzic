@@ -265,6 +265,8 @@ just verify
 | **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** |
 | Show version | `just version` | — | Print current version from bump-my-version |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
+| Hero screenshot | `just screenshot-hero` | — | Run the "Power Triad" sandbox (`tests/sandboxes/hero_specimen/`) for a manual landing-page terminal screenshot — exits 3 by design, capture the output rather than treating it as a failure |
+| Circular-link screenshot | `just screenshot-circular` | — | Run the circular-link sandbox (`tests/sandboxes/screenshot_circular/`) for a manual terminal screenshot demonstrating `Z106` `CIRCULAR_LINK` |
 
 ---
 
