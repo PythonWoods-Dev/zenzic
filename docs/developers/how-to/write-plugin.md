@@ -224,7 +224,7 @@ Rules that need to validate links against the routing table should override
 
 ```python
 from collections.abc import Mapping
-from zenzic.core.rules import BaseRule, RuleFinding
+from zenzic.core.rules import BaseRule, ResolutionContext, RuleFinding
 from zenzic.models.vsm import Route
 
 
@@ -236,7 +236,14 @@ class NoOrphanLinkRule(BaseRule):
     def check(self, file_path, text):
         return []  # no standalone check; requires VSM context
 
-    def check_vsm(self, file_path, text, vsm: Mapping[str, Route], anchors_cache):
+    def check_vsm(
+        self,
+        file_path,
+        text,
+        vsm: Mapping[str, Route],
+        anchors_cache,
+        context: ResolutionContext | None = None,
+    ):
         # vsm maps canonical URL → Route; consult vsm[url].status
         ...
         return []  # return list[Violation]

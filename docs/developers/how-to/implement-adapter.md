@@ -28,6 +28,7 @@ An adapter answers questions for each docs tree through a single API surface:
 | Method | Question |
 |---|---|
 | `get_route_info(rel)` | What is the canonical URL, route status, slug, and proxy flag for this source file? Returns a `RouteMetadata` instance. |
+| `get_entry_points(vsm)` | Given the fully-built `VirtualSiteMap`, which canonical URLs are root entry points for reachability analysis (e.g. the homepage, or every route when there is no nav tree)? |
 
 ### Common Methods
 
@@ -69,7 +70,7 @@ from typing import Any
 
 from zenzic.core.adapters import RouteMetadata
 from zenzic.core.adapters._base import BaseAdapter
-from zenzic.models.vsm import RouteStatus
+from zenzic.models.vsm import RouteStatus, VirtualSiteMap
 
 
 class MyEngineAdapter(BaseAdapter):
@@ -202,6 +203,26 @@ class MyEngineAdapter(BaseAdapter):
             canonical_url=canonical_url,
             status=status,
         )
+
+    def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
+        """Return canonical URLs serving as root entry points for reachability analysis.
+
+        If your engine has no nav tree (e.g. bare/standalone mode), every
+        route is its own entry point — return ``list(vsm.keys())``. When a
+        nav tree exists, restrict this to the routes it actually lists, plus
+        the homepage if present, so reachability analysis starts only from
+        genuine navigation roots.
+        """
+        if not self._nav_paths:
+            return list(vsm.keys())
+
+        entry_points = {
+            f"/{Path(p).with_suffix('').as_posix()}/" for p in self._nav_paths
+        }
+        entry_points &= vsm.keys()
+        if "/" in vsm:
+            entry_points.add("/")
+        return sorted(entry_points)
 
     # ── Private helpers ────────────────────────────────────────────────────
 
@@ -382,6 +403,14 @@ incorrect results:
 
     filenames (e.g. `{"mkdocs.yml", "mkdocs.yaml"}`) that dictate documentation
     structure for LSP hot-reloading — never `None`, never raise.
+
+13. `get_entry_points(vsm)` must return a `list[str]` of canonical URLs that
+
+    already exist as keys in the given `vsm` — never invent a URL not present
+    in the map. If your engine has no nav tree, return every route
+    (`list(vsm.keys())`); a partial or empty return narrows reachability
+    analysis and can produce false-positive orphan findings for pages that
+    are genuinely reachable from your engine's real entry points.
 
 ---
 
