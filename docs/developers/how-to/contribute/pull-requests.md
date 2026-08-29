@@ -64,16 +64,18 @@ by installing only what each job needs. The groups are:
 | :---- | :------- | :---------- |
 | `test` | `pytest`, `pytest-cov`, `hypothesis`, `mutmut` | Running the test suite |
 | `lint` | `ruff`, `mypy`, `pre-commit`, `reuse` | Linting and type checking |
-| `docs` | MkDocs stack (`mkdocs-material`, etc.) | Building the documentation |
 | `release` | `nox`, `bump-my-version`, `pip-audit` | Releases and audits |
 | `dev` | All of the above (aggregator) | Local development |
+
+The MkDocs stack (`mkdocs-material`, etc.) is a separate PEP 508 extra, not a
+dependency group — install it with `--extra docs`, not `--group`.
 
 Install a single group when you only need a subset:
 
 ```bash
 uv sync --group test      # just pytest
 uv sync --group lint      # just ruff + mypy
-uv sync --group docs      # documentation build dependencies
+uv sync --extra docs      # documentation build dependencies
 uv sync --group dev       # everything (recommended for contributors)
 ```
 
