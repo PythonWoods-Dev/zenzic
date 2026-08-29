@@ -380,7 +380,7 @@ For a project using a documentation framework:
 uvx zenzic check all .
 ```
 
-We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs, Zensical, and Docusaurus-oriented setups.
+We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs and Zensical. Docusaurus support was removed in v0.14.0 after forensic analysis found it structurally incompatible with static analysis on runtime-generated routes — see [Why We Dropped Docusaurus](2026-06-13-why-we-dropped-docusaurus.md).
 
 The intended gate semantics are straightforward:
 
@@ -545,7 +545,7 @@ Different tools solve different problems:
 | Lychee | Link and HTTP endpoint checking | Partial overlap |
 | Codespell | Spelling errors | Complementary |
 | Gitleaks or TruffleHog | Secrets across repository content and history | Complementary, not automatically replaceable |
-| MkDocs / Docusaurus / Zensical build | Rendering, plugins, and compilation | Not replaceable |
+| MkDocs / Zensical build | Rendering, plugins, and compilation | Not replaceable |
 | Browser or HTML tests | Accessibility and rendered behaviour | Not replaceable |
 
 Zenzic can replace scripts that were custom-built to detect orphan pages, unused assets, missing local files, or certain navigation defects.
