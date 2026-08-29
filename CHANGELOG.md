@@ -47,6 +47,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`mdx-asset-rationale.md` Renamed to `svg-vs-native-asset-rationale.md`**:
+  - The page's content has been accurate since an earlier fix this session (a rationale for using native HTML/Mermaid over static SVG for in-page diagrams — no MDX, React, or Docusaurus relevance at all), but its filename and URL still said "mdx," left over from before that rewrite. Renamed to a filename that actually describes the content. `mkdocs.yml`'s nav entry and the one inbound cross-reference (`developers/reference/zenzic-style.md`) updated; `docs/_redirects` gained 2 new lines for the old bare canonical URL and had its 6 existing historical-variant lines (`/docs/...`, `/it/...` prefixes) retargeted to the new URL, rather than left pointing at a now-dead one. `mkdocs build --strict` clean.
 - **Ecosystem Positioning Overhaul**:
   - Updated tagline and core value proposition across `zenzic`, `zenzic-action`, and `zenzic-vscode` READMEs: *"Formatters handle syntax. Prose linters handle grammar. Zenzic protects the graph—and optionally enforces lightweight editorial policy without a separate tool."*, focusing on protecting documentation graphs from AI hallucinations.
 - **Mirror Law Parity Protocol (10 Mandatory Targets)**:

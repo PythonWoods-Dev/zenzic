@@ -252,7 +252,7 @@ nav:
         - developers/explanation/adr-vault/index.md
         - developers/explanation/adr-vault/records/index.md
       - developers/explanation/core-laws.md
-      - developers/explanation/mdx-asset-rationale.md
+      - developers/explanation/svg-vs-native-asset-rationale.md
       - developers/explanation/sovereign-verification-model.md
       - Governance:
         - developers/explanation/governance/index.md

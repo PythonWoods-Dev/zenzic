@@ -362,7 +362,7 @@ Add to your PR checklist:
     Any diagram or structured illustration intended for **exclusive use within Markdown pages** must be implemented
     using native HTML/Jinja templates or Mermaid code blocks, never as a static text-bearing `.svg` file.
 
-For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/mdx-asset-rationale.md).
+For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/svg-vs-native-asset-rationale.md).
 
 ### Checklist addition
 
