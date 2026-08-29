@@ -1104,8 +1104,8 @@ zenzic check all --format sarif > zenzic-results.sarif
 
 Every Zenzic finding maps verbatim: the `Zxxx` code becomes the `ruleId`. The
 `tool.driver.rules` array is populated dynamically — only codes that produced at least one
-result in the run are declared. Each rule entry carries a `helpUri` pointing to the anchor
-in this reference page.
+result in the run are declared. Each rule entry carries a `helpUri` pointing to the
+corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
 
 | Finding | `ruleId` | SARIF `level` |
 | :--- | :---: | :---: |
@@ -1149,17 +1149,21 @@ in this reference page.
           "rules": [
             {
               "id": "Z104",
-              "name": "FILE_NOT_FOUND",
+              "name": "FileNotFound",
               "shortDescription": { "text": "File not found" },
+              "fullDescription": { "text": "File not found" },
               "defaultConfiguration": { "level": "error" },
-              "helpUri": "./finding-codes.md#z104"
+              "helpUri": "https://zenzic.dev/reference/finding-codes/#z104",
+              "properties": { "category": "structural", "penalty": 8.0 }
             },
             {
               "id": "Z201",
-              "name": "CREDENTIAL_SECRET",
+              "name": "CredentialSecret",
               "shortDescription": { "text": "Credential detected" },
+              "fullDescription": { "text": "Credential detected" },
               "defaultConfiguration": { "level": "error" },
-              "helpUri": "./finding-codes.md#z201"
+              "helpUri": "https://zenzic.dev/reference/finding-codes/#z201",
+              "properties": { "category": "uncategorized", "penalty": 0.0 }
             }
           ]
         }

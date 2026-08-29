@@ -89,6 +89,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`cli.md`'s Example SARIF Output Was Schema-Incomplete and Stale** — the 2 sample rule entries omitted `fullDescription`/`properties` (real output always includes them), used `SCREAMING_SNAKE_CASE` names instead of the real PascalCase (`FileNotFound`, `CredentialSecret`), and used a relative `helpUri` form that no real code path produces. Corrected against live-generated SARIF output, not just source reading; the adjacent prose's "helpUri points to the anchor in this reference page" claim also corrected — it points to `finding-codes.md`, a different page.
 - **`docs/how-to/index.md`'s "Configuration Strategy" Card Linked To and Described `initialize-configuration.md`, a Different Page From the One Named** — retitled to "Initialize Configuration," matching what the card actually links to and describes; `configuration-strategy.md` itself is a separate, distinct page.
 - **`cli.md`'s Interactive Lab "Outcome Labels" Table Was Missing 3 of 8 Real Label States** — `_status_cell()` (`_lab.py:744-759`) can also produce `INCIDENT ✓`, `INCIDENT expected — not triggered`, and `EXPECTED FAIL — nothing found`, none of which were previously documented. Table rewritten with all 8 states, verified against source and a live `zenzic lab all` run.
 - **`blog/atom.xml` Was Never Actually Atom — Falsely Labeled RSS Feed, Plus a Separate `<head>` Feed-Discovery Link Bug**:

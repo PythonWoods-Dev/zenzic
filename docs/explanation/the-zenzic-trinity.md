@@ -32,9 +32,9 @@ The Core enforces the law. It does not decide the law.
 ### Why Zenzic if my Static Site Generator (SSG) already checks for broken links?
 
 1. **Speed & Shift-Left:** SSG builds (Node.js, Go, or Python based) require full site compilation and commonly run in slower CI feedback loops. Zenzic runs local static analysis on source text and metadata before build, with pre-commit feedback in milliseconds.
-2. **Security:** Native SSG checks do not block credential leaks or path-traversal attempts at commit time. Zenzic enforces security findings in the `Z2xx` tier and blocks on security exits.
-3. **Governance:** SSGs do not enforce governance contracts such as brand obsolescence (`Z601`), or orphaned assets (`Z405`). Zenzic exposes these as explicit, auditable contracts.
-4. **Actionable Diagnostics:** When generated routes fail, SSG output is typically a generic 404/build failure. Zenzic uses VSM reverse mapping to report the exact source file and frontmatter context that generated the failing virtual route.
+2. **Actionable Diagnostics:** When generated routes fail, SSG output is typically a generic 404/build failure. Zenzic uses VSM reverse mapping to report the exact source file and frontmatter context that generated the failing virtual route.
+
+Security and governance enforcement (credential leaks, path traversal, brand obsolescence, orphaned assets) are covered in [Why Zenzic — Risk Prevention](./why-zenzic.md), not repeated here.
 
 ---
 
