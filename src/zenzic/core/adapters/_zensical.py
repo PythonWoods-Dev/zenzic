@@ -403,6 +403,17 @@ class ZensicalAdapter(BaseAdapter):
         if rel_posix in ("index.md", "README.md"):
             return "REACHABLE"
 
+        # 3b. A non-root README.md not listed in nav is never auto-promoted —
+        # mirrors MkDocsAdapter's identical, deliberate convention. README.md
+        # is a real per-directory index-page candidate at any nesting level
+        # (confirmed live against Zensical's own docs), but unlike index.md it
+        # is treated as a GitHub-convention overflow file, not a page expected
+        # to be explicitly navigable — flagging it as an orphan would be a
+        # false positive on correctly-structured content. This check runs
+        # before rule 4 so it applies even when no nav is declared at all.
+        if rel.name == "README.md" and rel_posix not in nav_paths:
+            return "IGNORED"
+
         # 4. Listed in nav or locale shadow
         if (
             not self._has_explicit_nav

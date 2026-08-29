@@ -221,6 +221,39 @@ class TestZensicalAdapterClassifyRoute:
         adapter = _adapter(tmp_path, config)
         assert adapter.get_route_info(Path("unlisted.md")).status == "ORPHAN_BUT_EXISTING"
 
+    def test_nested_readme_not_in_nav_is_ignored_not_orphan(self, tmp_path: Path) -> None:
+        """Mirrors MkDocsAdapter's identical, deliberate convention: an unlisted
+        README.md is IGNORED (not an orphan), regardless of nesting depth —
+        confirmed live against Zensical's own docs that README.md is a valid
+        per-directory index-page candidate at any level, not just root, so
+        flagging it ORPHAN_BUT_EXISTING here would be a false positive
+        (Z402/Z410) on real, correctly-structured Zensical content."""
+        config = {"project": {"nav": ["index.md"]}}
+        adapter = _adapter(tmp_path, config)
+        assert adapter.get_route_info(Path("guide/README.md")).status == "IGNORED"
+
+    def test_nested_readme_in_nav_is_still_reachable(self, tmp_path: Path) -> None:
+        """An explicitly nav-listed nested README.md must stay REACHABLE —
+        the new IGNORED-by-default rule must not override an explicit nav entry."""
+        config = {"project": {"nav": ["index.md", "guide/README.md"]}}
+        adapter = _adapter(tmp_path, config)
+        assert adapter.get_route_info(Path("guide/README.md")).status == "REACHABLE"
+
+    def test_nested_readme_ignored_even_with_no_explicit_nav(self, tmp_path: Path) -> None:
+        """Matches MkDocsAdapter's rule 0: even when no nav is declared at all
+        (auto-include-everything mode), README.md is still never auto-promoted."""
+        adapter = _adapter(tmp_path, {})
+        assert adapter.get_route_info(Path("guide/README.md")).status == "IGNORED"
+
+    def test_nested_index_md_not_in_nav_is_still_orphan(self, tmp_path: Path) -> None:
+        """Asymmetric by design, matching MkDocsAdapter: only README.md gets the
+        auto-IGNORED treatment. An unlisted nested index.md is still a real
+        orphan candidate — index.md is the conventional page expected to be
+        explicitly listed, not a GitHub-convention overflow file."""
+        config = {"project": {"nav": ["index.md"]}}
+        adapter = _adapter(tmp_path, config)
+        assert adapter.get_route_info(Path("guide/index.md")).status == "ORPHAN_BUT_EXISTING"
+
 
 # ── ZensicalAdapter.get_route_info ────────────────────────────────────────────
 
