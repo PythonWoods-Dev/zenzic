@@ -240,7 +240,6 @@ nav:
     - Reference:
       - Reference Index: developers/reference/index.md
       - developers/reference/adapter-api.md
-      - developers/reference/adapter-examples.md
       - developers/reference/ast-foundations.md
       - developers/reference/cli-architecture.md
       - developers/reference/credential-scanner-obligations.md

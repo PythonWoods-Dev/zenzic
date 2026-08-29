@@ -42,13 +42,13 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Read Guide](how-to/implement-adapter.md)
 
-- :material-folder-play-outline:{ .lg .middle style="color: #10b981;" } **[Example Projects](reference/adapter-examples.md)**
+- :material-folder-play-outline:{ .lg .middle style="color: #10b981;" } **[Z-Code Gallery](../tutorials/examples/index.md)**
 
     ---
 
-    Four self-contained runnable fixtures demonstrating correct and incorrect Zenzic configurations.
+    Reproducible, runnable fixtures for every diagnostic code Zenzic emits — run any scenario locally via `zenzic lab`.
 
-    [:material-arrow-right: Explore Fixtures](reference/adapter-examples.md)
+    [:material-arrow-right: Explore the Gallery](../tutorials/examples/index.md)
 
 - :material-shield-lock-open-outline:{ .lg .middle style="color: #f59e0b;" } **[Governance Playbook](how-to/release-governance-protocol.md)**
 
