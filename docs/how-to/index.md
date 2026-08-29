@@ -107,7 +107,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     ---
 
-    Set up auto-generated social cards and the Open Graph meta tags they need to display.
+    How Zenzic's asset checker recognizes social card images — setup itself is your build engine's job.
 
     [:material-arrow-right: Read Guide](configure-social-metadata.md)
 
