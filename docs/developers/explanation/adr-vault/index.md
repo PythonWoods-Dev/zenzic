@@ -56,6 +56,7 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 020](./records/adr-020-mirror-law.md) | Mirror Law |
 | [ADR 021](./records/adr-021-parallel-audit.md) | Parallel Audit Completeness vs. Fail-Fast |
 | [ADR 022](./records/adr-022-english-only-governance.md) | English-Only Governance & Deprecation of Bilingual Invariant |
+| [ADR 031](./records/adr-031-ssot-code-definitions-and-gate-paradox.md) | SSoT Code Definitions & the Gate Paradox |
 | [ADR 075](./records/adr-075-radical-unawareness.md) | Radical Unawareness |
 | [ADR 089](./records/adr-089-ecosystem-wide-immutable-sha-pinning.md) | Ecosystem-Wide Immutable SHA Pinning |
 | [ADR 090](./records/adr-090-silent-on-success-unix-philosophy.md) | Silent-on-Success Unix Philosophy & Pipeline Signal Protocol |
