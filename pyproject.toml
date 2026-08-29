@@ -81,8 +81,8 @@ Tracker       = "https://github.com/PythonWoods/zenzic/issues"
 
 [project.optional-dependencies]
 docs = [
-    "mkdocs-material>=9.0.0",
-    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0,<10",
+    "mkdocs>=1.5.0,<2",
     "mkdocs-rss-plugin>=1.15.0",
     "mkdocs-minify-plugin>=0.8.0",
 ]
