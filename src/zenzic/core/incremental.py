@@ -40,6 +40,7 @@ from urllib.request import url2pathname
 
 from zenzic.core.ast import ExtractedLink
 from zenzic.core.codes import code_severity
+from zenzic.core.resolver import resolve_href_target
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     ResolutionContext,
@@ -725,6 +726,8 @@ class IncrementalAnalysisEngine:
         """
         findings: list[RuleFinding] = []
         lines = text.splitlines()
+        _docs_root_str = str(self.docs_root)
+        _repo_root_str = str(self.repo_root)
 
         def _source_line(lineno: int) -> str:
             idx = lineno - 1
@@ -951,7 +954,9 @@ class IncrementalAnalysisEngine:
                         continue
 
                 rel_url = unquote(parsed.path)
-                target_path = (path.parent / rel_url).resolve()
+                target_path = Path(
+                    resolve_href_target(path, rel_url, _docs_root_str, _repo_root_str)
+                )
                 if not target_path.is_file():
                     if self.adapter.resolve_asset(target_path, self.docs_root) is None:
                         findings.append(

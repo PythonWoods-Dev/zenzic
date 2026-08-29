@@ -24,21 +24,23 @@ bypassing adapter resolution entirely.
 
   INT-003  A same-page anchor mismatch inside a locale file is ERROR (Z102).
 
-  INT-004  ``@site/static/`` assets should resolve correctly from locale
-           files using repo_root-relative asset existence, per this file's
-           original docstring claim. **Confirmed BROKEN as of this test
-           (2026-08-29)** — see the `xfail`-marked test below and
-           `.claude/state/03-priority-table.md` for the live reproduction
-           and disposition. Not fixed here per this directive's explicit
-           constraint: a confirmed live gap in security-adjacent logic is
-           not fixed without an explicit Tech Lead sign-off.
+  INT-004  ``@site/static/`` assets resolve correctly from locale files
+           using repo_root-relative asset existence. **Fixed (2026-08-29)**
+           — the non-markdown asset-existence check in
+           ``incremental.py``'s ``_run_urp_checks`` previously joined
+           ``path.parent / rel_url`` directly, never applying ``@site/``
+           alias resolution at all. It now calls the shared
+           ``resolve_href_target()`` (extracted from
+           ``InMemoryPathResolver._build_target`` in ``resolver.py``), so
+           both the resolver and the incremental engine agree on what an
+           ``@site/`` alias means. See `.claude/state/03-priority-table.md`
+           for the fix disposition.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from _helpers import make_mgr
 
 from zenzic.core.validator import LinkError, validate_links_structured
@@ -105,16 +107,6 @@ def test_int_003_locale_file_same_page_anchor_mismatch_is_error(tmp_path: Path) 
     assert errors[0].error_type == "Z102"
 
 
-@pytest.mark.xfail(
-    reason=(
-        "INT-004: confirmed live gap, not fixed per directive constraint. "
-        "A @site/static/ asset that genuinely exists at repo_root/static/ is "
-        "still reported Z104 FILE_NOT_FOUND, from both locale and non-locale "
-        "files alike (reproduced without any locale_roots involvement too — "
-        "this is not locale-specific). See 03-priority-table.md."
-    ),
-    strict=True,
-)
 def test_int_004_site_static_asset_resolves_from_locale_file(tmp_path: Path) -> None:
     """A @site/static/ asset that exists at repo_root should not be Z104."""
     root = _locale_root(tmp_path)
