@@ -232,6 +232,7 @@ nav:
         - developers/how-to/contribute/report-a-bug.md
         - developers/how-to/contribute/report-a-docs-issue.md
         - developers/how-to/contribute/request-a-change.md
+        - developers/how-to/contribute/propose-a-custom-rule.md
       - developers/how-to/implement-adapter.md
       - developers/how-to/write-a-check.md
       - developers/how-to/write-plugin.md

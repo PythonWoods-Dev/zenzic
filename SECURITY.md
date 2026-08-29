@@ -16,6 +16,12 @@ report it privately via one of these channels:
 - **GitHub Security Advisories** (preferred): [github.com/PythonWoods/zenzic/security/advisories](https://github.com/PythonWoods/zenzic/security/advisories)
 - **Email**: `dev@pythonwoods.dev` — subject line: `[SECURITY] Zenzic — <brief description>`
 
+For lower-severity, non-exploitable issues (Shield false positives/negatives, incorrect
+exit-code behaviour, or a suspected ReDoS in a specific input) that don't expose secrets or
+enable remote code execution, a public
+[Security Vulnerability issue template](https://github.com/PythonWoods/zenzic/issues/new?template=security_vulnerability.yml)
+is also available — it never asks for real secret values.
+
 Please include a clear description of the vulnerability, steps to reproduce, potential
 impact, and a suggested fix if available.
 
