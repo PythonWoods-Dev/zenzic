@@ -455,8 +455,14 @@ class ZensicalAdapter(BaseAdapter):
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when Zensical will serve an index page for this directory.
 
-        Zensical uses ``index.md`` as the canonical index file for a directory,
-        rendering it at the directory URL without a filename suffix.
+        Zensical treats a file as an index page if its basename is ``index.md``
+        or ``README.md`` — confirmed live against Zensical's own documentation
+        (zensical.org/docs/authoring/markdown/), which applies this at any
+        directory level, not just the docs root. Precedence when both exist in
+        the same directory is explicitly undefined upstream ("it is better to
+        avoid having both" — zensical/backlog#135), so this method does not
+        attempt to model one: it only answers whether *an* index exists, which
+        is true either way regardless of which file Zensical would pick.
         It also recognizes dynamic directories managed by plugins.
 
         I/O is permitted here — this method is called once per directory during
@@ -466,10 +472,13 @@ class ZensicalAdapter(BaseAdapter):
             directory_path: Absolute path to the directory to inspect.
 
         Returns:
-            ``True`` if an ``index.md`` exists in the directory, or if the
-            directory is dynamically served by an active plugin.
+            ``True`` if an ``index.md`` or ``README.md`` exists in the
+            directory, or if the directory is dynamically served by an active
+            plugin.
         """
         if (directory_path / "index.md").exists():
+            return True
+        if (directory_path / "README.md").exists():
             return True
         return directory_path.resolve() in self.dynamic_directories
 

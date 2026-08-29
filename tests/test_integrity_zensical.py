@@ -400,3 +400,49 @@ class TestExtractConfigDeclaredAssets:
 
         assert "stylesheets/extra.css" in assets
         assert "javascripts/extra.js" in assets
+
+
+# ── provides_index ───────────────────────────────────────────────────────────
+#
+# Zensical's own docs (zensical.org/docs/authoring/markdown/) confirm a page is
+# considered an index page if its basename is index.md OR README.md, at any
+# directory level, not just root. provides_index() previously only checked
+# index.md, causing a false-positive Z401 MISSING_DIRECTORY_INDEX on any
+# nested directory indexed only by README.md.
+#
+# Precedence when both exist in the same directory is explicitly undefined by
+# Zensical itself ("it is better to avoid having both" — zensical/backlog#135),
+# so this method deliberately does not model one: it only answers whether an
+# index exists at all (an OR), which is all Z401 needs and is well-defined
+# regardless of which file Zensical would actually pick.
+
+
+class TestProvidesIndex:
+    def test_index_md_only_is_recognized(self, tmp_path: Path) -> None:
+        (tmp_path / "index.md").write_text("# Home\n", encoding="utf-8")
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is True
+
+    def test_readme_md_only_is_recognized(self, tmp_path: Path) -> None:
+        """The false-positive case: a directory indexed only by README.md,
+        exactly as Zensical's own docs confirm is a valid convention at any
+        directory level."""
+        (tmp_path / "README.md").write_text("# Guide\n", encoding="utf-8")
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is True
+
+    def test_neither_present_is_not_recognized(self, tmp_path: Path) -> None:
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is False
+
+    def test_both_present_is_recognized(self, tmp_path: Path) -> None:
+        """Precedence between the two is undefined upstream; this method only
+        needs to answer whether *an* index exists, which is true either way."""
+        (tmp_path / "index.md").write_text("# Home\n", encoding="utf-8")
+        (tmp_path / "README.md").write_text("# Home (alt)\n", encoding="utf-8")
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is True
