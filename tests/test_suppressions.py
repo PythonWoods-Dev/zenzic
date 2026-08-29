@@ -360,6 +360,70 @@ class TestNonInlineSuppressibleCodesEnforcement:
 
 
 # ---------------------------------------------------------------------------
+# V031_Z603_SUPPRESSION_DECISION_AND_RSS_XML_BUG_FIX -- Z521/Z522/Z523 added
+# to NON_INLINE_SUPPRESSIBLE_CODES. Investigation (V031_NEXT_BUG_BATCH...)
+# found placing an inline suppression comment on a table's own header row --
+# the only line an inline directive could possibly match, since
+# is_suppressed() requires an exact line_no match and the header row
+# occupies its entire line -- silently breaks GFM table-row parsing,
+# hiding the real content violation as an unintended side effect while
+# Z603 (accurately, but confusingly) reports the directive as dead. Adding
+# these 3 codes here makes Zenzic never attempt inline consumption for
+# them at all, steering users to the TOML-governance path that never
+# touches the table's own content.
+# ---------------------------------------------------------------------------
+
+
+class TestZ521Z522Z523NonInlineSuppressible:
+    """Scenario E: Z521/Z522/Z523 join NON_INLINE_SUPPRESSIBLE_CODES."""
+
+    def test_z521_inline_directive_never_suppresses_and_is_flagged_dead(self) -> None:
+        text = "# Table page\n<!-- zenzic:ignore: Z521 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z521")
+        assert suppressed is False
+        assert tracker.directives[0].consumed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+        assert "directory_policies" in dead[0].message or "per_file_ignores" in dead[0].message
+
+    def test_z522_inline_directive_never_suppresses_and_is_flagged_dead(self) -> None:
+        text = "# Table page\n<!-- zenzic:ignore: Z522 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z522")
+        assert suppressed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+
+    def test_z523_inline_directive_never_suppresses_and_is_flagged_dead(self) -> None:
+        text = "# Table page\n<!-- zenzic:ignore: Z523 -->\n"
+        tracker = SuppressionTracker(_FILE, text)
+
+        suppressed = tracker.is_suppressed(line_no=2, code="Z523")
+        assert suppressed is False
+
+        dead = tracker.get_dead_suppressions()
+        assert len(dead) == 1
+        assert dead[0].rule_id == "Z603"
+        assert "ADR-093" in dead[0].message
+
+    def test_z521_z522_z523_are_in_the_registry(self) -> None:
+        from zenzic.core.codes import NON_INLINE_SUPPRESSIBLE_CODES
+
+        assert "Z521" in NON_INLINE_SUPPRESSIBLE_CODES
+        assert "Z522" in NON_INLINE_SUPPRESSIBLE_CODES
+        assert "Z523" in NON_INLINE_SUPPRESSIBLE_CODES
+
+
+# ---------------------------------------------------------------------------
 # SuppressionTracker parsing contract
 # ---------------------------------------------------------------------------
 

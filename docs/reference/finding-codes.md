@@ -799,7 +799,7 @@ This rule exists to detect pseudo-lists in paragraphs that use newlines and semi
 
 ### Z521: REQUIRED_TABLE_COLUMN {#z521}
 
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z521.md)
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-In** · [↗ Rule Specification](../rules/Z521.md)
 
 This rule exists to detect Markdown tables that omit required column headers specified in `[policies].required_table_columns`.
 
@@ -807,7 +807,7 @@ This rule exists to detect Markdown tables that omit required column headers spe
 
 ### Z522: TABLE_CELL_ENUM {#z522}
 
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z522.md)
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-In** · [↗ Rule Specification](../rules/Z522.md)
 
 This rule exists to validate that table cells in designated columns only contain approved enumeration values declared in `[policies].table_cell_enums`.
 
@@ -815,7 +815,7 @@ This rule exists to validate that table cells in designated columns only contain
 
 ### Z523: HEADING_ORDER_VIOLATION {#z523}
 
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z523.md)
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-In** · [↗ Rule Specification](../rules/Z523.md)
 
 This rule exists to enforce that document headings appear in the strictly ascending sequential order defined in `[policies].required_heading_order`.
 
@@ -867,6 +867,7 @@ any active finding. Remove the dead comment.
 - A suppression was added speculatively ("just in case") for a link that was never actually broken.
 - A developer attempted to suppress a **security code** (Z201–Z205) — the Inviolability Law rejects these silently, making the directive permanently dead.
 - A developer attempted to suppress a **topological code** (e.g. Z401, Z402, Z404, Z405, Z406, Z410–Z412, Z620) via an inline comment — these are governed only through `.zenzic.toml`'s `directory_policies`/`per_file_ignores` (ADR-093) and inline directives never consume them either.
+- A developer attempted to suppress a **table/heading-anchored SDD policy code** (Z521, Z522, Z523) via an inline comment — same ADR-093 governance-only rule as above. For Z521/Z523 specifically, placing the comment on the only line that could match (the table header row or the violating heading itself) also silently corrupts the underlying parse, hiding the real violation instead of suppressing it.
 
 **Fix:**
 
