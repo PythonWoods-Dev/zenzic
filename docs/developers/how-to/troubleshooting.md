@@ -109,19 +109,35 @@ allowing a version bump. Common violations:
 
 Review the common diagnostic signals and troubleshooting resolution steps detailed below.
 
-### Z105 Path Safety Breach
+### Z105 Absolute Path Detected
 
-**Symptom:** Zenzic blocks a relative traversal path and reports a path safety breach.
+**Symptom:** Zenzic reports `[Z105] absolute path '...' found` for a link that starts with `/`.
 
-**Standard resolution:** Prefer absolute site-root paths (for example `/blog/post-slug`)
-over multi-level relative traversals.
+**Why it matters:** an absolute, site-root-relative link (e.g. `/guide`) is
+resolved from the server root. On a site hosted under a subdirectory (a
+GitHub Pages project site, a CDN subdirectory deployment), `/guide` resolves
+to the wrong URL — the link silently breaks in that hosting context even
+though it works locally.
 
-**Validated exception:** Use inline suppression only when the traversal is reviewed and intentional:
+**Standard resolution:** Prefer relative paths (for example `../guide.md` or
+`guide.md`) over absolute site-root paths. Relative links resolve correctly
+regardless of where the site is hosted.
 
-```html
-<!-- * zenzic:ignore: Z105 - validated cross-section bridge * -->
-[Jump to appendix](../../appendix/reference.md)
+**Validated exception:** Z105 is not suppressible with an inline `<!-- zenzic:ignore: Z105 -->`
+comment — live-verified against the current engine: the check runs in the
+VSM/URP validation path, which does not consult inline suppression
+directives at all. Declare an intentional absolute-path prefix in
+`.zenzic.toml` instead, via [`absolute_path_allowlist`](../../reference/configuration-reference.md#absolute-path-allowlist):
+
+```toml title=".zenzic.toml"
+# Declare a fixed CDN-root asset prefix that is intentionally absolute,
+# not a page route.
+absolute_path_allowlist = ["/static/"]
 ```
+
+Zenzic's own `Z112` (`STALE_ALLOWLIST_ENTRY`) keeps this list honest — an
+allowlist prefix that no scanned link actually uses is flagged so the
+exception doesn't silently outlive its reason.
 
 ---
 
