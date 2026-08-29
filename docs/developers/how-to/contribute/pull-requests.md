@@ -84,7 +84,7 @@ source you are working on. Validate the repository's own documentation at any
 time:
 
 ```bash
-zenzic check all            # all seven checks
+zenzic check all            # all eight checks
 zenzic check references     # includes custom [[custom_rules]] evaluation
 pytest                      # full test suite (Hypothesis dev profile — 50 examples)
 ```

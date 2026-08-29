@@ -1186,7 +1186,18 @@ def _collect_all_results(
     init_start_time: float | None = None,
     rule_engine_target: Path | None = None,
 ) -> _AllCheckResults:
-    """Run all seven checks and return results as a typed container."""
+    """Run all eight checks and return results as a typed container.
+
+    The eight checks, matching :class:`_AllCheckResults`'s eight non-derived
+    fields: link validation, orphan detection, snippet validation, unused-asset
+    detection, nav-contract validation (``Z406``), directory-index validation
+    (``Z401``), config-asset validation (``Z404``), and the combined
+    reference/rule-engine/security pipeline (``scan_docs_references``, which
+    itself covers ``Z2xx`` security, ``Z3xx`` references, ``Z5xx`` content —
+    including placeholders — and ``Z6xx`` brand rules in a single pass).
+    ``security_events`` is a derived summary count from that last pipeline,
+    not a ninth independent check.
+    """
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
@@ -1413,7 +1424,7 @@ def _to_findings(
     # reference_reports (e.g. one page with both a snippet issue and a
     # dangling reference), and each category independently re-reads the file
     # for `source_line` context. This dedupes reads *within this call only*
-    # — deduping across the seven independent sub-checks in
+    # — deduping across the eight independent sub-checks in
     # _collect_all_results would require scanner.py/validator.py to expose
     # raw file content on their result objects, which they don't; that's a
     # larger, out-of-scope change tracked separately.
@@ -1699,7 +1710,10 @@ def check_all(
         metavar="PATH",
     ),
 ) -> None:
-    """Run all checks: links, orphans, snippets, placeholders, assets, references.
+    """Run all checks: links, orphans, snippets, unused assets, nav contract,
+    directory indices, config assets, and the reference/content/security
+    pipeline (which also covers placeholders, brand rules, and credential
+    scanning).
 
     Optionally pass PATH to scope the audit to a single Markdown file or a custom
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the

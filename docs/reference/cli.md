@@ -31,7 +31,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `zenzic check references` | Run the Three-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan. |
     | `zenzic check assets` | Detect unused images and assets in the documentation. |
     | `zenzic check placeholders` | Detect pages with < 50 words or containing TODOs/stubs. |
-    | `zenzic check all` | Run all checks: links, orphans, snippets, placeholders, assets, references. |
+    | `zenzic check all` | Run every check above, plus 3 checks with no standalone sub-command: nav contract (`Z406`), directory indices (`Z401`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
 
     **Flags available on all `check` sub-commands:**
 

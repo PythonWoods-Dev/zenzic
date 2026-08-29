@@ -6,7 +6,7 @@ description: How Zenzic discovers documentation files and the 4-level Layered Ex
 
 # Discovery & Exclusion
 
-Every Zenzic check -- links, orphans, snippets, placeholders, assets, references -- operates on the same set of files. This guarantee is enforced by a **single entry point** for file discovery and a **4-level exclusion hierarchy** that determines which files and directories are included or excluded from scanning.
+Every Zenzic check -- links, orphans, snippets, unused assets, nav contract, directory indices, config assets, and the reference/content/security pipeline (which also covers placeholders, brand rules, and credential scanning) -- operates on the same set of files. This guarantee is enforced by a **single entry point** for file discovery and a **4-level exclusion hierarchy** that determines which files and directories are included or excluded from scanning.
 
 ---
 
