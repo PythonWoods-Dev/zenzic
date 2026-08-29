@@ -53,7 +53,7 @@ The wrapper always passes `--ci` to every `zenzic` invocation — there is no in
 | :---: | :--- | :--- | :---: |
 | `0` | Clean | All checks passed — score at or above `fail_under` | — |
 | `1` | Quality | One or more findings; score may be below `fail_under` | Yes (`fail-on-error: "false"`) |
-| **`2`** | **Credential** | **Z201 CREDENTIAL_SECRET detected — scan aborted** | **Never** |
+| **`2`** | **Security** | **Credential (`Z201`), forbidden term (`Z204`), or forbidden URL scheme (`Z205`) detected — scan aborted** | **Never** |
 | **`3`** | **Path Traversal (fatal)** | **Z203 PATH_TRAVERSAL_FATAL detected — scan aborted** | **Never** |
 
 Exit codes 2 and 3 are **never suppressed** by `fail-on-error: "false"`, `--exit-zero`, or any other flag. The wrapper enforces this unconditionally — security findings are facts, not findings to be negotiated.
