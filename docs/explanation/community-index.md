@@ -24,7 +24,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     The design philosophy and long-term direction behind Zenzic.
 
-    [:material-arrow-right: Read](../explanation/brand-philosophy.md)
+    [:material-arrow-right: Read](../explanation/why-zenzic.md)
 
 - :material-scale-balance: &nbsp; __License__
 

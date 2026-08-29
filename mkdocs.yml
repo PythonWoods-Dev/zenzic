@@ -62,7 +62,6 @@ nav:
       - Configuration Strategy: how-to/configuration-strategy.md
       - Cross-Site Links: how-to/manage-cross-site-links.md
       - Engine Migration: how-to/migrate-engines.md
-      - Use Brand System: how-to/use-brand-system.md
       - Workflow Integration: how-to/workflow-integration.md
       - Configure Social Metadata: how-to/configure-social-metadata.md
       - Add Status Badges: how-to/add-badges.md
@@ -218,7 +217,6 @@ nav:
       - The Zenzic Trinity: explanation/the-zenzic-trinity.md
       - GitHub Action Internals: explanation/github-action-internals.md
       - Privacy Gate: explanation/privacy-gate.md
-      - Brand Philosophy: explanation/brand-philosophy.md
       - Community Index: explanation/community-index.md
 
 

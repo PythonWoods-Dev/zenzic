@@ -32,6 +32,14 @@ max_sentence_length = 50
 
 excluded_external_urls = []
 
+# Theme assets (favicon, logos, fonts) consumed by the site's own CSS/HTML
+# templates, never referenced from a Markdown page — previously kept quiet
+# only as a side effect of docs/how-to/use-brand-system.md's own link list,
+# which was deleted as brand-identity content out of scope for a technical
+# tool's public docs (see V031_CROSS_REPO_BUG_RESOLUTION_SPRINT addendum).
+excluded_asset_dirs = ["overrides", "brand", "fonts"]
+excluded_assets = ["favicon.ico"]
+
 
 # Z204 Privacy Gate — terms that must never appear in published docs.
 # forbidden_patterns = []

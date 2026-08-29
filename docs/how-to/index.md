@@ -103,14 +103,6 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](manage-cross-site-links.md)
 
-- :material-palette-outline:{ .lg .middle style="color: #10b981;" } **[Brand Governance System](use-brand-system.md)**
-
-    ---
-
-    Configure brand term dictionaries and eradicate obsolete product naming conventions.
-
-    [:material-arrow-right: Read Guide](use-brand-system.md)
-
 - :material-share-variant-outline:{ .lg .middle style="color: #10b981;" } **[Social Metadata & SEO](configure-social-metadata.md)**
 
     ---
