@@ -82,6 +82,29 @@ def test_formatted_empty_link_validation_and_mutation() -> None:
         assert serialized == "[TODO](url)", f"Got: {serialized}"
 
 
+def test_empty_link_text_mutation_is_idempotent() -> None:
+    """EmptyLinkTextMutation.apply() must be idempotent: mutate(mutate(ast)) == mutate(ast).
+
+    Holds by construction — apply() only injects "TODO" when the link has no
+    text content, and the injected "TODO" text itself satisfies that
+    precondition on any subsequent pass — but had no dedicated regression
+    test (`03-priority-table.md`, docs-hygiene auditor discovery). Auto-fix
+    tooling commonly runs to a fixed point (apply repeatedly until no
+    further changes); a mutation that isn't genuinely idempotent would
+    either loop forever or drift the content on repeated runs.
+    """
+    mutator = Mutator([EmptyLinkTextMutation()])
+
+    ast = parse("[](url)")
+    first_ast, first_changed = mutator.mutate(ast)
+    assert first_changed
+    assert serialize(first_ast) == "[TODO](url)"
+
+    second_ast, second_changed = mutator.mutate(first_ast)
+    assert not second_changed
+    assert serialize(second_ast) == "[TODO](url)"
+
+
 def test_polyglot_extractor_comment_masking() -> None:
     """An HTML tag or a Z205 scheme inside an HTML or MDX comment is ignored by PolyglotExtractor."""
     from zenzic.core.validator import PolyglotExtractor
