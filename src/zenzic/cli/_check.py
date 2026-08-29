@@ -44,6 +44,7 @@ from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
 
 from . import _shared
+from ._command_setup import setup_command
 from ._governance import (
     SuppressionAudit,
     _apply_directory_policies,
@@ -179,27 +180,9 @@ def check_links(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, _ = ZenzicConfig.load(repo_root)
-    if offline:
-        config.build_context.offline_mode = True
-    if exclude_url:
-        config = config.model_copy(
-            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
-        )
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    config, repo_root, docs_root, exclusion_mgr, _, _ = setup_command(
+        path, offline=offline, exclude_url=exclude_url
+    )
 
     def _rel(path: Path) -> str:
         try:
@@ -389,26 +372,11 @@ def check_orphans(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(
+        path, engine_override=engine, offline=offline
+    )
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    config = _shared._apply_engine_override(config, engine)
-    if offline:
-        config.build_context.offline_mode = True
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -531,23 +499,9 @@ def check_snippets(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -687,23 +641,9 @@ def check_references(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -1016,23 +956,9 @@ def check_placeholders(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint()
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
