@@ -13,6 +13,11 @@ images — that's your build engine's job. For Material for MkDocs, see the offi
 documentation for the real setup mechanics (the `social` plugin, and the template
 override needed to emit the actual `<meta property="og:*">` tags).
 
+If you build with **Zensical**, there is no equivalent yet: a `social` module is tracked
+as a lower-priority ([Tier 2](https://zensical.org/compatibility/plugins/)) backlog item
+([zensical/backlog#37](https://github.com/zensical/backlog/issues/37)), not yet
+implemented as of this writing.
+
 What Zenzic *does* touch is asset usage: if you reference a custom social card image
 through a page's `image:` frontmatter key, `Z405` (`UNUSED_ASSET`) correctly recognizes
 that reference and won't flag the file — no extra configuration needed for that case.
@@ -45,4 +50,5 @@ excluded_assets = ["assets/social/*.svg"]
 ## See Also
 
 - [Material for MkDocs: Setting up social cards](https://squidfunk.github.io/mkdocs-material/setup/setting-up-social-cards/) — the real setup mechanics
+- [Zensical plugin/module compatibility tracker](https://zensical.org/compatibility/plugins/) — current status of the not-yet-implemented `social` module
 - [Why Zenzic](../explanation/why-zenzic.md)

@@ -41,63 +41,19 @@ touching a single documentation file. From Zenzic's perspective:
 
 ---
 
-## MkDocs Material best practices
+## MkDocs Material i18n integration
 
-This section details the specifications and guidelines for MkDocs Material best practices within the Zenzic ecosystem.
+Zensical does not use the `mkdocs-static-i18n` plugin (see [What stays the same](#what-stays-the-same-when-switching-to-zensical) above) — this section applies only while you are still on the MkDocs engine.
 
 ### Language switcher configuration
 
-When using `mkdocs-material` with the `i18n` plugin and multiple locales, the language
-switcher can be controlled by two different mechanisms. Mixing them causes routing conflicts
-that Zenzic — a source-level document integrity engine — cannot detect automatically, but that silently break the
-user experience at build time.
-
-**Recommended configuration:**
-
-```yaml title="mkdocs.yml"
-# mkdocs.yml
-plugins:
-
-  - i18n:
-
-      docs_structure: folder
-      fallback_to_default: true
-      reconfigure_material: true   # ← delegate switcher to the i18n plugin
-      reconfigure_search: true
-      languages:
-
-        - locale: en
-
-          default: true
-          build: true
-          link: /
-
-        - locale: it
-
-          build: true
-          link: /it/
-```
-
-**Do not** add an `extra.alternate` block alongside `reconfigure_material: true`.
-When both are present, the Material theme receives two competing switcher definitions;
-depending on the plugin version the result is either a duplicated switcher or no switcher
-at all:
-
-```yaml title="mkdocs.yml"
-# ✗ — remove this block when reconfigure_material: true is set
-extra:
-  alternate:
-
-    - name: English
-
-      link: /
-      lang: en
-
-    - name: Italiano
-
-      link: /it/
-      lang: it
-```
+When using `mkdocs-material` with the `i18n` plugin (`mkdocs-static-i18n`) and multiple
+locales, the plugin can auto-configure the Material theme's language switcher for you via
+its own `reconfigure_material` option — Zenzic does not configure or validate this switcher.
+See the plugin's own
+[Setting up mkdocs-material](https://ultrabug.github.io/mkdocs-static-i18n/setup/setting-up-material/)
+documentation for how to enable and control it, and how it interacts with a manually
+declared `extra.alternate` block.
 
 **Why Zenzic handles this correctly:**
 When `reconfigure_material: true` is present in `mkdocs.yml`, Zenzic recognises that the
