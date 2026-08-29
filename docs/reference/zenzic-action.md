@@ -24,7 +24,7 @@ Source: [github.com/PythonWoods/zenzic-action](https://github.com/PythonWoods/ze
 | `upload-sarif` | `true` | No | Upload SARIF to GitHub Code Scanning. Requires `security-events: write` permission. |
 | `strict` | `false` | No | Treat warnings as errors — promotes all `warning`-severity findings to `error`. |
 | `fail-on-error` | `true` | No | Fail the workflow step on exit 1 (quality findings). Does **not** suppress exit 2 or 3. |
-| `config-file` | *(auto)* | No | Explicit path to a `.zenzic.toml` config file. Auto-discovers `.zenzic.toml` → `.github/.zenzic.toml` when omitted. |
+| `config-file` | *(unset)* | No | Explicit path to a Zenzic TOML config file, relative to the workspace. When omitted, `zenzic` falls back to its own normal discovery chain (`.zenzic.toml` at the repository root, then `pyproject.toml [tool.zenzic]`) — the same chain a local run uses, with no GitHub-Action-specific auto-discovery layered on top. A specified file that doesn't exist always fails the step. |
 | `audit` | `false` | No | Sovereign audit mode — bypasses all `zenzic:ignore` inline comments and `governance.per_file_ignores` entries. Reveals the true, unfiltered documentation state. |
 | `diff-base` | *(snapshot)* | No | Path to a JSON baseline file for `zenzic diff` comparison. When set, the action compares the current score against this file instead of the saved `.zenzic-score.json`. Use an artifact from `main` to implement the Zenzic Quality Gate. |
 | `guard-scan` | `false` | No | Run `zenzic guard scan` as a Defense-in-Depth step **before** the main quality gate. Catches hardcoded credentials and forbidden patterns that bypassed pre-commit hooks. Failure is always fatal — not governed by `fail-on-error`. |
@@ -102,14 +102,15 @@ Exclusion zones (`excluded_dirs`, `excluded_file_patterns`) are **not** bypassed
 
 ## Configuration Discovery {#config-discovery}
 
-| Priority | Location | When used |
-| :---: | :--- | :--- |
-| 1 | Explicit `config-file` input | Always honoured when provided |
-| 2 | `.zenzic.toml` in repository root | Auto-discovered when no explicit override |
-| 3 | `.github/.zenzic.toml` | Fallback when root file is absent |
-| — | *(none found)* | Zenzic uses its built-in defaults |
+The action itself implements no GitHub-Action-specific configuration discovery:
 
-**Sovereign Intent Contract:** if you supply `config-file: path/to/custom.toml` and the file does not exist, the action does **not** fall back to auto-discovery. You receive a `::warning` annotation (or a fatal `::error` with `strict: "true"`).
+| `config-file` | Behaviour |
+| :--- | :--- |
+| Unset | No `--config` flag passed to `zenzic` — `zenzic`'s own normal discovery chain applies (`.zenzic.toml` at the repository root, then `pyproject.toml [tool.zenzic]`), identical to a local run |
+| Set, file exists | `--config <path>` passed; that file governs the run |
+| Set, file missing | The step fails unconditionally (`::error` + exit 1) — confirmed directly against the wrapper source, no `strict`-mode branching |
+
+A specified `config-file` is a deliberate declaration of intent: the wrapper never silently falls back to discovery or to built-in defaults once a specific file has been named, regardless of `strict`. This is the design as originally built — `config-file` had no fallback branching at any point in the wrapper's history — not a later restriction of a once-more-permissive behavior. See [GitHub Action Internals: a missing `config-file` is always fatal](../explanation/github-action-internals.md#config-file-missing) for the full rationale.
 
 ---
 
