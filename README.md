@@ -428,7 +428,7 @@ For deep architectural explanations, configuration strategies, and the full find
 
 Zenzic evolves strictly within its deterministic, AST-driven architecture. Upcoming milestones include:
 
-- **Adapter Ecosystem**: Native Virtual Site Map (VSM) adapters for **Docusaurus**, **Sphinx (MyST)**, and **Hugo** to support cross-engine slugification and taxonomy out of the box.
+- **Sphinx Adapter**: Native Virtual Site Map (VSM) adapter for Sphinx, parsing `conf.py` and `.rst` files without invoking `sphinx-build`. Docusaurus and Hugo support is community-contributed via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) and [GH #51](https://github.com/PythonWoods-Dev/zenzic/issues/51).
 - **Multi-Repository Documentation Graph**: Cross-repository link resolution and contract validation across polyrepo documentation architectures without network calls.
 - **Auto-Fix Expansion**: Extended lossless AST mutations for additional structural codes (`Z1xx`), reference normalization (`Z3xx`), and frontmatter standardization (`Z6xx`).
 

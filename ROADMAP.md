@@ -37,27 +37,22 @@ Before advancing the core feature set, the following infrastructural and validat
 - **Graph Traceability (`Z412`):** Cross-directory documentation link coverage verification evaluated natively via the Virtual Site Map (VSM).
 - **Ecosystem Marketing & Positioning Overhaul:** Positioning Zenzic as the premier document integrity engine protecting documentation graphs against AI slop.
 
-### [v0.32] — Docusaurus Bridge Architecture
+### [v0.32] — Sphinx Adapter (GH #51) & Auto-Fix Audit
 
-*The first concrete implementation of the adapter ecosystem & automated remediation audit.*
-
-- **`@zenzic/plugin-docusaurus`:** Validate the artifact-based Virtual Site Map (VSM) model outside the Python Core, allowing deterministic validation of Docusaurus routing without framework coupling.
-- **Auto-Fix Audit for Non-Fixable Rules:** Perform a systematic AST audit across all `fixable=False` finding codes to identify viable candidates for atomic auto-remediation expansion in the Mutator engine.
-
-### [v0.33] — Sphinx Adapter (GH #51)
-
-*Extending open-source compatibility to the Python ecosystem.*
+*Extending open-source compatibility to the Python ecosystem, alongside a systematic audit of non-fixable rules for auto-remediation expansion.*
 
 - **Native Sphinx Parsing:** Parse `conf.py` and `.rst` files natively without invoking the `sphinx-build` subprocess, translating Sphinx cross-references into the standard VSM.
+- **Auto-Fix Audit for Non-Fixable Rules:** Perform a systematic AST audit across all `fixable=False` finding codes to identify viable candidates for atomic auto-remediation expansion in the Mutator engine.
 
-### [v0.34] — Hugo Adapter (GH #50) & Multi-Repo Graph (GH #7)
+> **Docusaurus and Hugo adapters are deferred indefinitely** and tracked as community-contribution opportunities rather than core-team roadmap items — see [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) (Hugo). Sphinx is the sole adapter actively developed by the core team going forward.
 
-*Extending open-source compatibility to the Go ecosystem & distributed graph validation.*
+### [v0.33] — Multi-Repo Graph (GH #7)
 
-- **Native Hugo Parsing:** Parse `hugo.toml` and frontmatter conventions to deterministically replicate Hugo's permalink generation rules within the Zenzic VSM.
+*Distributed graph validation across polyrepo documentation architectures.*
+
 - **Artifact Composition & Connectivity Analysis:** Aggregate multiple VSM artifacts to detect broken cross-repository references and routing inconsistencies across distributed documentation.
 
-### [v0.35] — Operational Excellence
+### [v0.34] — Operational Excellence
 
 *Advanced observability, developer experience, and incremental performance.*
 
