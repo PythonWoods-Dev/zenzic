@@ -123,17 +123,28 @@ though it works locally.
 `guide.md`) over absolute site-root paths. Relative links resolve correctly
 regardless of where the site is hosted.
 
-**Validated exception:** Z105 is not suppressible with an inline `<!-- zenzic:ignore: Z105 -->`
-comment — live-verified against the current engine: the check runs in the
-VSM/URP validation path, which does not consult inline suppression
-directives at all. Declare an intentional absolute-path prefix in
-`.zenzic.toml` instead, via [`absolute_path_allowlist`](../../reference/configuration-reference.md#absolute-path-allowlist):
+**Validated exception:** Use inline suppression only when the absolute path is reviewed and
+intentional. The directive must be placed at the **end of the same line** as the link —
+not on the line above it, which silently fails to match (see
+[Suppression Policy](../../reference/suppression-policy.md)):
+
+```html
+[Jump to appendix](/static/appendix/reference.pdf) <!-- zenzic:ignore: Z105 - fixed CDN-root asset path, not a page route -->
+```
+
+For a prefix that legitimately needs to stay absolute across many links (for example, every
+link into a fixed CDN asset root), declare it once in `.zenzic.toml` instead of suppressing
+each link individually, via [`absolute_path_allowlist`](../../reference/configuration-reference.md#absolute-path-allowlist):
 
 ```toml title=".zenzic.toml"
 # Declare a fixed CDN-root asset prefix that is intentionally absolute,
 # not a page route.
 absolute_path_allowlist = ["/static/"]
 ```
+
+Zenzic's own `Z112` (`STALE_ALLOWLIST_ENTRY`) keeps this list honest — an
+allowlist prefix that no scanned link actually uses is flagged so the
+exception doesn't silently outlive its reason.
 
 Zenzic's own `Z112` (`STALE_ALLOWLIST_ENTRY`) keeps this list honest — an
 allowlist prefix that no scanned link actually uses is flagged so the
