@@ -23,7 +23,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](install.md)
 
-- :material-tune:{ .lg .middle style="color: #6366f1;" } **[Configuration Strategy](initialize-configuration.md)**
+- :material-tune:{ .lg .middle style="color: #6366f1;" } **[Initialize Configuration](initialize-configuration.md)**
 
     ---
 

@@ -1491,11 +1491,14 @@ the expectation was met:
 
 | Label | Meaning |
 | :--- | :--- |
-| `PASS ✓` | Expected clean run — zero findings |
-| `EXPECTED FAIL ✓` | Expected errors were found |
-| `BREACH ✓` | Expected credential scanner detection |
-| `FAIL (unexpected)` | Scenario expected to pass but errors found |
+| `BREACH ✓` | Expected credential scanner detection was produced |
 | `BREACH expected — not triggered` | Expected credential scanner hit was not produced |
+| `INCIDENT ✓` | Expected path-traversal security incident was produced |
+| `INCIDENT expected — not triggered` | Expected path-traversal incident was not produced |
+| `PASS ✓` | Expected clean run — zero findings |
+| `FAIL (unexpected)` | Scenario expected to pass but errors found |
+| `EXPECTED FAIL ✓` | Expected errors or warnings were found |
+| `EXPECTED FAIL — nothing found` | Expected errors or warnings were not produced |
 
 ### Examples
 
