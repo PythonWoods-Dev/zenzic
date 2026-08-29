@@ -518,10 +518,7 @@ The CLI is structured as a **package** (`src/zenzic/cli/`), not a monolithic mod
 
 ### Package layout {#cli-package-layout}
 
-See [CLI Architecture](../developers/reference/cli-architecture.md) for the current, canonical
-module map — this page previously carried its own copy of that table, which drifted out of sync
-(missing several modules added since). Deferring to one source of truth rather than restating it
-here.
+See [CLI Architecture](../developers/reference/cli-architecture.md) for the canonical module map.
 
 ### UI State Manager {#ui-state-manager}
 

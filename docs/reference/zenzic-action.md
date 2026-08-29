@@ -108,9 +108,9 @@ The action itself implements no GitHub-Action-specific configuration discovery:
 | :--- | :--- |
 | Unset | No `--config` flag passed to `zenzic` — `zenzic`'s own normal discovery chain applies (`.zenzic.toml` at the repository root, then `pyproject.toml [tool.zenzic]`), identical to a local run |
 | Set, file exists | `--config <path>` passed; that file governs the run |
-| Set, file missing | The step fails unconditionally (`::error` + exit 1) — confirmed directly against the wrapper source, no `strict`-mode branching |
+| Set, file missing | The step fails unconditionally (`::error` + exit 1), regardless of `strict` |
 
-A specified `config-file` is a deliberate declaration of intent: the wrapper never silently falls back to discovery or to built-in defaults once a specific file has been named, regardless of `strict`. This is the design as originally built — `config-file` had no fallback branching at any point in the wrapper's history — not a later restriction of a once-more-permissive behavior. See [GitHub Action Internals: a missing `config-file` is always fatal](../explanation/github-action-internals.md#config-file-missing) for the full rationale.
+A specified `config-file` is a deliberate declaration of intent: the wrapper never silently falls back to discovery or to built-in defaults once a specific file has been named. See [GitHub Action Internals: a missing `config-file` is always fatal](../explanation/github-action-internals.md#config-file-missing) for the full rationale.
 
 ---
 
