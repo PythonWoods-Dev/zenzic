@@ -198,6 +198,14 @@ def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) ->
     return sorted(all_md - nav_paths)
 
 
+#: Codes emitted both as a rule-engine ``RuleFinding`` (via ``CredentialScannerRule``)
+#: and independently as a ``SecurityFinding`` converted by
+#: :func:`_map_credential_to_finding` below. Public so ``_check.py``'s
+#: rule-finding skip-list can derive from this set instead of maintaining
+#: an independent copy that could silently drift out of sync.
+SECURITY_FINDING_CODES: frozenset[str] = frozenset({"Z201", "Z204"})
+
+
 def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
     """Convert a :class:`SecurityFinding` into a reporter :class:`Finding`.
 

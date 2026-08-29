@@ -20,6 +20,7 @@ from zenzic.core.codes import CODE_DEFINITIONS, code_severity
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
+    SECURITY_FINDING_CODES,
     _build_rule_engine,
     _map_credential_to_finding,
     find_missing_directory_indices,
@@ -32,6 +33,7 @@ from zenzic.core.scorer import compute_score
 from zenzic.core.sovereign_context import sovereign_context
 from zenzic.core.ui import ZenzicPalette
 from zenzic.core.validator import (
+    LINK_CODES,
     LinkError,
     SnippetError,
     check_nav_contract,
@@ -1116,6 +1118,17 @@ def check_placeholders(
 
 # ── All-checks aggregate ──────────────────────────────────────────────────────
 
+#: Codes to skip in the generic rule-finding loop below because they already
+#: surface via a dedicated path: link-integrity codes surface via
+#: ``validate_links_structured`` (``Z620`` excluded — it has no dedicated
+#: path and must still flow through this loop), and Z201/Z204 surface via
+#: :func:`_map_credential_to_finding`'s ``security_findings`` conversion.
+#: Derived from the two SSoT sets rather than a fresh literal, so this can
+#: never again drift out of sync with either one (V031_SKIPLIST_BUG_FAMILY_CLOSURE
+#: — four confirmed double-emission bugs this session shared this exact root
+#: cause: a hardcoded copy silently going stale as the two source sets changed).
+_RULE_FINDING_SKIP_CODES: frozenset[str] = (LINK_CODES - {"Z620"}) | SECURITY_FINDING_CODES
+
 
 @dataclass
 class _AllCheckResults:
@@ -1526,26 +1539,7 @@ def _to_findings(
                 )
             )
         for rule_f in report.rule_findings:
-            if rule_f.rule_id in (
-                "Z101",
-                "Z102",
-                "Z103",
-                "Z104",
-                "Z105",
-                "Z106",
-                "Z108",
-                "Z112",
-                "Z120",
-                "Z121",
-                "Z122",
-                "Z123",
-                "Z124",
-                "Z201",
-                "Z202",
-                "Z203",
-                "Z204",
-                "Z205",
-            ):
+            if rule_f.rule_id in _RULE_FINDING_SKIP_CODES:
                 continue
             findings.append(
                 Finding(

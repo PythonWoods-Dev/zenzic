@@ -211,6 +211,32 @@ _POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
 # Schemi informativi (Z123, nessuna risoluzione path).
 _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
 
+#: Codes whose RuleFinding is already surfaced via the LinkError path in
+#: :func:`validate_links_structured` below. Public (not underscore-prefixed)
+#: so other modules — notably ``_check.py``'s rule-finding skip-list — can
+#: derive from this set instead of maintaining an independent copy.
+LINK_CODES: frozenset[str] = frozenset(
+    {
+        "Z101",
+        "Z102",
+        "Z103",
+        "Z104",
+        "Z105",
+        "Z106",
+        "Z108",
+        "Z112",
+        "Z620",
+        "Z120",
+        "Z121",
+        "Z122",
+        "Z123",
+        "Z124",
+        "Z202",
+        "Z203",
+        "Z205",
+    }
+)
+
 # Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
 _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.*)$")
 
@@ -1368,25 +1394,7 @@ def validate_links_structured(
         ext_errors = []
 
     link_errors: list[LinkError] = []
-    link_codes = {
-        "Z101",
-        "Z102",
-        "Z103",
-        "Z104",
-        "Z105",
-        "Z106",
-        "Z108",
-        "Z112",
-        "Z620",
-        "Z120",
-        "Z121",
-        "Z122",
-        "Z123",
-        "Z124",
-        "Z202",
-        "Z203",
-        "Z205",
-    }
+    link_codes = LINK_CODES
 
     for report in reports:
         for rf in report.rule_findings:
