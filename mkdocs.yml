@@ -244,7 +244,6 @@ nav:
       - developers/reference/ast-foundations.md
       - developers/reference/cli-architecture.md
       - developers/reference/credential-scanner-obligations.md
-      - developers/reference/supply-chain-assurance-profile.md
       - developers/reference/zenzic-style.md
     - Explanation:
       - Explanation Index: developers/explanation/index.md

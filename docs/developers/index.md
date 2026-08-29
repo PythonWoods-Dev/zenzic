@@ -18,7 +18,6 @@ Operational governance and release troubleshooting start here:
 
 - [Governance Playbook: Troubleshooting and Invariants](how-to/release-governance-protocol.md)
 - [Shared Sovereign Verification Model](explanation/sovereign-verification-model.md)
-- [Supply-Chain Assurance Profile](reference/supply-chain-assurance-profile.md)
 
 ---
 
@@ -65,14 +64,6 @@ Operational governance and release troubleshooting start here:
     Fail-closed core resolution, zero-network quality gate, and complete local-to-CI parity.
 
     [:material-arrow-right: Read Model](explanation/sovereign-verification-model.md)
-
-- :material-certificate-outline:{ .lg .middle style="color: #6366f1;" } **[Supply-Chain Assurance](reference/supply-chain-assurance-profile.md)**
-
-    ---
-
-    Auditable supply-chain controls, security baselines, and verification runbook commands.
-
-    [:material-arrow-right: View Profile](reference/supply-chain-assurance-profile.md)
 
 </div>
 
