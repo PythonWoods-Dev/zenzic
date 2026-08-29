@@ -107,7 +107,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     ---
 
-    Validate OpenGraph social cards, meta descriptions, and sitemap topology.
+    Set up auto-generated social cards and the Open Graph meta tags they need to display.
 
     [:material-arrow-right: Read Guide](configure-social-metadata.md)
 

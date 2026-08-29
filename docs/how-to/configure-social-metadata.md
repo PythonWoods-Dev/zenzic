@@ -7,80 +7,121 @@ description: "Configure Open Graph tags, Twitter Cards, and per-page SEO metadat
 
 # Configure Social Metadata & SEO
 
-Zensical and MkDocs handle social metadata at two levels: **site-wide defaults** in `zensical.toml` (or `mkdocs.yml`), and **per-page overrides** in each Markdown file's frontmatter. This guide shows both with illustrative examples.
+Material for MkDocs has no built-in mechanism that automatically turns frontmatter into
+`<meta property="og:*">` tags — this is a common misconception. There are two genuinely
+separate, real mechanisms, and both need to be set up explicitly:
+
+1. The **`social` plugin** generates card **images** (the preview picture), configured
+   through `mkdocs.yml` and per-page frontmatter.
+2. A **template override** is required to actually emit the `<meta>` tags a page's
+   `<head>` needs for those images (and the page's title/description) to show up when a
+   link is shared — the `social` plugin does not do this on its own.
+
+Skipping step 2 is the most common mistake: card images get generated, but no meta tags
+point to them, so shared links still render as plain text on social platforms.
 
 ---
 
-## Site-wide Defaults (`zensical.toml` or `mkdocs.yml`)
+## Step 1 — Generate card images with the `social` plugin
 
-The global settings live in the project configuration:
+Enable it in `mkdocs.yml`:
 
-```toml
-# zensical.toml / mkdocs.yml
-site_name = "Zenzic"
-site_url = "https://zenzic.dev/"
-site_description = "Documentation quality gate for Markdown projects."
+```yaml title="mkdocs.yml"
+plugins:
+  - social:
+      cards_layout_options:
+        background_color: "#4f46e5"
+```
 
-# Global extra variables (like social links or default images)
-[extra]
-social_image = "assets/social/social-card.png"
+The plugin auto-generates a `1200×630` card image per page. `cards_layout_options.title`
+and `.description` default to the page's `title`/frontmatter `description` — set them
+per-page if you want a different layout for a specific page:
+
+```markdown title="docs/example.md"
+---
+description: "Deep dive into the Two-Pass Pipeline, VSM, and path traversal guard."
+---
 ```
 
 !!! tip "OG image specification"
-    Social card images must be **1200 × 630 px** (1.91:1 ratio). Files smaller
-    than this are cropped or rejected by LinkedIn and Twitter. Use PNG for
-    screenshots and SVG-exported graphics; avoid JPEG for text-heavy cards.
+    Generated cards are `1200 × 630 px` (1.91:1 ratio), matching what LinkedIn and
+    Twitter expect — no manual sizing needed when using the plugin.
+
+---
+
+## Step 2 — Emit the actual meta tags
+
+The plugin's generated images live under `assets/images/social/<page-path>.png`, but
+nothing points to them until you add an `extrahead` block to a custom theme template:
+
+```html title="overrides/main.html"
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {% set title = page.meta.title if page and page.meta and page.meta.title else (page.title if page else config.site_name) %}
+  {% set description = page.meta.description if page and page.meta and page.meta.description else config.site_description %}
+  {% if page and page.meta and page.meta.image %}
+    {% set og_image = config.site_url ~ page.meta.image %}
+  {% else %}
+    {% set og_image = config.site_url ~ "assets/images/social/" ~ page.url ~ ".png" %}
+  {% endif %}
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{ title }}" />
+  <meta property="og:description" content="{{ description }}" />
+  <meta property="og:url" content="{{ page.canonical_url }}" />
+  <meta property="og:image" content="{{ og_image }}" />
+  <meta name="twitter:card" content="summary_large_image" />
+{% endblock %}
+```
+
+A page's own `image:` frontmatter key, when set, overrides the plugin's auto-generated
+card for that one page — otherwise the auto-generated path is used.
+
+Set `custom_dir: overrides` under `theme:` in `mkdocs.yml` if you haven't already, so
+MkDocs picks up this template.
 
 ---
 
 ## Per-page Overrides (Frontmatter)
 
-Any page can override the global defaults by adding fields to its frontmatter:
+The template above reads two frontmatter keys per page:
 
-```markdown
----
-title: "Architecture — How Zenzic Works"
-description: "Deep dive into the Two-Pass Pipeline, VSM, and path traversal guard."
-image: assets/social/social-card.png
-keywords: [zenzic, architecture, vsm, pipeline, document integrity engine]
----
-```
-
-| Frontmatter key | Maps to | Notes |
+| Frontmatter key | Read by | Notes |
 | :--- | :--- | :--- |
-| `title` | `<title>`, `og:title`, `twitter:title` | The build engine appends the site title automatically |
-| `description` | `<meta name="description">`, `og:description` | Keep under 155 characters for search snippets |
-| `image` | `og:image`, `twitter:image` | Absolute or root-relative; overrides site default |
-| `keywords` | `<meta name="keywords">` | Comma-separated list |
+| `title` | `extrahead` override (`og:title`), `social` plugin's card layout | Falls back to the page's rendered title, then `site_name` |
+| `description` | `extrahead` override (`og:description`), `social` plugin's card layout | Keep under 155 characters for search snippets |
+| `image` | `extrahead` override (`og:image`) | Optional — overrides the `social` plugin's auto-generated card for this page only |
+
+There is no built-in `<meta name="keywords">` emission in Material for MkDocs — a
+`keywords` frontmatter key, if you set one, has no effect unless your own `extrahead`
+override reads it explicitly.
 
 ---
 
-## Storing Social Images
+## Storing a Custom Social Image
 
-Place all social card assets in `docs/assets/social/` (or the folder mapped to static assets):
+Most pages don't need this — the `social` plugin's auto-generated card is enough. For a
+page that deserves its own custom image (e.g. a blog post announcing a release), place a
+PNG under `docs/assets/social/` and reference it via the page's `image:` frontmatter key,
+which the `extrahead` override above already checks for:
 
 ```text
 docs/assets/social/
-├── social-card.png          ← default OG image (1200 × 630, dark)
-├── social-card-light.png    ← light-mode variant
-├── social-card.svg          ← source SVG (do not serve directly as OG)
-└── social-card-light.svg
+└── release-announcement.png   ← custom OG image (1200 × 630)
+```
+
+```markdown title="docs/blog/posts/release-announcement.md"
+---
+title: "Zenzic Documentation Security Platform"
+image: assets/social/release-announcement.png
+---
 ```
 
 !!! caution "SVG as OG image"
-    Most social crawlers (LinkedIn, Slack, iMessage) do not render SVG. Always
-    export a PNG from the SVG source. The SVG files are kept in `docs/assets/social/`
-    as design sources only.
-
-For page-specific cards (e.g. a blog post announcing a release), add the PNG
-and reference it in the post's frontmatter:
-
-```markdown
----
-title: "Zenzic Documentation Security Platform"
-image: assets/social/social-card.png
----
-```
+    Most social crawlers (LinkedIn, Slack, iMessage) do not render SVG. If you design the
+    image as an SVG source, export it to PNG before referencing it in frontmatter — never
+    point `image:` at the `.svg` file directly.
 
 ---
 
@@ -106,17 +147,16 @@ accept a URL and display which tags they resolved.
 
 Zenzic does not validate external social URLs, but it **does** detect unused
 static assets (`Z405`). Its asset-reference scanner recognizes real
-Markdown/HTML links (`[text](path)`, `<img src="...">`, `<a href="...">`) and,
-as of this release, the frontmatter `image:` key shown above — a PNG
-referenced only that way is correctly counted as used and will not be
-flagged.
+Markdown/HTML links (`[text](path)`, `<img src="...">`, `<a href="...">`) and
+the frontmatter `image:` key shown above — a custom social image referenced
+only that way is correctly counted as used and will not be flagged.
 
-It does **not** recognize references made at the site-wide config level
-(`[extra] social_image` in `mkdocs.yml`/`zensical.toml`) — only per-page
-frontmatter. If your project sets a default social image only through
-site-wide config, exclude it explicitly. SVG source files (kept only as
-design sources, never referenced by any page or config) also still need
-explicit exclusion:
+The `social` plugin's auto-generated card images never trigger `Z405` at all —
+they're written to the *built* site output during `mkdocs build`, not stored
+as source files under `docs/`, so Zenzic's scan of your source tree never
+sees them. SVG source files kept only as design originals for a custom image
+(never directly referenced by any page, since `image:` should point at the
+exported PNG) still need explicit exclusion:
 
 ```toml
 # .zenzic.toml
