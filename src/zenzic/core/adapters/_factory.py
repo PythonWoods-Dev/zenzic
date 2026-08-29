@@ -37,6 +37,7 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from zenzic.core.exceptions import CheckError, ZenzicError
 from zenzic.models.config import BuildContext
 
 from ._base import BaseAdapter
@@ -238,11 +239,26 @@ def get_adapter(
 
     if adapter_class is None or adapter_class is StandaloneAdapter:
         adapter: BaseAdapter = StandaloneAdapter()
-    elif hasattr(adapter_class, "from_repo"):
-        # Prefer the richer from_repo constructor when available.
-        adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
     else:
-        adapter = cast(Any, adapter_class)(context, docs_root)
+        # A third-party or built-in adapter's constructor/from_repo can raise
+        # anything. A ZenzicError subclass is already well-typed (e.g. the
+        # real ZensicalAdapter raising ConfigurationError when zensical.toml
+        # is absent) and must propagate unchanged. Anything else is an
+        # unexpected adapter bug — wrap it as CheckError so cli_main()'s
+        # top-level handler renders a clean error instead of a raw traceback.
+        try:
+            if hasattr(adapter_class, "from_repo"):
+                # Prefer the richer from_repo constructor when available.
+                adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
+            else:
+                adapter = cast(Any, adapter_class)(context, docs_root)
+        except ZenzicError:
+            raise
+        except Exception as exc:
+            raise CheckError(
+                f"Adapter for engine {context.engine!r} failed to initialize: {exc}",
+                context={"engine": context.engine, "cause": str(exc)},
+            ) from exc
 
     if not isinstance(adapter, BaseAdapter):
         raise TypeError(
@@ -251,7 +267,17 @@ def get_adapter(
 
     # If the adapter found no engine config and no locale information, fall
     # back to StandaloneAdapter so nav-dependent checks are skipped cleanly.
-    if not adapter.has_engine_config():
+    try:
+        has_config = adapter.has_engine_config()
+    except ZenzicError:
+        raise
+    except Exception as exc:
+        raise CheckError(
+            f"Adapter for engine {context.engine!r} failed during "
+            f"has_engine_config(): {exc}",
+            context={"engine": context.engine, "cause": str(exc)},
+        ) from exc
+    if not has_config:
         adapter = StandaloneAdapter()
 
     messages = []
