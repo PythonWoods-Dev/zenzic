@@ -8,12 +8,11 @@ description: "ADR 005: Z404 CONFIG_ASSET_MISSING extended to all supported engin
 
 # ADR 005: Agnostic Universalism — Z404 for All Engines
 
-> **Historical note:** the Docusaurus adapter referenced below (both in the Context and the
-> engine table) was permanently removed as of `v0.14.0` — see [ADR 006](./adr-unified-perimeter.md)
-> and the blog post *Why We Dropped Docusaurus*. The Docusaurus row in the table below is
-> retained as historical record, not a current capability. This ADR's core decision —
-> universal Z404 coverage across all supported engines — remains active and current for the
-> engines that remain: MkDocs, Zensical, and Standalone.
+> This ADR's core decision — universal Z404 coverage across all supported engines — remains
+> active and current for the engines Zenzic supports today: MkDocs, Zensical, and Standalone.
+> Docusaurus was removed as of `v0.14.0` (see [ADR 006](./adr-unified-perimeter.md)); the table
+> below keeps its row, marked accordingly, since it illustrates the pre-universalization state
+> this ADR's own Context section describes.
 
 **Status:** Active
 **Decider:** Architecture Lead

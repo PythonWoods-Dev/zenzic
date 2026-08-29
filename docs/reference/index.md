@@ -28,8 +28,6 @@ This reference collection is organized into focused, authoritative specification
 | **[Suppression Policy](./suppression-policy.md)** | Managed Technical Debt framework, 4 suppression levels, Technical Debt Ledger, and `zenzic audit` |
 | **[CLI Command Reference](./cli.md)** | Complete guide to `zenzic check`, `zenzic score`, `zenzic audit`, `zenzic lab`, and `zenzic diff` |
 | **[Advanced Features](./advanced-features.md)** | Policy-as-Code Engine, Custom Rule SDK v3, Three-Pass Pipeline, and programmatic Python API |
-| **[Brand System](./brand-system.md)** | Palette tokens (`--zz-*`), badge states, and Surface Discipline guidelines |
-| **[Brand Ecosystem](./brand-kit.md)** | Logo usage, secondary-text color standards, and brand asset distribution |
 | **[Engine Configuration Guide](./engines.md)** | Adapter discovery, `[build_context]` fields, and per-engine capability differences (MkDocs, Zensical, Standalone) |
 | **[Glossary](./glossary.md)** | Rigorous definitions for domain terms (VSM, DQS, Policy-as-Code, Audit Mode, Enterprise SARIF) |
 

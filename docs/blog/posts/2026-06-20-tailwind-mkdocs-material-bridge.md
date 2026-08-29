@@ -85,6 +85,3 @@ This is not a limitation; it is a clean architectural boundary. The MkDocs Mater
 ## What This Enables
 
 With the bridge in place, the landing page Jinja2 partials can use standard Tailwind utility classes at their designed scale. The 14 ADR ghost entries in the developer nav have been purged in this same commit. The dual-palette configuration now exposes the MkDocs Material theme toggle in the header.
-
-The full technical specification — including the file map, the dark mode sync pattern, and a comparison table of rejected alternatives — is in the developer documentation:
-[Tailwind/MkDocs Material Bridge](../../developers/explanation/tailwind-mkdocs-bridge.md)

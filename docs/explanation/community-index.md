@@ -34,14 +34,6 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     [:material-arrow-right: Read](#license)
 
-- :material-palette: &nbsp; __Brand Kit__
-
-    ---
-
-    Logos, badges, and visual identity guidelines.
-
-    [:material-arrow-right: Read](../reference/brand-kit.md)
-
 - :octicons-mark-github-16: &nbsp; __Repository__
 
     ---
