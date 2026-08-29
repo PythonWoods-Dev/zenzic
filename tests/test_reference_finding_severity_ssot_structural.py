@@ -78,6 +78,5 @@ def test_no_hardcoded_is_warning_literals_in_scanner_py() -> None:
         "of the same bug shape already fixed in _check.py (Z406, Z503), "
         "rules.py (Z107, Z902), incremental.py (Z120, Z122, Z503), and "
         "scanner.py's own RuleFinding construction (Z106, Z902). Route "
-        "through code_severity(issue) == 'warning' instead:\n"
-        + "\n".join(violations)
+        "through code_severity(issue) == 'warning' instead:\n" + "\n".join(violations)
     )

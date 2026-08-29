@@ -452,7 +452,9 @@ class ZenzicReporter:
         # plain errors and strict-promoted warnings are baseline-sensitive, matching
         # _check.py's real exit-code decision (unbaselined_defects).
         if baseline_active:
-            verdict_errors = sum(1 for f in findings if f.severity == "error" and not f.is_baselined)
+            verdict_errors = sum(
+                1 for f in findings if f.severity == "error" and not f.is_baselined
+            )
             verdict_warnings = sum(
                 1 for f in findings if f.severity == "warning" and not f.is_baselined
             )

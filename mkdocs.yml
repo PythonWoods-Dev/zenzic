@@ -14,6 +14,12 @@ repo_name: PythonWoods/zenzic
 edit_uri: edit/main/docs/
 copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 
+# on_post_build: corrects mkdocs-rss-plugin's hardcoded feed-discovery <link>
+# tags, which ignore plugins.rss.feeds_filenames below (known upstream
+# limitation — see hooks/fix_rss_feed_discovery_links.py for detail).
+hooks:
+  - hooks/fix_rss_feed_discovery_links.py
+
 extra_css:
   - assets/css/zenzic-tailwind.min.css
   - assets/css/extra.css
@@ -312,8 +318,8 @@ extra:
       link: /blog/rss.xml
       name: RSS Feed
     - icon: fontawesome/solid/square-rss
-      link: /blog/atom.xml
-      name: Atom Feed
+      link: /blog/rss-updated.xml
+      name: RSS Feed (Recently Updated)
 
 markdown_extensions:
   - abbr
@@ -375,7 +381,7 @@ plugins:
       stylesheet: /blog/rss.xsl
       feeds_filenames:
         rss_created: blog/rss.xml
-        rss_updated: blog/atom.xml
+        rss_updated: blog/rss-updated.xml
   - minify:
       minify_html: true
       minify_css: true

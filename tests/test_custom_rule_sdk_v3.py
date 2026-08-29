@@ -42,9 +42,7 @@ class CustomCodeBlockRule(ZenzicRuleV3):
         penalty=2.0,
     )
 
-    def visit_code_block(
-        self, file_path: Path, start_line: int, lang: str, code: str
-    ) -> list:
+    def visit_code_block(self, file_path: Path, start_line: int, lang: str, code: str) -> list:
         if lang == "bash":
             return [
                 self.create_finding(
@@ -90,17 +88,7 @@ def test_sdk_v3_visit_link(tmp_path: Path) -> None:
 def test_sdk_v3_visit_code_block(tmp_path: Path) -> None:
     rule = CustomCodeBlockRule()
     doc_path = tmp_path / "docs" / "guide.md"
-    content = (
-        "# Title\n"
-        "\n"
-        "```python\n"
-        "print('fine')\n"
-        "```\n"
-        "\n"
-        "```bash\n"
-        "rm -rf /\n"
-        "```\n"
-    )
+    content = "# Title\n\n```python\nprint('fine')\n```\n\n```bash\nrm -rf /\n```\n"
     findings = rule.check(doc_path, content)
     assert len(findings) == 1
     assert findings[0].rule_id == "ZZ-NO-BASH"

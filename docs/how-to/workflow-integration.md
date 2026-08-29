@@ -49,11 +49,13 @@ build:
 
 For `Makefile` users (recipe lines must be tab-indented, not space-indented):
 
+<!-- markdownlint-disable MD010 -->
 ```makefile title="Makefile"
 build:
 	uv run zenzic check all --strict $(ZENZIC_EXTRA_ARGS)
 	uv run mkdocs build --strict
 ```
+<!-- markdownlint-enable MD010 -->
 
 Both commands in the recipe run sequentially. A non-zero exit from `zenzic check all`
 aborts the recipe before `uv run mkdocs build` is reached.

@@ -273,8 +273,7 @@ def get_adapter(
         raise
     except Exception as exc:
         raise CheckError(
-            f"Adapter for engine {context.engine!r} failed during "
-            f"has_engine_config(): {exc}",
+            f"Adapter for engine {context.engine!r} failed during has_engine_config(): {exc}",
             context={"engine": context.engine, "cause": str(exc)},
         ) from exc
     if not has_config:

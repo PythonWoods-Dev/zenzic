@@ -1379,7 +1379,9 @@ def _z0xx_only_report() -> object:
 @patch("zenzic.cli._standalone._run_all_checks")
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
-def test_diff_z0xx_only_does_not_trigger_fatal(_root, _cfg, mock_run, _excl, tmp_path: Path) -> None:
+def test_diff_z0xx_only_does_not_trigger_fatal(
+    _root, _cfg, mock_run, _excl, tmp_path: Path
+) -> None:
     """A synthetic Z0xx-only findings_counts entry must NOT trigger FATAL/Exit 2.
 
     Locks diff's fatal detection to Z2xx (security) only, guarding against the

@@ -97,9 +97,7 @@ def test_int_002_locale_file_path_traversal_is_fatal(tmp_path: Path) -> None:
 def test_int_003_locale_file_same_page_anchor_mismatch_is_error(tmp_path: Path) -> None:
     """A locale file's own broken same-page anchor must be flagged as Z102."""
     root = _locale_root(tmp_path)
-    (root / "page.md").write_text(
-        "# Pagina\n\n[Vai](#sezione-inesistente)\n", encoding="utf-8"
-    )
+    (root / "page.md").write_text("# Pagina\n\n[Vai](#sezione-inesistente)\n", encoding="utf-8")
 
     errors = _run(tmp_path, root)
 

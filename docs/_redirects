@@ -511,7 +511,8 @@
 /it/blog/log-v080-historical-note/                                          /blog/ 301
 /blog/rss.xsl                                                               /rss.xsl 301
 /blog/atom.xsl                                                              /rss.xsl 301
-/it/blog/atom.xml                                                           /blog/atom.xml 301
+/it/blog/atom.xml                                                           /blog/rss-updated.xml 301
+/blog/atom.xml                                                              /blog/rss-updated.xml 301
 /it/blog/rss.xml                                                            /blog/rss.xml 301
 /it/blog                                                                    /blog/ 301
 /it/blog/                                                                   /blog/ 301

@@ -102,8 +102,7 @@ def test_engine_forbidden_term_and_credential_same_line_first_match_wins(
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
     (docs_dir / "a.md").write_text(
-        "export AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI  "
-        "# ProjectOmniInternal\n",
+        "export AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI  # ProjectOmniInternal\n",
         encoding="utf-8",
     )
     (tmp_path / ".zenzic.toml").write_text(

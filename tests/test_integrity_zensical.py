@@ -342,11 +342,7 @@ class TestCheckConfigAssets:
         file that does not exist on disk, must fire Z404 CONFIG_ASSET_MISSING."""
         (tmp_path / "docs").mkdir()
         (tmp_path / "zensical.toml").write_text(
-            "[project]\n"
-            'site_name = "Test"\n'
-            "\n"
-            "[project.theme]\n"
-            'favicon = "assets/favicon.png"\n',
+            '[project]\nsite_name = "Test"\n\n[project.theme]\nfavicon = "assets/favicon.png"\n',
             encoding="utf-8",
         )
 
@@ -361,11 +357,7 @@ class TestCheckConfigAssets:
         """Same as above for `logo`, confirming both fields, not just favicon."""
         (tmp_path / "docs").mkdir()
         (tmp_path / "zensical.toml").write_text(
-            "[project]\n"
-            'site_name = "Test"\n'
-            "\n"
-            "[project.theme]\n"
-            'logo = "assets/logo.png"\n',
+            '[project]\nsite_name = "Test"\n\n[project.theme]\nlogo = "assets/logo.png"\n',
             encoding="utf-8",
         )
 
@@ -382,11 +374,7 @@ class TestCheckConfigAssets:
         (docs_root / "assets").mkdir(parents=True)
         (docs_root / "assets" / "favicon.png").write_bytes(b"\x89PNG\r\n")
         (tmp_path / "zensical.toml").write_text(
-            "[project]\n"
-            'site_name = "Test"\n'
-            "\n"
-            "[project.theme]\n"
-            'favicon = "assets/favicon.png"\n',
+            '[project]\nsite_name = "Test"\n\n[project.theme]\nfavicon = "assets/favicon.png"\n',
             encoding="utf-8",
         )
 

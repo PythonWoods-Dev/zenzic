@@ -48,7 +48,7 @@ def _find_hardcoded_skip_list_literals() -> list[str]:
         for op, comparator in zip(node.ops, node.comparators, strict=True):
             if not isinstance(op, ast.In):
                 continue
-            if not isinstance(comparator, (ast.Tuple, ast.Set, ast.List)):
+            if not isinstance(comparator, ast.Tuple | ast.Set | ast.List):
                 continue
             z_code_literals = [elt for elt in comparator.elts if _is_z_code_literal(elt)]
             if len(z_code_literals) >= 3:

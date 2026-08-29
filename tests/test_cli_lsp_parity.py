@@ -62,7 +62,9 @@ def _cli_sarif_rule_ids(repo_root: Path) -> list[str]:
     )
     sarif = json.loads(result.stdout)
     return sorted(
-        r["ruleId"] for r in sarif["runs"][0]["results"] if r["ruleId"] not in _TOPOLOGY_FAMILY_CODES
+        r["ruleId"]
+        for r in sarif["runs"][0]["results"]
+        if r["ruleId"] not in _TOPOLOGY_FAMILY_CODES
     )
 
 

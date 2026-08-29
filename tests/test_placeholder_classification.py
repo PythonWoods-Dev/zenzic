@@ -60,9 +60,7 @@ def test_genuine_looking_secret_not_flagged() -> None:
 
 def test_scan_url_for_secrets_flags_placeholder() -> None:
     findings = list(
-        scan_url_for_secrets(
-            "https://example.com?key=AKIAIOSFODNN7EXAMPLE", Path("docs/x.md"), 1
-        )
+        scan_url_for_secrets("https://example.com?key=AKIAIOSFODNN7EXAMPLE", Path("docs/x.md"), 1)
     )
     assert findings
     assert findings[0].is_likely_placeholder is True
@@ -70,18 +68,14 @@ def test_scan_url_for_secrets_flags_placeholder() -> None:
 
 def test_scan_url_for_secrets_does_not_flag_real_looking_key() -> None:
     findings = list(
-        scan_url_for_secrets(
-            "https://example.com?key=AKIAJ7ARBNTPDXVBQZ4A", Path("docs/x.md"), 1
-        )
+        scan_url_for_secrets("https://example.com?key=AKIAJ7ARBNTPDXVBQZ4A", Path("docs/x.md"), 1)
     )
     assert findings
     assert findings[0].is_likely_placeholder is False
 
 
 def test_scan_line_for_secrets_flags_placeholder() -> None:
-    findings = list(
-        scan_line_for_secrets("api_key: AKIAIOSFODNN7EXAMPLE", Path("docs/x.md"), 1)
-    )
+    findings = list(scan_line_for_secrets("api_key: AKIAIOSFODNN7EXAMPLE", Path("docs/x.md"), 1))
     assert findings
     assert findings[0].is_likely_placeholder is True
 

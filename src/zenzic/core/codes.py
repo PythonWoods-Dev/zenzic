@@ -205,15 +205,15 @@ NON_INLINE_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
         "Z411",  # DEAD_END_NODE
         "Z412",  # TRACEABILITY_BROKEN
         "Z521",  # REQUIRED_TABLE_COLUMN -- anchors to the table header row; a same-line
-                 # inline comment corrupts GFM table-row parsing, silently hiding the
-                 # real violation (confirmed empirically, ADR-093 extension, v0.31.0)
+        # inline comment corrupts GFM table-row parsing, silently hiding the
+        # real violation (confirmed empirically, ADR-093 extension, v0.31.0)
         "Z522",  # TABLE_CELL_ENUM -- anchors to a data row, which empirically tolerates
-                 # a trailing inline comment (the finding still fires); included here for
-                 # consistency with its sibling table-policy codes (Z521/Z523), not because
-                 # it independently reproduces the same parsing-corruption failure
+        # a trailing inline comment (the finding still fires); included here for
+        # consistency with its sibling table-policy codes (Z521/Z523), not because
+        # it independently reproduces the same parsing-corruption failure
         "Z523",  # HEADING_ORDER_VIOLATION -- anchors to the heading line; a same-line
-                 # inline comment corrupts the heading-title regex match, silently hiding
-                 # the real violation (confirmed empirically, same failure class as Z521)
+        # inline comment corrupts the heading-title regex match, silently hiding
+        # the real violation (confirmed empirically, same failure class as Z521)
         "Z620",  # STALE_GLOBAL_SUPPRESSION
     }
 )
