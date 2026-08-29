@@ -14,6 +14,18 @@ callout instead of a plain Suppressible field — both accepted conventions, not
 drift, so this group is excluded from the severity and suppressibility checks.
 Z504 uses an intentionally minimal format (no Penalty/Exit fields, marked
 "(reserved)") and is excluded from the penalty check.
+
+``test_finding_codes_heading_names_match_registry`` closes a narrower, separate
+gap (V031_TECHNICAL_DEBT_LEDGER_STRUCTURAL_ASSESSMENT's Rule 21 recommendation,
+implemented against this page rather than its original target,
+``developers/explanation/governance/technical-debt.md``, which was cut in this
+same session before the recommendation could be implemented there): a heading's
+own *name* text (the part after ``Z101:``) was never checked against
+``CODE_NAMES[code]``, only Severity/Penalty/Suppressible were. This is exactly
+the code-identity-drift shape that motivated the original recommendation (a
+``Z112`` entry once mislabeled as ``Z108``) — and a live scan while implementing
+this found 4 real, previously-undetected instances (``Z120``/``Z121``/``Z122``/
+``Z124``), fixed in the same commit as this test.
 """
 
 from __future__ import annotations
@@ -21,7 +33,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from zenzic.core import regex as re
-from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
+from zenzic.core.codes import CODE_DEFINITIONS, CODE_NAMES, NON_SUPPRESSIBLE_CODES
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -90,5 +102,33 @@ def test_finding_codes_entries_match_registry() -> None:
                 failures.append(
                     f"{code}: in NON_SUPPRESSIBLE_CODES but doc shows Suppressible={supp_display!r}"
                 )
+
+    assert not failures, "finding-codes.md drift from codes.py:\n" + "\n".join(failures)
+
+
+NAMED_HEADING_PATTERN = re.compile(r"^### (Z\d+): ([A-Z_]+) \{#z\d+\}$")
+
+
+def test_finding_codes_heading_names_match_registry() -> None:
+    """Each heading's own name text (after 'Z101:') must match CODE_NAMES[code].
+
+    Severity/Penalty/Suppressible are already guarded above; this catches the
+    narrower case where the *identity* of the heading itself drifts — the same
+    shape as the historical Z112-mislabeled-as-Z108 incident that motivated
+    this test's addition.
+    """
+    lines = FINDING_CODES_PATH.read_text(encoding="utf-8").splitlines()
+    failures: list[str] = []
+
+    for line in lines:
+        m = NAMED_HEADING_PATTERN.match(line)
+        if not m:
+            continue
+        code, name = m.group(1), m.group(2)
+        expected = CODE_NAMES.get(code)
+        if expected is None:
+            failures.append(f"{code}: no CODE_NAMES entry")
+        elif expected != name:
+            failures.append(f"{code}: heading says {name!r}, CODE_NAMES says {expected!r}")
 
     assert not failures, "finding-codes.md drift from codes.py:\n" + "\n".join(failures)

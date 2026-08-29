@@ -316,7 +316,7 @@ An entry in the `absolute_path_allowlist` configuration was never matched by any
 
 ---
 
-### Z120: UNKNOWN_HTML_ATTR {#z120}
+### Z120: UNKNOWN_HTML_ATTRIBUTE {#z120}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z120-unknown-html-attr.md)
 
@@ -326,7 +326,7 @@ An HTML `<a>` tag contains unknown or malformed attributes.
 
 ---
 
-### Z121: MISSING_HREF {#z121}
+### Z121: MISSING_OR_EMPTY_HREF {#z121}
 
 **Severity:** `error` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z121-missing-href.md)
 
@@ -336,7 +336,7 @@ An HTML `<a>` tag is missing the required `href` attribute.
 
 ---
 
-### Z122: JUMP_LINK {#z122}
+### Z122: JUMP_LINK_DETECTED {#z122}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z122-jump-link.md)
 
@@ -356,7 +356,7 @@ An HTML tag uses an unusual scheme (e.g., `ftp://`, `ssh://`) instead of `http/h
 
 ---
 
-### Z124: OPAQUE_CONTEXT {#z124}
+### Z124: OPAQUE_HTML_CONTEXT {#z124}
 
 **Severity:** `error` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z124-opaque-context.md)
 
