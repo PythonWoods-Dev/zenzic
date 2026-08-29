@@ -46,7 +46,7 @@ The following diagram illustrates how Zenzic evaluates file finding codes agains
 ```mermaid
 flowchart TD
     A["Static Analysis Finding"] --> B{"Is Code Non-Suppressible? (Z2xx)"}
-    B -->|Yes: Z201-Z205 Security Breach| C["FATAL SECURITY OVERRIDE (Exit 2/3)\nSuppression Blocked"]
+    B -->|Yes: Z201-Z205 Security Breach| C["SECURITY OVERRIDE (Non-Suppressible)\nExit code varies by code — see table below"]
     B -->|No: Standard Finding| D{"Directory Policy Exempt? (Level 4)"}
     D -->|Yes| E["POLICY_EXEMPTION (0 Debt Pts)"]
     D -->|No| F{"Per-File Ignore Matched? (Level 2)"}
