@@ -156,6 +156,56 @@ class TestPolyglotUnifiedExtractor:
         assert all_links[0].line_no == 5
 
 
+class TestForbiddenSchemeBypassPrevention:
+    """Z205 forbidden-scheme detection must survive 4 known bypass techniques.
+
+    Regression coverage for a fixture (``tests/fixtures/z205-bypass-test.md``,
+    from Direttiva CEO onwards) that documented these payloads but was never
+    actually loaded by any test — the payloads themselves were confirmed still
+    genuinely caught by live end-to-end reproduction before writing these
+    (``zenzic check all --show-info`` on each, real ``SECURITY BREACH
+    DETECTED`` panel, real Exit 2, for all 4). These tests assert the same
+    detection at the unit level: ``HtmlNodeInfo.z205_scheme`` is the field
+    ``_parse_node`` sets when ``_POLY_FORBIDDEN_SCHEMES`` matches the
+    normalised href (``html.unescape`` then whitespace/control-char strip,
+    applied before the scheme comparison — the exact mechanism that defeats
+    all 4 techniques below).
+    """
+
+    def test_double_href_attack_uses_first_occurrence(self) -> None:
+        """A second, decoy href must not shadow a malicious first href."""
+        html = '<a href="javascript:alert(1)" href="safe.md">Double Href Attack</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].href == "javascript:alert(1)"
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_html_entity_encoded_scheme_is_unescaped_before_check(self) -> None:
+        """A numeric HTML entity inside the scheme must not bypass detection."""
+        html = '<a href="&#106;avascript:alert(1)">HTML Entities</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_embedded_whitespace_in_scheme_is_stripped_before_check(self) -> None:
+        """A literal space inside the scheme must not bypass detection."""
+        html = '<a href="java script:alert(1)">Whitespace</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_embedded_control_char_in_scheme_is_stripped_before_check(self) -> None:
+        """An HTML-entity-encoded control character must not bypass detection."""
+        html = '<a href="java&#x09;script:alert(1)">Control Chars</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+
 # ─── slug_heading (pure) ──────────────────────────────────────────────────────
 
 
