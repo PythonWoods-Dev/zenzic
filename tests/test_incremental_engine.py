@@ -21,11 +21,13 @@ from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap
 
 def _make_engine(
     tmp_path: Path,
+    config: ZenzicConfig | None = None,
 ) -> tuple[IncrementalAnalysisEngine, VirtualSiteMap, VirtualBufferOverlay]:
     """Construct a ready-to-use engine, VSM, and overlay for a workspace at tmp_path."""
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(exist_ok=True)
-    config = ZenzicConfig(docs_dir="docs")
+    if config is None:
+        config = ZenzicConfig(docs_dir="docs")
     rule_engine = _build_rule_engine(config)
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_dir, tmp_path)
@@ -57,6 +59,65 @@ def test_engine_full_sync_produces_diagnostics(tmp_path: Path) -> None:
     # All diagnostics must be ZenzicDiagnostic instances
     for d in all_diags:
         assert isinstance(d, ZenzicDiagnostic)
+
+
+def test_engine_detects_forbidden_terms(tmp_path: Path) -> None:
+    """Z204 FORBIDDEN_TERM must be detected via the LSP/incremental path too, not
+    only the CLI's check_all pipeline (03-priority-table.md,
+    V031_LIVE_EXECUTION_BUG_REMEDIATION: a forbidden term configured in
+    .zenzic.local.toml previously produced no real-time LSP diagnostic at all
+    while editing the same file in VS Code).
+    """
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "a.md").write_text(
+        "# Setup\n\nThe system uses ProjectOmniInternal for backend routing.\n",
+        encoding="utf-8",
+    )
+    # process_changes() reloads config from disk on every call (hot-reload of
+    # live .zenzic.toml edits) — a config object passed only to the
+    # constructor is overwritten by that reload, so forbidden_patterns must
+    # exist in a real file for a full sync to pick it up.
+    (tmp_path / ".zenzic.toml").write_text(
+        'forbidden_patterns = ["ProjectOmniInternal"]\n', encoding="utf-8"
+    )
+    config = ZenzicConfig(docs_dir="docs", forbidden_patterns=["ProjectOmniInternal"])
+
+    engine, vsm, overlay = _make_engine(tmp_path, config)
+    results = engine.process_changes(vsm, overlay)
+
+    all_diags = [d for diags in results.values() for d in diags]
+    z204 = [d for d in all_diags if d.code == "Z204"]
+    assert len(z204) == 1, f"Expected exactly one Z204 diagnostic, got: {all_diags}"
+    assert "ProjectOmniInternal" in z204[0].message
+
+
+def test_engine_forbidden_term_and_credential_same_line_first_match_wins(
+    tmp_path: Path,
+) -> None:
+    """A line matching both a credential pattern and a forbidden term must
+    yield exactly one finding (the credential scan takes priority), matching
+    scanner.py's harvest() first-match-wins semantics — not double-reported.
+    """
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "a.md").write_text(
+        "export AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI  "
+        "# ProjectOmniInternal\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text(
+        'forbidden_patterns = ["ProjectOmniInternal"]\n', encoding="utf-8"
+    )
+    config = ZenzicConfig(docs_dir="docs", forbidden_patterns=["ProjectOmniInternal"])
+
+    engine, vsm, overlay = _make_engine(tmp_path, config)
+    results = engine.process_changes(vsm, overlay)
+
+    all_diags = [d for diags in results.values() for d in diags]
+    security_diags = [d for d in all_diags if d.code in ("Z201", "Z204")]
+    assert len(security_diags) == 1, f"Expected exactly one finding, got: {security_diags}"
+    assert security_diags[0].code == "Z201"
 
 
 def test_engine_incremental_returns_only_affected(tmp_path: Path) -> None:

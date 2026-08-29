@@ -548,9 +548,15 @@ class IncrementalAnalysisEngine:
         # Credential scan — single-pass; CredentialScannerRule is excluded from
         # the rule engine to avoid a double-pass in the CLI path (harvest() already
         # scans there). In the LSP path harvest() is not called, so we scan here.
-        from zenzic.core.credentials import scan_lines_with_lookback
+        from zenzic.core.credentials import (
+            scan_line_for_forbidden_terms,
+            scan_lines_with_lookback,
+        )
 
-        for _sf in scan_lines_with_lookback(enumerate(text.splitlines(keepends=True), 1), path):
+        lines = text.splitlines(keepends=True)
+        secret_line_nos: set[int] = set()
+        for _sf in scan_lines_with_lookback(enumerate(lines, 1), path):
+            secret_line_nos.add(_sf.line_no)
             findings.append(
                 RuleFinding(
                     rule_id="Z201",
@@ -563,6 +569,33 @@ class IncrementalAnalysisEngine:
                     col_start=_sf.col_start,
                 )
             )
+
+        # Forbidden-term scan (Z204) — same first-match-wins semantics as
+        # scanner.py's harvest(): skip lines already flagged as a credential.
+        fp = self.config.forbidden_patterns
+        if fp:
+            fp_compiled = self.config.forbidden_patterns_compiled
+            for _lineno, _raw_line in enumerate(lines, 1):
+                if _lineno in secret_line_nos:
+                    continue
+                for _tf in scan_line_for_forbidden_terms(
+                    _raw_line, fp, path, _lineno, compiled_pattern=fp_compiled
+                ):
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z204",
+                            severity=code_severity("Z204"),
+                            file_path=_tf.file_path,
+                            line_no=_tf.line_no,
+                            message=(
+                                f"Forbidden term detected — remove from documentation: "
+                                f"'{_tf.match_text}'"
+                            ),
+                            match_text=_tf.match_text,
+                            matched_line=_tf.url,
+                            col_start=_tf.col_start,
+                        )
+                    )
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
