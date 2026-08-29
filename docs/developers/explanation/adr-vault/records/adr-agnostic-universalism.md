@@ -45,8 +45,16 @@ main scan pass.
 |--------|---------------|
 | Docusaurus *(removed v0.14.0, historical)* | `customCss`, `favicon`, Open Graph `image`, social card paths in `themeConfig` |
 | MkDocs | `theme.favicon`, `theme.logo` (resolved relative to `docs_dir/`) |
-| Zensical | `[project].favicon`, `[project].logo` |
+| Zensical | `[project.theme].favicon`, `[project.theme].logo` per Zensical's own documented schema — see errata below |
 | Standalone | — (no engine config file; check is a no-op) |
+
+> **Errata (2026-08-29)**: `check_config_assets()`'s current implementation (`_zensical.py:100-106`)
+> reads `favicon`/`logo` directly from `[project]`, not the nested `[project.theme]` table
+> Zensical's own live documentation (`zensical.org/docs/setup/logo-and-icons/`) actually
+> specifies. A real Zensical project following Zensical's own docs will place these fields
+> under `[project.theme]`, where this check never looks — `Z404` effectively cannot catch a
+> missing favicon/logo for Zensical projects today. Not fixed here; logged as a real code
+> defect in `03-priority-table.md`, not a documentation correction.
 
 ---
 

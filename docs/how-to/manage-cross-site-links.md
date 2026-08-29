@@ -7,12 +7,13 @@ description: "How to manage Z105 ABSOLUTE_PATH when your documentation spans mul
 
 # Manage Cross-Site Links
 
-When your project hosts more than one Zensical instance under the same
-domain (for example a User area at `/docs/` and a Developer area at
-`/developers/`), links that cross instance boundaries **must use URL links**
-(root-relative `/developers/…` or a full URL) instead of relative Markdown
-file paths. Zensical does not resolve relative file-path links across plugin
-boundaries — and neither does Zenzic's link validator.
+When your project hosts more than one separately-built site under the same domain (a User
+area at `/docs/`, a Developer area at `/developers/`), links crossing site boundaries
+**must use URL links** (root-relative `/developers/…` or a full URL) instead of relative
+Markdown file paths. A relative link only resolves against files inside the same build's
+own source tree. Neither MkDocs, Zensical, nor Zenzic's own link validator can resolve a
+relative path pointing outside it — a separate build has no visibility into another
+build's files at all.
 
 By default, Zenzic's `Z105 ABSOLUTE_PATH` rule rejects any absolute link
 (`/foo/bar`) because absolute paths break when a site is hosted in a
