@@ -76,7 +76,9 @@ def test_z902_is_warning_not_error_in_run_vsm() -> None:
     findings = engine.run_vsm(Path("docs/example.md"), "# Example\n", {}, {})
 
     z902_findings = [f for f in findings if f.rule_id == "Z902"]
-    assert z902_findings, "Expected a Z902 finding when a rule raises ZenzicRuleTimeout in check_vsm"
+    assert z902_findings, (
+        "Expected a Z902 finding when a rule raises ZenzicRuleTimeout in check_vsm"
+    )
     assert all(f.severity == "warning" for f in z902_findings), (
         f"Z902 findings must be severity='warning' per codes.py, got: "
         f"{[f.severity for f in z902_findings]}"

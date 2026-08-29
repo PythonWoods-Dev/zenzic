@@ -571,13 +571,13 @@ for any third-party code that was already importing from the old path.
 
 ---
 
-## zenzic-doc — Living Test Bench {#living-test-bench}
+## The Documentation Site — Living Test Bench {#living-test-bench}
 
-The Zenzic documentation site (`zenzic-doc`) is not a passive artifact — it is an active
-participant in the quality pipeline. Every commit runs `zenzic check all --strict` against
-itself before it can be pushed (Sovereign Parity, ZRT-010).
+This repository's own documentation site (`docs/`) is not a passive artifact — it is an
+active participant in the quality pipeline. Every commit runs `zenzic check all --strict`
+against it before it can be pushed (Sovereign Parity, ZRT-010).
 
-Beyond the standard Zenzic audit, `zenzic-doc` enforces a second invariant unique to its
+Beyond the standard Zenzic audit, this repository enforces a second invariant unique to its
 role as documentation for an integrity engine: every Zxxx finding code present in `docs/` must have a
 registered entry in `src/zenzic/core/codes.py` in the Core package — and vice versa. This
 bidirectional parity is enforced by the `verify-codes-parity` Nox session via
@@ -586,7 +586,7 @@ bidirectional parity is enforced by the `verify-codes-parity` Nox session via
 - **Author environment**: `ZENZIC_CORE_PATH` set → `uv run --project <path>` against local source.
 - **Core path not found**: the session fails closed; PyPI fallback is prohibited.
 
-Running `just verify` in `zenzic-doc` executes the full lifecycle-gate flow with one entry-point. Contributors must provide
+Running `just verify` in this repository executes the full lifecycle-gate flow with one entry-point. Contributors must provide
 a local checkout path for Zenzic Core (`ZENZIC_CORE_PATH`, `./_zenzic_core`, or `../zenzic`).
 
 ---

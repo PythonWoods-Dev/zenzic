@@ -69,6 +69,5 @@ def test_no_hardcoded_severity_literals_in_governance_py() -> None:
         "Hardcoded severity literal(s) found in governance.py's "
         "RuleFinding(...) construction -- this is the exact bug shape "
         "already found in _check.py, rules.py, incremental.py, and "
-        "scanner.py. Route through code_severity(rule_id) instead:\n"
-        + "\n".join(violations)
+        "scanner.py. Route through code_severity(rule_id) instead:\n" + "\n".join(violations)
     )
