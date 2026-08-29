@@ -578,16 +578,21 @@ active participant in the quality pipeline. Every commit runs `zenzic check all 
 against it before it can be pushed (Sovereign Parity, ZRT-010).
 
 Beyond the standard Zenzic audit, this repository enforces a second invariant unique to its
-role as documentation for an integrity engine: every Zxxx finding code present in `docs/` must have a
-registered entry in `src/zenzic/core/codes.py` in the Core package — and vice versa. This
-bidirectional parity is enforced by the `verify-codes-parity` Nox session via
-**Sovereign Resolution (Fail-Closed)**:
+role as documentation for an integrity engine: every `Zxxx` finding code documented in
+`docs/reference/finding-codes.md` must match its registered `Severity`, `Penalty`,
+`Suppressible` status, and code name against `src/zenzic/core/codes.py`'s `CODE_DEFINITIONS`
+(and `NON_SUPPRESSIBLE_CODES`/`CODE_NAMES`). This is enforced by
+`tests/test_finding_codes_reference.py`, a structural pytest test — not a dedicated Nox
+session — that runs automatically as part of the standard test suite (`nox -s tests`,
+`just verify`, and CI). It checks one direction only: every documented entry must exist and
+match in `codes.py`; it does not separately verify that every `codes.py` entry has a
+corresponding documented entry.
 
-- **Author environment**: `ZENZIC_CORE_PATH` set → `uv run --project <path>` against local source.
-- **Core path not found**: the session fails closed; PyPI fallback is prohibited.
-
-Running `just verify` in this repository executes the full lifecycle-gate flow with one entry-point. Contributors must provide
-a local checkout path for Zenzic Core (`ZENZIC_CORE_PATH`, `./_zenzic_core`, or `../zenzic`).
+Running `just verify` in this repository executes the full lifecycle-gate flow with one
+entry-point: pre-commit hooks, a dependency vulnerability audit, the full test suite
+(including the parity check above), `zenzic check all --strict`, and a DQS score/badge
+stamp. Since Zenzic Core lives in this same repository (`src/zenzic/`), no separate local
+checkout path is needed to run it.
 
 ---
 

@@ -510,7 +510,7 @@ Diagnostic findings related to Virtual Site Map topology and navigation structur
 
 ### Z401: MISSING_DIRECTORY_INDEX {#z401}
 
-**Severity:** `info` · **Penalty:** none (structural hint) · **Exit:** 0 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z401.md)
+**Severity:** `info` · **Penalty:** none (structural hint) · **Exit:** 0 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z401.md)
 
 A documentation directory has no `index.md` or `README.md`. The directory URL may return 404 or a raw listing depending on the build engine.
 
@@ -520,7 +520,7 @@ A documentation directory has no `index.md` or `README.md`. The directory URL ma
 
 ### Z402: ORPHAN_PAGE {#z402}
 
-**Severity:** `warning` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z4xx-topology/z402-orphan-page.md) · [↗ Rule Specification](../rules/Z402.md)
+**Severity:** `warning` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Gallery](../tutorials/examples/z4xx-topology/z402-orphan-page.md) · [↗ Rule Specification](../rules/Z402.md)
 
 A file exists in `docs/` but is not reachable from any navigation menu. The documentation equivalent of dead code.
 
@@ -543,7 +543,7 @@ An image has no alt text, degrading screen reader accessibility and SEO.
 
 ### Z404: CONFIG_ASSET_MISSING {#z404}
 
-**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z404.md)
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z404.md)
 
 The build engine's main configuration (e.g. `zensical.toml`) references a logo or favicon that does not exist at the specified path. The failure is global: every page in every locale ships without the branding asset.
 
@@ -556,7 +556,7 @@ The build engine's main configuration (e.g. `zensical.toml`) references a logo o
 
 ### Z405: UNUSED_ASSET {#z405}
 
-**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z405.md)
+**Severity:** `warning` · **Penalty:** −3.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z405.md)
 
 An image or asset file in the repository is never referenced by any Markdown file. "Dark Assets" bloat the repository and build artifacts silently.
 
@@ -572,7 +572,7 @@ An image or asset file in the repository is never referenced by any Markdown fil
 
 ### Z406: NAV_CONTRACT {#z406}
 
-**Severity:** `warning` · **Penalty:** −2.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z406.md)
+**Severity:** `warning` · **Penalty:** −2.0 pts (Governance) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z406.md)
 
 A conflict between the physical file structure and the engine's navigation config. For MkDocs: a `nav` entry pointing to a path that no physical file activates.
 
@@ -585,7 +585,7 @@ A conflict between the physical file structure and the engine's navigation confi
 
 ### Z410: UNREACHABLE_GRAPH_NODE {#z410}
 
-**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z410.md)
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z410.md)
 
 This rule exists to detect when an internal document is physically present but unreachable from any node in the Virtual Site Map.
 
@@ -593,7 +593,7 @@ This rule exists to detect when an internal document is physically present but u
 
 ### Z411: DEAD_END_NODE {#z411}
 
-**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z411.md)
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z411.md)
 
 This rule exists to detect when an active document has no outgoing navigational edges to the rest of the site structure.
 
@@ -601,7 +601,7 @@ This rule exists to detect when an active document has no outgoing navigational 
 
 ### Z412: TRACEABILITY_BROKEN {#z412}
 
-**Severity:** `warning` · **Penalty:** −4.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** · [↗ Rule Specification](../rules/Z412.md)
+**Severity:** `warning` · **Penalty:** −4.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-In** · [↗ Rule Specification](../rules/Z412.md)
 
 This rule exists to verify that target specification documents have at least one incoming reference from configured source namespaces (`[policies].traceability_targets`), ensuring complete cross-architecture traceability.
 
@@ -1010,7 +1010,7 @@ This rule exists to detect overly complex documents whose structural score excee
 
 ### Z620: STALE_GLOBAL_SUPPRESSION {#z620}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** No · [↗ Gallery](../tutorials/examples/z6xx-brand/z620-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z620.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-in:** No · [↗ Gallery](../tutorials/examples/z6xx-brand/z620-stale-global-suppression.md) · [↗ Rule Specification](../rules/Z620.md)
 
 An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
 

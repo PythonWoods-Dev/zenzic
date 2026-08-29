@@ -33,6 +33,10 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `zenzic check placeholders` | Detect pages with < 50 words or containing TODOs/stubs. |
     | `zenzic check all` | Run every check above, plus 3 checks with no standalone sub-command: nav contract (`Z406`), directory indices (`Z401`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
 
+    Every `check` sub-command, including `check all`, also accepts an optional `PATH`
+    positional argument to scope the check to a single Markdown file or a specific directory
+    instead of the whole docs tree.
+
     **Flags available on all `check` sub-commands:**
 
     | Flag | Short | Default | Description |
@@ -54,6 +58,10 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
     | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
     | `--no-external` | — | `false` | Skip HTTP validation of external URLs (Pass 3). Credential scanner (Z201) always active regardless. |
+    | `--audit` | — | `false` | Sovereign truth-seeking mode: ignore all suppressible bypasses (inline `zenzic:ignore` and `governance.per_file_ignores`). |
+    | `--no-header` | — | `false` | Suppress the Zenzic ASCII art header. |
+    | `--update-baseline` | — | `false` | Generate or overwrite the baseline snapshot file (`.zenzic-baseline.json`). |
+    | `--baseline` | — | — | Path to a baseline snapshot file to consume (defaults to `.zenzic-baseline.json` if present in the workspace root). |
     | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
 
     **Additional flags on `check references`:**
@@ -82,8 +90,9 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     Compute the weighted Document Quality Score (DQS 0–100) and category breakdown:
 
-    | Flag | Short | Default | Description |
+    | Argument / Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
+    | `path` | — | configured docs directory | Repository root or docs directory to score. |
     | `--fail-under` | — | `0` | Minimum required score. Fails quality gate (Exit 1) if score falls below threshold. |
     | `--stamp` | — | `false` | Updates README.md status badge with the newly computed DQS score. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
@@ -91,6 +100,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--breakdown` | — | `false` | Expands category breakdown showing individual Z-Codes and transparent penalty math. |
     | `--save` | — | `false` | Saves score snapshot to `.zenzic-score.json` for use with `zenzic diff`. |
     | `--check-stamp` | — | `false` | Verifies badge stamp files contain the current score URL. Exits 1 if any badge is stale. |
+    | `--quiet` | `-q` | `false` | Suppress output on successful score. |
     | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
     | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
@@ -290,6 +300,18 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | :--- | :--- |
     | `zenzic clean assets` | Delete unused images and assets from the documentation. |
 
+    **`zenzic clean assets` flags:**
+
+    | Argument / Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `path` | — | full docs directory | Limit the asset scan to a specific directory. |
+    | `--yes` | `-y` | `false` | Skip interactive confirmation and delete immediately. |
+    | `--dry-run` | — | `false` | Show which files would be deleted without actually deleting them. |
+    | `--quiet` | `-q` | `false` | Minimal one-line output for pre-commit hooks. |
+    | `--engine` | — | auto | Override the build engine adapter (e.g. `mkdocs`, `zensical`). Auto-detected from `.zenzic.toml` when omitted. |
+    | `--exclude-dir` | — | — | Additional directories to exclude from scanning (repeatable). |
+    | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
+
     **Usage Examples:**
     ```bash title="Terminal"
     zenzic clean assets
@@ -308,10 +330,13 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     **`zenzic guard scan` flags:**
 
-    | Flag | Default | Description |
+    | Argument / Flag | Default | Description |
     | :--- | :---: | :--- |
+    | `paths` | docs scope from config | Optional file/directory targets. If omitted, scans the configured docs scope; with `--staged`, scans staged Markdown/MDX files only. |
     | `--staged` | `false` | Scan only staged Markdown/MDX files from git index (pre-commit fast path). |
     | `--format` / `-f` | `text` | Output format: `text` or `json`. |
+    | `--quiet` / `-q` | `false` | Suppress output except for detected secrets. |
+    | `--no-header` | `false` | Suppress the Zenzic startup banner. |
 
     **`zenzic guard init` flags:**
 
@@ -340,6 +365,12 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | Sub-command | Description |
     | :--- | :--- |
     | `zenzic config explain` | Show the active configuration and the origin of every value. |
+
+    **`zenzic config explain` flags:**
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--path` | `-p` | `.` (current directory) | Repository root to inspect. |
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -398,7 +429,23 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 ## Shared Execution Flags
 
-This section details the specifications and guidelines for Shared Execution Flags within the Zenzic ecosystem.
+`--strict` and `--offline` are not universal — each is only available on the commands that
+have a real use for it. Verified against every command's own `--help` output:
+
+| Command | `--strict` | `--offline` |
+| :--- | :---: | :---: |
+| `check all` | ✅ | ✅ |
+| `check links` | ✅ | ✅ |
+| `check orphans` | — | ✅ |
+| `check snippets` | ✅ | — |
+| `check references` | ✅ | — |
+| `check assets` | — | — |
+| `check placeholders` | ✅ | — |
+| `score` | — | — |
+| `diff` | — | — |
+| `audit` | ✅ | ✅ |
+| `guard scan` | — | — |
+| `clean assets` | — | — |
 
 ---
 
@@ -502,8 +549,10 @@ zenzic check all --show-info
 
 ### `--quiet`
 
-`--quiet` is available on `zenzic check all` and is designed for silent builders
-(pre-commit and CI hooks) that need minimal output.
+`--quiet` (`-q`) is available on `zenzic check all`, `zenzic score`, `zenzic guard scan`, and
+`zenzic clean assets`, and is designed for silent builders (pre-commit and CI hooks) that need
+minimal output. Its exact effect is command-specific — on `check all` it suppresses the rich
+analysis panel and per-file verbose report:
 
 - Suppresses the rich analysis panel and per-file verbose report.
 - Prints a compact one-line summary for error/warning totals.
@@ -611,7 +660,8 @@ in `.zenzic.toml` — the two mechanisms co-exist and accumulate.
 
 ### `--exclude-dir` / `--include-dir`
 
-Available on `zenzic check all` (and individual sub-commands). These flags provide
+Available on `zenzic check all` and `zenzic clean assets` only — not on the individual
+`check` sub-commands (`check links`, `check orphans`, etc.). These flags provide
 one-shot directory scope overrides **per invocation** without touching `.zenzic.toml`:
 
 | Flag | Effect |
@@ -628,6 +678,16 @@ zenzic check all --exclude-dir build/ --exclude-dir .cache/
 
 # Force-include a directory that was excluded in .zenzic.toml
 zenzic check all --include-dir legacy-docs/
+```
+
+### `--no-header`
+
+Suppresses the Zenzic ASCII art startup banner. Available on `zenzic check all`,
+`zenzic score`, `zenzic diff`, and `zenzic guard scan`. On `score` and `diff`, `--ci` is a
+shorthand that sets it automatically.
+
+```bash
+zenzic check all --no-header
 ```
 
 ### `--no-color` / `--force-color` {#output-flags}
@@ -842,6 +902,9 @@ Currently, `zenzic fix` supports auto-fixing:
 
 - **Z108 (EMPTY_LINK_TEXT):** Injects a placeholder label for empty link text.
 - **Z505 (UNTAGGED_CODE_BLOCK):** Injects default `text` language specifier for untagged fenced code blocks.
+- **Z515 (BARE_URL):** Injects angle brackets around bare URLs in prose.
+- **Z517 (HEADING_PUNCTUATION):** Strips trailing punctuation (`.`, `:`, `;`) from headings.
+- **Z520 (MALFORMED_LIST):** Transforms fake/malformed paragraph lists into valid Markdown bullet lists.
 - **Z603 (DEAD_SUPPRESSION):** Cleanly extracts dead/unused inline suppression comments (`<!-- zenzic:ignore: Zxxx -->`) and `data-zenzic-ignore` HTML attributes without corrupting the surrounding text.
 
 `zenzic clean assets` respects `excluded_assets`, `excluded_dirs`, and
