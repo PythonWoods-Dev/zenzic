@@ -23,8 +23,10 @@ import pytest
 
 from zenzic.core.adapters._zensical import (
     ZensicalAdapter,
+    _extract_config_declared_assets,
     _extract_nav_paths,
     _load_zensical_config,
+    check_config_assets,
     find_zensical_config,
 )
 from zenzic.core.exceptions import ConfigurationError
@@ -291,3 +293,110 @@ class TestZensicalFromRepo:
         ctx = _ctx()
         with pytest.raises(ConfigurationError, match="engine 'zensical'"):
             ZensicalAdapter.from_repo(ctx, docs_root, tmp_path)
+
+
+# ── check_config_assets ─────────────────────────────────────────────────────
+#
+# Zensical's own real schema nests favicon/logo under [project.theme], not
+# top-level [project] — confirmed live against zensical.org/docs/setup/logo-and-icons/
+# and the real bootstrap zensical.toml shipped in zensical/zensical's own repo,
+# both of which show `[project.theme]` as the table these keys live under.
+
+
+class TestCheckConfigAssets:
+    def test_missing_favicon_under_project_theme_is_detected(self, tmp_path: Path) -> None:
+        """A favicon declared under the real [project.theme] table, pointing at a
+        file that does not exist on disk, must fire Z404 CONFIG_ASSET_MISSING."""
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "zensical.toml").write_text(
+            "[project]\n"
+            'site_name = "Test"\n'
+            "\n"
+            "[project.theme]\n"
+            'favicon = "assets/favicon.png"\n',
+            encoding="utf-8",
+        )
+
+        issues = check_config_assets(tmp_path)
+
+        assert len(issues) == 1
+        rel_path, message = issues[0]
+        assert rel_path == "docs/assets/favicon.png"
+        assert "favicon" in message.lower()
+
+    def test_missing_logo_under_project_theme_is_detected(self, tmp_path: Path) -> None:
+        """Same as above for `logo`, confirming both fields, not just favicon."""
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "zensical.toml").write_text(
+            "[project]\n"
+            'site_name = "Test"\n'
+            "\n"
+            "[project.theme]\n"
+            'logo = "assets/logo.png"\n',
+            encoding="utf-8",
+        )
+
+        issues = check_config_assets(tmp_path)
+
+        assert len(issues) == 1
+        rel_path, message = issues[0]
+        assert rel_path == "docs/assets/logo.png"
+        assert "logo" in message.lower()
+
+    def test_present_favicon_under_project_theme_is_not_flagged(self, tmp_path: Path) -> None:
+        """A favicon that genuinely exists on disk must not be reported missing."""
+        docs_root = tmp_path / "docs"
+        (docs_root / "assets").mkdir(parents=True)
+        (docs_root / "assets" / "favicon.png").write_bytes(b"\x89PNG\r\n")
+        (tmp_path / "zensical.toml").write_text(
+            "[project]\n"
+            'site_name = "Test"\n'
+            "\n"
+            "[project.theme]\n"
+            'favicon = "assets/favicon.png"\n',
+            encoding="utf-8",
+        )
+
+        issues = check_config_assets(tmp_path)
+
+        assert issues == []
+
+
+# ── _extract_config_declared_assets ─────────────────────────────────────────
+#
+# Phase 3 sibling check: this function feeds get_metadata_files(), which
+# protects engine-declared assets from a false-positive Z405 UNUSED_ASSET.
+# It shared the same wrong [project]-only assumption for favicon/logo, and a
+# second, differently-shaped mismatch for extra_css/extra_javascript (real
+# Zensical schema nests those under [project] directly, not top-level —
+# confirmed live against zensical.org/docs/customization/).
+
+
+class TestExtractConfigDeclaredAssets:
+    def test_recognizes_theme_nested_favicon_and_logo(self) -> None:
+        doc_config = {
+            "project": {
+                "theme": {
+                    "favicon": "assets/favicon.png",
+                    "logo": "assets/logo.png",
+                },
+            },
+        }
+
+        assets = _extract_config_declared_assets(doc_config)
+
+        assert "assets/favicon.png" in assets
+        assert "assets/logo.png" in assets
+
+    def test_recognizes_project_nested_extra_css_and_javascript(self) -> None:
+        doc_config = {
+            "project": {
+                "extra_css": ["stylesheets/extra.css"],
+                "extra_javascript": ["javascripts/extra.js"],
+            },
+        }
+
+        assets = _extract_config_declared_assets(doc_config)
+
+        assert "stylesheets/extra.css" in assets
+        assert "javascripts/extra.js" in assets

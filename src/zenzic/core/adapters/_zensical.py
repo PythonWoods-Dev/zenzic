@@ -97,13 +97,25 @@ def _extract_config_declared_assets(doc_config: dict[str, Any]) -> set[str]:
     """Extract theme favicon, logo, extra_css, extra_javascript relative asset paths."""
     assets: set[str] = set()
 
-    # Native zensical.toml format
+    # Native zensical.toml format. favicon/logo live under [project.theme];
+    # extra_css/extra_javascript live directly under [project] — two
+    # different nesting depths, both confirmed against Zensical's own
+    # current documentation (zensical.org/docs/setup/logo-and-icons/,
+    # zensical.org/docs/customization/).
     project = doc_config.get("project") or {}
     if isinstance(project, dict):
-        for key in ("favicon", "logo"):
-            val = project.get(key)
-            if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
-                assets.add(val.lstrip("/"))
+        project_theme = project.get("theme") or {}
+        if isinstance(project_theme, dict):
+            for key in ("favicon", "logo"):
+                val = project_theme.get(key)
+                if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
+                    assets.add(val.lstrip("/"))
+        for key in ("extra_css", "extra_javascript"):
+            items = project.get(key) or []
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str) and not item.startswith(("http://", "https://")):
+                        assets.add(item.lstrip("/"))
 
     # mkdocs.yml format (compat mode)
     theme = doc_config.get("theme") or {}
@@ -150,7 +162,9 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
         project = cfg.get("project") or {}
         docs_dir = str(project.get("docs_dir") or "docs") if isinstance(project, dict) else "docs"
         docs_root = repo_root / docs_dir
-        theme_dict = project if isinstance(project, dict) else {}
+        theme_dict = project.get("theme") or {} if isinstance(project, dict) else {}
+        if not isinstance(theme_dict, dict):
+            theme_dict = {}
     else:
         docs_dir = str(cfg.get("docs_dir") or "docs")
         docs_root = repo_root / docs_dir
