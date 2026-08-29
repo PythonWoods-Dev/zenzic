@@ -20,7 +20,8 @@ Zenzic uses a `ProcessPoolExecutor` to scan documentation files in parallel
 when a repository contains 50 or more Markdown files (`ADAPTIVE_PARALLEL_THRESHOLD`
 in `core/scanner.py`). Each worker executes `_scan_single_file()` independently
 and returns an `IntegrityReport` containing any findings, including `SecurityFinding`
-objects emitted by the credential scanner (Z201/Z202/Z203).
+objects emitted by the Credential Scanner (Z201) and the Path Traversal Guard
+(Z202/Z203) — two distinct scanners in the `CORE_SCANNERS` registry, not one.
 
 In the earlier implementation, the coordinator collected results by
 iterating over `futures_map.items()` **in submission order**, calling
