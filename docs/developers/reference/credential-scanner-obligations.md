@@ -14,7 +14,6 @@ by the Architecture Lead.
 
 These rules exist because a security review demonstrated that four individually reasonable
 design choices — each correct in isolation — composed into four distinct attack vectors.
-See `docs/internal/security/shattered_mirror_report.md` for the full post-mortem.
 
 ---
 
@@ -56,64 +55,75 @@ explaining the cost and a benchmark proving the worst-case input.
 
 ---
 
-## Obligation 2 — The Regex-Canary Protocol
+## Obligation 2 — The RE2 DFA Purity Contract
 
-Every `[[custom_rules]]` entry that specifies a `pattern` is subject to the
-**Regex-Canary**, a POSIX `SIGALRM`-based stress test that runs at `AdaptiveRuleEngine`
-construction time.
+Every `[[custom_rules]]` entry that specifies a `pattern` is compiled with
+**Google RE2** (`zenzic.core.regex`), not Python's backtracking `re` module.
+RE2 is a DFA-based engine with a hard linear-time execution guarantee: it
+structurally cannot backtrack, so no pattern it accepts can cause
+catastrophic backtracking — there is no runtime stress test, because the
+protection is a compile-time structural rejection instead
+(`CustomRule.__post_init__`, ZRT-007). A pattern RE2 cannot represent as a
+DFA — a backreference or a lookaround — fails at load time, before any scan
+runs, so CI catches a bad pattern immediately rather than at scan time.
 
 ```python
-# _assert_regex_canary() in rules.py — runs automatically for every CustomRule
-_CANARY_STRINGS = (
-    "a" * 30 + "b",  # classic (a+)+  trigger
-    "A" * 25 + "!",  # uppercase variant
-    "1" * 20 + "x",  # numeric variant
-)
-_CANARY_TIMEOUT_S = 0.1  # 100 ms
+# CustomRule.__post_init__() in rules.py — runs automatically for every CustomRule
+def __post_init__(self) -> None:
+    try:
+        self._compiled = re.compile(self.pattern)  # zenzic.core.regex, RE2-backed
+    except re.error as exc:
+        raise PluginContractError(...) from exc  # ZRT-007 — DFA Purity Contract
 ```
 
 Test your pattern before committing:
 
 ```python
 from pathlib import Path
-from zenzic.core.rules import CustomRule, _assert_regex_canary
+from zenzic.core.rules import CustomRule
 from zenzic.core.exceptions import PluginContractError
 
-rule = CustomRule(
-    id="MY-001",
-    pattern=r"your-pattern-here",
-    message="Found.",
-    severity="warning",
-)
-
 try:
-    _assert_regex_canary(rule)
-    print("✅ Canary passed — pattern is safe for production")
+    rule = CustomRule(
+        id="MY-001",
+        pattern=r"your-pattern-here",
+        message="Found.",
+        severity="warning",
+    )
+    print("✅ Accepted — RE2 compiled the pattern as a DFA")
 except PluginContractError as e:
-    print(f"❌ Canary failed — ReDoS risk detected:\n{e}")
+    print(f"❌ Rejected — not representable as a DFA:\n{e}")
 ```
 
-**Patterns to avoid** (catastrophic backtracking triggers):
+**Patterns RE2 rejects** (non-regular constructs, no DFA representation exists):
 
-| Pattern | Why dangerous |
+| Pattern | Why rejected |
 |---------|---------------|
-| `(a+)+` | Nested quantifiers — exponential paths |
-| `(a\|aa)+` | Alternation with overlap |
-| `(a*)*` | Nested star — infinite empty matches |
-| `.+foo.+bar` | Greedy multi-wildcard with suffix |
+| `(\w+)\1` | Backreference |
+| `(?=foo)bar` | Lookahead |
+| `(?<=foo)bar` | Lookbehind |
 
-**Patterns that are always safe:**
+**Patterns RE2 accepts and runs in linear time, even against a pathological input**
+(these would cause catastrophic backtracking under a backtracking engine like Python's
+`re` — under RE2 they are ordinary, safe patterns; live-verified against the actual
+installed engine, sub-millisecond against a 40-character adversarial string):
 
 | Pattern | Notes |
 |---------|-------|
+| `(a+)+` | Nested quantifiers — classic ReDoS trigger elsewhere, harmless under RE2 |
+| `(a\|aa)+` | Alternation with overlap |
+| `(a*)*` | Nested star |
+| `.+foo.+bar` | Greedy multi-wildcard with suffix |
 | `EXAMPLE` | Literal match, O(n) |
-| `^(START\|END):` | Anchored alternation, O(1) at each position |
+| `^(START\|END):` | Anchored alternation |
 | `[A-Z]{3}-\d+` | Bounded character classes |
 | `\bfoo\b` | Word-boundary anchored |
 
-> **Platform note:** `_assert_regex_canary()` uses `signal.SIGALRM`, which is only available
-> on POSIX systems (Linux, macOS). On Windows, the canary is a no-op. The worker timeout
-> (Obligation 1) is the universal backstop.
+> **Portability note:** unlike a signal-based timeout, RE2's DFA guarantee has no
+> platform dependency — the rejection is structural (a compile-time error), not a
+> runtime race against a wall-clock timer, so there is no POSIX/Windows distinction
+> to document here. The worker timeout (Obligation 1) remains the backstop for a
+> genuinely slow *Python* plugin rule, which is an unrelated risk.
 
 ---
 

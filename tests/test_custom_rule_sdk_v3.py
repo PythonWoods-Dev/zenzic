@@ -32,6 +32,31 @@ class CustomLinkRule(ZenzicRuleV3):
         return []
 
 
+class CustomCodeBlockRule(ZenzicRuleV3):
+    metadata = RuleMetadata(
+        code="ZZ-NO-BASH",
+        title="Bash Code Block Forbidden",
+        description="Fenced bash code blocks are not allowed in this project.",
+        severity="error",
+        category="governance",
+        penalty=2.0,
+    )
+
+    def visit_code_block(
+        self, file_path: Path, start_line: int, lang: str, code: str
+    ) -> list:
+        if lang == "bash":
+            return [
+                self.create_finding(
+                    file_path=file_path,
+                    line_no=start_line,
+                    message=f"Forbidden bash code block: {code.strip()!r}",
+                    match_text=lang,
+                )
+            ]
+        return []
+
+
 def test_sdk_v3_rule_metadata() -> None:
     rule = NoTodoRule()
     assert rule.rule_id == "ZZ-NO-TODO"
@@ -59,6 +84,27 @@ def test_sdk_v3_visit_link(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert findings[0].rule_id == "ZZ-NO-HTTP"
     assert findings[0].line_no == 2
+    assert findings[0].severity == "error"
+
+
+def test_sdk_v3_visit_code_block(tmp_path: Path) -> None:
+    rule = CustomCodeBlockRule()
+    doc_path = tmp_path / "docs" / "guide.md"
+    content = (
+        "# Title\n"
+        "\n"
+        "```python\n"
+        "print('fine')\n"
+        "```\n"
+        "\n"
+        "```bash\n"
+        "rm -rf /\n"
+        "```\n"
+    )
+    findings = rule.check(doc_path, content)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "ZZ-NO-BASH"
+    assert findings[0].line_no == 7
     assert findings[0].severity == "error"
 
 
