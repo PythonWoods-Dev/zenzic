@@ -539,7 +539,7 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._command_setup.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -569,7 +569,7 @@ def test_check_all_exit_zero_with_failures(
     assert "FAILED" in result.stdout  # report is printed but exit is 0
 
 
-@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._command_setup.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
     "zenzic.cli._check.validate_links_structured",

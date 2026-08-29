@@ -25,7 +25,6 @@ from zenzic.core.scanner import (
     _map_credential_to_finding,
     find_missing_directory_indices,
     find_orphans,
-    find_repo_root,
     find_unused_assets,
     scan_docs_references,
 )
@@ -58,7 +57,6 @@ from ._governance import (
     resolve_governance_panel_title,
 )
 from ._metadata import COMMAND_BY_NAME
-from ._target_resolver import _apply_target
 
 
 check_app = _shared.create_app(
@@ -180,7 +178,7 @@ def check_links(
         if output_format == "text":
             output_format = "github-annotations"
 
-    config, repo_root, docs_root, exclusion_mgr, _, _ = setup_command(
+    config, repo_root, docs_root, exclusion_mgr, _, _, _ = setup_command(
         path, offline=offline, exclude_url=exclude_url
     )
 
@@ -372,7 +370,7 @@ def check_orphans(
         if output_format == "text":
             output_format = "github-annotations"
 
-    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(
         path, engine_override=engine, offline=offline
     )
     if not loaded_from_file and not quiet:
@@ -499,7 +497,7 @@ def check_snippets(
         if output_format == "text":
             output_format = "github-annotations"
 
-    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(path)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
 
@@ -641,7 +639,7 @@ def check_references(
         if output_format == "text":
             output_format = "github-annotations"
 
-    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(path)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
 
@@ -812,22 +810,11 @@ def check_assets(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(
+        path, include_adapter_metadata=True
+    )
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
@@ -835,9 +822,6 @@ def check_assets(
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
-    exclusion_mgr = _shared._build_exclusion_manager(
-        config, repo_root, docs_root, adapter_metadata_files=adapter_meta
-    )
 
     def _rel(path: Path) -> str:
         try:
@@ -956,7 +940,7 @@ def check_placeholders(
         if output_format == "text":
             output_format = "github-annotations"
 
-    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file = setup_command(path)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint()
 
@@ -1662,50 +1646,33 @@ def check_all(
     # CEO-052 "The Sovereign Root Fix": when an explicit target PATH is given,
     # derive repo_root by searching upward FROM that path — not from CWD.
     # "The configuration follows the target, not the caller."
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
     _config_file_override = Path(config_path).resolve() if config_path else None
     try:
-        repo_root = find_repo_root(search_from=_search_from)
-        config, loaded_from_file = ZenzicConfig.load(repo_root, config_file=_config_file_override)
+        (
+            config,
+            repo_root,
+            docs_root,
+            exclusion_mgr,
+            _single_file,
+            loaded_from_file,
+            _target_hint,
+        ) = setup_command(
+            path,
+            config_file=_config_file_override,
+            engine_override=engine,
+            offline=offline,
+            exclude_url=exclude_url,
+            cli_exclude_dirs=exclude_dir,
+            cli_include_dirs=include_dir,
+        )
     except RuntimeError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    config = _shared._apply_engine_override(config, engine)
-    if offline:
-        config.build_context.offline_mode = True
-    if exclude_url:
-        config = config.model_copy(
-            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
-        )
 
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
-
-    _single_file: Path | None = None
-    _target_hint: str | None = None
-    if path is not None:
-        config, _single_file, _, _target_hint = _apply_target(repo_root, config, path)
-
-    docs_root = (repo_root / config.docs_dir).resolve()
-    # CEO-043: explicit target may live outside the CWD repo root.
-    # Adopt the target as the sovereign sandbox so the path traversal guard
-    # rejects escapes FROM the target, not the location OF the target.
-    try:
-        docs_root.relative_to(repo_root)
-    except ValueError:
-        repo_root = docs_root
-    exclusion_mgr = _shared._build_exclusion_manager(
-        config,
-        repo_root,
-        docs_root,
-        exclude_dirs=exclude_dir,
-        include_dirs=include_dir,
-    )
 
     effective_strict = strict if strict is not None else config.strict
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero

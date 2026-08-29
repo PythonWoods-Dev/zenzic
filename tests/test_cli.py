@@ -220,7 +220,7 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
@@ -230,7 +230,7 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
     assert "No unused assets found." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.find_unused_assets", return_value=[Path("assets/unused.png")])
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
@@ -326,7 +326,7 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert data["debt_status"] == "CLEAN"
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -358,7 +358,7 @@ def test_check_all_json_with_errors(
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -375,7 +375,7 @@ def test_check_all_text_ok(
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 2))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -427,7 +427,7 @@ def test_check_all_text_with_all_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -442,7 +442,7 @@ def test_check_all_quiet_ok(_refs, _nav, _assets, _snip, _orphans, _links, _cfg,
     assert "zenzic" not in result.stdout.lower() or result.stdout.strip() == ""
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -472,7 +472,7 @@ def test_check_all_quiet_with_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -502,7 +502,7 @@ def test_check_all_ci_forces_github_annotations(
     assert "docs/index.md,line=1,title=Z104::broken link" in out_normalized
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -544,7 +544,7 @@ def test_check_all_only_filters_findings(
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -573,7 +573,7 @@ def test_check_all_strict_fails_on_warnings_only(
     assert result.exit_code == 1
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -607,7 +607,7 @@ def test_check_all_no_strict_passes_on_warnings_only(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 def test_check_all_target_not_found(_cfg, _root) -> None:
     """Non-existent target must exit 1 with an error message."""
@@ -693,6 +693,47 @@ def test_check_all_external_docs_root_not_blocked_by_boundary_check(
     assert result.exit_code != 3, (
         f"Path traversal guard incorrectly blocked an explicit external path.\n{result.output}"
     )
+
+
+def test_check_all_cross_repo_target_scans_the_target_not_the_caller_docs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Regression baseline for V031_SETUP_COMMAND_CONTROLLED_WIRING_ATTEMPT.
+
+    A cross-repo target (outside the caller's own repo_root entirely) must
+    scan exactly the target's own files -- not the caller's docs_dir (which
+    here is deliberately left empty, so any leakage would show up as 0 files
+    scanned, and any wrong-root regression would show up as a file-count or
+    finding-count mismatch). Written BEFORE wiring check_all through
+    setup_command() to lock in current behavior as the baseline this attempt
+    is measured against, per that directive's Phase 1.
+    """
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / ".zenzic.toml").touch()
+    # Caller's own docs/ is empty -- if check_all ever scanned this instead
+    # of the external target, file/finding counts below would not match.
+
+    # The external target is a *separate* project (its own root marker) --
+    # find_repo_root(search_from=...) walks up FROM the target, not from
+    # CWD (CEO-052 Sovereign Root Fix), so a bare external directory with no
+    # marker of its own would fail before ever reaching docs_root resolution.
+    ext_repo = tmp_path / "ext_repo"
+    ext_docs = ext_repo / "docs"
+    ext_docs.mkdir(parents=True)
+    (ext_repo / ".zenzic.toml").touch()
+    (ext_docs / "index.md").write_text(
+        "# External Docs\n\n" + "word " * 60 + "\n\n[broken](missing.md)\n"
+    )
+
+    monkeypatch.chdir(repo)
+    rel = os.path.relpath(ext_docs, repo)  # resolves to "../ext_repo/docs"
+    result = runner.invoke(app, ["check", "all", rel])
+
+    assert result.exit_code == 1, result.output
+    assert "1 file" in result.stdout
+    assert "missing.md" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -1701,7 +1742,7 @@ class TestShowInfoFilter:
         assert warnings == 0
 
     @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-    @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+    @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
     @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
     @patch("zenzic.cli._check.validate_links_structured", return_value=[])
     @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -2215,7 +2256,7 @@ def test_check_orphans_short_format_alias(_orphans, _cfg, _root) -> None:
     assert "findings" in data or isinstance(data, list | dict)
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -2504,7 +2545,7 @@ def test_check_all_strict_alone_does_not_conflict(_mock_collect) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", side_effect=RuntimeError("no .git found"))
+@patch("zenzic.cli._command_setup.find_repo_root", side_effect=RuntimeError("no .git found"))
 def test_check_all_runtime_error_exits_1(_root) -> None:
     """RuntimeError from find_repo_root in check all must produce Exit 1 + ERROR message."""
     result = runner.invoke(app, ["check", "all"])
@@ -2549,7 +2590,7 @@ def test_check_links_circular_link_note_strict_exits_0(_links, _cfg, _root) -> N
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])

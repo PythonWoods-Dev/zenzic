@@ -31,7 +31,7 @@ def test_directory_mode_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     repo = _make_repo(tmp_path)
     monkeypatch.chdir(repo)
 
-    config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file = setup_command()
+    config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file, _ = setup_command()
 
     assert repo_root == repo.resolve()
     assert docs_root == (repo / "docs").resolve()
@@ -44,7 +44,7 @@ def test_single_file_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     repo = _make_repo(tmp_path)
     monkeypatch.chdir(repo)
 
-    _, repo_root, docs_root, _, single_file, _ = setup_command("docs/index.md")
+    _, repo_root, docs_root, _, single_file, _, _ = setup_command("docs/index.md")
 
     assert single_file == (repo / "docs" / "index.md").resolve()
     assert docs_root == (repo / "docs").resolve()
@@ -59,7 +59,7 @@ def test_no_config_file_reports_loaded_from_file_false(
     (repo / ".git").mkdir()
     monkeypatch.chdir(repo)
 
-    _, _, _, _, _, loaded_from_file = setup_command()
+    _, _, _, _, _, loaded_from_file, _ = setup_command()
 
     assert loaded_from_file is False
 
@@ -130,3 +130,47 @@ def test_extra_exclude_dirs_still_applies(tmp_path: Path, monkeypatch: pytest.Mo
     config, *_ = setup_command(extra_exclude_dirs=["vendor"])
 
     assert "vendor" in config.excluded_dirs
+
+
+def test_cli_exclude_dirs_does_not_touch_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CLI-layer excludes must not be folded into config.excluded_dirs (Z620 tracking)."""
+    repo = _make_repo(tmp_path)
+    monkeypatch.chdir(repo)
+
+    config, repo_root, docs_root, exclusion_mgr, *_ = setup_command(cli_exclude_dirs=["vendor"])
+
+    assert "vendor" not in config.excluded_dirs
+    assert exclusion_mgr.should_exclude_dir("vendor", "vendor")
+
+
+def test_cli_include_dirs_overrides_exclusion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _make_repo(tmp_path)
+    (repo / ".zenzic.toml").write_text('excluded_dirs = ["archive"]\n')
+    monkeypatch.chdir(repo)
+
+    config, repo_root, docs_root, exclusion_mgr, *_ = setup_command(cli_include_dirs=["archive"])
+
+    assert not exclusion_mgr.should_exclude_dir("archive", "archive")
+
+
+def test_include_adapter_metadata_populates_exclusion_manager(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When requested, adapter metadata files feed into the exclusion manager
+    the same way check_assets's own inline adapter construction did."""
+    repo = _make_repo(tmp_path)
+    monkeypatch.chdir(repo)
+
+    _, _, _, exclusion_mgr_with, *_ = setup_command(include_adapter_metadata=True)
+    _, _, _, exclusion_mgr_without, *_ = setup_command(include_adapter_metadata=False)
+
+    # Both must construct successfully; the metadata-aware manager must not
+    # be a strict subset misconfiguration (smoke check -- exact adapter
+    # metadata contents depend on engine, verified precisely at the
+    # check_assets integration-test level instead).
+    assert exclusion_mgr_with is not None
+    assert exclusion_mgr_without is not None
