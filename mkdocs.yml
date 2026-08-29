@@ -31,6 +31,8 @@ exclude_docs: |
 
 not_in_nav: |
   includes/*
+  developers/explanation/adr-vault/records/*
+  developers/how-to/release-governance-protocol.md
 
 # --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
 # navigation.tabs maps each top-level nav entry to a tab in the header.
