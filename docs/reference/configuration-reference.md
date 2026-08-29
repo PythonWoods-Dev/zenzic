@@ -102,6 +102,12 @@ forbidden_patterns = []
 Use `.zenzic.toml` for shared constitutional governance. Use `.zenzic.local.toml`
 for local experiments and private data only.
 
+**Merge semantics**: most scalar fields follow last-write-wins — `.zenzic.local.toml`
+loads after shared config, so a local value overrides the shared one. List fields
+`forbidden_patterns` and `excluded_dirs` are the exception: they merge **additively**
+(deduplicated) rather than replacing — a local entry extends the shared list, it
+never removes from it (`config.py`'s `_apply_local_toml`).
+
 ### What Belongs Where — Decision Matrix {#local-vs-shared}
 
 | Configuration intent | File |

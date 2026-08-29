@@ -55,14 +55,6 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-ci-cd.md)
 
-- :material-git:{ .lg .middle style="color: #0284c7;" } **[Pre-Commit & Git Hooks](workflow-integration.md)**
-
-    ---
-
-    Integrate sub-50ms secret scanning and fast link linting on staged files.
-
-    [:material-arrow-right: Read Guide](workflow-integration.md)
-
 - :material-shield-badge-outline:{ .lg .middle style="color: #0284c7;" } **[DQS Status Badges](add-badges.md)**
 
     ---

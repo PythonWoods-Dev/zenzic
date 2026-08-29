@@ -122,5 +122,5 @@ patterns declared in the shared file. They do not replace them.
 ## Related
 
 - [Configuration Reference](../reference/configuration-reference.md) — full `forbidden_patterns` field specification
-- [Configuration Strategy](./configuration-strategy.md) — troubleshooting the two-file model
+- [Configuration Reference](../reference/configuration-reference.md#local-sanctuary) — the two-file model, precedence, and merge semantics
 - [Examples Overview](../tutorials/examples/index.md) — runnable Z-code gallery scenarios

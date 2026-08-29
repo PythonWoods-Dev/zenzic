@@ -90,14 +90,9 @@ If the file is not valid JSON, a `::warning` annotation is emitted — the uploa
 
 ## Exit Code Contract {#exit-code-contract}
 
-Zenzic defines four exit codes. The wrapper propagates them **without remapping**:
-
-| Code | Meaning | Suppressible? |
-|:---:|---|:---:|
-| `0` | Clean — all checks passed | — |
-| `1` | Documentation findings (broken links, orphans, dead refs, etc.) | ✅ via `fail-on-error: false` |
-| `2` | **SECURITY** — credential pattern, forbidden term, or forbidden URL scheme (Z201/Z204/Z205) | ❌ Never |
-| `3` | **SECURITY** — path traversal targeting an OS system directory (Z203 only — ordinary boundary violations, Z202, stay a plain exit 1) | ❌ Never |
+> Zenzic defines four exit codes, which the wrapper propagates **without remapping**. See
+> [Zenzic GitHub Action Reference — Exit Code Contract](../reference/zenzic-action.md#exit-codes)
+> for the full table.
 
 Exits `2` and `3` terminate the job unconditionally. Neither `fail-on-error: "false"` nor any other input can suppress them. This is enforced in the wrapper's exit logic, not in `action.yml`, so it cannot be circumvented by overriding action inputs.
 
