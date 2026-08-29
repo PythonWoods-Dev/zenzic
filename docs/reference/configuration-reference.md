@@ -772,7 +772,7 @@ suppression_cap_fail_hard = true
 
 ## Policy-as-Code Settings {#policies-settings}
 
-Configure declarative Policy-as-Code rules (`Z610` and `Z611`). All policy rules are **opt-in** and inactive by default — empty lists (`[]`) short-circuit evaluation in $O(1)$ time with zero performance overhead.
+Configure declarative Policy-as-Code rules (`Z412`, `Z518`–`Z519`, `Z521`–`Z523`, `Z610`–`Z619`). All policy rules are **opt-in** and inactive by default — empty lists/dicts (`[]`/`{}`) short-circuit evaluation in $O(1)$ time with zero performance overhead.
 
 ### `required_frontmatter_keys` {#required-frontmatter-keys}
 
@@ -891,6 +891,160 @@ Dictionary mapping source namespace path prefixes to a list of forbidden target 
 ```toml
 [policies.cross_namespace_restrictions]
 "docs/public" = ["docs/internal"]
+```
+
+### `forbidden_content_patterns` {#forbidden-content-patterns}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z617 `FORBIDDEN_CONTENT_PATTERN` |
+| **Opt-in** | **Yes** |
+
+List of RE2 regular expression patterns forbidden from appearing anywhere in a document's prose content. A match anywhere in the body emits a Z617 warning finding.
+
+```toml
+[policies]
+forbidden_content_patterns = ["\\bTODO\\b", "\\bFIXME\\b", "\\bconfidential\\b"]
+```
+
+### `required_heading_patterns` {#required-heading-patterns}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z618 `REQUIRED_HEADING_PATTERN` |
+| **Opt-in** | **Yes** |
+
+List of RE2 regular expression patterns, each of which must match at least one heading in the document. A pattern with zero matching headings emits a Z618 warning finding.
+
+```toml
+[policies]
+required_heading_patterns = ["^Overview$", "^License$"]
+```
+
+### `max_document_complexity` {#max-document-complexity}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` |
+| **Default** | `0` |
+| **Section** | `[policies]` |
+| **Finding** | Z619 `MAX_DOCUMENT_COMPLEXITY` |
+| **Opt-in** | **Yes** (`0` disables the check) |
+
+Maximum allowed document complexity score, computed from word count, heading depth, and link density. Documents exceeding this threshold emit a Z619 warning finding.
+
+```toml
+[policies]
+max_document_complexity = 500
+```
+
+### `weasel_words` {#weasel-words}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z519 `WEASEL_WORDS` |
+| **Opt-in** | **Yes** |
+
+List of weasel words to flag in prose. Each occurrence emits a Z519 warning finding.
+
+```toml
+[policies]
+weasel_words = ["clearly", "simply", "obviously", "basically", "very"]
+```
+
+### `enable_passive_voice_check` {#enable-passive-voice-check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z518 `PASSIVE_VOICE_DETECTED` |
+| **Opt-in** | **Yes** |
+
+When `true`, enables heuristic passive-voice detection in prose. Detected sentences emit a Z518 warning finding.
+
+```toml
+[policies]
+enable_passive_voice_check = true
+```
+
+### `required_table_columns` {#required-table-columns}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z521 `REQUIRED_TABLE_COLUMN` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping a heading/context pattern (or `"*"` for every table in the document) to a list of column header names that table must contain. A missing column emits a Z521 warning finding, reported at the table's own line.
+
+```toml
+[policies.required_table_columns]
+"*" = ["Status", "Description"]
+"^API Reference$" = ["Method", "Endpoint"]
+```
+
+### `table_cell_enums` {#table-cell-enums}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z522 `TABLE_CELL_ENUM` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping a column header name to the list of string values allowed in that column. Matching is case-insensitive; a cell value outside the whitelist emits a Z522 warning finding at the precise data-row line.
+
+```toml
+[policies.table_cell_enums]
+Status = ["draft", "review", "stable"]
+```
+
+### `required_heading_order` {#required-heading-order}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z523 `HEADING_ORDER_VIOLATION` |
+| **Opt-in** | **Yes** |
+
+List of RE2 regular expression heading patterns that must appear in the document in strictly ascending sequential order. A heading matching an earlier pattern appearing after one matching a later pattern emits a Z523 warning finding.
+
+```toml
+[policies]
+required_heading_order = ["^Overview$", "^Usage$", "^API Reference$"]
+```
+
+### `traceability_targets` {#traceability-targets}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z412 `TRACEABILITY_BROKEN` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping a target documentation glob pattern to a list of source documentation glob patterns that must link to it. A target document with no inbound link from any matching source emits a Z412 warning finding. Unlike the other policies on this page, Z412 is a graph-level finding that cannot be suppressed with an inline `<!-- zenzic:ignore -->` comment — see [Suppression Policy](suppression-policy.md) — it is governed only through `[governance] directory_policies`.
+
+```toml
+[policies.traceability_targets]
+"docs/specs/**" = ["docs/architecture/**"]
 ```
 
 ---
