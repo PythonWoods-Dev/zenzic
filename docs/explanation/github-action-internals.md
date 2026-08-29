@@ -123,7 +123,7 @@ This ensures downstream steps that read `findings-count` never see `"0 findings,
 
 When `guard-scan: "true"` is set, the action runs `zenzic guard scan` as a standalone composite step **before** the main quality gate. This implements Defense-in-Depth for teams where contributors may bypass pre-commit hooks with `git commit --no-verify`.
 
-The guard scan uses the same `version` pin as the main check. It reads `forbidden_patterns` and built-in credential signatures from the repository's `.zenzic.toml`. If it detects a credential or forbidden term, it exits non-zero and terminates the job immediately — the main `check all` never runs.
+The guard scan uses the same `version` pin as the main check. It loads config the same way `check all` does — `.zenzic.toml`/`pyproject.toml` overlaid with `.zenzic.local.toml` — so `forbidden_patterns` (typically declared only in the git-ignored `.zenzic.local.toml`, per [Configure the Privacy Gate](../how-to/configure-privacy-gate.md)) and built-in credential signatures are both checked. If it detects a credential or forbidden term, it exits non-zero and terminates the job immediately — the main `check all` never runs.
 
 > For the full `guard-scan` input reference and workflow examples, see [Zenzic GitHub Action Reference — Inputs](../reference/zenzic-action.md#inputs).
 
