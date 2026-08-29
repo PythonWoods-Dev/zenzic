@@ -42,7 +42,6 @@ docs_dir = "docs"
 excluded_dirs = ["includes", "assets", "stylesheets", "overrides"]
 excluded_file_patterns = ["temp_*.md"]
 placeholder_max_words = 50
-validate_same_page_anchors = false
 fail_under = 80
 
 [policies]

@@ -658,17 +658,6 @@ class ZenzicConfig(BaseModel):
             "being in .gitignore — e.g. 'api.generated.md'."
         ),
     )
-    validate_same_page_anchors: bool = Field(
-        default=True,
-        description=(
-            "When True, same-page anchor links (#section) are validated against the "
-            "headings present in the source file. A link like [text](#missing) is "
-            "reported as broken when no heading in the file produces that slug. "
-            "Disabled by default because single-page anchor IDs can also be generated "
-            "by HTML attributes, custom plugins, or build-time macros that are invisible "
-            "at source-scan time."
-        ),
-    )
     excluded_external_urls: list[str] = Field(
         default=[],
         description=(
@@ -954,7 +943,6 @@ class ZenzicConfig(BaseModel):
                 "fail_under",
                 "exit_zero",
                 "respect_vcs_ignore",
-                "validate_same_page_anchors",
                 "excluded_external_urls",
                 "forbidden_patterns",
                 "excluded_dirs",

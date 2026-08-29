@@ -471,6 +471,32 @@ def test_build_from_data_unknown_scalar_key_warning(
     assert any("unknown key" in r.message for r in caplog.records)
 
 
+def test_validate_same_page_anchors_field_removed_from_model() -> None:
+    """validate_same_page_anchors was a dead, never-read field; removed entirely
+    rather than wired up, since the current (stricter-than-documented) behavior
+    of always validating same-page anchors is the intended permanent behavior.
+    """
+    assert "validate_same_page_anchors" not in ZenzicConfig.model_fields
+
+
+def test_validate_same_page_anchors_key_in_toml_is_ignored_with_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A .zenzic.toml still setting the removed key loads successfully (not a
+    breaking config change) and is reported via the generic unknown-key warning.
+    """
+    import logging
+
+    (tmp_path / ".zenzic.toml").write_text("validate_same_page_anchors = false\n")
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        config, _ = ZenzicConfig.load(tmp_path)
+    assert any(
+        "unknown key" in r.message and "validate_same_page_anchors" in r.message
+        for r in caplog.records
+    )
+    assert not hasattr(config, "validate_same_page_anchors")
+
+
 def test_build_from_data_legacy_obsolete_names_migrated(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

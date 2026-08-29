@@ -47,16 +47,10 @@ Servers returning `401`, `403`, or `429` are treated as reachable — these indi
 
 - Links inside fenced code blocks or inline code spans — the extractor skips them
 - `mailto:`, `data:`, `ftp:`, `tel:` and similar non-HTTP schemes
-- Pure same-page anchors (`#section`) — not validated by default; enable with `validate_same_page_anchors = true`
 
 !!! tip "Same-page anchor validation"
 
-    By default, links like `[text](#section)` that point to a heading within the same file are not validated. To enable:
-
-    ```toml
-    # .zenzic.toml
-    validate_same_page_anchors = true
-    ```
+    Links like `[text](#section)` that point to a heading within the same file are always validated against `Z102` — there is no configuration flag to disable this check.
 
 ### Violation codes
 

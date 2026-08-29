@@ -29,7 +29,6 @@ fail_under = 98
 max_sentence_length = 50
 # exit_zero = false
 # respect_vcs_ignore = true
-# validate_same_page_anchors = true
 
 excluded_external_urls = []
 
