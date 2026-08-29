@@ -875,21 +875,73 @@ patterns.
 
 Each exit code has a distinct visual signature in the Zenzic Report:
 
-### Exit 0 — Zenzic Audit Badge
+### Exit 0 — clean run
 
-This section details the specifications and guidelines for Exit 0 — Zenzic Audit Badge within the Zenzic ecosystem.
+No errors, no security findings. Warnings may still be present (they only block the
+run under `--strict`) — the summary line makes the distinction explicit:
 
-<!-- Terminal output: run `uvx zenzic check all` -->
+```text
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 2 info  • 2 files with findings
 
-### Exit 1 — Quality findings
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 98/100 (Gate Passed)
+```
 
-This section details the specifications and guidelines for Exit 1 — Quality findings within the Zenzic ecosystem.
+### Exit 1 — quality findings
 
-<!-- Terminal output: run `uvx zenzic check all` -->
+At least one `error`-severity finding (e.g. a broken link) with no security
+breach or path-traversal incident present. The report ends with an explicit
+`FAILED` line naming the exit code:
+
+```text
+docs/index.md:3  ✘  [Z101]  'missing-page.md' resolves to '/missing-page/' which
+is not in the Virtual Site Map — the target file may not exist
+
+Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 91/100 (Gate Failed)
+```
 
 ### Exit 2 — credential scanner security breach
 
-<!-- Terminal output: run `uvx zenzic check all` -->
+A leaked credential or forbidden term (`Z201`/`Z204`/`Z205`). Rendered as a
+dedicated `SECURITY BREACH DETECTED` panel — visually distinct from ordinary
+findings — and the DQS score is forced to 0 regardless of the rest of the scan:
+
+```text
+✘ SECURITY BREACH DETECTED  [LIKELY PLACEHOLDER]
+  ✘ Finding:    Secret detected (aws-access-key) — rotate immediately.
+  ✘ Location:   docs/index.md:6
+  ✘ Credential:  AKIA************MPLE
+
+  Action: Rotate this credential immediately and purge it from the repository
+history.
+
+Summary:  ✘ 1 security breach  • 1 file impacted  ✘ 0 errors  ⚠ 2 warnings  💡 0
+info  • 1 file with findings
+
+FAILED: Security breaches detected. Exit code 2 is mandatory.
+DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+```
+
+### Exit 3 — path traversal fatal incident
+
+A link resolves outside every authorised root, or to an OS system directory
+(`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). Takes priority over
+every other exit code and is never suppressed by `--exit-zero`:
+
+```text
+docs/index.md:3  ✘  [Z203]  '../../../../etc/passwd' resolves outside the docs
+directory
+
+Summary:  ✘ 1 security incident  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file
+with findings
+
+FAILED: Security incidents detected. Exit code 3 is mandatory.
+DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+```
 
 ---
 
