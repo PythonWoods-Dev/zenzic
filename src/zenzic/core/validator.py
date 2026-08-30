@@ -42,6 +42,7 @@ else:
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
+from urllib.parse import urlsplit
 
 import httpx
 import yaml
@@ -1105,6 +1106,33 @@ async def _ping_url(
         return f"external link '{url}' — connection error: {exc}"
 
 
+def _url_matches_excluded_prefix(url: str, prefix: str) -> bool:
+    """Return True if *url* is excluded by a declared ``excluded_external_urls`` *prefix*.
+
+    Compares the parsed scheme and host of *url* against *prefix* exactly
+    before falling back to a plain string-prefix check on the remainder.
+    A raw ``url.startswith(prefix)`` is vulnerable to host spoofing: a
+    declared prefix of ``"https://trusted.com"`` would also match
+    ``"https://trusted.com.evil.com/..."``, since that string genuinely
+    starts with the declared prefix even though its real host is
+    ``trusted.com.evil.com``, not ``trusted.com`` (CWE-20). Parsing both
+    sides and requiring an exact scheme+host match closes that bypass while
+    still allowing a prefix to scope a specific path under that host (e.g.
+    ``https://github.com/YourOrg/YourRepo``, the documented config example).
+    """
+    parsed_url = urlsplit(url)
+    parsed_prefix = urlsplit(prefix)
+    if not parsed_prefix.hostname:
+        return False
+    if parsed_url.scheme != parsed_prefix.scheme:
+        return False
+    if parsed_url.hostname != parsed_prefix.hostname:
+        return False
+    if parsed_url.port != parsed_prefix.port:
+        return False
+    return url.startswith(prefix)
+
+
 async def _check_external_links(
     entries: list[tuple[str, str, int]],
     config: ZenzicConfig,
@@ -1131,7 +1159,7 @@ async def _check_external_links(
         # Defense-in-depth: skip excluded external URLs even if not pre-filtered by caller
         is_excluded = False
         for prefix in excluded:
-            if url.startswith(prefix):
+            if _url_matches_excluded_prefix(url, prefix):
                 is_excluded = True
                 if global_tracker:
                     global_tracker.mark_excluded_external_url_used(prefix)
@@ -1659,7 +1687,7 @@ class LinkValidator:
         if excluded:
             global_tracker = getattr(self._config, "_global_tracker", None)
             for prefix in excluded:
-                if url.startswith(prefix):
+                if _url_matches_excluded_prefix(url, prefix):
                     if global_tracker:
                         global_tracker.mark_excluded_external_url_used(prefix)
                     return  # do not schedule for HTTP validation

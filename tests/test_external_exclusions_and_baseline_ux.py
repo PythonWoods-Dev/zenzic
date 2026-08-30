@@ -47,6 +47,38 @@ def test_link_validator_register_filters_excluded_urls(tmp_path: Path):
     assert "https://zenzic.dev/guide" in validator._registrations
 
 
+def test_check_external_links_prefix_match_rejects_host_spoofing(tmp_path: Path):
+    """CWE-20 regression: a declared 'https://trusted.com' exclusion must not
+    also match 'https://trusted.com.evil.com/...' — the host must be parsed
+    and compared exactly, not treated as a raw string prefix of the URL."""
+    config = ZenzicConfig.model_validate({"excluded_external_urls": ["https://trusted.com"]})
+    entries = [
+        # Legitimate sub-path of the declared host — must still be excluded.
+        ("https://trusted.com/real/path", "docs/test.md", 10),
+        # Spoofed host embedding the declared prefix — must NOT be excluded.
+        ("https://trusted.com.evil.com/malicious", "docs/test.md", 12),
+    ]
+
+    with patch("zenzic.core.validator._ping_url", new_callable=AsyncMock) as mock_ping:
+        mock_ping.return_value = None
+        asyncio.run(_check_external_links(entries, config, tmp_path))
+        # Only the spoofed-host URL should have been pinged; the real
+        # trusted.com sub-path must have been excluded as before.
+        assert mock_ping.call_count == 1
+        assert mock_ping.call_args[0][1] == "https://trusted.com.evil.com/malicious"
+
+
+def test_link_validator_register_prefix_match_rejects_host_spoofing(tmp_path: Path):
+    """CWE-20 regression, LinkValidator.register side: same host-spoofing bypass."""
+    config = ZenzicConfig.model_validate({"excluded_external_urls": ["https://trusted.com"]})
+    validator = LinkValidator(config, tmp_path)
+    validator.register("https://trusted.com/real/path", tmp_path / "test.md", 1)
+    validator.register("https://trusted.com.evil.com/malicious", tmp_path / "test.md", 2)
+
+    assert "https://trusted.com/real/path" not in validator._registrations
+    assert "https://trusted.com.evil.com/malicious" in validator._registrations
+
+
 def test_cli_exclude_url_flag_bypasses_external_link(tmp_path: Path):
     """Test --exclude-url on check links/all CLI command."""
     (tmp_path / ".zenzic.toml").write_text("strict = true\n")
