@@ -1150,10 +1150,11 @@ def _collect_all_results(
         )
         progress.start()
         _init_ms = (time.perf_counter() - (init_start_time or time.perf_counter())) * 1000
-        progress.add_task(
-            f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
-            total=1,
+        _task_init = progress.add_task("Initializing environment & VSM...", total=1)
+        progress.update(
+            _task_init,
             completed=1,
+            description=f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
         )
 
     try:

@@ -2649,6 +2649,46 @@ def test_check_all_progress_bar_activation(
     )
 
 
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_init_task_marked_finished(
+    _scan, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
+) -> None:
+    """The 'Initializing environment & VSM' progress task must reach Rich's
+    finished state (task.finished_time set), or SpinnerColumn renders an
+    endlessly-animating spinner frame instead of blank/finished text — Rich
+    only sets finished_time inside Progress.update(), never inside add_task(),
+    even when add_task() is called with completed >= total.
+    """
+    import rich.progress
+
+    captured: list[rich.progress.Progress] = []
+    real_progress_cls = rich.progress.Progress
+
+    class SpyProgress(real_progress_cls):  # type: ignore[misc]
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    with patch("rich.progress.Progress", SpyProgress):
+        runner.invoke(app, ["check", "all"])
+
+    assert captured, "no Progress instance was constructed"
+    init_task = captured[0].tasks[0]
+    assert init_task.description.startswith("Initializing environment & VSM")
+    assert init_task.finished, (
+        "the init task's finished_time was never set — SpinnerColumn will "
+        "render an animating frame forever instead of the finished state"
+    )
+
+
 def test_templates_root_keys_not_swallowed() -> None:
     """Ensure root keys like excluded_dirs are not swallowed by tables in TOML templates."""
     import re
