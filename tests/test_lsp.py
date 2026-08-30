@@ -109,7 +109,14 @@ def test_language_server_lifecycle() -> None:
 
     assert resp["jsonrpc"] == "2.0"
     assert resp["id"] == 1
-    assert resp["result"]["capabilities"]["textDocumentSync"] == 2
+    # Object form (not the bare TextDocumentSyncKind int) is required to also
+    # declare willSaveWaitUntil for auto-fix-on-save; "change": 2 preserves
+    # the original Incremental sync kind.
+    assert resp["result"]["capabilities"]["textDocumentSync"] == {
+        "openClose": True,
+        "change": 2,
+        "willSaveWaitUntil": True,
+    }
 
 
 def test_publish_diagnostics() -> None:
@@ -883,6 +890,66 @@ def test_lsp_code_action_z108(tmp_path) -> None:
     edits = action["edit"]["changes"][doc_uri]
     assert len(edits) == 1
     assert "[TODO](https://example.com)" in edits[0]["newText"]
+
+
+def test_lsp_code_action_z515_z517_z520_parity(tmp_path) -> None:
+    """CLI/LSP parity fix: Z515/Z517/Z520 were fixable=True in codes.py and already
+    wired into `zenzic fix`, but textDocument/codeAction had no branch for them --
+    manual Quick Fix in the editor silently offered nothing for 3 of the 6 fixable
+    codes. Reuses the same Mutation classes `zenzic fix` already uses."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "See https://example.com for more.\n"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 102,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 34},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 4},
+                                "end": {"line": 0, "character": 23},
+                            },
+                            "code": "Z515",
+                            "source": "Zenzic",
+                            "message": "[Z515] Bare URL used",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    response = json.loads(raw.split("\r\n\r\n")[1])
+    actions = response["result"]
+    fix_actions = [a for a in actions if a["title"].startswith("Fix Z515")]
+    assert len(fix_actions) == 1
+    edits = fix_actions[0]["edit"]["changes"][doc_uri]
+    assert "<https://example.com>" in edits[0]["newText"]
 
 
 def test_lsp_code_action_unfixable(tmp_path) -> None:
@@ -2079,3 +2146,199 @@ def test_initialized_registers_directory_watcher() -> None:
         assert "**/" in registered_patterns, (
             f"Directory watcher '**/' not found in registered patterns: {registered_patterns}"
         )
+
+
+def _send_will_save_wait_until(server: "LanguageServer", out_stream, doc_uri: str, msg_id: int):
+    """Send textDocument/willSaveWaitUntil and return the parsed JSON-RPC response."""
+    out_stream.seek(0)
+    out_stream.truncate(0)
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": "textDocument/willSaveWaitUntil",
+            "params": {"textDocument": {"uri": doc_uri}, "reason": 1},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    return json.loads(raw.split("\r\n\r\n")[1])
+
+
+def _init_server_with_config(tmp_path: Path) -> "LanguageServer":
+    from zenzic.core.scanner import _build_rule_engine
+    from zenzic.models.config import ZenzicConfig
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server.config, _ = ZenzicConfig.load(tmp_path)
+    server.rule_engine = _build_rule_engine(server.config)
+    return server
+
+
+def test_lsp_capability_advertises_will_save_wait_until() -> None:
+    """The initialize response must declare willSaveWaitUntil so vscode-languageclient
+    auto-forwards vscode.workspace.onWillSaveTextDocument to the server (LSP spec:
+    a client only calls textDocument/willSaveWaitUntil when the server opts in)."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": None, "capabilities": {}},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    response = json.loads(raw.split("\r\n\r\n")[1])
+    sync = response["result"]["capabilities"]["textDocumentSync"]
+    assert isinstance(sync, dict), (
+        "textDocumentSync must be the object form to declare willSaveWaitUntil"
+    )
+    assert sync["willSaveWaitUntil"] is True
+
+
+def test_lsp_will_save_wait_until_disabled_by_default(tmp_path: Path) -> None:
+    """Auto-fix-on-save must be OFF by default -- returns no edits even for a fixable finding."""
+    server = _init_server_with_config(tmp_path)
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "```\ncode\n```\n"}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 300)
+    assert resp["result"] == []
+
+
+def test_lsp_will_save_wait_until_fixes_z505_when_enabled(tmp_path: Path) -> None:
+    """With autoFixOnSave enabled, a real Z505 finding is auto-fixed via the SAME
+    UntaggedCodeBlockMutation already used by manual Quick Fix and `zenzic fix` --
+    no new fix logic, only a new trigger."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "```\ncode\n```\n"}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 301)
+    edits = resp["result"]
+    assert len(edits) == 1
+    assert "```text" in edits[0]["newText"]
+
+
+def test_lsp_will_save_wait_until_no_op_on_clean_document(tmp_path: Path) -> None:
+    """No fixable findings -> empty edit list, not a no-op full-document replacement."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": doc_uri,
+                    "text": "# Clean Document\n\nNothing wrong here.\n",
+                }
+            },
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 302)
+    assert resp["result"] == []
+
+
+def test_lsp_will_save_wait_until_skips_code_with_any_suppressed_occurrence(tmp_path: Path) -> None:
+    """Safety gate (Phase 3): if ANY occurrence of a fixable code is suppressed anywhere
+    in the file, auto-fix must skip that code entirely rather than risk 'fixing' the
+    occurrence the user explicitly suppressed. Two bare URLs, one suppressed."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    # Line 1's Z515 is suppressed (verified via _scan_single_file: consumed=True,
+    # no active Z515 finding for line 1); line 3's Z515 is a real, active finding.
+    doc_text = (
+        "See https://example.com for info. <!-- zenzic:ignore: Z515 -->\n\n"
+        "Also see https://other.example.com here.\n"
+    )
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 303)
+    assert resp["result"] == [], (
+        "the un-suppressed Z515 occurrence must NOT be auto-fixed while a sibling "
+        "occurrence of the same code is explicitly suppressed in the same file"
+    )
+
+
+def test_lsp_will_save_wait_until_fixes_all_six_fixable_codes(tmp_path: Path) -> None:
+    """Completes CLI/LSP parity: all 6 fixable=True codes (not just the 3 manual
+    Quick Fix already wired) are reachable via auto-fix-on-save."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "## Heading.\n\nSee https://example.com for more.\n"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 304)
+    edits = resp["result"]
+    assert len(edits) == 1
+    new_text = edits[0]["newText"]
+    assert "## Heading\n" in new_text, "Z517 heading punctuation should be stripped"
+    assert "<https://example.com>" in new_text, "Z515 bare URL should be angle-bracketed"
+
+
+def test_lsp_did_change_configuration_toggles_auto_fix_on_save(tmp_path: Path) -> None:
+    """workspace/didChangeConfiguration updates the flag live, no server restart needed."""
+    server = _init_server_with_config(tmp_path)
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    assert server.auto_fix_on_save is False
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeConfiguration",
+            "params": {"settings": {"zenzic": {"autoFixOnSave": True}}},
+        }
+    )
+    assert server.auto_fix_on_save is True

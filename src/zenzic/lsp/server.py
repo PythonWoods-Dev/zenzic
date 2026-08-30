@@ -78,6 +78,10 @@ class LanguageServer:
         # Diagnostics tracking to prevent ghost diagnostics on file deletion
         self.file_diagnostics: set[str] = set()
 
+        # Auto-fix-on-save (textDocument/willSaveWaitUntil) -- off by default,
+        # user opt-in via the zenzic.autoFixOnSave client setting.
+        self.auto_fix_on_save: bool = False
+
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
         body = json.dumps(message, separators=(",", ":")).encode("utf-8")
@@ -495,11 +499,25 @@ class LanguageServer:
                 if first_ws.get("uri", "").startswith("file://"):
                     self.repo_root = uri_to_path(first_ws["uri"])
 
+            init_options = params.get("initializationOptions") or {}
+            if isinstance(init_options, dict) and "autoFixOnSave" in init_options:
+                self.auto_fix_on_save = bool(init_options["autoFixOnSave"])
+
             self.send_response(
                 msg_id,
                 result={
                     "capabilities": {
-                        "textDocumentSync": 2,  # Incremental sync (Zero-DBT Enforcement)
+                        # Object form (not the bare TextDocumentSyncKind int) is
+                        # required to additionally declare willSaveWaitUntil --
+                        # vscode-languageclient only auto-forwards
+                        # workspace.onWillSaveTextDocument to the server when this
+                        # is true (textSynchronization.js checks
+                        # textDocumentSyncOptions.willSaveWaitUntil).
+                        "textDocumentSync": {
+                            "openClose": True,
+                            "change": 2,  # Incremental sync (Zero-DBT Enforcement)
+                            "willSaveWaitUntil": True,
+                        },
                         "hoverProvider": True,
                         "codeActionProvider": True,
                     },
@@ -570,6 +588,12 @@ class LanguageServer:
             changes = params.get("changes", [])
             self._handle_file_changes(changes)
 
+        elif method == "workspace/didChangeConfiguration":
+            settings = params.get("settings") or {}
+            zenzic_settings = settings.get("zenzic") if isinstance(settings, dict) else None
+            if isinstance(zenzic_settings, dict) and "autoFixOnSave" in zenzic_settings:
+                self.auto_fix_on_save = bool(zenzic_settings["autoFixOnSave"])
+
         elif method == "shutdown":
             self.shutdown_received = True
             if msg_id is not None:
@@ -603,6 +627,8 @@ class LanguageServer:
             self._handle_hover(params, msg_id)
         elif method == "textDocument/codeAction":
             self._handle_code_action(params, msg_id)
+        elif method == "textDocument/willSaveWaitUntil":
+            self._handle_will_save_wait_until(params, msg_id)
         elif method == "textDocument/didClose":
             uri = params.get("textDocument", {}).get("uri", "")
             self.documents.did_close(params)
@@ -808,8 +834,11 @@ class LanguageServer:
             NON_SUPPRESSIBLE_CODES,
         )
         from zenzic.core.mutator import (
+            BareUrlMutation,
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
+            HeadingPunctuationMutation,
+            MalformedListMutation,
             Mutation,
             Mutator,
             UntaggedCodeBlockMutation,
@@ -841,6 +870,15 @@ class LanguageServer:
                     line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
                     mutations.append(DeadSuppressionMutation({line_no}))
                     title = "Fix Z603: Remove dead inline suppression"
+                elif diag_code == "Z515":
+                    mutations.append(BareUrlMutation())
+                    title = "Fix Z515: Wrap bare URL in angle brackets"
+                elif diag_code == "Z517":
+                    mutations.append(HeadingPunctuationMutation())
+                    title = "Fix Z517: Strip trailing heading punctuation"
+                elif diag_code == "Z520":
+                    mutations.append(MalformedListMutation())
+                    title = "Fix Z520: Convert to a valid Markdown list"
 
                 if mutations:
                     try:
@@ -917,3 +955,120 @@ class LanguageServer:
                 code_actions.append(suppress_action)
 
         self.send_response(msg_id, result=code_actions)
+
+    def _handle_will_save_wait_until(
+        self, params: dict[str, Any], msg_id: int | str | None
+    ) -> None:
+        """Handle textDocument/willSaveWaitUntil: auto-fix-on-save.
+
+        Reuses the exact same Mutation classes as manual Quick Fix
+        (:meth:`_handle_code_action`) and ``zenzic fix`` -- no new fix logic,
+        only a new trigger.  Off unless ``self.auto_fix_on_save`` is True
+        (client opt-in via the ``zenzic.autoFixOnSave`` setting).
+
+        Safety gate: a fixable code is skipped entirely for this save if ANY
+        occurrence of that code anywhere in the file is inline-suppressed --
+        the Mutation classes have no per-occurrence location scoping (only
+        DeadSuppressionMutation does), so partial suppression cannot be
+        respected surgically; skipping the whole code is the fail-safe choice
+        over silently "fixing" a suppressed occurrence against user intent.
+        """
+        if msg_id is None:
+            return
+        if not self.auto_fix_on_save:
+            self.send_response(msg_id, result=[])
+            return
+
+        uri = params.get("textDocument", {}).get("uri", "")
+        content = self.documents.documents.get(uri)
+        if content is None or not uri.startswith("file://") or self.config is None:
+            self.send_response(msg_id, result=[])
+            return
+
+        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.mutator import (
+            BareUrlMutation,
+            EmptyLinkTextMutation,
+            HeadingPunctuationMutation,
+            MalformedListMutation,
+            Mutation,
+            Mutator,
+            UntaggedCodeBlockMutation,
+        )
+        from zenzic.core.parser import parse, serialize
+        from zenzic.core.scanner import _scan_single_file
+
+        path = uri_to_path(uri)
+        try:
+            report, _ = _scan_single_file(
+                path, self.config, rule_engine=self.rule_engine, text=content
+            )
+        except Exception:
+            # Fail-safe: an unexpected scan error must never silently corrupt
+            # the file -- skip this save cycle's auto-fix entirely.
+            self.send_response(msg_id, result=[])
+            return
+
+        suppressed_codes: set[str] = set()
+        if report.suppression_tracker is not None:
+            suppressed_codes = {d.code for d in report.suppression_tracker.directives if d.consumed}
+
+        active_fixable_codes = {
+            f.rule_id
+            for f in report.rule_findings
+            if (defn := CODE_DEFINITIONS.get(f.rule_id)) and getattr(defn, "fixable", False)
+        }
+        codes_to_fix = active_fixable_codes - suppressed_codes
+
+        mutation_factory: dict[str, type] = {
+            "Z108": EmptyLinkTextMutation,
+            "Z505": UntaggedCodeBlockMutation,
+            "Z515": BareUrlMutation,
+            "Z517": HeadingPunctuationMutation,
+            "Z520": MalformedListMutation,
+            # Z603 (DeadSuppressionMutation) deliberately excluded: it needs
+            # specific dead-suppression line numbers as constructor state,
+            # which is exactly the kind of new fix-selection logic this
+            # trigger must not invent; dead suppressions stay reachable via
+            # the existing per-diagnostic Quick Fix and `zenzic fix`.
+        }
+        mutations: list[Mutation] = [
+            mutation_factory[code]() for code in codes_to_fix if code in mutation_factory
+        ]
+
+        if not mutations:
+            self.send_response(msg_id, result=[])
+            return
+
+        try:
+            ast = parse(content)
+            mutator = Mutator(mutations)
+            new_ast, changed = mutator.mutate(ast)
+        except Exception:
+            # Ambiguous/failed mutation: skip and notify via the log, never guess.
+            self.send_message(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "window/logMessage",
+                    "params": {
+                        "type": 2,  # Warning
+                        "message": f"Zenzic auto-fix-on-save: mutation failed for {uri}, skipped.",
+                    },
+                }
+            )
+            self.send_response(msg_id, result=[])
+            return
+
+        if not changed:
+            self.send_response(msg_id, result=[])
+            return
+
+        new_content = serialize(new_ast)
+        lines = content.splitlines(keepends=True)
+        total_lines = max(0, len(lines) - 1)
+        last_line_len = len(lines[-1]) if lines else 0
+        full_range = {
+            "start": {"line": 0, "character": 0},
+            "end": {"line": total_lines, "character": last_line_len},
+        }
+        self.send_response(msg_id, result=[{"range": full_range, "newText": new_content}])
