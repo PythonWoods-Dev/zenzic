@@ -68,11 +68,11 @@ broken-links = "zenzic.core.rules:VSMBrokenLinkRule"
 [project.urls]
 Homepage      = "https://zenzic.dev"
 Documentation = "https://zenzic.dev/"
-Repository    = "https://github.com/PythonWoods-Dev/zenzic"
-Source        = "https://github.com/PythonWoods-Dev/zenzic"
-Changelog     = "https://github.com/PythonWoods-Dev/zenzic/blob/main/CHANGELOG.md"
-Issues        = "https://github.com/PythonWoods-Dev/zenzic/issues"
-Tracker       = "https://github.com/PythonWoods-Dev/zenzic/issues"
+Repository    = "https://github.com/PythonWoods/zenzic"
+Source        = "https://github.com/PythonWoods/zenzic"
+Changelog     = "https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md"
+Issues        = "https://github.com/PythonWoods/zenzic/issues"
+Tracker       = "https://github.com/PythonWoods/zenzic/issues"
 
 # ─── Optional extras (PEP 508 — pip / pipx compat) ───────────────────────────
 # Use:  uv pip install -e ".[dev]"   (activates Identity Gate, CEO-246/268)

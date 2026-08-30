@@ -4,7 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 <p align="center">
-  <a href="https://github.com/PythonWoods-Dev/zenzic">
+  <a href="https://github.com/PythonWoods/zenzic">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/brand/svg/zenzic-logo-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="./docs/assets/brand/svg/zenzic-logo.svg">
@@ -14,8 +14,8 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://github.com/PythonWoods-Dev/zenzic/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/PythonWoods-Dev/zenzic/ci.yml?branch=main&label=ci&style=flat-square" alt="ci-status">
+  <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/PythonWoods/zenzic/ci.yml?branch=main&label=ci&style=flat-square" alt="ci-status">
   </a>
   <!-- zenzic:audit-badge -->
   <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square" alt="zenzic-audit">
@@ -98,7 +98,7 @@ Choose the distribution track that fits your workflow ([full guide](https://zenz
 # Track 1 — Pre-commit (Recommended: isolated, pinned, zero environment contamination)
 # Add to .pre-commit-config.yaml:
 repos:
-  - repo: https://github.com/PythonWoods-Dev/zenzic
+  - repo: https://github.com/PythonWoods/zenzic
     rev: v0.30.0
     hooks:
       - id: zenzic-guard
@@ -143,7 +143,7 @@ Catch broken links and leaked secrets before `git commit`:
 ```yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/PythonWoods-Dev/zenzic
+  - repo: https://github.com/PythonWoods/zenzic
     rev: v0.30.0
     hooks:
       - id: zenzic-guard   # Fast staged-file credential scan
@@ -408,7 +408,7 @@ Zenzic runs the same rule engine and finding codes across every development touc
 
 | Platform | Primary Use Case | Delivery |
 | :--- | :--- | :--- |
-| **[Zenzic CLI (Core)](https://github.com/PythonWoods-Dev/zenzic)** | Local development, batch auto-fixes, and scriptable audits | Pre-commit / PyPI (`uv`/`pip`) |
+| **[Zenzic CLI (Core)](https://github.com/PythonWoods/zenzic)** | Local development, batch auto-fixes, and scriptable audits | Pre-commit / PyPI (`uv`/`pip`) |
 | **[VS Code Extension][zenzic-vscode]** | Real-time wavy-line diagnostics, LSP Quick Fixes (`Ctrl+.`), and status telemetry | [VS Code Marketplace][zenzic-vscode] |
 | **[GitHub Action][zenzic-action]** | CI/CD pull request gate, SARIF Code Scanning alerts, and merge blocking | [GitHub Marketplace][zenzic-action] |
 
@@ -430,7 +430,7 @@ For deep architectural explanations, configuration strategies, and the full find
 
 Zenzic evolves strictly within its deterministic, AST-driven architecture. Upcoming milestones include:
 
-- **Sphinx Adapter**: Native Virtual Site Map (VSM) adapter for Sphinx, parsing `conf.py` and `.rst` files without invoking `sphinx-build`. Docusaurus and Hugo support is community-contributed via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) and [GH #51](https://github.com/PythonWoods-Dev/zenzic/issues/51).
+- **Sphinx Adapter**: Native Virtual Site Map (VSM) adapter for Sphinx, parsing `conf.py` and `.rst` files without invoking `sphinx-build`. Docusaurus and Hugo support is community-contributed via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #50](https://github.com/PythonWoods/zenzic/issues/50) and [GH #51](https://github.com/PythonWoods/zenzic/issues/51).
 - **Multi-Repository Documentation Graph**: Cross-repository link resolution and contract validation across polyrepo documentation architectures without network calls.
 - **Auto-Fix Expansion**: Extended lossless AST mutations for additional structural codes (`Z1xx`), reference normalization (`Z3xx`), and frontmatter standardization (`Z6xx`).
 
@@ -442,5 +442,5 @@ Licensed under the [Apache License, Version 2.0](LICENSE).
 Copyright (c) 2026 PythonWoods `<dev@pythonwoods.dev>`.
 
 <!-- Link Definitions -->
-[zenzic-vscode]: https://github.com/PythonWoods-Dev/zenzic-vscode
-[zenzic-action]: https://github.com/PythonWoods-Dev/zenzic-action
+[zenzic-vscode]: https://github.com/PythonWoods/zenzic-vscode
+[zenzic-action]: https://github.com/PythonWoods/zenzic-action
