@@ -82,6 +82,10 @@ class LanguageServer:
         # user opt-in via the zenzic.autoFixOnSave client setting.
         self.auto_fix_on_save: bool = False
 
+        # Auto-repair inbound links on rename (workspace/willRenameFiles) --
+        # off by default, user opt-in via zenzic.autoRepairLinksOnRename.
+        self.auto_repair_links_on_rename: bool = False
+
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
         body = json.dumps(message, separators=(",", ":")).encode("utf-8")
@@ -502,6 +506,8 @@ class LanguageServer:
             init_options = params.get("initializationOptions") or {}
             if isinstance(init_options, dict) and "autoFixOnSave" in init_options:
                 self.auto_fix_on_save = bool(init_options["autoFixOnSave"])
+            if isinstance(init_options, dict) and "autoRepairLinksOnRename" in init_options:
+                self.auto_repair_links_on_rename = bool(init_options["autoRepairLinksOnRename"])
 
             self.send_response(
                 msg_id,
@@ -520,6 +526,21 @@ class LanguageServer:
                         },
                         "hoverProvider": True,
                         "codeActionProvider": True,
+                        # workspace/willRenameFiles: vscode-languageclient only
+                        # auto-forwards vscode.workspace.onWillRenameFiles when
+                        # this filter is declared (fileOperations.js).
+                        "workspace": {
+                            "fileOperations": {
+                                "willRename": {
+                                    "filters": [
+                                        {
+                                            "scheme": "file",
+                                            "pattern": {"glob": "**/*.{md,mdx,markdown}"},
+                                        }
+                                    ]
+                                }
+                            }
+                        },
                     },
                     "serverInfo": {"name": "Zenzic Language Server", "version": __version__},
                 },
@@ -593,6 +614,8 @@ class LanguageServer:
             zenzic_settings = settings.get("zenzic") if isinstance(settings, dict) else None
             if isinstance(zenzic_settings, dict) and "autoFixOnSave" in zenzic_settings:
                 self.auto_fix_on_save = bool(zenzic_settings["autoFixOnSave"])
+            if isinstance(zenzic_settings, dict) and "autoRepairLinksOnRename" in zenzic_settings:
+                self.auto_repair_links_on_rename = bool(zenzic_settings["autoRepairLinksOnRename"])
 
         elif method == "shutdown":
             self.shutdown_received = True
@@ -629,6 +652,8 @@ class LanguageServer:
             self._handle_code_action(params, msg_id)
         elif method == "textDocument/willSaveWaitUntil":
             self._handle_will_save_wait_until(params, msg_id)
+        elif method == "workspace/willRenameFiles":
+            self._handle_will_rename_files(params, msg_id)
         elif method == "textDocument/didClose":
             uri = params.get("textDocument", {}).get("uri", "")
             self.documents.did_close(params)
@@ -1072,3 +1097,139 @@ class LanguageServer:
             "end": {"line": total_lines, "character": last_line_len},
         }
         self.send_response(msg_id, result=[{"range": full_range, "newText": new_content}])
+
+    def _handle_will_rename_files(self, params: dict[str, Any], msg_id: int | str | None) -> None:
+        """Handle workspace/willRenameFiles: auto-repair inbound links.
+
+        Reuses ``resolve_href_target`` (unchanged) via
+        :class:`~zenzic.core.mutator.RenameLinkMutation` to find and rewrite
+        relative links pointing at each renamed file's OLD path -- no new
+        link-resolution logic, only new fix-application logic matching the
+        codebase's existing Mutation pattern.
+
+        Scope is bounded by the VSM's existing ``incoming_links`` reverse
+        index (canonical URL -> set of linking file paths) -- an O(1) lookup
+        per rename, not a workspace-wide scan.
+
+        Off unless ``self.auto_repair_links_on_rename`` is True.  Skips (does
+        not guess) when: the renamed file isn't a tracked Markdown/MDX
+        document, it has no VSM entry, a linking file is excluded via
+        ``.zenzic.toml``, or a link uses an alias href style
+        (``RenameLinkMutation`` itself declines those).
+        """
+        if msg_id is None:
+            return
+        if not self.auto_repair_links_on_rename:
+            self.send_response(msg_id, result=None)
+            return
+        if self.vsm is None or self.config is None or self.repo_root is None:
+            self.send_response(msg_id, result=None)
+            return
+
+        from zenzic.core.discovery import DOC_SUFFIXES
+        from zenzic.core.mutator import Mutator, RenameLinkMutation
+        from zenzic.core.parser import parse, serialize
+
+        docs_root = self._resolve_docs_root()
+        docs_root_str = str(docs_root)
+        repo_root_str = str(self.repo_root)
+
+        changes: dict[str, list[dict[str, Any]]] = {}
+        skipped_files: list[str] = []
+
+        for file_op in params.get("files", []):
+            old_uri = file_op.get("oldUri", "")
+            new_uri = file_op.get("newUri", "")
+            if not old_uri.startswith("file://") or not new_uri.startswith("file://"):
+                continue
+            try:
+                old_path = uri_to_path(old_uri)
+                new_path = uri_to_path(new_uri)
+            except Exception:  # noqa: S112 -- malformed URI, skip this pair silently
+                continue
+            if old_path.suffix.lower() not in DOC_SUFFIXES:
+                continue
+
+            try:
+                old_rel_posix = old_path.resolve().relative_to(docs_root.resolve()).as_posix()
+            except ValueError:
+                continue  # renamed file is outside docs_root -- not VSM-tracked
+
+            canonical_url = next(
+                (url for url, route in self.vsm.items() if route.source == old_rel_posix), None
+            )
+            if canonical_url is None:
+                continue  # not in the VSM (excluded, or VSM stale) -- skip, don't guess
+
+            linking_files = self.vsm.incoming_links.get(canonical_url, set())
+            old_abs = str(old_path.resolve())
+            new_abs = str(new_path.resolve())
+
+            for linking_path in linking_files:
+                if self.exclusion_mgr is not None and self.exclusion_mgr.should_exclude_file(
+                    linking_path, docs_root
+                ):
+                    skipped_files.append(str(linking_path))
+                    continue
+
+                linking_uri = linking_path.resolve().as_uri()
+                content = self.documents.documents.get(linking_uri)
+                if content is None:
+                    try:
+                        content = linking_path.read_text(encoding="utf-8")
+                    except OSError:
+                        skipped_files.append(str(linking_path))
+                        continue
+
+                try:
+                    mutation = RenameLinkMutation(
+                        source_file=linking_path,
+                        docs_root_str=docs_root_str,
+                        repo_root_str=repo_root_str,
+                        old_abs=old_abs,
+                        new_abs=new_abs,
+                    )
+                    ast = parse(content)
+                    new_ast, changed = Mutator([mutation]).mutate(ast)
+                except Exception:
+                    skipped_files.append(str(linking_path))
+                    continue
+
+                if not changed:
+                    continue
+
+                new_content = serialize(new_ast)
+                lines = content.splitlines(keepends=True)
+                total_lines = max(0, len(lines) - 1)
+                last_line_len = len(lines[-1]) if lines else 0
+                changes[linking_uri] = [
+                    {
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": total_lines, "character": last_line_len},
+                        },
+                        "newText": new_content,
+                    }
+                ]
+
+        if skipped_files:
+            self.send_message(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "window/logMessage",
+                    "params": {
+                        "type": 2,  # Warning
+                        "message": (
+                            "Zenzic auto-repair-on-rename: skipped "
+                            f"{len(skipped_files)} file(s) (excluded, unreadable, "
+                            f"or mutation error): {', '.join(skipped_files)}"
+                        ),
+                    },
+                }
+            )
+
+        if not changes:
+            self.send_response(msg_id, result=None)
+            return
+
+        self.send_response(msg_id, result={"changes": changes})

@@ -122,6 +122,8 @@ If you use a custom virtual environment or isolated installation, configure `zen
 |---|---|---|---|
 | `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports leading `~/` and `${workspaceFolder}` (intelligently scans across all active workspace folders in multi-root setups). |
 | `zenzic.autoProvision` | `boolean` | `true` | Automatically install the Zenzic CLI in an isolated environment if not found. Set to `false` to opt out. |
+| `zenzic.autoFixOnSave` | `boolean` | `false` | Automatically apply Zenzic's deterministic Quick Fixes when a Markdown/MDX file is saved. Off by default — see [Auto-Fix on Save](#auto-fix-on-save) below. |
+| `zenzic.autoRepairLinksOnRename` | `boolean` | `false` | Automatically rewrite inbound relative links when a file is renamed or moved. Off by default — see [Auto-Repair Links on Rename](#auto-repair-links-on-rename) below. |
 | `zenzic.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Useful for debugging. |
 
 ### Commands
@@ -143,9 +145,30 @@ The extension contributes the following commands to the Command Palette (`Ctrl+S
 
 The extension exposes real-time LSP diagnostics directly in the PROBLEMS panel and editor margin.
 
-Zenzic provides automated Quick Fixes for specific structural and content findings (e.g., injecting placeholder text for empty links `Z108`, adding language tags to code blocks `Z505`, and removing dead suppressions `Z603`).
+Zenzic provides automated Quick Fixes for 6 deterministic findings: injecting placeholder text for empty links (`Z108`), adding language tags to code blocks (`Z505`), wrapping bare URLs in angle brackets (`Z515`), stripping trailing heading punctuation (`Z517`), converting malformed pseudo-lists to valid Markdown lists (`Z520`), and removing dead suppressions (`Z603`).
 
 In addition, Zenzic offers automated "Suppress this finding" Code Actions (`<!-- zenzic:ignore:ZXXX -->`) for all suppressible diagnostics. Hovering over a finding allows you to insert an inline suppression directive on the line above with a single click. To enforce security governance, suppression Code Actions are intentionally disabled for Security findings (`Z2xx`), which must be remediated at the source.
+
+---
+
+## Auto-Fix on Save
+
+Set `zenzic.autoFixOnSave` to `true` to automatically apply the same 6 Quick Fixes above whenever a Markdown/MDX file is saved — no manual `Ctrl+.` needed. **Off by default**: silently rewriting file content on every save can surprise a workflow or conflict with another formatter also running on save.
+
+Safety behavior: if any occurrence of a fixable finding is inline-suppressed anywhere in the file, that specific finding code is skipped entirely for that save — a suppressed occurrence is never rewritten, even if a different, un-suppressed occurrence of the same code exists elsewhere in the file. A scan or fix error also skips the save's auto-fix rather than risking a partial or incorrect edit.
+
+---
+
+## Auto-Repair Links on Rename
+
+Set `zenzic.autoRepairLinksOnRename` to `true` to automatically rewrite inbound relative links across the workspace whenever a Markdown/MDX file is renamed or moved. **Off by default**: unlike auto-fix-on-save, this can rewrite files you didn't directly touch — every file that linked to the renamed one.
+
+Scope and safety behavior:
+
+- Only plain relative links (e.g. `[text](./old-name.md)`) are rewritten. Docs-root-relative links (a leading `/`) and `@site/...` alias links are always left untouched, since reconstructing the correct alias form is ambiguous.
+- A file excluded via `.zenzic.toml` is never rewritten, even if it links to the renamed file.
+- If repairing several inbound links at once and one linking file cannot be safely updated, the others are still repaired independently — Zenzic never skips a whole rename's worth of fixes because one file failed.
+- Renaming a folder (rather than a single file) is not currently handled by this feature.
 
 ---
 

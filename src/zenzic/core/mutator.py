@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import copy
+import os
+from pathlib import Path
 from typing import Protocol
 
 from zenzic.core import regex
@@ -371,6 +373,68 @@ class MalformedListMutation:
                 return True
 
         mutated = False
+        for child in node.children:
+            if self.apply(child):
+                mutated = True
+
+        return mutated
+
+
+class RenameLinkMutation:
+    """Rewrites relative-link ``LinkNode.url`` hrefs that resolve (via the
+    existing :func:`zenzic.core.resolver.resolve_href_target`) to a renamed
+    file's OLD absolute path, replacing them with a correct relative href to
+    its NEW absolute path.
+
+    Deliberately narrow and deterministic -- no new *resolution* logic:
+    ``resolve_href_target`` (unchanged) still decides what a given href
+    currently points at. This class only computes the mechanical relative
+    path to the already-known new location and only for hrefs whose original
+    style it can safely reconstruct.
+
+    A leading ``/`` (docs-root-relative) or ``@site/`` (alias) href is left
+    untouched -- reconstructing those correctly would require re-deriving
+    which alias style the author intended, which is a judgment call this
+    class does not make.  Skipping is the fail-safe choice.
+    """
+
+    def __init__(
+        self,
+        source_file: Path,
+        docs_root_str: str,
+        repo_root_str: str,
+        old_abs: str,
+        new_abs: str,
+    ) -> None:
+        self.source_file = source_file
+        self.docs_root_str = docs_root_str
+        self.repo_root_str = repo_root_str
+        self.old_abs = os.path.normpath(old_abs)
+        self.new_abs = new_abs
+        self.matched = False
+
+    def apply(self, node: Node) -> bool:
+        from zenzic.core.resolver import resolve_href_target
+
+        mutated = False
+        if isinstance(node, LinkNode) and node.url:
+            from urllib.parse import unquote, urlsplit
+
+            parsed = urlsplit(node.url)
+            path_part = unquote(parsed.path.replace("\\", "/"))
+            if path_part and not path_part.startswith(("/", "@site/")):
+                resolved = resolve_href_target(
+                    self.source_file, path_part, self.docs_root_str, self.repo_root_str
+                )
+                if resolved == self.old_abs:
+                    new_rel = os.path.relpath(self.new_abs, self.source_file.parent)
+                    new_href = Path(new_rel).as_posix()
+                    if parsed.fragment:
+                        new_href = f"{new_href}#{parsed.fragment}"
+                    node.url = new_href
+                    self.matched = True
+                    mutated = True
+
         for child in node.children:
             if self.apply(child):
                 mutated = True

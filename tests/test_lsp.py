@@ -2342,3 +2342,201 @@ def test_lsp_did_change_configuration_toggles_auto_fix_on_save(tmp_path: Path) -
         }
     )
     assert server.auto_fix_on_save is True
+
+
+def _send_will_rename_files(
+    server: "LanguageServer", out_stream, old_uri: str, new_uri: str, msg_id: int
+):
+    out_stream.seek(0)
+    out_stream.truncate(0)
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": "workspace/willRenameFiles",
+            "params": {"files": [{"oldUri": old_uri, "newUri": new_uri}]},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    return json.loads(raw.split("\r\n\r\n")[1])
+
+
+def test_lsp_capability_advertises_will_rename_files() -> None:
+    """initialize must declare workspace.fileOperations.willRename so
+    vscode-languageclient auto-forwards vscode.workspace.onWillRenameFiles."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": None, "capabilities": {}},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    response = json.loads(raw.split("\r\n\r\n")[1])
+    filters = response["result"]["capabilities"]["workspace"]["fileOperations"]["willRename"][
+        "filters"
+    ]
+    assert filters[0]["scheme"] == "file"
+
+
+def test_lsp_will_rename_files_disabled_by_default(tmp_path: Path) -> None:
+    """Off by default -- returns no WorkspaceEdit even for a real inbound link."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md).\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 400
+    )
+    assert resp["result"] is None
+
+
+def test_lsp_will_rename_files_repairs_inbound_link(tmp_path: Path) -> None:
+    """Real fixture: A links to B, rename B -> B2, confirm A's link is rewritten.
+    Reuses resolve_href_target (via RenameLinkMutation) -- no new resolution logic."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md) for details.\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    old_uri = (docs_dir / "b.md").as_uri()
+    new_uri = (docs_dir / "b2.md").as_uri()
+    resp = _send_will_rename_files(server, out_stream, old_uri, new_uri, 401)
+
+    a_uri = (docs_dir / "a.md").resolve().as_uri()
+    changes = resp["result"]["changes"]
+    assert a_uri in changes
+    assert "[B](b2.md)" in changes[a_uri][0]["newText"]
+
+
+def test_lsp_will_rename_files_skips_non_markdown_rename(tmp_path: Path) -> None:
+    """Scoped to Markdown/MDX document renames only -- an image rename is a no-op
+    for this feature (Z405/asset-reference repair is a different, unimplemented
+    concern, not silently half-handled here)."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "logo.png").write_bytes(b"\x89PNG\r\n")
+    (docs_dir / "a.md").write_text("# A\n![Logo](./logo.png)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "logo.png").as_uri(), (docs_dir / "logo2.png").as_uri(), 402
+    )
+    assert resp["result"] is None
+
+
+def test_lsp_will_rename_files_skips_excluded_linking_file(tmp_path: Path) -> None:
+    """Safety gate (Phase 3): a linking file excluded via .zenzic.toml is left
+    untouched, even though it has a real inbound link to the renamed file."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md) for details.\n")
+    (tmp_path / ".zenzic.toml").write_text('excluded_file_patterns = ["a.md"]\n')
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 403
+    )
+    assert resp["result"] is None, (
+        "the excluded file must not be rewritten even though it links to the renamed file"
+    )
+
+
+def test_lsp_will_rename_files_skips_alias_style_href(tmp_path: Path) -> None:
+    """Safety gate (Phase 3): a docs-root-relative ('/...') href is left untouched
+    rather than guessing which alias style to reconstruct."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](/b.md) for details.\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 404
+    )
+    assert resp["result"] is None, "an alias-style href must be skipped, not guessed at"
+
+
+def test_lsp_did_change_configuration_toggles_auto_repair_links_on_rename(tmp_path: Path) -> None:
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    assert server.auto_repair_links_on_rename is False
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeConfiguration",
+            "params": {"settings": {"zenzic": {"autoRepairLinksOnRename": True}}},
+        }
+    )
+    assert server.auto_repair_links_on_rename is True
+
+
+def test_lsp_will_rename_files_partial_success_one_excluded_one_fixed(tmp_path: Path) -> None:
+    """Safety (Phase 3): renaming a heavily-linked page must not fail all-or-nothing.
+    Two files link to B; one is excluded (skipped, reported), the other is fixed."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md) for details.\n")
+    (docs_dir / "c.md").write_text("# C\nAlso see [B](./b.md) here.\n")
+    (tmp_path / ".zenzic.toml").write_text('excluded_file_patterns = ["a.md"]\n')
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 405
+    )
+
+    a_uri = (docs_dir / "a.md").resolve().as_uri()
+    c_uri = (docs_dir / "c.md").resolve().as_uri()
+    changes = resp["result"]["changes"]
+    assert a_uri not in changes, "excluded file must not appear in the WorkspaceEdit"
+    assert c_uri in changes, "the non-excluded file must still be fixed independently"
+    assert "[B](b2.md)" in changes[c_uri][0]["newText"]
