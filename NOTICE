@@ -13,50 +13,110 @@ Project attribution:
 
 ## Runtime Dependencies
 
+Includes both direct dependencies and their own first-level transitive
+dependencies, so this list matches what actually installs alongside Zenzic
+in a real environment, not just `pyproject.toml`'s top-level names.
+
 1. Pydantic v2 (https://github.com/pydantic/pydantic)
    Copyright (c) Samuel Colvin and other contributors
    License: MIT
    Used for: Configuration model validation and settings management
 
-2. Typer (https://github.com/tiangolo/typer)
+2. annotated-types (https://github.com/annotated-types/annotated-types)
+   Copyright (c) 2022 the contributors
+   License: MIT
+   Used for: Transitive dependency of Pydantic
+
+3. pydantic-core (https://github.com/pydantic/pydantic-core)
+   Copyright (c) 2022 Samuel Colvin
+   License: MIT
+   Used for: Transitive dependency of Pydantic
+
+4. typing-extensions (https://github.com/python/typing_extensions)
+   Copyright (c) 2001-2023 Python Software Foundation
+   License: PSF-2.0
+   Used for: Transitive dependency of Pydantic (Python < 3.11 backport)
+
+5. typing-inspection (https://github.com/pydantic/typing-inspection)
+   Copyright (c) 2025-present Pydantic Services Inc.
+   License: MIT
+   Used for: Transitive dependency of Pydantic
+
+6. Typer (https://github.com/tiangolo/typer)
    Copyright (c) Sebastián Ramírez
    License: MIT
    Used for: Command-line interface and argument parsing
 
-3. Rich (https://github.com/Textualize/rich)
+7. Shellingham (https://github.com/sarugaku/shellingham)
+   Copyright (c) Tzu-ping Chung
+   License: MIT
+   Used for: Transitive dependency of Typer (shell detection)
+
+8. colorama (https://github.com/tartley/colorama)
+   Copyright (c) 2010 Jonathan Hartley
+   License: BSD-3-Clause
+   Used for: Transitive dependency of Typer (Windows terminal color support only)
+
+9. Rich (https://github.com/Textualize/rich)
    Copyright (c) Will McGugan
    License: MIT
    Used for: Terminal output formatting, tables, and progress display
 
-4. PyYAML (https://github.com/yaml/pyyaml)
-   Copyright (c) Ingy döt Net and Kirill Simonov
-   License: MIT
-   Used for: YAML configuration parsing (mkdocs.yml)
+10. markdown-it-py (https://github.com/executablebooks/markdown-it-py)
+    Copyright (c) 2020 ExecutableBookProject
+    License: MIT
+    Used for: Transitive dependency of Rich (Markdown rendering in terminal output)
 
-5. httpx (https://github.com/encode/httpx)
-   Copyright (c) Encode OSS Ltd.
-   License: BSD-3-Clause
-   Used for: Async HTTP client for external link validation
+11. Pygments (https://github.com/pygments/pygments)
+    Copyright (c) 2006-2022 by the respective authors (see AUTHORS file)
+    License: BSD-2-Clause
+    Used for: Transitive dependency of Rich (syntax highlighting)
 
-6. Shellingham (https://github.com/sarugaku/shellingham)
-   Copyright (c) Tzu-ping Chung
-   License: MIT
-   Used for: Shell detection (transitive dependency of Typer)
+12. PyYAML (https://github.com/yaml/pyyaml)
+    Copyright (c) Ingy döt Net and Kirill Simonov
+    License: MIT
+    Used for: YAML configuration parsing (mkdocs.yml)
 
-7. google-re2 (https://github.com/google/re2)
-   Copyright (c) The RE2 Authors
-   License: BSD-3-Clause
-   Used for: DFA-native RE2 engine bindings
+13. httpx (https://github.com/encode/httpx)
+    Copyright (c) Encode OSS Ltd.
+    License: BSD-3-Clause
+    Used for: Async HTTP client for external link validation
 
-8. tomli (https://github.com/hukkin/tomli)
-   Copyright (c) Taneli Hukkinen
-   License: MIT
-   Used for: TOML parsing backport for Python 3.10
+14. anyio (https://github.com/agronholm/anyio)
+    Copyright (c) 2018 Alex Grönholm
+    License: MIT
+    Used for: Transitive dependency of httpx (async concurrency backend)
 
-9. pathspec (https://github.com/cpburnz/python-pathspec)
-   Copyright (c) Caleb P. Burns
-   License: Mozilla Public License 2.0
-   Used for: Gitignore pattern matching
+15. certifi (https://github.com/certifi/python-certifi)
+    Mozilla Public License 2.0 (see the project's own LICENSE file for the
+    full license text; no separate copyright-holder line is stated there)
+    License: MPL-2.0
+    Used for: Transitive dependency of httpx (CA certificate bundle)
+
+16. httpcore (https://github.com/encode/httpcore)
+    Copyright (c) 2020 Encode OSS Ltd.
+    License: BSD-3-Clause
+    Used for: Transitive dependency of httpx (low-level HTTP transport)
+
+17. idna (https://github.com/kjd/idna)
+    Copyright (c) 2013-2026 Kim Davies and contributors
+    License: BSD-3-Clause
+    Used for: Transitive dependency of httpx (internationalized domain names)
+
+18. google-re2 (https://github.com/google/re2)
+    Copyright (c) The RE2 Authors
+    License: BSD-3-Clause
+    Used for: DFA-native RE2 engine bindings
+
+19. tomli (https://github.com/hukkin/tomli)
+    Copyright (c) Taneli Hukkinen
+    License: MIT
+    Used for: TOML parsing backport for Python 3.10
+
+20. pathspec (https://github.com/cpburnz/python-pathspec)
+    Copyright (c) Caleb P. Burns
+    License: Mozilla Public License 2.0
+    Used for: Gitignore pattern matching
 
 ================================================================================
 
@@ -65,20 +125,20 @@ Project attribution:
 These packages are used during development, testing, and documentation builds.
 They are not included in the distributed wheel.
 
-10. MkDocs (https://github.com/mkdocs/mkdocs)
-   Copyright (c) 2014-present, Tom Christie
-   License: BSD-2-Clause
-   Used for: Documentation build backend
+21. MkDocs (https://github.com/mkdocs/mkdocs)
+    Copyright (c) 2014-present, Tom Christie
+    License: BSD-2-Clause
+    Used for: Documentation build backend
 
-11. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
-   Copyright (c) 2016-present, Martin Donath
-   License: MIT
-   Used for: Documentation theme
+22. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
+    Copyright (c) 2016-present, Martin Donath
+    License: MIT
+    Used for: Documentation theme
 
-12. bump-my-version (https://github.com/callowayproject/bump-my-version)
-   Copyright (c) Corey Oordt and contributors
-   License: MIT
-   Used for: Automated version bumping across pyproject.toml, __init__.py, mkdocs.yml
+23. bump-my-version (https://github.com/callowayproject/bump-my-version)
+    Copyright (c) Corey Oordt and contributors
+    License: MIT
+    Used for: Automated version bumping across pyproject.toml, __init__.py, mkdocs.yml
 
 ================================================================================
 
@@ -86,27 +146,27 @@ They are not included in the distributed wheel.
 
 The documentation site includes the following self-hosted font families:
 
-13. Inter (https://github.com/rsms/inter)
+24. Inter (https://github.com/rsms/inter)
     Copyright (c) 2016-2024 Rasmus Andersson
     License: SIL Open Font License 1.1
     Used for: Documentation site typography
 
-14. IBM Plex Mono (https://github.com/IBM/plex)
+25. IBM Plex Mono (https://github.com/IBM/plex)
     Copyright (c) 2017 IBM Corporation
     License: SIL Open Font License 1.1
     Used for: Code block and terminal typography
 
-15. Barlow Condensed (https://github.com/jctribby/barlow)
+26. Barlow Condensed (https://github.com/jctribby/barlow)
     Copyright (c) 2017 Jeremy Tribby
     License: SIL Open Font License 1.1
     Used for: Brand headings and visual board typography
 
-16. JetBrains Mono (https://github.com/JetBrains/JetBrainsMono)
+27. JetBrains Mono (https://github.com/JetBrains/JetBrainsMono)
     Copyright (c) 2020 JetBrains s.r.o.
     License: SIL Open Font License 1.1
     Used for: Brand System code specifications
 
-17. Roboto & Roboto Mono (https://github.com/googlefonts/roboto)
+28. Roboto & Roboto Mono (https://github.com/googlefonts/roboto)
     Copyright (c) 2015 Google Inc.
     License: Apache License 2.0
     Used for: General documentation body and monospaced text

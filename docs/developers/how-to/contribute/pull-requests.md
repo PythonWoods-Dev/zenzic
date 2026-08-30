@@ -39,7 +39,8 @@ For a lower-level setup or if you do not have `nox` installed yet, install with 
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
     ```
 
-    [`uv`](https://docs.astral.sh/uv/) resolves dependencies significantly faster than pip and
+    [`uv`](https://docs.astral.sh/uv/) resolves dependencies 10-100x faster than pip, per its
+    own [published benchmarks](https://github.com/astral-sh/uv/blob/main/BENCHMARKS.md), and
     produces a reproducible environment via `uv.lock`. Preferred for all development work.
 
 === "pip"

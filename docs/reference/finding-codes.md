@@ -473,7 +473,7 @@ Diagnostic findings related to reference-style links and definition definitions.
 
 **Severity:** `warning` · **Penalty:** −4.0 pts (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z3xx-references/z301-dangling-ref.md) · [↗ Rule Specification](../rules/Z301.md)
 
-A reference-style link (`[my link][ref]`) exists but its definition (`[ref]: http://...`) is missing. Most renderers silently degrade the link to plain text. Ensure your Markdown formatter (like Prettier or Markdownlint) does not inadvertently remove unused reference definitions during an automated pass, which can cause downstream references to dangle.
+A reference-style link (`[my link][ref]`) exists but its definition (`[ref]: http://...`) is missing. Most renderers silently degrade the link to plain text. `markdownlint`'s `MD053` rule auto-fixes by deleting reference definitions it judges unused — if a definition is pruned while another reference elsewhere still depends on it (e.g. one added after the last lint pass), that surviving reference dangles. Review `MD053` fixes before committing them.
 
 **Fix:**
 
