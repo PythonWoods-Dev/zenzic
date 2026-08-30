@@ -173,6 +173,20 @@ The documentation site includes the following self-hosted font families:
 
 ================================================================================
 
+## Bundled Documentation Site Assets
+
+The following compiled asset is committed to the repository and served
+directly to end users as part of the built documentation site.
+
+29. Tailwind CSS (https://github.com/tailwindlabs/tailwindcss)
+    Copyright (c) Tailwind Labs, Inc.
+    License: MIT
+    Used for: Utility-class CSS compiled into `docs/assets/css/zenzic-tailwind.min.css`
+    by a human-run Tailwind CLI build (see `docs/assets/css/README.md`); the compiled
+    file carries its own inline `/*! tailwindcss ... | MIT License | ... */` banner.
+
+================================================================================
+
 Full license texts for third-party dependencies can be found in their
 respective project repositories or package installations.
 
