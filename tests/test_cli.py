@@ -2745,6 +2745,146 @@ def test_check_all_only_filter_excludes_z118(
     assert "Z620" not in result.output
 
 
+# ---------------------------------------------------------------------------
+# check all — --only must never silence the non-suppressible Z2xx security tier
+#
+# Tier-0 Exit Code Contract (CLAUDE.md): "Exit 2: Credential Scanner Breach
+# (Z201, Z204, Z205). Never suppressible." Forbidden Actions: "DO NOT suppress
+# Z2xx security codes. They are inviolable." Discovered live (V031_FOUNDATIONS_
+# THEME2_PROGRESSIVE_GATES_DRAFT, 2026-08-30): --only could silently drop the
+# entire security_findings list whenever "Z201" specifically was absent from
+# the --only value, regardless of which other Z2xx codes were listed.
+# ---------------------------------------------------------------------------
+
+
+def _write_credential_fixture(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text(
+        "# Test\n\nexport AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE1234567890ABCD\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+
+def test_check_all_only_omitting_z201_still_reports_credential_breach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The exact discovery fixture: --only Z204 (Z204 present, Z201 absent) must
+    still report the real Z201 credential finding, not silently drop it."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    _write_credential_fixture(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z204", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "SECURITY BREACH DETECTED" in result.output
+    assert "aws-access-key" in result.output
+    assert result.exit_code == 2
+
+
+def test_check_all_only_with_no_security_codes_still_reports_breach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--only naming zero Z2xx codes at all (e.g. a team scoping to link checks
+    only) must still surface a real credential breach, not treat the absence
+    of every security code as an implicit opt-out."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    _write_credential_fixture(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "SECURITY BREACH DETECTED" in result.output
+    assert "aws-access-key" in result.output
+    assert result.exit_code == 2
+
+
+def test_check_all_only_partial_z2xx_list_still_reports_every_z2xx_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--only listing only SOME Z2xx codes must not drop the others: separate
+    fixtures for a credential (Z201) and a forbidden URI scheme (Z205) must
+    each still report their own breach even when --only names neither.
+
+    Deliberately two separate files, not one combined fixture: combining both
+    findings in a single file was found (while writing this test) to surface
+    only one of the two breaches per run — a distinct, pre-existing detection-
+    completeness question unrelated to --only filtering, out of this
+    directive's scope, flagged separately (03-priority-table.md) rather than
+    conflated with the filtering behavior under test here.
+    """
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "credential.md").write_text(
+        "# Credential\n\nexport AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE1234567890ABCD\n",
+        encoding="utf-8",
+    )
+    (docs / "scheme.md").write_text(
+        '# Scheme\n\n<a href="javascript:alert(1)">click</a>\n',
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "aws-access-key" in result.output
+    assert "forbidden scheme" in result.output
+    assert result.exit_code == 2
+
+
+def test_check_all_only_path_traversal_codes_always_evaluated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Z202/Z203 (path traversal) must also survive --only omission, same as
+    the credential/forbidden-scheme tier — they share the same non-suppressible
+    Exit Code Contract guarantee."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text(
+        "# Test\n\nSystem path: [system](/etc/passwd)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "Z203" in result.output
+    assert result.exit_code == 3
+
+
 def test_env_command() -> None:
     """Verify zenzic env outputs human-readable environment diagnostics."""
     from typer.testing import CliRunner

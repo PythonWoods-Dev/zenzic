@@ -232,6 +232,7 @@ def test_z405_respects_exclusions_and_dotfiles(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert findings[0].secret_type == "openai-api-key"
 
+
 def test_code_asset_suffixes_exempts_mts_and_cts(tmp_path: Path) -> None:
     """TypeScript's explicit-module-type extensions (.mts/.cts) are source code,
     not documentation assets — same exemption class as the already-covered .mjs/.cjs

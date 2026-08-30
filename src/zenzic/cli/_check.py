@@ -149,7 +149,7 @@ def check_links(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     quiet: bool = typer.Option(
         False,
@@ -343,7 +343,7 @@ def check_orphans(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -472,7 +472,7 @@ def check_snippets(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -601,7 +601,7 @@ def check_references(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -786,7 +786,7 @@ def check_assets(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -915,7 +915,7 @@ def check_placeholders(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -1052,44 +1052,60 @@ class _AllCheckResults:
     config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
 
 
+# Codes that --only can never filter out, regardless of its contents: the
+# Tier-0 Exit Code Contract states Z201/Z202/Z203/Z204/Z205 are non-suppressible
+# (CLAUDE.md Forbidden Actions: "DO NOT suppress Z2xx security codes. They are
+# inviolable."), and Z110/Z111 are fatal config-load errors that must always
+# surface. --only narrows which OTHER codes are reported; it must never be able
+# to silence this set, whether or not any of its members are explicitly listed.
+_ALWAYS_EVALUATED_CODES: frozenset[str] = frozenset(
+    {"Z110", "Z111", "Z201", "Z202", "Z203", "Z204", "Z205"}
+)
+
+
 def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
-    """Destructively filter CheckResults keeping only the specified Z-codes."""
+    """Destructively filter CheckResults keeping only the specified Z-codes
+    (plus the always-evaluated set: fatal config errors Z110/Z111 and the
+    non-suppressible Z2xx security tier — see _ALWAYS_EVALUATED_CODES)."""
     if not only_str:
         return
     allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
     if not allowed:
         return
+    effective_allowed = allowed | _ALWAYS_EVALUATED_CODES
 
-    results.link_errors = [e for e in results.link_errors if e.code in allowed]
-    if "Z402" not in allowed:
+    results.link_errors = [e for e in results.link_errors if e.code in effective_allowed]
+    if "Z402" not in effective_allowed:
         results.orphans = []
-    if "Z503" not in allowed:
+    if "Z503" not in effective_allowed:
         results.snippet_errors = []
-    if "Z405" not in allowed:
+    if "Z405" not in effective_allowed:
         results.unused_assets = []
-    if "Z406" not in allowed:
+    if "Z406" not in effective_allowed:
         results.nav_contract_errors = []
-    if "Z401" not in allowed:
+    if "Z401" not in effective_allowed:
         results.directory_index_issues = []
-    if "Z404" not in allowed:
+    if "Z404" not in effective_allowed:
         results.config_asset_issues = []
 
     for rep in results.reference_reports:
-        rep.findings = [f for f in rep.findings if f.issue in allowed]
-        rep.rule_findings = [f for f in rep.rule_findings if getattr(f, "rule_id", "") in allowed]
-        if "Z201" not in allowed:
-            rep.security_findings = []
+        rep.findings = [f for f in rep.findings if f.issue in effective_allowed]
+        rep.rule_findings = [
+            f for f in rep.rule_findings if getattr(f, "rule_id", "") in effective_allowed
+        ]
+        # security_findings (Z201/Z204/Z205) are always evaluated — never cleared.
 
 
 def _filter_flat_findings(findings: list[Finding], only_str: str | None) -> list[Finding]:
-    """Filter a flat list of findings keeping only the specified Z-codes (except fatal config errors Z110, Z111)."""
+    """Filter a flat list of findings keeping only the specified Z-codes (plus
+    the always-evaluated set: fatal config errors Z110/Z111 and the
+    non-suppressible Z2xx security tier — see _ALWAYS_EVALUATED_CODES)."""
     if not only_str:
         return findings
     allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
     if not allowed:
         return findings
-    bypass_codes = {"Z110", "Z111"}
-    return [f for f in findings if f.code in allowed or f.code in bypass_codes]
+    return [f for f in findings if f.code in allowed or f.code in _ALWAYS_EVALUATED_CODES]
 
 
 # _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
@@ -1515,7 +1531,7 @@ def check_all(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     exit_zero: bool | None = typer.Option(
         None, "--exit-zero", help="Always exit 0; report issues without failing."

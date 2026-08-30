@@ -161,6 +161,8 @@ zenzic check all --only Z201,Z202,Z204,Z101,Z104
 
 As your team resolves the structural debt, you can progressively expand the `--only` list until the repository is ready for a full, unfiltered `zenzic check all`. This allows you to secure the most critical aspects of your documentation immediately.
 
+The `Z201`/`Z202`/`Z203`/`Z204`/`Z205` security tier and the `Z110`/`Z111` fatal config-load errors are always evaluated regardless of `--only`'s contents — narrowing the flag to a smaller list, or omitting the security codes entirely, cannot silence them. A minimal `--only Z104` scoped purely to broken links still fails the build on a real credential leak.
+
 ---
 
 ## Reference {#reference}
