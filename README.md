@@ -189,7 +189,9 @@ Remediation must be lossless and idempotent:
 - Strips trailing punctuation from headings (`Z517`).
 - Transforms fake paragraph lists into valid Markdown bullet lists (`Z520`).
 - Injects missing language tags on code blocks (`Z505`).
+- Injects placeholder text into empty links (`Z108`).
 - Cleans up dead inline suppressions (`Z603`).
+- Repairs inbound relative links across the docs tree after a rename (`zenzic fix --rename OLD NEW`).
 
 ### 4. Deterministic Quality Score (DQS) & Mathematical Transparency
 
@@ -323,7 +325,7 @@ The `zenzic` CLI provides a complete suite of developer commands for local workf
 | Command | Primary Use Case | Key Options |
 | :--- | :--- | :--- |
 | `zenzic check` | Run graph integrity, security, and quality analysis | `all`, `--strict`, `--fail-under <N>`, `--format sarif` |
-| `zenzic fix` | Automatically apply idempotent AST mutations | `--dry-run`, `--apply` |
+| `zenzic fix` | Automatically apply idempotent AST mutations | `--dry-run`, `--apply`, `--rename OLD NEW` |
 | `zenzic score` | Calculate DQS metrics and update status badges | `--stamp`, `--check-stamp`, `--badge-json` |
 | `zenzic audit` | Generate formal compliance and technical debt reports | `--format markdown`, `--output <file>` |
 | `zenzic lab` | Interactive finding lab and scenario runner | `<code>` (e.g. `z101`), `all`, `--list`, `--all` |

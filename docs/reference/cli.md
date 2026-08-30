@@ -280,6 +280,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | :--- | :---: | :--- |
     | `PATH` | docs root | Markdown file or directory to auto-fix. |
     | `--dry-run` (default) / `--apply` | `--dry-run` | Show unified diff without saving changes (`--dry-run`, default). Apply fixes directly to files (`--apply`). |
+    | `--rename OLD NEW` | — | Repair inbound relative links pointing at `OLD` to point at `NEW` instead, across the docs tree. Same `--dry-run`/`--apply` gate. |
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -288,6 +289,9 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Apply fixes directly to files
     zenzic fix --apply
+
+    # Repair inbound links after a rename
+    zenzic fix --rename docs/old.md docs/new.md --apply
     ```
 
 === "zenzic clean"
@@ -910,6 +914,24 @@ Currently, `zenzic fix` supports auto-fixing:
 `zenzic clean assets` respects `excluded_assets`, `excluded_dirs`, and
 `excluded_build_artifacts` from `.zenzic.toml` — it will never delete files that match these
 patterns.
+
+### Repairing links after a rename
+
+```bash
+zenzic fix --rename docs/old.md docs/new.md            # Preview inbound-link repairs (dry-run)
+zenzic fix --rename docs/old.md docs/new.md --apply    # Apply them
+```
+
+`--rename OLD NEW` scans the docs tree for relative links pointing at `OLD` and rewrites them
+to point at `NEW` — the CLI/batch counterpart to the editor's [auto-repair-on-rename LSP
+feature](../editor/vscode.md#auto-repair-links-on-rename), for scripted workflows (`git mv
+docs/old.md docs/new.md && zenzic fix --rename docs/old.md docs/new.md`). `OLD` does not need
+to still exist on disk. Same `--dry-run`/`--apply` gate as the default mode, and every affected
+file is reported individually, not as a single opaque batch result.
+
+Docs-root-relative (a leading `/`) and `@site/...` alias links are always left untouched, since
+reconstructing the correct alias form is ambiguous. A file with an active inline suppression at
+the affected location is also left untouched rather than overriding it.
 
 ---
 

@@ -8,11 +8,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from typer.testing import CliRunner
 
 from zenzic.cli._fix import _atomic_write
 from zenzic.core.mutator import EmptyLinkTextMutation, Mutator
 from zenzic.core.parser import parse, serialize
 from zenzic.core.validator import _extract_empty_link_texts
+from zenzic.main import app
+
+
+runner = CliRunner()
 
 
 def test_atomic_write_symlink_preservation(tmp_path: Path) -> None:
@@ -154,3 +159,102 @@ def test_polyglot_extractor_fence_evasion() -> None:
     assert len(nodes_closed) == 1
     assert nodes_closed[0].href == "safe.md"
     assert nodes_closed[0].line_no == 4
+
+
+# ── zenzic fix --rename (V031_FIXABLE_FIELD_EXPANSION_RULE17_CHECKLIST_AND_CLI_RENAME_FEATURE) ──
+
+
+def _init_repo(tmp_path: Path) -> Path:
+    (tmp_path / ".zenzic.toml").write_text("")
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True)
+    return docs
+
+
+def test_fix_rename_dry_run_default_shows_diff_and_does_not_modify(tmp_path: Path) -> None:
+    """--dry-run is the default (matches the existing `fix` command's own default) --
+    real fixture: A links to B, rename B to B2, confirm the diff is shown but the file
+    on disk is untouched."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    a_file.write_text("# A\nSee [B](./b.md) for details.\n")
+
+    result = runner.invoke(
+        app, ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md")], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+    assert "b2.md" in result.output
+    assert a_file.read_text() == "# A\nSee [B](./b.md) for details.\n", (
+        "dry-run must not modify the file on disk"
+    )
+
+
+def test_fix_rename_apply_rewrites_inbound_link(tmp_path: Path) -> None:
+    """--apply actually rewrites the inbound link on disk."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    a_file.write_text("# A\nSee [B](./b.md) for details.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[B](b2.md)" in a_file.read_text()
+
+
+def test_fix_rename_skips_alias_style_href(tmp_path: Path) -> None:
+    """Same safety gate as the LSP version: a docs-root-relative ('/...') href is
+    left untouched, not guessed at."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    a_file.write_text("# A\nSee [B](/b.md) for details.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert a_file.read_text() == "# A\nSee [B](/b.md) for details.\n"
+
+
+def test_fix_rename_no_op_when_no_inbound_links(tmp_path: Path) -> None:
+    """Clean, honest reporting when nothing needs fixing -- not a silent no-op."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    (docs / "unrelated.md").write_text("# Unrelated\nNo links here.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "No inbound links" in result.output or "0 file" in result.output.lower()
+
+
+def test_fix_rename_partial_success_multiple_files_reported_individually(tmp_path: Path) -> None:
+    """Safety (Phase 3): renaming a heavily-linked page reports each affected file
+    individually -- not a single opaque success/failure for the whole batch."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    c_file = docs / "c.md"
+    a_file.write_text("# A\nSee [B](./b.md) for details.\n")
+    c_file.write_text("# C\nAlso see [B](./b.md) here.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "a.md" in result.output
+    assert "c.md" in result.output
+    assert "[B](b2.md)" in a_file.read_text()
+    assert "[B](b2.md)" in c_file.read_text()
