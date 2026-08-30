@@ -538,13 +538,13 @@ We did not build Zenzic to replace the entire documentation ecosystem.
 
 Different tools solve different problems:
 
-| Tool | Primary responsibility | Relationship with Zenzic |
+| Category | Primary responsibility | Relationship with Zenzic |
 |------|------------------------|--------------------------|
-| markdownlint | Markdown style and formatting | Complementary |
-| Vale | Editorial style and terminology | Complementary |
-| Lychee | Link and HTTP endpoint checking | Partial overlap |
-| Codespell | Spelling errors | Complementary |
-| Gitleaks or TruffleHog | Secrets across repository content and history | Complementary, not automatically replaceable |
+| Markdown style/formatting linters | Markdown style and formatting | Complementary |
+| Editorial style/terminology linters | Editorial style and terminology | Complementary |
+| Link/HTTP endpoint checkers | Link and HTTP endpoint checking | Partial overlap |
+| Spell-checking tools | Spelling errors | Complementary |
+| Repository-wide secret scanners | Secrets across repository content and history | Complementary, not automatically replaceable |
 | MkDocs / Zensical build | Rendering, plugins, and compilation | Not replaceable |
 | Browser or HTML tests | Accessibility and rendered behaviour | Not replaceable |
 
@@ -570,19 +570,9 @@ Zenzic is the structural and security layer of a documentation toolchain, not th
 
 ## What Zenzic Does Not Try to Replace
 
-We think this distinction is important enough to state explicitly.
+We think this distinction is important enough to state explicitly. Zenzic isn't a documentation builder, a Markdown style linter, an editorial style tool, a repository-wide secret scanner, or a browser-based accessibility and rendering test suite—and we don't intend it to become one.
 
-We are not trying to replace your documentation builder.
-
-We are not trying to replace Markdown style linters.
-
-We are not trying to replace editorial style tools.
-
-We are not trying to replace repository-wide secret scanners.
-
-We are not trying to replace browser-based accessibility or rendering tests.
-
-We are trying to enforce a different property:
+What we're trying to enforce is a different property:
 
 Documentation integrity at source level.
 
@@ -753,11 +743,7 @@ Reduce risk by detecting structural and security failures before release.
 Save review time by automating mechanical checks that would otherwise create repetitive review loops.
 Make CI reliable by tying the same repository state to the same findings and the same gate result.
 
-We are not claiming that Zenzic replaces every other documentation tool.
-
-We are not claiming that a source-level integrity scan can replace a full documentation build.
-
-We are not claiming that every repository needs another quality gate.
+We aren't claiming Zenzic replaces every other documentation tool, that a source-level integrity scan can replace a full documentation build, or that every repository needs another quality gate.
 
 Our claim is narrower—and, we think, more useful:
 
