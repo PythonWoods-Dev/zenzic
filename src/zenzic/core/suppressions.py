@@ -28,7 +28,9 @@ _SUPPRESS_RE = re.compile(
     r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
 )
 
-#: ADR-084 — Strip backtick inline code spans before counting suppressions.
+#: Strip backtick inline code spans before counting suppressions, so a
+#: didactic example like `<!-- zenzic:ignore: Z601 -->` in prose is not
+#: miscounted as an active suppression directive.
 _INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 
 #: Topological findings are governed as a paired policy family.

@@ -726,7 +726,7 @@ _SUPPRESS_RE = re.compile(
     r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
 )
 
-#: ADR-084 — Strip backtick inline code spans before counting suppressions.
+#: Strip backtick inline code spans before counting suppressions.
 #: Prevents didactic examples like `<!-- zenzic:ignore: Z601 -->` from
 #: being counted as active suppression directives.
 #: Alternation ``double first | single`` handles RST-style `````.md````` spans
@@ -737,9 +737,9 @@ _INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 def count_inline_suppressions(text: str) -> int:
     """Count suppression directives declared in Markdown/MDX source text.
 
-    Fence-aware (ADR-084): lines inside triple-backtick/tilde fenced code
-    blocks are skipped entirely.  Backtick inline code spans are stripped
-    before the suppression regex is applied on each prose line.
+    Fence-aware: lines inside triple-backtick/tilde fenced code blocks are
+    skipped entirely.  Backtick inline code spans are stripped before the
+    suppression regex is applied on each prose line.
     """
     total = 0
     inside_fence = False

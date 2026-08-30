@@ -1083,7 +1083,7 @@ def _scan_single_file(
         from zenzic.core.suppressions import SuppressionTracker
 
         # Pre-compute global suppression codes for this specific file
-        # to prevent consuming redundant inline directives (ADR-084).
+        # to prevent consuming redundant inline directives.
         globally_suppressed_codes: dict[str, list[str]] = {}
         if getattr(config, "governance", None):
             repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
