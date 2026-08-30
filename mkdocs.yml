@@ -9,8 +9,8 @@ site_name: Zenzic
 site_url: https://zenzic.dev/
 docs_dir: docs
 site_dir: site
-repo_url: https://github.com/PythonWoods/zenzic
-repo_name: PythonWoods/zenzic
+repo_url: https://github.com/PythonWoods-Dev/zenzic
+repo_name: PythonWoods-Dev/zenzic
 edit_uri: edit/main/docs/
 copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 
@@ -304,7 +304,7 @@ extra:
   zenzic_version: "0.30.0"  # release sync
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/PythonWoods/zenzic
+      link: https://github.com/PythonWoods-Dev/zenzic
       name: Zenzic on GitHub
     - icon: fontawesome/brands/hashnode
       link: https://hashnode.com/@Pythonwoods

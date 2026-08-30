@@ -16,9 +16,9 @@ Zenzic is structured across three independent, dedicated repositories:
 
 | Repository | Purpose | Primary Stack |
 |:---|:---|:---|
-| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Python Core analysis engine & CLI (`src/zenzic`) | Python 3.10+, `uv`, `pytest`, `mypy` |
-| **[zenzic-vscode](https://github.com/PythonWoods/zenzic-vscode)** | Official VS Code Extension (LSP Thin Client) | TypeScript, Node.js 24+, VS Code API |
-| **[zenzic-action](https://github.com/PythonWoods/zenzic-action)** | Official GitHub Action CI/CD Wrapper | YAML, Bash, SARIF Upload |
+| **[zenzic](https://github.com/PythonWoods-Dev/zenzic)** (this repo) | Python Core analysis engine & CLI (`src/zenzic`) | Python 3.10+, `uv`, `pytest`, `mypy` |
+| **[zenzic-vscode](https://github.com/PythonWoods-Dev/zenzic-vscode)** | Official VS Code Extension (LSP Thin Client) | TypeScript, Node.js 24+, VS Code API |
+| **[zenzic-action](https://github.com/PythonWoods-Dev/zenzic-action)** | Official GitHub Action CI/CD Wrapper | YAML, Bash, SARIF Upload |
 
 **If you want to contribute to the core analysis engine** (new checks, adapters, bug fixes, CLI features, or performance improvements) — you are in the right place!
 
@@ -207,7 +207,7 @@ To maintain security, architectural integrity, and legal compliance, all contrib
 ## First-Time Setup
 
 ```bash
-git clone git@github.com:PythonWoods/zenzic.git
+git clone git@github.com:PythonWoods-Dev/zenzic.git
 cd zenzic
 just sync
 ```
