@@ -133,6 +133,10 @@ default_locale = "en"
 locales        = ["it"]   # if you have non-default locale dirs
 ```
 
+The same fields are equally valid under `pyproject.toml`'s `[tool.zenzic.build_context]`
+table if your project keeps configuration there instead — see
+[Configuration Reference](../reference/configuration-reference.md#config-priority).
+
 And create a minimal `zensical.toml` at the repository root:
 
 ```toml

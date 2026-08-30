@@ -108,20 +108,20 @@ like `markdownlint` already detect this?
 
 The answer is **[Pillar 2: Zero Subprocesses](../developers/explanation/governance/index.md#the-supreme-law-the-three-pillars)**.
 
-Traditional Markdown tools require a full Node.js runtime and hundreds of megabytes of
-`node_modules`. For a Python-based DevOps pipeline, a security-conscious enterprise, or any
-team running CI in a minimal container, this dependency creates friction: additional toolchain
-configuration, runtime version pinning, and transitive supply-chain exposure. We call this
-the **Node.js Tax** — the hidden overhead of requiring a second runtime stack just to validate
-documentation structure.
+Traditional Markdown tools require a second runtime stack — Node.js itself, plus its own
+`node_modules` dependency tree — alongside whatever your documentation pipeline already runs.
+For a Python-based DevOps pipeline, a security-conscious enterprise, or any team running CI in
+a minimal container, this creates friction: additional toolchain configuration, runtime version
+pinning, and a second dependency tree to keep patched. We call this the **Node.js Tax** — the
+hidden overhead of requiring a second runtime stack just to validate documentation structure.
 
 ```text
-Without Zenzic         With Zenzic
-─────────────────────  ─────────────────────────
-npm install            uvx zenzic check all
-node_modules/ ~300 MB  (zero persistent install)
-Node ≥ 18 required     Python 3.10+ required
-npm audit surface      Zero transitive risk
+Without Zenzic          With Zenzic
+──────────────────────  ─────────────────────────
+npm install              uvx zenzic check all
+Node.js runtime + deps   (zero persistent install)
+Node ≥ 18 required       Python 3.10+ required
+A second dependency tree Zero transitive risk
 ```
 
 By providing core structural checks in pure Python, Zenzic enables professional-grade

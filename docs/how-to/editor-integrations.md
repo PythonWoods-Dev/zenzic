@@ -29,19 +29,16 @@ args = ["lsp"]
 
 ### Neovim
 
-Using Neovim's native LSP client (`vim.lsp.start`) in `~/.config/nvim/init.lua`:
+Using Neovim's native LSP client in `~/.config/nvim/init.lua`, via the declarative
+`vim.lsp.config`/`vim.lsp.enable` pair (Neovim 0.11+):
 
 ```lua title="~/.config/nvim/init.lua"
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "markdown", "mdx" },
-  callback = function()
-    vim.lsp.start({
-      name = "zenzic-lsp",
-      cmd = { "zenzic", "lsp" },
-      root_dir = vim.fs.dirname(vim.fs.find({ ".zenzic.toml", ".git" }, { upward = true })[1]),
-    })
-  end,
+vim.lsp.config("zenzic", {
+  cmd = { "zenzic", "lsp" },
+  filetypes = { "markdown", "mdx" },
+  root_markers = { ".zenzic.toml", ".git" },
 })
+vim.lsp.enable("zenzic")
 ```
 
 ### Emacs (Eglot)

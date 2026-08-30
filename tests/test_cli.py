@@ -645,7 +645,12 @@ def test_check_all_target_file_outside_docs(
     (repo / "README.md").write_text(f"# Project\n\n{_body}\n")
     monkeypatch.chdir(repo)
 
-    result = runner.invoke(app, ["check", "all", "README.md"])
+    # --no-header disables the animated Rich progress bar (show_progress =
+    # not (ci or no_header or quiet or output_format != "text"), _check.py:1718)
+    # -- without it, mutmut's concurrent worker processes can race the
+    # progress bar's ANSI clear-line sequences against CliRunner's stdout
+    # capture, corrupting this exact assertion (V031_MUTMUT_ENV_TEST_FRAGILITY).
+    result = runner.invoke(app, ["check", "all", "README.md", "--no-header"])
     assert result.exit_code == 0
     assert "1 file" in result.stdout
     assert "README.md" in result.stdout
