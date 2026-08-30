@@ -81,3 +81,19 @@ def test_z111_renders_as_fatal_not_plain_zero() -> None:
     assert lines, f"Z111 row not found in output:\n{result.stdout}"
     assert "FATAL" in lines[0], f"Z111 row must show FATAL, got:\n{lines[0]}"
     assert "0.0" not in lines[0], f"Z111 row must not show plain 0.0, got:\n{lines[0]}"
+
+
+def test_fixable_column_present_and_correct() -> None:
+    """A Fixable column, derived from the same CODE_DEFINITIONS zenzic explain reads,
+    must be present and show Yes for a fixable code, No for a non-fixable one."""
+    result = runner.invoke(app, ["inspect", "codes"])
+    assert result.exit_code == 0, result.output
+    assert "Fixable" in result.stdout, f"'Fixable' column header not found:\n{result.stdout}"
+
+    z515_lines = [line for line in result.stdout.splitlines() if "Z515" in line]
+    assert z515_lines, f"Z515 row not found:\n{result.stdout}"
+    assert "Yes" in z515_lines[0], f"Z515 (fixable=True) must show Yes, got:\n{z515_lines[0]}"
+
+    z101_lines = [line for line in result.stdout.splitlines() if "Z101" in line]
+    assert z101_lines, f"Z101 row not found:\n{result.stdout}"
+    assert "No" in z101_lines[0], f"Z101 (fixable=False) must show No, got:\n{z101_lines[0]}"

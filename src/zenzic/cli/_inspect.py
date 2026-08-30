@@ -257,7 +257,13 @@ def inspect_codes(
             return f"[{ZenzicPalette.DIM}]0.0[/{ZenzicPalette.DIM}]"
         return f"[bold]-{defn.penalty:.1f}[/bold]"
 
-    rows: dict[str, list[tuple[str, str, str, str]]] = {
+    def _fixable_markup(code: str) -> str:
+        defn = CODE_DEFINITIONS.get(code)
+        if defn is None:
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        return "[green]Yes[/]" if getattr(defn, "fixable", False) else "[yellow]No[/]"
+
+    rows: dict[str, list[tuple[str, str, str, str, str]]] = {
         "core": [],
         "governance": [],
         "plugin": [],
@@ -268,11 +274,23 @@ def inspect_codes(
     for code in sorted(CODE_NAMES.keys(), key=lambda c: int(c[1:])):
         if code.startswith("Z6"):
             rows["governance"].append(
-                (code, CODE_NAMES[code], _severity_markup(code), _penalty_markup(code))
+                (
+                    code,
+                    CODE_NAMES[code],
+                    _severity_markup(code),
+                    _penalty_markup(code),
+                    _fixable_markup(code),
+                )
             )
         else:
             rows["core"].append(
-                (code, CODE_NAMES[code], _severity_markup(code), _penalty_markup(code))
+                (
+                    code,
+                    CODE_NAMES[code],
+                    _severity_markup(code),
+                    _penalty_markup(code),
+                    _fixable_markup(code),
+                )
             )
 
     # Plugin tier (third-party only; core-origin entry points excluded)
@@ -284,10 +302,12 @@ def inspect_codes(
                 info.source,
                 _severity_markup(info.rule_id),
                 _penalty_markup(info.rule_id),
+                _fixable_markup(info.rule_id),
             )
         )
 
-    # Custom tier (local TOML custom rules)
+    # Custom tier (local TOML custom rules) -- never auto-fixable (no
+    # Zenzic-built-in Mutation class covers user-defined rules).
     for cr in config.custom_rules:
         rule_id_str = cr.id or cr.class_name or "ZZ-CUSTOM"
         rows["custom"].append(
@@ -296,6 +316,7 @@ def inspect_codes(
                 "custom rule",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                "[yellow]No[/]",
             )
         )
 
@@ -315,9 +336,10 @@ def inspect_codes(
     )
     table.add_column("Tier", style="bold cyan", min_width=12, no_wrap=True)
     table.add_column("Code", style="bold", min_width=10, no_wrap=True)
-    table.add_column("Name", min_width=20)
+    table.add_column("Name", min_width=16)
     table.add_column("Severity", min_width=9, no_wrap=True)
     table.add_column("Penalty", min_width=7, no_wrap=True, justify="right")
+    table.add_column("Fixable", min_width=5, justify="center")
 
     title_map = {
         "core": "Core",
@@ -334,10 +356,11 @@ def inspect_codes(
                 "No entries",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
             )
         else:
-            for code, name, severity, penalty in tier_rows:
-                table.add_row(title_map[tier_name], code, name, severity, penalty)
+            for code, name, severity, penalty, fixable in tier_rows:
+                table.add_row(title_map[tier_name], code, name, severity, penalty, fixable)
         if idx < len(selected_tiers) - 1:
             table.add_section()
 

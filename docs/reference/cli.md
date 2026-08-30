@@ -1066,7 +1066,8 @@ zenzic check references --format json --strict
       "line_no": 42,
       "code": "Z104",
       "severity": "error",
-      "message": "guides/setup.md:42: 'install.md' not found in docs"
+      "message": "guides/setup.md:42: 'install.md' not found in docs",
+      "fixable": false
     }
   ],
   "summary": {
@@ -1154,7 +1155,7 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
               "fullDescription": { "text": "File not found" },
               "defaultConfiguration": { "level": "error" },
               "helpUri": "https://zenzic.dev/reference/finding-codes/#z104",
-              "properties": { "category": "structural", "penalty": 8.0 }
+              "properties": { "category": "structural", "penalty": 8.0, "fixable": false }
             },
             {
               "id": "Z201",
@@ -1163,7 +1164,7 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
               "fullDescription": { "text": "Credential detected" },
               "defaultConfiguration": { "level": "error" },
               "helpUri": "https://zenzic.dev/reference/finding-codes/#z201",
-              "properties": { "category": "uncategorized", "penalty": 0.0 }
+              "properties": { "category": "uncategorized", "penalty": 0.0, "fixable": false }
             }
           ]
         }

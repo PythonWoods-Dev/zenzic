@@ -194,6 +194,7 @@ def _output_json_findings(
                 "code": f.code,
                 "severity": f.severity,
                 "message": f.message,
+                "fixable": bool(getattr(CODE_DEFINITIONS.get(f.code), "fixable", False)),
             }
             for f in findings
         ],
@@ -356,6 +357,10 @@ def _output_sarif_findings(
     rules: list[dict[str, object]] = []
     for rule_id in sorted(seen_rule_ids):
         rule_def = CODE_DEFINITIONS.get(rule_id)
+        # fixable is only ever True for Core/Governance codes with a real,
+        # wired Mutation class (see tests/test_fixable_code_wiring_structural.py) --
+        # plugin and custom (ZZ-) rules have no Zenzic-built-in auto-fix engine.
+        fixable = False
         if rule_def is not None:
             category = rule_def.category or (
                 "governance" if rule_id.startswith("Z6") else "uncategorized"
@@ -364,6 +369,7 @@ def _output_sarif_findings(
             level = rule_def.severity
             help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
             short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
+            fixable = bool(getattr(rule_def, "fixable", False))
         elif rules_map and rule_id in rules_map:
             rule_obj = rules_map[rule_id]
             meta = getattr(rule_obj, "metadata", None)
@@ -399,6 +405,7 @@ def _output_sarif_findings(
             "properties": {
                 "category": category,
                 "penalty": penalty,
+                "fixable": fixable,
             },
         }
         rules.append(rule_entry)
