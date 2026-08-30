@@ -70,6 +70,8 @@ CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
         ".jsx",
         ".mjs",
         ".cjs",
+        ".mts",
+        ".cts",
         # Systems languages
         ".rs",
         ".go",
