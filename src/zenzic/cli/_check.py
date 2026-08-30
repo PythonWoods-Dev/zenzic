@@ -1034,9 +1034,8 @@ def check_placeholders(
 #: path and must still flow through this loop), and Z201/Z204 surface via
 #: :func:`_map_credential_to_finding`'s ``security_findings`` conversion.
 #: Derived from the two SSoT sets rather than a fresh literal, so this can
-#: never again drift out of sync with either one (V031_SKIPLIST_BUG_FAMILY_CLOSURE
-#: — four confirmed double-emission bugs this session shared this exact root
-#: cause: a hardcoded copy silently going stale as the two source sets changed).
+#: never drift out of sync with either one — a hardcoded copy would silently
+#: go stale as the two source sets change independently.
 _RULE_FINDING_SKIP_CODES: frozenset[str] = (LINK_CODES - {"Z620"}) | SECURITY_FINDING_CODES
 
 

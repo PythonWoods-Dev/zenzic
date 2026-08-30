@@ -103,8 +103,7 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
     4. ``mkdocs.yml`` / ``mkdocs.yaml`` → ``"mkdocs"``
     5. No marker found        → ``"standalone"`` (universal fallback mode)
 
-    This function is called when ``BuildContext.engine == "auto"`` (the default),
-    replacing the previous implicit assumption that the engine was MkDocs.
+    This function is called when ``BuildContext.engine == "auto"`` (the default).
     """
     if (repo_root / ".zenzic-vsm.json").is_file():
         return "prebuilt"

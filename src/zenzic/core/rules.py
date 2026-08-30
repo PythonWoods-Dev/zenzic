@@ -1762,14 +1762,12 @@ class VSMBrokenLinkRule(BaseRule):
     ) -> str | None:
         """Convert a relative Markdown href to a canonical URL string.
 
-        ZRT-004 fix: when ``source_dir`` and ``docs_root`` are provided the
-        href is resolved **relative to the source file's directory** instead of
-        root-relative.  This correctly handles ``..``-prefixed hrefs from files
-        nested in subdirectories.
-
-        Without context (``source_dir=None``), behaves exactly as the original
-        ``@staticmethod`` to preserve full backwards-compatibility with callers
-        that do not supply a :class:`ResolutionContext`.
+        When ``source_dir`` and ``docs_root`` are provided the href is
+        resolved **relative to the source file's directory** instead of
+        root-relative. This correctly handles ``..``-prefixed hrefs from files
+        nested in subdirectories. Without context (``source_dir=None``), the
+        href is resolved root-relative, for callers that do not supply a
+        :class:`ResolutionContext`.
 
         Applies the standard MkDocs / Zensical clean-URL rule:
         ``page.md`` → ``/page/``, ``dir/index.md`` → ``/dir/``.

@@ -2232,7 +2232,7 @@ ADAPTIVE_PARALLEL_THRESHOLD: int = 1000
 #: If a worker exceeds this limit it is abandoned and a Z902 timeout finding
 #: is emitted for the file instead of a normal IntegrityReport.  The purpose
 #: is to guard against I/O hangs, network stalls, and worker process crashes
-#: that would otherwise deadlock the entire parallel pipeline.  (ZRT-002 fix)
+#: that would otherwise deadlock the entire parallel pipeline.
 _WORKER_TIMEOUT_S: int = 30
 
 
@@ -2246,7 +2246,7 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
 
     A Z902 finding indicates a systemic stall (I/O hang, network timeout,
     worker process crash) rather than a regex issue — all CustomRule patterns
-    are DFA-safe since ZRT-007 replaced the NFA engine with Google RE2.
+    are DFA-safe, compiled via Google RE2.
 
     Args:
         md_file: Absolute path of the file whose worker timed out.

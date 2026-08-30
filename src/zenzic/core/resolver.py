@@ -6,9 +6,9 @@ Zero I/O guarantee: all file membership and anchor lookups are performed
 against pre-built in-memory mappings passed at construction time.
 No ``open()``, no ``Path.exists()``, no ``subprocess``.
 
-The resolver is the engine-agnostic heart of Sprint 3.  It knows nothing
-about MkDocs, Zensical, or any build system — only about paths, anchors,
-and whether a link is resolvable within a given in-memory file tree.
+The resolver is engine-agnostic. It knows nothing about MkDocs, Zensical, or
+any build system — only about paths, anchors, and whether a link is
+resolvable within a given in-memory file tree.
 
 Performance contract: 5 000 ``resolve()`` calls must complete in < 100 ms.
 This is achieved by keeping the hot path free of ``pathlib.Path`` allocations:
@@ -109,8 +109,8 @@ def resolve_href_target(
 ) -> str:
     """Resolve a decoded, backslash-normalised href path to an absolute path string.
 
-    Applies the same alias rules as :meth:`InMemoryPathResolver._build_target`
-    (the single source of truth this function was extracted from): a leading
+    Applies the same alias rules as :meth:`InMemoryPathResolver._build_target`,
+    the single source of truth for these rules: a leading
     ``/`` resolves against ``docs_root``; ``@site/docs/`` maps to ``docs_root``;
     ``@site/`` (not followed by ``docs/``) maps to ``repo_root``; anything else
     resolves relative to ``source_file``'s own directory. Pure string

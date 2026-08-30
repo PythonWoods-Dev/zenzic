@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Validation logic: native link checking (internal + external) and snippet checks.
 
-Link validation no longer invokes any external process.  Instead it uses a
-pure-Python two-pass approach:
+Link validation never invokes an external process. It uses a pure-Python
+two-pass approach:
 
 1. Read every ``.md`` file under ``docs/`` into memory, extract all Markdown
    links while skipping fenced code blocks and inline code spans.
@@ -1287,10 +1287,10 @@ def check_nav_contract(
 
     Loads the active engine's config -- ``mkdocs.yml``'s ``extra.alternate``
     for ``engine="mkdocs"``, or ``zensical.toml``'s ``[project.extra].alternate``
-    for ``engine="zensical"`` (confirmed structurally identical -- same
-    name/link/lang shape per entry -- against Zensical's own official docs,
-    zensical.org/docs/setup/language/) -- projects the full set of URLs the
-    build engine will generate via :func:`generate_virtual_site_map`, then
+    for ``engine="zensical"`` (structurally identical -- same name/link/lang
+    shape per entry -- see zensical.org/docs/setup/language/) -- projects the
+    full set of URLs the build engine will generate via
+    :func:`generate_virtual_site_map`, then
     checks that every alternate link resolves to a URL that exists in that
     map.
 

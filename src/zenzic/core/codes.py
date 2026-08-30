@@ -149,7 +149,7 @@ class ZenzicExitCode:
       directory (Z203 only); **never** suppressible. Z202 (ordinary
       docs-root-boundary traversal) is also non-suppressible but remains a
       plain ``QUALITY`` (1) finding — it is deliberately *not* escalated to
-      Exit 3, confirmed by ``tests/test_cli.py::test_z202_still_maps_to_plain_error``.
+      Exit 3.
 
     Usage in CLI layer::
 

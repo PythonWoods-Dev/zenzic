@@ -467,13 +467,13 @@ class ZensicalAdapter(BaseAdapter):
         """Return ``True`` when Zensical will serve an index page for this directory.
 
         Zensical treats a file as an index page if its basename is ``index.md``
-        or ``README.md`` — confirmed live against Zensical's own documentation
-        (zensical.org/docs/authoring/markdown/), which applies this at any
-        directory level, not just the docs root. Precedence when both exist in
-        the same directory is explicitly undefined upstream ("it is better to
-        avoid having both" — zensical/backlog#135), so this method does not
-        attempt to model one: it only answers whether *an* index exists, which
-        is true either way regardless of which file Zensical would pick.
+        or ``README.md`` (see zensical.org/docs/authoring/markdown/), applied
+        at any directory level, not just the docs root. Precedence when both
+        exist in the same directory is explicitly undefined upstream ("it is
+        better to avoid having both" — zensical/backlog#135), so this method
+        does not attempt to model one: it only answers whether *an* index
+        exists, which is true either way regardless of which file Zensical
+        would pick.
         It also recognizes dynamic directories managed by plugins.
 
         I/O is permitted here — this method is called once per directory during
