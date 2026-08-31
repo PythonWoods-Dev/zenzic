@@ -169,6 +169,7 @@ def check_links(
     ),
 ) -> None:
     """Check for broken internal links and enforce strict warning policy when requested."""
+    _shared._validate_output_format(output_format, _shared._ANNOTATION_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -363,6 +364,7 @@ def check_orphans(
     ),
 ) -> None:
     """Detect .md files not listed in the nav."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -490,6 +492,7 @@ def check_snippets(
     ),
 ) -> None:
     """Validate Python code blocks in documentation Markdown files."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -633,6 +636,7 @@ def check_references(
       1 — Dangling References or (with --strict) warnings found.
       2 — SECURITY CRITICAL: a secret was detected in a reference URL.
     """
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -806,6 +810,7 @@ def check_assets(
     ),
 ) -> None:
     """Detect unused images and assets in the documentation."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -936,6 +941,7 @@ def check_placeholders(
     ),
 ) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -1717,6 +1723,7 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
+    _shared._validate_output_format(output_format, _shared._ANNOTATION_FORMATS)
     _t_init_start = time.perf_counter()
     _validate_only_flag(only)
 

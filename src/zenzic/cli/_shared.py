@@ -138,6 +138,37 @@ _NO_CONFIG_HINT = Panel(
 
 _MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif"})
 
+#: Formats every ``check`` subcommand renders. ``check all`` and ``check links``
+#: additionally emit ``github-annotations``; the rest genuinely do not implement
+#: it, so accepting it there produced plain text with no error.
+_BASE_FORMATS: tuple[str, ...] = ("text", "json", "sarif")
+_ANNOTATION_FORMATS: tuple[str, ...] = (*_BASE_FORMATS, "github-annotations")
+
+
+def _validate_output_format(output_format: str, supported: tuple[str, ...]) -> None:
+    """Reject an ``--format`` value the invoked command does not render.
+
+    ``--only`` has always rejected an unknown finding code; ``--format`` accepted
+    anything and fell through to text. The dangerous case was not a typo but a
+    value valid on a *different* subcommand: a CI step asking ``check assets``
+    for ``github-annotations`` received prose on stdout and a success-shaped
+    exit, with nothing indicating the requested format was never produced.
+    """
+    if output_format in supported:
+        return
+    options = ", ".join(f"[bold]{f}[/]" for f in supported)
+    hint = ""
+    if output_format in _ANNOTATION_FORMATS:
+        hint = (
+            f"\n\n  [dim]{output_format!r} is a valid format for other commands, "
+            f"but this one does not render it.[/]"
+        )
+    console.print(
+        f"[red]ERROR:[/] Unsupported output format [bold]{output_format!r}[/] "
+        f"for this command.\n  Valid options: {options}{hint}"
+    )
+    raise typer.Exit(1)
+
 
 def _print_no_config_hint(output_format: str = "text") -> None:
     """Print a one-time informational panel when running without .zenzic.toml.

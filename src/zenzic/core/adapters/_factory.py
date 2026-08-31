@@ -145,9 +145,18 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
 
 
 def list_adapter_engines() -> list[str]:
-    """Return sorted list of engine names registered in ``zenzic.adapters``."""
+    """Return every engine name a user can actually select.
+
+    Union of the ``zenzic.adapters`` entry-point group and the built-in
+    registry, matching exactly what :func:`_load_adapter_class` will resolve.
+    Entry points alone under-reported: ``prebuilt`` and ``vsm`` are built-in
+    only, so ``--engine prebuilt`` was rejected as an "Unknown engine adapter"
+    even though the same engine works via ``[build_context] engine`` in config
+    and is chosen automatically by :func:`discover_engine` when
+    ``.zenzic-vsm.json`` is present. The gate, not the adapter, was the gap.
+    """
     eps = entry_points(group="zenzic.adapters")
-    return sorted(ep.name for ep in eps)
+    return sorted({ep.name for ep in eps} | set(_BUILTIN_ADAPTERS))
 
 
 # ── Adapter cache ────────────────────────────────────────────────────────────
