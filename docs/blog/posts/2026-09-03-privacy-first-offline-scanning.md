@@ -17,7 +17,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-*This is the fourth article in Zenzic's Foundations series on practical adoption patterns. Part 1, [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), covers gating on regressions against a frozen baseline. Part 2, [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), covers narrowing which built-in codes block CI on day one. Neither one touches network access — this article covers a different adoption blocker: whether a gate is allowed to run at all inside an environment that isn't permitted to send document content off-machine in the first place.*
+*This is the fourth article in Zenzic's Foundations series on practical adoption patterns. [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md) covers gating on regressions against a frozen baseline. [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md) covers narrowing which built-in codes block CI on day one. [Bring Your Own Rules: Policy-as-Code Without Forking Zenzic](2026-09-01-custom-rules-policy-as-code.md) covers extending the rule set itself. None of the three touches network access — this article covers a different adoption blocker: whether a gate is allowed to run at all inside an environment that isn't permitted to send document content off-machine in the first place.*
 
 For a regulated team, that permission question usually gets asked before anything else. Security review at a healthcare, finance, or government-contracting organization asks a narrower question than whether an automated documentation check catches broken links well: what does the tool send off-machine, to what destination, and under which conditions. If the honest answer is "we'd have to check," the tool often doesn't get past that stage at all.
 
@@ -115,7 +115,7 @@ There's no `--forbidden-pattern` CLI flag as a shortcut around this — writing 
 
 ## Where this fits with the rest of the series
 
-Part 2's `--only` flag lets a team choose which finding codes are load-bearing for CI today, and it documents explicitly that the `Z201`–`Z205` security tier is always evaluated regardless of what's in that list. `Z204` is part of that same tier, so the same guarantee holds here without needing a separate carve-out. No `--only` list, however narrow, can silently exempt a forbidden term from blocking the build, no matter how the rest of a team's rule coverage is being progressively expanded elsewhere.
+The `--only` flag lets a team choose which finding codes are load-bearing for CI today, and it documents explicitly that the `Z201`–`Z205` security tier is always evaluated regardless of what's in that list. `Z204` is part of that same tier, so the same guarantee holds here without needing a separate carve-out. No `--only` list, however narrow, can silently exempt a forbidden term from blocking the build, no matter how the rest of a team's rule coverage is being progressively expanded elsewhere.
 
 ## Try it on your own repository
 
@@ -153,3 +153,5 @@ For a full account of why these three distribution paths are treated as distinct
 Offline-by-default and the Privacy Gate solve two different halves of the same compliance question. The first means a security review doesn't have to ask what a scan sends off-machine, because under default operation, nothing does. The second means that if a confidential term does make it into a document anyway, it's caught with the same zero-tolerance treatment as a leaked credential, using a file that's structurally incapable of being committed alongside the docs it's protecting. Together, they let a regulated team adopt a documentation quality gate as a genuine yes-or-no security question, answered once, rather than a case-by-case exception it has to keep re-justifying.
 
 Full field reference for `forbidden_patterns`, and the complete precedence chain across `.zenzic.toml`, `pyproject.toml [tool.zenzic]`, and `.zenzic.local.toml`, is in the [Configuration Reference](../../reference/configuration-reference.md#local-sanctuary). Step-by-step setup, including the `.gitignore` verification command above, is in [Configure the Privacy Gate](../../how-to/configure-privacy-gate.md).
+
+The next article in this series turns to content that's deliberately archived rather than actively maintained — [Archived on Purpose: Exempting One Finding Without Losing the Rest](2026-09-04-archived-on-purpose-directory-policies.md).

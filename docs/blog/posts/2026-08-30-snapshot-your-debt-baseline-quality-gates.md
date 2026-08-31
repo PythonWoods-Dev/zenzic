@@ -165,6 +165,6 @@ For the deeper question of *why* those three paths — pre-commit, project depen
 
 ## What comes next
 
-Baseline tracking answers "how do we start gating without fixing everything." It does not answer a related but separate question: once a gate is on, how does a team progressively raise the bar on which specific rules it enforces, without re-litigating the whole rule set at once. That is the subject of the next article in this series, on progressive rule adoption — link to follow once it publishes.
+Baseline tracking answers "how do we start gating without fixing everything." It does not answer a related but separate question: once a gate is on, how does a team progressively raise the bar on which specific rules it enforces, without re-litigating the whole rule set at once. That is the subject of [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), the next article in this series.
 
 For now, the baseline engine gives a legacy repository exactly one thing it did not have before: a CI gate that can turn on today, on the documentation set that already exists, without either lying about its state or blocking on a cleanup project with no defined end date.

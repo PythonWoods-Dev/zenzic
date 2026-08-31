@@ -16,7 +16,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-*This is the second article in Zenzic's Foundations series on practical adoption patterns. Part 1, [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), covers how to gate on regressions against a frozen baseline instead of the full historical finding count — read it first if you haven't yet.*
+*This is the second article in Zenzic's Foundations series on practical adoption patterns. [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md) covers how to gate on regressions against a frozen baseline instead of the full historical finding count — read it first if you haven't yet.*
 
 Baseline tracking answers one adoption question: how do you turn a gate on today, on a repository that isn't clean. It does not answer a related one: which rules should that gate actually enforce on day one. Turning on every Z-code at once — structural, navigational, editorial, security — on a legacy repository is its own way of stalling adoption, even with a baseline absorbing the historical count, because every *new* commit still has to satisfy the entire rule set to pass.
 
@@ -63,13 +63,13 @@ In practice, this means a team that narrows `--only` down to exactly the codes t
 
 ## Expanding the list as debt is paid down
 
-The starting `--only` list is not the destination. As the structural debt captured by Part 1's baseline gets paid down, the team adds codes to the `--only` list — heading structure, orphan detection, then editorial policy checks — until the list covers everything `zenzic check all` would enforce unfiltered, at which point `--only` can simply be dropped.
+The starting `--only` list is not the destination. As the structural debt captured by the baseline gets paid down, the team adds codes to the `--only` list — heading structure, orphan detection, then editorial policy checks — until the list covers everything `zenzic check all` would enforce unfiltered, at which point `--only` can simply be dropped.
 
 That last tier is worth naming precisely, because it's the one this series' tagline points to directly. Passive-voice detection (`Z518`) and weasel-word flags (`Z519`) are Zenzic's lightweight editorial-policy layer, and they're a reasonable rule to add near the *end* of a progressive rollout rather than the start. They're lower urgency than a broken link or a leaked credential, and slower for a team to burn down since they touch prose style rather than a single fixable fact.¹
 
 ## The two patterns together
 
-Part 1's baseline and this article's `--only` solve adjacent but distinct problems, and most real adoptions use both. Baseline tracking answers "how do we gate on regressions without fixing the existing backlog first." `--only` answers "which rules are we willing to have block a merge today."
+Baseline tracking and this article's `--only` solve adjacent but distinct problems, and most real adoptions use both. Baseline tracking answers "how do we gate on regressions without fixing the existing backlog first." `--only` answers "which rules are we willing to have block a merge today."
 
 A team commonly starts with a narrow `--only` list *and* a baseline snapshot at the same time: the baseline absorbs whatever the narrow rule set still finds in the existing repository, and the `--only` list keeps the gate from becoming an all-or-nothing wall on day one. As the `--only` list grows, the baseline keeps absorbing what's newly in scope but not yet fixed, so the gate never has to go backward to "everything blocks everything" as a precondition for expanding coverage.
 
@@ -108,8 +108,10 @@ Whichever path you start from, the pattern is the same: pick the smallest `--onl
 
 ## Closing
 
-Between the two articles in this sequence, a legacy repository has everything it needs to start real, blocking CI enforcement. It doesn't require either of the two false choices teams usually default to: waiting for the backlog to be clean, or turning on the full rule set and accepting that the first PR after rollout will be unreviewable.
+Between baseline tracking and `--only`, a legacy repository has everything it needs to start real, blocking CI enforcement. It doesn't require either of the two false choices teams usually default to: waiting for the backlog to be clean, or turning on the full rule set and accepting that the first PR after rollout will be unreviewable.
 
 Snapshot the existing debt with a baseline. Choose the smallest `--only` list that covers what actually can't ship broken. Expand both over time, on the team's own schedule — not as a blocking prerequisite to getting a gate at all.
 
 Full reference for `--only`, including flag behavior for `zenzic check` versus `zenzic fix`, is in the [CLI reference](../../reference/cli.md) and the [technical-debt how-to guide](../../how-to/handle-technical-debt.md#progressive-adoption).
+
+Once the gate is running on the codes that matter today, the next question is what happens when a team needs a rule Zenzic doesn't ship at all — the subject of [Bring Your Own Rules: Policy-as-Code Without Forking Zenzic](2026-09-01-custom-rules-policy-as-code.md).

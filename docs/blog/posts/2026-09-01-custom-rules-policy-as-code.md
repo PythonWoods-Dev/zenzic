@@ -15,7 +15,7 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-*This is the third article in Zenzic's Foundations series on practical adoption patterns. Part 1, [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), covers gating on regressions against a frozen baseline. Part 2, [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), covers narrowing which built-in codes block CI on day one. Read either first if you haven't yet — this article assumes a gate is already running.*
+*This is the third article in Zenzic's Foundations series on practical adoption patterns. [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md) covers gating on regressions against a frozen baseline. [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md) covers narrowing which built-in codes block CI on day one. Read either first if you haven't yet — this article assumes a gate is already running.*
 
 Every team eventually hits a rule that isn't built in. Not a bug in Zenzic's rule set — a rule specific to *this* organization: a legacy internal hostname that must never leak into public docs, a banned word from a past incident, a naming pattern a style guide requires but no general-purpose tool would ever ship by default. The usual fork in the road is unattractive either way: fork the engine to add one regex, or stand up a second linting tool just to cover the gap, and now the team maintains two configs, two CI steps, and two places a check can silently drift out of sync.
 
@@ -103,7 +103,7 @@ Real exit code 1. That's the property that makes custom rules safe to hand to a 
 
 ## Where this fits with baseline and `--only`
 
-Part 1's baseline tracking and Part 2's `--only` flag both answer *when* a rule starts blocking the build. This article answers a different question: *what rules exist to enforce in the first place*, beyond what ships in the box. All three compose cleanly, because a custom rule produces a finding exactly like a built-in one — it has a code (`ZZ-NOINTERNAL`), a severity, and a place in the scan output.
+Baseline tracking and the `--only` flag both answer *when* a rule starts blocking the build. This article answers a different question: *what rules exist to enforce in the first place*, beyond what ships in the box. All three compose cleanly, because a custom rule produces a finding exactly like a built-in one — it has a code (`ZZ-NOINTERNAL`), a severity, and a place in the scan output.
 
 That means a freshly added custom rule can be dropped straight into a baseline snapshot if a repository already has pre-existing violations of it, and it can be added to (or left out of) an `--only` list the same way any built-in code would be. A new org-specific rule doesn't bypass either adoption pattern — it just becomes one more code those patterns already know how to handle.
 
@@ -144,6 +144,6 @@ Whichever path you start from, the rule itself lives in the same `.zenzic.toml` 
 
 ## Closing
 
-Across all three articles in this sequence, a legacy repository now has a complete on-ramp. Freezing existing debt with a baseline (Part 1) and narrowing which built-in codes are load-bearing on day one with `--only` (Part 2) get a gate running before the documentation is clean. Extending the rule set itself with organization-specific policy, in the same config file, with no second tool to maintain, is this article's contribution. None of it requires the documentation to be clean first, and none of it requires forking the engine to say "this specific thing must never appear in our docs."
+Across all three articles in this sequence, a legacy repository now has a complete on-ramp. Freezing existing debt with a baseline and narrowing which built-in codes are load-bearing on day one with `--only` get a gate running before the documentation is clean. Extending the rule set itself with organization-specific policy, in the same config file, with no second tool to maintain, is this article's contribution. None of it requires the documentation to be clean first, and none of it requires forking the engine to say "this specific thing must never appear in our docs."
 
-The next article in this series has not been scheduled yet.
+The next article in this series moves from documentation content to the environment it can and can't reach — [Zero Network, By Default: The Privacy Gate for Regulated Documentation](2026-09-03-privacy-first-offline-scanning.md).
