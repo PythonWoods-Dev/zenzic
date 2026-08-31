@@ -24,14 +24,11 @@ The Core completely ignores its consumers. It holds no knowledge of CI runners, 
 
 ## Rationale
 
-By maintaining "radical unawareness" of the execution environment, the Core remains portable, pure, and easy to run locally or anywhere else. The scope is deliberately broad:
-
-- **CI runners** (e.g. GitHub Actions, GitLab CI) — no runner-specific logic or environment probing.
-- **Editors and LSP clients** (e.g. VS Code) — no knowledge of JSON-RPC, LSP, or any transport layer. `IncrementalAnalysisEngine` performs analysis natively and returns plain findings; the transport is somebody else's problem.
-- **AI systems** — no consumer-specific output shaping. The Core emits the same structured findings regardless of what reads them.
-- **Build frameworks** (e.g. MkDocs, Zensical, Sphinx) — engine specifics are confined to the adapter layer, so the Core analyses a unified model rather than any one framework's configuration.
-
-This is one invariant with one meaning, applied to every consumer class.
+By maintaining "radical unawareness" of the execution environment (e.g., GitHub Actions,
+GitLab CI), the client/transport layer (e.g., VS Code's LSP client, an AI agent via MCP), and
+the documentation framework being analyzed (e.g., MkDocs, Sphinx, Zensical), the Core remains
+portable and pure. It stays easy to run locally, in CI, inside an editor, or from any future
+consumer not yet built.
 
 ---
 
