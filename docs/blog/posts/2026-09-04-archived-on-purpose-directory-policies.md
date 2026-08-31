@@ -2,6 +2,7 @@
 title: "Archived on Purpose: Exempting One Finding Without Losing the Rest"
 slug: archived-on-purpose-directory-policies
 date: 2026-09-04
+draft: true
 authors:
   - pythonwoods
 description: >

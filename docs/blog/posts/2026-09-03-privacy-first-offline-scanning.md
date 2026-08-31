@@ -2,6 +2,7 @@
 title: "Zero Network, By Default: The Privacy Gate for Regulated Documentation"
 slug: privacy-first-offline-scanning
 date: 2026-09-03
+draft: true
 authors:
   - pythonwoods
 description: >

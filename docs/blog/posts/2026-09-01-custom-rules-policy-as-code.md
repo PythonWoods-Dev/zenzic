@@ -2,6 +2,7 @@
 title: "Bring Your Own Rules: Policy-as-Code Without Forking Zenzic"
 slug: custom-rules-policy-as-code
 date: 2026-09-01
+draft: true
 authors:
   - pythonwoods
 description: >
