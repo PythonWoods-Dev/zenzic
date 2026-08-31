@@ -416,6 +416,11 @@ Zenzic runs the same rule engine and finding codes across every development touc
 | **[Zenzic CLI (Core)](https://github.com/PythonWoods/zenzic)** | Local development, batch auto-fixes, and scriptable audits | Pre-commit / PyPI (`uv`/`pip`) |
 | **[VS Code Extension][zenzic-vscode]** | Real-time wavy-line diagnostics, LSP Quick Fixes (`Ctrl+.`), and status telemetry | [VS Code Marketplace][zenzic-vscode] |
 | **[GitHub Action][zenzic-action]** | CI/CD pull request gate, SARIF Code Scanning alerts, and merge blocking | [GitHub Marketplace][zenzic-action] |
+| **[MCP Server][zenzic-mcp]** | Exposes a single `check_document` tool to MCP-capable LLM agents over stdio | Source only — pre-release, see below |
+
+> **`zenzic-mcp` is pre-release.** Version `0.1.0`, no published release, and one tool —
+> `check_document`, which checks a single Markdown file and returns its findings. Its
+> interface may change without a deprecation period until a `1.0.0` exists.
 
 ---
 
@@ -449,3 +454,4 @@ Copyright (c) 2026 PythonWoods `<dev@pythonwoods.dev>`.
 <!-- Link Definitions -->
 [zenzic-vscode]: https://github.com/PythonWoods/zenzic-vscode
 [zenzic-action]: https://github.com/PythonWoods/zenzic-action
+[zenzic-mcp]: https://github.com/PythonWoods-Dev/zenzic-mcp
