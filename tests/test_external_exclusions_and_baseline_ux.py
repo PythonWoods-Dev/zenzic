@@ -124,8 +124,17 @@ def test_baseline_ux_massive_debt_reduction(tmp_path: Path):
         ["check", "all", str(doc), "--baseline", str(baseline_file), "--no-header"],
     )
     assert res.exit_code == 0
-    assert "Massive technical debt reduction detected (60 issues resolved)" in res.output
-    assert "Run 'zenzic check all --update-baseline' to lock in this clean state." in res.output
+    # The count names what it is measured against. A bare "60 issues resolved"
+    # sat directly under a "(N baselined, N new)" line whose own numbers are
+    # zero here, leaving the reader no referent for where 60 came from.
+    # Whitespace-normalised because Rich hard-wraps the footer to terminal width,
+    # which would otherwise split the asserted phrase across lines.
+    flat = " ".join(res.output.split())
+    assert (
+        "Massive technical debt reduction detected: 60 of the 60 findings "
+        "recorded in the baseline no longer occur." in flat
+    )
+    assert "Run 'zenzic check all --update-baseline' to lock in this clean state." in flat
 
 
 def test_update_baseline_verdict_message_matches_real_exit_code(tmp_path: Path) -> None:

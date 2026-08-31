@@ -2023,15 +2023,23 @@ def check_all(
                 f"[{ZenzicPalette.DIM}]Baseline: {active_baseline.score}/100 "
                 f"({baselined_cnt} baselined, {new_cnt} new)[/]"
             )
+            # Both messages name what the count is measured against. Printed
+            # directly under a "(N baselined, N new)" line whose own numbers are
+            # typically zero here, a bare "341 issues resolved" gave the reader
+            # no referent for where 341 came from.
+            _recorded = active_baseline.findings_count
             if fixed_cnt > 0:
                 if fixed_cnt > 50 and new_cnt == 0:
                     _footer_lines.append(
-                        f"[{ZenzicPalette.SUCCESS}]✨ Massive technical debt reduction detected ({fixed_cnt} issues resolved). "
-                        f"Baseline is stale. Run 'zenzic check all --update-baseline' to lock in this clean state.[/]"
+                        f"[{ZenzicPalette.SUCCESS}]✨ Massive technical debt reduction detected: "
+                        f"{fixed_cnt} of the {_recorded} findings recorded in the baseline no "
+                        f"longer occur. Baseline is stale. Run 'zenzic check all "
+                        f"--update-baseline' to lock in this clean state.[/]"
                     )
                 else:
                     _footer_lines.append(
-                        f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
+                        f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} of the {_recorded} findings "
+                        f"recorded in the baseline no longer occur. "
                         f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
                     )
 

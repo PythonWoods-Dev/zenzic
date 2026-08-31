@@ -157,8 +157,39 @@ def list_adapter_engines() -> list[str]:
 # execution model uses ProcessPoolExecutor (each worker has its own cache).
 # This eliminates the risk of double-instantiation if a future caller uses
 # ThreadPoolExecutor without requiring a code-level change here.
-_adapter_cache: dict[tuple[str, Path, Path], BaseAdapter] = {}
+#: (filename, mtime_ns, size) per watched config file; -1/-1 when absent.
+_ConfigFingerprint = tuple[tuple[str, int, int], ...]
+
+#: Cached adapter plus the fingerprint of the config files it was built from.
+_adapter_cache: dict[tuple[str, Path, Path], tuple[BaseAdapter, _ConfigFingerprint]] = {}
 _adapter_cache_lock: threading.Lock = threading.Lock()
+
+
+def _config_fingerprint(adapter: BaseAdapter, repo_root: Path) -> _ConfigFingerprint:
+    """Fingerprint the engine config files *adapter* declares it depends on.
+
+    The cache key is ``(engine, docs_root, repo_root)`` — none of which change
+    when the *contents* of ``mkdocs.yml`` change. Without this, staying correct
+    was every consumer's own responsibility: each long-running process had to
+    remember to call :func:`clear_adapter_cache` at the right trigger. The LSP
+    did; ``zenzic-mcp`` did not, and served a stale adapter after a real config
+    edit. Fingerprinting makes the cache safe by construction instead.
+
+    Uses ``(mtime_ns, size)`` rather than hashing file contents: it is two
+    ``stat()`` calls at most, versus reading every config file on every cache
+    hit, and it is what the already-approved design specified. A missing file
+    records a distinct sentinel, so deleting a config invalidates rather than
+    silently reusing the adapter built when it was present.
+    """
+    entries: list[tuple[str, int, int]] = []
+    for name in sorted(adapter.watched_config_files):
+        try:
+            stat = (repo_root / name).stat()
+        except OSError:
+            entries.append((name, -1, -1))
+        else:
+            entries.append((name, stat.st_mtime_ns, stat.st_size))
+    return tuple(entries)
 
 
 def clear_adapter_cache() -> None:
@@ -217,9 +248,15 @@ def get_adapter(
         context.engine = discover_engine(repo_root)
 
     key = (context.engine, docs_root.resolve(), repo_root.resolve())
-    # Fast path: read without lock (dict reads are atomic under the GIL).
-    if key in _adapter_cache:
-        return _adapter_cache[key]
+    # Fast path: read without lock (dict reads are atomic under the GIL), but
+    # only reuse the entry while the config it was built from is unchanged.
+    cached = _adapter_cache.get(key)
+    if cached is not None:
+        cached_adapter, cached_fingerprint = cached
+        if _config_fingerprint(cached_adapter, repo_root.resolve()) == cached_fingerprint:
+            return cached_adapter
+        with _adapter_cache_lock:
+            _adapter_cache.pop(key, None)
 
     adapter_class = _load_adapter_class(context.engine)
 
@@ -292,5 +329,5 @@ def get_adapter(
     with _adapter_cache_lock:
         # Re-check after acquiring the lock (double-checked locking pattern).
         if key not in _adapter_cache:
-            _adapter_cache[key] = adapter
-    return _adapter_cache[key]
+            _adapter_cache[key] = (adapter, _config_fingerprint(adapter, repo_root.resolve()))
+    return _adapter_cache[key][0]
