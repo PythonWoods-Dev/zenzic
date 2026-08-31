@@ -40,6 +40,7 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
+from zenzic.core.ui import format_elapsed_ms
 from zenzic.core.validator import _POLYGLOT_EXTRACTOR, LinkValidator, PolyglotExtractor
 from zenzic.models.config import (
     ZenzicConfig,
@@ -1987,17 +1988,28 @@ def scan_docs_references(
             finally:
                 t0_teardown = time.perf_counter()
                 executor.shutdown(wait=True)
-                teardown_ms = (time.perf_counter() - t0_teardown) * 1000
+                teardown_s = time.perf_counter() - t0_teardown
 
             if progress:
                 progress.add_task(
-                    f"Finalizing parallel workers (IPC teardown)... [dim]({teardown_ms:.1f}ms)[/dim]",
+                    f"Finalizing parallel workers (IPC teardown)... {format_elapsed_ms(teardown_s)}",
                     total=1,
                     completed=1,
                 )
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
+            # Same split as the sequential path below: stamp parsing before the
+            # VSM/URP pass, which carries its own line.
+            _parse_elapsed_s = time.monotonic() - _t0
+            if progress and task_id is not None:
+                progress.update(
+                    task_id,
+                    description=f"Parsing {len(md_files)} files ({_mode_label})... {format_elapsed_ms(_parse_elapsed_s)}",
+                )
+
+            _t_vsm = time.monotonic()
+            task_vsm = progress.add_task(_VSM_TASK_LABEL, total=1) if progress else None
             _run_vsm_and_urp_pass(
                 reports,
                 md_files,
@@ -2009,12 +2021,13 @@ def scan_docs_references(
                 content_roots=content_roots,
                 static_assets=static_assets,
             )
-
-            if progress and task_id is not None:
-                _parse_elapsed_ms = (time.monotonic() - _t0) * 1000
+            if progress and task_vsm is not None:
                 progress.update(
-                    task_id,
-                    description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_ms:.1f}ms)[/dim]",
+                    task_vsm,
+                    completed=1,
+                    description=(
+                        f"{_VSM_TASK_LABEL} {format_elapsed_ms(time.monotonic() - _t_vsm)}"
+                    ),
                 )
 
             if getattr(config, "_global_tracker", None):
@@ -2087,12 +2100,12 @@ def scan_docs_references(
 
             t0_val = time.perf_counter()
             link_errors = validator_b.validate(progress_callback=_advance_cb if progress else None)
-            elapsed_ms_val = (time.perf_counter() - t0_val) * 1000
+            elapsed_val_s = time.perf_counter() - t0_val
             if progress and task_validate_id is not None:
                 progress.update(
                     task_validate_id,
                     completed=max(1, n_urls),
-                    description=f"Validating links ({n_urls} external URLs)... [dim]({elapsed_ms_val:.1f}ms)[/dim]",
+                    description=f"Validating links ({n_urls} external URLs)... {format_elapsed_ms(elapsed_val_s)}",
                 )
 
             return reports, link_errors
@@ -2138,6 +2151,20 @@ def scan_docs_references(
             if progress and task_id is not None:
                 progress.advance(task_id)
 
+        # Parsing proper ends at the last advance() above — stamp the label here,
+        # before the VSM/URP pass, which now carries its own line. Measuring
+        # through that pass (as this did previously) made the label disagree with
+        # its own row: Rich sets finished_time on the final advance(), so the row
+        # showed the parse-only elapsed while the label showed parse + VSM.
+        _parse_elapsed_seq_s = time.monotonic() - _t0
+        if progress and task_id is not None:
+            progress.update(
+                task_id,
+                description=f"Parsing {len(md_files)} files ({_mode_label})... {format_elapsed_ms(_parse_elapsed_seq_s)}",
+            )
+
+        _t_vsm_seq = time.monotonic()
+        task_vsm_seq = progress.add_task(_VSM_TASK_LABEL, total=1) if progress else None
         _run_vsm_and_urp_pass(
             reports_seq,
             md_files,
@@ -2151,12 +2178,13 @@ def scan_docs_references(
             preloaded_md_contents=md_contents_seq,
             preloaded_anchors=preloaded_anchors_seq,
         )
-
-        if progress and task_id is not None:
-            _parse_elapsed_seq_ms = (time.monotonic() - _t0) * 1000
+        if progress and task_vsm_seq is not None:
             progress.update(
-                task_id,
-                description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_seq_ms:.1f}ms)[/dim]",
+                task_vsm_seq,
+                completed=1,
+                description=(
+                    f"{_VSM_TASK_LABEL} {format_elapsed_ms(time.monotonic() - _t_vsm_seq)}"
+                ),
             )
 
         elapsed_seq = time.monotonic() - _t0
@@ -2215,14 +2243,14 @@ def scan_docs_references(
         link_errors = validator_seq.validate(
             progress_callback=_advance_seq_cb if progress else None
         )
-        elapsed_ms_val_seq = (time.perf_counter() - t0_val_seq) * 1000
+        elapsed_val_seq_s = time.perf_counter() - t0_val_seq
         if progress and task_validate_id is not None:
             progress.update(
                 task_validate_id,
                 completed=max(1, n_urls_seq),
                 description=(
                     f"Validating links ({n_urls_seq} external URLs)... "
-                    f"[dim]({elapsed_ms_val_seq:.1f}ms)[/dim]"
+                    f"{format_elapsed_ms(elapsed_val_seq_s)}"
                 ),
             )
         return reports_seq, link_errors
@@ -2232,6 +2260,10 @@ def scan_docs_references(
 
 
 # ─── Adaptive parallel worker ─────────────────────────────────────────────────
+
+#: Progress-line label for the VSM/URP resolution pass. Shared by the parallel
+#: and sequential paths so the two never drift apart in wording.
+_VSM_TASK_LABEL = "Building VSM & resolving references..."
 
 #: Files below this threshold are scanned sequentially (zero process-spawn
 #: overhead).  Above it, scan_docs_references() switches to a

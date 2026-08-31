@@ -270,6 +270,38 @@ just verify
 
 ---
 
+## Type Checking: `mypy` Is Authoritative
+
+**`mypy` is the project's authoritative type-checker.** It is the one actually run by the
+gates — `nox -s typecheck` and the `mypy` `pre-commit` hook, both running `mypy src/` — so its
+verdict is deterministic and reproducible for every contributor and in CI, independent of
+which editor anyone happens to use. Configuration lives in one place, `[tool.mypy]` in
+`pyproject.toml` (`strict = true`, `python_version = "3.10"`).
+
+Pylance (or Pyright, or any other in-editor checker) is a useful interactive aid, but it is
+**not** the gating standard, and it does not always agree with `mypy` — the two implement
+different inference and reachability rules. Practical consequences:
+
+- **Do not "fix" a line that `mypy` accepts** because your editor underlines it. If the
+  gate is green, the code is correct by this project's standard. If you want the squiggle
+  gone, prefer a change `mypy` also considers an improvement (a real annotation) over a
+  suppression comment.
+- **Do not add a `# type: ignore` that `mypy` does not need.** `strict = true` enables
+  `warn_unused_ignores`, so an unnecessary suppression is itself reported as an error —
+  an ignore added purely to satisfy an editor will fail the gate.
+- **Pin the error code** when a suppression is genuinely required: write
+  `# type: ignore[union-attr]`, not a bare `# type: ignore`. A wrongly-coded ignore
+  suppresses nothing and is reported as unused, which is exactly how a real defect once
+  hid in this repository — a test helper annotated `-> object` produced `attr-defined`
+  errors that the `[union-attr]` ignores on those lines never covered, so both the errors
+  and the dead comments sat unnoticed.
+
+`tests/` is not yet covered by the gate (the gates run `mypy src/`). Contributions to
+`tests/` are still expected to be annotated in good faith, and the remaining known errors
+there are tracked for burndown before the gate is extended.
+
+---
+
 ## Cross-Platform Compatibility
 
 When working with file paths in any contribution, use `pathlib.Path` throughout — never string concatenation or `os.sep`:

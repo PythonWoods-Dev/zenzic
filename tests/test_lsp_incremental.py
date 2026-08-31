@@ -5,16 +5,16 @@
 import time
 from pathlib import Path
 
+from zenzic.lsp.server import LanguageServer
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
-def _make_server(tmp_path: Path) -> object:
+def _make_server(tmp_path: Path) -> LanguageServer:
     """Construct a ready-to-use LanguageServer pointed at tmp_path."""
     from zenzic.core.scanner import _build_rule_engine
-    from zenzic.lsp.server import LanguageServer
 
-    config = ZenzicConfig(docs_dir="docs")
+    config = ZenzicConfig(docs_dir=Path("docs"))
     server = LanguageServer()
     server.repo_root = tmp_path
     server.config = config
@@ -30,7 +30,7 @@ def test_route_diagnostics_are_strictly_typed(tmp_path: Path) -> None:
     (docs_dir / "a.md").write_text("[Broken](#bad-anchor)", encoding="utf-8")
 
     server = _make_server(tmp_path)
-    server._sync_workspace_and_publish()  # type: ignore[union-attr]
+    server._sync_workspace_and_publish()
 
     for route in server.vsm.values():  # type: ignore[union-attr]
         for diag in route.diagnostics:
@@ -51,7 +51,7 @@ def test_cross_file_link_invalidation(tmp_path: Path) -> None:
     file_b.write_text("# Target\nSome text.", encoding="utf-8")
 
     server = _make_server(tmp_path)
-    server._sync_workspace_and_publish()  # type: ignore[union-attr]
+    server._sync_workspace_and_publish()
 
     # Confirm no Z102 initially
     route_a = next(
@@ -66,7 +66,7 @@ def test_cross_file_link_invalidation(tmp_path: Path) -> None:
     # Simulate didChange: B loses its '#target' anchor
     uri_b = file_b.resolve().as_uri()
     server.overlay.update(uri_b, "No heading here.")  # type: ignore[union-attr]
-    server._sync_workspace_and_publish({uri_b})  # type: ignore[union-attr]
+    server._sync_workspace_and_publish({uri_b})
 
     route_a = next(
         (r for r in server.vsm.values() if r.source == "a.md"),  # type: ignore[union-attr]
@@ -87,7 +87,7 @@ def test_incremental_latency_large_workspace(tmp_path: Path) -> None:
         (docs_dir / f"file_{i}.md").write_text(f"# Heading {i}\nSome text.", encoding="utf-8")
 
     server = _make_server(tmp_path)
-    server._sync_workspace_and_publish()  # type: ignore[union-attr]  # Full warm-up
+    server._sync_workspace_and_publish()  # Full warm-up
 
     # Single file patch
     target = docs_dir / "file_0.md"
@@ -95,7 +95,7 @@ def test_incremental_latency_large_workspace(tmp_path: Path) -> None:
     server.overlay.update(uri_target, "# Modified Heading 0\nNew text.")  # type: ignore[union-attr]
 
     start = time.perf_counter()
-    server._sync_workspace_and_publish({uri_target})  # type: ignore[union-attr]
+    server._sync_workspace_and_publish({uri_target})
     elapsed_ms = (time.perf_counter() - start) * 1000
 
     assert elapsed_ms < 50.0, (
@@ -106,7 +106,7 @@ def test_incremental_latency_large_workspace(tmp_path: Path) -> None:
 def test_no_incoming_links_in_language_server(tmp_path: Path) -> None:
     """LanguageServer must not store incoming_links or file_diagnostics (ADR-075)."""
     server = _make_server(tmp_path)
-    server._sync_workspace_and_publish()  # type: ignore[union-attr]
+    server._sync_workspace_and_publish()
 
     assert not hasattr(server, "incoming_links"), (
         "LanguageServer must not manage graph topology (ADR-075 Radical Unawareness)"

@@ -30,7 +30,7 @@ from zenzic.core.scanner import (
 )
 from zenzic.core.scorer import compute_score
 from zenzic.core.sovereign_context import sovereign_context
-from zenzic.core.ui import ZenzicPalette
+from zenzic.core.ui import ZenzicPalette, format_elapsed_ms
 from zenzic.core.validator import (
     LINK_CODES,
     LinkError,
@@ -297,7 +297,7 @@ def check_links(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
         footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
         if no_external and output_format == "text":
             footer_lines.append(
@@ -309,6 +309,7 @@ def check_links(
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             ok_message="No broken links found.",
@@ -438,12 +439,13 @@ def check_orphans(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=True,
@@ -562,12 +564,13 @@ def check_snippets(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             ok_message="All code snippets are syntactically valid.",
@@ -754,12 +757,13 @@ def check_references(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=strict,
@@ -881,12 +885,13 @@ def check_assets(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=True,
@@ -1003,12 +1008,13 @@ def check_placeholders(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=strict,
@@ -1122,7 +1128,7 @@ def _collect_all_results(
     check_external: bool = True,
     show_progress: bool = False,
     init_start_time: float | None = None,
-    suppression_ms: float | None = None,
+    suppression_s: float | None = None,
     rule_engine_target: Path | None = None,
 ) -> _AllCheckResults:
     """Run all eight checks and return results as a typed container.
@@ -1170,20 +1176,20 @@ def _collect_all_results(
         # in. Subtract it so this line reports only real environment/VSM setup
         # and the audit gets its own line below, rather than 88% of the audit's
         # cost being displayed under an "Initializing environment & VSM" label.
-        _init_ms = (time.perf_counter() - (init_start_time or time.perf_counter())) * 1000
-        _init_ms = max(0.0, _init_ms - (suppression_ms or 0.0))
+        _init_s = time.perf_counter() - (init_start_time or time.perf_counter())
+        _init_s = max(0.0, _init_s - (suppression_s or 0.0))
         _task_init = progress.add_task("Initializing environment & VSM...", total=1)
         progress.update(
             _task_init,
             completed=1,
-            description=f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
+            description=f"Initializing environment & VSM... {format_elapsed_ms(_init_s)}",
         )
-        if suppression_ms is not None:
+        if suppression_s is not None:
             _task_suppr = progress.add_task("Auditing inline suppressions...", total=1)
             progress.update(
                 _task_suppr,
                 completed=1,
-                description=f"Auditing inline suppressions... [dim]({suppression_ms:.1f}ms)[/dim]",
+                description=f"Auditing inline suppressions... {format_elapsed_ms(suppression_s)}",
             )
 
     try:
@@ -1213,6 +1219,18 @@ def _collect_all_results(
             if r.suppression_tracker is not None
         }
 
+        # Network-bound when check_external is on, and previously the single
+        # largest un-attributed phase: measured at ~253ms of an otherwise
+        # unexplained ~458ms gap between the sum of the visible phases and the
+        # run's own reported total. It gets its own line for the same reason the
+        # others do — an invisible phase is the one most likely to look like a
+        # stall.
+        _t_link_check = time.perf_counter()
+        task_links = (
+            progress.add_task("Cross-checking link graph...", total=1)
+            if progress is not None
+            else None
+        )
         link_errors = validate_links_structured(
             docs_root,
             exclusion_mgr,
@@ -1225,6 +1243,15 @@ def _collect_all_results(
             reports=ref_reports,
             ext_errors=ext_errors,
         )
+        if progress is not None and task_links is not None:
+            progress.update(
+                task_links,
+                completed=1,
+                description=(
+                    "Cross-checking link graph... "
+                    f"{format_elapsed_ms(time.perf_counter() - _t_link_check)}"
+                ),
+            )
 
         for r in ref_reports:
             if r.suppression_tracker is not None:
@@ -1250,11 +1277,11 @@ def _collect_all_results(
                 ignored_patterns=adapter.get_ignored_patterns(),
                 adapter=adapter,
             )
-            elapsed_ms = (time.perf_counter() - t0) * 1000
+            elapsed_s = time.perf_counter() - t0
             progress.update(
                 task_orphans,
                 completed=1,
-                description=f"Checking orphan pages & topology... [dim]({elapsed_ms:.1f}ms)[/dim]",
+                description=f"Checking orphan pages & topology... {format_elapsed_ms(elapsed_s)}",
             )
 
             task_snippets = progress.add_task(
@@ -1264,11 +1291,11 @@ def _collect_all_results(
             )
             t0 = time.perf_counter()
             snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
-            elapsed_ms = (time.perf_counter() - t0) * 1000
+            elapsed_s = time.perf_counter() - t0
             progress.update(
                 task_snippets,
                 completed=1,
-                description=f"Validating code snippets... [dim]({elapsed_ms:.1f}ms)[/dim]",
+                description=f"Validating code snippets... {format_elapsed_ms(elapsed_s)}",
             )
 
             task_assets = progress.add_task(
@@ -1285,11 +1312,11 @@ def _collect_all_results(
                 content_roots=content_roots,
                 adapter_metadata_files=adapter.get_metadata_files(),
             )
-            elapsed_ms = (time.perf_counter() - t0) * 1000
+            elapsed_s = time.perf_counter() - t0
             progress.update(
                 task_assets,
                 completed=1,
-                description=f"Checking unused assets & media... [dim]({elapsed_ms:.1f}ms)[/dim]",
+                description=f"Checking unused assets & media... {format_elapsed_ms(elapsed_s)}",
             )
         else:
             orphans = find_orphans(
@@ -1312,26 +1339,63 @@ def _collect_all_results(
                 adapter_metadata_files=adapter.get_metadata_files(),
             )
 
+        # Hoisted out of the return statement below so each can be timed and
+        # given its own progress line. Both are real checks (Z406 nav contract,
+        # Z401 directory index) that ran invisibly before, contributing to the
+        # gap between the visible phases and the reported total. Evaluation
+        # order is unchanged: nav contract still runs before directory index,
+        # exactly as argument evaluation ordered them.
+        _t_nav = time.perf_counter()
+        task_nav = (
+            progress.add_task("Checking nav contract...", total=1)
+            if progress is not None
+            else None
+        )
+        nav_contract_errors = check_nav_contract(
+            repo_root,
+            exclusion_mgr,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "mkdocs",
+        )
+        if progress is not None and task_nav is not None:
+            progress.update(
+                task_nav,
+                completed=1,
+                description=(
+                    f"Checking nav contract... {format_elapsed_ms(time.perf_counter() - _t_nav)}"
+                ),
+            )
+
+        _t_dir_idx = time.perf_counter()
+        task_dir_idx = (
+            progress.add_task("Checking directory indices...", total=1)
+            if progress is not None
+            else None
+        )
+        directory_index_issues = find_missing_directory_indices(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            provides_index=adapter.provides_index,
+        )
+        if progress is not None and task_dir_idx is not None:
+            progress.update(
+                task_dir_idx,
+                completed=1,
+                description=(
+                    "Checking directory indices... "
+                    f"{format_elapsed_ms(time.perf_counter() - _t_dir_idx)}"
+                ),
+            )
+
         return _AllCheckResults(
             link_errors=link_errors,
             orphans=orphans,
             snippet_errors=snippet_errors,
             unused_assets=unused_assets,
-            nav_contract_errors=check_nav_contract(
-                repo_root,
-                exclusion_mgr,
-                engine=config.build_context.engine
-                if hasattr(config, "build_context")
-                else "mkdocs",
-            ),
+            nav_contract_errors=nav_contract_errors,
             reference_reports=ref_reports,
             security_events=security_events,
-            directory_index_issues=find_missing_directory_indices(
-                docs_root,
-                exclusion_mgr,
-                config=config,
-                provides_index=adapter.provides_index,
-            ),
+            directory_index_issues=directory_index_issues,
             config_asset_issues=config_asset_issues,
         )
     finally:
@@ -1713,7 +1777,7 @@ def check_all(
         docs_root, config, exclusion_mgr
     )
     per_file_suppressions = count_per_file_ignores(config)
-    _suppression_ms = (time.perf_counter() - _t_suppr_start) * 1000
+    _suppression_s = time.perf_counter() - _t_suppr_start
     suppression_audit = SuppressionAudit(
         inline_count=inline_suppressions,
         per_file_count=per_file_suppressions,
@@ -1759,14 +1823,12 @@ def check_all(
             check_external=not no_external,
             show_progress=show_progress,
             init_start_time=_t_init_start,
-            suppression_ms=_suppression_ms,
+            suppression_s=_suppression_s,
             rule_engine_target=_single_file,
         )
 
     if only:
         _apply_only_filter(results, only)
-
-    elapsed = time.monotonic() - t0
 
     with sovereign_context(force_audit=audit):
         all_findings = _to_findings(results, docs_root, repo_root, config)
@@ -1846,6 +1908,14 @@ def check_all(
                 )
                 raise typer.Exit(1) from None
 
+    # The single elapsed measurement behind the summary line's total. It spans
+    # from just before the suppression audit through analysis AND the
+    # post-analysis stage above (findings conversion, governance filters,
+    # scoring, baseline) — so it is legitimately larger than the sum of the
+    # progress lines, which stop at the end of analysis. An earlier duplicate
+    # assignment sat immediately after _collect_all_results and was always
+    # overwritten here before ever being read; it is removed, because its only
+    # effect was to make this window look narrower than it is.
     elapsed = time.monotonic() - t0
 
     if output_format == "json":
@@ -1923,11 +1993,11 @@ def check_all(
         reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
             docs_root, repo_root, exclusion_mgr, config
         )
         if _single_file is not None:
-            docs_count, assets_count = 1, 0
+            docs_count, config_count, assets_count = 1, 0, 0
 
         if docs_count == 0 and _single_file is None:
             _target_display = _target_hint or "./"
@@ -2009,6 +2079,7 @@ def check_all(
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             target=_target_hint,

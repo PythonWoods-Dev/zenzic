@@ -568,12 +568,22 @@ def _count_docs_assets(
     repo_root: Path,
     exclusion_mgr: LayeredExclusionManager,
     config: ZenzicConfig | None = None,
-) -> tuple[int, int]:
-    """Return ``(docs_count, assets_count)`` for the analysis telemetry line.
+) -> tuple[int, int, int]:
+    """Return ``(pages_count, config_count, assets_count)`` for the telemetry line.
 
-    When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
-    locale translation trees (e.g. MkDocs or Zensical ``docs-it/``) are counted in
-    ``docs_count`` as well.
+    Split three ways rather than two because the second figure is not what a
+    reader assumes. This previously returned a single ``docs_count`` that summed
+    Markdown pages *and* configuration files (``.yml``/``.yaml``/``.toml`` under
+    the docs root, plus root-level ``.yml``/``.yaml``), which put it in direct
+    conflict with the parsing progress line a few rows above it: the same run
+    would report "Parsing 263 files" and "268 docs" and explain neither. Pages
+    and config are now counted separately so each label means exactly one thing.
+
+    ``pages_count`` covers ``.md``/``.mdx`` — the documents actually fed through
+    the analysis pipeline, matching what the parsing line counts. When *config*
+    is provided and the adapter exposes ``get_locale_source_roots()``, locale
+    translation trees (e.g. MkDocs or Zensical ``docs-it/``) count as pages too.
+    ``config_count`` covers the engine/config files discovered alongside them.
     """
     from zenzic.core.discovery import walk_files
     from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
@@ -582,13 +592,18 @@ def _count_docs_assets(
     _CONFIG = {".yml", ".yaml", ".toml"}
     _DOC_EXT = {".md", ".mdx"}
     if not docs_root.is_dir():
-        return 0, 0
-    docs_count = sum(
+        return 0, 0, 0
+    pages_count = sum(
         1
         for p in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
-        if p.suffix.lower() in _DOC_EXT or p.suffix.lower() in _CONFIG
+        if p.suffix.lower() in _DOC_EXT
     )
-    docs_count += sum(
+    config_count = sum(
+        1
+        for p in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+        if p.suffix.lower() in _CONFIG
+    )
+    config_count += sum(
         1 for p in repo_root.iterdir() if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
     )
     assets_count = sum(
@@ -603,9 +618,9 @@ def _count_docs_assets(
 
         adapter = get_adapter(config.build_context, docs_root, repo_root)
         for locale_root, _ in adapter.get_locale_source_roots(repo_root):
-            docs_count += sum(
+            pages_count += sum(
                 1
                 for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
                 if p.suffix.lower() in _DOC_EXT
             )
-    return docs_count, assets_count
+    return pages_count, config_count, assets_count

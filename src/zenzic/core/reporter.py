@@ -183,6 +183,7 @@ class ZenzicReporter:
         version: str,
         elapsed: float,
         docs_count: int = 0,
+        config_count: int = 0,
         assets_count: int = 0,
         engine: str = "auto",
         target: str | None = None,
@@ -236,12 +237,16 @@ class ZenzicReporter:
 
         # ── Telemetry line ────────────────────────────────────────────────────
         dot = emoji("dot")
-        total = docs_count + assets_count
+        total = docs_count + config_count + assets_count
         parts = [engine]
         if target is not None:
             parts.append(target)
         if total:
-            breakdown = f"([{ZenzicPalette.BRAND}]{docs_count}[/] docs, [{ZenzicPalette.BRAND}]{assets_count}[/] assets)"
+            _seg = [f"[{ZenzicPalette.BRAND}]{docs_count}[/] pages"]
+            if config_count:
+                _seg.append(f"[{ZenzicPalette.BRAND}]{config_count}[/] config")
+            _seg.append(f"[{ZenzicPalette.BRAND}]{assets_count}[/] assets")
+            breakdown = "(" + ", ".join(_seg) + ")"
             parts.append(
                 f"[{ZenzicPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
             )

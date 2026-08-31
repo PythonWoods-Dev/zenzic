@@ -358,7 +358,7 @@ def test_check_all_json_with_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
 @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -375,7 +375,7 @@ def test_check_all_text_ok(
     assert "Analysis complete" in result.stdout or "No broken links" in result.stdout
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 2))
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 2))
 @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
@@ -544,7 +544,7 @@ def test_check_all_only_filters_findings(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
 @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -1747,7 +1747,7 @@ class TestShowInfoFilter:
         assert errors == 0
         assert warnings == 0
 
-    @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+    @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
     @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
     @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
     @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -2626,7 +2626,7 @@ def test_check_links_circular_link_note_strict_exits_0(_links, _cfg, _root) -> N
     assert result.exit_code == 0
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
 @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -2681,7 +2681,7 @@ def test_check_all_progress_bar_activation(
     )
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
 @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -2720,7 +2720,7 @@ def test_check_all_init_task_marked_finished(
     )
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
 @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])

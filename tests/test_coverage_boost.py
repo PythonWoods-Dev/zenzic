@@ -646,3 +646,31 @@ class TestShared:
 
         with pytest.raises(typer.Exit):
             _validate_docs_root(repo, outside)
+
+
+class TestFormatElapsedMs:
+    """The single shared progress-line duration formatter (`core.ui`)."""
+
+    def test_converts_seconds_to_milliseconds_with_one_decimal(self) -> None:
+        from zenzic.core.ui import format_elapsed_ms
+
+        assert format_elapsed_ms(0.3312) == "[dim](331.2ms)[/dim]"
+        assert format_elapsed_ms(1.0) == "[dim](1000.0ms)[/dim]"
+        assert format_elapsed_ms(0.0) == "[dim](0.0ms)[/dim]"
+
+    def test_does_not_switch_units_on_long_durations(self) -> None:
+        """Deliberately always ms — the progress lines are compared against each
+        other, so a column that changes unit partway down is harder to scan.
+        """
+        from zenzic.core.ui import format_elapsed_ms
+
+        assert format_elapsed_ms(3.4058) == "[dim](3405.8ms)[/dim]"
+        assert "s)" not in format_elapsed_ms(3.4058).replace("ms)", "")
+
+    def test_output_matches_the_previously_inlined_format_exactly(self) -> None:
+        """Guards the dedup: this is the literal f-string the 10 call sites used."""
+        from zenzic.core.ui import format_elapsed_ms
+
+        for seconds in (0.0, 0.0234, 0.3312, 2.1172, 3.4058, 12.5):
+            legacy = f"[dim]({seconds * 1000:.1f}ms)[/dim]"
+            assert format_elapsed_ms(seconds) == legacy

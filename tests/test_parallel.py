@@ -9,6 +9,7 @@ bit-identical output every time.
 from __future__ import annotations
 
 import concurrent.futures
+import re
 from pathlib import Path
 
 import pytest
@@ -96,6 +97,65 @@ def test_parallel_single_worker_is_sequential(tmp_path: Path) -> None:
     # All refs should resolve (we defined [ref] in every file)
     for report in result:
         assert report.score == 100.0
+
+
+def test_parsing_label_agrees_with_its_own_elapsed_column(tmp_path: Path) -> None:
+    """The Parsing label must not report a window wider than its own progress row.
+
+    Rich stamps ``finished_time`` on the final ``advance()`` — i.e. when the last
+    file is parsed — and ``TimeElapsedColumn`` renders that. The label used to be
+    written after the VSM/URP pass instead, so a single row showed two figures
+    measuring different windows (observed on this repository: label 3405.8ms,
+    column 0:00:02 from a real finished_time of 2047.6ms). The VSM pass now has
+    its own line, so the label must agree with the column to within rounding.
+    """
+    from rich.progress import Progress
+
+    repo = _make_docs(tmp_path, n_files=6)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = Progress()
+    scan_docs_references(docs_root, mgr, config=config, workers=1, progress_instance=progress)
+
+    parsing = [t for t in progress.tasks if t.description.startswith("Parsing")]
+    assert parsing, "no Parsing task was created"
+    match = re.search(r"\(([\d.]+)ms\)", parsing[0].description)
+    assert match, f"Parsing label carries no duration: {parsing[0].description!r}"
+    label_ms = float(match.group(1))
+    finished_time = parsing[0].finished_time
+    assert finished_time is not None, "Parsing task never reached Rich's finished state"
+    column_ms = finished_time * 1000
+
+    # The label is stamped microseconds after the final advance(), so allow a
+    # small delta — but nothing like the whole VSM pass, which is what this
+    # regression guards against.
+    assert abs(label_ms - column_ms) < 100, (
+        f"Parsing label ({label_ms:.1f}ms) disagrees with its own elapsed column "
+        f"({column_ms:.1f}ms) — the label is measuring past the end of parsing again"
+    )
+
+
+def test_vsm_pass_has_its_own_progress_line(tmp_path: Path) -> None:
+    """The VSM/URP resolution pass must be visible as its own phase.
+
+    Measured at ~1.4s on this repository's own docs tree — previously the single
+    largest stretch of work with no progress line, silently folded into Parsing.
+    """
+    from rich.progress import Progress
+
+    repo = _make_docs(tmp_path, n_files=4)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = Progress()
+    scan_docs_references(docs_root, mgr, config=config, workers=1, progress_instance=progress)
+
+    vsm = [t for t in progress.tasks if t.description.startswith("Building VSM")]
+    assert vsm, f"no VSM task: {[t.description for t in progress.tasks]!r}"
+    assert "ms)" in vsm[0].description, f"VSM line reports no duration: {vsm[0].description!r}"
 
 
 def test_sequential_validate_links_task_shows_elapsed_ms(tmp_path: Path) -> None:

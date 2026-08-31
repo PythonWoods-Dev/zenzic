@@ -158,7 +158,7 @@ def audit(
         suppression_cap=suppression_audit.cap,
     )
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    docs_count, config_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     engine = _build_rule_engine(config)
 

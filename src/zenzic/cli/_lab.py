@@ -610,13 +610,16 @@ class _ActResult:
     elapsed: float
     engine: str
     docs_count: int = 0
+    config_count: int = 0
     assets_count: int = 0
     collateral_hidden: int = 0
     has_incident: bool = False
 
     @property
     def total_files(self) -> int:
-        return self.docs_count + self.assets_count
+        # Config files were previously folded into docs_count; keep them in the
+        # total so the lab summary's file count is unchanged by the split.
+        return self.docs_count + self.config_count + self.assets_count
 
     @property
     def throughput(self) -> float:
@@ -706,9 +709,9 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
         sf_rel = str(single_file.relative_to(example_dir))
         findings = [f for f in findings if f.rel_path == sf_rel]
 
-    docs_count, assets_count = _count_docs_assets(docs_root, example_dir, exclusion_mgr, config)
+    docs_count, config_count, assets_count = _count_docs_assets(docs_root, example_dir, exclusion_mgr, config)
     if single_file is not None:
-        docs_count, assets_count = 1, 0
+        docs_count, config_count, assets_count = 1, 0, 0
 
     reporter = ZenzicReporter(get_console(), docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
@@ -716,6 +719,7 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
         version=__version__,
         elapsed=elapsed,
         docs_count=docs_count,
+        config_count=config_count,
         assets_count=assets_count,
         engine=config.build_context.engine,
         target=target_hint,
@@ -732,6 +736,7 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
         elapsed=elapsed,
         engine=config.build_context.engine,
         docs_count=docs_count,
+        config_count=config_count,
         assets_count=assets_count,
         collateral_hidden=collateral_hidden,
         has_incident=has_incident,
@@ -980,6 +985,19 @@ def lab(
     act_results: list[_ActResult] = []
     for act in scenarios_to_run:
         con.print()
+        # Frame an intentionally-failing fixture *before* its output, not only
+        # after. These scenarios reproduce a real failing scan verbatim —
+        # "FAILED: Hard errors detected. Exit code 1 is mandatory." and all —
+        # and the reader otherwise meets that line with no indication it is the
+        # point of the exercise, learning so only from the LAB RESULT seal
+        # printed further down.
+        _expectation = (
+            f"[{ZenzicPalette.DIM}]This scenario is designed to fail — the output below "
+            f"is the expected {act.code.upper()} detection, not a problem with your "
+            f"install.[/]"
+            if not act.expected_pass
+            else f"[{ZenzicPalette.DIM}]This scenario is designed to pass cleanly.[/]"
+        )
         con.print(
             Group(
                 Text.from_markup(
@@ -987,6 +1005,7 @@ def lab(
                 ),
                 Text(),
                 Text.from_markup(f"[bold]{act.description}[/]"),
+                Text.from_markup(_expectation),
             )
         )
         result = _run_act(act, examples_root, show_all=show_all)
