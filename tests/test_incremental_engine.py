@@ -92,23 +92,29 @@ def test_engine_detects_forbidden_terms(tmp_path: Path) -> None:
     assert "ProjectOmniInternal" in z204[0].message
 
 
-def test_engine_forbidden_term_and_credential_same_line_first_match_wins(
+def test_engine_forbidden_term_overlapping_a_credential_is_not_double_reported(
     tmp_path: Path,
 ) -> None:
-    """A line matching both a credential pattern and a forbidden term must
-    yield exactly one finding (the credential scan takes priority), matching
-    scanner.py's harvest() first-match-wins semantics — not double-reported.
+    """A forbidden term matching *inside* a credential must not produce a second
+    finding for the same leak — but an independent term sharing the line must.
+
+    This test previously asserted line-granularity ("exactly one finding, the
+    credential wins"), mirroring the semantics harvest() had when the LSP path
+    was written. `bfbb676` replaced that with span-overlap suppression on the CLI
+    side, and both paths now share one primitive, so the assertion is updated to
+    the behaviour both actually have: suppression keyed on overlapping character
+    spans, not on sharing a line number.
     """
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
+    # The forbidden term here is a substring of the secret itself, so the two
+    # spans overlap and the term must be suppressed as a duplicate view of it.
     (docs_dir / "a.md").write_text(
-        "export AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI  # ProjectOmniInternal\n",
+        "export AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI\n",
         encoding="utf-8",
     )
-    (tmp_path / ".zenzic.toml").write_text(
-        'forbidden_patterns = ["ProjectOmniInternal"]\n', encoding="utf-8"
-    )
-    config = ZenzicConfig(docs_dir="docs", forbidden_patterns=["ProjectOmniInternal"])
+    (tmp_path / ".zenzic.toml").write_text('forbidden_patterns = ["IOSFODNN7"]\n', encoding="utf-8")
+    config = ZenzicConfig(docs_dir="docs", forbidden_patterns=["IOSFODNN7"])
 
     engine, vsm, overlay = _make_engine(tmp_path, config)
     results = engine.process_changes(vsm, overlay)

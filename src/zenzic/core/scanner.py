@@ -26,8 +26,7 @@ from zenzic.core import regex as re
 from zenzic.core.codes import code_severity
 from zenzic.core.credentials import (
     SecurityFinding,
-    scan_line_for_forbidden_terms,
-    scan_lines_with_lookback,
+    scan_security_findings,
     scan_url_for_secrets,
 )
 from zenzic.core.discovery import (
@@ -855,56 +854,15 @@ class ReferenceScanner:
                 return
 
         lines = text.splitlines(keepends=True)
+        # Credentials (Z201) and forbidden terms (Z204) come from one shared
+        # primitive, so the CLI and the LSP cannot disagree about which security
+        # findings a file contains — see scan_security_findings' own docstring for
+        # the two divergences that made sharing necessary.
         secret_line_nos: set[int] = set()
-        # Per-line character spans of the credentials found above, used to decide
-        # whether a forbidden term on the same line is a second view of the same
-        # secret or an independent finding. ``opaque_secret_lines`` holds lines
-        # carrying a credential whose position could not be established.
-        secret_spans: dict[int, list[tuple[int, int]]] = {}
-        opaque_secret_lines: set[int] = set()
         credential_events: list[HarvestEvent] = []
-        for finding in scan_lines_with_lookback(enumerate(lines, start=1), self.file_path):
+        for finding in scan_security_findings(text, self.file_path, self._config):
             credential_events.append((finding.line_no, "SECRET", finding))
             secret_line_nos.add(finding.line_no)
-            raw_line = lines[finding.line_no - 1] if finding.line_no <= len(lines) else ""
-            start = finding.col_start
-            end = start + len(finding.match_text)
-            # ``col_start`` is only meaningful when ``match_text`` genuinely sits
-            # there in the raw line. Both scanners fall back to 0 when it does
-            # not — for a secret detected only in the normalised form of a line,
-            # and for one reconstructed across two lines by the lookback buffer —
-            # so a bare 0 cannot be trusted as an offset.
-            if raw_line[start:end] == finding.match_text:
-                secret_spans.setdefault(finding.line_no, []).append((start, end))
-            else:
-                opaque_secret_lines.add(finding.line_no)
-
-        fp = self._config.forbidden_patterns if self._config else []
-        if fp:
-            fp_compiled = self._config.forbidden_patterns_compiled if self._config else None
-            for lineno, raw_line in enumerate(lines, start=1):
-                # A credential on this line whose span is unknown: suppress the
-                # whole line, as before. Conservative in the only safe direction
-                # — it can hide an independent term, never invent a second panel
-                # for a single leak.
-                if lineno in opaque_secret_lines:
-                    continue
-                spans = secret_spans.get(lineno, ())
-                for finding in scan_line_for_forbidden_terms(
-                    raw_line,
-                    fp,
-                    self.file_path,
-                    lineno,
-                    compiled_pattern=fp_compiled,
-                ):
-                    term_start = finding.col_start
-                    term_end = term_start + len(finding.match_text)
-                    # Half-open intersection: adjacency is not overlap, so a term
-                    # butted directly against a secret is still its own finding.
-                    if any(term_start < end and start < term_end for start, end in spans):
-                        continue
-                    credential_events.append((finding.line_no, "SECRET", finding))
-                    secret_line_nos.add(finding.line_no)
 
         content_events: list[HarvestEvent] = []
         in_block = False

@@ -33,8 +33,13 @@ import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from zenzic.core import regex as re
+
+
+if TYPE_CHECKING:
+    from zenzic.models.config import ZenzicConfig
 
 
 # ─── Pre-scan Normalizer (ZRT-003: split-token bypass defence) ────────────────
@@ -597,3 +602,87 @@ def safe_read_line(
     for finding in scan_line_for_secrets(line, file_path, line_no):
         raise CredentialViolation(finding)
     return line
+
+
+def scan_security_findings(
+    text: str,
+    file_path: Path | str,
+    config: ZenzicConfig | None = None,
+) -> list[SecurityFinding]:
+    """Every Tier-0 security finding in *text*: credentials (Z201) and forbidden terms (Z204).
+
+    The single decision about *which* security findings a file contains. Both
+    analysis paths call it — ``scanner.py``'s ``harvest()`` for the full-corpus
+    CLI scan, and ``incremental.py``'s ``_analyze_file`` for the buffer-aware LSP
+    path (which never calls ``harvest()``), and through that, ``zenzic-mcp``.
+
+    It exists because the same logic was implemented twice and drifted twice,
+    both times in the security tier: once leaving the LSP with no forbidden-term
+    scan at all, and once leaving it with an older suppression rule than the CLI,
+    so the two reported different findings for the same line. Detection is shared
+    here; each caller still builds its own output shape, which is a genuine
+    difference rather than duplication.
+
+    Returns :class:`SecurityFinding` rather than ``RuleFinding`` deliberately —
+    ``RuleFinding`` has no ``is_likely_placeholder`` field, and the CLI reporter
+    and SARIF writer both read it, so converting here would silently drop the
+    ``[LIKELY PLACEHOLDER]`` signal.
+
+    Args:
+        text: Full file content.
+        file_path: Path identifier (no disk access).
+        config: Supplies ``forbidden_patterns``; when absent, only credentials
+            are scanned.
+
+    Returns:
+        Findings in discovery order: credentials first, then forbidden terms.
+    """
+    path = Path(file_path)
+    lines = text.splitlines(keepends=True)
+
+    findings: list[SecurityFinding] = []
+    # Per-line character spans of the credentials found, so a forbidden term can
+    # be told apart from a second view of the same secret. ``opaque_lines`` holds
+    # lines with a credential whose position could not be established.
+    secret_spans: dict[int, list[tuple[int, int]]] = {}
+    opaque_lines: set[int] = set()
+
+    for finding in scan_lines_with_lookback(enumerate(lines, start=1), path):
+        findings.append(finding)
+        raw_line = lines[finding.line_no - 1] if finding.line_no <= len(lines) else ""
+        start = finding.col_start
+        end = start + len(finding.match_text)
+        # ``col_start`` is only meaningful when ``match_text`` genuinely sits there
+        # in the raw line. Both scanners fall back to 0 when it does not — for a
+        # secret seen only in the normalised form of a line, and for one
+        # reconstructed across two lines by the lookback buffer — so a bare 0
+        # cannot be trusted as an offset.
+        if raw_line[start:end] == finding.match_text:
+            secret_spans.setdefault(finding.line_no, []).append((start, end))
+        else:
+            opaque_lines.add(finding.line_no)
+
+    forbidden = config.forbidden_patterns if config else []
+    if not forbidden:
+        return findings
+
+    compiled = config.forbidden_patterns_compiled if config else None
+    for line_no, raw_line in enumerate(lines, start=1):
+        # A credential here whose span is unknown: suppress the whole line, as
+        # before. Conservative in the only safe direction — it can hide an
+        # independent term, never invent a second panel for a single leak.
+        if line_no in opaque_lines:
+            continue
+        spans = secret_spans.get(line_no, ())
+        for finding in scan_line_for_forbidden_terms(
+            raw_line, forbidden, path, line_no, compiled_pattern=compiled
+        ):
+            term_start = finding.col_start
+            term_end = term_start + len(finding.match_text)
+            # Half-open intersection: adjacency is not overlap, so a term butted
+            # directly against a secret is still its own finding.
+            if any(term_start < end and start < term_end for start, end in spans):
+                continue
+            findings.append(finding)
+
+    return findings
