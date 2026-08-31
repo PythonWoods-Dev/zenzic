@@ -175,6 +175,86 @@ class BuildContext(BaseModel):
     )
 
 
+class DoctorConfig(BaseModel):
+    """Repository-health conventions read by ``zenzic doctor`` and ``zenzic adr new``.
+
+    These checks depend on choices that are not universal — where a project keeps
+    its architectural decision records, how it cites them in prose and code, where
+    its redirects file lives. Hardcoding Zenzic's own layout would make the
+    commands useless to anyone else, so the layout is configuration and the
+    defaults are simply Zenzic's own values.
+
+    **Public repository content only.** Every default resolves inside the
+    published tree. `zenzic doctor` deliberately cannot inspect `.claude/` or
+    `.human/`: both are gitignored, so neither exists in a clone or in CI, and a
+    check that silently passed for everyone but one developer would be worse than
+    no check. Paths reaching into either are rejected rather than merely
+    defaulted away from, so the boundary cannot be opted out of by configuration.
+    """
+
+    adr_vault_path: Path = Field(
+        # Zenzic's own public vault. Never `.claude/` — see the class docstring:
+        # that directory is gitignored and absent from every clone, so pointing a
+        # shipped check at it would make the check structurally unrunnable.
+        default=Path("docs/developers/explanation/adr-vault"),
+        description=(
+            "Directory holding architectural decision records, relative to the "
+            "repository root. Must be inside the published documentation tree."
+        ),
+    )
+    adr_citation_pattern: str = Field(
+        default=r"ADR-\d{3}",
+        description=(
+            "Regular expression matching an ADR citation in source or prose. "
+            "Compiled once at config load; an invalid pattern is a config error."
+        ),
+    )
+    redirects_path: Path = Field(
+        default=Path("docs/_redirects"),
+        description=(
+            "Redirects file to structurally validate, relative to the repository "
+            "root. Set to a non-existent path to skip the redirect check."
+        ),
+    )
+    redirects_expected_blanks: int = Field(
+        default=8,
+        ge=0,
+        description=(
+            "Expected blank-line count in the redirects file. Blank lines belong "
+            "only to its comment header, so an unexplained change is a signal "
+            "that something reshaped the file. Set to 0 to disable the count."
+        ),
+    )
+
+    @field_validator("adr_vault_path", "redirects_path")
+    @classmethod
+    def _must_be_public_repo_content(cls, value: Path) -> Path:
+        """Refuse absolute paths and anything reaching a gitignored control plane."""
+        if value.is_absolute():
+            raise ValueError(
+                f"{value} is absolute; doctor paths are relative to the repository root."
+            )
+        parts = set(Path(value).parts)
+        for private in (".claude", ".human"):
+            if private in parts:
+                raise ValueError(
+                    f"{value} points inside '{private}', which is gitignored and absent "
+                    "from every clone. Doctor checks operate on public repository "
+                    "content only."
+                )
+        return value
+
+    @field_validator("adr_citation_pattern")
+    @classmethod
+    def _must_compile(cls, value: str) -> str:
+        """Reject an unusable pattern at load time, not midway through a scan."""
+        try:
+            re.compile(value)
+        except Exception as exc:  # RE2 raises its own error type
+            raise ValueError(f"adr_citation_pattern is not a valid regex: {exc}") from exc
+        return value
+
+
 class GovernanceConfig(BaseModel):
     """Governance toggles declared in ``[governance]``.
 
@@ -731,6 +811,13 @@ class ZenzicConfig(BaseModel):
     project_metadata: ProjectMetadata = Field(
         default_factory=ProjectMetadata,
         description=("Optional metadata used by remediation messaging and legacy compatibility."),
+    )
+    doctor: DoctorConfig = Field(
+        default_factory=DoctorConfig,
+        description=(
+            "Repository-health conventions for 'zenzic doctor' and 'zenzic adr new'. "
+            "Operates on public repository content only."
+        ),
     )
     governance: GovernanceConfig = Field(
         default_factory=GovernanceConfig,

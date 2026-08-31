@@ -147,6 +147,18 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# Governance Playbook:\n"
     "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"
     "\n"
+    "# --- REPOSITORY HEALTH (zenzic doctor) ---\n"
+    "# Conventions checked by 'zenzic doctor' and used by 'zenzic adr new'.\n"
+    "# All defaults resolve inside your published documentation tree; doctor reads\n"
+    "# public repository content only and never inspects gitignored directories.\n"
+    "# Every value below is the default — uncomment only to override.\n"
+    "#\n"
+    "# [doctor]\n"
+    '# adr_vault_path = "docs/developers/explanation/adr-vault"  # where decision records live\n'
+    '# adr_citation_pattern = "ADR-\\\\d{{3}}"                   # how a citation looks in prose/code\n'
+    '# redirects_path = "docs/_redirects"                     # structurally validated if present\n'
+    "# redirects_expected_blanks = 8                           # 0 disables the blank-line check\n"
+    "\n"
     "# --- POLICY-AS-CODE ENGINE ---\n"
     "[policies]\n"
     "# Enforces declarative structural and security policies across your docs graph.\n"

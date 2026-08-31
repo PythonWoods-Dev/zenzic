@@ -776,6 +776,58 @@ suppression_cap_fail_hard = true
 
 ---
 
+## Repository Health {#doctor-settings}
+
+Conventions read by [`zenzic doctor`](./cli.md) and [`zenzic adr new`](./cli.md). They are
+configuration rather than constants because they differ per project: where decision records
+live, how they are cited, where a redirects file sits.
+
+!!! info "Public repository content only"
+    Every `[doctor]` path resolves inside the published tree, and paths reaching into a
+    gitignored directory (`.claude/`, `.human/`) are rejected at config load rather than
+    merely discouraged. A check that inspected gitignored content would pass for whoever
+    holds those files locally and be unrunnable in CI or a fresh clone — so `doctor`, like
+    every other Zenzic check, reads public repository content only.
+
+### `adr_vault_path` {#adr-vault-path}
+
+Directory holding architectural decision records, relative to the repository root.
+
+- **Default:** `"docs/developers/explanation/adr-vault"`
+- Records are matched by filename against `adr_citation_pattern`.
+- If the directory does not exist, `zenzic doctor` reports one actionable finding rather
+  than a finding per citation.
+
+### `adr_citation_pattern` {#adr-citation-pattern}
+
+Regular expression matching an ADR citation in prose or source.
+
+- **Default:** `"ADR-\\d{3}"`
+- Compiled at config load; an invalid pattern is a configuration error, not a scan-time
+  crash.
+- The same pattern identifies both a citation in text and the record file that satisfies
+  it, so a project using `RFC-0001` style needs only this one setting changed.
+
+### `redirects_path` {#redirects-path}
+
+Redirects file to structurally validate, relative to the repository root.
+
+- **Default:** `"docs/_redirects"`
+- Absence is not a finding — most projects have no redirects file.
+- Each non-comment line must carry exactly three fields, a source beginning `/`, a
+  destination beginning `/` or `http`, and a numeric status.
+
+### `redirects_expected_blanks` {#redirects-expected-blanks}
+
+Expected blank-line count in the redirects file.
+
+- **Default:** `8`
+- Blank lines belong only to the file's comment header, so an unexplained change in the
+  count is a signal that something reshaped the file.
+- Set to `0` to disable this check while keeping the structural validation.
+
+---
+
 ## Policy-as-Code Settings {#policies-settings}
 
 Configure declarative Policy-as-Code rules (`Z412`, `Z518`–`Z519`, `Z521`–`Z523`, `Z610`–`Z619`). All policy rules are **opt-in** and inactive by default — empty lists/dicts (`[]`/`{}`) short-circuit evaluation in $O(1)$ time with zero performance overhead.
@@ -1161,6 +1213,13 @@ fallback_to_default = true
 strict = false
 fail_under = 80
 exit_zero = false
+
+# Repository health (zenzic doctor) — every value shown is the default
+[doctor]
+adr_vault_path = "docs/developers/explanation/adr-vault"
+adr_citation_pattern = "ADR-\\d{3}"
+redirects_path = "docs/_redirects"
+redirects_expected_blanks = 8
 
 # Custom rules
 [[custom_rules]]

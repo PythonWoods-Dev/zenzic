@@ -331,6 +331,8 @@ The `zenzic` CLI provides a complete suite of developer commands for local workf
 | `zenzic lab` | Interactive finding lab and scenario runner | `<code>` (e.g. `z101`), `all`, `--list`, `--all` |
 | `zenzic init` | Scaffold `.zenzic.toml` configuration or plugin template | `--pyproject`, `--local`, `--engine <name>`, `--plugin` |
 | `zenzic config explain` | Introspect active policies, discovery paths, and rules | `--all`, `--json` |
+| `zenzic doctor` | Check repository conventions: ADR citations, redirects, config schema | `--format json`, `--quiet` |
+| `zenzic adr new` | Scaffold the next architectural decision record | `<title>`, `--path` |
 
 ---
 

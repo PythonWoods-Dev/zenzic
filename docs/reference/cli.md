@@ -371,6 +371,81 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     zenzic guard init
     ```
 
+=== "zenzic doctor"
+
+    Check the repository's own conventions rather than its documentation content:
+    that every cited decision record exists, that the redirects file is structurally
+    intact, and that the configuration loads.
+
+    Complements `zenzic check`, which analyses pages. These checks are repository-level,
+    so none of them is per-page.
+
+    | Argument | Default | Description |
+    | :--- | :---: | :--- |
+    | `path` | `.` (current directory) | Repository root to inspect. |
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--format` | `-f` | `text` | Output format: `text` or `json`. |
+    | `--quiet` | `-q` | `false` | Suppress output when the repository is healthy. |
+    | `--no-header` | — | `false` | Suppresses the Zenzic banner. |
+
+    | Check | What it reports |
+    | :--- | :--- |
+    | `config-schema` | Configuration load failures (`Z110` syntax, `Z111` schema). |
+    | `adr-citations` | Citations naming a decision record that does not exist. |
+    | `redirects` | Malformed redirect lines, and unexplained blank-line drift. |
+
+    Exits `1` when any check reports a finding, `0` when all pass.
+
+    Configured under [`[doctor]`](./configuration-reference.md#doctor-settings). All paths
+    resolve inside the published tree — `doctor` reads public repository content only and
+    cannot be pointed at a gitignored directory.
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Check the current repository
+    zenzic doctor
+
+    # Machine-readable, for CI
+    zenzic doctor --format json
+    ```
+
+=== "zenzic adr"
+
+    Manage architectural decision records.
+
+    `zenzic adr` is a command group with the following sub-command:
+
+    | Sub-command | Description |
+    | :--- | :--- |
+    | `zenzic adr new` | Scaffold the next decision record and print its path. |
+
+    **`zenzic adr new` arguments and flags:**
+
+    | Argument | Description |
+    | :--- | :--- |
+    | `title` | Title of the decision, e.g. `'Adopt RE2 for matching'`. Required. |
+
+    | Flag | Default | Description |
+    | :--- | :---: | :--- |
+    | `--path` | `.` (current directory) | Repository root. |
+
+    The number is allocated as one past the highest identifier present, never by counting
+    records: the vault has real gaps, and reusing one would silently repoint every existing
+    citation of that number at a different decision. Creating a second record with a number
+    already in use is refused.
+
+    The scaffold writes the five canonical sections — Context, Decision, Rationale,
+    Invariants, Consequences — with an SPDX header. Registering the record in the vault
+    index remains a manual editorial step.
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Scaffold the next record
+    zenzic adr new "Adopt RE2 for pattern matching"
+    ```
+
 === "zenzic config"
 
     Inspect the active Zenzic configuration and the origin of each value.

@@ -22,7 +22,7 @@ This reference collection is organized into focused, authoritative specification
 
 | Reference Page | Scope & Contents |
 | :--- | :--- |
-| **[Configuration Reference](./configuration-reference.md)** | `docs_dir`, exclusion lists, threshold rules, `[policies]` settings, `[governance]` blocks |
+| **[Configuration Reference](./configuration-reference.md)** | `docs_dir`, exclusion lists, threshold rules, `[policies]` settings, `[governance]` and `[doctor]` blocks |
 | **[Finding Codes Catalog](./finding-codes.md)** | Complete encyclopedia of all 72 `Zxxx` diagnostic codes, Opt-In policies, and remediation steps |
 | **[Scoring Algorithm](./scoring-algorithm.md)** | 5-stage DQS computation, weight matrix, full penalty reference table, and Governance Escalation |
 | **[Suppression Policy](./suppression-policy.md)** | Managed Technical Debt framework, 4 suppression levels, Technical Debt Ledger, and `zenzic audit` |

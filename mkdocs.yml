@@ -64,6 +64,7 @@ nav:
     - How-to Guides:
       - How-to Index: how-to/index.md
       - Technical Debt: how-to/handle-technical-debt.md
+      - Repository Health: how-to/check-repository-health.md
       - Add Custom Rules: how-to/add-custom-rules.md
       - Configure Adapters: how-to/configure-adapter.md
       - Privacy Gate: how-to/configure-privacy-gate.md
@@ -230,6 +231,7 @@ nav:
     - developers/index.md
     - How-to:
       - How-to Index: developers/how-to/index.md
+      - Write an ADR: developers/how-to/write-an-adr.md
       - Contribute:
         - developers/how-to/contribute/index.md
         - developers/how-to/contribute/pull-requests.md

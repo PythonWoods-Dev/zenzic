@@ -15,12 +15,14 @@ from rich.console import Console
 
 from zenzic import __version__
 from zenzic.cli import (
+    adr_app,
     audit,
     check_app,
     clean_app,
     config_app,
     configure_console,
     diff,
+    doctor,
     env,
     explain,
     fix,
@@ -88,6 +90,7 @@ def _main(
 
 
 _SUB_APPS = {
+    "adr": adr_app,
     "check": check_app,
     "clean": clean_app,
     "config": config_app,
@@ -105,6 +108,7 @@ _STANDALONE_COMMANDS = {
     "fix": fix,
     "init": init,
     "lsp": lsp,
+    "doctor": doctor,
 }
 
 for cmd in COMMANDS:
