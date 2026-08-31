@@ -16,6 +16,8 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+![Real `zenzic check all` output after `--update-baseline`: two broken links frozen into the baseline, gate passing](../../assets/images/blog/baseline_tracking_demo.webp)
+
 *This is the first article in Zenzic's Foundations series on practical adoption patterns.*
 
 Every team that considers a new documentation quality gate eventually runs into the same wall: the first scan of a real, multi-year repository does not come back clean. It comes back with hundreds of findings — broken links nobody noticed, orphan pages nobody prunes, headings that drifted out of sequence years ago. The instinctive response is to postpone enforcement until the backlog is cleared. In practice, that backlog is rarely cleared, and the gate never turns on.
