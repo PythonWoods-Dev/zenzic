@@ -279,13 +279,15 @@ theme:
   language: en
   font: false
   palette:
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    # No `media:` on either entry: Material evaluates media queries in order to
+    # pick a first-visit default, so any `(prefers-color-scheme: ...)` here would
+    # hand the choice to the visitor's OS. Dark is the default unconditionally;
+    # the toggle still reaches light and the choice is then remembered.
+    - scheme: slate
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
