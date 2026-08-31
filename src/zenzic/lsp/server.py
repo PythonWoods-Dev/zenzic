@@ -802,11 +802,28 @@ class LanguageServer:
                 break
 
         if not matched:
-            self.send_response(msg_id, result=None)
+            # No active diagnostic here. A suppression directive on this line is
+            # the likely reason there is nothing to report, and explaining that is
+            # more useful than an empty hover — it is the only way to see, without
+            # editing the file, whether a `zenzic:ignore` comment is doing anything.
+            suppression_md = self._explain_suppression_at(uri, line)
+            self.send_response(
+                msg_id,
+                result=(
+                    {"contents": {"kind": "markdown", "value": suppression_md}}
+                    if suppression_md
+                    else None
+                ),
+            )
             return
 
         code = matched.code
-        from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS
+        from zenzic.core.codes import (
+            CODE_DEFINITIONS,
+            CODE_DESCRIPTIONS,
+            NON_INLINE_SUPPRESSIBLE_CODES,
+            NON_SUPPRESSIBLE_CODES,
+        )
 
         defn = CODE_DEFINITIONS.get(code)
         desc = CODE_DESCRIPTIONS.get(code, "No remediation guidance available.")
@@ -820,10 +837,91 @@ class LanguageServer:
             contents.append(f"**{code}**")
         contents.append(desc)
 
+        # The finding is live, so say why an inline comment would not silence it.
+        # Reaching for one is the natural next move after reading a diagnostic, and
+        # for these two families it is the wrong move.
+        if code in NON_SUPPRESSIBLE_CODES:
+            contents.append(
+                "🔒 **Not suppressible.** This is a Tier-0 security code — no inline "
+                "comment or configuration can silence it."
+            )
+        elif code in NON_INLINE_SUPPRESSIBLE_CODES:
+            contents.append(
+                "⚙️ **Not suppressible inline** (ADR-093). Govern this code through "
+                "`.zenzic.toml`'s `directory_policies` or `per_file_ignores`; an inline "
+                "comment here would be reported as a dead suppression (`Z603`)."
+            )
+
         self.send_response(
             msg_id,
             result={"contents": {"kind": "markdown", "value": "\n\n".join(contents)}},
         )
+
+    def _explain_suppression_at(self, uri: str, line: int) -> str | None:
+        """Markdown explaining any suppression directive on *line*, else ``None``.
+
+        Read-only by construction: it asks :meth:`SuppressionTracker.explain_suppression`,
+        never ``is_suppressed``. The latter consumes the directive it matches, so a
+        hover built on it would silently erase the ``Z603`` dead-suppression finding
+        for the very comment the user is pointing at.
+        """
+        text = self.documents.documents.get(uri)
+        if text is None:
+            return None
+
+        from zenzic.core.suppressions import SuppressionTracker
+
+        line_no = line + 1  # LSP positions are 0-based; directives are 1-based.
+        try:
+            tracker = SuppressionTracker(uri_to_path(uri), text)
+        except Exception:
+            return None
+
+        directive = next((d for d in tracker.directives if d.line_no == line_no), None)
+        if directive is None:
+            return None
+
+        code = directive.code
+        if code == "DATA-ZENZIC-IGNORE":
+            return (
+                "**Suppression directive** — `data-zenzic-ignore`\n\n"
+                "Silences HTML hygiene findings (`Z12x`) on this element."
+            )
+
+        verdict = tracker.explain_suppression(line_no, code)
+        header = f"**Suppression directive** — `{code}`"
+
+        if verdict.source == "non-suppressible":
+            body = (
+                f"🔒 **Has no effect.** `{code}` is a Tier-0 security code and cannot be "
+                "suppressed by any mechanism. This comment is reported as `Z603`."
+            )
+        elif verdict.source == "non-inline-suppressible":
+            body = (
+                f"⚙️ **Has no effect** (ADR-093). `{code}` is governed only through "
+                "`.zenzic.toml` — `directory_policies` or `per_file_ignores` — never by an "
+                "inline comment. This comment is reported as `Z603`."
+            )
+        elif verdict.source == "directory-policy":
+            body = (
+                f"↩️ **Redundant.** `{code}` is already covered for this file by the "
+                f"`directory_policies` pattern `{verdict.pattern}` in `.zenzic.toml`, so this "
+                "comment adds nothing and is reported as `Z603`."
+            )
+        elif verdict.source == "force-audit":
+            body = (
+                "🔍 **Ignored for this run.** `--audit` mode is active, which deliberately "
+                "reports every finding regardless of suppression."
+            )
+        elif verdict.source == "inline":
+            body = f"✅ **Active.** Suppresses `{code}` findings on this line."
+        else:
+            body = (
+                f"⚠️ **Nothing to suppress.** No `{code}` finding occurs on this line, so this "
+                "comment is reported as a dead suppression (`Z603`). Remove it."
+            )
+
+        return f"{header}\n\n{body}"
 
     def _handle_code_action(self, params: dict[str, Any], msg_id: int | str | None) -> None:
         """Handle textDocument/codeAction JSON-RPC requests by generating CodeActions with WorkspaceEdit."""

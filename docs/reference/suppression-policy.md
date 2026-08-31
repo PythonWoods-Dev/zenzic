@@ -62,6 +62,29 @@ flowchart TD
     style J fill:#e11d48,color:#fff
 ```
 
+### Inspecting a suppression in your editor
+
+Reading this cascade tells you what *should* happen. To see what actually happened for a
+specific comment, hover it. Any editor connected to the Zenzic language server — see
+[Editor Integrations](../how-to/editor-integrations.md) — shows, on hovering a
+`<!-- zenzic:ignore: CODE -->` directive, which branch above it took:
+
+| Hover says | Meaning |
+| :--- | :--- |
+| ✅ **Active** | The directive suppresses a real finding on that line. |
+| ⚠️ **Nothing to suppress** | No such finding occurs there. Reported as [`Z603`](../rules/Z603.md); remove the comment. |
+| ↩️ **Redundant** | A `directory_policies` pattern already covers this code for this file. The hover names the matching glob. Also `Z603`. |
+| 🔒 **Has no effect** | A `Z2xx` security code. Inviolable — see [Suppressible vs. Inviolable](#suppressible-vs-inviolable-security-surface). |
+| ⚙️ **Has no effect (ADR-093)** | A graph- or file-level code, governable only through `.zenzic.toml`. |
+
+Hovering a *live* finding additionally states whether an inline comment could silence it
+at all, so the two inviolable families are visible before you reach for a directive that
+would only become dead weight.
+
+The hover never changes anything it reports on. It reads the suppression state through a
+side-effect-free query, so inspecting a directive cannot consume it or alter the `Z603`
+findings for the file.
+
 ---
 
 ## Four Suppression Governance Levels

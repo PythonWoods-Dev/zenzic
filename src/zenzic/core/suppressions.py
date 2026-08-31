@@ -4,7 +4,7 @@
 import contextlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from zenzic.core import regex as re
 from zenzic.core.codes import (
@@ -42,6 +42,49 @@ class SuppressionDirective:
     code: str
     line_no: int
     consumed: bool = False
+
+
+SuppressionSource = Literal[
+    "inline",
+    "directory-policy",
+    "non-suppressible",
+    "non-inline-suppressible",
+    "force-audit",
+    "none",
+]
+
+
+@dataclass(frozen=True)
+class SuppressionVerdict:
+    """Why a finding is, or is not, suppressed at a given line.
+
+    ``source`` names the mechanism that decided, which is the part a bare
+    boolean throws away:
+
+    ``inline``
+        An ``<!-- zenzic:ignore: CODE -->`` directive on that exact line.
+    ``directory-policy``
+        A ``[governance.directory_policies]`` glob in ``.zenzic.toml`` covers
+        this code for this file. ``pattern`` holds the matching glob.
+    ``non-suppressible``
+        A Tier-0 security code. Cannot be silenced by any mechanism.
+    ``non-inline-suppressible``
+        ADR-093: a graph- or file-level code, governable only through
+        ``.zenzic.toml``, never by an inline comment.
+    ``force-audit``
+        ``--audit`` is active, so every suppression is ignored for this run.
+    ``none``
+        Nothing suppresses it; the finding is reported.
+
+    Truthy exactly when ``suppressed`` is, so it reads naturally in a condition.
+    """
+
+    suppressed: bool
+    source: SuppressionSource
+    pattern: str | None = None
+
+    def __bool__(self) -> bool:
+        return self.suppressed
 
 
 class SuppressionTracker:
@@ -109,16 +152,35 @@ class SuppressionTracker:
                             )
                         )
 
-    def is_suppressed(self, line_no: int, code: str) -> bool:
-        """Return True if the given code is suppressed at the specified line number.
+    def _matching_directive(self, line_no: int, code: str) -> SuppressionDirective | None:
+        """The inline directive that would suppress *code* at *line_no*, if any.
 
-        Marks the suppression directive as consumed if a match is found.
+        Pure lookup — never consumes. *code* must already be upper-cased.
+        """
+        for d in self.directives:
+            if d.line_no == line_no and not d.consumed:
+                if d.code == code or (d.code == "DATA-ZENZIC-IGNORE" and code.startswith("Z12")):
+                    return d
+        return None
+
+    def explain_suppression(self, line_no: int, code: str) -> SuppressionVerdict:
+        """Why *code* is (or is not) suppressed at *line_no*, without changing anything.
+
+        The read-only half of the suppression decision. ``is_suppressed`` is this
+        function plus the state changes its verdict implies, so the two cannot
+        disagree about *whether* something is suppressed — there is one decision
+        tree, evaluated here.
+
+        Separating them is required, not stylistic. ``is_suppressed`` consumes
+        directives and marks policies used, which feeds ``Z603`` dead-suppression
+        detection; anything that merely wants to *describe* the state — an editor
+        hover, a report — must not perturb it (Command-Query Segregation).
         """
         if get_sovereign_context().force_audit:
-            return False
+            return SuppressionVerdict(False, "force-audit")
 
         if code in NON_SUPPRESSIBLE_CODES:
-            return False
+            return SuppressionVerdict(False, "non-suppressible")
 
         # ADR-093: graph-level and file-level findings cannot be suppressed
         # via inline comments -- only .zenzic.toml governance applies. Same
@@ -126,25 +188,46 @@ class SuppressionTracker:
         # unconsumed so get_dead_suppressions() reports it as Z603, with a
         # message distinguishing this cause from an ordinary dead comment.
         if code in NON_INLINE_SUPPRESSIBLE_CODES:
-            return False
+            return SuppressionVerdict(False, "non-inline-suppressible")
 
-        code = code.upper()
+        upper = code.upper()
 
-        # If the finding is already globally suppressed, do NOT consume the inline directive.
-        # This leaves the inline directive unconsumed, so get_dead_suppressions() emits Z603.
-        if code in self.globally_suppressed_codes:
-            for pattern in self.globally_suppressed_codes[code]:
-                self.consumed_global_patterns.add((pattern, code))
+        # A governance policy already covers this code, so the inline directive
+        # (if any) is deliberately NOT consumed -- get_dead_suppressions() then
+        # reports it as Z603, since the comment is redundant with the policy.
+        if upper in self.globally_suppressed_codes:
+            patterns = self.globally_suppressed_codes[upper]
+            return SuppressionVerdict(True, "directory-policy", patterns[0] if patterns else None)
+
+        if self._matching_directive(line_no, upper) is not None:
+            return SuppressionVerdict(True, "inline")
+
+        return SuppressionVerdict(False, "none")
+
+    def is_suppressed(self, line_no: int, code: str) -> bool:
+        """Return True if the given code is suppressed at the specified line number.
+
+        Marks the suppression directive as consumed if a match is found.
+
+        Deliberately still returns a plain ``bool``: this runs once per finding on
+        the scanning hot path, and several call sites assert on the ``True``/
+        ``False`` singletons. Callers wanting the reason ask
+        :meth:`explain_suppression`, which is free of side effects.
+        """
+        verdict = self.explain_suppression(line_no, code)
+
+        if verdict.source == "directory-policy":
+            upper = code.upper()
+            for pattern in self.globally_suppressed_codes[upper]:
+                self.consumed_global_patterns.add((pattern, upper))
                 if self.global_tracker:
-                    self.global_tracker.mark_directory_policy_used(pattern, code)
-            return True
+                    self.global_tracker.mark_directory_policy_used(pattern, upper)
+        elif verdict.source == "inline":
+            directive = self._matching_directive(line_no, code.upper())
+            if directive is not None:
+                directive.consumed = True
 
-        for d in self.directives:
-            if d.line_no == line_no and not d.consumed:
-                if d.code == code or (d.code == "DATA-ZENZIC-IGNORE" and code.startswith("Z12")):
-                    d.consumed = True
-                    return True
-        return False
+        return verdict.suppressed
 
     def get_dead_suppressions(self) -> list["RuleFinding"]:
         """Yield Z603 findings for all directives that were never consumed."""
