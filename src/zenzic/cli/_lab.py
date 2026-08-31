@@ -663,7 +663,13 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
             warnings=0,
             has_breach=False,
             elapsed=elapsed,
-            engine="standalone",
+            # Config loading is what just failed, so the engine was never
+            # determined. Reporting a concrete "standalone" here asserted a
+            # specific engine that was never resolved — the summary table's
+            # Engine column showed it as fact for every config-error scenario
+            # (Z001/Z110/Z111), including fixtures whose broken config declares
+            # a different engine entirely.
+            engine="unknown",
             docs_count=0,
             assets_count=0,
         )

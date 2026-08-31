@@ -23,9 +23,9 @@ all" question, the exact class of drift found this session.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
+from zenzic.core import regex as re
 from zenzic.core.codes import CODE_DEFINITIONS
 
 

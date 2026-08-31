@@ -9,12 +9,12 @@ bit-identical output every time.
 from __future__ import annotations
 
 import concurrent.futures
-import re
 from pathlib import Path
 
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core import regex as re
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule, RuleFinding
 from zenzic.core.scanner import scan_docs_references
 from zenzic.models.config import ZenzicConfig

@@ -142,25 +142,32 @@ def _inspect_capabilities() -> None:
     bypass_table.add_column("Adapter", style="bold", min_width=20)
     bypass_table.add_column("Bypass Schemes")
 
-    _BYPASS_ROWS = [
-        (
-            "mkdocs",
-            "MkDocsAdapter",
-            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
-        ),
-        (
-            "zensical",
-            "ZensicalAdapter",
-            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
-        ),
-        (
-            "standalone",
-            "StandaloneAdapter",
-            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
-        ),
-    ]
-    for _engine, _adapter, _bypasses in _BYPASS_ROWS:
-        bypass_table.add_row(_engine, _adapter, _bypasses)
+    # Derived from the real adapter registry and each adapter's own
+    # get_link_scheme_bypasses(), not hardcoded. A hardcoded table here listed
+    # only 3 of the 5 registered engines (omitting "prebuilt" and "vsm") and
+    # asserted "(none)" for every bypass column — while this table's own footer
+    # tells the reader those values come from the adapter. Any adapter that
+    # declared a real bypass, or any engine added to the registry, would have
+    # been misreported by a table claiming to reflect exactly that.
+    #
+    # get_link_scheme_bypasses() is an instance method that reads no instance
+    # state in any implementation, so it is invoked on an uninitialised instance
+    # rather than constructing each adapter (whose __init__ signatures differ and
+    # would need real config/paths). If a future adapter breaks that assumption,
+    # the column reports "(unknown)" rather than inventing a value.
+    from zenzic.core.adapters._factory import _BUILTIN_ADAPTERS
+
+    for _engine, _adapter_cls in _BUILTIN_ADAPTERS.items():
+        try:
+            _schemes = object.__new__(_adapter_cls).get_link_scheme_bypasses()
+            _label = ", ".join(sorted(_schemes)) if _schemes else "(none)"
+        except Exception:  # noqa: BLE001 - display-only; never fabricate a value
+            _label = "(unknown)"
+        bypass_table.add_row(
+            _engine,
+            _adapter_cls.__name__,
+            Text.from_markup(f"[{ZenzicPalette.DIM}]{_label}[/{ZenzicPalette.DIM}]"),
+        )
 
     _shared.console.print(bypass_table)
     _shared.console.print()
