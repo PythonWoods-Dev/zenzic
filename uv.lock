@@ -3018,7 +3018,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "reuse", marker = "extra == 'dev'", specifier = ">=3.0.0" },
+    { name = "reuse", marker = "extra == 'dev'", specifier = "==6.2.0" },
     { name = "rich", specifier = ">=15.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.11.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
@@ -3041,14 +3041,14 @@ dev = [
     { name = "pytest-cov", specifier = ">=4.1.0" },
     { name = "pytest-timeout", specifier = ">=2.3.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "reuse", specifier = ">=5.0.2" },
+    { name = "reuse", specifier = "==6.2.0" },
     { name = "ruff", specifier = "==0.11.2" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260518" },
 ]
 lint = [
     { name = "mypy", specifier = ">=1.5.0" },
     { name = "pre-commit", specifier = ">=4.5.1" },
-    { name = "reuse", specifier = ">=5.0.2" },
+    { name = "reuse", specifier = "==6.2.0" },
     { name = "ruff", specifier = "==0.11.2" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260518" },
 ]

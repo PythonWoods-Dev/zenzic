@@ -53,6 +53,13 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-groups --all-extras --frozen
 
+      # pre-commit enforces this too, but only on staged files and only when
+      # it is not bypassed; a formatter check that never runs in CI let six
+      # unformatted files reach main. Authoritative version is pinned in
+      # pyproject.toml to match .pre-commit-config.yaml's ruff-pre-commit rev.
+      - name: Formatting check (ruff format)
+        run: uv run ruff format --check src tests
+
       - name: Run unit tests (coverage enforced, fail_under=80)
         run: just test-cov
 
