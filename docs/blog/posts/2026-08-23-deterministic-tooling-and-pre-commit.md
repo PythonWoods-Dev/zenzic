@@ -2,6 +2,7 @@
 title: "Deterministic Tooling & The Pre-Commit Distribution Model"
 slug: deterministic-tooling-and-pre-commit
 date: 2026-08-23
+draft: true
 authors:
   - pythonwoods
 description: >

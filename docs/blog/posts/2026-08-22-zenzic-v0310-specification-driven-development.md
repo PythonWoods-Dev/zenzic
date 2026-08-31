@@ -2,6 +2,7 @@
 title: "Zenzic v0.31.0: Specification-Driven Development & AI Knowledge Graph Integrity"
 slug: zenzic-v0310-specification-driven-development
 date: 2026-08-22
+draft: true
 authors:
   - pythonwoods
 description: >
