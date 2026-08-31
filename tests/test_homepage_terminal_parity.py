@@ -77,6 +77,25 @@ def _visible_lines() -> list[str]:
     return lines
 
 
+@pytest.fixture(autouse=True)
+def _interactive_glyphs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the comparison to the glyph set the homepage actually depicts.
+
+    ``zenzic.core.ui`` turns emoji off whenever ``CI`` is set, swapping in ASCII
+    fallbacks — ``x`` for ``✘``, ``!`` for ``⚠``, ``i`` for ``💡``, ``-`` for
+    ``•`` — because many CI log viewers mangle multi-byte characters. That is
+    correct behaviour, but it means one scan has two valid renderings, and the
+    block on the page necessarily shows one of them: the interactive one, which
+    is what a developer sees in their own terminal.
+
+    Without this the suite passed locally and failed on every runner, comparing
+    a Unicode page against ASCII output and reporting it as content drift. The
+    fixture is autouse so a future test in this file cannot reintroduce the
+    split by forgetting to ask for it.
+    """
+    monkeypatch.setattr("zenzic.core.ui.SUPPORTS_EMOJI", True)
+
+
 @pytest.fixture
 def real_output(tmp_path: Path) -> str:
     for rel, text in _FIXTURE.items():
