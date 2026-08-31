@@ -30,8 +30,8 @@ Architecture invariants
 
 from __future__ import annotations
 
-import html
 import contextlib
+import html
 import os
 import posixpath
 from pathlib import Path

@@ -25,6 +25,18 @@ if TYPE_CHECKING:
 # ATX Heading regex matching # to ######
 _ATX_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 
+# Characters that may legitimately close a sentence *after* its terminator:
+# Markdown emphasis and inline-code markers, plus ordinary closing brackets and
+# quotes. A sentence ending inside `*italics*` puts the closer between the period
+# and the following space (``...parsing.* Next``), so a boundary test that only
+# accepts whitespace immediately after the terminator never fires there and
+# silently merges the two sentences into one.
+_SENTENCE_CLOSERS = "*_`)]}\"'’”»"
+
+# Same rule in regex form, for the line-level pre-filter below. Kept beside the
+# character set it mirrors so the two cannot drift apart.
+_SENTENCE_END_RE = re.compile(r"[.!?;][*_`)\]}\"'’”»]*(?:\s|$)")
+
 
 def _split_sentences(text: str) -> list[str]:
     """Split text into sentences deterministically in O(N) time without regex lookaround."""
@@ -36,7 +48,15 @@ def _split_sentences(text: str) -> list[str]:
         char = text[i]
         current.append(char)
         if char in ".!?;":
-            if i + 1 == n or text[i + 1].isspace():
+            # Look past any run of closing markup/punctuation. The closers belong
+            # to the sentence they close, so they are consumed into it rather
+            # than left to start the next one.
+            j = i + 1
+            while j < n and text[j] in _SENTENCE_CLOSERS:
+                j += 1
+            if j == n or text[j].isspace():
+                current.extend(text[i + 1 : j])
+                i = j - 1
                 sent = "".join(current).strip()
                 if sent:
                     sentences.append(sent)
@@ -261,10 +281,13 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
         current_sentence_parts.append(stripped)
 
         # Check if line contains sentence terminators
-        if re.search(r"[.!?;](?:\s+|$)", stripped):
+        if _SENTENCE_END_RE.search(stripped):
             _flush_and_check(current_sentence_parts, current_start_line)
 
-    # Flush any remaining buffer at EOF
+    # Flush any remaining buffer at EOF. Without this, a document whose final
+    # paragraph never satisfies the line-level test above — one ending in
+    # ``*emphasis.*`` or with no terminator at all — was silently never checked.
+    _flush_and_check(current_sentence_parts, current_start_line)
     return findings
 
 

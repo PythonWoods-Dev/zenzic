@@ -35,12 +35,13 @@ Three compounding problems emerge in CI environments:
    or `npm run build`, adding 2–10 minutes of build overhead before a single link
    is checked.
 
-2. **Engine fragility.** Build engines change how they generate anchor IDs, URL
+2. **Engine fragility.** Build engines can change how they generate anchor IDs,
 
-   slugs, and asset paths between minor versions. A validator calibrated to the
-   output of MkDocs 1.5 may silently miss broken links under MkDocs 1.6 because
-   the ID generation scheme changed. The validator is, in effect, testing the
-   engine's output rather than the author's intent.
+   URL slugs, and asset paths — whether through an engine release, a theme
+   change, or a Markdown-extension setting such as a different `slugify`
+   function. A validator calibrated to one set of generated IDs can silently
+   miss broken links once that scheme changes, because it is, in effect,
+   testing the engine's output rather than the author's intent.
 
 3. **Engine lock-in.** A validator that understands HTML from one engine cannot
 
