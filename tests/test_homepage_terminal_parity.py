@@ -122,14 +122,24 @@ def test_the_block_gains_carets_and_context_when_the_cli_starts_emitting_them(
     real output grows rows the homepage does not show, and the block must be
     regenerated in the same change rather than quietly under-selling the tool.
     """
-    caret_rows = re.search(r"\^\^\^", real_output)
+    # Unconditional on both sides. A conditional check would pass vacuously if
+    # the depicted scenario were ever changed to one whose findings carry no
+    # column data — the block would show only flat frames and still look
+    # "in parity", quietly under-selling the tool's best output.
+    assert re.search(r"\^\^\^", real_output), (
+        "the depicted scenario no longer produces a single caret row, so the "
+        "homepage would showcase only bare frames — choose a fixture whose "
+        f"findings carry column positions:\n{real_output}"
+    )
     depicted = " ".join(_visible_lines())
-    if caret_rows:
-        assert "^^^" in depicted, (
-            "the CLI now emits caret rows under the offending token, but the "
-            "homepage terminal block still shows the older flat frames — "
-            "regenerate execution_layer.html from a current capture"
-        )
+    assert "^^^" in depicted, (
+        "real output carries caret rows but the homepage terminal block shows "
+        "none — regenerate execution_layer.html from a current capture"
+    )
+    assert "│" in depicted, (
+        "the block shows no multi-line context frame, only bare ❱ lines — "
+        "regenerate it from a current capture"
+    )
 
 
 def test_the_signature_lines_are_actually_present(real_output: str) -> None:
