@@ -6,13 +6,20 @@ SPDX-License-Identifier: Apache-2.0
 # Foundations Header Images — Capture Manifest
 
 Lives beside the generator it documents (`scripts/generate_blog_headers.sh`) rather
-than under `docs/`: an asset-folder Markdown file isnever reachable from site
+than under `docs/`: an asset-folder Markdown file is never reachable from site
 navigation, and hosting it there would mean declaring nav exemptions purely to
 accommodate build tooling.
 
 Every header listed here is a real `freeze` capture of real Zenzic output against
 a real fixture — never a mock, never hand-edited (Rule 27). This manifest exists
 so a regeneration never has to be reverse-engineered from a `.webp`.
+
+> **Status: dormant.** The blog is currently text-only — no post embeds an image,
+> and `docs/assets/images/` holds none. This generator and manifest are retained
+> as working infrastructure for whichever visual approach comes next. Running the
+> script writes six `.webp` files into `docs/assets/images/blog/`; until a post
+> actually embeds one, `Z405` (`ASSET_UNUSED`) will correctly flag every file it
+> produces. Regenerate when there is an article to put them in, not before.
 
 **Regenerate all six:**
 
@@ -37,22 +44,24 @@ freeze -x "<runner>" --output <name>.webp \
   --background "#18181a" --border.radius 8 --padding 20 --font.size 32
 ```
 
-The recipe is **derived, not invented**. It was reverse-engineered from the
-already-published captures in `docs/assets/images/terminal/` so the Foundations
-headers match the established house style:
+The recipe is **derived, not invented**. Each value was measured from the
+terminal captures that were published under `docs/assets/images/terminal/`
+before the blog moved to a text-only presentation. Those sample files are gone;
+the measurements they yielded are recorded here so the house style can be
+reproduced without them:
 
 | Property | Value | How it was established |
 | :--- | :--- | :--- |
-| Background | `#18181a` | Sampled from `score-breakdown.webp` — centre pixel `RGB(24,24,26)`; the recipe reproduces it exactly |
-| Corner | `--border.radius 8` | Corner pixel of the published captures is `RGB(0,0,0)` (outside the rounded rect); reproduced exactly |
-| Window chrome | none | No traffic-light controls present in the published captures |
-| Font size | `32` | The published captures are 1400–2040px wide. `font.size` scales output linearly (14→715px, 22→1100px, 28→1390px, 32→~1582px), so 32 lands in that band |
-| Padding | `20` | Matches the published captures' margin |
+| Background | `#18181a` | Centre-pixel sample of the measured captures — `RGB(24,24,26)`; the recipe reproduces it exactly |
+| Corner | `--border.radius 8` | Corner pixel of the measured captures is `RGB(0,0,0)` (outside the rounded rect); reproduced exactly |
+| Window chrome | none | No traffic-light controls present in the measured captures |
+| Font size | `32` | The measured captures were 1400–2040px wide. `font.size` scales output linearly (14→715px, 22→1100px, 28→1390px, 32→~1582px), so 32 lands in that band |
+| Padding | `20` | Matches the measured captures' margin |
 
-**Why `font.size 32` matters.** The previous, removed headers were ~715px wide —
-roughly 2.2× less pixel density than the published captures. That is what made
-them look soft at blog display width. Resolution was the defect; the captures
-themselves were always real.
+**Why `font.size 32` matters.** An earlier set of headers rendered at ~715px
+wide — roughly 2.2× less pixel density than the measured captures. That is what
+made them look soft at blog display width. Resolution was the defect; the
+captures themselves were always real.
 
 ## The webp trap — read before changing the output format
 

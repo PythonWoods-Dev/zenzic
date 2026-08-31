@@ -17,8 +17,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Real `zenzic score` output: a planted Z201 credential collapsing the score to 0 despite clean categories](../../assets/images/blog/quality_pyramid_demo.webp)
-
 *This article is a companion piece to Zenzic's Foundations series on practical adoption patterns — [Snapshot Your Debt](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), [Enforce What Matters First](2026-08-31-progressive-quality-gates-only-flag.md), [Bring Your Own Rules](2026-09-01-custom-rules-policy-as-code.md), [Zero Network, By Default](2026-09-03-privacy-first-offline-scanning.md), and [Archived on Purpose](2026-09-04-archived-on-purpose-directory-policies.md). Unlike those five, it isn't numbered. It describes the model those five adoption patterns all sit on top of, rather than an adoption pattern in its own right, and it can be read at any point in the sequence, including first.*
 
 Every one of the previous three articles assumes the reader already has a rough mental model of how a Zenzic quality score is put together: that some findings cost points, some findings block CI outright, and those two things are not the same mechanism. None of the three actually lays that model out on its own terms. This article does.

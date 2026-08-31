@@ -16,8 +16,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Deterministic Tooling & The Pre-Commit Distribution Model](../../assets/images/blog/deterministic_tooling.webp)
-
 > **A quality policy is only deterministic if the mechanism that executes it is deterministic too.**
 
 **Deterministic enforcement requires deterministic distribution.** [Specification-Driven Development](2026-08-22-zenzic-v0310-specification-driven-development.md) only holds if the tool enforcing it is the same tool, at the same version, everywhere it runs.
@@ -285,8 +283,6 @@ Use an ephemeral command against the existing repository:
 uvx zenzic check all
 ```
 
-![Real `uvx zenzic check all` output against an undiscovered repository](../../assets/images/terminal/adoption-stage1-check.webp)
-
 The goal is discovery. No project dependencies need to be changed. No build environment needs to be modified. The current documentation state can simply be observed.
 
 ### Stage 2 — Establish a baseline
@@ -297,15 +293,11 @@ Once the team understands the findings, establish a quality baseline:
 zenzic score --save
 ```
 
-![Real `zenzic score --save` output writing a snapshot to .zenzic-score.json](../../assets/images/terminal/adoption-stage2-save.webp)
-
 and regression comparison through:
 
 ```bash
 zenzic diff --threshold 5
 ```
-
-![Real `zenzic diff --threshold 5` output comparing baseline and current scores category by category](../../assets/images/terminal/adoption-stage3-diff.webp)
 
 The latter allows a project to reject regressions without requiring every existing defect to be fixed immediately. This is an important adoption pattern — a new quality gate does not have to turn legacy debt into a migration blocker. It can first prevent the situation from getting worse.
 

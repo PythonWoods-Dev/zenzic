@@ -18,8 +18,6 @@ categories:
 
 ## Markdown Is Production Code: Why We Built Zenzic
 
-![Markdown is Production Code](../../assets/images/blog/markdown_is_code.webp)
-
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 
 A build can succeed while an internal link points to a file that no longer exists. A page can remain in the repository while no navigation path reaches it. An anchor can become invalid after a heading is renamed. An image can disappear while the Markdown still references it. A code example can contain a live credential that gets copied into a public repository.

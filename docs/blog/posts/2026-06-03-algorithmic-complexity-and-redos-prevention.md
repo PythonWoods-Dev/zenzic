@@ -15,8 +15,6 @@ In modern CI/CD pipelines, security and performance should be structurally bound
 
 <!-- more -->
 
-![Why we banned Python's regex module: The algorithm behind Zenzic](../../assets/images/blog/why-we-banned-pythons-regex-module.webp)
-
 ---
 
 ## The ReDoS Problem in CI/CD

@@ -15,8 +15,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Zenzic v0.30.0 Documentation Quality Platform](../../assets/images/blog/launch_v0300.webp)
-
 Zenzic v0.30.0 is a dual milestone. On the **engine side**, it elevates Zenzic into a full **Documentation Quality Platform (DQP)**: native AST-based semantic analysis, structural accessibility rules, editorial style governance, and atomic auto-remediation — the complete picture of what deterministic documentation quality looks like across entire Markdown/MDX knowledge graphs. On the **adoption side**, it delivers **Frictionless Adoption**: the VS Code extension can now provision its own engine automatically, removing the last remaining manual setup step for every developer who opens a Markdown file.
 
 Together, these two pillars define what v0.30.0 is about: *making the highest standard of engineering-grade documentation quality accessible to every developer on your team, regardless of their Python expertise or system configuration.*
@@ -132,8 +130,6 @@ v0.30.0 introduces the most impactful adoption improvement in Zenzic's history: 
 
 Previously, the VS Code extension required users to have the `zenzic` Python CLI already installed on their machine — a step that introduced friction for developers unfamiliar with Python toolchains. Starting with this release, the extension's Auto-Provisioning Engine removes that barrier entirely.
 
-![Zenzic VS Code Auto-Provisioning Demo](../../assets/images/blog/demo.jpg)
-
 ### How it works
 
 When the extension activates and cannot find a `zenzic` binary, it shows a single consent notification:
@@ -159,8 +155,6 @@ The Thin Client Architecture (ADR-075) was always designed to keep the extension
 ## CI/CD Integration: From Code Review to Deployment Gate
 
 For teams enforcing documentation quality in GitHub Actions, Zenzic's SARIF integration turns findings into native GitHub PR annotations:
-
-![Zenzic SARIF PR Annotation](../../assets/images/blog/sarif-showcase.jpg)
 
 ```yaml
 - uses: PythonWoods/zenzic-action@v2

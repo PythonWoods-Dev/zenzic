@@ -16,8 +16,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Zenzic v0.31.0: Specification-Driven Development & AI Knowledge Graph Integrity](../../assets/images/blog/launch_v0310.webp)
-
 > **Formatters handle syntax. Prose linters handle grammar. Zenzic protects the graph—and optionally enforces lightweight editorial policy without a separate tool.**
 
 Technical documentation has traditionally been treated as a publishing problem.
@@ -146,8 +144,6 @@ Each new rule targets a distinct, previously unenforceable way a specification c
 | /v1/users | GET |
 ```
 
-![Real `zenzic check all --only Z521` output showing two Z521 findings for missing required table columns](../../assets/images/terminal/z521-finding.webp)
-
 Conceptually, the rule allows a project to say: *every table of this kind must expose these fields.* That turns an implicit template convention into an executable constraint. Without such a rule, the organization has to rely on documentation templates, reviewer memory, manual inspection, or an external process that notices missing fields after the fact. With the rule, the table structure becomes machine-checkable — particularly useful for requirement matrices, decision records, inventories, and status tables, where the columns themselves carry semantic meaning.
 
 ### Z522 — Table cell enumerations
@@ -165,8 +161,6 @@ A table can have the correct columns and still contain invalid data. [`Z522`](..
 | :--- | :--- |
 | AST Engine | unknown_status |
 ```
-
-![Real `zenzic check all --only Z522` output showing a Z522 finding for an out-of-vocabulary cell value](../../assets/images/terminal/z522-finding.webp)
 
 This is a small mechanism with an important consequence: it allows teams to move from "please use one of these values" to "these are the values the specification permits." That difference matters whenever tables become inputs to automation — a controlled vocabulary is only controlled if deviations can be detected.
 
@@ -251,8 +245,6 @@ The SDD rule suite is the most obvious functional addition, but it is not the on
 **Smart engine discovery.** The build-engine discovery logic was refined to identify Zensical projects configured through the appropriate configuration format without invoking a full YAML parser for that detection path. This is part of a broader design principle in Zenzic: static analysis should not require executing the documentation build system. Zenzic reads configuration as data rather than running the build engine or its plugins.
 
 **DQS transparency.** The `zenzic score` command gains a `--breakdown` option. A single quality score can be useful for tracking, but a score without an explanation is difficult to act upon — the breakdown exposes the scoring ledger, including category deductions, the Gravity Cap calculation, and technical-debt mathematics. This follows the same principle as the rule system itself: a quality signal is more useful when its origin can be inspected.
-
-![Real `zenzic score --breakdown` output showing the per-category scoring ledger](../../assets/images/terminal/score-breakdown.webp)
 
 **LSP determinism for topological findings.** The release also formalizes how topological findings are handled by the Language Server Protocol integration. For findings that cannot meaningfully be suppressed with an inline comment, the LSP should not offer a misleading source edit — instead, it explains that suppression belongs in the appropriate configuration mechanisms. This is a small interaction detail, but it illustrates a broader principle: tooling should not offer an action that contradicts the semantics of the underlying rule.
 

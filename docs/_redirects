@@ -1,22 +1,34 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+
 # SPDX-License-Identifier: Apache-2.0
+
 #
+
 # Zenzic Deterministic Routing Kernel v15 (SEO-Safe & Explicit 1:1 Hash Map)
+
 # Strategy: Zero wildcards. Explicit 1:1 static routing for 100% of GSC crawled URLs.
+
 # A predecessor of this file (v12, "Nuclear Static") used broad wildcard catch-alls
+
 # (`/it/* -> /`, `/docs/* -> /`) — see changelogs/v0.18.x.md. Those were replaced by
+
 # this explicit 1:1 model: a wildcard match is a hard short-circuit at Cloudflare's
+
 # edge with no fallback, so one broad rule can silently swallow many pages that each
+
 # need their own distinct destination. Dead paths return 404 by design, not a
+
 # wildcard fallback — soft-404s and cascading 404s eliminated.
 
 # === LAYER 1: CANONICAL BASE HYGIENE ======================================
+
 /docs                                                                       / 301
 /docs/                                                                      / 301
 /it                                                                         / 301
 /it/                                                                        / 301
 
 # === LAYER 2: ADR FINITE GRAPH (Mappatura Esatta 1:1) =====================
+
 /developers/explanation/adr-vault/adr-lint-source                           /developers/explanation/adr-vault/records/adr-lint-source/ 301
 /developers/explanation/adr-vault/adr-lint-source/                          /developers/explanation/adr-vault/records/adr-lint-source/ 301
 /developers/explanation/adr-lint-source                                     /developers/explanation/adr-vault/records/adr-lint-source/ 301
@@ -209,6 +221,7 @@
 /it/developers/explanation/adr-cross-instance-allowlist/                    /developers/explanation/adr-vault/ 301
 
 # === LAYER 3: SHORT PATH OVERRIDES & DEVELOPER ALIASES ====================
+
 /developers/how-to/adapter-examples                                         /developers/how-to/implement-adapter/ 301
 /developers/how-to/adapter-examples/                                        /developers/how-to/implement-adapter/ 301
 /it/developers/how-to/adapter-examples                                      /developers/how-to/implement-adapter/ 301
@@ -285,6 +298,7 @@
 /github-action/                                                             /reference/zenzic-action/ 301
 
 # === LAYER 4: BLOG CANONICAL SLUGS, FEEDS & TAXONOMIES ====================
+
 /blog/welcome                                                               /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/                                                              /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /it/blog/welcome                                                            /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
@@ -716,6 +730,7 @@
 /it/blog/tags/                                                              /blog/ 301
 
 # === LAYER 5: EXPLICIT 1:1 CANONICAL DOCUMENTATION MIRRORS ================
+
 /docs/developers/                                                           /developers/ 301
 /docs/developers                                                            /developers/ 301
 /it/docs/developers/                                                        /developers/ 301
@@ -1556,6 +1571,7 @@
 /docs/rules/Z906                                                            /rules/Z906/ 301
 
 # === LAYER 6: EXAMPLES HIERARCHY EXPLICIT 1:1 MIRRORS =====================
+
 /docs/how-to/examples                                                       /tutorials/examples/ 301
 /docs/how-to/examples/                                                      /tutorials/examples/ 301
 /how-to/examples                                                            /tutorials/examples/ 301
@@ -1824,6 +1840,7 @@
 /it/docs/how-to/examples/z6xx-brand/z620-stale-global-suppression           /tutorials/examples/z6xx-brand/z620-stale-global-suppression/ 301
 
 # === LAYER 7: TAXONOMIC REFACTORING & DEPRECATED RULES ====================
+
 /rules/Z118                                                                 /rules/Z620/ 301
 /rules/Z118/                                                                /rules/Z620/ 301
 /docs/rules/Z118                                                            /rules/Z620/ 301
@@ -1858,6 +1875,7 @@
 /docs/rules/Z602/                                                           /rules/ 301
 
 # === LAYER 8: STATIC ASSETS & BRAND CONSOLIDATIONS ========================
+
 /assets/brand/zenzic-brand-system.html                                      /reference/ 301
 /assets/brand/zenzic-brand-system                                           /reference/ 301
 /it/assets/brand/zenzic-brand-system.html                                   /reference/ 301
@@ -1874,24 +1892,5 @@
 /static/assets/brand/svg/zenzic-icon.svg                                    /assets/brand/svg/zenzic-icon.svg 301
 /static/assets/brand/svg/zenzic-logo-dark.svg                               /assets/brand/svg/zenzic-logo-dark.svg 301
 /static/assets/brand/svg/zenzic-logo.svg                                    /assets/brand/svg/zenzic-logo.svg 301
-/static/assets/images/blog/10-documentation-bugs-caught-by-zenzic.webp      /assets/images/blog/10-documentation-bugs-caught-by-zenzic.webp 301
-/static/assets/images/blog/demo.jpg                                         /assets/images/blog/demo.jpg 301
-/static/assets/images/blog/launch_trilogy_v24_v25_v26.webp                  /assets/images/blog/launch_trilogy_v24_v25_v26.webp 301
-/static/assets/images/blog/launch_v0240.webp                                /assets/images/blog/launch_v0240.webp 301
-/static/assets/images/blog/launch_v0250.webp                                /assets/images/blog/launch_v0250.webp 301
-/static/assets/images/blog/launch_v0260.webp                                /assets/images/blog/launch_v0260.webp 301
-/static/assets/images/blog/launch_v0270.webp                                /assets/images/blog/launch_v0270.webp 301
-/static/assets/images/blog/launch_v0280.webp                                /assets/images/blog/launch_v0280.webp 301
-/static/assets/images/blog/launch_v0290.webp                                /assets/images/blog/launch_v0290.webp 301
-/static/assets/images/blog/launch_v0300.webp                                /assets/images/blog/launch_v0300.webp 301
-/static/assets/images/blog/markdown_is_code.webp                            /assets/images/blog/markdown_is_code.webp 301
-/static/assets/images/blog/sarif-showcase.jpg                               /assets/images/blog/sarif-showcase.jpg 301
-/static/assets/images/blog/signal_to_noise.webp                             /assets/images/blog/signal_to_noise.webp 301
-/static/assets/images/blog/tailwind-mkdocs-material-bridge.webp             /assets/images/blog/tailwind-mkdocs-material-bridge.webp 301
-/static/assets/images/blog/why-we-banned-pythons-regex-module.webp          /assets/images/blog/why-we-banned-pythons-regex-module.webp 301
-/static/assets/images/blog/zenzic-v0160-engineering-determinism.webp        /assets/images/blog/zenzic-v0160-engineering-determinism.webp 301
-/static/assets/images/blog/zenzic-v0170-html-validation.webp                /assets/images/blog/zenzic-v0170-html-validation.webp 301
-/static/assets/images/blog/zenzic-v0190-the-ast-foundations.webp            /assets/images/blog/zenzic-v0190-the-ast-foundations.webp 301
-/static/assets/images/blog/zenzic-vs-code-extension.webp                    /assets/images/blog/zenzic-vs-code-extension.webp 301
 /static/assets/css/extra.css                                                /assets/css/extra.css 301
 /static/assets/css/zenzic-tailwind.min.css                                  /assets/css/zenzic-tailwind.min.css 301
