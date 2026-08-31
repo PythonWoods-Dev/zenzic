@@ -2110,6 +2110,11 @@ def test_score_breakdown(_run: object, _cfg: object, _root: object) -> None:
     assert "Base Score:" in result.stdout
     assert "Total Category Penalties:" in result.stdout
     assert "Technical Debt Penalty:" in result.stdout
+    # The brand bucket is clean here (category_score=1.0, not zeroed) — the
+    # Gravity Cap Loss line must say so, not unconditionally claim the brand
+    # bucket was zeroed regardless of whether the cap actually fired.
+    assert "Gravity Cap Loss:           -0.0 pts (not triggered)" in result.stdout
+    assert "Brand bucket zeroed cap" not in result.stdout
 
     single_char_separator_lines = [line for line in result.stdout.splitlines() if line == "━"]
     assert not single_char_separator_lines, (
@@ -2124,6 +2129,32 @@ def test_score_breakdown(_run: object, _cfg: object, _root: object) -> None:
         "Expected at least 2 full-width ━ separator lines (before the category breakdown and "
         f"before the mathematical transparency section); found {full_width_separator_lines!r}"
     )
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+def test_score_breakdown_gravity_cap_triggered(_run: object, _cfg: object, _root: object) -> None:
+    """When the brand bucket is genuinely zeroed, the Gravity Cap Loss line must
+    say so — the counterpart to test_score_breakdown's not-triggered case.
+    """
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=70,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30, raw_penalty=0.0, is_capped=False),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25, raw_penalty=0.0, is_capped=False),
+            CategoryScore("content", 0.20, 1, 0.90, 0.18, raw_penalty=2.0, is_capped=False),
+            CategoryScore("brand", 0.25, 15, 0.0, 0.0, raw_penalty=25.0, is_capped=True),
+        ],
+        findings_counts={"Z601": 15, "Z502": 1},
+        suppression_count=0,
+    )
+    result = runner.invoke(app, ["score", "--breakdown"])
+    assert result.exit_code == 0
+    assert "Gravity Cap Loss:           -3.0 pts (Brand bucket zeroed cap)" in result.stdout
+    assert "not triggered" not in result.stdout
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)

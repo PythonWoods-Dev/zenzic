@@ -2211,9 +2211,20 @@ def scan_docs_references(
             if progress and task_validate_id is not None:
                 progress.advance(task_validate_id, 1)
 
+        t0_val_seq = time.perf_counter()
         link_errors = validator_seq.validate(
             progress_callback=_advance_seq_cb if progress else None
         )
+        elapsed_ms_val_seq = (time.perf_counter() - t0_val_seq) * 1000
+        if progress and task_validate_id is not None:
+            progress.update(
+                task_validate_id,
+                completed=max(1, n_urls_seq),
+                description=(
+                    f"Validating links ({n_urls_seq} external URLs)... "
+                    f"[dim]({elapsed_ms_val_seq:.1f}ms)[/dim]"
+                ),
+            )
         return reports_seq, link_errors
     finally:
         if owns_progress and progress:

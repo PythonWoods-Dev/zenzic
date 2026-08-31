@@ -593,12 +593,15 @@ def score(
 
             brand_cat = next((cs for cs in report.categories if cs.name == "brand"), None)
             subtotal_val = sum(cs.contribution * 100 for cs in report.categories)
-            if brand_cat is not None and brand_cat.category_score == 0.0:
+            brand_zeroed = brand_cat is not None and brand_cat.category_score == 0.0
+            if brand_zeroed:
                 gravity_loss_val = max(0.0, subtotal_val - 70.0)
+                gravity_note = "Brand bucket zeroed cap"
             else:
                 gravity_loss_val = 0.0
+                gravity_note = "not triggered"
             _shared.console.print(
-                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts (Brand bucket zeroed cap)"
+                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts ({gravity_note})"
             )
 
             debt_pts = report.suppression_debt_pts

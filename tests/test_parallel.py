@@ -98,6 +98,46 @@ def test_parallel_single_worker_is_sequential(tmp_path: Path) -> None:
         assert report.score == 100.0
 
 
+def test_sequential_validate_links_task_shows_elapsed_ms(tmp_path: Path) -> None:
+    """The 'Validating links' progress task must report its own elapsed time on
+    completion in the sequential path, matching every sibling task (parsing,
+    orphans, snippets, unused assets) and matching the parallel path's own
+    equivalent update at scanner.py:2091-2096. The sequential branch currently
+    updates the task's description once at start (without a duration) and
+    never again — the task never receives a finishing description with
+    ``(X.Yms)``, unlike the identical parallel-path logic which does.
+    """
+    from rich.progress import Progress
+
+    # No http(s) links in the fixture — n_urls stays 0, so the test exercises
+    # the task's start/finish description bookkeeping without any real network
+    # call (validate() with an empty registry does no I/O).
+    repo = tmp_path
+    docs = repo / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("# Page\n\nNo links here.\n")
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = Progress()
+    scan_docs_references(
+        docs_root,
+        mgr,
+        config=config,
+        validate_links=True,
+        workers=1,  # forces the sequential path regardless of file count
+        progress_instance=progress,
+    )
+
+    validate_tasks = [t for t in progress.tasks if t.description.startswith("Validating links")]
+    assert validate_tasks, "no 'Validating links' task was created"
+    assert "ms)" in validate_tasks[0].description, (
+        "the 'Validating links' task's final description never shows its own "
+        f"elapsed time, unlike every other progress line: {validate_tasks[0].description!r}"
+    )
+
+
 @pytest.mark.parametrize("workers", [0, -1, -8])
 def test_parallel_invalid_workers_raise_clear_error(tmp_path: Path, workers: int) -> None:
     """workers must be None or >= 1 to avoid opaque executor errors."""
