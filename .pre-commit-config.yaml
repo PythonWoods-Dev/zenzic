@@ -84,6 +84,19 @@ repos:
         types_or: [markdown, mdx]
         pass_filenames: false
 
+  # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
+  #     Not a formatter: it never edits the file, it fails loudly when the file
+  #     changes shape. Added after commit 36c5f70 silently gained 18 blank lines
+  #     through the comment header with no identifiable vector.
+  - repo: local
+    hooks:
+      - id: redirects-structure
+        name: Redirects structure tripwire
+        entry: python3 scripts/check_redirects_structure.py
+        language: system
+        files: ^docs/_redirects$
+        pass_filenames: false
+
   # 8. Final Guard — score gate + badge freshness + full audit (pre-push only)
   - repo: local
     hooks:
