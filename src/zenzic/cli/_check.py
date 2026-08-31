@@ -117,7 +117,7 @@ def check_links(
         help="Treat warnings as errors (exit non-zero on any warning).",
     ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, sarif, or github-annotations."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -1601,7 +1601,7 @@ def check_all(
         None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
     ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, sarif, or github-annotations."
     ),
     ci: bool = typer.Option(
         False, "--ci", help="Run in CI mode (forces github-annotations and strict)."

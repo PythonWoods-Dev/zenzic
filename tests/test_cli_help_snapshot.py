@@ -98,7 +98,7 @@ def test_check_all_help_snapshot_contract() -> None:
         "Run all checks: links, orphans, snippets, unused assets, nav contract, directory indices, config assets, and the reference/content/security pipeline (which also covers placeholders, brand rules, and credential scanning).",
         "Optionally pass PATH to scope the audit to a single Markdown file or a custom directory (e.g. ``README.md``, ``content/``). Zenzic auto-selects the StandaloneAdapter when the target lives outside the configured docs directory.",
         "Treat warnings as errors (exit non-zero on any warning).",
-        "Output format: text, json, or sarif. [default: text]",
+        "Output format: text, json, sarif, or github-annotations. [default: text]",
         "Always exit 0; report issues without failing.",
         "Minimal one-line output for pre-commit hooks.",
         "Override the build engine adapter (e.g. mkdocs, zensical). Auto-detected from .zenzic.toml when omitted.",

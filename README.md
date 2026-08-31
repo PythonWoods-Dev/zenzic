@@ -345,7 +345,7 @@ zenzic check all --format sarif --output results.sarif
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
   "version": "2.1.0",
   "runs": [
     {
@@ -356,7 +356,12 @@ zenzic check all --format sarif --output results.sarif
           "rules": [
             {
               "id": "Z101",
-              "shortDescription": { "text": "BROKEN_LOCAL_LINK" }
+              "name": "LinkBroken",
+              "shortDescription": { "text": "Link target not found in the Virtual Site Map" },
+              "fullDescription": { "text": "Link target not found in the Virtual Site Map" },
+              "defaultConfiguration": { "level": "error" },
+              "helpUri": "https://zenzic.dev/reference/finding-codes/#z101",
+              "properties": { "category": "structural", "penalty": 8.0, "fixable": false }
             }
           ]
         }
@@ -430,7 +435,7 @@ For deep architectural explanations, configuration strategies, and the full find
 
 Zenzic evolves strictly within its deterministic, AST-driven architecture. Upcoming milestones include:
 
-- **Sphinx Adapter**: Native Virtual Site Map (VSM) adapter for Sphinx, parsing `conf.py` and `.rst` files without invoking `sphinx-build`. Docusaurus and Hugo support is community-contributed via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #50](https://github.com/PythonWoods/zenzic/issues/50) and [GH #51](https://github.com/PythonWoods/zenzic/issues/51).
+- **Sphinx Adapter**: Native Virtual Site Map (VSM) adapter for Sphinx, parsing `conf.py` and `.rst` files without invoking `sphinx-build`. Docusaurus and Hugo support is community-contributed via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) and [GH #51](https://github.com/PythonWoods-Dev/zenzic/issues/51).
 - **Multi-Repository Documentation Graph**: Cross-repository link resolution and contract validation across polyrepo documentation architectures without network calls.
 - **Auto-Fix Expansion**: Extended lossless AST mutations for additional structural codes (`Z1xx`), reference normalization (`Z3xx`), and frontmatter standardization (`Z6xx`).
 
