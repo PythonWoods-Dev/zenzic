@@ -562,7 +562,18 @@ def find_unused_assets(
             continue
         if rel_path.suffix in CODE_ASSET_SUFFIXES:
             continue
-        if rel_path.name in {"robots.txt", "_redirects", "CNAME", "sitemap.xml"}:
+        # Site-root machine-readable artifacts, not documentation content.
+        # llms.txt / llms-ctx-full.txt are generated into the built site by
+        # hooks/generate_llms_txt.py; if a project also keeps one in docs_dir,
+        # analysing it as a page would report findings against generated output.
+        if rel_path.name in {
+            "robots.txt",
+            "_redirects",
+            "CNAME",
+            "sitemap.xml",
+            "llms.txt",
+            "llms-ctx-full.txt",
+        }:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue

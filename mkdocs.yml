@@ -20,6 +20,7 @@ copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 hooks:
   - hooks/fix_rss_feed_discovery_links.py
   - hooks/publish_schemas.py
+  - hooks/generate_llms_txt.py
 
 extra_css:
   - assets/css/zenzic-tailwind.min.css
