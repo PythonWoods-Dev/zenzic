@@ -146,6 +146,8 @@ If you only want a one-off look at whether a candidate term already appears some
 uvx zenzic@0.30.0 check all
 ```
 
+For a full account of why these three distribution paths are treated as distinct enforcement boundaries rather than interchangeable install methods — including how each interacts with a workstation's network access and environment isolation — see [Deterministic Tooling & The Pre-Commit Distribution Model](2026-08-23-deterministic-tooling-and-pre-commit.md).
+
 ## Closing
 
 Offline-by-default and the Privacy Gate solve two different halves of the same compliance question. The first means a security review doesn't have to ask what a scan sends off-machine, because under default operation, nothing does. The second means that if a confidential term does make it into a document anyway, it's caught with the same zero-tolerance treatment as a leaked credential, using a file that's structurally incapable of being committed alongside the docs it's protecting. Together, they let a regulated team adopt a documentation quality gate as a genuine yes-or-no security question, answered once, rather than a case-by-case exception it has to keep re-justifying.

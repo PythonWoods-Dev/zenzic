@@ -159,6 +159,8 @@ uvx zenzic@0.30.0 check all --update-baseline
 
 Whichever path you start from, the baseline command is the same: `zenzic check all --update-baseline` to freeze current state, then `zenzic check all --baseline .zenzic-baseline.json` in CI going forward.
 
+For the deeper question of *why* those three paths — pre-commit, project dependency, ephemeral `uvx` — exist as distinct enforcement boundaries rather than interchangeable install options, see [Deterministic Tooling & The Pre-Commit Distribution Model](2026-08-23-deterministic-tooling-and-pre-commit.md).
+
 ---
 
 ## What comes next
