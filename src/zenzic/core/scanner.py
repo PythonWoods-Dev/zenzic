@@ -1913,12 +1913,12 @@ def scan_docs_references(
             f"[cyan]Parsing[/cyan] [dim]{len(md_files)} files ({_mode_label})...[/dim]",
             total=len(md_files),
         )
-        if validate_links:
-            task_validate_id = progress.add_task(
-                "[blue]Validating links...[/blue]",
-                total=None,  # indeterminate until parsing completes
-                start=False,
-            )
+        # The link-validation line is deliberately *not* created here. Its size
+        # (the deduplicated URL count) is unknown until parsing has finished, and
+        # a task created with total=None renders as a pulsing indeterminate bar —
+        # announcing, for the whole parsing and VSM window, a phase that has not
+        # started. It is added at the point the count becomes known instead, in
+        # both the parallel and sequential paths below.
 
     _t0 = time.monotonic()
 
@@ -2084,13 +2084,11 @@ def scan_docs_references(
                         pass
 
             n_urls = validator_b.unique_url_count
-            if progress and task_validate_id is not None:
-                progress.update(
-                    task_validate_id,
-                    description=f"Validating links ({n_urls} external URLs)...",
+            if progress:
+                task_validate_id = progress.add_task(
+                    f"Validating links ({n_urls} external URLs)...",
                     total=max(1, n_urls),
                 )
-                progress.start_task(task_validate_id)
 
             def _advance_cb() -> None:
                 if progress and task_validate_id is not None:
@@ -2225,13 +2223,11 @@ def scan_docs_references(
                             validator_seq.register(link.url, r.file_path, link.line_no)
 
         n_urls_seq = validator_seq.unique_url_count
-        if progress and task_validate_id is not None:
-            progress.update(
-                task_validate_id,
-                description=f"Validating links ({n_urls_seq} external URLs)...",
+        if progress:
+            task_validate_id = progress.add_task(
+                f"Validating links ({n_urls_seq} external URLs)...",
                 total=max(1, n_urls_seq),
             )
-            progress.start_task(task_validate_id)
 
         def _advance_seq_cb() -> None:
             if progress and task_validate_id is not None:

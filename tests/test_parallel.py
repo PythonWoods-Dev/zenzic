@@ -198,6 +198,84 @@ def test_sequential_validate_links_task_shows_elapsed_ms(tmp_path: Path) -> None
     )
 
 
+class _RecordingProgress:
+    """A ``Progress`` that records the arguments of every ``add_task`` call.
+
+    The defect under test is visible only *at creation time*: the task is later
+    given a real total, so a post-hoc inspection of ``progress.tasks`` cannot
+    distinguish "was determinate throughout" from "spent the whole parsing phase
+    as a pulsing indeterminate bar and was corrected at the end".
+    """
+
+    def __init__(self) -> None:
+        from rich.progress import Progress
+
+        self._inner = Progress()
+        self.created: list[tuple[str, object]] = []
+
+    def add_task(self, description: str, **kwargs: object) -> object:
+        self.created.append((description, kwargs.get("total")))
+        return self._inner.add_task(description, **kwargs)  # type: ignore[arg-type]
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._inner, name)
+
+
+def _run_with_recording_progress(tmp_path: Path) -> _RecordingProgress:
+    repo = tmp_path
+    docs = repo / "docs"
+    docs.mkdir()
+    # A real http(s) link, so the validation phase is genuinely entered and a
+    # URL count actually exists to be used as the bar's total.
+    (docs / "page.md").write_text("# Page\n\n[x](https://example.invalid/a)\n")
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = _RecordingProgress()
+    scan_docs_references(
+        repo / config.docs_dir,
+        mgr,
+        config=config,
+        validate_links=True,
+        workers=1,
+        progress_instance=progress,  # type: ignore[arg-type]
+    )
+    return progress
+
+
+def test_validate_links_task_is_never_created_indeterminate(tmp_path: Path) -> None:
+    """The link-validation line must not render as a pulsing indeterminate bar.
+
+    It was created up front with ``total=None``, before parsing began, so Rich
+    rendered it as a pulsing bar with no percentage and a ``-:--:--`` clock for
+    the entire parsing and VSM window — announcing a phase that had not started
+    and whose size was not yet known. Every sibling line is determinate from the
+    moment it appears.
+    """
+    progress = _run_with_recording_progress(tmp_path)
+    links = [(d, total) for d, total in progress.created if "Validating links" in d]
+    assert links, f"no link-validation task created: {[d for d, _ in progress.created]!r}"
+    for description, total in links:
+        assert total is not None, (
+            f"{description!r} was created with total=None — Rich renders that as an "
+            "indeterminate pulsing bar for the whole window before validation starts"
+        )
+
+
+def test_validate_links_line_appears_after_the_vsm_line(tmp_path: Path) -> None:
+    """Progress lines must appear in the order their work actually runs.
+
+    Link validation runs *after* the VSM pass in both paths, but the task was
+    created before parsing, so it was displayed above a phase that in fact
+    precedes it.
+    """
+    progress = _run_with_recording_progress(tmp_path)
+    order = [d for d, _ in progress.created]
+    vsm = next(i for i, d in enumerate(order) if d.startswith("Building VSM"))
+    links = next(i for i, d in enumerate(order) if "Validating links" in d)
+    assert links > vsm, f"link validation is displayed before the VSM pass it follows: {order!r}"
+
+
 @pytest.mark.parametrize("workers", [0, -1, -8])
 def test_parallel_invalid_workers_raise_clear_error(tmp_path: Path, workers: int) -> None:
     """workers must be None or >= 1 to avoid opaque executor errors."""
