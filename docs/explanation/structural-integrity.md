@@ -170,7 +170,7 @@ non-negotiable gate; the others can be advisories depending on your team's matur
 
 ## Further Reading {#further-reading}
 
-- [The Zenzic Trinity](./the-zenzic-trinity.md) — The three non-negotiable pillars: Zero Subprocesses, Pure Functions, Structural Analysis
+- [The Zenzic Trinity](./the-zenzic-trinity.md) — How logic, intent, and enforcement constrain each other across the engine, its documentation, and the surfaces that apply it
 - [Exclusion Zone](./privacy-gate.md) — The exit code contract and the inviolable security gate
 - [Finding Codes Reference](../reference/finding-codes.md) — The complete Zxxx registry with remediation steps
 - [Scoring System](./scoring-system.md) — How the Deterministic Quality Score is computed

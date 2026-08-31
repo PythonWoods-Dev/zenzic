@@ -28,7 +28,11 @@ repos:
     hooks:
       - id: markdownlint
         exclude: ^examples/
-        args: ["--fix"]
+        # Deliberately NOT --fix. `.markdownlint.json` sets `default: true`, so
+        # every rule a future markdownlint release adds is enabled the moment
+        # `rev` is bumped. With --fix that would silently rewrite files across
+        # the corpus on the next run; without it, the same bump surfaces as a
+        # reviewable failure and each new rule gets a deliberate disposition.
 
   # 3. Ruff (linting & formatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
