@@ -55,9 +55,7 @@ class TestMarkdownInlineLinks:
             "same payload as an HTML <a href> is correctly caught"
         )
 
-    def test_data_scheme_in_markdown_link_is_deliberately_not_flagged(
-        self, tmp_path: Path
-    ) -> None:
+    def test_data_scheme_in_markdown_link_is_deliberately_not_flagged(self, tmp_path: Path) -> None:
         """Scope decision, deliberate: the Markdown path checks javascript: only.
 
         Z205 is non-suppressible and exits 2, so a false positive hard-fails a

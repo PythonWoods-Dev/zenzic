@@ -298,7 +298,9 @@ def check_links(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
         if no_external and output_format == "text":
             footer_lines.append(
@@ -441,7 +443,9 @@ def check_orphans(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
@@ -567,7 +571,9 @@ def check_snippets(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
@@ -761,7 +767,9 @@ def check_references(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
@@ -890,7 +898,9 @@ def check_assets(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
@@ -1014,7 +1024,9 @@ def check_placeholders(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, config_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
@@ -1353,9 +1365,7 @@ def _collect_all_results(
         # exactly as argument evaluation ordered them.
         _t_nav = time.perf_counter()
         task_nav = (
-            progress.add_task("Checking nav contract...", total=1)
-            if progress is not None
-            else None
+            progress.add_task("Checking nav contract...", total=1) if progress is not None else None
         )
         nav_contract_errors = check_nav_contract(
             repo_root,

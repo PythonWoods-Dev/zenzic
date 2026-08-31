@@ -50,7 +50,9 @@ class TestJSONFindingsFixableField:
 
 
 class TestSARIFFixableProperty:
-    def test_fixable_code_rule_descriptor_shows_true(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_fixable_code_rule_descriptor_shows_true(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         from zenzic.cli._shared import _output_sarif_findings
         from zenzic.core.reporter import Finding
 
@@ -88,7 +90,9 @@ class TestSARIFFixableProperty:
         rule = next(r for r in data["runs"][0]["tool"]["driver"]["rules"] if r["id"] == "Z101")
         assert rule["properties"]["fixable"] is False
 
-    def test_custom_rule_rule_descriptor_shows_false(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_custom_rule_rule_descriptor_shows_false(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """A ZZ- custom rule (no CODE_DEFINITIONS entry) is never auto-fixable."""
         from zenzic.cli._shared import _output_sarif_findings
         from zenzic.core.reporter import Finding

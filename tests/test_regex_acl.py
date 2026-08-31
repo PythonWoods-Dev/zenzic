@@ -85,9 +85,7 @@ class TestFlagHandling:
         assert re.search(r"\w+", "abc", re.ASCII) is not None
 
     def test_flags_combine(self) -> None:
-        assert (
-            re.search(r"^b.c", "a\nB\nc", re.IGNORECASE | re.MULTILINE | re.DOTALL) is not None
-        )
+        assert re.search(r"^b.c", "a\nB\nc", re.IGNORECASE | re.MULTILINE | re.DOTALL) is not None
 
 
 class TestStdlibEndAnchorTranslation:

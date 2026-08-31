@@ -91,7 +91,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
     "mypy>=1.10.0",
-    "ruff>=0.4.0",
+    "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)
     "reuse>=3.0.0",
     "types-toml",
 ]
@@ -117,7 +117,7 @@ test = [
     "mutmut>=3.5.0",
 ]
 lint = [
-    "ruff>=0.3.0",
+    "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)
     "mypy>=1.5.0",
     "pre-commit>=4.5.1",
     "reuse>=5.0.2",
