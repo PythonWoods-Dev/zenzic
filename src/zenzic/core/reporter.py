@@ -145,8 +145,13 @@ def _render_snippet(
         # Surgical caret: render only when the checker provided native position data
         # AND the caret falls within the visible (non-truncated) portion of the line.
         if is_err and match_text and col_start >= 0:
-            caret_len = len(match_text)
-            if col_start + caret_len <= max_src:
+            # A caret marks a span of *this* line, so it can never be wider than
+            # the line beneath it. `match_text` may be a whole raw HTML tag
+            # spanning several source lines, which otherwise draws a caret far
+            # past the text it points at — 103 characters under a two-character
+            # `<a` in the shipped z120 example.
+            caret_len = min(len(match_text), max(0, len(src) - col_start))
+            if caret_len and col_start + caret_len <= max_src:
                 ct = Text()
                 ct.append(f"    {' ' * gutter_w}  ", style=ZenzicPalette.DIM)
                 ct.append("│  ", style=ZenzicPalette.DIM)
@@ -154,6 +159,27 @@ def _render_snippet(
                 result.append(ct)
 
     return result
+
+
+def _strip_docs_prefix(rel_path: str, docs_dir: str) -> str:
+    """Drop the ``docs_dir`` prefix that *rel_path* already carries.
+
+    Findings report project-relative paths (``docs/index.md``) while snippets
+    resolve against the docs root (``<repo>/docs``), so joining the two directly
+    asks for ``<repo>/docs/docs/index.md``. That file does not exist and the
+    frame silently degrades to its one-line fallback.
+
+    A no-op when ``docs_dir`` is ``.`` or when the prefix is already absent, so
+    a repository-root layout renders exactly as before. Multi-segment roots
+    (``src/docs``) are stripped whole rather than one component at a time.
+    """
+    prefix = str(docs_dir).replace("\\", "/").strip("/")
+    if not prefix or prefix == ".":
+        return rel_path
+    normalized = rel_path.replace("\\", "/")
+    if normalized.startswith(f"{prefix}/"):
+        return normalized[len(prefix) + 1 :]
+    return rel_path
 
 
 class ZenzicReporter:
@@ -360,7 +386,7 @@ class ZenzicReporter:
 
         renderables: list[RenderableType] = []
         for rel_path in sorted(grouped):
-            abs_path = self._docs_root / rel_path
+            abs_path = self._docs_root / _strip_docs_prefix(rel_path, self._docs_dir)
             for idx, f in enumerate(sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code))):
                 if idx > 0:
                     renderables.append(Text())  # breathing between findings within a file
