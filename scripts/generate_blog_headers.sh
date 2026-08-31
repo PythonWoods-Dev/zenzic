@@ -36,6 +36,7 @@ FREEZE_OPTS=(--background "#18181a" --border.radius 8 --padding 20 --font.size 3
 
 [[ -x "$ZBIN" ]] || { echo "error: $ZBIN not found — run 'uv sync' first" >&2; exit 1; }
 command -v freeze >/dev/null || { echo "error: freeze is not installed" >&2; exit 1; }
+command -v ffmpeg >/dev/null || { echo "error: ffmpeg is required to convert captures to webp" >&2; exit 1; }
 mkdir -p "$OUT"
 
 prose() {
@@ -54,10 +55,32 @@ capture() {
   local runner="$dir/.capture.sh"
   { echo '#!/usr/bin/env bash'; echo "$ZBIN $* --no-header"; echo "true"; } > "$runner"
   chmod +x "$runner"
+  # freeze v0.2.2 renders SVG and PNG only. Given a .webp path it writes an SVG
+  # with a .webp extension and exits 0 -- no error, no warning -- despite --help
+  # advertising webp. That produced six files browsers refused to display. So we
+  # capture PNG (a format freeze genuinely implements) and convert to real webp,
+  # matching the house format of the published captures under
+  # docs/assets/images/terminal/. Verify with `file`, not ffprobe: ffprobe parses
+  # an SVG's width/height happily and reports plausible dimensions for a file no
+  # browser can render, which is exactly how the broken output first passed review.
   ( cd "$dir" && timeout "$PER_IMAGE_TIMEOUT" freeze \
       -x "$runner" \
-      --output "$OUT/$name.webp" "${FREEZE_OPTS[@]}" 2>&1 | head -4 ) || true
+      --output "$dir/$name.png" "${FREEZE_OPTS[@]}" 2>&1 | head -2 ) || true
+  # NOTE: keep the pipe above. With `>/dev/null` freeze writes nothing at all --
+  # it behaves differently when stdout is not a pipe. Reproduced repeatedly.
+  #
+  # freeze renders PNG at roughly 4x the nominal size (~6332px wide here), so the
+  # capture is downscaled to the 1582px the published captures use. Downscaling
+  # from a hi-DPI render is what makes the text crisp rather than soft -- the
+  # removed originals were rendered at ~715px natively, which was the real defect.
+  if [[ -s "$dir/$name.png" ]]; then
+    ffmpeg -v error -y -i "$dir/$name.png" -vf "scale=1582:-1:flags=lanczos" \
+      -c:v libwebp -lossless 0 -quality 92 "$OUT/$name.webp" >/dev/null 2>&1 || true
+  fi
   [[ -s "$OUT/$name.webp" ]] || { echo "  FAILED (no image written): $name" >&2; return 1; }
+  # Guard the exact defect above: assert the bytes really are WebP, not SVG.
+  file -b "$OUT/$name.webp" | grep -q "Web/P" \
+    || { echo "  FAILED (not a real WebP): $name" >&2; return 1; }
   printf '  %-28s %s\n' "$name" "$(ffprobe -v error -select_streams v:0 \
       -show_entries stream=width,height -of csv=p=0 "$OUT/$name.webp" 2>/dev/null)"
 }

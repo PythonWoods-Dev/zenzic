@@ -20,6 +20,12 @@ so a regeneration never has to be reverse-engineered from a `.webp`.
 bash scripts/generate_blog_headers.sh
 ```
 
+Verify the result with `file`, **not** `ffprobe` — see the warning below.
+
+```bash
+file docs/assets/images/blog/*_demo.webp   # must say "Web/P image"
+```
+
 The script builds each fixture from scratch in a temporary directory, captures,
 and writes here. It is the single source of truth for these images; this file
 documents what it does and why.
@@ -47,6 +53,22 @@ headers match the established house style:
 roughly 2.2× less pixel density than the published captures. That is what made
 them look soft at blog display width. Resolution was the defect; the captures
 themselves were always real.
+
+## The webp trap — read before changing the output format
+
+`freeze` v0.2.2 renders **SVG and PNG only**. Given a `.webp` output path it
+writes an **SVG with a `.webp` extension** and exits 0 — no error, no warning —
+even though `freeze --help` lists `.webp` as supported. Six headers shipped that
+way and no browser would display any of them.
+
+The generator therefore captures **PNG** and converts to real WebP with `ffmpeg`.
+It also asserts the result with `file` and fails loudly if the bytes are not
+`Web/P`.
+
+**Verify with `file`, never `ffprobe`.** `ffprobe` parses an SVG's `width`/
+`height` attributes and cheerfully reports plausible pixel dimensions for a file
+nothing can render — which is exactly how the broken output passed review the
+first time.
 
 ## Two constraints that will bite anyone editing the script
 
