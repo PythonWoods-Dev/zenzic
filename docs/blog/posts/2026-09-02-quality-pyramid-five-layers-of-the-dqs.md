@@ -16,8 +16,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![The zenzic score docs --breakdown terminal output showing four weighted quality categories — structural, navigation, content, brand — each reporting 0 issues, followed by a structurally separate SECURITY GATE section where a single Z201 credential finding collapses the final score from 100 to 0](../../assets/images/blog/quality_pyramid_demo.webp)
-
 *This article is a companion piece to Zenzic's Foundations series on practical adoption patterns — [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), and [Bring Your Own Rules: Policy-as-Code Without Forking Zenzic](2026-09-01-custom-rules-policy-as-code.md). Unlike those three, it isn't numbered — it describes the model those three adoption patterns all sit on top of, rather than an adoption pattern in its own right, and it can be read at any point in the sequence, including first.*
 
 Every one of the previous three articles assumes the reader already has a rough mental model of how a Zenzic quality score is put together: that some findings cost points, some findings block CI outright, and those two things are not the same mechanism. None of the three actually lays that model out on its own terms. This article does.

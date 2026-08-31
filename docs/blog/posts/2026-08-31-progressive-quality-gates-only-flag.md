@@ -16,8 +16,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![A real zenzic check all --only Z201,Z202,Z204,Z101,Z104 run: the security breach and broken link are still reported, while three lower-priority warnings are filtered out of this run without being silenced](../../assets/images/blog/progressive_gates_demo.webp)
-
 *This is the second article in Zenzic's Foundations series on practical adoption patterns. Part 1, [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), covers how to gate on regressions against a frozen baseline instead of the full historical finding count — read it first if you haven't yet.*
 
 Baseline tracking answers one adoption question: how do you turn a gate on today, on a repository that isn't clean. It does not answer a related one: which rules should that gate actually enforce on day one. Turning on every Z-code at once — structural, navigational, editorial, security — on a legacy repository is its own way of stalling adoption, even with a baseline absorbing the historical count, because every *new* commit still has to satisfy the entire rule set to pass.

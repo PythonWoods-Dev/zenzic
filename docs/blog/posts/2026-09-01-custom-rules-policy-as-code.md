@@ -15,8 +15,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![A real zenzic check run against a documentation fixture with a `[[custom_rules]]` block defined in .zenzic.toml: the custom ZZ-NOINTERNAL rule fires on a line mentioning an internal hostname, reported as a normal finding in the terminal output, with the gate failing on it like any built-in Z-code](../../assets/images/blog/custom_rules_demo.webp)
-
 *This is the third article in Zenzic's Foundations series on practical adoption patterns. Part 1, [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), covers gating on regressions against a frozen baseline. Part 2, [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), covers narrowing which built-in codes block CI on day one. Read either first if you haven't yet — this article assumes a gate is already running.*
 
 Every team eventually hits a rule that isn't built in. Not a bug in Zenzic's rule set — a rule specific to *this* organization: a legacy internal hostname that must never leak into public docs, a banned word from a past incident, a naming pattern a style guide requires but no general-purpose tool would ever ship by default. The usual fork in the road is unattractive either way: fork the engine to add one regex, or stand up a second linting tool just to cover the gap, and now the team maintains two configs, two CI steps, and two places a check can silently drift out of sync.

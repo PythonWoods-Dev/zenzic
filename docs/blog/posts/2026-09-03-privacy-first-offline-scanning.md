@@ -17,8 +17,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![A real zenzic check all run against a fixture with a .zenzic.local.toml overlay declaring two forbidden patterns: both terms are caught as Z204 POLICY VIOLATION DETECTED findings, exiting with code 2 and a DQS Final Score of 0/100 under the Security Override](../../assets/images/blog/privacy_gate_demo.webp)
-
 *This is the fourth article in Zenzic's Foundations series on practical adoption patterns. Part 1, [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md), covers gating on regressions against a frozen baseline. Part 2, [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), covers narrowing which built-in codes block CI on day one. Neither one touches network access — this article covers a different adoption blocker: whether a gate is allowed to run at all inside an environment that isn't permitted to send document content off-machine in the first place.*
 
 For a regulated team, that permission question usually gets asked before anything else. Security review at a healthcare, finance, or government-contracting organization asks a narrower question than whether an automated documentation check catches broken links well: what does the tool send off-machine, to what destination, and under which conditions. If the honest answer is "we'd have to check," the tool often doesn't get past that stage at all.
