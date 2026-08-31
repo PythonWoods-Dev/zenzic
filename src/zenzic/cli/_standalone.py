@@ -9,6 +9,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 
 if sys.version_info >= (3, 11):
@@ -25,6 +26,7 @@ from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 from zenzic.core import regex as re
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.history import append_history_entry, read_history, summarize_trend
 from zenzic.core.scanner import (
     find_repo_root,
 )
@@ -208,6 +210,58 @@ def _compute_baseline_freshness(repo_root: Path, config: ZenzicConfig) -> tuple[
     return status, age_days
 
 
+def _history_entry(report: Any) -> dict[str, Any]:
+    """One history record from a score report.
+
+    Deliberately small and flat: the score, when it was taken, and the per-category
+    contributions. Anything reconstructible from the repository (file lists,
+    findings) is left out — this file is a series, not a second report archive.
+    """
+    from datetime import datetime, timezone
+
+    data = report.to_dict()
+    categories = {
+        str(c.get("name")): c.get("category_score")
+        for c in data.get("categories", [])
+        if isinstance(c, dict) and c.get("name")
+    }
+    entry: dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "score": data.get("score"),
+        "categories": categories,
+    }
+    return entry
+
+
+def _render_trend(repo_root: Path, output_format: str) -> None:
+    """Print the recorded score series, or say plainly that there is none yet."""
+    entries = read_history(repo_root)
+    summary = summarize_trend(entries)
+
+    if output_format == "json":
+        print(json.dumps({"history": entries, "summary": summary}, indent=2))
+        return
+
+    if summary is None:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]No score history yet. "
+            f"Run 'zenzic score --save' to start recording one.[/]"
+        )
+        return
+
+    arrow = "→" if summary["delta"] == 0 else ("↑" if summary["delta"] > 0 else "↓")
+    sign = "+" if summary["delta"] > 0 else ""
+    _shared.console.print(
+        f"Score trend over {summary['runs']} run(s): "
+        f"{summary['first']} {arrow} {summary['last']} "
+        f"({sign}{summary['delta']})  ·  min {summary['min']}  max {summary['max']}"
+    )
+    for entry in entries[-10:]:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]  {entry.get('timestamp', '?')}  {entry.get('score', '?')}[/]"
+        )
+
+
 def _compute_score_trend(repo_root: Path, current_score: int) -> dict[str, int] | None:
     """Compare the current score against the saved snapshot, if one exists.
 
@@ -246,6 +300,11 @@ def score(
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
     fail_under: int = typer.Option(
         0, "--fail-under", help="Exit non-zero if score is below this threshold (0 = disabled)."
+    ),
+    trend: bool = typer.Option(
+        False,
+        "--trend",
+        help="Show the score series recorded in .zenzic-history.jsonl by previous --save runs.",
     ),
     stamp: bool = typer.Option(
         False,
@@ -355,8 +414,18 @@ def score(
     if save:
         report.threshold = effective_threshold
         snapshot_path = save_snapshot(repo_root, report)
+        # The series is appended alongside the snapshot rather than replacing it:
+        # .zenzic-score.json stays exactly as every existing consumer expects, and
+        # the history file is additive. Failing to record a trend entry must never
+        # fail a scoring run, so the append is best-effort.
+        with contextlib.suppress(OSError):
+            append_history_entry(repo_root, _history_entry(report))
         if not quiet:
             _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
+
+    if trend:
+        _render_trend(repo_root, output_format)
+        raise typer.Exit(0)
 
     if output_format == "json" and not check_stamp:
         payload = report.to_dict()

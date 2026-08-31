@@ -99,11 +99,22 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--json` | — | `false` | Shorthand for `--format json`. Suppresses all rich/text output and emits a single JSON object on `stdout`. Preferred for programmatic consumers (e.g., editor integrations, shell scripts). |
     | `--breakdown` | — | `false` | Expands category breakdown showing individual Z-Codes and transparent penalty math. |
     | `--save` | — | `false` | Saves score snapshot to `.zenzic-score.json` for use with `zenzic diff`. |
+    | `--trend` | — | `false` | Shows the score series recorded in `.zenzic-history.jsonl` by previous `--save` runs, then exits. Prints a one-line summary plus the last ten entries; with `--format json`, emits the full series and a summary object. Reports "No score history yet" and exits `0` when the file is absent — an empty history is not an error. |
     | `--check-stamp` | — | `false` | Verifies badge stamp files contain the current score URL. Exits 1 if any badge is stale. |
     | `--quiet` | `-q` | `false` | Suppress output on successful score. |
     | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
     | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
+
+    !!! info "Where the series is stored"
+        `--save` appends one JSON object per run to `.zenzic-history.jsonl` in the
+        repository root, alongside the snapshot it already writes. The file is
+        append-only and capped at 500 entries, oldest dropped first. It is separate
+        from `.zenzic-baseline.json` by design: the baseline holds one snapshot and a
+        finding-signature set for suppression matching, and its schema forbids
+        additional properties, so a series could not live there without changing that
+        contract. Neither `.zenzic-score.json` nor `.zenzic-baseline.json` changes
+        shape, and existing consumers of either are unaffected.
 
     !!! note "External link validation always runs"
         `zenzic score` (and `zenzic diff`) always validate external HTTP/HTTPS links as

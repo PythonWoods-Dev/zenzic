@@ -165,9 +165,56 @@ The `Z201`/`Z202`/`Z203`/`Z204`/`Z205` security tier and the `Z110`/`Z111` fatal
 
 ---
 
+## Track Whether Debt Is Growing or Shrinking {#track-trend}
+
+A single score answers "how good is it now." Deciding whether to accept a pull request
+usually needs the other question: *is this making things better or worse?*
+
+Have CI record a point on every run that already scores the repository:
+
+```bash title="CI"
+zenzic score --save
+```
+
+`--save` writes the snapshot `zenzic diff` already uses, and appends one line to
+`.zenzic-history.jsonl`. Read the series back at any time:
+
+```bash title="Terminal"
+zenzic score --trend
+```
+
+```text
+Score trend over 3 run(s): 91 ↑ 94 (+3)  ·  min 91  max 94
+  2026-08-29T09:14:02+00:00  91
+  2026-08-30T09:12:55+00:00  93
+  2026-08-31T09:15:41+00:00  94
+```
+
+For a dashboard or a PR comment, take the machine-readable form — it returns the full
+series plus a summary object with `runs`, `first`, `last`, `min`, `max` and `delta`:
+
+```bash title="CI"
+zenzic score --trend --format json
+```
+
+Two properties matter when wiring this into a pipeline:
+
+- **An absent history is not a failure.** Before the first `--save`, `--trend` reports
+  that there is no history yet and exits `0`. A fresh clone or a new branch will not
+  break the step.
+- **Recording never fails a scoring run.** The append is best-effort; if the file cannot
+  be written, the score is still computed and reported exactly as before.
+
+Commit `.zenzic-history.jsonl` if you want the series shared across the team and visible
+in review; add it to `.gitignore` if you would rather each environment keep its own.
+Zenzic does not require either choice.
+
+---
+
 ## Reference {#reference}
 
 - [Suppression Policy](../reference/suppression-policy.md) — Full reference for all three suppression levels.
 - [Scoring Algorithm](../reference/scoring-algorithm.md) — How debt interacts with the Gravity Cap and category weights.
 - [`zenzic explain`](../reference/cli.md) — Inspect any rule's cost and suppression status.
+- [`zenzic score --trend`](../reference/cli.md) — Full option reference for the recorded score series.
 - [Example: Suppression Mechanics](https://github.com/PythonWoods/zenzic/tree/main/examples/scoring) — Runnable demo with 7 active suppressions.
