@@ -419,7 +419,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Sub-command | Description |
     | :--- | :--- |
-    | `zenzic adr new` | Scaffold the next decision record and print its path. |
+    | `zenzic adr new` | Allocate the next free ADR number and scaffold its record. |
 
     **`zenzic adr new` arguments and flags:**
 

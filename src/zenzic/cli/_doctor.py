@@ -92,11 +92,18 @@ def adr_new(
     title: str = typer.Argument(..., help="Title of the decision, e.g. 'Adopt RE2 for matching'."),
     path: str = typer.Option(None, "--path", help="Repository root (default: current dir)."),
 ) -> None:
-    """Scaffold the next ADR record and print its path.
+    """Allocate the next free ADR number and scaffold its record.
 
-    Allocates the next free number rather than counting records: the vault has
-    real gaps, and reusing an identifier that a citation elsewhere already refers
-    to would silently repoint that citation at a different decision.
+    The allocation is the point, not the template. Numbers are issued one past
+    the highest present, never by counting records and never filling gaps: the
+    vault has real ones, and re-issuing an identifier that existing prose
+    already cites would silently repoint that citation at a different decision —
+    a reference resolving to the wrong target, which is the defect class this
+    engine exists to prevent. Creating a second record under a number already in
+    use is refused for the same reason.
+
+    The five-section skeleton it writes afterwards is convenience; the record
+    still has to be filled in and registered in the vault index by hand.
     """
     repo_root = Path(path).resolve() if path else Path.cwd()
     config = _load(repo_root)
