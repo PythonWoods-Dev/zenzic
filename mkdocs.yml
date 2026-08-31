@@ -19,6 +19,7 @@ copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 # limitation — see hooks/fix_rss_feed_discovery_links.py for detail).
 hooks:
   - hooks/fix_rss_feed_discovery_links.py
+  - hooks/publish_schemas.py
 
 extra_css:
   - assets/css/zenzic-tailwind.min.css

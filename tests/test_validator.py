@@ -1665,7 +1665,7 @@ class TestCheckExternalFlag:
 
 
 def test_validator_short_circuits_analysis_on_z001(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a malformed config structure causes a short-circuit before scanning starts."""
     import sys
@@ -1697,7 +1697,7 @@ def test_validator_short_circuits_analysis_on_z001(
 
 
 def test_cli_z001_outputs_json(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a Z001 error is correctly formatted as JSON."""
     import json
@@ -1727,7 +1727,7 @@ def test_cli_z001_outputs_json(
 
 
 def test_cli_z001_outputs_sarif(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a Z001 error is correctly formatted as SARIF."""
     import json

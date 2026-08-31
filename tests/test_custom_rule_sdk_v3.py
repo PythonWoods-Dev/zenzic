@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+from zenzic.core.rules import RuleFinding
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.rules import RuleMetadata
 from zenzic.sdk import ZenzicRuleV3
@@ -19,7 +20,7 @@ class CustomLinkRule(ZenzicRuleV3):
         penalty=3.0,
     )
 
-    def visit_link(self, file_path: Path, line_no: int, link_text: str, target_url: str) -> list:
+    def visit_link(self, file_path: Path, line_no: int, link_text: str, target_url: str) -> list[RuleFinding]:
         if target_url.startswith("http://"):
             return [
                 self.create_finding(
@@ -42,7 +43,7 @@ class CustomCodeBlockRule(ZenzicRuleV3):
         penalty=2.0,
     )
 
-    def visit_code_block(self, file_path: Path, start_line: int, lang: str, code: str) -> list:
+    def visit_code_block(self, file_path: Path, start_line: int, lang: str, code: str) -> list[RuleFinding]:
         if lang == "bash":
             return [
                 self.create_finding(

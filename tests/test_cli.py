@@ -8,6 +8,7 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Any
 from unittest.mock import ANY, patch
 
 import pytest
@@ -2701,10 +2702,9 @@ def test_check_all_init_task_marked_finished(
     import rich.progress
 
     captured: list[rich.progress.Progress] = []
-    real_progress_cls = rich.progress.Progress
 
-    class SpyProgress(real_progress_cls):  # type: ignore[misc]
-        def __init__(self, *args: object, **kwargs: object) -> None:
+    class SpyProgress(rich.progress.Progress):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             captured.append(self)
 
@@ -2718,6 +2718,55 @@ def test_check_all_init_task_marked_finished(
         "the init task's finished_time was never set — SpinnerColumn will "
         "render an animating frame forever instead of the finished state"
     )
+
+
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_suppression_audit_has_its_own_progress_line(
+    _scan: object,
+    _nav: object,
+    _assets: object,
+    _snip: object,
+    _orphans: object,
+    _links: object,
+    _cfg: object,
+    _root: object,
+    _count: object,
+) -> None:
+    """The inline-suppression audit must be reported on its own progress line.
+
+    It runs inside the window the "Initializing environment & VSM" line
+    measures, so before this was split out that line silently attributed the
+    audit's cost (measured at ~88% of the line's total on this repository's own
+    docs tree) to environment/VSM setup, which is not what it was doing.
+    """
+    import rich.progress
+
+    captured: list[rich.progress.Progress] = []
+
+    class SpyProgress(rich.progress.Progress):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    with patch("rich.progress.Progress", SpyProgress):
+        runner.invoke(app, ["check", "all"])
+
+    assert captured, "no Progress instance was constructed"
+    descriptions = [t.description for t in captured[0].tasks]
+    suppr = [d for d in descriptions if d.startswith("Auditing inline suppressions")]
+    assert suppr, (
+        "the inline-suppression audit has no progress line of its own; its cost "
+        f"is still folded into another phase. Lines seen: {descriptions!r}"
+    )
+    assert "ms)" in suppr[0], f"suppression audit line reports no duration: {suppr[0]!r}"
 
 
 def test_templates_root_keys_not_swallowed() -> None:

@@ -5,6 +5,7 @@
 import io
 import json
 from pathlib import Path
+from typing import Any
 
 from zenzic.lsp.documents import DocumentManager
 from zenzic.lsp.server import LanguageServer
@@ -75,7 +76,7 @@ def test_language_server_lifecycle() -> None:
     req3 = {"jsonrpc": "2.0", "id": 2, "method": "shutdown", "params": {}}
     req4 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         return header + body
@@ -141,7 +142,7 @@ def test_publish_diagnostics() -> None:
     }
     req2 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -217,7 +218,7 @@ def test_debounce_diagnostics() -> None:
     }
     req4 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -286,7 +287,7 @@ def test_zero_config_security_invariant(tmp_path) -> None:
     }
     req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -369,7 +370,7 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
             },
         }
 
-        def encode_rpc(msg: dict) -> bytes:
+        def encode_rpc(msg: dict[str, Any]) -> bytes:
             body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
             header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
             return header + body
@@ -467,12 +468,12 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
 # ─── CLI/ZLS Parity tests: Z403 and Z102 ─────────────────────────────────────
 
 
-def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> list[dict]:
+def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> list[dict[str, Any]]:
     """Run the ZLS on a single document and return all emitted diagnostics."""
     import io
     import json
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         return header + body
@@ -497,7 +498,7 @@ def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> li
     out_stream.seek(0)
     output = out_stream.read()
 
-    all_diagnostics: list[dict] = []
+    all_diagnostics: list[dict[str, Any]] = []
     for part in output.split(b"\r\n\r\n"):
         if b"publishDiagnostics" not in part:
             continue
@@ -595,7 +596,7 @@ def test_lsp_security_rules_masking() -> None:
     }
     req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -1272,7 +1273,7 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
     index_md = docs_dir / "index.md"
     index_md.write_text("# Home\nWelcome.\n")
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         return header + body
@@ -1461,11 +1462,11 @@ def test_file_deletion_clears_ghost_diagnostics(tmp_path: "Path") -> None:  # no
         encoding="utf-8",
     )
 
-    def _encode(msg: dict) -> bytes:
+    def _encode(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         return f"Content-Length: {len(body)}\r\n\r\n".encode() + body
 
-    def _parse_frames(raw: bytes) -> list[dict]:
+    def _parse_frames(raw: bytes) -> list[dict[str, Any]]:
         """Parse all Content-Length-framed JSON-RPC messages from a byte stream."""
         msgs = []
         offset = 0
@@ -1748,16 +1749,16 @@ def test_lsp_code_action_suppression(tmp_path) -> None:
 # ─── LSP-FIX-017 & Filesystem Truth tests ─────────────────────────────────────
 
 
-def _encode_rpc(msg: dict) -> bytes:
+def _encode_rpc(msg: dict[str, Any]) -> bytes:
     """Encode a single JSON-RPC 2.0 message as LSP wire format."""
     body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
     header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
     return header + body
 
 
-def _parse_lsp_messages(raw: bytes) -> list[dict]:
+def _parse_lsp_messages(raw: bytes) -> list[dict[str, Any]]:
     """Parse all JSON-RPC messages from a raw LSP byte stream."""
-    messages: list[dict] = []
+    messages: list[dict[str, Any]] = []
     parts = raw.split(b"\r\n\r\n")
     for part in parts:
         # Each part is either a header or a body fragment; the body follows
@@ -2076,7 +2077,7 @@ def test_initialized_registers_directory_watcher() -> None:
     import tempfile
     from pathlib import Path
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
 

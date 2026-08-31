@@ -1122,6 +1122,7 @@ def _collect_all_results(
     check_external: bool = True,
     show_progress: bool = False,
     init_start_time: float | None = None,
+    suppression_ms: float | None = None,
     rule_engine_target: Path | None = None,
 ) -> _AllCheckResults:
     """Run all eight checks and return results as a typed container.
@@ -1164,13 +1165,26 @@ def _collect_all_results(
             console=_shared.get_console(),
         )
         progress.start()
+        # The window from check_all's first statement to here also contains the
+        # inline-suppression audit, which the caller times separately and passes
+        # in. Subtract it so this line reports only real environment/VSM setup
+        # and the audit gets its own line below, rather than 88% of the audit's
+        # cost being displayed under an "Initializing environment & VSM" label.
         _init_ms = (time.perf_counter() - (init_start_time or time.perf_counter())) * 1000
+        _init_ms = max(0.0, _init_ms - (suppression_ms or 0.0))
         _task_init = progress.add_task("Initializing environment & VSM...", total=1)
         progress.update(
             _task_init,
             completed=1,
             description=f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
         )
+        if suppression_ms is not None:
+            _task_suppr = progress.add_task("Auditing inline suppressions...", total=1)
+            progress.update(
+                _task_suppr,
+                completed=1,
+                description=f"Auditing inline suppressions... [dim]({suppression_ms:.1f}ms)[/dim]",
+            )
 
     try:
         ref_reports, ext_errors = scan_docs_references(
@@ -1694,10 +1708,12 @@ def check_all(
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
     t0 = time.monotonic()
+    _t_suppr_start = time.perf_counter()
     inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
         docs_root, config, exclusion_mgr
     )
     per_file_suppressions = count_per_file_ignores(config)
+    _suppression_ms = (time.perf_counter() - _t_suppr_start) * 1000
     suppression_audit = SuppressionAudit(
         inline_count=inline_suppressions,
         per_file_count=per_file_suppressions,
@@ -1743,6 +1759,7 @@ def check_all(
             check_external=not no_external,
             show_progress=show_progress,
             init_start_time=_t_init_start,
+            suppression_ms=_suppression_ms,
             rule_engine_target=_single_file,
         )
 
