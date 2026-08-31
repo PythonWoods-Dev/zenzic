@@ -30,6 +30,7 @@ Architecture invariants
 
 from __future__ import annotations
 
+import html
 import contextlib
 import os
 import posixpath
@@ -48,6 +49,7 @@ from zenzic.core.rules import (
 )
 from zenzic.core.suppressions import SuppressionTracker
 from zenzic.core.validator import (
+    _POLY_CLEAN_URL_RE,
     PolyglotExtractor,
     _classify_traversal_intent,
     anchors_in_file,
@@ -765,6 +767,50 @@ class IncrementalAnalysisEngine:
         def _source_line(lineno: int) -> str:
             idx = lineno - 1
             return lines[idx].strip() if 0 <= idx < len(lines) else ""
+
+        # Z205 on Markdown-syntax links. The HTML loop below evaluates the
+        # forbidden-scheme gate inside _parse_node(), which only ever sees <a>/
+        # <img> tags — so [x](javascript:...) and reference definitions passed a
+        # Tier-0, non-suppressible gate entirely, while rendering to the exact
+        # same exploitable anchor in the built site. validator.py's own comment
+        # already declares syntactic form "un dettaglio di trasporto"; this
+        # restores that invariant by checking the shared link representation.
+        #
+        # Scope decision: the Markdown path checks javascript: ONLY, not the
+        # full _POLY_FORBIDDEN_SCHEMES set. data: stays flagged in HTML exactly
+        # as before (unchanged), but is deliberately NOT newly flagged here.
+        # Z205 is non-suppressible and exits 2, so a false positive hard-fails a
+        # build with no escape hatch — and data: in Markdown is overwhelmingly
+        # benign (inline base64 images, data:text/plain), which the pre-existing
+        # skip-scheme behaviour in validate_links already encodes as deliberate
+        # intent. javascript: has no legitimate use in a documentation link, so
+        # it carries no comparable false-positive risk. Extending to dangerous
+        # data: subtypes (data:text/html) needs MIME-subtype discrimination and
+        # is tracked separately rather than guessed at inside a Tier-0 gate.
+        _md_links = (
+            extracted_links
+            if extracted_links is not None
+            else PolyglotExtractor().extract_all_links(text)
+        )
+        for link in _md_links:
+            if link.is_html:
+                continue  # handled by the HTML loop below; avoids double-reporting
+            clean = _POLY_CLEAN_URL_RE.sub("", html.unescape(link.url)).lower()
+            scheme = "javascript:" if clean.startswith("javascript:") else None
+            if scheme is None:
+                continue
+            findings.append(
+                RuleFinding(
+                    path,
+                    link.line_no,
+                    "Z205",
+                    f"forbidden scheme '{scheme}' detected",
+                    severity=code_severity("Z205"),
+                    matched_line=_source_line(link.line_no),
+                    col_start=0,
+                    match_text=link.raw_text or link.url,
+                )
+            )
 
         # Polyglot Extractor
         for node in PolyglotExtractor().extract(text):
