@@ -15,7 +15,7 @@ from zenzic.core.adapters import get_adapter
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
-    scan_line_for_secrets,
+    scan_lines_with_lookback,
 )
 from zenzic.core.discovery import iter_security_scan_sources
 from zenzic.core.scanner import find_repo_root
@@ -51,11 +51,20 @@ def _scan_file_for_secrets(
     findings: list[SecurityFinding] = []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
+        # UnicodeDecodeError is a ValueError, not an OSError, so it escaped the
+        # handler entirely: the first non-UTF-8 file aborted the whole scan and
+        # every later target went unscanned. It belongs on the unreadable path
+        # like any other file the gate could not read.
         return findings, False
 
+    # The cross-line lookback (ZRT-007) is what catches a secret split across
+    # two consecutive lines. The corpus scan has always used it; this gate
+    # scanned line by line, so `zenzic check` caught a split token and the
+    # pre-commit hook -- the boundary that actually keeps the leak out of
+    # history -- did not. Same detector on both sides now.
+    findings.extend(scan_lines_with_lookback(enumerate(lines, start=1), path))
     for idx, line in enumerate(lines, start=1):
-        findings.extend(scan_line_for_secrets(line, path, idx))
         findings.extend(scan_line_for_forbidden_terms(line, forbidden_patterns, path, idx))
     return findings, True
 

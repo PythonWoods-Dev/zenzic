@@ -151,7 +151,6 @@ _SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
 #: Maximum line length the credential scanner will scan.  Lines exceeding this limit
 #: are silently truncated before regex matching to prevent ReDoS or
 #: excessive memory consumption from pathological input (F2-1 hardening).
-_MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
 
 
 # ─── Base64 speculative decoder (CEO-194 / D095) ─────────────────────────────
@@ -333,21 +332,32 @@ def scan_line_for_secrets(
     Yields:
         :class:`SecurityFinding` for each match found.
     """
-    # F2-1 hardening: truncate pathologically long lines to prevent ReDoS
-    # or excessive memory consumption. The constant is defined above.
-    line = line[:_MAX_LINE_LENGTH]
+    # Previously this truncated to _MAX_LINE_LENGTH and dropped the remainder
+    # silently, so attacker-controlled padding hid a real secret past the cutoff
+    # with no finding and no warning. The stated rationale was ReDoS defence,
+    # which does not apply: every pattern here is RE2, which cannot backtrack
+    # and is linear in input length. A secret gate must not answer "clean" for
+    # bytes it chose not to look at, so the whole line is scanned.
     normalized = _normalize_line_for_scan(line)
     seen: set[str] = set()
     line_forms = (line,) if line == normalized else (line, normalized)
     _path: Path | None = None  # defer Path creation until a finding is yielded
 
     for line_form in line_forms:
-        if not any(s in line_form for s in _QUICK_SUBSTRINGS):
+        # The quick-prefix tables are an optimisation, not the decision. They
+        # must therefore be a superset of what the patterns accept: the
+        # github-token pattern is `(?i)` while its prefix tuple listed only the
+        # all-lower and all-upper spellings, so `Ghp_` satisfied the regex and
+        # never reached it. Case-folding the haystack for gating keeps the
+        # filter faithful; a prefix hit the pattern then rejects costs one
+        # search, which is the correct direction for a pre-filter to err.
+        _gate_form = line_form.casefold()
+        if not any(s.casefold() in _gate_form for s in _QUICK_SUBSTRINGS):
             continue
         for secret_type, quick_prefixes, pattern in _SECRETS:
             if secret_type in seen:
                 continue
-            if not any(s in line_form for s in quick_prefixes):
+            if not any(s.casefold() in _gate_form for s in quick_prefixes):
                 continue
             m = pattern.search(line_form)
             if m:
@@ -374,7 +384,14 @@ def scan_line_for_secrets(
     # re-scan the decoded text through _SECRETS.  Catches credentials that
     # have been Base64-encoded to bypass the raw-text scan (e.g. a frontmatter
     # field containing base64(ghp_...) or base64(AKIA...)).
-    if len(normalized) >= 20 and ("=" in normalized or "+" in normalized or "/" in normalized):
+    # No symbol test: a base64 string carries no "=" when the plaintext length
+    # is a multiple of 3 and need contain no "/" at all, so appending a single
+    # space before encoding was enough to skip this decode entirely. (The "+"
+    # disjunct was dead regardless — _normalize_line_for_scan deletes every "+"
+    # as a concatenation operator before this line runs.) _BASE64_CANDIDATE_RE
+    # already imposes the 4-character-group structure and the length floor
+    # below already bounds the work, so the symbol test bought nothing.
+    if len(normalized) >= 20:
         for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
             _candidate = _b64_match.group(0)
             if len(_candidate) < 20:
@@ -511,12 +528,17 @@ def scan_lines_with_lookback(
     prev_seen: set[str] = set()
 
     for lineno, raw_line in lines:
-        raw_trunc = raw_line[:_MAX_LINE_LENGTH]
-        current_normalized = _normalize_line_for_scan(raw_trunc)
+        # Not truncated, for the same reason scan_line_for_secrets no longer
+        # truncates: RE2 cannot backtrack, so a long line is a linear cost and
+        # not a ReDoS risk, whereas silently dropping its tail let padding hide
+        # a real secret. This was the second of the two cutoffs -- fixing only
+        # the other one left the corpus path still blind, which the end-to-end
+        # probe caught after the unit test had already gone green.
+        current_normalized = _normalize_line_for_scan(raw_line)
 
         # 1. Scan individual line
         seen_this_line: set[str] = set()
-        for finding in scan_line_for_secrets(raw_trunc, file_path, lineno):
+        for finding in scan_line_for_secrets(raw_line, file_path, lineno):
             seen_this_line.add(finding.secret_type)
             yield finding
 
