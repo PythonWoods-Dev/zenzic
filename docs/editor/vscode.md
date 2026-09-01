@@ -120,11 +120,11 @@ If you use a custom virtual environment or isolated installation, configure `zen
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports leading `~/` and `${workspaceFolder}` (intelligently scans across all active workspace folders in multi-root setups). |
+| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports leading `~/` or `~\` and `${workspaceFolder}` (intelligently scans across all active workspace folders in multi-root setups). |
 | `zenzic.autoProvision` | `boolean` | `true` | Automatically install the Zenzic CLI in an isolated environment if not found. Set to `false` to opt out. |
 | `zenzic.autoFixOnSave` | `boolean` | `false` | Automatically apply Zenzic's deterministic Quick Fixes when a Markdown/MDX file is saved. Off by default — see [Auto-Fix on Save](#auto-fix-on-save) below. |
 | `zenzic.autoRepairLinksOnRename` | `boolean` | `false` | Automatically rewrite inbound relative links when a file is renamed or moved. Off by default — see [Auto-Repair Links on Rename](#auto-repair-links-on-rename) below. |
-| `zenzic.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Useful for debugging. |
+| `zenzicLanguageServer.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Set it in `settings.json`: it comes from the language-client library rather than the extension's own contributions, so it is absent from the Settings UI. |
 
 ### Commands
 
@@ -138,6 +138,8 @@ The extension contributes the following commands to the Command Palette (`Ctrl+S
 | **Zenzic: Stop Server** | `zenzic.stopServer` | Stops the Language Server process. |
 | **Zenzic: Show Status / Recovery** | `zenzic.showStatus` | Re-triggers error recovery dialogs or opens the quick action menu. |
 | **Zenzic: Troubleshoot & Repair Setup** | `zenzic.troubleshoot` | Runs automated environment diagnostics and offers 1-click self-healing repairs. |
+| **Zenzic: Show Quality Status Panel** | `zenzic.showQualityPanel` | Opens a panel with the workspace's current quality score and its category breakdown. |
+| **Zenzic: Report Finding as GitHub Issue** | `zenzic.reportFindingAsIssue` | Opens a prefilled GitHub issue for the finding under the cursor (code, file, line, message, versions). No sign-in and no API call: it opens a URL in your browser for you to review before submitting. |
 
 ---
 
