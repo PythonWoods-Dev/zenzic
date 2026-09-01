@@ -131,6 +131,14 @@ check-pinning:
 _check-hooks:
     #!/usr/bin/env bash
     set -euo pipefail
+    # CI checks out a bare working tree and never commits from it, so git hooks
+    # are meaningless there -- and requiring them would fail every run for a
+    # condition no CI job can or should fix. The gate exists for the machine
+    # where commits are actually authored.
+    if [ -n "${CI:-}" ]; then
+        echo "CI environment: git-hook check skipped (hooks gate local commits only)"
+        exit 0
+    fi
     _missing=0
     for _h in pre-commit pre-push; do
         if [ ! -f ".git/hooks/${_h}" ] || ! grep -qi "pre-commit" ".git/hooks/${_h}"; then
