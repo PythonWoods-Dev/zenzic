@@ -284,8 +284,17 @@ class IncrementalAnalysisEngine:
             # the corpus walk above — the same boundary the CLI's
             # scan_docs_references draws, so init publishes Z201/Z204 for an
             # excluded file even before anyone opens it.
+            # Cover content roots (monorepo sub-projects) and locale roots too,
+            # not just docs_root — a user-excluded file in one of those trees
+            # must still get a security-only diagnostic, matching the CLI.
+            _sec_content_roots = self.adapter.get_extra_content_roots(self.repo_root)
+            _sec_locale_roots = self.adapter.get_locale_source_roots(self.repo_root)
             for sec_file in iter_security_scan_sources(
-                self.docs_root, self.config, exclusion_manager
+                self.docs_root,
+                self.config,
+                exclusion_manager,
+                content_roots=_sec_content_roots or None,
+                locale_roots=_sec_locale_roots or None,
             ):
                 sec_path = sec_file.resolve()
                 if sec_path in valid_paths or sec_path in security_only:

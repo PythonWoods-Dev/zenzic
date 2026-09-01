@@ -196,7 +196,7 @@ _POLY_SAFE_CORE: frozenset[str] = frozenset(
 )
 _POLY_ARIA_PREFIX = "aria-"  # aria-* is always Safe-Core
 
-# Attributi Blacklist: Z124 OPAQUE_HTML_CONTEXT.
+# Blacklisted attributes: Z124 OPAQUE_HTML_CONTEXT.
 _POLY_BLACKLIST: frozenset[str] = frozenset(
     {
         "data-url",
@@ -273,9 +273,9 @@ class HtmlNodeInfo:
         blacklisted_attrs: Blacklisted attributes (event-handler, shadow-routing) → Z124.
         is_missing_href:   ``True`` when ``href``/``src`` is absent or empty → Z121.
         is_jump_link:      ``True`` when ``href="#"`` → Z122.
-        info_scheme:       Schema informativo (``mailto:``, ``tel:``, ``ftp:``)
-                           se rilevato → Z123; ``None`` altrimenti.
-        raw_tag:           Testo originale del tag (per messaggi diagnostici).
+        info_scheme:       Informational scheme (``mailto:``, ``tel:``, ``ftp:``)
+                           if detected → Z123; ``None`` otherwise.
+        raw_tag:           Original tag text (for diagnostic messages).
     """
 
     tag: str
@@ -339,7 +339,7 @@ class PolyglotExtractor:
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()
             attrs_str = m.group("attrs")
-            # Calcolare line_no dal testo originale (non mascherato)
+            # Compute line_no from the original (unmasked) text
             line_no = text[: m.start()].count("\n") + 1
             nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
         return nodes

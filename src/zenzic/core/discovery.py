@@ -231,6 +231,9 @@ def iter_security_scan_sources(
     docs_root: Path,
     config: ZenzicConfig,
     exclusion_manager: LayeredExclusionManager,
+    *,
+    content_roots: list[Path] | None = None,
+    locale_roots: list[tuple[Path, str]] | None = None,
 ) -> Generator[Path, None, None]:
     """Yield every doc source the security tier must scan, ignoring user scoping.
 
@@ -242,16 +245,34 @@ def iter_security_scan_sources(
     the manager's :meth:`~LayeredExclusionManager.security_view`, which keeps
     only the system guardrails and the VCS layer.
 
+    The scan must cover **every** tree ``scan_docs_references`` reaches for
+    quality analysis, not just ``docs_root``: an MkDocs monorepo's included
+    sub-project docs (``content_roots``) and i18n locale trees
+    (``locale_roots``) live outside ``docs_root``, and a user exclusion
+    matching a file there would otherwise hide a credential from both the
+    corpus and this pass — the exact defect this function exists to close,
+    re-opened on a different root. Extra roots are deduplicated against
+    ``docs_root`` and each other by resolved path.
+
     Yields:
-        Absolute :class:`~pathlib.Path` objects in deterministic sorted order.
+        Absolute :class:`~pathlib.Path` objects (deterministic per-root order).
     """
     view = exclusion_manager.security_view()
-    for md_file in walk_files(docs_root, set(), view, config):
-        if md_file.suffix not in DOC_SUFFIXES:
+    roots: list[Path] = [docs_root, *(content_roots or []), *(lr[0] for lr in (locale_roots or []))]
+    seen: set[Path] = set()
+    for root in roots:
+        if not root.is_dir():
             continue
-        if view.should_exclude_file(md_file, docs_root):
-            continue
-        yield md_file
+        for md_file in walk_files(root, set(), view, config):
+            if md_file.suffix not in DOC_SUFFIXES:
+                continue
+            if view.should_exclude_file(md_file, root):
+                continue
+            resolved = md_file.resolve(strict=False)
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            yield md_file
 
 
 def iter_markdown_sources(

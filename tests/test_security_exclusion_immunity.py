@@ -175,3 +175,101 @@ class TestLspParity:
             f"quality diagnostics leaked into an excluded buffer — exclusion must "
             f"keep governing every non-security code: {sorted(codes)}"
         )
+
+
+_MONO_MAIN = """\
+site_name: Monorepo Demo
+plugins:
+  - monorepo
+nav:
+  - Home: index.md
+  - '!include projects/sub/mkdocs.yml'
+"""
+_MONO_SUB = """\
+site_name: Sub
+docs_dir: docs
+nav:
+  - Leak: leak.md
+"""
+
+
+def _monorepo(tmp_path: Path, sub_body: str) -> None:
+    """A minimal mkdocs-monorepo project whose sub-project docs tree lives
+    OUTSIDE the main docs_root, with the leak file excluded by pattern."""
+    (tmp_path / "mkdocs.yml").write_text(_MONO_MAIN, encoding="utf-8")
+    (tmp_path / ".zenzic.toml").write_text(
+        'excluded_file_patterns = ["leak.md"]\n', encoding="utf-8"
+    )
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "index.md").write_text(f"# Home\n\n{_PROSE}\n", encoding="utf-8")
+    sub = tmp_path / "projects" / "sub" / "docs"
+    sub.mkdir(parents=True)
+    (tmp_path / "projects" / "sub" / "mkdocs.yml").write_text(_MONO_SUB, encoding="utf-8")
+    (sub / "leak.md").write_text(f"# Sub\n\n{_PROSE}\n\n{sub_body}\n", encoding="utf-8")
+
+
+class TestContentRoots:
+    """The security tier must reach files in extra content roots (mkdocs monorepo)
+    outside docs_root, even when user scoping excludes them — same guarantee the
+    d1fbe21 fix gave docs_root, which it initially left incomplete for content roots.
+    """
+
+    def test_check_references_reports_credential_in_excluded_subproject(
+        self, tmp_path: Path
+    ) -> None:
+        _monorepo(tmp_path, f'aws_key = "{_SECRET}"')
+        result = CliRunner().invoke(
+            app,
+            ["check", "references", str(tmp_path / "docs"), "--no-header"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 2, (
+            "a credential in an excluded monorepo sub-project doc escaped the "
+            f"security scan — got {result.exit_code}:\n{result.output}"
+        )
+
+    def test_guard_scan_covers_monorepo_content_roots(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _monorepo(tmp_path, f'aws_key = "{_SECRET}"')
+        monkeypatch.chdir(tmp_path)
+        result = CliRunner().invoke(app, ["guard", "scan"], catch_exceptions=False)
+        assert result.exit_code == 2, (
+            "guard scan reported clean over a credential in an excluded monorepo "
+            f"sub-project — got {result.exit_code}:\n{result.output}"
+        )
+
+
+class TestLocaleRoots:
+    """No shipped adapter returns non-empty locale roots, so this is proven at the
+    engine boundary: when a caller supplies locale_roots, a user-excluded file in
+    one must still be security-scanned."""
+
+    def test_excluded_locale_file_still_security_scanned(self, tmp_path: Path) -> None:
+        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.core.scanner import scan_docs_references
+        from zenzic.models.config import ZenzicConfig
+
+        (tmp_path / "mkdocs.yml").write_text("site_name: Demo\n", encoding="utf-8")
+        (tmp_path / ".zenzic.toml").write_text(
+            'docs_dir = "docs"\nexcluded_file_patterns = ["page.md"]\n', encoding="utf-8"
+        )
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text(f"# Home\n\n{_PROSE}\n", encoding="utf-8")
+        locale = tmp_path / "i18n" / "it"
+        locale.mkdir(parents=True)
+        (locale / "page.md").write_text(
+            f'# IT\n\n{_PROSE}\n\naws_key = "{_SECRET}"\n', encoding="utf-8"
+        )
+
+        cfg, _ = ZenzicConfig.load(tmp_path)
+        mgr = LayeredExclusionManager(cfg, repo_root=tmp_path, docs_root=docs)
+        reports, _ = scan_docs_references(
+            docs, mgr, repo_root=tmp_path, config=cfg, locale_roots=[(locale, "it")]
+        )
+        sec = [f.secret_type for r in reports for f in r.security_findings]
+        assert sec, (
+            "a credential in an excluded locale root escaped the security scan; "
+            f"reports carried no security findings ({len(reports)} report(s))"
+        )

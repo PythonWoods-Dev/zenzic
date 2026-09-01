@@ -11,6 +11,7 @@ from pathlib import Path
 import typer
 from rich.table import Table
 
+from zenzic.core.adapters import get_adapter
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
@@ -112,7 +113,22 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
 
     if not docs_root.is_dir():
         return []
-    return sorted(iter_security_scan_sources(docs_root, config, exclusion_mgr))
+    # The secret gate must reach every tree the quality scan reaches, not just
+    # docs_root: an MkDocs monorepo's included sub-project docs and i18n locale
+    # trees live outside docs_root, and a credential there must never be scoped
+    # away from `guard scan`. Discover them the same way `check` does.
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    return sorted(
+        iter_security_scan_sources(
+            docs_root,
+            config,
+            exclusion_mgr,
+            content_roots=_content_roots or None,
+            locale_roots=_locale_roots or None,
+        )
+    )
 
 
 def _mask_secret(secret: str) -> str:

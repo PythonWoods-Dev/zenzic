@@ -1884,7 +1884,13 @@ def scan_docs_references(
     # every other tier are preserved.
     _scanned_paths = {f.resolve(strict=False) for f in md_files}
     _security_only_reports: list[IntegrityReport] = []
-    for _sec_file in iter_security_scan_sources(docs_root, config, exclusion_manager):
+    for _sec_file in iter_security_scan_sources(
+        docs_root,
+        config,
+        exclusion_manager,
+        content_roots=content_roots,
+        locale_roots=locale_roots,
+    ):
         if _sec_file.resolve(strict=False) in _scanned_paths:
             continue
         try:
