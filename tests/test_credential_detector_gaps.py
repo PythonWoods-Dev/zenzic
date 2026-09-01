@@ -10,12 +10,17 @@ sweep of the detector subsystem and confirmed end-to-end against the CLI.
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 import pytest
 
 from zenzic.cli._guard import _scan_file_for_secrets
-from zenzic.core.credentials import scan_line_for_secrets
+from zenzic.core.credentials import (
+    scan_line_for_secrets,
+    scan_lines_with_lookback,
+    scan_url_for_secrets,
+)
 
 
 _AWS = "AKIA" + "ABCDEFGHIJKLMNOP"
@@ -26,17 +31,63 @@ def _types(line: str) -> list[str]:
     return [f.secret_type for f in scan_line_for_secrets(line, Path("x.md"), 1)]
 
 
+_GH_BODY = "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5"
+
+
+def _carrier_single(prefix: str) -> list[str]:
+    return _types(f"token = {prefix}{_GH_BODY}")
+
+
+def _carrier_lookback(prefix: str) -> list[str]:
+    """Genuinely split: the prefix ends one line and the body starts the next,
+    so only the joined form can match — the per-line scan cannot mask it."""
+    lines = [(1, "k: >-"), (2, f"  {prefix}"), (3, f"  {_GH_BODY}")]
+    return [f.secret_type for f in scan_lines_with_lookback(iter(lines), Path("x.md"))]
+
+
+def _carrier_url(prefix: str) -> list[str]:
+    return [
+        f.secret_type
+        for f in scan_url_for_secrets(f"https://x.dev/{prefix}{_GH_BODY}", Path("x.md"), 1)
+    ]
+
+
+def _carrier_base64(prefix: str) -> list[str]:
+    encoded = base64.b64encode(f"{prefix}{_GH_BODY}".encode()).decode()
+    return _types(f"k: {encoded}")
+
+
 class TestQuickPrefixGateMatchesItsPattern:
     """The github-token regex is ``(?i)`` but its quick-prefix gate listed only
     the all-lower and all-upper spellings, so ``Ghp_``/``gHp_`` satisfied the
     pattern and never reached it — the gate, not the regex, was the real
-    decision boundary, and it was narrower than what it guarded."""
+    decision boundary, and it was narrower than what it guarded.
+
+    The fix was first applied at **one of four** gate sites. The other three —
+    the URL scan, the base64-decoded rescan, and the cross-line lookback join —
+    kept the unfolded test, so a mixed-case token still exited 0 through them,
+    including through the lookback that the same change had just wired into
+    ``guard scan``. The earlier test covered case spelling and carrier path as
+    separate dimensions and never crossed them, which is precisely why that
+    shipped. This one is the cross-product.
+    """
 
     @pytest.mark.parametrize("prefix", ["ghp_", "GHP_", "Ghp_", "gHp_", "GhP_"])
-    def test_every_case_spelling_the_pattern_accepts_is_detected(self, prefix: str) -> None:
-        body = "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5"
-        assert _types(f"token = {prefix}{body}") == ["github-token"], (
-            f"the quick-prefix gate rejected {prefix!r}, which its own regex accepts"
+    @pytest.mark.parametrize(
+        ("carrier", "carry"),
+        [
+            ("single line", _carrier_single),
+            ("cross-line lookback", _carrier_lookback),
+            ("url", _carrier_url),
+            ("base64", _carrier_base64),
+        ],
+    )
+    def test_every_case_spelling_is_detected_through_every_carrier(
+        self, prefix: str, carrier: str, carry
+    ) -> None:
+        assert carry(prefix) == ["github-token"], (
+            f"the {carrier} gate rejected {prefix!r}, which its own regex accepts — "
+            "every gate must be a superset of the pattern it guards"
         )
 
 

@@ -148,9 +148,36 @@ _SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
     ("gitlab-pat", ("glpat-",), re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
 ]
 
-#: Maximum line length the credential scanner will scan.  Lines exceeding this limit
-#: are silently truncated before regex matching to prevent ReDoS or
-#: excessive memory consumption from pathological input (F2-1 hardening).
+# ── One gate, folded once ─────────────────────────────────────────────────────
+# The quick-prefix tables exist only to skip an RE2 search; the patterns decide.
+# A pre-filter must therefore be a SUPERSET of what its pattern accepts, and the
+# github-token pattern is `(?i)` while its prefix tuple spells out only the
+# all-lower and all-upper forms. Folding the haystack fixes that -- but the fix
+# has to reach every gate, and there are four: the single-line scan, the URL
+# scan, the base64-decoded rescan, and the cross-line lookback join. Applying it
+# at one site left the other three blind to exactly the spelling the fix was
+# written for, including the lookback that the same change had just wired into
+# `guard scan`. Hence one helper over one pre-folded table, used everywhere,
+# rather than four sites that each have to remember.
+_QUICK_SUBSTRINGS_FOLDED: tuple[str, ...] = tuple(
+    dict.fromkeys(s.casefold() for s in _QUICK_SUBSTRINGS)
+)
+_SECRETS_GATE: tuple[tuple[str, tuple[str, ...], re.RegexPattern], ...] = tuple(
+    (secret_type, tuple(dict.fromkeys(pfx.casefold() for pfx in prefixes)), pattern)
+    for secret_type, prefixes, pattern in _SECRETS
+)
+
+
+def _gate_open(haystack: str) -> str | None:
+    """Return the casefolded haystack when a known signature might be present.
+
+    ``None`` means no pattern can match, so the caller skips the whole table.
+    Folding happens once per haystack rather than once per prefix per call.
+    """
+    folded = haystack.casefold()
+    if not any(s in folded for s in _QUICK_SUBSTRINGS_FOLDED):
+        return None
+    return folded
 
 
 # ─── Base64 speculative decoder (CEO-194 / D095) ─────────────────────────────
@@ -280,11 +307,12 @@ def scan_url_for_secrets(
     Yields:
         :class:`SecurityFinding` for each secret pattern that matches.
     """
-    if not any(s in url for s in _QUICK_SUBSTRINGS):
+    _folded_url = _gate_open(url)
+    if _folded_url is None:
         return
     _path: Path | None = None
-    for secret_type, quick_prefixes, pattern in _SECRETS:
-        if not any(s in url for s in quick_prefixes):
+    for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
+        if not any(s in _folded_url for s in quick_prefixes):
             continue
         m = pattern.search(url)
         if m:
@@ -351,13 +379,13 @@ def scan_line_for_secrets(
         # never reached it. Case-folding the haystack for gating keeps the
         # filter faithful; a prefix hit the pattern then rejects costs one
         # search, which is the correct direction for a pre-filter to err.
-        _gate_form = line_form.casefold()
-        if not any(s.casefold() in _gate_form for s in _QUICK_SUBSTRINGS):
+        _gate_form = _gate_open(line_form)
+        if _gate_form is None:
             continue
-        for secret_type, quick_prefixes, pattern in _SECRETS:
+        for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
             if secret_type in seen:
                 continue
-            if not any(s.casefold() in _gate_form for s in quick_prefixes):
+            if not any(s in _gate_form for s in quick_prefixes):
                 continue
             m = pattern.search(line_form)
             if m:
@@ -399,12 +427,13 @@ def scan_line_for_secrets(
             _decoded = _try_decode_base64(_candidate)
             if _decoded is None:
                 continue
-            if not any(s in _decoded for s in _QUICK_SUBSTRINGS):
+            _folded_decoded = _gate_open(_decoded)
+            if _folded_decoded is None:
                 continue
-            for secret_type, quick_prefixes, pattern in _SECRETS:
+            for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
                 if secret_type in seen:
                     continue
-                if not any(s in _decoded for s in quick_prefixes):
+                if not any(s in _folded_decoded for s in quick_prefixes):
                     continue
                 m = pattern.search(_decoded)
                 if m:
@@ -545,12 +574,13 @@ def scan_lines_with_lookback(
         # 2. Lookback: join previous line tail + current line head (normalised)
         if prev_normalized:
             joined = prev_normalized[-80:] + current_normalized[:80]
-            if any(s in joined for s in _QUICK_SUBSTRINGS):
+            _folded_join = _gate_open(joined)
+            if _folded_join is not None:
                 already_seen = seen_this_line | prev_seen
-                for secret_type, quick_prefixes, pattern in _SECRETS:
+                for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
                     if secret_type in already_seen:
                         continue
-                    if not any(s in joined for s in quick_prefixes):
+                    if not any(s in _folded_join for s in quick_prefixes):
                         continue
                     m = pattern.search(joined)
                     if m:
