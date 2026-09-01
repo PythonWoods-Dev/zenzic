@@ -1052,7 +1052,13 @@ class LanguageServer:
                     },
                 }
                 code_actions.append(suppress_action)
-            elif diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
+            # Positive membership, not merely 'not forbidden': editors hand every
+            # provider's diagnostics to every provider's code-action handler, so a
+            # foreign code (markdownlint's MD036, say) satisfies 'not in
+            # NON_SUPPRESSIBLE_CODES' trivially. Offering a zenzic:ignore comment for
+            # it writes a directive the other linter cannot read, leaving the finding
+            # live while the editor implies it was handled.
+            elif diag_code in CODE_DEFINITIONS and diag_code not in NON_SUPPRESSIBLE_CODES:
                 insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
                 # Use a large character index to append to the end of the line
                 insert_char = 9999

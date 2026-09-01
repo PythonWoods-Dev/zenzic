@@ -2541,3 +2541,68 @@ def test_lsp_will_rename_files_partial_success_one_excluded_one_fixed(tmp_path: 
     assert a_uri not in changes, "excluded file must not appear in the WorkspaceEdit"
     assert c_uri in changes, "the non-excluded file must still be fixed independently"
     assert "[B](b2.md)" in changes[c_uri][0]["newText"]
+
+
+def test_lsp_code_action_ignores_foreign_diagnostics(tmp_path) -> None:
+    """A suppression must only be offered for Zenzic's own findings.
+
+    Editors surface every provider's diagnostics to every provider's code-action
+    handler. The eligibility check asked whether a code was *forbidden* from
+    suppression rather than whether it was ours, so any foreign code passed: a
+    markdownlint ``MD036`` produced "Suppress MD036 for this line", writing a
+    ``zenzic:ignore:`` comment that markdownlint cannot read. The finding stayed
+    live underneath while the editor implied it had been handled.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "# Title\n\n**Emphasis used as a heading**\n"
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 33},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 33},
+                            },
+                            "severity": 2,
+                            "code": "MD036",
+                            "source": "markdownlint",
+                            "message": "MD036/no-emphasis-as-heading: Emphasis used instead of a heading",
+                        }
+                    ],
+                    "only": ["quickfix"],
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    assert "MD036" not in payload, (
+        "Zenzic offered a code action for a markdownlint diagnostic; its suppression "
+        f"comment syntax does not suppress foreign findings:\n{payload}"
+    )
