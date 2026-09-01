@@ -195,6 +195,16 @@ SECURITY_TIER_CODES: frozenset[str] = frozenset(
     }
 )
 
+#: The exit code each security-tier member forces. Split out from the tier so
+#: adding a code to SECURITY_TIER_CODES cannot leave its exit semantics
+#: undecided -- a structural test asserts the two subsets plus Z202 partition
+#: the tier exactly, so a new member fails the suite until it is classified.
+#: Z202 (traversal boundary) is deliberately in neither: it is non-suppressible
+#: but reports at the ordinary error tier, per the Exit Code Contract, which
+#: names only Z203 for exit 3 and Z201/Z204/Z205 for exit 2.
+SECURITY_INCIDENT_CODES: frozenset[str] = frozenset({"Z203"})
+SECURITY_BREACH_CODES: frozenset[str] = frozenset({"Z201", "Z204", "Z205"})
+
 #: Codes no suppression mechanism may silence: the security tier above, plus the
 #: two fatal config-load errors. Composed, never restated, so adding a code to
 #: SECURITY_TIER_CODES protects it everywhere at once.

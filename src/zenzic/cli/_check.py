@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,7 +17,13 @@ from zenzic.core.adapters import get_adapter
 from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
 from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
-from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES, code_severity
+from zenzic.core.codes import (
+    CODE_DEFINITIONS,
+    NON_SUPPRESSIBLE_CODES,
+    SECURITY_BREACH_CODES,
+    SECURITY_INCIDENT_CODES,
+    code_severity,
+)
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -254,12 +261,7 @@ def check_links(
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
-        incidents = sum(1 for f in findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -269,12 +271,7 @@ def check_links(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
-        incidents = sum(1 for f in findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -282,12 +279,7 @@ def check_links(
         return
     elif output_format == "github-annotations":
         _shared._output_github_annotations(findings)
-        incidents = sum(1 for f in findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -328,12 +320,7 @@ def check_links(
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(*footer_lines),
         )
-    incidents = sum(1 for f in findings if f.severity == "security_incident")
-    if incidents:
-        raise typer.Exit(3)
-    breaches = sum(1 for f in findings if f.severity == "security_breach")
-    if breaches:
-        raise typer.Exit(2)
+    _evaluate_security_exit(findings)
     if errors or (strict and warnings):
         raise typer.Exit(1)
 
@@ -719,7 +706,7 @@ def check_references(
                     rel_path=rel,
                     line_no=rule_f.line_no,
                     code=rule_f.rule_id,
-                    severity=rule_f.severity,
+                    severity=_finding_severity(rule_f.rule_id),
                     message=rule_f.message,
                     source_line=rule_f.matched_line or "",
                     col_start=rule_f.col_start,
@@ -742,9 +729,7 @@ def check_references(
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count or (strict and warnings_count):
@@ -754,9 +739,7 @@ def check_references(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count or (strict and warnings_count):
@@ -793,9 +776,7 @@ def check_references(
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
 
-    breaches = sum(1 for f in findings if f.severity == "security_breach")
-    if breaches:
-        raise typer.Exit(2)
+    _evaluate_security_exit(findings)
     if errors or (strict and warnings):
         raise typer.Exit(1)
 
@@ -1006,7 +987,7 @@ def check_placeholders(
                         rel_path=rel,
                         line_no=rule_f.line_no,
                         code=rule_f.rule_id,
-                        severity=rule_f.severity,
+                        severity=_finding_severity(rule_f.rule_id),
                         message=rule_f.message,
                         source_line=rule_f.matched_line or "",
                         col_start=rule_f.col_start,
@@ -1049,12 +1030,7 @@ def check_placeholders(
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
-    incidents = sum(1 for f in findings if f.severity == "security_incident")
-    if incidents:
-        raise typer.Exit(3)
-    breaches = sum(1 for f in findings if f.severity == "security_breach")
-    if breaches:
-        raise typer.Exit(2)
+    _evaluate_security_exit(findings)
     if errors > 0 or (strict and warnings > 0):
         raise typer.Exit(1)
 
@@ -1096,6 +1072,32 @@ class _AllCheckResults:
 # so this is an alias, never a restatement of the members (a copy that merely
 # agrees today drifts the day one side gains a code; enforced by
 # tests/test_always_evaluated_ssot_structural.py).
+def _evaluate_security_exit(findings: Iterable[Finding]) -> None:
+    """The single authority for the security tier's exit code. Raises or returns.
+
+    Keyed on the finding's **code**, never its severity. Severity is set by
+    whichever subsystem constructed the finding, and producers disagree: the
+    credential bridge stamps ``security_breach`` directly, while
+    ``incremental.py`` emits ``Z203`` with ``code_severity("Z203")`` ==
+    ``"error"``. A severity-based test therefore reports a rendered path
+    traversal as an ordinary quality finding, which is exactly how
+    ``check references`` came to exit 1 on a Z203 while its SARIF output for
+    the same run said "Critical security finding detected". The code is
+    structural and cannot be overwritten downstream, so it is the authority.
+
+    Every early exit that can run after findings exist must call this first --
+    three separate defects (the Z906 "audit skipped" shortcut, the unreadable
+    -file clean bill, and the corrupt-baseline handler) were each one branch
+    returning ahead of the contract. One choke point is cheaper to keep right
+    than N branches that each have to remember.
+    """
+    codes = {f.code for f in findings}
+    if codes & SECURITY_INCIDENT_CODES:
+        raise typer.Exit(3)
+    if codes & SECURITY_BREACH_CODES:
+        raise typer.Exit(2)
+
+
 #: Severities that force a non-zero exit regardless of anything else on screen.
 #: Named once so a presentation shortcut cannot return before the exit logic
 #: that consumes them (see the Z906 guard in ``check all``).
@@ -1583,7 +1585,7 @@ def _to_findings(
                     rel_path=rel,
                     line_no=rule_f.line_no,
                     code=rule_f.rule_id,
-                    severity=rule_f.severity,
+                    severity=_finding_severity(rule_f.rule_id),
                     message=rule_f.message,
                     source_line=rule_f.matched_line,
                     col_start=rule_f.col_start,
@@ -1940,6 +1942,12 @@ def check_all(
                 typer.echo(
                     f"ERROR: Failed to load baseline '{baseline_file_path}': {exc}", err=True
                 )
+                # A malformed baseline is a configuration problem, not a licence
+                # to forget what the scan already found: `all_findings` is
+                # populated well before this point, so exiting 1 here downgraded
+                # a live credential breach from 2 to 1. A checked-in, writable
+                # artifact must not be able to do that.
+                _evaluate_security_exit(all_findings)
                 raise typer.Exit(1) from None
 
     # The single elapsed measurement behind the summary line's total. It spans
@@ -1957,12 +1965,7 @@ def check_all(
             results, all_findings, repo_root, docs_root, config, _score_suppression_audit
         )
 
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
@@ -1979,12 +1982,7 @@ def check_all(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(all_findings, __version__, rules_map=_rules_map)
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
@@ -2000,12 +1998,7 @@ def check_all(
     elif output_format == "github-annotations":
         _shared._output_github_annotations(all_findings)
 
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
@@ -2143,12 +2136,7 @@ def check_all(
             suppression_audit, audit_mode=audit, scoped_to_single_file=_single_file is not None
         )
 
-    incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-    if incidents:
-        raise typer.Exit(3)
-    breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-    if breaches:
-        raise typer.Exit(2)
+    _evaluate_security_exit(all_findings)
 
     if active_baseline is not None:
         unbaselined_defects = sum(

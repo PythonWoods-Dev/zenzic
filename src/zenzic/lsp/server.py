@@ -949,6 +949,20 @@ class LanguageServer:
             self.send_response(msg_id, result=[])
             return
 
+        # Every peer handler bounds the client-supplied path before acting on
+        # it -- didOpen, didChange, _handle_file_changes, _handle_hover and
+        # _handle_will_rename_files all do. This one did not, and its quick
+        # fixes replace the document's full range, so aimed at a file outside
+        # the documentation domain it both disclosed that file's contents in
+        # the returned newText and offered to overwrite it with a Markdown
+        # round-trip. Confirmed reaching a file outside repo_root and one
+        # inside .git/, a System Guardrail directory.
+        if not (
+            self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+        ) or not self._is_within_domain(uri):
+            self.send_response(msg_id, result=[])
+            return
+
         content: str | None = None
         if uri in self.documents.documents:
             content = self.documents.documents[uri]

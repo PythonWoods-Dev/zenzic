@@ -2697,3 +2697,71 @@ def test_lsp_code_action_ignores_foreign_diagnostic_quoting_a_zenzic_code(tmp_pa
         "Zenzic adopted a foreign diagnostic by scraping a Z-code out of its "
         f"message; the suppression it offers cannot silence another tool:\n{payload}"
     )
+
+
+def test_lsp_code_action_refuses_paths_outside_the_documentation_domain(tmp_path) -> None:
+    """``textDocument/codeAction`` must bound the client-supplied path.
+
+    It was the only request handler acting on a ``file://`` URI without a
+    containment check, while five peers gate. Because its quick fixes replace
+    the document's full range, aiming it at an out-of-domain file both
+    disclosed that file's contents in the returned ``newText`` and offered to
+    overwrite it with a Markdown round-trip — confirmed against a file outside
+    ``repo_root`` and one inside ``.git/``.
+    """
+    (tmp_path / "mkdocs.yml").write_text("site_name: D\n", encoding="utf-8")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Home\n\nProse.\n", encoding="utf-8")
+
+    outside = tmp_path.parent / f"outside-{tmp_path.name}.md"
+    outside.write_text("# Outside\n\n```\nprint(1)\n```\n", encoding="utf-8")
+
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    uri = outside.resolve().as_uri()
+    assert not server._is_within_domain(uri), "fixture must be out of domain to be meaningful"
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 31,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 3},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 3},
+                            },
+                            "severity": 1,
+                            "code": "Z505",
+                            "source": "zenzic",
+                            "message": "[Z505] fenced block has no language",
+                        }
+                    ],
+                    "only": ["quickfix"],
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    assert "print(1)" not in payload, (
+        f"the out-of-domain file's contents were echoed back to the client:\n{payload}"
+    )
+    assert "Fix Z505" not in payload and "Suppress Z505" not in payload, (
+        f"an edit was offered for a file outside the documentation domain:\n{payload}"
+    )
