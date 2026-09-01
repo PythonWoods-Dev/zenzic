@@ -29,6 +29,7 @@ import asyncio
 import contextlib
 import html
 import json
+import posixpath
 import sys
 import textwrap
 import time
@@ -162,7 +163,13 @@ VALIDATION_PARALLEL_THRESHOLD = 50
 
 # Stage 1: atomic capture of <a> and <img> (multiline, DFA-pure, O(N)).
 # Constraint: the '>' character terminates the tag and is not allowed in attribute values.
-_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\b(?P<attrs>[^>]*?)>")
+# Case-insensitive because HTML tag names are, and Markdown passes raw HTML
+# through untouched: without `(?i)` an uppercase `<A HREF=...>` matched nothing
+# at all, so the whole polyglot pipeline skipped the tag and both Z203 (exit 3)
+# and Z205 (exit 2) were bypassed by shift-key alone. The `.lower()` applied to
+# the captured tag name downstream was dead code until now -- it documented the
+# intent this pattern did not implement.
+_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?is)<(a|img)\b(?P<attrs>[^>]*?)>")
 
 # Stage 2: linear parsing of attribute=value pairs.
 _RE_POLY_ATTR: re.RegexPattern = re.compile(
@@ -673,7 +680,31 @@ class LinkError:
 # Detects hrefs that, after traversal, would reach an OS system directory.
 # Triggering this classifier upgrades a PATH_TRAVERSAL error to a
 # PATH_TRAVERSAL_SUSPICIOUS security incident (Exit Code 3).
-_RE_SYSTEM_PATH: re.RegexPattern = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
+#: Directory names that mark an OS system location when a traversal *lands* on
+#: one. Compared against the first surviving path segment, never substring-
+#: searched: ``../../guide/usr/manual.md`` contains ``/usr/`` and is ordinary
+#: documentation, while ``../../../../etc/passwd`` arrives at ``etc``.
+_SYSTEM_ROOT_DIRS: frozenset[str] = frozenset(
+    {
+        # POSIX
+        "etc",
+        "root",
+        "var",
+        "proc",
+        "sys",
+        "usr",
+        "boot",
+        "dev",
+        "bin",
+        "sbin",
+        # Windows -- the classifier used to be POSIX-only, so a backslash path
+        # targeting system32 produced no finding at all.
+        "windows",
+        "winnt",
+        "system32",
+        "programdata",
+    }
+)
 
 
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
@@ -683,11 +714,28 @@ def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
     A traversal to ``../../sibling-repo/README.md`` is a boundary violation
     but has no OS-exploitation intent.  Only the former warrants Exit Code 3.
 
-    This check intentionally remains a fast regex scan over the raw href
-    string — no filesystem calls, no Path resolution — to stay within the
-    Zero I/O constraint of the validator hot-path.
+    Classification is by *destination*, not by text. The previous
+    implementation substring-searched the raw href for ``/etc/``, ``/usr/`` and
+    friends, which is true of a real attack and equally true of
+    ``../../guide/usr/manual.md`` — raising a **non-suppressible exit 3** on
+    legitimate documentation, with no escape hatch, which is the worse
+    direction to be wrong in. It was also case-sensitive and POSIX-only, so
+    ``/ETC/passwd`` silently downgraded to a boundary crossing and a
+    backslash path to ``system32`` produced nothing at all.
+
+    Still pure string work — no filesystem calls, no ``Path`` resolution — so
+    the validator hot-path keeps its Zero I/O property.
     """
-    return "suspicious" if _RE_SYSTEM_PATH.search(href) else "boundary"
+    candidate = href.split("?", 1)[0].split("#", 1)[0].replace("\\", "/")
+    # normpath collapses '.' and interior '..' without touching the filesystem.
+    normalized = posixpath.normpath(candidate)
+    segments = [seg for seg in normalized.split("/") if seg not in ("", ".")]
+    # Drop the leading escape hops; what remains is where the link arrives.
+    while segments and segments[0] == "..":
+        segments.pop(0)
+    if segments and segments[0].casefold() in _SYSTEM_ROOT_DIRS:
+        return "suspicious"
+    return "boundary"
 
 
 def _build_link_graph(

@@ -221,13 +221,26 @@ class LayeredExclusionManager:
         which made it a suppression mechanism for a tier three separate code
         paths call non-suppressible.
 
+        Adapter-supplied metadata filenames are stripped for the same reason.
+        That set exists so an engine's own config is not analysed as
+        documentation, but ``ZensicalAdapter`` folds in every string under
+        ``extra_css``/``extra_javascript``/``theme.logo``/``theme.favicon`` with
+        no extension filter, and the manager matches it by **basename anywhere
+        in the tree** as an L1a guardrail — so ``extra_css = ["leak.md"]`` in a
+        project's own config hid every ``leak.md`` from the credential scan.
+        A guardrail the scanned project can write into is user-controllable by
+        definition. Nothing is lost by dropping it here: this view only walks
+        ``DOC_SUFFIXES`` files, and a real engine config is not one.
+
         Only the system guardrails survive: they are the engine's own
         internals (``.git``, ``node_modules``, build output), fixed in code and
         not editable by the project under scan. That is the whole boundary now.
         """
         view = object.__new__(LayeredExclusionManager)
         view._system_dirs = self._system_dirs
-        view._adapter_metadata_files = self._adapter_metadata_files
+        # Stripped: config-driven, basename-matched tree-wide, and writable by
+        # the project under scan -- see the docstring above.
+        view._adapter_metadata_files = frozenset()
         view._repo_root = self._repo_root
         view._config_excluded_dirs = frozenset()
         view._config_included_dirs = frozenset()
