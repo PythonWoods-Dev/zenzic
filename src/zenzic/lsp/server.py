@@ -441,6 +441,10 @@ class LanguageServer:
             self.adapter = None
             self.engine = None
             self.vsm = None
+            # _build_vsm_sync only re-creates the rule engine when this is None, so
+            # without the reset a user's newly added custom rule, brand term, or
+            # plugin silently never fires after a visibly successful config reload.
+            self.rule_engine = None
             self._build_vsm_sync()
             self._sync_workspace_and_publish()
             return
@@ -661,7 +665,18 @@ class LanguageServer:
         elif method == "textDocument/hover":
             self._handle_hover(params, msg_id)
         elif method == "textDocument/codeAction":
-            self._handle_code_action(params, msg_id)
+            # A request MUST be answered. Client-supplied params reach arithmetic
+            # and attribute access inside the handler (a string where a line
+            # number is expected, a list where an object is), and an exception
+            # there escaped to serve()'s catch-all, which logs to stderr and
+            # moves on -- leaving the request unanswered forever and the client
+            # waiting on an id that will never come back. Malformed input is the
+            # client's error to make; a hang is ours.
+            try:
+                self._handle_code_action(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=[])
         elif method == "textDocument/willSaveWaitUntil":
             self._handle_will_save_wait_until(params, msg_id)
         elif method == "workspace/willRenameFiles":

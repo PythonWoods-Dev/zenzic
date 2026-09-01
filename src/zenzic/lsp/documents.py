@@ -44,16 +44,27 @@ class DocumentManager:
                 range_info = change["range"]
                 start = range_info["start"]
                 end = range_info["end"]
-                text = self._apply_edit(text, start, end, change["text"])
+                # `.get` rather than `[...]`: a change object without "text"
+                # raised KeyError, the server loop swallowed it, and the buffer
+                # was left at its pre-change value while the editor moved on --
+                # every later incremental patch then applied to a wrong base,
+                # a permanent desync with no signal.
+                text = self._apply_edit(text, start, end, change.get("text", ""))
             else:
                 # Full sync fallback (if the editor decides to send a full string)
-                text = change["text"]
+                text = change.get("text", "")
 
         self.documents[uri] = text
 
     def _to_index(self, text: str, line_idx: int, char_idx: int) -> int:
         """Convert an LSP (line, UTF-16 code unit column) position to a Python string index."""
         lines = text.splitlines(keepends=True)
+        # A negative line index used to slice from the end -- `lines[:line_idx]`
+        # computed a matching wrong prefix, so the edit landed at a plausible
+        # but wrong offset with no error at all, and every subsequent diagnostic
+        # was computed against content the editor does not have. Clamp instead.
+        line_idx = max(0, line_idx)
+        char_idx = max(0, char_idx)
         if line_idx >= len(lines):
             return len(text)
 

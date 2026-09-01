@@ -2765,3 +2765,63 @@ def test_lsp_code_action_refuses_paths_outside_the_documentation_domain(tmp_path
     assert "Fix Z505" not in payload and "Suppress Z505" not in payload, (
         f"an edit was offered for a file outside the documentation domain:\n{payload}"
     )
+
+
+def test_lsp_code_action_always_answers_a_malformed_request(tmp_path) -> None:
+    """A request must be answered even when its params are malformed.
+
+    Client-supplied values reach arithmetic and attribute access inside the
+    handler — a string where a line number is expected, a list where an object
+    is. The exception escaped to ``serve()``'s catch-all, which logs and moves
+    on, leaving the request unanswered forever and the client waiting on an id
+    that never comes back. Malformed input is the client's error to make; a
+    hang is ours.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    page = docs / "index.md"
+    page.write_text("# H\n\nProse.\n", encoding="utf-8")
+    uri = page.resolve().as_uri()
+    good_range = {"start": {"line": 2, "character": 0}, "end": {"line": 2, "character": 3}}
+
+    malformed = [
+        {
+            "diagnostics": [
+                {
+                    "range": {"start": {"line": "x", "character": 0}, "end": good_range["end"]},
+                    "code": "Z505",
+                    "source": "zenzic",
+                    "message": "m",
+                }
+            ]
+        },
+        {"diagnostics": ["not-an-object"]},
+        {"diagnostics": [{"range": [1, 2], "code": "Z505", "source": "zenzic", "message": "m"}]},
+    ]
+    for context in malformed:
+        server = LanguageServer()
+        out_stream = io.BytesIO()
+        server.stdout = out_stream
+        server.repo_root = tmp_path
+        server._build_vsm_sync()
+        server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {"textDocument": {"uri": uri, "text": page.read_text(encoding="utf-8")}},
+            }
+        )
+        out_stream.seek(0)
+        out_stream.truncate(0)
+        server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 77,
+                "method": "textDocument/codeAction",
+                "params": {"textDocument": {"uri": uri}, "range": good_range, "context": context},
+            }
+        )
+        out_stream.seek(0)
+        assert '"id":77' in out_stream.read().decode(), (
+            f"no response was sent for a malformed codeAction request: {context!r}"
+        )
