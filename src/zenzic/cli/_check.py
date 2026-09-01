@@ -16,7 +16,7 @@ from zenzic.core.adapters import get_adapter
 from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
 from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
-from zenzic.core.codes import CODE_DEFINITIONS, code_severity
+from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES, code_severity
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -1082,9 +1082,12 @@ class _AllCheckResults:
 # inviolable."), and Z110/Z111 are fatal config-load errors that must always
 # surface. --only narrows which OTHER codes are reported; it must never be able
 # to silence this set, whether or not any of its members are explicitly listed.
-_ALWAYS_EVALUATED_CODES: frozenset[str] = frozenset(
-    {"Z110", "Z111", "Z201", "Z202", "Z203", "Z204", "Z205"}
-)
+# The set IS codes.py's NON_SUPPRESSIBLE_CODES — "codes no output filter may
+# drop" and "codes nothing may suppress" are one contract with one authority,
+# so this is an alias, never a restatement of the members (a copy that merely
+# agrees today drifts the day one side gains a code; enforced by
+# tests/test_always_evaluated_ssot_structural.py).
+_ALWAYS_EVALUATED_CODES: frozenset[str] = NON_SUPPRESSIBLE_CODES
 
 
 def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
