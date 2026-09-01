@@ -434,3 +434,52 @@ class TestGuardScanFailsClosedOnUnreadableFiles:
         assert result.exit_code == 0, (
             f"a fully readable, secret-free repo must still pass: {result.output}"
         )
+
+
+class TestCheckLinksCoversContentRoots:
+    """``check links`` must sweep the same trees its siblings do.
+
+    ``iter_security_scan_sources``' own contract says the security scan must
+    cover *every* tree ``scan_docs_references`` reaches. ``check links`` computed
+    ``locale_roots`` and passed it, but never computed ``content_roots`` — the
+    one subcommand of nine that did not — so an MkDocs monorepo's included
+    sub-project docs were outside its scan entirely. Since ``check links`` does
+    surface security findings, that produced a user-visible split: exit 2 under
+    ``check all`` and exit 0 under ``check links``, on one repository.
+    """
+
+    def test_check_links_reports_credential_in_monorepo_subproject(self, tmp_path: Path) -> None:
+        _monorepo(tmp_path, f'aws_key = "{_SECRET}"')
+        result = CliRunner().invoke(
+            app,
+            ["check", "links", str(tmp_path / "docs"), "--no-header"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 2, (
+            "check links did not sweep the monorepo content root its siblings sweep — "
+            f"got {result.exit_code}:\n{result.output}"
+        )
+
+    def test_check_all_and_check_links_agree(self, tmp_path: Path) -> None:
+        """One repository must not get two answers depending on the subcommand."""
+        _monorepo(tmp_path, f'aws_key = "{_SECRET}"')
+        all_code = (
+            CliRunner()
+            .invoke(
+                app, ["check", "all", str(tmp_path / "docs"), "--no-header"], catch_exceptions=False
+            )
+            .exit_code
+        )
+        links_code = (
+            CliRunner()
+            .invoke(
+                app,
+                ["check", "links", str(tmp_path / "docs"), "--no-header"],
+                catch_exceptions=False,
+            )
+            .exit_code
+        )
+        assert all_code == links_code == 2, (
+            f"subcommand changed the security verdict: check all={all_code}, "
+            f"check links={links_code}"
+        )

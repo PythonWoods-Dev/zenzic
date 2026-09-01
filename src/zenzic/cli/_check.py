@@ -195,6 +195,14 @@ def check_links(
     _roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _roots if _roots else None
 
+    # Content roots (an MkDocs monorepo's !include'd sub-project docs) live
+    # outside docs_root, and the security tier must reach every tree this scan
+    # reaches -- every sibling subcommand passes these, and omitting them here
+    # made one repository answer exit 2 under `check all` and exit 0 under
+    # `check links`.
+    _content = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content if _content else None
+
     # Scan once, share the reports with validate_links_structured() (via its
     # own `reports=` reuse parameter) so credential-scan results already
     # computed during this same pass aren't discarded. See
@@ -208,6 +216,7 @@ def check_links(
         config=config,
         validate_links=strict and not no_external,
         locale_roots=locale_roots,
+        content_roots=content_roots,
     )
     link_errors = validate_links_structured(
         docs_root,
@@ -2100,9 +2109,7 @@ def check_all(
             else:
                 _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
                 _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
-            _pre_breaches = sum(
-                1 for _f in all_findings if _f.severity in {"security_breach", "security_incident"}
-            )
+            _pre_breaches = sum(1 for _f in all_findings if _f.severity in _SECURITY_SEVERITIES)
             _gate_failed = (
                 _pre_breaches > 0 or _pre_errors > 0 or (effective_strict and _pre_warnings > 0)
             )

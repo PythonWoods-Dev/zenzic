@@ -95,3 +95,32 @@ def test_no_module_restates_the_whole_security_tier_as_a_literal() -> None:
         "codes.SECURITY_TIER_CODES — a copy that agrees today drifts tomorrow:\n  "
         + "\n  ".join(offenders)
     )
+
+
+def test_no_module_restates_the_security_severities_as_a_literal() -> None:
+    """The severity pair has one authority too, and nothing may restate it.
+
+    ``cli/_check.py`` introduced ``_SECURITY_SEVERITIES`` with a comment saying
+    it is "named once so a presentation shortcut cannot return before the exit
+    logic that consumes them" — and then restated the same two members as a bare
+    literal about a thousand lines below it. Two matching literals governing
+    whether a finding counts as a security finding, with nothing enforcing their
+    agreement, is the same shape as the code-set duplication above.
+    """
+    from zenzic.cli._check import _SECURITY_SEVERITIES
+
+    offenders: list[str] = []
+    for path in sorted(_SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for lineno, members in _string_sets(tree):
+            if members == _SECURITY_SEVERITIES and path.name != "_check.py":
+                offenders.append(f"{path.relative_to(_SRC.parent.parent)}:{lineno}")
+            elif members == _SECURITY_SEVERITIES and path.name == "_check.py":
+                # The definition itself is allowed exactly once.
+                src_line = path.read_text(encoding="utf-8").splitlines()[lineno - 1]
+                if "_SECURITY_SEVERITIES" not in src_line:
+                    offenders.append(f"{path.relative_to(_SRC.parent.parent)}:{lineno}")
+    assert not offenders, (
+        "the security-severity pair is restated as a literal instead of imported "
+        "from cli/_check.py's _SECURITY_SEVERITIES:\n  " + "\n  ".join(offenders)
+    )
