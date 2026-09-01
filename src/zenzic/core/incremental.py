@@ -180,7 +180,12 @@ class IncrementalAnalysisEngine:
         Returns:
             Mapping of file URI to list of ``ZenzicDiagnostic`` instances.
         """
-        from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
+        from zenzic.core.discovery import (
+            DOC_SUFFIXES,
+            iter_markdown_sources,
+            iter_security_scan_sources,
+            walk_files,
+        )
         from zenzic.core.exclusion import LayeredExclusionManager
         from zenzic.models.config import load_config_with_diagnostics
 
@@ -214,6 +219,13 @@ class IncrementalAnalysisEngine:
         exclusion_manager = LayeredExclusionManager(
             self.config, repo_root=self.repo_root, docs_root=self.docs_root
         )
+        # User scoping never silences the security tier: a buffer excluded by
+        # excluded_dirs/excluded_file_patterns skips quality analysis and the
+        # VSM, but still receives a security-only diagnostic pass (Z201/Z204)
+        # below — the same boundary the CLI's scan_docs_references draws.
+        # System-guardrail and VCS exclusions (the security_view) still apply.
+        security_view = exclusion_manager.security_view()
+        security_only: dict[Path, str] = {}
 
         # 1. Update text and anchors for modified files (or all files on full sync)
         files_to_process: set[Path] = set()
@@ -259,12 +271,33 @@ class IncrementalAnalysisEngine:
                     if buf_path.suffix.lower() not in DOC_SUFFIXES:
                         continue
                     if exclusion_manager.should_exclude_file(buf_path, self.docs_root):
+                        if not security_view.should_exclude_file(buf_path, self.docs_root):
+                            security_only[buf_path] = buf_text
                         continue
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
                         self.anchors_cache[buf_path] = anchors_in_file(buf_text)
                     files_to_process.add(buf_path)
                     valid_paths.add(buf_path)
+
+            # Security-only sweep of on-disk files user scoping removed from
+            # the corpus walk above — the same boundary the CLI's
+            # scan_docs_references draws, so init publishes Z201/Z204 for an
+            # excluded file even before anyone opens it.
+            for sec_file in iter_security_scan_sources(
+                self.docs_root, self.config, exclusion_manager
+            ):
+                sec_path = sec_file.resolve()
+                if sec_path in valid_paths or sec_path in security_only:
+                    continue
+                sec_uri = sec_path.as_uri()
+                if sec_uri in overlay.buffers:
+                    security_only[sec_path] = overlay.buffers[sec_uri]
+                else:
+                    try:
+                        security_only[sec_path] = sec_path.read_text(encoding="utf-8")
+                    except OSError:
+                        continue
 
             # Atomic cache pruning (LSP-FIX-017 / Zero-DBT):
             # Remove stale deleted paths from caches so phantom routes are not created.
@@ -281,6 +314,14 @@ class IncrementalAnalysisEngine:
                 if path.suffix.lower() not in DOC_SUFFIXES:
                     continue
                 if exclusion_manager.should_exclude_file(path, self.docs_root):
+                    if not security_view.should_exclude_file(path, self.docs_root):
+                        if uri in overlay.buffers:
+                            security_only[path] = overlay.buffers[uri]
+                        else:
+                            try:
+                                security_only[path] = path.read_text(encoding="utf-8")
+                            except OSError:
+                                pass
                     continue
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
@@ -378,6 +419,11 @@ class IncrementalAnalysisEngine:
                     break
 
             results[uri] = typed_diags
+
+        for sec_path, sec_text in security_only.items():
+            results[sec_path.as_uri()] = self._findings_to_diagnostics(
+                sec_text, self._security_rule_findings(sec_path, sec_text)
+            )
 
         # 6. Ghost diagnostic clearing (LSP-FIX-017 — engine side)
         # On a full workspace sync, detect URIs that previously had active
@@ -553,38 +599,7 @@ class IncrementalAnalysisEngine:
         # scans directly. Both routes go through the same primitive, so which
         # findings exist is decided once — only the output shape differs, since
         # this path emits RuleFinding and the CLI emits SecurityFinding events.
-        from zenzic.core.credentials import scan_security_findings
-
-        for _sf in scan_security_findings(text, path, self.config):
-            if _sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Finding category identifier
-                findings.append(
-                    RuleFinding(
-                        rule_id="Z204",
-                        severity=code_severity("Z204"),
-                        file_path=_sf.file_path,
-                        line_no=_sf.line_no,
-                        message=(
-                            f"Forbidden term detected — remove from documentation: "
-                            f"'{_sf.match_text}'"
-                        ),
-                        match_text=_sf.match_text,
-                        matched_line=_sf.url,
-                        col_start=_sf.col_start,
-                    )
-                )
-            else:
-                findings.append(
-                    RuleFinding(
-                        rule_id="Z201",
-                        severity=code_severity("Z201"),
-                        file_path=_sf.file_path,
-                        line_no=_sf.line_no,
-                        message=f"Credential or secret detected: {_sf.secret_type}",
-                        match_text=_sf.match_text,
-                        matched_line=_sf.url,
-                        col_start=_sf.col_start,
-                    )
-                )
+        findings.extend(self._security_rule_findings(path, text))
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
@@ -665,6 +680,48 @@ class IncrementalAnalysisEngine:
 
         # Convert findings to strictly typed ZenzicDiagnostic instances
         return self._findings_to_diagnostics(text, findings)
+
+    def _security_rule_findings(self, path: Path, text: str) -> list[RuleFinding]:
+        """Run the shared security primitive and shape its findings for the LSP.
+
+        One conversion for both callers — the full analysis pass and the
+        security-only pass for buffers user configuration scoped out — so the
+        two cannot drift in how a Z201/Z204 is presented.
+        """
+        from zenzic.core.credentials import scan_security_findings
+
+        findings: list[RuleFinding] = []
+        for _sf in scan_security_findings(text, path, self.config):
+            if _sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Finding category identifier
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z204",
+                        severity=code_severity("Z204"),
+                        file_path=_sf.file_path,
+                        line_no=_sf.line_no,
+                        message=(
+                            f"Forbidden term detected — remove from documentation: "
+                            f"'{_sf.match_text}'"
+                        ),
+                        match_text=_sf.match_text,
+                        matched_line=_sf.url,
+                        col_start=_sf.col_start,
+                    )
+                )
+            else:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z201",
+                        severity=code_severity("Z201"),
+                        file_path=_sf.file_path,
+                        line_no=_sf.line_no,
+                        message=f"Credential or secret detected: {_sf.secret_type}",
+                        match_text=_sf.match_text,
+                        matched_line=_sf.url,
+                        col_start=_sf.col_start,
+                    )
+                )
+        return findings
 
     def _findings_to_diagnostics(
         self, text: str, findings: list[RuleFinding]
@@ -760,7 +817,7 @@ class IncrementalAnalysisEngine:
         # <img> tags — so [x](javascript:...) and reference definitions passed a
         # Tier-0, non-suppressible gate entirely, while rendering to the exact
         # same exploitable anchor in the built site. validator.py's own comment
-        # already declares syntactic form "un dettaglio di trasporto"; this
+        # already declares syntactic form "a transport detail"; this
         # restores that invariant by checking the shared link representation.
         #
         # Scope decision: the Markdown path checks javascript: ONLY, not the

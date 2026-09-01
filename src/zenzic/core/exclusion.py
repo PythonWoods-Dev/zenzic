@@ -201,6 +201,35 @@ class LayeredExclusionManager:
 
         self._global_tracker = getattr(config, "_global_tracker", None)
 
+    def security_view(self) -> LayeredExclusionManager:
+        """A copy of this manager with every user-configurable layer stripped.
+
+        The credential/forbidden-term tier (Z201/Z204/Z205) must scan every
+        file that ships, so its discovery pass ignores ``excluded_dirs``,
+        ``excluded_file_patterns`` and CLI ``--exclude-dir`` — configuration
+        can scope a file out of quality analysis, never out of the secret
+        scan. System guardrails and the VCS layer are retained: gitignored
+        content is deliberately outside the published corpus (and includes
+        operator-private directories), and the guardrail set is the engine's
+        own internals — "everything that ships gets the secret scan" is the
+        exact boundary.
+        """
+        view = object.__new__(LayeredExclusionManager)
+        view._system_dirs = self._system_dirs
+        view._adapter_metadata_files = self._adapter_metadata_files
+        view._repo_root = self._repo_root
+        view._config_excluded_dirs = frozenset()
+        view._config_included_dirs = frozenset()
+        view._cli_exclude_dirs = frozenset()
+        view._cli_include_dirs = frozenset()
+        view._config_excluded_patterns = []
+        view._config_included_patterns = []
+        view._respect_vcs = self._respect_vcs
+        view._vcs_pathspec = self._vcs_pathspec
+        # A read-only discovery pass must not consume tracker state (CQS).
+        view._global_tracker = None
+        return view
+
     def should_exclude_dir(self, dir_name: str, rel_path: str | None = None) -> bool:
         """Return True if a directory should be excluded during walk.
 

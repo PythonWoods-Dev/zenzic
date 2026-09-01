@@ -1118,7 +1118,14 @@ def test_lsp_workspace_initialization_does_not_emit_dqs(tmp_path) -> None:
 
 
 def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
-    """Verify that files inside excluded_dirs (from .zenzic.toml) are dropped by LSP handlers and produce 0 diagnostics."""
+    """A file inside excluded_dirs stays in the pipeline but yields 0 quality diagnostics.
+
+    User scoping governs the quality tier only: the buffer is admitted (the
+    security tier must still see it — Z201/Z204 are never suppressible), and
+    the engine — not the server's domain gate — decides that every non-security
+    diagnostic stays suppressed. This fixture has no credentials, so the
+    admitted buffer must produce exactly zero diagnostics.
+    """
     config_file = tmp_path / ".zenzic.toml"
     config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/tutorials/examples"]\n')
 
@@ -1134,7 +1141,9 @@ def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
     server._build_vsm_sync()
 
     ex_uri = ex_file.resolve().as_uri()
-    assert not server._is_within_domain(ex_uri)
+    # Admitted: user exclusions no longer put a file outside the domain —
+    # only system guardrails and VCS do (the security tier must see it).
+    assert server._is_within_domain(ex_uri)
 
     server.handle_message(
         {
@@ -1146,8 +1155,15 @@ def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
         }
     )
 
-    # Document was dropped by domain / exclusion gate
-    assert ex_uri not in server.documents.documents
+    assert ex_uri in server.documents.documents
+
+    assert server.vsm is not None and server.engine is not None
+    assert server.overlay is not None
+    results = server.engine.process_changes(server.vsm, server.overlay, {ex_uri})
+    assert results.get(ex_uri, []) == [], (
+        "an excluded, credential-free file must yield zero diagnostics — "
+        f"got {[d.code for d in results.get(ex_uri, [])]}"
+    )
 
 
 def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
@@ -1189,7 +1205,11 @@ def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
 
 
 def test_lsp_enforces_user_excluded_dirs(tmp_path) -> None:
-    """Verify that opening a file inside an excluded_dirs path (from .zenzic.toml) emits 0 diagnostics."""
+    """Opening a credential-free file under excluded_dirs emits 0 diagnostics.
+
+    The buffer is admitted (user scoping never hides the security tier); with
+    no security content, the engine suppresses everything else it finds.
+    """
     config_file = tmp_path / ".zenzic.toml"
     config_file.write_text('excluded_dirs = ["examples"]\n')
 
@@ -1215,7 +1235,7 @@ def test_lsp_enforces_user_excluded_dirs(tmp_path) -> None:
         }
     )
 
-    assert ex_uri not in server.documents.documents
+    assert ex_uri in server.documents.documents
 
     if server.vsm is None:
         server._build_vsm_sync()
@@ -1246,8 +1266,10 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
 
     Acceptance criterion:
         Opening the file via ``textDocument/didOpen`` with an absolute
-        ``file://`` URI must result in the server dropping the document (domain
-        gate) and publishing exactly **0 diagnostics** for that URI.
+        ``file://`` URI publishes exactly **0 diagnostics** for that URI: the
+        buffer is admitted (user scoping never hides the security tier), and
+        with no credentials in the fixture the engine suppresses every quality
+        finding the content would otherwise raise.
     """
     import io
     import json
@@ -1311,9 +1333,10 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
     server = LanguageServer(stdin=in_stream, stdout=out_stream)
     server.serve()
 
-    # Gate 1: domain check must have dropped the document
-    assert excluded_uri not in server.documents.documents, (
-        "Excluded file must be dropped by _is_within_domain before entering DocumentManager"
+    # Gate 1: the document is admitted — exclusion decisions now live in the
+    # engine, which still owes this buffer a security pass.
+    assert excluded_uri in server.documents.documents, (
+        "user-excluded file must be admitted so the security tier can see it"
     )
 
     # Gate 2: no diagnostics must have been published for the excluded URI
@@ -1335,7 +1358,8 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
 
     assert diag_count_for_excluded == 0, (
         f"Expected 0 diagnostics for excluded URI, got {diag_count_for_excluded}. "
-        "LSP-FIX-008 path normalisation regression."
+        "Either the LSP-FIX-008 path normalisation regressed, or quality "
+        "findings leaked past user exclusion for a credential-free file."
     )
 
 

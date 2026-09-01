@@ -227,6 +227,33 @@ def iter_extra_content_markdown_sources(
         yield md_file, logical_rel
 
 
+def iter_security_scan_sources(
+    docs_root: Path,
+    config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
+) -> Generator[Path, None, None]:
+    """Yield every doc source the security tier must scan, ignoring user scoping.
+
+    Counterpart to :func:`iter_markdown_sources` for the credential and
+    forbidden-term scan (Z201/Z204/Z205): user-configured exclusions
+    (``excluded_dirs``, ``excluded_file_patterns``, CLI ``--exclude-dir``)
+    scope files out of *quality* analysis only — the security tier is never
+    suppressible, by any mechanism, so its discovery walks the corpus through
+    the manager's :meth:`~LayeredExclusionManager.security_view`, which keeps
+    only the system guardrails and the VCS layer.
+
+    Yields:
+        Absolute :class:`~pathlib.Path` objects in deterministic sorted order.
+    """
+    view = exclusion_manager.security_view()
+    for md_file in walk_files(docs_root, set(), view, config):
+        if md_file.suffix not in DOC_SUFFIXES:
+            continue
+        if view.should_exclude_file(md_file, docs_root):
+            continue
+        yield md_file
+
+
 def iter_markdown_sources(
     docs_root: Path,
     config: ZenzicConfig,

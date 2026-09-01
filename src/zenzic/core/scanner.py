@@ -35,6 +35,7 @@ from zenzic.core.discovery import (
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
+    iter_security_scan_sources,
     walk_files,
 )
 from zenzic.core.reporter import Finding
@@ -1873,8 +1874,35 @@ def scan_docs_references(
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
+    # Security-tier immunity: a file scoped out by excluded_dirs /
+    # excluded_file_patterns / --exclude-dir is excluded from quality analysis,
+    # never from the credential scan — Z201/Z204/Z205 are non-suppressible by
+    # any mechanism, and "the file was never looked at" is a suppression
+    # mechanism. Files already in the corpus are scanned by harvest(); this
+    # pass covers only the ones user scoping removed, and it emits
+    # security-only reports (no quality findings), so exclusion semantics for
+    # every other tier are preserved.
+    _scanned_paths = {f.resolve(strict=False) for f in md_files}
+    _security_only_reports: list[IntegrityReport] = []
+    for _sec_file in iter_security_scan_sources(docs_root, config, exclusion_manager):
+        if _sec_file.resolve(strict=False) in _scanned_paths:
+            continue
+        try:
+            _sec_text = _sec_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        _sec_findings = list(scan_security_findings(_sec_text, _sec_file, config))
+        if _sec_findings:
+            _security_only_reports.append(
+                IntegrityReport(
+                    file_path=_sec_file,
+                    score=0.0,
+                    security_findings=_sec_findings,
+                )
+            )
+
     if not md_files:
-        return [], []
+        return _security_only_reports, []
 
     use_parallel = (
         workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD and rule_engine_target is None
@@ -2056,7 +2084,7 @@ def scan_docs_references(
                             _sf.file_path = _locale_path_remap[_sf.file_path]
 
             if not validate_links:
-                return reports, []
+                return reports + _security_only_reports, []
 
             # Phase B in main process: lightweight sequential pass for URL
             # registration.  Workers discard scanners; we re-collect ref_maps here
@@ -2104,7 +2132,7 @@ def scan_docs_references(
                     description=f"Validating links ({n_urls} external URLs)... {format_elapsed_ms(elapsed_val_s)}",
                 )
 
-            return reports, link_errors
+            return reports + _security_only_reports, link_errors
 
         # Sequential path — zero overhead, full O(N) link-validation support.
         reports_seq: list[IntegrityReport] = []
@@ -2203,7 +2231,7 @@ def scan_docs_references(
                         _sf.file_path = _locale_path_remap[_sf.file_path]
 
         if not validate_links:
-            return reports_seq, []
+            return reports_seq + _security_only_reports, []
 
         # Phase B — global URL deduplication and async HTTP validation.
         # Uses the already-populated ref_maps from Phase A — no second file read.
@@ -2247,7 +2275,7 @@ def scan_docs_references(
                     f"{format_elapsed_ms(elapsed_val_seq_s)}"
                 ),
             )
-        return reports_seq, link_errors
+        return reports_seq + _security_only_reports, link_errors
     finally:
         if owns_progress and progress:
             progress.stop()

@@ -16,7 +16,7 @@ from zenzic.core.credentials import (
     scan_line_for_forbidden_terms,
     scan_line_for_secrets,
 )
-from zenzic.core.discovery import iter_markdown_sources
+from zenzic.core.discovery import iter_security_scan_sources
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -95,7 +95,7 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
     if paths:
         repo_scan_root = repo_root.resolve()
         repo_scan_mgr = _shared._build_exclusion_manager(config, repo_root, repo_scan_root)
-        repo_markdown = sorted(iter_markdown_sources(repo_scan_root, config, repo_scan_mgr))
+        repo_markdown = sorted(iter_security_scan_sources(repo_scan_root, config, repo_scan_mgr))
         repo_markdown_set = set(repo_markdown)
 
         resolved: list[Path] = []
@@ -112,7 +112,7 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
 
     if not docs_root.is_dir():
         return []
-    return sorted(iter_markdown_sources(docs_root, config, exclusion_mgr))
+    return sorted(iter_security_scan_sources(docs_root, config, exclusion_mgr))
 
 
 def _mask_secret(secret: str) -> str:

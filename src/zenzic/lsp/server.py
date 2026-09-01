@@ -313,8 +313,14 @@ class LanguageServer:
 
             path = uri_to_path(uri).resolve()
 
-            # Enforce LayeredExclusionManager (Layer 3 User Exclusions & Guardrails)
-            if self.exclusion_mgr.should_exclude_file(path, docs_root):
+            # Only the non-user layers (system guardrails, VCS) put a file
+            # fully outside the domain. A file excluded by user configuration
+            # stays in the pipeline: the engine gives it a security-only pass
+            # (Z201/Z204 are never suppressible, and a buffer the server
+            # refuses to look at would be a suppression mechanism), and the
+            # engine — not this gate — is the single place that decides what
+            # user scoping hides.
+            if self.exclusion_mgr.security_view().should_exclude_file(path, docs_root):
                 return False
 
             if path.is_relative_to(docs_root):

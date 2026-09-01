@@ -160,11 +160,11 @@ VALIDATION_PARALLEL_THRESHOLD = 50
 
 # ─── PolyglotExtractor — RE2 constants (v0.17.0) ─────────────────────────────
 
-# Stadio 1: cattura atomica <a> e <img> (multilinea, DFA-pure, O(N)).
-# Vincolo: il carattere '>' termina il tag e non è ammesso nei valori degli attributi.
+# Stage 1: atomic capture of <a> and <img> (multiline, DFA-pure, O(N)).
+# Constraint: the '>' character terminates the tag and is not allowed in attribute values.
 _RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\b(?P<attrs>[^>]*?)>")
 
-# Stadio 2: parsing lineare coppie attributo=valore.
+# Stage 2: linear parsing of attribute=value pairs.
 _RE_POLY_ATTR: re.RegexPattern = re.compile(
     r"(?P<key>[\w:@-]+)"
     r"(?:\s*=\s*"
@@ -174,7 +174,7 @@ _RE_POLY_ATTR: re.RegexPattern = re.compile(
     r"))?",
 )
 
-# Attributi Safe-Core: pass senza diagnostica (ADR-075 — nessun parser esterno).
+# Safe-Core attributes: pass with no diagnostic (ADR-075 — no external parser).
 _POLY_SAFE_CORE: frozenset[str] = frozenset(
     {
         "href",
@@ -194,7 +194,7 @@ _POLY_SAFE_CORE: frozenset[str] = frozenset(
         "data-zenzic-ignore",
     }
 )
-_POLY_ARIA_PREFIX = "aria-"  # aria-* è sempre Safe-Core
+_POLY_ARIA_PREFIX = "aria-"  # aria-* is always Safe-Core
 
 # Attributi Blacklist: Z124 OPAQUE_HTML_CONTEXT.
 _POLY_BLACKLIST: frozenset[str] = frozenset(
@@ -207,9 +207,9 @@ _POLY_BLACKLIST: frozenset[str] = frozenset(
 )
 _POLY_ON_PREFIX = "on"  # on* event-handlers → Z124
 
-# Schemi vietati (Security Gate — Z205, non sopprimibile, Exit 2).
+# Forbidden schemes (Security Gate — Z205, non-suppressible, Exit 2).
 _POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
-# Schemi informativi (Z123, nessuna risoluzione path).
+# Informational schemes (Z123, no path resolution).
 _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
 
 #: Codes whose RuleFinding is already surfaced via the LinkError path in
@@ -250,29 +250,29 @@ _POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL
 _POLY_DISPLAY_MATH_RE: re.RegexPattern = re.compile(r"\$\$.*?\$\$", re.DOTALL)
 _POLY_INLINE_MATH_RE: re.RegexPattern = re.compile(r"\$[^$\n]+\$")
 
-# Strip whitespaces and control characters from URLs prima del check Z205.
+# Strip whitespace and control characters from URLs before the Z205 check.
 _POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
 
 
 @dataclass(frozen=True, slots=True)
 class HtmlNodeInfo:
-    """Nodo HTML estratto dal PolyglotExtractor (tag ``<a>`` o ``<img>``).
+    """HTML node extracted by the PolyglotExtractor (``<a>`` or ``<img>`` tag).
 
-    Contiene tutti i dati necessari all'emissione di Z120–Z124 e Z205
-    senza ulteriori accessi al testo sorgente.
+    Carries every datum needed to emit Z120–Z124 and Z205 without any
+    further access to the source text.
 
     Attributes:
-        tag:               ``"a"`` oppure ``"img"``.
-        href:              Valore di ``href`` (per ``<a>``) o ``src`` (per ``<img>``).
-                           ``None`` se l'attributo è assente.
-        line_no:           Numero di riga 1-based nel sorgente originale.
-        suppressed:        ``True`` se ``data-zenzic-ignore`` è presente sul tag.
-        z205_scheme:       Schema vietato rilevato (``"javascript:"`` / ``"data:"``);
-                           ``None`` se il tag non è un vettore Z205.
-        unknown_attrs:     Attributi non censiti nella Safe-Core list → Z120.
-        blacklisted_attrs: Attributi blacklistati (event-handler, shadow-routing) → Z124.
-        is_missing_href:   ``True`` se ``href``/``src`` è assente o vuoto → Z121.
-        is_jump_link:      ``True`` se ``href="#"`` → Z122.
+        tag:               ``"a"`` or ``"img"``.
+        href:              Value of ``href`` (for ``<a>``) or ``src`` (for ``<img>``).
+                           ``None`` when the attribute is absent.
+        line_no:           1-based line number in the original source.
+        suppressed:        ``True`` when ``data-zenzic-ignore`` is present on the tag.
+        z205_scheme:       Forbidden scheme detected (``"javascript:"`` / ``"data:"``);
+                           ``None`` when the tag is not a Z205 vector.
+        unknown_attrs:     Attributes not in the Safe-Core list → Z120.
+        blacklisted_attrs: Blacklisted attributes (event-handler, shadow-routing) → Z124.
+        is_missing_href:   ``True`` when ``href``/``src`` is absent or empty → Z121.
+        is_jump_link:      ``True`` when ``href="#"`` → Z122.
         info_scheme:       Schema informativo (``mailto:``, ``tel:``, ``ftp:``)
                            se rilevato → Z123; ``None`` altrimenti.
         raw_tag:           Testo originale del tag (per messaggi diagnostici).
@@ -293,7 +293,7 @@ class HtmlNodeInfo:
 
 @dataclass
 class ReferenceLinkNode:
-    """Nodo estratto dal PolyglotExtractor per una definizione di link di riferimento ([label]: dest)."""
+    """Node extracted by the PolyglotExtractor for a reference link definition ([label]: dest)."""
 
     label: str
     dest: str
@@ -302,32 +302,32 @@ class ReferenceLinkNode:
 
 
 class PolyglotExtractor:
-    """Estrattore a due stadi per tag HTML nativi e definizioni di riferimento Markdown.
+    """Two-stage extractor for native HTML tags and Markdown reference definitions.
 
-    Implementa la **Uniform Resolver Pipeline** (URP) di Zenzic v0.17.0:
-    la forma sintattica (Markdown vs HTML vs Reference Defs) è un dettaglio di trasporto;
-    l'analisi avviene sul valore risolto del puntamento.
+    Implements Zenzic's **Uniform Resolver Pipeline** (URP, v0.17.0):
+    the syntactic form (Markdown vs HTML vs reference defs) is a transport
+    detail; analysis operates on the resolved target value.
 
-    **Invarianti (ADR-075 / ADR-020):**
+    **Invariants (ADR-075 / ADR-020):**
 
-    * Complessità O(N): RE2/DFA-pure, nessun backtracking, nessun subprocess.
-    * Z205 (FORBIDDEN_SCHEME) è verificato **prima** di ``data-zenzic-ignore``
-      (sicurezza ha precedenza assoluta sulla soppressione).
-    * Supporta tag ``<a>``, ``<img>`` e definizioni di riferimento Markdown (CommonMark §4.7).
-    * Fence-skipping obbligatorio: i blocchi ``code``/``pre`` vengono oscurati
-      prima dell'estrazione per evitare falsi positivi in esempi di codice.
+    * O(N) complexity: RE2/DFA-pure, no backtracking, no subprocess.
+    * Z205 (FORBIDDEN_SCHEME) is checked **before** ``data-zenzic-ignore``
+      (security takes absolute precedence over suppression).
+    * Supports ``<a>`` and ``<img>`` tags and Markdown reference definitions (CommonMark §4.7).
+    * Mandatory fence-skipping: ``code``/``pre`` blocks are masked before
+      extraction to avoid false positives in code examples.
     """
 
     def extract(self, text: str, *, _premasked: str | None = None) -> list[HtmlNodeInfo]:
-        """Estrae tutti i nodi HTML rilevanti dal testo sorgente.
+        """Extract every relevant HTML node from the source text.
 
         Args:
-            text: Contenuto Markdown grezzo (no I/O).
+            text: Raw Markdown content (no I/O).
             _premasked: Optional pre-computed buffer with comments, fences, and math masked.
 
         Returns:
-            Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
-            trovato fuori dai blocchi di codice.
+            List of :class:`HtmlNodeInfo`, one per ``<a>``/``<img>`` tag
+            found outside code blocks.
         """
         if _premasked is not None:
             masked = self._mask_inline_code(_premasked)
@@ -347,11 +347,11 @@ class PolyglotExtractor:
     def extract_ref_defs(
         self, text: str, *, _premasked: str | None = None
     ) -> list[ReferenceLinkNode]:
-        """Estrae tutte le definizioni di link di riferimento ([label]: dest) fuori dai blocchi di codice.
+        """Extract every reference link definition ([label]: dest) outside code blocks.
 
         Implementa CommonMark §4.7 Reference Link Definition parsing via PolyglotExtractor.
         Fence-skipping obbligatorio tramite _mask_fences() e _mask_comments().
-        First-definition-wins per la risoluzione dei duplicati.
+        First-definition-wins for duplicate resolution.
         """
         masked = (
             _premasked
@@ -491,7 +491,7 @@ class PolyglotExtractor:
         return text
 
     def _mask_inline_code(self, text: str) -> str:
-        """Sostituisce blocchi inline code con spazi bianchi preservando gli offset."""
+        """Replace inline code spans with whitespace, preserving offsets."""
         from zenzic.core.validator import _INLINE_CODE_RE
 
         return _INLINE_CODE_RE.sub(
@@ -499,11 +499,11 @@ class PolyglotExtractor:
         )
 
     def _mask_fences(self, text: str) -> str:
-        """Sostituisce blocchi code/pre con spazi bianchi preservando gli offset.
+        """Replace code/pre blocks with whitespace, preserving offsets.
 
-        Utilizza la stessa logica di fence-detection di :class:`SuppressionTracker`
-        (tre o più backtick/tilde) per garantire coerenza nel trattamento dei
-        blocchi di codice a livello di codebase.
+        Uses the same fence-detection logic as :class:`SuppressionTracker`
+        (three or more backticks/tildes) so code blocks are treated
+        consistently across the codebase.
         """
         lines = text.split("\n")
         result: list[str] = []
@@ -531,7 +531,7 @@ class PolyglotExtractor:
         return "\n".join(result)
 
     def _mask_math(self, text: str) -> str:
-        """Sostituisce blocchi matematici ($$...$$ e $...$) con spazi bianchi preservando i caratteri di a capo."""
+        """Replace math blocks ($$...$$ and $...$) with whitespace, preserving newline characters."""
         text = _POLY_DISPLAY_MATH_RE.sub(
             lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
         )
@@ -541,15 +541,15 @@ class PolyglotExtractor:
         return text
 
     def _parse_node(self, tag: str, attrs_str: str, line_no: int, raw_tag: str) -> HtmlNodeInfo:
-        """Parsing lineare della stringa ``attrs`` e classificazione governance.
+        """Linear parsing of the ``attrs`` string and governance classification.
 
-        **Ordine di priorità:**
+        **Priority order:**
 
-        1. Estrae ``href``/``src``.
-        2. **Verifica Z205** (schema vietato) — avviene PRIMA di tutto il resto.
-        3. Rileva ``data-zenzic-ignore``.
-        4. Classifica ogni attributo: Safe-Core / Blacklist / Unknown.
-        5. Determina Z121/Z122/Z123.
+        1. Extract ``href``/``src``.
+        2. **Check Z205** (forbidden scheme) — happens BEFORE everything else.
+        3. Detect ``data-zenzic-ignore``.
+        4. Classify each attribute: Safe-Core / Blacklist / Unknown.
+        5. Determine Z121/Z122/Z123.
         """
         href_key = "src" if tag == "img" else "href"
         href: str | None = None
@@ -575,9 +575,9 @@ class PolyglotExtractor:
             elif key == "data-zenzic-ignore":
                 suppressed = True
             elif key.startswith(_POLY_ARIA_PREFIX):
-                pass  # aria-* è sempre Safe-Core
+                pass  # aria-* is always Safe-Core
             elif key in _POLY_SAFE_CORE:
-                pass  # Safe-Core: pass senza diagnostica
+                pass  # Safe-Core: pass with no diagnostic
             elif key in _POLY_BLACKLIST or key.startswith(_POLY_ON_PREFIX):
                 blacklisted.append(key)
             else:
@@ -618,7 +618,7 @@ class PolyglotExtractor:
         )
 
 
-# Singleton per l'uso nel pipeline di validazione.
+# Singleton for use in the validation pipeline.
 _POLYGLOT_EXTRACTOR = PolyglotExtractor()
 
 
