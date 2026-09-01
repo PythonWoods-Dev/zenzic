@@ -41,6 +41,55 @@ from zenzic.core.logging import setup_cli_logging
 from zenzic.core.ui import ZenzicPalette, ZenzicUI
 
 
+# The Exit Code Contract reserves exit 2 for a Credential Scanner Breach, "never
+# suppressible". Click's default for a usage error -- unknown option, unknown
+# command, missing subcommand -- is also 2, so a typo'd flag and a live AWS key
+# were indistinguishable by exit code and no CI gate could discriminate. That is
+# not theoretical: the collision misled an adversarial audit of this very
+# contract three separate times. Usage errors belong to the quality/error tier,
+# so they exit 1 and exit 2 stays exclusive to the security tier.
+#
+# Set at module scope rather than inside cli_main() so every consumer of `app`
+# -- the console entry point, the test runner, zenzic-mcp -- agrees on the
+# semantics. A remap that only applies to one entry point is the same
+# some-decision-points-but-not-all shape this contract keeps being bitten by.
+#
+# Typer vendors its own click (`typer._click`), which is a DIFFERENT module
+# object from the installed `click` package -- patching only the latter changes
+# nothing, because Typer's `_main` reads `e.exit_code` off its own class. Both
+# are set: the vendored one is what actually runs today, and the upstream one
+# keeps the behaviour correct for any path that reaches real click.
+def _remap_usage_error_exit_code() -> None:
+    """Move Click usage errors off exit 2, which the contract reserves.
+
+    Typer vendors its own click (``typer._click``), a DIFFERENT module object
+    from the installed ``click`` package -- patching only the latter changes
+    nothing, because Typer's ``_main`` reads ``e.exit_code`` off its own class.
+    Both are set: the vendored one is what actually runs, and the upstream one
+    keeps any path reaching real click correct too. Each import is guarded so a
+    Typer version without the vendored alias degrades to patching what exists
+    rather than failing at import time.
+    """
+    modules: list[Any] = []
+    try:
+        from typer import _click as _typer_click
+
+        modules.append(_typer_click)
+    except ImportError:  # pragma: no cover -- older Typer, no vendored module
+        pass
+    try:
+        import click as _click_pkg
+
+        modules.append(_click_pkg)
+    except ImportError:  # pragma: no cover -- click is a hard Typer dependency
+        pass
+    for module in modules:
+        module.exceptions.UsageError.exit_code = 1
+
+
+_remap_usage_error_exit_code()
+
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"Zenzic v{__version__}")
