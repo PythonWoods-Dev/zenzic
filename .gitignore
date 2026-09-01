@@ -145,9 +145,11 @@ artifacts/
 # ────────────────────────────────────────────────────────────────────────────
 # IDEs & Editors
 # ────────────────────────────────────────────────────────────────────────────
-.vscode/
+.vscode/*
 !.vscode/extensions.json
+!.vscode/extensions.json.license
 !.vscode/settings.json
+!.vscode/settings.json.license
 .idea/
 *.iml
 *.swp

@@ -302,6 +302,35 @@ there are tracked for burndown before the gate is extended.
 
 ---
 
+## Editor Tooling vs the Gate
+
+The same principle extends beyond type checking: **the gate — pre-commit, `just verify`,
+CI — is the authority on every finding, and the editor is an interactive aid.** Where a
+VS Code extension can be pointed at the exact tool version the gate runs, this repository
+does so in the committed `.vscode/settings.json`:
+
+- **mypy** — `"mypy-type-checker.importStrategy": "fromEnvironment"` makes the mypy
+  extension run the `.venv`'s mypy, the same binary the pre-commit hook invokes via
+  `uv run mypy src/`. Without it the extension falls back to the mypy it bundles, which
+  is generally a different version producing genuinely different analysis.
+- **Ruff** — `"ruff.importStrategy": "fromEnvironment"` makes the Ruff extension use the
+  `.venv`'s ruff, the same pinned version the pre-commit gate runs, and Ruff is set as
+  the workspace's Python formatter. The gate formats with `ruff format`; do not enable a
+  second Python formatter (e.g. Black) — it can only disagree with the gate.
+
+One asymmetry cannot be closed: **markdownlint**. The gate pins `markdownlint-cli`
+(exact SHA-pinned version in `.pre-commit-config.yaml`), while the VS Code markdownlint
+extension bundles its own engine (`markdownlint-cli2`) and exposes no setting that points
+it at another version — its settings control rule configuration, not the engine. Both
+sides read the same `.markdownlint.json`, but engine versions differ, so behaviour can
+diverge in either direction — mostly the editor flagging findings the gate's older engine
+does not have (`.markdownlint.json` sets `default: true`, so a newer engine's new rules
+switch themselves on), occasionally the reverse where a rule was relaxed upstream. When
+they disagree, the gate is right by definition: a squiggle the gate does not report needs
+no code change, and a clean editor does not excuse a red `just verify`.
+
+---
+
 ## Cross-Platform Compatibility
 
 When working with file paths in any contribution, use `pathlib.Path` throughout — never string concatenation or `os.sep`:
