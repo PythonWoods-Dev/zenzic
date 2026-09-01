@@ -126,7 +126,7 @@ class ProjectMetadata(BaseModel):
     obsolete_names_exclude_patterns: list[str] = Field(
         default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
         description=(
-            "Glob patterns (relative to docs_dir) for files excluded from Z905. "
+            "Glob patterns (relative to docs_dir) for files excluded from Z601. "
             "CHANGELOG*.md is excluded by default to allow historical prose."
         ),
     )

@@ -645,6 +645,23 @@ The current release codename, shown in `zenzic --version` and related metadata o
 release_name = "Graphite"
 ```
 
+### `obsolete_names_exclude_patterns` {#obsolete-names-exclude-patterns}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `["CHANGELOG*.md", "CHANGELOG*.archive.md"]` |
+| **Section** | `[project_metadata]` |
+
+Glob patterns, relative to `docs_dir`, for files exempt from `Z601` brand-obsolescence detection. Changelogs are excluded by default: a release history is expected to name superseded products in past-tense prose, and flagging it would penalise an accurate historical record.
+
+Setting this to an empty list removes the exemption, so every file — changelogs included — is checked.
+
+```toml
+[project_metadata]
+obsolete_names_exclude_patterns = ["CHANGELOG*.md", "docs/archive/**"]
+```
+
 ### `badge_stamp_files` {#badge-stamp-files}
 
 | | |

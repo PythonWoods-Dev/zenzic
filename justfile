@@ -108,25 +108,45 @@ check-pinning:
     fi
     echo "✓ ADR-089: all pre-commit hooks pinned to immutable commit hashes."
 
+# Blocking gate, not a warning. A pre-commit hook that is merely declared in
+# .pre-commit-config.yaml runs nothing: the hook has to be installed into
+# .git/hooks for the commit-time gate to exist at all. Three of the four
+# ecosystem repositories were found with no hook installed, so every commit
+# in them bypassed markdownlint, REUSE and the formatter silently.
+#
+# A missing pre-commit hook cannot block its own commit -- there is nothing
+# installed to run -- so this check fails `just verify` instead, which is the
+# pre-push path and what CI runs. Exit 1, never a warning: the previous
+# version of this recipe printed the same diagnosis and let the work proceed.
+# Blocking gate, not a warning. A pre-commit hook that is merely declared in
+# .pre-commit-config.yaml runs nothing: the hook has to be installed into
+# .git/hooks for the commit-time gate to exist at all. Three of the four
+# ecosystem repositories were found with no hook installed, so every commit
+# in them bypassed markdownlint, REUSE and the formatter silently.
+#
+# A missing pre-commit hook cannot block its own commit -- there is nothing
+# installed to run -- so this check fails `just verify` instead, which is the
+# pre-push path and what CI runs. Exit 1, never a warning: the previous
+# version of this recipe printed the same diagnosis and let the work proceed.
 _check-hooks:
     #!/usr/bin/env bash
+    set -euo pipefail
     _missing=0
-    if [ ! -f .git/hooks/pre-commit ]; then
-        echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
-        echo "Without it, static checks and type-checks will NOT run automatically on git commit."
-        echo "👉 Fix it by running: uv run --active pre-commit install"
+    for _h in pre-commit pre-push; do
+        if [ ! -f ".git/hooks/${_h}" ] || ! grep -qi "pre-commit" ".git/hooks/${_h}"; then
+            echo -e "\033[31mBLOCKED: the ${_h} hook is not installed (or is not pre-commit's).\033[0m"
+            echo "  Without it the ${_h} gate does not run, and defects reach the remote."
+            echo "  Fix: uvx pre-commit install -t ${_h}"
+            _missing=1
+        fi
+    done
+    if [ "${_missing}" -ne 0 ]; then
         echo ""
-        _missing=1
+        echo "Refusing to continue with an uninstalled git hook. See Rule 31."
+        exit 1
     fi
-    if [ ! -f .git/hooks/pre-push ]; then
-        echo -e "\033[33m⚠️  WARNING: pre-push hook is not installed.\033[0m"
-        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
-        echo "👉 Fix it by running: uv run --active pre-commit install -t pre-push"
-        echo ""
-        _missing=1
-    fi
+    echo "git hooks installed (pre-commit, pre-push)"
 
-# Enforce release contracts: dirty allowed only in release-dry.
 release-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
