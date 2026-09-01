@@ -36,17 +36,28 @@ def _is_doc_source(path: Path) -> bool:
     return path.suffix.lower() in {".md", ".mdx"}
 
 
-def _scan_file_for_secrets(path: Path, forbidden_patterns: list[str]) -> list[SecurityFinding]:
+def _scan_file_for_secrets(
+    path: Path, forbidden_patterns: list[str]
+) -> tuple[list[SecurityFinding], bool]:
+    """Scan one file, reporting whether it could actually be read.
+
+    Returns ``(findings, readable)``. The second element exists because an
+    empty finding list previously meant two different things — "this file holds
+    no secrets" and "this file could not be opened" — and the caller could not
+    tell them apart. A secret gate must never report a clean bill it did not
+    earn, so an unreadable file is surfaced rather than silently counted as
+    scanned.
+    """
     findings: list[SecurityFinding] = []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
-        return findings
+        return findings, False
 
     for idx, line in enumerate(lines, start=1):
         findings.extend(scan_line_for_secrets(line, path, idx))
         findings.extend(scan_line_for_forbidden_terms(line, forbidden_patterns, path, idx))
-    return findings
+    return findings, True
 
 
 def _staged_doc_files(repo_root: Path) -> list[Path]:
@@ -190,8 +201,12 @@ def scan(
     findings: list[SecurityFinding] = []
     forbidden_patterns = [p for p in config.forbidden_patterns if isinstance(p, str) and p.strip()]
 
+    unreadable: list[Path] = []
     for target in targets:
-        findings.extend(_scan_file_for_secrets(target, forbidden_patterns))
+        _found, _readable = _scan_file_for_secrets(target, forbidden_patterns)
+        findings.extend(_found)
+        if not _readable:
+            unreadable.append(target)
 
     if output_format == "json":
         items = []
@@ -206,12 +221,18 @@ def scan(
                 }
             )
         payload = {
-            "targets": len(targets),
+            # Only files actually read are reported as scanned; an unreadable
+            # file is listed separately so a consumer cannot mistake "could not
+            # open" for "held nothing".
+            "targets": len(targets) - len(unreadable),
+            "unreadable": [str(_p) for _p in unreadable],
             "findings": items,
         }
         print(json.dumps(payload, indent=2))
         if findings:
             raise typer.Exit(2)
+        if unreadable:
+            raise typer.Exit(1)
         return
 
     table = Table(
@@ -243,6 +264,20 @@ def scan(
             f"{len(findings)} finding(s) across {len(targets)} file(s)."
         )
         raise typer.Exit(2)
+
+    # Fail closed: files the gate could not open are files it did not clear.
+    # Reporting them as scanned, or exiting 0 alongside them, would hand the
+    # commit a clean bill the scan never earned.
+    if unreadable:
+        if not quiet:
+            _shared.console.print(
+                f"[bold {ZenzicPalette.ERROR}]Secret Guard could not read "
+                f"{len(unreadable)} file(s)[/] — unscanned, so the result is "
+                f"inconclusive rather than clean:"
+            )
+            for _p in unreadable:
+                _shared.console.print(f"  [{ZenzicPalette.DIM}]{_p}[/]")
+        raise typer.Exit(1)
 
     if not quiet:
         _shared.console.print(

@@ -376,3 +376,61 @@ class TestInlineHtmlSuppressionCannotHideTraversal:
             "data-zenzic-ignore stopped suppressing a non-security code; the security "
             f"carve-out must be narrow:\n{output}"
         )
+
+
+class TestGuardScanFailsClosedOnUnreadableFiles:
+    """A file the secret gate cannot read is not a file without secrets.
+
+    ``_scan_file_for_secrets`` caught ``OSError`` and returned an empty finding
+    list, which is indistinguishable from "this file is clean" — and the summary
+    counted it via ``len(targets)``, so an unreadable file was reported as
+    *scanned*. A repository with one unreadable document therefore produced
+    "Secret Guard clean: N file(s) scanned, no secrets detected" and **exit 0**
+    from the gate that stands between a leak and a commit.
+
+    Fail-closed is the only safe direction here: the gate must say what it could
+    not verify and exit non-zero, rather than report a clean bill it did not earn.
+    """
+
+    def _repo(self, tmp_path: Path) -> Path:
+        (tmp_path / "mkdocs.yml").write_text("site_name: Demo\n", encoding="utf-8")
+        (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text(f"# Home\n\n{_PROSE}\n", encoding="utf-8")
+        secret = docs / "secret.md"
+        secret.write_text(f'# Leak\n\n{_PROSE}\n\naws_key = "{_SECRET}"\n', encoding="utf-8")
+        return secret
+
+    def test_unreadable_file_does_not_report_clean(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        secret = self._repo(tmp_path)
+        secret.chmod(0o000)
+        try:
+            monkeypatch.chdir(tmp_path)
+            result = CliRunner().invoke(app, ["guard", "scan"], catch_exceptions=False)
+            assert result.exit_code != 0, (
+                "the secret gate reported a clean bill over a file it could not read — "
+                f"got exit {result.exit_code}:\n{result.output}"
+            )
+            assert "Secret Guard clean" not in result.output, (
+                f"output claims cleanliness it did not verify:\n{result.output}"
+            )
+            assert "could not read" in result.output, (
+                f"the gate must say what it failed to verify:\n{result.output}"
+            )
+        finally:
+            secret.chmod(0o644)
+
+    def test_readable_repo_still_reports_clean(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Negative control: the fix must not make every clean repo fail."""
+        secret = self._repo(tmp_path)
+        secret.unlink()  # leave only the clean page
+        monkeypatch.chdir(tmp_path)
+        result = CliRunner().invoke(app, ["guard", "scan"], catch_exceptions=False)
+        assert result.exit_code == 0, (
+            f"a fully readable, secret-free repo must still pass: {result.output}"
+        )
