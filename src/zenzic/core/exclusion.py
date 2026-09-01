@@ -206,13 +206,24 @@ class LayeredExclusionManager:
 
         The credential/forbidden-term tier (Z201/Z204/Z205) must scan every
         file that ships, so its discovery pass ignores ``excluded_dirs``,
-        ``excluded_file_patterns`` and CLI ``--exclude-dir`` — configuration
-        can scope a file out of quality analysis, never out of the secret
-        scan. System guardrails and the VCS layer are retained: gitignored
-        content is deliberately outside the published corpus (and includes
-        operator-private directories), and the guardrail set is the engine's
-        own internals — "everything that ships gets the secret scan" is the
-        exact boundary.
+        ``excluded_file_patterns``, CLI ``--exclude-dir`` **and ``.gitignore``**
+        — configuration can scope a file out of quality analysis, never out of
+        the secret scan.
+
+        The VCS layer used to be retained here, on the rationale that
+        gitignored content is outside the published corpus. That rationale was
+        wrong twice over. ``pathspec`` implements gitignore *pattern matching*;
+        it does not implement git's rule that an **already-tracked file is
+        never ignored**, so adding one line to ``.gitignore`` hid a file from
+        Zenzic while git kept tracking it — the file still shipped and still
+        rendered, which is the exact opposite of the boundary this docstring
+        claimed. And ``.gitignore`` is user-editable and reviewer-invisible,
+        which made it a suppression mechanism for a tier three separate code
+        paths call non-suppressible.
+
+        Only the system guardrails survive: they are the engine's own
+        internals (``.git``, ``node_modules``, build output), fixed in code and
+        not editable by the project under scan. That is the whole boundary now.
         """
         view = object.__new__(LayeredExclusionManager)
         view._system_dirs = self._system_dirs
@@ -224,8 +235,10 @@ class LayeredExclusionManager:
         view._cli_include_dirs = frozenset()
         view._config_excluded_patterns = []
         view._config_included_patterns = []
-        view._respect_vcs = self._respect_vcs
-        view._vcs_pathspec = self._vcs_pathspec
+        # Stripped, not retained: see the docstring above. A user-editable file
+        # must not be able to decide what the security tier looks at.
+        view._respect_vcs = False
+        view._vcs_pathspec = None
         # A read-only discovery pass must not consume tracker state (CQS).
         view._global_tracker = None
         return view
