@@ -24,6 +24,7 @@ from zenzic.core.codes import (
     CODE_DEFINITIONS,
     CODE_DESCRIPTIONS,
     CODE_NAMES,
+    SECURITY_TIER_CODES,
     get_sarif_name,
 )
 from zenzic.core.exclusion import LayeredExclusionManager
@@ -456,7 +457,7 @@ def _output_sarif_findings(
     execution_successful = True
     notifications = []
     for f in findings:
-        if f.code in {"Z201", "Z202", "Z203", "Z204", "Z205"}:
+        if f.code in SECURITY_TIER_CODES:
             execution_successful = False
             notifications.append(
                 {

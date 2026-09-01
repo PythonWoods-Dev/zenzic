@@ -180,15 +180,28 @@ FROZEN_CODES: frozenset[str] = frozenset(
     }
 )
 
-NON_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
+#: The Z2xx security tier — the single authority for "this finding is a security
+#: fact." Every consumer that needs the tier (suppression guards, the ``--only``
+#: protected set via NON_SUPPRESSIBLE_CODES, SARIF's executionSuccessful flag)
+#: imports this rather than restating its members: a hand-written copy agrees
+#: today and drifts the day a code is added to only one of them.
+SECURITY_TIER_CODES: frozenset[str] = frozenset(
+    {
+        "Z201",  # CREDENTIAL_LEAK — Exit 2
+        "Z202",  # PATH_TRAVERSAL_BOUNDARY
+        "Z203",  # PATH_TRAVERSAL_SYSTEM — Exit 3
+        "Z204",  # FORBIDDEN_TERM — Exit 2
+        "Z205",  # FORBIDDEN_SCHEME — javascript:/data: XSS vector (v0.17.0)
+    }
+)
+
+#: Codes no suppression mechanism may silence: the security tier above, plus the
+#: two fatal config-load errors. Composed, never restated, so adding a code to
+#: SECURITY_TIER_CODES protects it everywhere at once.
+NON_SUPPRESSIBLE_CODES: frozenset[str] = SECURITY_TIER_CODES | frozenset(
     {
         "Z110",  # CONFIG_SYNTAX_ERROR — malformed .zenzic.toml; non-suppressible
         "Z111",  # CONFIG_SCHEMA_ERROR — invalid .zenzic.toml schema; non-suppressible
-        "Z201",
-        "Z202",
-        "Z203",
-        "Z204",
-        "Z205",  # FORBIDDEN_SCHEME — javascript:/data: XSS vector; non-suppressible (v0.17.0)
     }
 )
 
