@@ -1087,6 +1087,11 @@ class _AllCheckResults:
 # so this is an alias, never a restatement of the members (a copy that merely
 # agrees today drifts the day one side gains a code; enforced by
 # tests/test_always_evaluated_ssot_structural.py).
+#: Severities that force a non-zero exit regardless of anything else on screen.
+#: Named once so a presentation shortcut cannot return before the exit logic
+#: that consumes them (see the Z906 guard in ``check all``).
+_SECURITY_SEVERITIES: frozenset[str] = frozenset({"security_incident", "security_breach"})
+
 _ALWAYS_EVALUATED_CODES: frozenset[str] = NON_SUPPRESSIBLE_CODES
 
 
@@ -2019,7 +2024,16 @@ def check_all(
         if _single_file is not None:
             docs_count, config_count, assets_count = 1, 0, 0
 
-        if docs_count == 0 and _single_file is None:
+        # "No files found" is a presentation shortcut, and it must never sit
+        # upstream of the exit-code contract. The security-only pass scans files
+        # user scoping removed from the corpus, so a tree whose every page is
+        # excluded has a zero page count and can still hold a live credential —
+        # skipping the audit there reported exit 0 over a real breach, while
+        # --quiet and --format json (which have no such shortcut) reported 2.
+        # One corpus must not get three answers, so the shortcut yields whenever
+        # a non-suppressible finding exists and the normal path renders it.
+        _has_security = any(f.severity in _SECURITY_SEVERITIES for f in all_findings)
+        if docs_count == 0 and _single_file is None and not _has_security:
             _target_display = _target_hint or "./"
             _shared.console.print(
                 f"[bold yellow]\u26a0 Z906 NO_FILES_FOUND[/bold yellow] — "

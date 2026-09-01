@@ -273,3 +273,47 @@ class TestLocaleRoots:
             "a credential in an excluded locale root escaped the security scan; "
             f"reports carried no security findings ({len(reports)} report(s))"
         )
+
+
+class TestEmptyCorpusShortcut:
+    """A corpus with *no* unexcluded file must not take a shortcut past exit 2.
+
+    ``check all``'s text path prints ``Z906 NO_FILES_FOUND — Audit skipped.``
+    and returns when the visible page count is zero. That was correct before the
+    security-only pass existed: an all-excluded tree genuinely produced no
+    findings. It now can, and the shortcut sits upstream of the exit-code
+    evaluation, so the default human invocation reported **exit 0** over a live
+    credential while ``--quiet`` and ``--format json`` both correctly reported 2.
+
+    Every other fixture in this module happens to leave one unexcluded page, so
+    the page count is never zero and this path was never exercised — the gap was
+    in the suite, not only in the code.
+    """
+
+    def _only_excluded(self, tmp_path: Path) -> None:
+        (tmp_path / "mkdocs.yml").write_text("site_name: Demo\n", encoding="utf-8")
+        (tmp_path / ".zenzic.toml").write_text(
+            'docs_dir = "docs"\nexcluded_dirs = ["private"]\n', encoding="utf-8"
+        )
+        page = tmp_path / "docs" / "private" / "leak.md"
+        page.parent.mkdir(parents=True)
+        page.write_text(f'# Leak\n\n{_PROSE}\n\naws_key = "{_SECRET}"\n', encoding="utf-8")
+
+    def test_text_mode_does_not_skip_the_audit_past_a_breach(self, tmp_path: Path) -> None:
+        self._only_excluded(tmp_path)
+        exit_code, output = _check_all(tmp_path)
+        assert exit_code == 2, (
+            "the default text invocation took the Z906 'Audit skipped' shortcut past a "
+            f"live credential — got {exit_code}:\n{output}"
+        )
+
+    def test_quiet_and_json_agree_with_text_mode(self, tmp_path: Path) -> None:
+        """All three output modes must give one answer for one corpus."""
+        self._only_excluded(tmp_path)
+        quiet_code, _ = _check_all(tmp_path, "--quiet")
+        json_code, _ = _check_all(tmp_path, "-f", "json")
+        text_code, _ = _check_all(tmp_path)
+        assert quiet_code == json_code == text_code == 2, (
+            f"output mode changed the exit code: text={text_code} quiet={quiet_code} "
+            f"json={json_code} — the security tier must not depend on formatting"
+        )
