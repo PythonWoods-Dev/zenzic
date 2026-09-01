@@ -317,3 +317,62 @@ class TestEmptyCorpusShortcut:
             f"output mode changed the exit code: text={text_code} quiet={quiet_code} "
             f"json={json_code} — the security tier must not depend on formatting"
         )
+
+
+class TestInlineHtmlSuppressionCannotHideTraversal:
+    """``data-zenzic-ignore`` must not silence the path-traversal tier.
+
+    The URP link loop opened with ``if link.suppressed: continue``, and
+    ``link.suppressed`` comes from one place only: a ``data-zenzic-ignore``
+    attribute written into the document under scan. Everything downstream of
+    that skip included the Z202/Z203 emission block — the only site in the
+    codebase that constructs either code, reached by both ``zenzic check`` and
+    the LSP. So a page could silence its own path traversal, including
+    ``Z203``, the sole Exit-3 code in the contract, by adding an attribute to
+    its own anchor.
+
+    The sibling code already had the right ordering: ``validator.py`` states
+    that Z205 is checked *before* ``data-zenzic-ignore``, and the Z205 emitter
+    duly ignores the attribute. Z202/Z203 never got the same treatment — a
+    guard applied at some decision points but not all.
+
+    Non-security codes must keep honouring the attribute, which the Z105 case
+    below pins: the fix must not turn a suppression mechanism off wholesale.
+    """
+
+    def _page(self, tmp_path: Path, anchor: str) -> Path:
+        (tmp_path / "mkdocs.yml").write_text("site_name: Demo\n", encoding="utf-8")
+        (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        page = docs / "index.md"
+        page.write_text(f"# Page\n\n{_PROSE}\n\n{anchor}\n", encoding="utf-8")
+        return page
+
+    def test_data_zenzic_ignore_cannot_suppress_z203(self, tmp_path: Path) -> None:
+        self._page(tmp_path, '<a href="../../../../etc/passwd" data-zenzic-ignore>x</a>')
+        exit_code, output = _check_all(tmp_path)
+        assert exit_code == 3, (
+            "a document silenced its own path-traversal incident with an inline HTML "
+            f"attribute — Z203 is the sole Exit-3 code and is never suppressible; got "
+            f"{exit_code}:\n{output}"
+        )
+
+    def test_the_control_still_reports_without_the_attribute(self, tmp_path: Path) -> None:
+        self._page(tmp_path, '<a href="../../../../etc/passwd">x</a>')
+        exit_code, _ = _check_all(tmp_path)
+        assert exit_code == 3, "the unsuppressed control must report Z203"
+
+    def test_non_security_codes_still_honour_the_attribute(self, tmp_path: Path) -> None:
+        """The negative control: Z105 must stay suppressible.
+
+        Absolute-path links emit Z203 when the target looks like a system path
+        and Z105 otherwise, from the same branch — so the fix has to separate
+        the tier from its neighbour rather than disabling the skip wholesale.
+        """
+        self._page(tmp_path, '<a href="/some/site/path" data-zenzic-ignore>x</a>')
+        exit_code, output = _check_all(tmp_path)
+        assert "Z105" not in output, (
+            "data-zenzic-ignore stopped suppressing a non-security code; the security "
+            f"carve-out must be narrow:\n{output}"
+        )

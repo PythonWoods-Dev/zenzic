@@ -970,9 +970,14 @@ class IncrementalAnalysisEngine:
         )
 
         for link in extracted_links:
-            if link.suppressed:
-                continue
-
+            # `data-zenzic-ignore` is an inline, document-authored suppression,
+            # and the security tier is never inline-suppressible — a page must
+            # not be able to silence its own Z202/Z203 by adding an attribute to
+            # its own anchor. The traversal checks below therefore run for
+            # suppressed and unsuppressed links alike, and the attribute is
+            # honoured further down, once the tier has had its say. This mirrors
+            # the ordering `validator.py` already declares for Z205 ("checked
+            # before data-zenzic-ignore"); Z202/Z203 simply never got it.
             url = link.url
             lineno = link.line_no
             raw_line = link.raw_text
@@ -1045,7 +1050,10 @@ class IncrementalAnalysisEngine:
                         list(self.adapter.get_absolute_url_prefixes())
                         + list(self.config.absolute_path_allowlist)
                     )
-                    if not any(url.startswith(p) for p in allowlist if p):
+                    # Z105 is not in the security tier, so it keeps honouring
+                    # the inline attribute -- the carve-out above is for the
+                    # tier only, not a blanket disabling of the mechanism.
+                    if not link.suppressed and not any(url.startswith(p) for p in allowlist if p):
                         findings.append(
                             RuleFinding(
                                 path,
@@ -1056,6 +1064,11 @@ class IncrementalAnalysisEngine:
                                 matched_line=raw_line,
                             )
                         )
+                continue
+
+            # Past the security tier: from here down every code is
+            # inline-suppressible, so the document's own directive applies.
+            if link.suppressed:
                 continue
 
             # Non-markdown asset validation (Z104)
