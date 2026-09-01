@@ -29,6 +29,17 @@ ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 
+# The hook install is deliberately part of setup rather than a separate step a
+# developer has to know about -- three of the four ecosystem repositories were
+# once found running with no hooks installed at all, which is the precondition
+# Rule 31 now blocks on. Running this makes that precondition self-healing.
+#
+# Bootstrap a fresh clone: install dependencies and git hooks.
+setup:
+    uv sync --all-groups
+    uvx pre-commit install -t pre-commit -t pre-push
+    @echo "Setup complete. Run 'just verify' to check everything passes."
+
 # Install or update all dependency groups
 sync:
     uv sync --all-groups
