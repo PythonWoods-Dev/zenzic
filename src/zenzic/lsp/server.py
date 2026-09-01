@@ -30,6 +30,12 @@ from zenzic.models.diagnostics import (
 from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap, build_vsm
 
 
+#: The ``source`` value Zenzic stamps on every diagnostic it emits
+#: (:mod:`zenzic.models.diagnostics`). Used to establish that a diagnostic
+#: handed back by the client is ours before acting on it as ours.
+_ZENZIC_DIAGNOSTIC_SOURCE = "zenzic"
+
+
 def uri_to_path(uri: str) -> Path:
     """Convert a file:// URI to a cross-platform pathlib.Path."""
     parsed = urlsplit(uri)
@@ -979,8 +985,19 @@ class LanguageServer:
         for diag in diagnostics:
             raw_code = diag.get("code")
             diag_code = str(raw_code) if raw_code is not None else ""
-            if not diag_code and "message" in diag:
-                m = re.search(r"\[(Z\d{3})\]", str(diag["message"]))
+            # Scraping the code out of the message covers a client that drops
+            # `code` on the codeAction round-trip, but it must ask provenance
+            # first. Many language servers omit `code` entirely, and Zenzic's
+            # own wire format is "[Z501] message", so any tool echoing a
+            # Zenzic-formatted string -- a spell checker quoting the offending
+            # span, a page quoting CLI output -- yields a message this fallback
+            # would adopt, offering a zenzic:ignore comment for a finding that
+            # is not ours and that the comment cannot silence. Every diagnostic
+            # Zenzic emits carries source "zenzic" (models/diagnostics.py), so
+            # that is the membership test: positive provenance, not merely a
+            # well-formed code.
+            if not diag_code and diag.get("source") == _ZENZIC_DIAGNOSTIC_SOURCE:
+                m = re.search(r"\[(Z\d{3})\]", str(diag.get("message", "")))
                 if m:
                     diag_code = m.group(1)
 

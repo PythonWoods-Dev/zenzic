@@ -2630,3 +2630,70 @@ def test_lsp_code_action_ignores_foreign_diagnostics(tmp_path) -> None:
         "Zenzic offered a code action for a markdownlint diagnostic; its suppression "
         f"comment syntax does not suppress foreign findings:\n{payload}"
     )
+
+
+def test_lsp_code_action_ignores_foreign_diagnostic_quoting_a_zenzic_code(tmp_path) -> None:
+    """A foreign diagnostic with no ``code`` must not be adopted via its message.
+
+    ``_handle_code_action`` falls back to scraping ``[Z\\d{3}]`` out of a
+    diagnostic's message when the ``code`` field is absent — a real need, since
+    a client may drop ``code`` on the codeAction round-trip. But many other
+    language servers omit ``code`` entirely, and Zenzic's own wire format is
+    ``[Z501] message``, so any tool echoing a Zenzic-formatted string (a spell
+    checker quoting the offending span, a doc quoting CLI output) produced a
+    message the fallback happily adopted. Zenzic then offered
+    "Suppress Z501 for this line" on another tool's finding — the Round 1
+    foreign-diagnostic defect, reached through the message path instead of the
+    code path. Provenance decides: Zenzic stamps ``source: "zenzic"`` on every
+    diagnostic it emits, so the fallback is gated on that.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "# Title\n\nProse here.\n"}},
+        }
+    )
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 10},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 10},
+                            },
+                            "severity": 2,
+                            "source": "cspell",
+                            "message": "Spelling: did you mean '[Z501]'?",
+                        }
+                    ],
+                    "only": ["quickfix"],
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    assert "Z501" not in payload, (
+        "Zenzic adopted a foreign diagnostic by scraping a Z-code out of its "
+        f"message; the suppression it offers cannot silence another tool:\n{payload}"
+    )

@@ -19,7 +19,7 @@ one place to add a code, every consumer follows.
 
 from __future__ import annotations
 
-import re
+import ast
 from pathlib import Path
 
 from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, SECURITY_TIER_CODES
@@ -27,9 +27,38 @@ from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, SECURITY_TIER_CODES
 
 _SRC = Path(__file__).resolve().parent.parent / "src" / "zenzic"
 
-#: Any brace literal, so its Z2xx members can be compared against the real tier.
-_BRACE_LITERAL = re.compile(r"\{[^{}]*\}")
-_Z2XX = re.compile(r"\"(Z2\d\d)\"")
+
+def _string_sets(tree: ast.AST) -> list[tuple[int, frozenset[str]]]:
+    """Every set/frozenset literal in a module, as (lineno, string members).
+
+    Parsed rather than pattern-matched: the earlier regex scanned line by line,
+    so it could only see a restatement written on a single physical line — and
+    every multi-member frozenset in this codebase is formatted across several
+    lines, because that is what ``ruff format`` produces. A copy written in the
+    house style was therefore invisible to the guard protecting against copies.
+    Verified: a multi-line restatement passed the regex version and fails this one.
+    """
+    found: list[tuple[int, frozenset[str]]] = []
+    for node in ast.walk(tree):
+        elts: list[ast.expr] | None = None
+        if isinstance(node, ast.Set):
+            elts = list(node.elts)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "frozenset"
+            and node.args
+            and isinstance(node.args[0], ast.Set)
+        ):
+            elts = list(node.args[0].elts)
+        if elts is None:
+            continue
+        members = {
+            e.value for e in elts if isinstance(e, ast.Constant) and isinstance(e.value, str)
+        }
+        if members:
+            found.append((node.lineno, frozenset(members)))
+    return found
 
 
 def test_security_tier_is_the_full_z2xx_set() -> None:
@@ -56,11 +85,11 @@ def test_no_module_restates_the_whole_security_tier_as_a_literal() -> None:
     for path in sorted(_SRC.rglob("*.py")):
         if path.name == "codes.py":  # the SSoT itself is allowed to spell them out
             continue
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            for literal in _BRACE_LITERAL.findall(line):
-                if frozenset(_Z2XX.findall(literal)) == SECURITY_TIER_CODES:
-                    rel = path.relative_to(_SRC.parent.parent)
-                    offenders.append(f"{rel}:{lineno}: {line.strip()}")
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for lineno, members in _string_sets(tree):
+            if members == SECURITY_TIER_CODES:
+                rel = path.relative_to(_SRC.parent.parent)
+                offenders.append(f"{rel}:{lineno}")
     assert not offenders, (
         "the Z2xx security tier is restated as a literal instead of imported from "
         "codes.SECURITY_TIER_CODES — a copy that agrees today drifts tomorrow:\n  "
