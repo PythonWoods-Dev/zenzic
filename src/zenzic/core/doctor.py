@@ -51,10 +51,16 @@ class DoctorFinding:
 
 
 def _record_ids(vault: Path, pattern: str) -> set[str]:
-    """Uppercased identifiers of every record file present in *vault*.
+    """Uppercased identifiers of every record present in *vault*.
 
-    A record is matched by its filename, so the same pattern that finds a
-    citation in prose also identifies the file that satisfies it.
+    A record is identified by its filename or by its title, whichever carries
+    the number. Filename alone is not enough: records filed under a purely
+    descriptive slug (``adr-regex-acl.md``) title themselves ``# ADR 013`` and
+    would otherwise be invisible, reporting a decision that is recorded and
+    readable as a phantom citation.
+
+    Only the title line is read, not the body, so a record that merely
+    *mentions* another ADR does not claim to be it.
     """
     if not vault.is_dir():
         return set()
@@ -64,7 +70,28 @@ def _record_ids(vault: Path, pattern: str) -> set[str]:
         match = compiled.search(path.name.upper())
         if match:
             found.add(match.group(0).upper())
+            continue
+        title = _first_heading(path)
+        if title is None:
+            continue
+        # Titles read "# ADR 013"; citations read "ADR-013". Normalise the
+        # separator so one pattern recognises both spellings.
+        match = compiled.search(title.upper().replace(" ", "-"))
+        if match:
+            found.add(match.group(0).upper())
     return found
+
+
+def _first_heading(path: Path) -> str | None:
+    """The first Markdown H1 in *path*, or None if it has none."""
+    try:
+        with path.open(encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("# "):
+                    return line[2:].strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return None
 
 
 def check_adr_citations(repo_root: Path, config: DoctorConfig) -> list[DoctorFinding]:

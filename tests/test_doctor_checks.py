@@ -58,6 +58,33 @@ class TestAdrCitations:
             "ADR-777"
         ]
 
+    def test_a_record_is_matched_by_its_title_when_the_filename_omits_the_number(
+        self, tmp_path: Path
+    ) -> None:
+        """A record filed under a slug name still satisfies its citation.
+
+        Reproduces the real vault state: records such as ``adr-regex-acl.md``
+        title themselves ``# ADR 013`` but carry no number in the filename.
+        Matching on the filename alone reported four such records as phantom
+        while the decision they record was sitting in the vault, readable.
+        """
+        vault = tmp_path / "docs/developers/explanation/adr-vault/records"
+        vault.mkdir(parents=True, exist_ok=True)
+        (vault / "adr-regex-acl.md").write_text("# ADR 013\n\nRE2 only.\n", encoding="utf-8")
+        _src(tmp_path, "a.py", "# All regex through the ACL (ADR-013).\n")
+
+        assert check_adr_citations(tmp_path, DoctorConfig()) == []
+
+    def test_a_phantom_is_still_reported_when_no_title_matches(self, tmp_path: Path) -> None:
+        """Title matching must not turn the check into a rubber stamp."""
+        vault = tmp_path / "docs/developers/explanation/adr-vault/records"
+        vault.mkdir(parents=True, exist_ok=True)
+        (vault / "adr-regex-acl.md").write_text("# ADR 013\n", encoding="utf-8")
+        _src(tmp_path, "a.py", "see ADR-061\n")
+
+        findings = check_adr_citations(tmp_path, DoctorConfig())
+        assert [f.message.split()[0] for f in findings] == ["ADR-061"]
+
     def test_each_phantom_is_reported_once_however_often_cited(self, tmp_path: Path) -> None:
         _vault(tmp_path, "012")
         _src(tmp_path, "a.py", "ADR-999\nADR-999\n")
