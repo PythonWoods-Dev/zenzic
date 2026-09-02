@@ -112,14 +112,21 @@ HYPOTHESIS_PROFILE=purity just test  # pre-release
 <details>
 <summary>Mutation testing</summary>
 
-Use `nox -s mutation` to run [mutmut](https://mutmut.readthedocs.io/) against
-`src/zenzic/core/rules.py`, `credentials.py`, and `reporter.py` (`[tool.mutmut]`
-in `pyproject.toml`). This is deliberately **not** part of `just verify`
-— run it manually after working on the rule engine:
+Use `just mutation` to run [mutmut](https://mutmut.readthedocs.io/) against
+`src/zenzic/core/credentials.py` (`[tool.mutmut]` in `pyproject.toml`) and check the
+score against a recorded floor. **CI runs this on every build.**
 
 ```bash
-nox -s mutation
+just mutation
 ```
+
+The score is a ratchet, not the target: the credential scanner measures **56.5%**
+against a stated target of **≥ 90%**, and the gate prints that gap on every run. See
+[Credential Scanner Obligations](reference/credential-scanner-obligations) for what it
+does and does not promise.
+
+`nox -s mutation` also exists and runs mutmut, but computes no floor and fails on
+nothing.
 
 </details>
 

@@ -157,20 +157,32 @@ before merging.
 
 ---
 
-## Obligation 4 — Mutation Score ≥ 90% for Core Changes
+## Obligation 4 — Mutation Score: target ≥ 90%, currently 56.5%
 
-Any PR that modifies `src/zenzic/core/` must maintain or improve the mutation score on
-the affected module. Target for rc1: **≥ 90%**.
+Any PR that modifies `src/zenzic/core/` must maintain or improve the mutation score on the
+affected module. The target is **≥ 90%**. The measured score is **not there yet**, and this
+page states both rather than only the target.
 
-Run the mutation suite to see the current baseline for `rules.py` — do not rely on a
-number written in this document, since a hardcoded figure goes stale on the next release
-and nothing forces it to be updated:
+!!! warning "Current state, measured"
+
+    The first real run of the harness (2026-09-02) scored **56.5%** on the credential
+    scanner: 231 mutants killed, 178 survived, 9 with no covering test. Closing the gap is
+    tracked as its own work item. Until it closes, treat this obligation as a direction,
+    not as a property the codebase already has.
+
+CI runs the gate on every build, as a **ratchet**: `just mutation` fails when the score
+drops below a recorded floor, and prints the distance to the 90% target on every run. It
+does not gate at 90% — doing so would fail every build today, and gating at the measured
+value while calling the obligation satisfied would change what is shown rather than what
+is true.
 
 ```bash
-nox -s mutation
+just mutation
 ```
 
-The session targets `rules.py`, `credentials.py`, and `reporter.py`. Any PR touching the
+The gate targets `src/zenzic/core/credentials.py` against the nine suites that exercise it.
+`nox -s mutation` also exists and runs mutmut, but computes **no** floor and fails on
+nothing — prefer `just mutation`, which is what CI runs. Any PR touching the
 `_map_credentials_to_finding()` conversion function, the `SECURITY_BREACH` severity path
 in `ZenzicReporter`, or the exit-code routing in `cli.py` **must kill all three mandatory
 mutants**:

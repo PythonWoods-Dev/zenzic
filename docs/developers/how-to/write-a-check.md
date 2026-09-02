@@ -63,8 +63,11 @@ No changes to `__init__.py`, `main.py`, or `_metadata.py` are required.
 
 If your check touches the credential scanner or `harvest()`, see the dedicated
 [Credential Scanner Obligations](../reference/credential-scanner-obligations) reference.
-The four obligations (Worker Timeout, Regex-Canary, Dual-Stream Invariant, Mutation Score ≥ 90%)
-are enforced on every PR touching `src/zenzic/core/`.
+The four obligations are Worker Timeout, Regex-Canary, the Dual-Stream Invariant, and the
+mutation score. The first three are enforced on every PR touching `src/zenzic/core/`. The
+fourth is gated in CI as a no-regression floor rather than at its stated target: the
+credential scanner currently measures **56.5%** against a target of **≥ 90%**, and closing
+that gap is open work. The reference page explains what the gate does and does not promise.
 
 ---
 
