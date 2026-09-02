@@ -82,8 +82,6 @@ Do not suppress this error with a config workaround — it indicates a setup mis
 
 ## Release Workflow
 
-This section details the specifications and guidelines for Release Workflow within the Zenzic ecosystem.
-
 ### `just release` fails with "release-contracts" error
 
 **Symptom:** `just release patch` (or `minor`/`major`) exits with:

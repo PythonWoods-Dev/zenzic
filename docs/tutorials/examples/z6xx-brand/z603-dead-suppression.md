@@ -63,8 +63,6 @@ Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)
 
 ## The Three Z603 Scenarios
 
-This section details the specifications and guidelines for The Three Z603 Scenarios within the Zenzic ecosystem.
-
 ### Scenario A — Dead Directive (this page)
 
 A valid link has a `zenzic:ignore: Z101` directive that is never consumed.

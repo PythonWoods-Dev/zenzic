@@ -4,8 +4,6 @@
 
 ## description: "Live example showing a malformed frontmatter delimiter detected by Zenzic."
 
-This section details the specifications and guidelines for description: "Live example showing a malformed frontmatter delimiter detected by Zenzic." within the Zenzic ecosystem.
-
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 

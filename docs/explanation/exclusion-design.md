@@ -7,8 +7,6 @@ description: "The design rationale behind Zenzic's conscious exclusion model ver
 
 # Exclusion Design
 
-This section details the specifications and guidelines for Exclusion Design within the Zenzic ecosystem.
-
 ---
 
 ## Conscious Control vs. Blind Automation
