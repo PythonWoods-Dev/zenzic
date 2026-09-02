@@ -1447,6 +1447,7 @@ def load_config_with_diagnostics(
     """
     from pydantic import ValidationError
 
+    from zenzic.core.codes import code_severity
     from zenzic.core.reporter import Finding
 
     target_file = config_file if config_file else (repo_root / ".zenzic.toml")
@@ -1536,7 +1537,7 @@ def load_config_with_diagnostics(
             rel_path=err_file_str,
             line_no=line_no,
             code="Z110",
-            severity="error",
+            severity=code_severity("Z110"),
             message=f"TOML syntax error in configuration file: {exc}",
             source_line=source_line,
         )
@@ -1564,7 +1565,7 @@ def load_config_with_diagnostics(
                     rel_path=rel_file_str,
                     line_no=line_no,
                     code="Z111",
-                    severity="error",
+                    severity=code_severity("Z111"),
                     message=msg,
                     match_text=last_key,
                     source_line=source_line,
@@ -1586,7 +1587,7 @@ def load_config_with_diagnostics(
             rel_path=err_rel_path,
             line_no=1,
             code="Z111",
-            severity="error",
+            severity=code_severity("Z111"),
             message=f"Configuration error: {exc}",
         )
         return None, [finding]
