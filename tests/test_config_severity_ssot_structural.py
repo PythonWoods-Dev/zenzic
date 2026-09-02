@@ -69,6 +69,5 @@ def test_no_hardcoded_severity_literals_in_config_py() -> None:
         "Hardcoded severity literal(s) found in config.py's Finding(...) "
         "construction -- this is the exact bug shape already found in "
         "_check.py, rules.py, incremental.py, scanner.py, governance.py, and "
-        "suppressions.py. Route through code_severity(code) instead:\n"
-        + "\n".join(violations)
+        "suppressions.py. Route through code_severity(code) instead:\n" + "\n".join(violations)
     )
