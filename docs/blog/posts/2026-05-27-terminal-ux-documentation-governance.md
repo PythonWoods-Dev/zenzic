@@ -377,8 +377,6 @@ a scanned path attempted to escape the repository boundary toward system paths.
 Like Exit 2, it precedes all other exit-code evaluation. `--exit-zero` has no
 effect.
 
-<CredentialTerminal />
-
 The evaluation order is fixed: Exit 3 conditions are checked first, Exit 2
 second, Exit 1 third. This order ensures that security contracts are never
 shadowed by governance failures or score thresholds.

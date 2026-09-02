@@ -82,8 +82,6 @@ The path traversal guard treats host-path traversal as a **security event**, not
 !!! danger "Exit Code 3 — Path Traversal Guard"
     A `Z203 PATH_TRAVERSAL_FATAL` finding means a documentation source file contains a link whose resolved target points to `/etc/passwd`, `/root/`, or another OS system path. This can indicate a template injection, a compromised documentation toolchain, or an author mistake that reveals internal infrastructure details. Treat it as a build-blocking security incident.
 
-<PathTraversalGuardTerminal />
-
 ---
 
 ## Orphans {#check-orphans}
