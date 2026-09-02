@@ -10,11 +10,19 @@
 
 `docs/index.md` contains `[Passwd](../../../../etc/passwd)` — a link that
 both escapes the `docs/` directory boundary and resolves into an OS system
-directory (`/etc/`). Zenzic classifies traversal intent by regex-scanning
-the raw href for `/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, or `/usr/`
-(see `_classify_traversal_intent` in `zenzic.core.validator`); a match
-upgrades the finding from the ordinary Z202 boundary violation to
-**Z203 PATH_TRAVERSAL_FATAL**.
+directory (`/etc/`) — and `[Encoded](..%2f..%2f..%2f..%2fetc%2fpasswd)`, the
+same destination spelled with percent-encoded separators.
+
+Zenzic classifies traversal intent by *destination*: the href is percent-
+decoded (repeatedly, so `..%252f` is covered too), backslashes are folded to
+slashes, the path is normalised, and the leading escape hops are dropped. If
+what remains starts on a system root — `etc`, `root`, `var`, `proc`, `sys`,
+`usr`, `bin`, `sbin`, `boot`, `dev`, or the Windows names `windows`, `winnt`,
+`system32`, `programdata` — the finding is upgraded from the ordinary Z202
+boundary violation to **Z203 PATH_TRAVERSAL_FATAL** (see
+`_classify_traversal_intent` in `zenzic.core.validator`). Classification does
+not substring-search the text, so `../../guide/usr/manual.md` — which mentions
+`usr` but lands inside the docs tree — is not Z203.
 
 Z203 is **non-suppressible** (cannot be silenced with inline `zenzic: ignore`)
 and exits with code **3** — the only finding code with this exit code; every
@@ -31,10 +39,11 @@ zenzic check links
 ## Expected output
 
 ```text
-docs/index.md:12:  Z203  PATH_TRAVERSAL_FATAL  '../../../../etc/passwd' resolves outside the docs directory
+docs/index.md:12  ✘  [Z203]  '../../../../etc/passwd' resolves outside the docs directory
+docs/index.md:17  ✘  [Z203]  '..%2f..%2f..%2f..%2fetc%2fpasswd' resolves outside the docs directory
 ```
 
-Exit code **3**.
+Two findings, one destination, two spellings. Exit code **3**.
 
 ## Fix
 

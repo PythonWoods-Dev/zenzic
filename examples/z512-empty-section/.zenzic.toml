@@ -8,7 +8,8 @@
 #
 # Expected results:
 #   zenzic check content   → EXIT 1  (Z512 ×1 — heading with no body content)
-#   zenzic check all       → EXIT 1
+#   zenzic check all       → EXIT 0  (Z512 is a warning; the gate still passes)
+#   zenzic check all --strict → EXIT 1  (warnings become failures)
 
 docs_dir = "docs"
 fail_under = 0

@@ -407,7 +407,7 @@ A leaked credential was detected by the Zenzic credential scanner. This exit cod
 
 ### Exit Code 3 -- Path Traversal Guard {#exit-code-3}
 
-A documentation link resolves to an OS system path (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). This is classified as `PATH_TRAVERSAL_SUSPICIOUS` -- a security incident that indicates a potential template injection, compromised toolchain, or infrastructure disclosure.
+A documentation link resolves to an OS system path (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`, `/bin/`, `/sbin/`, `/boot/`, `/dev/`, or a Windows system location such as `system32`). The href is percent-decoded and normalised first, so an encoded spelling reaches the same classification. This is classified as `PATH_TRAVERSAL_SUSPICIOUS` -- a security incident that indicates a potential template injection, compromised toolchain, or infrastructure disclosure.
 
 Exit code 3 has the **highest priority**. If both credential scanner and path traversal guard findings exist in the same run, exit code 3 wins.
 

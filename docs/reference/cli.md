@@ -1039,7 +1039,9 @@ the affected location is also left untouched rather than overriding it.
 
 !!! danger "Exit code 3 — Path Traversal Guard Incident"
     Exit code 3 is issued when the path traversal guard detects a link that resolves to an OS
-    system directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). Unlike exit
+    system directory — `/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`, `/bin/`,
+    `/sbin/`, `/boot/`, `/dev/`, or a Windows system location (`windows`, `winnt`,
+    `system32`, `programdata`). Unlike exit
     code 1, this is a security incident and takes priority over all other exit codes. It is
     never suppressed by `--exit-zero`. See
     [Checks: Path Traversal Guard](./checks#path-traversal-guard) for details.
@@ -1100,7 +1102,8 @@ DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detecte
 ### Exit 3 — path traversal fatal incident
 
 A link resolves outside every authorised root, or to an OS system directory
-(`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). Takes priority over
+(`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`, `/bin/`, `/sbin/`, `/boot/`,
+`/dev/`, or a Windows system location). Takes priority over
 every other exit code and is never suppressed by `--exit-zero`:
 
 ```text

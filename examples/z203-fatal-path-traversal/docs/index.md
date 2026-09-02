@@ -12,10 +12,22 @@ the fatal variant of Z202.
 - [Passwd](../../../../etc/passwd) — this link escapes `docs/` and targets
   `/etc/`, an OS system directory → **Z203**, not Z202.
 
+## The Same Target, Percent-Encoded
+
+- [Encoded](..%2f..%2f..%2f..%2fetc%2fpasswd) — `%2f` is a slash to everything
+  that resolves the link, so this reaches the same file → **Z203** as well.
+
+The check decodes before it classifies, so an encoded spelling cannot hide a
+traversal. Repeated encoding (`..%252f`), mixed-case escapes (`%2F`) and
+backslash separators are folded the same way.
+
 An ordinary boundary violation (escaping `docs/` toward a sibling directory
-that is not an OS system path) stays Z202 and exits 1. Only a traversal
-whose resolved path matches `/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`,
-or `/usr/` is reclassified as Z203 and exits 3.
+that is not an OS system path) stays Z202 and exits 1. A traversal is
+reclassified as Z203 when the path it *lands* on is a system root — `/etc/`,
+`/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`, `/bin/`, `/sbin/`, `/boot/`,
+`/dev/`, and the Windows equivalents (`windows`, `winnt`, `system32`,
+`programdata`). Landing matters, not spelling: `../../guide/usr/manual.md`
+mentions `usr` but arrives inside the docs tree and is not Z203.
 
 ## What Zenzic Reports
 

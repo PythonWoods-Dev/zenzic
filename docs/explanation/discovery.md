@@ -235,6 +235,14 @@ The invariant guarantees that every engine-generated URL traces back to at least
 | Zensical        | No                                   | Architecture is identical -- enabled when an out-of-tree plugin ships. |
 | Standalone      | No                                   | No plugins; `docs_root` is the entire content surface.                 |
 
+Monorepo sub-projects are found from the `mkdocs-monorepo-plugin` configuration and
+from `nav`. Every documented `!include` spelling is recognised: a bare list entry
+(`- '!include ./sub'`), an entry keyed on the directive, and the plugin's own titled
+form (`- Sub: '!include ./sub/mkdocs.yml'`). The `nav` tree is walked recursively, so
+an include nested inside a section is found too. This matters beyond navigation: the
+roots discovered here are what the credential scan walks, so a sub-project Zenzic
+cannot reach is a sub-project it cannot scan.
+
 ### `inspect routes` — Site Map Export {#inspect-routes}
 
 The `inspect routes` command exposes the VSM to external consumers as a deterministic JSON structure. Each record carries four fields: `url`, `kind` (one of `physical`, `tag`, `tag_index`, `pagination`, `author`, or `author_index`), `source_files` (a sorted array of repo-relative paths that cause the URL to exist), and a `digest` — a SHA-256 fingerprint derived from the URL and its source files.

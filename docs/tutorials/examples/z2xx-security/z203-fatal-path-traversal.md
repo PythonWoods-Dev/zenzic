@@ -23,14 +23,18 @@ The offending line:
 
 ```markdown
 - [Passwd](../../../../etc/passwd)
+- [Encoded](..%2f..%2f..%2f..%2fetc%2fpasswd)
 ```
 
 Four `../` segments from `docs/` reach the filesystem root, and the target is
-`/etc/` — an operating-system directory, not project content.
+`/etc/` — an operating-system directory, not project content. The second line
+is the same destination with percent-encoded separators: `%2f` is a slash to
+everything that resolves the link, so it arrives at the same file. The href is
+decoded before it is classified, so both are `Z203`.
 
 `Z203` is deliberately narrower than its sibling `Z202`. A link that merely
 escapes `docs/` into another part of the repository is `Z202`. A link that
-escapes into a *system* directory is `Z203`, and carries its own exit code,
+*lands* on a system directory is `Z203`, and carries its own exit code,
 because the plausible explanations are all bad ones: a templating accident that
 would publish a system path, or a deliberate probe.
 
@@ -47,26 +51,35 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 21 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 35 files/s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:12  ✘  [Z203]  '../../../../etc/passwd' resolves outside the docs
 directory
+
     10  │  ## Fatal Traversal Link
     11  │
-    12  ❱  - [Passwd](../../../../etc/passwd) — this link escapes `docs/` and
-targets
+    12  ❱  - [Passwd](../../../../etc/passwd) — this link escapes `docs/` and t…
 
-Summary:  ✘ 1 security incident  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file
+docs/index.md:17  ✘  [Z203]  '..%2f..%2f..%2f..%2fetc%2fpasswd' resolves outside
+the docs directory
+
+    15  │  ## The Same Target, Percent-Encoded
+    16  │
+    17  ❱  - [Encoded](..%2f..%2f..%2f..%2fetc%2fpasswd) — `%2f` is a slash to …
+
+Summary:  ✘ 2 security incidents  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file
 with findings
 FAILED: Security incidents detected. Exit code 3 is mandatory.
-DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+DQS Final Score: 0/100 (Security Override — 2 non-suppressible findings
+detected)
 ```
 
-Read the summary line carefully: **0 errors**, and one *security incident*.
-`Z203` is counted in its own class, which is what routes the run to exit 3
-instead of exit 1.
+Read the summary line carefully: **0 errors**, and two *security incidents* —
+one destination, two spellings. `Z203` is counted in its own class, which is
+what routes the run to exit 3 instead of exit 1.
 
 ---
 
