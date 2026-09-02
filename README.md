@@ -107,7 +107,7 @@ zenzic fix --apply  # apply safe, idempotent auto-fixes (--dry-run to preview)
 
 ## What It Looks Like
 
-A failing run in CI (`zenzic check all docs`, on a 4-file fixture, exit code 2 — a real capture, ASCII glyphs as rendered in an Actions log):
+A failing run in CI (`zenzic check all docs`, on a 4-file fixture, exit code 2 — a real capture, ASCII glyphs as rendered in an Actions log). The last line reports the DQS — the Documentation Quality Score, explained under [Core Capabilities](#core-capabilities):
 
 ```text
 ✘ SECURITY BREACH DETECTED  [LIKELY PLACEHOLDER]
@@ -131,7 +131,7 @@ FAILED: Security breaches detected. Exit code 2 is mandatory.
 DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
 ```
 
-Credential leaks and path traversal (exit 2 / 3, see [Exit Codes](#exit-codes)) force the score to 0 and cannot be suppressed by policy or inline comment, regardless of everything else in the repo. A clean run, on this repository's own 297-file docs tree, looks like this instead:
+Credential leaks and path traversal (exit 2 / 3, see [Exit Codes](#exit-codes)) cannot be suppressed by policy or inline comment, regardless of everything else in the repo. A clean run, on this repository's own 297-file docs tree, looks like this instead:
 
 ```text
 mkdocs - ./docs/ - 297 files (265 pages, 4 config, 28 assets) - 5.9s - 50 files/s
@@ -143,7 +143,7 @@ DQS Final Score: 98/100 (Gate Passed)
 
 ## Core Capabilities
 
-- **Graph analysis** — an in-memory link/anchor/asset graph (the "Virtual Site Map," or VSM) built once per run and reused for every check: broken links (`Z101`), missing files (`Z104`), unused assets (`Z405`), and pages unreachable from any entry point (`Z410`, `Z411`). It scales linearly with repository size — doubling the page count roughly doubles scan time, not worse.
+- **Graph analysis** — an in-memory link/anchor/asset graph (the Virtual Site Map) built once per run and reused for every check: broken links (`Z101`), missing files (`Z104`), unused assets (`Z405`), and pages unreachable from any entry point (`Z410`, `Z411`). It scales linearly with repository size — doubling the page count roughly doubles scan time, not worse.
 - **Security scanning** — leaked API keys and cloud credentials (`Z201` and related codes) and path-traversal sequences are exit-2 / exit-3 failures that cannot be suppressed, by design.
 - **Structural specification checks** — required table columns, closed cell-value enums, and mandated heading sequences (`Z521`, `Z522`, `Z523`, `Z412`) catch AI-edited tables and specs that parse fine but violate a project's own declared contract.
 - **Atomic auto-fix** (`zenzic fix`) — lossless, idempotent AST mutations: wraps bare URLs, strips trailing heading punctuation, converts fake bullet-point paragraphs into real lists, tags unlabelled code fences, cleans up dead inline suppressions, and repairs relative links across the tree after a rename (`zenzic fix --rename OLD NEW`). Running it twice never produces a second diff.
