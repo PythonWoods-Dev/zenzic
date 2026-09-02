@@ -82,6 +82,13 @@ When a fatal configuration error occurs, the engine emits `Z110`/`Z111` attached
 
 ## Summary of New Diagnostic Codes
 
+!!! note "Historical snapshot"
+    This table reflects the code registry as of v0.27.0. Five of its rows have since
+    changed: `Z410` is now a `warning` rather than an `error`; `Z411`'s penalty rose
+    from 2.0 to 5.0; and `Z510`, `Z511` and `Z512` all now carry 1.0 rather than
+    3.0/2.0/2.0. See [Finding Codes](../../reference/finding-codes.md) for the current
+    values.
+
 | Code | Name | Severity | Penalty | Suppressible | Quick Fix |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Z410** | `UNREACHABLE_GRAPH_NODE` | `error` | 5.0 | Yes | No |
