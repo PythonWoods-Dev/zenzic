@@ -218,13 +218,23 @@ exclude_lines = [
 # ─── Mutation testing (Mutation Gate) ────────────────────────────────────────
 
 [tool.mutmut]
-paths_to_mutate = [
-    "src/zenzic/core/rules.py",
-    "src/zenzic/core/credentials.py",
-    "src/zenzic/core/reporter.py",
+source_paths = ["src/zenzic/core/credentials.py"]
+# Every suite that exercises the credential scanner. NOT "tests/": the whole
+# suite cannot run in mutmut's sandbox — tests that read repository artifacts
+# beyond `also_copy` fail there and abort stat collection before a single
+# mutant runs, which is why this harness was configured but never produced a
+# number. Scoped to the kill-tests the Mutation invariant actually names.
+pytest_add_cli_args_test_selection = [
+    "tests/test_security.py",
+    "tests/test_security_pipeline.py",
+    "tests/test_redteam_remediation.py",
+    "tests/test_credential_detector_gaps.py",
+    "tests/test_guard.py",
+    "tests/test_security_exclusion_immunity.py",
+    "tests/test_gitignore_cannot_hide_credentials.py",
+    "tests/test_security_exit_chokepoint.py",
+    "tests/test_adapter_metadata_not_a_security_bypass.py",
 ]
-# pytest_add_cli_args_test_selection specifies which tests to run (replaces tests_dir).
-pytest_add_cli_args_test_selection = ["tests/"]
 # Every entry here is required either by the hatchling build backend
 # (README.md for [project].readme; examples/ for
 # [tool.hatch.build.targets.wheel.force-include]) or by tests that read a
@@ -237,6 +247,10 @@ also_copy = [
     "src/",
     "README.md",
     "examples/",
+    # docs/ is required by tests that resolve doctor's default paths (the ADR
+    # vault lives under docs/); without it the sandbox cannot even collect.
+    "docs/",
+    "mkdocs.yml",
     "zenzic-baseline.schema.json",
     "zenzic-output.schema.json",
 ]

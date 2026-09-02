@@ -63,6 +63,13 @@ jobs:
       - name: Run unit tests (coverage enforced, fail_under=80)
         run: just test-cov
 
+      # The credential scanner is the one path where a test that stops catching a
+      # regression is a security problem rather than a coverage statistic. The
+      # harness was configured in pyproject.toml but never invoked anywhere, so no
+      # score had ever been produced; this step is what makes it real.
+      - name: Mutation gate (credential scanner)
+        run: just mutation
+
       - name: Run Zenzic Quality Gate
         run: uv run zenzic check all --strict --format github-annotations --ci
 

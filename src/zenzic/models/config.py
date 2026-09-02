@@ -229,12 +229,26 @@ class DoctorConfig(BaseModel):
     @field_validator("adr_vault_path", "redirects_path")
     @classmethod
     def _must_be_public_repo_content(cls, value: Path) -> Path:
-        """Refuse absolute paths and anything reaching a gitignored control plane."""
+        """Refuse absolute paths, traversal, and anything reaching a gitignored plane.
+
+        ``doctor`` walks these paths with ``rglob`` directly rather than through
+        ``discovery.walk_files``, so it does not inherit the repository-root boundary
+        check every corpus read gets. This validator *is* that boundary. It already
+        refused an absolute path; ``..`` was the sibling case it did not, and
+        ``adr_vault_path = "../outside"`` therefore loaded cleanly and had doctor read
+        a decision-record vault outside the repository entirely.
+        """
         if value.is_absolute():
             raise ValueError(
                 f"{value} is absolute; doctor paths are relative to the repository root."
             )
-        parts = set(Path(value).parts)
+        parts_ordered = Path(value).parts
+        if ".." in parts_ordered:
+            raise ValueError(
+                f"{value} traverses outside the repository root; doctor paths must stay "
+                "inside the published tree."
+            )
+        parts = set(parts_ordered)
         for private in (".claude", ".human"):
             if private in parts:
                 raise ValueError(

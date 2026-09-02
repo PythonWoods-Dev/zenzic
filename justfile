@@ -68,6 +68,12 @@ test-slow *args:
 test-cov *args:
     {{ runner }} pytest -m "not slow" --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
+# Mutation gate for the credential scanner (Z201/Z204/Z205 path).
+# Ratchet, not the Tier-0 target: see scripts/mutation_gate.py for why the floor
+# is the measured score and not the documented 90%.
+mutation:
+    {{ runner }} python scripts/mutation_gate.py
+
 # Full audit: includes slow tests (deadlock guards, 1k-file torture, Hypothesis ci).
 # Run on Ubuntu only; reserved for pre-release validation.
 test-cov-full *args:
