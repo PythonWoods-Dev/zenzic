@@ -210,7 +210,7 @@ CI checks
 
 This only works well if the two checks are substantially equivalent. Otherwise CI becomes a second, unrelated implementation of the quality policy.
 
-Zenzic's own workflow moves through progressively stronger verification boundaries — pre-commit, pre-push, and CI — with the local and remote paths designed to run the same checks rather than diverging ones. That principle generalizes beyond Zenzic: the closer local and remote enforcement are, the more useful local feedback becomes. If local verification and CI use different versions, configurations, or rule sets, developers are effectively debugging the CI environment rather than validating their changes.
+Zenzic's own workflow moves through progressively stronger verification boundaries — pre-commit, pre-push, and CI. Keeping the local and remote paths aligned is the goal rather than a solved problem: a check that runs in one and not the other is a gap, and gaps of that kind accumulate quietly, because nothing fails when a check simply is not there. The principle generalizes beyond Zenzic: the closer local and remote enforcement are, the more useful local feedback becomes. If local verification and CI use different versions, configurations, or rule sets, developers are effectively debugging the CI environment rather than validating their changes.
 
 ## Pinning is necessary, but not sufficient
 
