@@ -131,6 +131,12 @@ Pre-commit also provides an isolated execution environment for hooks. This gives
 
 Zenzic explicitly supports pre-commit use, and its CLI includes a dedicated `guard` command with a staged-file mode designed for the fast pre-commit path. The tool can also generate or update a native pre-commit hook definition through `zenzic guard init`.
 
+There is a failure mode worth naming before going further, because it undoes everything above and looks like nothing at all: **a declared hook is not an installed hook.** `.pre-commit-config.yaml` is a description of intent. What actually runs is whatever is in `.git/hooks/`, and that directory is populated by `pre-commit install` — a step no clone performs on its own. A contributor who clones the repository and starts committing has the full configuration and none of the enforcement.
+
+Nothing signals this. The configuration is present and valid, the commits succeed, and the checks that were supposed to run simply do not. The gate is not bypassed; it was never in the path. This happened in Zenzic's own repository: eighteen hooks declared, `.git/hooks/` empty, and an entire working session's commits recorded without a single check running. It surfaced only when the hooks were finally installed and the very next commit was blocked by two genuine type errors — in a change whose author had run the linter and not the type checker, which is exactly the asymmetry the hook exists to remove.
+
+The practical consequence is that a repository relying on pre-commit needs a check that the hooks are installed, not only that they are configured. That check has to live somewhere that runs regardless — a task-runner recipe used in normal work, or a test-session fixture — because a hook cannot verify its own installation: if it were installed enough to run, the condition it is checking for would already be false.
+
 A minimal conceptual workflow looks like this:
 
 ```text
