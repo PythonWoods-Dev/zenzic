@@ -1656,7 +1656,21 @@ class VSMBrokenLinkRule(BaseRule):
             # test asked a question it was not built to answer.
             _is_traversal = url.startswith("/") or ".." in url.replace("\\", "/").split("/")
             if _is_traversal and _classify_traversal_intent(url) == "suspicious":
-                continue
+                # ...unless the project allowlisted this prefix. The security
+                # tier consults the allowlist before classifying, so deferring
+                # to it here for a link the tier will not claim would drop the
+                # link out of broken-link checking entirely: skipped here, and
+                # cleared there.
+                from zenzic.core.validator import is_allowlisted_absolute
+
+                _allow: list[str] = []
+                if context is not None:
+                    if context.adapter is not None:
+                        _allow += list(context.adapter.get_absolute_url_prefixes())
+                    if context.config is not None:
+                        _allow += list(getattr(context.config, "absolute_path_allowlist", []))
+                if not is_allowlisted_absolute(url, url, _allow):
+                    continue
 
             # Compute the canonical URL this link would resolve to.
             # We apply the standard clean-URL transformation:

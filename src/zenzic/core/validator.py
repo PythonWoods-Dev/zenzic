@@ -33,7 +33,7 @@ import posixpath
 import sys
 import textwrap
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 
 
 if sys.version_info >= (3, 11):
@@ -733,6 +733,23 @@ def _decode_percent_encoding(value: str) -> str:
             break
         value = decoded
     return value
+
+
+def is_allowlisted_absolute(url: str, decoded_url: str, allowlist: Iterable[str]) -> bool:
+    """Whether *url* is exempted by a configured absolute-path prefix.
+
+    Must be consulted **before** :func:`_classify_traversal_intent`, not after.
+    The classifier reads the first surviving path segment, so a documentation
+    section named ``dev/`` or ``usr/`` makes an ordinary site-absolute link
+    "suspicious" — and the emission sites turned that into a non-suppressible
+    exit 3. The allowlist was read only in the branch that classification had
+    already skipped past, so the escape hatch the configuration documents could
+    never apply to the finding it was meant to clear.
+
+    Both spellings are matched, because a link that only *decodes* to an
+    absolute path reaches the same branch.
+    """
+    return any(url.startswith(p) or decoded_url.startswith(p) for p in allowlist if p)
 
 
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:

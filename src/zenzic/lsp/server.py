@@ -504,6 +504,14 @@ class LanguageServer:
         params = message.get("params", {})
         msg_id = message.get("id")
 
+        # Positive membership first. A Response carries "result" or "error" and
+        # no "method"; testing only for the absence of "method" classified the
+        # client's ordinary reply to our own client/registerCapability request
+        # as a malformed request, and answered a response with an error frame on
+        # an id the client had already retired -- every session.
+        if "result" in message or "error" in message:
+            return
+
         if not method:
             self.send_error(msg_id, -32600, "Invalid Request: missing method")
             return
@@ -663,7 +671,13 @@ class LanguageServer:
                     self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/hover":
-            self._handle_hover(params, msg_id)
+            # Same guarantee as codeAction below, which stated it as a rule and
+            # then implemented it at one handler out of four.
+            try:
+                self._handle_hover(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=None)
         elif method == "textDocument/codeAction":
             # A request MUST be answered. Client-supplied params reach arithmetic
             # and attribute access inside the handler (a string where a line
@@ -678,15 +692,30 @@ class LanguageServer:
                 if msg_id is not None:
                     self.send_response(msg_id, result=[])
         elif method == "textDocument/willSaveWaitUntil":
-            self._handle_will_save_wait_until(params, msg_id)
+            try:
+                self._handle_will_save_wait_until(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=[])
         elif method == "workspace/willRenameFiles":
-            self._handle_will_rename_files(params, msg_id)
+            try:
+                self._handle_will_rename_files(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=None)
         elif method == "textDocument/didClose":
             uri = params.get("textDocument", {}).get("uri", "")
             self.documents.did_close(params)
             self.dirty_documents.pop(uri, None)
             if self.overlay:
                 self.overlay.remove(uri)
+        else:
+            # An unrecognised method is a protocol answer, not silence: a
+            # request must get -32601, a notification (no id) must get
+            # nothing. The chain simply ended, so a client asking for an
+            # unimplemented capability waited forever.
+            if msg_id is not None:
+                self.send_error(msg_id, -32601, f"Method not found: {method}")
 
     def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
         """Run validation incrementally via the decoupled engine.
@@ -790,7 +819,14 @@ class LanguageServer:
         # (`zenzic check all --strict`) in CI/CD batch mode.
 
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
-        if msg_id is None or self.vsm is None or not self.repo_root or not self.config:
+        if msg_id is None:
+            return
+        # A request MUST be answered. `not self.repo_root` is an ordinary client
+        # state -- a single-file editor window sends neither rootUri nor
+        # workspaceFolders -- and returning here left every hover in such a
+        # session pending forever. `result: null` is a complete answer.
+        if self.vsm is None or not self.repo_root or not self.config:
+            self.send_response(msg_id, result=None)
             return
 
         doc = params.get("textDocument", {})

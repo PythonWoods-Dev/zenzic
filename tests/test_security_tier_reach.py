@@ -276,3 +276,53 @@ class TestAuditSurvivesTheProcessBoundary:
             "the parallel dispatcher no longer reads the sovereign context; a ContextVar "
             "cannot reach the child process on its own"
         )
+
+
+class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
+    """A configured allowlist must be able to exempt a site-absolute link.
+
+    ``_classify_traversal_intent`` reads the first surviving path segment, so a
+    documentation section named ``dev/``, ``bin/``, ``var/`` or ``usr/`` makes
+    ``[a](/dev/setup.md)`` "suspicious" — and the branch turned that into
+    ``Z203``, exit 3, non-suppressible, for a link containing no traversal. The
+    escape hatch the configuration documents was unreachable: the allowlist was
+    consulted only in the *else* arm, after the classification had already
+    decided.
+
+    This is the same guard the ``rules.py`` skip site received, applied at the
+    three sites in ``incremental.py`` that actually emit the codes — which is
+    Rule 35's own requirement, applied to the fix that motivated Rule 35.
+    """
+
+    @pytest.mark.parametrize("directory", ["dev", "bin", "var", "usr"])
+    def test_an_allowlisted_absolute_link_is_not_a_security_incident(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: str
+    ) -> None:
+        root = _project(tmp_path, excluded=f'absolute_path_allowlist = ["/{directory}/"]')
+        _write(root, f"docs/{directory}/setup.md", "Setup instructions live here.")
+        _write(root, "docs/page.md", f"[a](/{directory}/setup.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") != 3, (
+            f"/{directory}/ was allowlisted and still raised a non-suppressible Z203"
+        )
+
+    def test_a_genuine_system_target_still_exits_3_even_when_allowlisted_elsewhere(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Control: the allowlist exempts what it names, not the whole classifier."""
+        root = _project(tmp_path, excluded='absolute_path_allowlist = ["/dev/"]')
+        _write(root, "docs/page.md", "[a](/etc/passwd)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3
+
+    def test_an_unallowlisted_absolute_link_is_unchanged(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pins the boundary of this fix: without an entry, behaviour is as before.
+
+        The remaining false positive — an OS-root-named docs section with no
+        allowlist entry — is a separate, logged design decision, not something
+        this change silently alters.
+        """
+        root = _project(tmp_path)
+        _write(root, "docs/dev/setup.md", "Setup instructions live here.")
+        _write(root, "docs/page.md", "[a](/dev/setup.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3

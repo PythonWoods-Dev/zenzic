@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 
@@ -40,10 +41,29 @@ class DocumentManager:
         text = self.documents[uri]
         for change in changes:
             if "range" in change:
-                # Incremental sync with UTF-16 offsets
-                range_info = change["range"]
-                start = range_info["start"]
-                end = range_info["end"]
+                # Incremental sync with UTF-16 offsets.
+                # `.get` on start/end for the same reason as "text" below: the
+                # missing-key case was fixed there and left here, so a change
+                # carrying an incomplete range still raised, was swallowed by
+                # the caller, and left the buffer at its pre-change value while
+                # the editor moved on -- the same permanent desync by a sibling
+                # key. An incomplete range is refused explicitly instead.
+                range_info = change["range"] or {}
+                start = range_info.get("start")
+                end = range_info.get("end")
+                if not isinstance(start, dict) or not isinstance(end, dict):
+                    # The buffer cannot be brought forward, so keeping it would
+                    # be keeping something known to be stale -- which is exactly
+                    # the desync this guard exists to prevent, only quieter.
+                    # Dropping it makes the next read fall back to disk: wrong
+                    # in a knowable way rather than wrong invisibly.
+                    logging.getLogger("zenzic.lsp").warning(
+                        "didChange for %s carried a range without usable start/end; "
+                        "dropping the buffer rather than leaving it desynced",
+                        uri,
+                    )
+                    self.documents.pop(uri, None)
+                    return
                 # `.get` rather than `[...]`: a change object without "text"
                 # raised KeyError, the server loop swallowed it, and the buffer
                 # was left at its pre-change value while the editor moved on --

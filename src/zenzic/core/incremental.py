@@ -55,6 +55,7 @@ from zenzic.core.validator import (
     _decode_percent_encoding,
     anchors_in_file,
     check_snippet_content,
+    is_allowlisted_absolute,
 )
 from zenzic.models.diagnostics import (
     DiagnosticPosition,
@@ -207,8 +208,17 @@ class IncrementalAnalysisEngine:
                     cfg_text = config_file.read_text(encoding="utf-8")
                 except OSError:
                     pass
-            diags = self._findings_to_diagnostics(cfg_text, config_findings)
-            return {config_uri: diags}
+            # Reported alongside everything else, never instead of it. Returning
+            # here replaced the whole result map, so a syntax error in a
+            # pyproject.toml this project neither owns nor writes silenced every
+            # open buffer -- including a live Z201. The module's own rule is that
+            # a buffer the server refuses to look at would be a suppression
+            # mechanism; this refused all of them at once.
+            config_only_diags = {
+                config_uri: self._findings_to_diagnostics(cfg_text, config_findings)
+            }
+        else:
+            config_only_diags = {}
         if new_config:
             self.config = new_config
 
@@ -456,6 +466,10 @@ class IncrementalAnalysisEngine:
         # Only URIs with at least one diagnostic are considered "active".
         self._uris_with_active_diagnostics = {uri for uri, diags in results.items() if diags}
 
+        # The config file's own diagnostics ride along with the workspace's,
+        # never in place of them.
+        for _cfg_uri, _cfg_diags in config_only_diags.items():
+            results[_cfg_uri] = _cfg_diags
         return results
 
     # ── Private: VSM patching ─────────────────────────────────────────────────
@@ -601,7 +615,13 @@ class IncrementalAnalysisEngine:
         extracted_links = PolyglotExtractor().extract_all_links(text)
 
         # Atomic Rules
-        findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
+        # Callers legitimately construct the engine with no rule engine -- the
+        # security-only pass does, and so does a config-diagnostic-only run. That
+        # used to be masked by an early return on config errors; now that a config
+        # error no longer replaces the whole result set, this path is reachable and
+        # must not crash on it.
+        if self.rule_engine is not None:
+            findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
         # Credential and forbidden-term scan. CredentialScannerRule is excluded
         # from the rule engine to avoid a double-pass in the CLI path, where
@@ -627,11 +647,12 @@ class IncrementalAnalysisEngine:
             source_file=path,
             use_directory_urls=self._use_directory_urls,
         )
-        findings.extend(
-            self.rule_engine.run_vsm(
-                path, text, vsm, self.anchors_cache, context, extracted_links=extracted_links
+        if self.rule_engine is not None:
+            findings.extend(
+                self.rule_engine.run_vsm(
+                    path, text, vsm, self.anchors_cache, context, extracted_links=extracted_links
+                )
             )
-        )
 
         # Snippet Checks
         for s_err in check_snippet_content(text, path, self.config):
@@ -1018,6 +1039,18 @@ class IncrementalAnalysisEngine:
             decoded_url = _decode_percent_encoding(url).replace("\\", "/")
             decoded_path = urlsplit(decoded_url).path
 
+            # Consulted BEFORE classification, at every emission site below.
+            # `_classify_traversal_intent` reads the first surviving segment, so
+            # a docs section named dev/ or usr/ makes an ordinary site-absolute
+            # link "suspicious"; the allowlist used to be read only in the arm
+            # that classification had already skipped past, so a configured
+            # exemption could never clear the finding it was written for.
+            _abs_allowlist = tuple(
+                list(self.adapter.get_absolute_url_prefixes())
+                + list(self.config.absolute_path_allowlist)
+            )
+            _allowlisted = is_allowlisted_absolute(url, decoded_url, _abs_allowlist)
+
             # Z202 / Z203 — Path Traversal Detection
             #
             # The two branches below must PARTITION, and once did not. An href
@@ -1038,7 +1071,7 @@ class IncrementalAnalysisEngine:
                     norm_target = posixpath.normpath(posixpath.join(base, decoded_path))
                     if norm_target.startswith(".."):
                         _intent = _classify_traversal_intent(url)
-                        _code = "Z203" if _intent == "suspicious" else "Z202"
+                        _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
                                 path,
@@ -1060,7 +1093,7 @@ class IncrementalAnalysisEngine:
                     target_path = Path(target_str)
                     if not target_path.is_relative_to(resolved_docs_root):
                         _intent = _classify_traversal_intent(url)
-                        _code = "Z203" if _intent == "suspicious" else "Z202"
+                        _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
                                 path,
@@ -1077,7 +1110,7 @@ class IncrementalAnalysisEngine:
             # Z105 / Z203
             elif parsed.path.startswith("/") or decoded_path.startswith("/"):
                 _intent = _classify_traversal_intent(url)
-                if _intent == "suspicious":
+                if _intent == "suspicious" and not _allowlisted:
                     findings.append(
                         RuleFinding(
                             path,
@@ -1089,18 +1122,15 @@ class IncrementalAnalysisEngine:
                         )
                     )
                 else:
-                    allowlist = tuple(
-                        list(self.adapter.get_absolute_url_prefixes())
-                        + list(self.config.absolute_path_allowlist)
-                    )
+                    allowlist = _abs_allowlist
                     # Z105 is not in the security tier, so it keeps honouring
                     # the inline attribute -- the carve-out above is for the
                     # tier only, not a blanket disabling of the mechanism.
                     # The allowlist is matched against both spellings: a link
                     # that only *decodes* to an absolute path reaches this
                     # branch, and an allowlisted prefix must still exempt it.
-                    if not link.suppressed and not any(
-                        url.startswith(p) or decoded_url.startswith(p) for p in allowlist if p
+                    if not link.suppressed and not is_allowlisted_absolute(
+                        url, decoded_url, allowlist
                     ):
                         findings.append(
                             RuleFinding(
