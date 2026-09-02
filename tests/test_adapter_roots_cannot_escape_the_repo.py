@@ -114,32 +114,46 @@ class TestEveryShippedAdapter:
         assert _run(repo, monkeypatch) != 2
 
 
-def test_walk_files_is_the_only_walking_primitive() -> None:
-    """Structural: the boundary check lives in one place, so it must be the only walk.
+def test_discovery_is_the_only_module_that_walks_the_filesystem() -> None:
+    """Tier-0: every filesystem walk goes through ``discovery``.
 
-    A new `os.walk`/`rglob` added elsewhere in the engine would bypass the check
-    silently — nothing else would fail. This is the guard for that.
+    The boundary check that keeps the engine inside the repository lives in
+    ``discovery``. A walk added anywhere else does not merely miss an exclusion
+    — it leaves the repository, silently, with nothing else failing. That is the
+    class of defect ``doctor`` had: three ``rglob`` calls on configured
+    subpaths, inheriting no boundary, so ``adr_vault_path = "../outside"`` read
+    a vault outside the repo and reported clean.
+
+    The allowlist is deliberately **empty**. An entry here would keep a hole
+    open by declaration; ``doctor`` was migrated to ``iter_files_within``
+    instead, which is what makes the invariant true rather than merely stated.
+
+    Scope, stated so it is not mistaken for an oversight: this matches
+    *recursive* traversal — ``os.walk``, ``rglob``, ``scandir`` — because those
+    descend into a tree whose root came from configuration and can therefore
+    arrive anywhere on the machine. A non-recursive ``iterdir()`` on an
+    already-validated root yields only that directory's own children and cannot
+    leave it, so it is a listing rather than a walk. ``_shared.py`` uses one to
+    count root-level config files; routing it through a recursive helper would
+    be both slower and wrong.
     """
     import re
 
-    #: Walks that legitimately live outside ``walk_files``. Positive membership, so a
-    #: NEW one fails this test instead of being absorbed silently. ``doctor`` reads the
-    #: decision-record vault, a configured subpath rather than the scanned corpus; its
-    #: own boundary is enforced by ``ZenzicConfig``'s validator on ``adr_vault_path``.
-    known = {"core/doctor.py"}
+    allowed: set[str] = set()
 
     src = Path(__file__).resolve().parent.parent / "src" / "zenzic"
     offenders = []
     for path in sorted(src.rglob("*.py")):
         rel = path.relative_to(src).as_posix()
-        if path.name == "discovery.py" or rel in known:
+        if path.name == "discovery.py" or rel in allowed:
             continue
         text = path.read_text(encoding="utf-8")
-        for match in re.finditer(r"\bos\.walk\(|\.rglob\(", text):
+        for match in re.finditer(r"\bos\.walk\(|\.rglob\(|\bos\.scandir\(", text):
             offenders.append(f"{rel}:{text[: match.start()].count(chr(10)) + 1}")
     assert not offenders, (
-        "filesystem walks outside discovery.walk_files bypass the repo-root boundary "
-        f"check: {offenders}"
+        "filesystem walks outside zenzic.core.discovery bypass the repository-root "
+        f"boundary check: {offenders}. Use walk_files (corpus, needs an exclusion "
+        "manager) or iter_files_within (configured subpath) instead."
     )
 
 

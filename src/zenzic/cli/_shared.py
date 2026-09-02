@@ -573,11 +573,27 @@ def _build_exclusion_manager(
 
 
 def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
-    """F4-1: Reject docs_dir paths that escape the repository root.
+    """Reject a **config-derived** ``docs_root`` that escapes the repository root.
 
-    Raises :class:`typer.Exit` with code 3 (path traversal guard) if
-    ``docs_root.resolve()`` is not under ``repo_root.resolve()``.
-    This prevents path-traversal attacks via ``docs_dir = "../../etc"``.
+    Scope, stated precisely because this function reads like a general guard and
+    is not one: it only ever sees the root the CLI computed from
+    ``(repo_root / config.docs_dir)``. A root resolved by an *adapter* —
+    ``mkdocs.yml``'s own ``docs_dir``, a monorepo ``!include``, ``zensical.toml``,
+    a prebuilt VSM route — never passes through here, so this raises nothing for
+    any of them.
+
+    That is not a gap, because it is not the boundary. The boundary is
+    ``discovery.walk_files``/``iter_files_within``, which resolve every candidate
+    path against the repository root on the way out; adapters report roots and
+    never construct an exclusion manager, so they cannot move it. See the Single
+    Traversal Primitive invariant, and
+    ``tests/test_adapter_roots_cannot_escape_the_repo.py``, which probes all five
+    adapter vectors with a live credential and a positive control.
+
+    What this function adds is an *early, legible* failure for the one case a
+    user can fix by editing their own ``.zenzic.toml``: raising
+    :class:`typer.Exit` with code 3 beats letting discovery silently yield
+    nothing and reporting an empty corpus.
     """
     resolved_repo = repo_root.resolve()
     resolved_docs = docs_root.resolve()

@@ -2,15 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 """Centralised file-discovery utilities for the Zenzic Core.
 
-Every module that needs to iterate over documentation source files or asset
-files must use the helpers defined here.  This ensures that ``excluded_dirs``
-(including the ``SYSTEM_EXCLUDED_DIRS`` guardrails merged at config load time)
-and ``excluded_file_patterns`` are applied **universally** — scanner, validator,
-credential scanner, and orphan-checker all see the exact same file set.
+Every module that walks the filesystem must use the helpers defined here. No
+module performs its own ``os.walk``/``rglob``; a structural test enforces it.
+
+Two properties depend on that, and only the first was ever written down:
+
+1. ``excluded_dirs`` (including the ``SYSTEM_EXCLUDED_DIRS`` guardrails merged
+   at config load time) and ``excluded_file_patterns`` are applied
+   **universally** — scanner, validator, credential scanner and orphan-checker
+   all see the exact same file set.
+2. **Every yielded path is resolved and confirmed to be inside the repository
+   root.** This is the engine's actual path-traversal boundary: an engine
+   config, a monorepo include or a prebuilt route can name any directory on
+   the machine, and the check here is what stops those bytes being read. A
+   walk added elsewhere does not merely miss an exclusion — it leaves the
+   repository.
 
 Public API
 ----------
-* :func:`walk_files` — low-level ``os.walk`` with directory pruning.
+* :func:`walk_files` — low-level ``os.walk`` with directory pruning, for the
+  scanned corpus (needs a :class:`LayeredExclusionManager`).
+* :func:`iter_files_within` — the same boundary with no exclusion layer, for
+  components that walk a configured subpath rather than the corpus.
 * :func:`iter_markdown_sources` — yield ``.md`` / ``.mdx`` files honouring
   both directory *and* filename exclusions.
 """
@@ -137,6 +150,39 @@ def walk_files(
                 )
                 continue
 
+            yield fpath
+
+
+def iter_files_within(
+    root: Path,
+    repo_root: Path,
+    *,
+    suffixes: frozenset[str] | None = None,
+) -> Generator[Path, None, None]:
+    """Yield files under *root* that genuinely resolve inside *repo_root*.
+
+    The boundary half of :func:`walk_files`, without the exclusion layer, for
+    components that walk a **configured subpath** rather than the scanned
+    corpus — ``doctor``'s decision-record vault and citation roots. Those have
+    no :class:`LayeredExclusionManager` to consult and previously called
+    ``rglob`` directly, which meant they inherited no boundary at all: a
+    configured path containing ``..`` walked straight out of the repository.
+
+    Symlinks are resolved before the check, so a link inside the tree pointing
+    outside it is skipped rather than followed.
+    """
+    resolved_repo_root = repo_root.resolve(strict=False)
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for fname in sorted(filenames):
+            fpath = Path(dirpath) / fname
+            if suffixes is not None and fpath.suffix not in suffixes:
+                continue
+            resolved = fpath.resolve(strict=False)
+            try:
+                if not resolved.is_relative_to(resolved_repo_root):
+                    continue
+            except ValueError:
+                continue
             yield fpath
 
 

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from zenzic.core import regex as re
+from zenzic.core.discovery import iter_files_within
 
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ class DoctorFinding:
         return f"{self.location}: {self.message}" if self.location else self.message
 
 
-def _record_ids(vault: Path, pattern: str) -> set[str]:
+def _record_ids(vault: Path, pattern: str, repo_root: Path) -> set[str]:
     """Uppercased identifiers of every record present in *vault*.
 
     A record is identified by its filename or by its title, whichever carries
@@ -66,7 +67,7 @@ def _record_ids(vault: Path, pattern: str) -> set[str]:
         return set()
     compiled = re.compile(pattern)
     found: set[str] = set()
-    for path in vault.rglob("*.md"):
+    for path in iter_files_within(vault, repo_root, suffixes=frozenset({".md"})):
         match = compiled.search(path.name.upper())
         if match:
             found.add(match.group(0).upper())
@@ -114,7 +115,7 @@ def check_adr_citations(repo_root: Path, config: DoctorConfig) -> list[DoctorFin
             )
         ]
 
-    records = _record_ids(vault, config.adr_citation_pattern)
+    records = _record_ids(vault, config.adr_citation_pattern, repo_root)
     compiled = re.compile(config.adr_citation_pattern)
 
     # citation -> first file that cites it, so a finding can point somewhere real
@@ -123,9 +124,7 @@ def check_adr_citations(repo_root: Path, config: DoctorConfig) -> list[DoctorFin
         base = repo_root / root
         if not base.is_dir():
             continue
-        for path in base.rglob("*"):
-            if not path.is_file() or path.suffix not in _CITATION_SUFFIXES:
-                continue
+        for path in iter_files_within(base, repo_root, suffixes=_CITATION_SUFFIXES):
             try:
                 text = path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -317,7 +316,7 @@ def next_adr_number(repo_root: Path, config: DoctorConfig) -> int:
     vault = repo_root / config.adr_vault_path
     highest = 0
     if vault.is_dir():
-        for path in vault.rglob("*.md"):
+        for path in iter_files_within(vault, repo_root, suffixes=frozenset({".md"})):
             match = re.search(r"(\d{3,})", path.name)
             if match:
                 highest = max(highest, int(match.group(1)))
