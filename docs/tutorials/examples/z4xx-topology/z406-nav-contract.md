@@ -6,7 +6,7 @@ description: "Walk through the z406-nav-contract fixture: mkdocs.yml declares ex
 
 # Z406 — Nav Contract
 
-**Z-Code:** `Z406 NAV_CONTRACT` · **Engine:** `mkdocs` · **Exit:** `1`
+**Z-Code:** `Z406 NAV_CONTRACT` · **Engine:** `mkdocs` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 

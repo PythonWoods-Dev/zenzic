@@ -6,7 +6,7 @@ description: "Walk through the z620-stale-global-suppression fixture: an unused 
 
 # Z620 — Stale Global Suppression
 
-**Z-Code:** `Z620 STALE_GLOBAL_SUPPRESSION` · **Engine:** `standalone` · **Exit:** `1`
+**Z-Code:** `Z620 STALE_GLOBAL_SUPPRESSION` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 
