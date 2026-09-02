@@ -52,7 +52,7 @@ Servers returning `401`, `403`, or `429` are treated as reachable — these indi
 
     Links like `[text](#section)` that point to a heading within the same file are always validated against `Z102` — there is no configuration flag to disable this check.
 
-### Violation codes
+### Finding codes
 
 | Code | Severity | Meaning |
 | :--- | :---: | :--- |
@@ -205,7 +205,7 @@ An asset is considered **used** if it appears as a Markdown image link (`![alt](
 
 The security and link-integrity check for [Markdown reference-style links](https://spec.commonmark.org/current/#link-reference-definitions). Also acts as the primary surface for the **credential scanner**.
 
-### Reference violation codes
+### Reference finding codes
 
 | Code | Severity | Exit code | Meaning |
 | :--- | :---: | :---: | :--- |

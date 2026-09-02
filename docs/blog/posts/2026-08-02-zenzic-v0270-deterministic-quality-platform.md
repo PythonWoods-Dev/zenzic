@@ -13,6 +13,9 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "Deterministic Quality Platform". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+
 Zenzic v0.27.0 expands the engine from a structural validator into a full **Deterministic Quality Platform**, introducing evolutionary baseline tracking, topological graph analysis, mathematical content readability linting, and formal TOML configuration validation.
 
 <!-- more -->

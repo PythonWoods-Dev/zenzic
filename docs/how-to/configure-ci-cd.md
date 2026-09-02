@@ -1,5 +1,5 @@
 ---
-description: "Zero-Trust CI/CD Quality Gate integration, SARIF output, GitHub Actions, and Exit Code Contract (ADR-075)."
+description: "Zero-Trust CI/CD Quality Gate integration, SARIF output, GitHub Actions, and the Exit Code Contract."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
