@@ -26,7 +26,7 @@ Graph builder;
 Reporter.
 ```
 
-The author wrote a list. Markdown sees a paragraph: without `- `, `* ` or `1. `
+The author wrote a list. Markdown sees a paragraph: without `` - ``, `` * `` or `` 1. ``
 markers, consecutive lines are joined into flowing prose, so this renders as one
 run-on line rather than three items.
 
@@ -83,7 +83,7 @@ zenzic fix --dry-run   # preview
 zenzic fix --apply
 ```
 
-The fix adds `- ` markers and strips the trailing semicolons, producing:
+The fix adds `` - `` markers and strips the trailing semicolons, producing:
 
 ```markdown
 Here are the components:

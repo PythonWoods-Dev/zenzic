@@ -74,4 +74,3 @@ This section is the **governance constitution** — the constraints that protect
 own structure from erosion by convenience, urgency, and well-intentioned shortcuts.
 
 > *"Do not trust us. Trust the system we built to protect you."*
-
