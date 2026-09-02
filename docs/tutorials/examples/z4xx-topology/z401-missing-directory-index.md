@@ -84,7 +84,7 @@ omit the directory URL or return a 404:
 
 - **Scan Type:** `Structure Validator (zensical engine)`
 - **Severity:** `Info`
-- **Impact:** Deducts **2.0 DQS points** (navigation category, weight 0.25).
+- **Impact:** Informational only — deducts **no DQS points**.
 
 ---
 

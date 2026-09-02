@@ -82,7 +82,7 @@ documentation engine will generate from the source tree. Every URL declared in
 switcher produces a 404:
 
 - **Scan Type:** `Nav Contract Checker (mkdocs engine)`
-- **Severity:** `Error`
+- **Severity:** `Warning`
 - **Impact:** Deducts **2.0 DQS points** (brand governance category, weight 0.25).
 
 ---
