@@ -7,7 +7,8 @@ from __future__ import annotations
 import io
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Annotated, Any, cast
 
 import typer
@@ -59,16 +60,28 @@ from zenzic.core.ui import ZenzicPalette, ZenzicUI
 # nothing, because Typer's `_main` reads `e.exit_code` off its own class. Both
 # are set: the vendored one is what actually runs today, and the upstream one
 # keeps the behaviour correct for any path that reaches real click.
-def _remap_usage_error_exit_code() -> None:
-    """Move Click usage errors off exit 2, which the contract reserves.
+@contextmanager
+def _usage_errors_exit_1() -> Iterator[None]:
+    """Move Click usage errors off exit 2 -- for this invocation only.
+
+    The Exit Code Contract reserves exit 2 for a Credential Scanner Breach, and
+    Click's default for a usage error is also 2, so a typo'd flag and a live key
+    were indistinguishable to any CI gate.
+
+    ``exit_code`` is a class attribute on a class Zenzic does not own, so the
+    remap is necessarily a mutation of shared state. Doing it at import time
+    made it **process-wide**: merely importing ``zenzic.main`` changed the exit
+    code of every other Click application in the same interpreter, which is a
+    library reaching outside its own boundary. Scoped here instead, it applies
+    while Zenzic's own entry point is running and is restored afterwards, so an
+    import has no observable effect on anyone else.
 
     Typer vendors its own click (``typer._click``), a DIFFERENT module object
     from the installed ``click`` package -- patching only the latter changes
     nothing, because Typer's ``_main`` reads ``e.exit_code`` off its own class.
-    Both are set: the vendored one is what actually runs, and the upstream one
-    keeps any path reaching real click correct too. Each import is guarded so a
-    Typer version without the vendored alias degrades to patching what exists
-    rather than failing at import time.
+    Both are set, and both are restored to whatever they held before, not to a
+    hardcoded 2. Each import is guarded so a Typer version without the vendored
+    alias degrades to patching what exists rather than failing at import time.
     """
     modules: list[Any] = []
     try:
@@ -83,11 +96,15 @@ def _remap_usage_error_exit_code() -> None:
         modules.append(_click_pkg)
     except ImportError:  # pragma: no cover -- click is a hard Typer dependency
         pass
+
+    previous = [(module, module.exceptions.UsageError.exit_code) for module in modules]
     for module in modules:
         module.exceptions.UsageError.exit_code = 1
-
-
-_remap_usage_error_exit_code()
+    try:
+        yield
+    finally:
+        for module, code in previous:
+            module.exceptions.UsageError.exit_code = code
 
 
 def _version_callback(value: bool) -> None:
@@ -344,7 +361,8 @@ def cli_main() -> None:
         _print_banner()
 
     try:
-        app()
+        with _usage_errors_exit_1():
+            app()
     except (SystemExit, KeyboardInterrupt):
         raise
     except PluginContractError as exc:

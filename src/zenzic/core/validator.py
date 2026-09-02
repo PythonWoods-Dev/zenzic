@@ -43,7 +43,7 @@ else:
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import httpx
 import yaml
@@ -707,6 +707,34 @@ _SYSTEM_ROOT_DIRS: frozenset[str] = frozenset(
 )
 
 
+#: Percent-decoding rounds applied before a traversal is classified. One pass
+#: is not enough: ``..%252f`` decodes to ``..%2f``, which still is not ``../``,
+#: so a single ``unquote`` leaves a double-encoded traversal looking like an
+#: ordinary relative filename. The loop is bounded because the input is
+#: untrusted and a fixed point is not guaranteed to arrive quickly.
+_MAX_DECODE_ROUNDS = 5
+
+
+def _decode_percent_encoding(value: str) -> str:
+    """Percent-decode *value* until it stops changing, at most a few rounds.
+
+    The security tier and the link resolver must agree on what a URL says.
+    ``incremental.py`` already resolved links through ``unquote`` while the
+    traversal check read the raw text, so ``..%2f..%2fetc%2fpasswd`` reached
+    ``/etc/passwd`` and produced no finding: the two halves of the same
+    pipeline disagreed about the same string.
+
+    Pure string work, no filesystem access — the Zero I/O property of the
+    validator hot-path is unaffected.
+    """
+    for _ in range(_MAX_DECODE_ROUNDS):
+        decoded = unquote(value)
+        if decoded == value:
+            break
+        value = decoded
+    return value
+
+
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
     """Return 'suspicious' when *href* appears to target an OS system directory.
 
@@ -723,10 +751,17 @@ def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
     ``/ETC/passwd`` silently downgraded to a boundary crossing and a
     backslash path to ``system32`` produced nothing at all.
 
+    The href is percent-decoded first (repeatedly — see
+    ``_decode_percent_encoding``). ``%2f`` is a slash to everything that
+    resolves the link and was not one to this classifier, so every encoded
+    spelling of a system traversal classified as an ordinary boundary
+    crossing, or was never routed here at all.
+
     Still pure string work — no filesystem calls, no ``Path`` resolution — so
     the validator hot-path keeps its Zero I/O property.
     """
-    candidate = href.split("?", 1)[0].split("#", 1)[0].replace("\\", "/")
+    decoded = _decode_percent_encoding(href)
+    candidate = decoded.split("?", 1)[0].split("#", 1)[0].replace("\\", "/")
     # normpath collapses '.' and interior '..' without touching the filesystem.
     normalized = posixpath.normpath(candidate)
     segments = [seg for seg in normalized.split("/") if seg not in ("", ".")]

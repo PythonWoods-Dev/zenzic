@@ -52,6 +52,7 @@ from zenzic.core.validator import (
     _POLY_CLEAN_URL_RE,
     PolyglotExtractor,
     _classify_traversal_intent,
+    _decode_percent_encoding,
     anchors_in_file,
     check_snippet_content,
 )
@@ -987,12 +988,23 @@ class IncrementalAnalysisEngine:
 
             parsed = urlsplit(url)
 
+            # The security tier must read the URL the way whatever resolves it
+            # will. A few lines further down this same loop already resolves
+            # links through `unquote`, while this gate substring-searched the
+            # raw text: `..%2f..%2fetc%2fpasswd` reached /etc/passwd and matched
+            # nothing here, so the non-suppressible tier answered exit 0.
+            # Backslashes are folded for the same reason the classifier folds
+            # them -- `..\..\windows` is the same escape wearing separators
+            # this test did not recognise.
+            decoded_url = _decode_percent_encoding(url).replace("\\", "/")
+            decoded_path = urlsplit(decoded_url).path
+
             # Z202 / Z203 — Path Traversal Detection
-            if "../" in url:
+            if "../" in decoded_url:
                 try:
                     rel_source = path.relative_to(self.docs_root).parent.as_posix()
                     base = "" if rel_source == "." else rel_source
-                    norm_target = posixpath.normpath(posixpath.join(base, parsed.path))
+                    norm_target = posixpath.normpath(posixpath.join(base, decoded_path))
                     if norm_target.startswith(".."):
                         _intent = _classify_traversal_intent(url)
                         _code = "Z203" if _intent == "suspicious" else "Z202"
@@ -1013,7 +1025,7 @@ class IncrementalAnalysisEngine:
                         resolved_docs_root = self.docs_root.resolve()
                         self._resolved_docs_root = resolved_docs_root
                     source_dir = path.parent.resolve()
-                    target_str = os.path.normpath(str(source_dir / parsed.path))
+                    target_str = os.path.normpath(str(source_dir / decoded_path))
                     target_path = Path(target_str)
                     if not target_path.is_relative_to(resolved_docs_root):
                         _intent = _classify_traversal_intent(url)
@@ -1032,7 +1044,7 @@ class IncrementalAnalysisEngine:
                     continue
 
             # Z105 / Z203
-            elif parsed.path.startswith("/"):
+            elif parsed.path.startswith("/") or decoded_path.startswith("/"):
                 _intent = _classify_traversal_intent(url)
                 if _intent == "suspicious":
                     findings.append(
@@ -1053,7 +1065,12 @@ class IncrementalAnalysisEngine:
                     # Z105 is not in the security tier, so it keeps honouring
                     # the inline attribute -- the carve-out above is for the
                     # tier only, not a blanket disabling of the mechanism.
-                    if not link.suppressed and not any(url.startswith(p) for p in allowlist if p):
+                    # The allowlist is matched against both spellings: a link
+                    # that only *decodes* to an absolute path reaches this
+                    # branch, and an allowlisted prefix must still exempt it.
+                    if not link.suppressed and not any(
+                        url.startswith(p) or decoded_url.startswith(p) for p in allowlist if p
+                    ):
                         findings.append(
                             RuleFinding(
                                 path,
