@@ -1644,7 +1644,18 @@ class VSMBrokenLinkRule(BaseRule):
 
             from zenzic.core.validator import _classify_traversal_intent
 
-            if _classify_traversal_intent(url) == "suspicious":
+            # Defer to the security tier only for links it actually claims.
+            # `_classify_traversal_intent` answers "aimed where?", not "is this a
+            # traversal?": it strips leading `..` hops, of which there may be
+            # none, and reads the first surviving segment. Asking it the second
+            # question made every ordinary relative link into `docs/dev/`,
+            # `docs/bin/`, `docs/var/` or `docs/usr/` "suspicious", skipped
+            # here, and matched by no branch in the URP pass either -- so broken
+            # links under fourteen perfectly normal directory names were never
+            # reported at all. Same shape as the codeAction defect: a membership
+            # test asked a question it was not built to answer.
+            _is_traversal = url.startswith("/") or ".." in url.replace("\\", "/").split("/")
+            if _is_traversal and _classify_traversal_intent(url) == "suspicious":
                 continue
 
             # Compute the canonical URL this link would resolve to.

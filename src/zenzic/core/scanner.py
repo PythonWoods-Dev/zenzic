@@ -40,6 +40,7 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
+from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
 from zenzic.core.ui import format_elapsed_ms
 from zenzic.core.validator import _POLYGLOT_EXTRACTOR, LinkValidator, PolyglotExtractor
 from zenzic.models.config import (
@@ -2000,7 +2001,15 @@ def scan_docs_references(
             actual_workers = workers if workers is not None else os.cpu_count() or 1
             chunk_size = max(4, len(md_files) // (actual_workers * 2))
             chunks = [md_files[i : i + chunk_size] for i in range(0, len(md_files), chunk_size)]
-            work_items = [(chunk, config, rule_engine) for chunk in chunks]
+            # The sovereign context is a ContextVar, and a ContextVar does not
+            # cross a process boundary. Read it here, in the parent, and hand it
+            # to each worker explicitly: without this the child re-read the
+            # module default and `--audit` silently stopped overriding
+            # suppressions once a corpus crossed ADAPTIVE_PARALLEL_THRESHOLD --
+            # the one mode that exists to reveal hidden debt, going quiet on
+            # exactly the repositories that have the most of it.
+            _force_audit = get_sovereign_context().force_audit
+            work_items = [(chunk, config, rule_engine, _force_audit) for chunk in chunks]
             executor = concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers)
             try:
                 futures_map: dict[concurrent.futures.Future[list[IntegrityReport]], list[Path]] = {
@@ -2417,7 +2426,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
 
 
 def _chunk_worker(
-    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None],
+    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None, bool],
 ) -> list[IntegrityReport]:
     """Top-level chunk worker function for ``ProcessPoolExecutor``.
 
@@ -2426,19 +2435,22 @@ def _chunk_worker(
     processing of subsequent files in the chunk is aborted immediately.
 
     Args:
-        args: ``(chunk_files, config, rule_engine)`` tuple.
+        args: ``(chunk_files, config, rule_engine, force_audit)`` tuple. The
+            last element re-establishes the sovereign context inside the child
+            process, which a ContextVar cannot reach on its own.
 
     Returns:
         List of :class:`IntegrityReport` for files in the chunk.
     """
-    chunk_files, config, rule_engine = args
+    chunk_files, config, rule_engine, force_audit = args
     reports: list[IntegrityReport] = []
-    for md_file in chunk_files:
-        report = _worker((md_file, config, rule_engine))
-        reports.append(report)
-        if report.security_findings:
-            # ADR-020: Stop processing remaining files in this chunk immediately.
-            break
+    with sovereign_context(force_audit=force_audit):
+        for md_file in chunk_files:
+            report = _worker((md_file, config, rule_engine))
+            reports.append(report)
+            if report.security_findings:
+                # ADR-020: stop processing the rest of this chunk immediately.
+                break
     return reports
 
 

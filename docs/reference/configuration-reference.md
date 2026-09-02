@@ -303,11 +303,12 @@ Configure file and directory exclusion patterns.
 Directories inside `docs/` to exclude from orphan and snippet checks. User entries are **merged** with the immutable System Guardrails (`SYSTEM_EXCLUDED_DIRS`) -- they can never be removed.
 
 !!! warning "The security tier ignores this setting"
-    Excluded directories are scoped out of *quality* analysis only. The credential and
-    forbidden-term scan (`Z201`/`Z204`/`Z205`) still runs on every file here — those
-    findings are non-suppressible by any mechanism, including scoping, and `zenzic
-    guard scan` scans these files too. Only System Guardrails and VCS-ignored content
-    are outside the security scan.
+    Excluded directories are scoped out of *quality* analysis only. The **whole
+    security tier** still runs on every file here — credentials and forbidden terms
+    (`Z201`/`Z204`), forbidden schemes (`Z205`), and path traversal (`Z202`/`Z203`).
+    Those findings are non-suppressible by any mechanism, including scoping, and
+    `zenzic guard scan` scans these files too. Only System Guardrails and VCS-ignored
+    content are outside the security scan.
 
 **Path matching semantics:** If an entry contains a slash (`/`), it is evaluated against the repository-relative path. If it does not, it evaluates against the directory basename globally.
 
@@ -331,10 +332,10 @@ excluded_dirs = ["includes", "stylesheets", "overrides", "snippets"]
 
 Filename glob patterns excluded from every **quality** check (orphan detection, placeholder scanning, reference pipeline). Uses glob syntax compiled to RE2 regular expressions — standard `*` and `?` wildcards are supported.
 
-The credential and forbidden-term scan (`Z201`/`Z204`/`Z205`) is **not** exempted:
-a matching file still gets the security pass, in `zenzic check`, `zenzic guard scan`
-and the editor alike — the security tier is non-suppressible by any mechanism,
-scoping included.
+The security tier is **not** exempted — `Z201`/`Z204` (credentials and forbidden
+terms), `Z205` (forbidden schemes) and `Z202`/`Z203` (path traversal) alike. A
+matching file still gets the security pass, in `zenzic check`, `zenzic guard scan`
+and the editor — the tier is non-suppressible by any mechanism, scoping included.
 
 ```toml
 # Skip locale-suffixed files and changelogs

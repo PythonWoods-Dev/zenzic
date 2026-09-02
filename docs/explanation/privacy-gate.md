@@ -29,6 +29,34 @@ anchors, structural drift). Privacy risk is different:
 The Privacy Gate therefore treats security findings as **operational blockers**,
 not style issues.
 
+### It is not only about attackers
+
+A common objection is that this severity only makes sense for multi-tenant
+production, where an adversary can reach your content. That reads the risk too
+narrowly.
+
+The realistic path to a leaked key in a documentation repository is not an
+attacker. It is a contributor pasting a real value into an example while
+debugging. It is a page copied in from an external source and never re-read, a
+generated fixture that captured a live environment, or a snippet sanitised
+everywhere except one line.
+
+None of these require a hostile party. All of them are invisible in review
+because the surrounding content looks innocuous — a documentation page is the
+last place a reader expects a credential, which is exactly why one survives
+there.
+
+The same holds for a path traversal in a link. It rarely arrives as an attack;
+it arrives as a templating accident, a relative path that was correct before a
+file moved, or a copied snippet from a shell script. The finding is worth an
+exit code either way, because the published site resolves the link identically
+whatever the author intended.
+
+So the gate protects against **inattention and misplaced trust first, and
+deliberate attack second**. That ordering is why the security tier is
+non-suppressible: a mechanism for silencing it would be used, overwhelmingly, on
+the findings that were real and looked like noise.
+
 ---
 
 ## Zero-Trust Enforcement Model

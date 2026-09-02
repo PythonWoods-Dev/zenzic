@@ -179,3 +179,100 @@ class TestAuditHonoursTheExitCodeContract:
         root = _project(tmp_path)
         _write(root, "docs/page.md", "Nothing here.")
         assert _run(root, monkeypatch, "audit", "--quiet") == 2
+
+
+class TestSystemDirectoryNamesDoNotSilenceBrokenLinks:
+    """``_classify_traversal_intent`` answers "aimed where?", not "is it a traversal?".
+
+    ``VSMBrokenLinkRule`` skipped any href the classifier called ``"suspicious"``,
+    deferring to the security tier. But the classifier does not require the href
+    to be a traversal at all: it strips leading ``..`` hops (there may be none)
+    and looks at the first surviving segment. So an ordinary relative link into
+    ``docs/dev/`` was "suspicious", was skipped, and then matched no branch in
+    the URP pass either — and every broken link under fourteen perfectly normal
+    directory names went unreported.
+
+    This is the same shape as the ``codeAction`` defect that motivated the
+    allowlist rule: a membership test asked a question it was not built to
+    answer.
+    """
+
+    @pytest.mark.parametrize("directory", ["dev", "bin", "var", "usr", "etc", "sys"])
+    def test_a_broken_link_into_a_system_named_directory_is_reported(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: str
+    ) -> None:
+        root = _project(tmp_path)
+        _write(root, "docs/page.md", f"[a]({directory}/nope.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 1, (
+            f"a broken link into docs/{directory}/ was silently skipped"
+        )
+
+    def test_a_real_traversal_is_still_deferred_to_the_security_tier(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Control: the skip exists for a reason and must keep working."""
+        root = _project(tmp_path)
+        _write(root, "docs/page.md", "[a](../../../../etc/passwd)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3
+
+    def test_an_existing_page_under_such_a_directory_stays_clean(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Negative control: reporting must not become indiscriminate."""
+        root = _project(tmp_path)
+        _write(root, "docs/dev/setup.md", "Setup instructions live here.")
+        _write(root, "docs/page.md", "[a](dev/setup.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 0
+
+
+class TestAuditSurvivesTheProcessBoundary:
+    """``--audit`` must mean the same thing whatever the corpus size.
+
+    ``force_audit`` lives in a ``ContextVar``, and a ``ContextVar`` does not
+    cross a ``ProcessPoolExecutor`` boundary. Above
+    ``ADAPTIVE_PARALLEL_THRESHOLD`` the child re-read the module default, so the
+    one mode that exists to reveal hidden debt went quiet on exactly the
+    repositories that have the most of it — silently, with no warning.
+
+    Measured on a 1,200-file corpus carrying 20 inline suppressions: **0**
+    reported before, **20** after. A full-size corpus is too slow for this
+    suite, so the regression is pinned at the boundary itself.
+    """
+
+    def test_the_worker_receives_and_establishes_the_context(self, tmp_path: Path) -> None:
+        from zenzic.core.scanner import _chunk_worker
+        from zenzic.core.sovereign_context import get_sovereign_context
+
+        seen: list[bool] = []
+
+        def _spy(args: object) -> object:
+            seen.append(get_sovereign_context().force_audit)
+            raise RuntimeError("stop after observing the context")
+
+        import zenzic.core.scanner as scanner_mod
+
+        original = scanner_mod._worker
+        scanner_mod._worker = _spy  # type: ignore[assignment]
+        try:
+            for flag in (True, False):
+                with pytest.raises(RuntimeError):
+                    _chunk_worker(([tmp_path / "x.md"], scanner_mod.ZenzicConfig(), None, flag))
+        finally:
+            scanner_mod._worker = original  # type: ignore[assignment]
+
+        assert seen == [True, False], (
+            "the chunk worker did not re-establish the sovereign context from its argument; "
+            "--audit would be silently dropped in every parallel run"
+        )
+
+    def test_the_dispatcher_reads_the_flag_from_the_parent_context(self) -> None:
+        """The other half: the parent must actually pass what it is under."""
+        import inspect
+
+        from zenzic.core import scanner as scanner_mod
+
+        source = inspect.getsource(scanner_mod.scan_docs_references)
+        assert "get_sovereign_context().force_audit" in source, (
+            "the parallel dispatcher no longer reads the sovereign context; a ContextVar "
+            "cannot reach the child process on its own"
+        )
