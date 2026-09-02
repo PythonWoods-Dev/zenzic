@@ -187,6 +187,9 @@ nav:
         - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
         - tutorials/examples/z4xx-topology/z405-unused-assets.md
         - tutorials/examples/z4xx-topology/z406-nav-contract.md
+        - tutorials/examples/z4xx-topology/z410-unreachable-graph-node.md
+        - tutorials/examples/z4xx-topology/z411-dead-end-node.md
+        - tutorials/examples/z4xx-topology/z412-traceability-broken.md
         - Z5xx Content: tutorials/examples/z5xx-content/index.md
         - tutorials/examples/z5xx-content/z501-placeholder.md
         - tutorials/examples/z5xx-content/z502-short-content.md
@@ -200,6 +203,12 @@ nav:
         - tutorials/examples/z6xx-brand/z613-frontmatter-schema-mismatch.md
         - tutorials/examples/z6xx-brand/z614-unapproved-domain.md
         - tutorials/examples/z6xx-brand/z616-cross-namespace-link.md
+        - tutorials/examples/z6xx-brand/z610-required-frontmatter.md
+        - tutorials/examples/z6xx-brand/z611-forbidden-domain.md
+        - tutorials/examples/z6xx-brand/z612-forbidden-frontmatter-key.md
+        - tutorials/examples/z6xx-brand/z615-forbidden-url-scheme.md
+        - tutorials/examples/z6xx-brand/z618-required-heading.md
+        - tutorials/examples/z6xx-brand/z619-max-complexity.md
         - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
     - Reference:
       - CLI Specification: reference/cli.md

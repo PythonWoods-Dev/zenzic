@@ -79,3 +79,9 @@ excluded_file_patterns = []
 "docs/reference/**" = ["Z513"]
 "docs/tutorials/examples/**" = ["Z410", "Z411"]
 "docs/tutorials/examples/z5xx-content/**" = ["Z506"]
+# z506's page opens with a deliberately malformed frontmatter delimiter ("--"
+# instead of "---") -- that malformation IS the fixture. A side effect is that
+# the "description:" line then parses as an H2 with no body, so Z512 fires on a
+# heading the author never wrote. Suppressed for this one page: fixing it would
+# mean repairing the delimiter, which would delete the demonstration.
+"docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z512"]
