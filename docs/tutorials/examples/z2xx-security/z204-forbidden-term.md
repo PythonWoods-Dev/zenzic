@@ -8,8 +8,6 @@ description: "Analysis of the z204-forbidden-term fixture."
 
 **Z-Code:** `Z204 FORBIDDEN_TERM` · **Engine:** `standalone` · **Exit:** `2`
 
-<Z204ForbiddenTerm />
-
 ---
 
 ## The Fixture

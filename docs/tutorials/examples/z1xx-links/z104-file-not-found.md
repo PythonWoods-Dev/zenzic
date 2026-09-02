@@ -8,8 +8,6 @@ description: "Walk through the z104-file-not-found fixture: a link pointing to a
 
 **Cataloged as:** `Z104 FILE_NOT_FOUND` · **Emitted as:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z104FileNotFound />
-
 ---
 
 ## The Fixture

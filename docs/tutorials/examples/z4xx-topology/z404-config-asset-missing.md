@@ -8,8 +8,6 @@ description: "Walk through the z404-config-asset-missing fixture: mkdocs.yml log
 
 **Z-Code:** `Z404 CONFIG_ASSET_MISSING` · **Engine:** `mkdocs` · **Exit:** `0`
 
-<Z404ConfigAssetMissing />
-
 ---
 
 ## The Fixture

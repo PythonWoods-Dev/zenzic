@@ -8,8 +8,6 @@ description: "Walk through the z109-external-link-broken fixture: an external UR
 
 **Cataloged as:** `Z109 EXTERNAL_LINK_BROKEN` · **Emitted as:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z109ExternalLinkBroken />
-
 ---
 
 ## The Fixture

@@ -8,8 +8,6 @@ description: "Walk through the z107-circular-anchor fixture: a self-referential 
 
 **Z-Code:** `Z107 CIRCULAR_ANCHOR` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z107CircularAnchor />
-
 ---
 
 ## The Fixture

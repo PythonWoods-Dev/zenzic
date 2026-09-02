@@ -8,8 +8,6 @@ description: "Analysis of the z405-unused-assets fixture."
 
 **Z-Code:** `Z405 UNUSED_ASSET` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z405UnusedAssets />
-
 ---
 
 ## The Fixture

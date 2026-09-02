@@ -8,8 +8,6 @@ description: "Walk through the z101-broken-links fixture: two internal link targ
 
 **Z-Code:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z101BrokenLinks />
-
 ---
 
 ## The Fixture

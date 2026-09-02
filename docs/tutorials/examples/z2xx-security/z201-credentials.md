@@ -8,8 +8,6 @@ description: "Analysis of the z201-credentials fixture."
 
 **Z-Code:** `Z201 CREDENTIAL_SECRET` · **Engine:** `standalone` · **Exit:** `2`
 
-<Z201Credentials />
-
 ---
 
 ## The Fixture

@@ -8,8 +8,6 @@ description: "Walk through the z103-orphan-link fixture: a link to an existing f
 
 **Z-Code:** `Z103 ORPHAN_LINK` · **Engine:** `zensical` · **Exit:** `1`
 
-<Z103OrphanLink />
-
 ---
 
 ## The Fixture

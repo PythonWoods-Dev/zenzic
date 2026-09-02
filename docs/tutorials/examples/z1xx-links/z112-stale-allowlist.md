@@ -8,8 +8,6 @@ description: "Analysis of the z112-stale-allowlist scenario: an unused entry in 
 
 **Z-Code:** `Z112 STALE_ALLOWLIST_ENTRY` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
-<Z112StaleAllowlist />
-
 ---
 
 ## Overview

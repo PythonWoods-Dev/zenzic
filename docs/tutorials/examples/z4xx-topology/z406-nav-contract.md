@@ -8,8 +8,6 @@ description: "Walk through the z406-nav-contract fixture: mkdocs.yml declares ex
 
 **Z-Code:** `Z406 NAV_CONTRACT` · **Engine:** `mkdocs` · **Exit:** `1`
 
-<Z406NavContract />
-
 ---
 
 ## The Fixture

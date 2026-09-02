@@ -8,8 +8,6 @@ description: "Analysis of the z402-orphan-page fixture."
 
 **Z-Code:** `Z402 ORPHAN_PAGE` · **Engine:** `zensical` · **Exit:** `0`
 
-<Z402OrphanPage />
-
 ---
 
 ## The Fixture

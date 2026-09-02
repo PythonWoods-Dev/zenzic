@@ -8,8 +8,6 @@ description: "Analysis of the z501-placeholder fixture."
 
 **Z-Code:** `Z501 PLACEHOLDER` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z501Placeholder />
-
 ---
 
 ## The Fixture

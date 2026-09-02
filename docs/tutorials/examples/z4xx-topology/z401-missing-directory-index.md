@@ -8,8 +8,6 @@ description: "Walk through the z401-missing-directory-index fixture: a guide dir
 
 **Z-Code:** `Z401 MISSING_DIRECTORY_INDEX` · **Engine:** `zensical` · **Exit:** `0`
 
-<Z401MissingDirectoryIndex />
-
 ---
 
 ## The Fixture

@@ -8,8 +8,6 @@ description: "Analysis of the z503-snippet-error fixture."
 
 **Z-Code:** `Z503 SNIPPET_ERROR` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z503SnippetError />
-
 ---
 
 ## The Fixture

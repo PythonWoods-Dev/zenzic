@@ -8,8 +8,6 @@ description: "Analysis of the z202-path-traversal fixture."
 
 **Z-Code:** `Z202 PATH_TRAVERSAL` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z202PathTraversal />
-
 ---
 
 ## The Fixture
