@@ -153,6 +153,8 @@ nav:
         - tutorials/examples/index.md
         - Z0xx Core: tutorials/examples/z0xx-core/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md
+        - tutorials/examples/z0xx-core/z110-config-syntax-error.md
+        - tutorials/examples/z0xx-core/z111-config-schema-error.md
         - Z1xx Links: tutorials/examples/z1xx-links/index.md
         - tutorials/examples/z1xx-links/z101-broken-links.md
         - tutorials/examples/z1xx-links/z102-anchor-missing.md
@@ -171,6 +173,7 @@ nav:
         - Z2xx Security: tutorials/examples/z2xx-security/index.md
         - tutorials/examples/z2xx-security/z201-credentials.md
         - tutorials/examples/z2xx-security/z202-path-traversal.md
+        - tutorials/examples/z2xx-security/z203-fatal-path-traversal.md
         - tutorials/examples/z2xx-security/z204-forbidden-term.md
         - tutorials/examples/z2xx-security/z205-forbidden-scheme.md
         - Z3xx References: tutorials/examples/z3xx-references/index.md
@@ -190,9 +193,13 @@ nav:
         - tutorials/examples/z5xx-content/z503-snippet-error.md
         - tutorials/examples/z5xx-content/z505-untagged-code-block.md
         - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
+        - tutorials/examples/z5xx-content/z516-multiple-h1.md
         - Z6xx Brand: tutorials/examples/z6xx-brand/index.md
         - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
         - tutorials/examples/z6xx-brand/z603-dead-suppression.md
+        - tutorials/examples/z6xx-brand/z613-frontmatter-schema-mismatch.md
+        - tutorials/examples/z6xx-brand/z614-unapproved-domain.md
+        - tutorials/examples/z6xx-brand/z616-cross-namespace-link.md
         - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
     - Reference:
       - CLI Specification: reference/cli.md
