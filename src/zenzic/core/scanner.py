@@ -19,7 +19,7 @@ import fnmatch
 import posixpath
 from collections.abc import Callable, Generator, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
@@ -1884,6 +1884,37 @@ def scan_docs_references(
     # every other tier are preserved.
     _scanned_paths = {f.resolve(strict=False) for f in md_files}
     _security_only_reports: list[IntegrityReport] = []
+    _sec_engine: Any = None
+
+    def _security_urp_findings(_p: Path, _t: str) -> list[Any]:
+        """Link-tier security findings for a file user scoping removed."""
+        nonlocal _sec_engine
+        from zenzic.models.vsm import VirtualSiteMap
+
+        if _sec_engine is None:
+            from zenzic.core.adapters import get_adapter
+            from zenzic.core.incremental import IncrementalAnalysisEngine
+
+            # repo_root is optional on this entry point; the engine and the
+            # adapter factory both require a real path.
+            _root = repo_root if repo_root is not None else docs_root
+            _sec_engine = IncrementalAnalysisEngine(
+                config,
+                # None is accepted here on purpose: `security_only` restricts the
+                # pass to Z202/Z203/Z205, none of which consult the rule engine.
+                cast("Any", rule_engine),
+                get_adapter(config.build_context, docs_root, _root),
+                docs_root,
+                _root,
+            )
+        try:
+            found: list[Any] = _sec_engine._run_urp_checks(
+                VirtualSiteMap(), _p, _t, security_only=True
+            )
+        except Exception:  # pragma: no cover - a malformed excluded file must not abort the scan
+            return []
+        return found
+
     for _sec_file in iter_security_scan_sources(
         docs_root,
         config,
@@ -1898,10 +1929,15 @@ def scan_docs_references(
         except OSError:
             continue
         _sec_findings = list(scan_security_findings(_sec_text, _sec_file, config))
-        if _sec_findings:
+        # The other three fifths of the tier. Z202/Z203/Z205 come from the URP
+        # pass, which runs over the user-scoped walk, so scoping a directory out
+        # went on silencing them long after the credential half was made immune.
+        _sec_rule_findings = _security_urp_findings(_sec_file, _sec_text)
+        if _sec_findings or _sec_rule_findings:
             _security_only_reports.append(
                 IntegrityReport(
                     file_path=_sec_file,
+                    rule_findings=_sec_rule_findings,
                     score=0.0,
                     security_findings=_sec_findings,
                 )

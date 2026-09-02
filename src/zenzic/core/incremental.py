@@ -40,7 +40,7 @@ from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
 
 from zenzic.core.ast import ExtractedLink
-from zenzic.core.codes import code_severity
+from zenzic.core.codes import SECURITY_TIER_CODES, code_severity
 from zenzic.core.resolver import resolve_href_target
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
@@ -699,8 +699,13 @@ class IncrementalAnalysisEngine:
         two cannot drift in how a Z201/Z204 is presented.
         """
         from zenzic.core.credentials import scan_security_findings
+        from zenzic.models.vsm import VirtualSiteMap
 
         findings: list[RuleFinding] = []
+        # The link half of the tier (Z202/Z203/Z205). A file the user scoped out
+        # is not in the site map, and none of the security checks consult it, so
+        # an empty one is the honest argument to pass.
+        findings.extend(self._run_urp_checks(VirtualSiteMap(), path, text, security_only=True))
         for _sf in scan_security_findings(text, path, self.config):
             if _sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Finding category identifier
                 findings.append(
@@ -808,10 +813,24 @@ class IncrementalAnalysisEngine:
         tracker: SuppressionTracker | None = None,
         extracted_links: list[ExtractedLink] | None = None,
         resolver: Any = None,
+        security_only: bool = False,
     ) -> list[RuleFinding]:
         """Run the Uniform Resolver Pipeline checks on a single file.
 
         Covers: Z120, Z121, Z122, Z123, Z124, Z205, Z102, Z105, Z202, Z203.
+
+        With *security_only*, returns just the security tier (Z202/Z203/Z205).
+        That mode exists because those three codes are produced **here** and
+        nowhere else, while the credential tier has its own primitive: routing
+        the credential scan around user exclusions therefore covered two fifths
+        of a tier documented as indivisible, and `excluded_dirs` went on
+        silencing a `javascript:` link and a `/etc/passwd` traversal. Filtering
+        one shared implementation is deliberate — a second implementation for
+        excluded files is exactly the drift that put `harvest()` and
+        `_analyze_file` out of step on Z204 twice.
+
+        None of the security checks consult *vsm*; callers scanning a file that
+        is not in the site map may pass an empty one.
         """
         findings: list[RuleFinding] = []
         lines = text.splitlines()
@@ -1000,7 +1019,19 @@ class IncrementalAnalysisEngine:
             decoded_path = urlsplit(decoded_url).path
 
             # Z202 / Z203 — Path Traversal Detection
-            if "../" in decoded_url:
+            #
+            # The two branches below must PARTITION, and once did not. An href
+            # that is absolute *and* contains `../` satisfied the first test,
+            # but its arithmetic then answered "no traversal": posixpath.join
+            # returns an absolute right operand whole, and normpath drops a
+            # leading `..` at the root, so `/../etc/passwd` normalises to
+            # `/etc/passwd` -- which does not start with `..`. No finding, no
+            # `continue`, and the elif that owns absolute paths (the only branch
+            # that can raise Z203) was never evaluated. Two guards deferring to
+            # each other over conditions that overlapped instead of partitioning.
+            # An absolute path is classified as an absolute path, whatever else
+            # it contains.
+            if "../" in decoded_url and not decoded_path.startswith("/"):
                 try:
                     rel_source = path.relative_to(self.docs_root).parent.as_posix()
                     base = "" if rel_source == "." else rel_source
@@ -1178,6 +1209,8 @@ class IncrementalAnalysisEngine:
                                 )
                             )
 
+        if security_only:
+            return [f for f in findings if f.rule_id in SECURITY_TIER_CODES]
         return findings
 
 

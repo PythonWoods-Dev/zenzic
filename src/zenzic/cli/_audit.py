@@ -17,6 +17,7 @@ from zenzic.cli._check import (
     _append_z620_findings,
     _apply_only_filter,
     _collect_all_results,
+    _evaluate_security_exit,
     _filter_flat_findings,
     _to_findings,
 )
@@ -189,6 +190,12 @@ def audit(
     errors_count = sum(1 for f in all_findings if f.severity == "error")
     warnings_count = sum(1 for f in all_findings if f.severity == "warning")
     info_count = sum(1 for f in all_findings if f.severity in ("info", "note"))
+    # Counted by severity only to render the report's own summary line. The
+    # *exit code* must not be derived from it: severity is stamped by whichever
+    # subsystem constructed the finding and producers disagree, which is exactly
+    # why `_evaluate_security_exit` keys on the code instead. `audit` counted by
+    # severity and capped itself at exit 1, so a live credential and a broken
+    # link were indistinguishable to a job gated on `zenzic audit --ci`.
     security_count = sum(
         1 for f in all_findings if f.severity in ("security_breach", "security_incident")
     )
@@ -257,6 +264,8 @@ def audit(
         print(json.dumps(audit_payload, indent=2))
 
         if audit_status == "FAIL":
+            # The tier owns 2 and 3; this raises before the quality tier's 1.
+            _evaluate_security_exit(all_findings)
             raise typer.Exit(1)
         return
 
@@ -345,4 +354,5 @@ def audit(
 
     console.print()
     if audit_status == "FAIL":
+        _evaluate_security_exit(all_findings)
         raise typer.Exit(1)
