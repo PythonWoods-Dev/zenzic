@@ -488,7 +488,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z506": "Frontmatter boundary is malformed (e.g., opening delimiter is '--' instead of '---')",
     "Z510": "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)",
     "Z511": "Sentence length exceeds the maximum readability limit",
-    "Z512": "Heading section contains no body content before next heading or EOF",
+    "Z512": "Heading section contains no body content before next heading or EOF (a heading that only groups deeper subheadings is exempt)",
     "Z513": "Duplicate heading found within the same document — ensure heading titles are unique",
     "Z514": "Generic image alt text detected (e.g., 'image', 'screenshot') — provide descriptive alt text for accessibility",
     "Z515": "Bare URL detected in prose — wrap in angle brackets '<url>' or Markdown link syntax '[text](url)'",

@@ -25,6 +25,59 @@ from zenzic.core.content import (
 from zenzic.core.reporter import Finding
 
 
+def test_z512_exempts_a_heading_that_only_groups_deeper_subheadings(
+    tmp_path: Path,
+) -> None:
+    """A heading whose next heading is deeper is a grouping label, not an empty section.
+
+    '## Editor Integration' followed directly by '### Zenzic: Not Found' introduces
+    its subsections structurally; the content lives one level down. Flagging it
+    pushes authors to write a filler sentence restating the heading, which is what
+    Z512 exists to discourage.
+    """
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n"
+        "\n"
+        "Overview text.\n"
+        "\n"
+        "## Grouping Heading\n"  # line 5: no body, but next heading is DEEPER
+        "\n"
+        "### Real Subsection\n"
+        "\n"
+        "Body content lives here.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    assert check_empty_sections(file_path, text) == []
+
+
+def test_z512_still_fires_when_the_next_heading_is_not_deeper(tmp_path: Path) -> None:
+    """The exemption must not become a loophole.
+
+    A heading followed by a sibling or shallower heading has no subsection to
+    delegate its content to, so it is genuinely empty and must still fire.
+    """
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n"
+        "\n"
+        "Overview text.\n"
+        "\n"
+        "### Deep Empty Heading\n"  # line 5: next heading is SHALLOWER
+        "\n"
+        "## Sibling Level\n"
+        "\n"
+        "Body content.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_empty_sections(file_path, text)
+    assert len(findings) == 1
+    assert findings[0].line_no == 5
+    assert "Deep Empty Heading" in findings[0].message
+
+
 def test_z510_heading_hierarchy_detection(tmp_path: Path) -> None:
     """Z510 flags skipped heading levels with line-number fidelity."""
     file_path = tmp_path / "doc.md"

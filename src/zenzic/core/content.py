@@ -302,6 +302,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
 
     current_heading: str | None = None
     current_heading_line: int = 0
+    current_heading_depth: int | None = None
     has_body_content = False
 
     for i, line in enumerate(lines, start=1):
@@ -326,8 +327,15 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
 
         m = _ATX_HEADING_RE.match(stripped)
         if m:
-            # Entering a new heading — evaluate previous section
-            if current_heading is not None and not has_body_content:
+            depth = len(m.group(1))
+            # A heading whose next heading is deeper is a grouping label: it
+            # introduces its subsections structurally and the content lives one
+            # level down. Flagging it would push authors to write a sentence
+            # restating the heading, which is the filler Z512 exists to discourage.
+            # A sibling or shallower heading has no subsection to delegate to, so
+            # that section is genuinely empty and still fires.
+            groups_subsections = current_heading_depth is not None and depth > current_heading_depth
+            if current_heading is not None and not has_body_content and not groups_subsections:
                 findings.append(
                     RuleFinding(
                         rule_id="Z512",
@@ -340,6 +348,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                 )
             current_heading = m.group(2).strip()
             current_heading_line = i
+            current_heading_depth = depth
             has_body_content = False
             continue
 
