@@ -91,7 +91,7 @@ lint:
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ (coverage enforced) → structural audit → score + stamp.
-verify: _check-hooks release-contracts check-pinning docs-build
+verify: _check-hooks _check-governance release-contracts check-pinning docs-build
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
@@ -171,6 +171,30 @@ _check-hooks:
         exit 1
     fi
     echo "git hooks installed (pre-commit, pre-push)"
+
+_check-governance:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The governance trees (.claude/, .human/) are gitignored by design, so git
+    # records neither their presence nor their loss. The manifest at the repo
+    # root is the substitute audit trail; this recipe makes it a gate rather
+    # than a hand-run check (Rule 31: a check nobody is obliged to walk through
+    # fails exactly as a missing check does).
+    if [ -n "${CI:-}" ]; then
+        echo "CI environment: governance-manifest check skipped (the trees are gitignored and absent in CI)"
+        exit 0
+    fi
+    if [ ! -f .governance-manifest.json ] && [ -z "$(ls -A .claude 2>/dev/null)" ]; then
+        echo "no governance trees and no manifest on this machine: check skipped"
+        exit 0
+    fi
+    if [ -f .governance-manifest.json ] && [ ! -f .claude/scripts/governance_manifest.py ]; then
+        echo -e "\033[31mBLOCKED: a governance manifest exists but .claude/scripts/governance_manifest.py does not.\033[0m"
+        echo "  The governance tree this manifest measures has been lost or emptied. Restore it before pushing."
+        exit 1
+    fi
+    # exit 1 = drift, 2 = no baseline yet (run: python3 .claude/scripts/governance_manifest.py generate)
+    python3 .claude/scripts/governance_manifest.py verify
 
 release-contracts:
     #!/usr/bin/env bash

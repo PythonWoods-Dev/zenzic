@@ -66,6 +66,7 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 091](./records/adr-091-single-pass-ast-and-cqs.md) | Single-Pass AST Compilation & Command-Query Segregation (CQS) |
 | [ADR 092](./records/adr-092-comprehensive-bump-coverage.md) | Comprehensive Release Bump Coverage |
 | [ADR 093](./records/adr-093-topological-suppression-non-inline.md) | Topological Suppression Non-Inline Invariant & LSP UX Determinism |
+| [ADR 094](./records/adr-094-control-plane-structure.md) | Control Plane Structure |
 
 ---
 
