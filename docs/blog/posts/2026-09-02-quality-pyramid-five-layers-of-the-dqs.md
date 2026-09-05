@@ -1,7 +1,7 @@
 ---
 title: "The Quality Pyramid: Four Scored Categories, One Zero-Tolerance Gate"
 slug: quality-pyramid-five-layers-of-the-dqs
-date: 2026-09-02
+date: 2026-09-05
 draft: true
 authors:
   - pythonwoods

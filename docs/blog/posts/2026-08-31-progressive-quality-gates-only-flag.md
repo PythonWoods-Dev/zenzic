@@ -1,7 +1,7 @@
 ---
 title: "Enforce What Matters First: Progressive Quality Gates with --only"
 slug: progressive-quality-gates-only-flag
-date: 2026-08-31
+date: 2026-09-05
 draft: true
 authors:
   - pythonwoods

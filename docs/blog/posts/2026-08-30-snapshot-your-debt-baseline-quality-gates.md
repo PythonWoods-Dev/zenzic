@@ -1,7 +1,7 @@
 ---
 title: "Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First"
 slug: snapshot-your-debt-baseline-quality-gates
-date: 2026-08-30
+date: 2026-09-05
 draft: true
 authors:
   - pythonwoods
