@@ -100,3 +100,36 @@ The Privacy Gate enforces a strict distinction:
 
 This is the core Zero-Trust posture of Zenzic in CI/CD:
 **documentation is treated as production attack surface**.
+
+---
+
+## Auditability and Compliance
+
+Three properties of the Core, each a real Tier-0 invariant rather than an
+aspirational claim, combine into a specific and checkable compliance argument:
+
+- **Determinism.** Identical input produces identical output; no probabilistic
+  logic, no LLM dependency, no global state. A given commit's Privacy Gate
+  result is reproducible by re-running the same scan — not merely plausible
+  from context, but the same output byte-for-byte.
+- **Zero Subprocess** ([ADR 002](../developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md)).
+  The Core never shells out, invokes `subprocess`, or depends on an external
+  binary. Every finding is produced by Python code in this repository, not by
+  a third-party process whose own behavior would need separate audit.
+- **Exit Code Contract.** Security-class findings (`Z201`–`Z205`) are
+  non-suppressible and produce a stable, documented exit code — `2` for a
+  credential or forbidden term/scheme, `3` for fatal path traversal — under
+  every configuration. There is no flag or policy setting that silences this
+  tier; the CI gate above is what makes that contract operationally load-bearing.
+
+A pipeline that must produce evidence — SOC 2 change-management logs, an
+air-gapped environment with no outbound network dependency during the scan,
+or a regulator asking what a check actually did on a given commit — needs
+exactly these three properties. The same input always produces the same
+output. Nothing left the process boundary to produce it. The security-relevant
+result cannot have been silently narrowed away by configuration.
+
+This is not a claim that Zenzic satisfies any specific compliance framework on
+its own. It is a statement of what is mechanically true about how the Core
+computes its result — verifiable by a compliance reviewer reading the
+invariant and the code, not by trusting a description of it.

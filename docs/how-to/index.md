@@ -87,6 +87,14 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-privacy-gate.md)
 
+- :material-format-letter-case:{ .lg .middle style="color: #10b981;" } **[Integrate Vale and Zenzic](integrate-vale-and-zenzic.md)**
+
+    ---
+
+    Run prose-style and structural-integrity checks in the same pre-commit pass.
+
+    [:material-arrow-right: Read Guide](integrate-vale-and-zenzic.md)
+
 - :material-link-variant:{ .lg .middle style="color: #10b981;" } **[Cross-Site & Remote Links](manage-cross-site-links.md)**
 
     ---

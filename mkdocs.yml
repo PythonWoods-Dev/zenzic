@@ -68,6 +68,7 @@ nav:
       - Add Custom Rules: how-to/add-custom-rules.md
       - Configure Adapters: how-to/configure-adapter.md
       - Privacy Gate: how-to/configure-privacy-gate.md
+      - Integrate Vale and Zenzic: how-to/integrate-vale-and-zenzic.md
       - Cross-Site Links: how-to/manage-cross-site-links.md
       - Engine Migration: how-to/migrate-engines.md
       - Configure Social Metadata: how-to/configure-social-metadata.md
