@@ -389,9 +389,50 @@ class TestOSRootNamedDocsSectionsAreNoLongerFalsePositivesAtScale:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Second control, via the other traversal shape (relative ../ hops
-        rather than a leading /), confirming the fix is scoped to the
-        absolute-path branch and does not touch the ../ branch's own,
-        already-correct behaviour."""
+        rather than a leading /). The genuinely-nonexistent-target case is
+        unaffected by the relative-branch fix below -- only the case where
+        the destination is a real file changes."""
         root = _project(tmp_path)
         _write(root, "docs/sub/page.md", "[a](../../../../etc/passwd)")
         assert _run(root, monkeypatch, "check", "all", "--quiet") == 3
+
+
+class TestARelativeHopToARealRepoFileNamedLikeASystemRootIsNotZ203:
+    """The ``../`` branch (``incremental.py:1067-1085``) never got the real-
+    existence check the absolute-path branch received: it classifies by
+    destination text alone (``_classify_traversal_intent``) and, once
+    ``suspicious``, raises ``Z203`` regardless of whether the target actually
+    exists. A repo-level folder named ``dev/`` (developer notes, not part of
+    the published site) reached via a relative ``../`` hop from inside
+    ``docs/`` reproduces the exact same false positive the absolute-path
+    branch was fixed for -- just via the other traversal shape. This is a
+    genuine boundary crossing (escapes ``docs_root``, stays inside the repo)
+    with no OS-exploitation intent, which is precisely what ``Z202`` means.
+    """
+
+    def test_a_real_repo_file_reached_via_relative_hop_is_z202_not_z203(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        root = _project(tmp_path)
+        (root / "dev").mkdir()
+        (root / "dev" / "notes.md").write_text("Internal developer notes.\n", encoding="utf-8")
+        _write(root, "docs/page.md", "[a](../dev/notes.md)")
+        exit_code = _run(root, monkeypatch, "check", "all", "--quiet")
+        assert exit_code != 3, (
+            "../dev/notes.md is a real repo file (no allowlist configured) reached "
+            "by an ordinary relative hop -- must not raise a non-suppressible Z203"
+        )
+        assert exit_code == 1, (
+            f"expected Z202 (boundary crossing, ordinary exit 1), got exit {exit_code}"
+        )
+
+    def test_a_genuine_relative_traversal_to_a_nonexistent_system_path_still_exits_3(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Control: the fix must discriminate on real existence, not stop
+        checking. No ``dev/`` folder exists anywhere in this repo."""
+        root = _project(tmp_path)
+        _write(root, "docs/page.md", "[a](../dev/notes.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3, (
+            "a relative hop to a genuinely nonexistent system-root-named path must still raise Z203"
+        )

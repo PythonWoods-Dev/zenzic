@@ -1071,6 +1071,24 @@ class IncrementalAnalysisEngine:
                     norm_target = posixpath.normpath(posixpath.join(base, decoded_path))
                     if norm_target.startswith(".."):
                         _intent = _classify_traversal_intent(url)
+                        # Same real-existence check as the absolute-path branch
+                        # below: a segment name matching _SYSTEM_ROOT_DIRS is
+                        # necessary but not sufficient. A repo-level folder
+                        # legitimately named dev/, usr/, etc. -- outside
+                        # docs_root but still inside the repo, reached by an
+                        # ordinary relative hop -- is a boundary crossing
+                        # (Z202), not an OS-traversal target (Z203). This
+                        # branch had never received the fix Finding A's
+                        # analysis called for; only the absolute-path branch
+                        # had (V031_LAST_TWO_BLOCKERS_CLOSURE).
+                        if _intent == "suspicious" and not _allowlisted:
+                            _target = Path(
+                                resolve_href_target(
+                                    path, decoded_path, _docs_root_str, _repo_root_str
+                                )
+                            )
+                            if _target.is_file():
+                                _intent = "boundary"
                         _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
@@ -1093,6 +1111,8 @@ class IncrementalAnalysisEngine:
                     target_path = Path(target_str)
                     if not target_path.is_relative_to(resolved_docs_root):
                         _intent = _classify_traversal_intent(url)
+                        if _intent == "suspicious" and not _allowlisted and target_path.is_file():
+                            _intent = "boundary"
                         _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
