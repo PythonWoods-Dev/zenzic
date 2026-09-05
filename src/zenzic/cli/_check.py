@@ -1003,6 +1003,27 @@ def check_placeholders(
         for sf in report.security_findings:
             findings.append(_map_credential_to_finding(sf, repo_root))
 
+    findings = _filter_flat_findings(findings, only)
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        _evaluate_security_exit(findings)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _evaluate_security_exit(findings)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
+
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:

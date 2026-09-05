@@ -588,6 +588,76 @@ class TestCheckLinksPlaceholdersCredentialScanE2E:
         )
 
 
+class TestCheckPlaceholdersOnlyAndFormatE2E:
+    """``check placeholders`` accepts and validates ``--only``/``--format`` but,
+
+    unlike every sibling flat-findings subcommand (``links``, ``orphans``,
+    ``assets``, ``references``), never calls ``_filter_flat_findings`` and never
+    branches on ``output_format`` before falling through to the text renderer.
+    Same shape of bug as the ``check references --only`` gap fixed under
+    ``V031_...`` (see ``TestCheckLinksPlaceholdersCredentialScanE2E`` above and
+    ``test_check_references_only_flag_actually_filters``), independently
+    reproduced here for ``placeholders``.
+    """
+
+    _SHORT_PAGE = "# Page\n\nToo short.\n"
+
+    def test_only_flag_actually_filters(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._SHORT_PAGE})
+        monkeypatch.chdir(tmp_path)
+
+        unfiltered = runner.invoke(app, ["check", "placeholders", "--format", "json"])
+        filtered = runner.invoke(
+            app, ["check", "placeholders", "--format", "json", "--only", "Z301"]
+        )
+
+        unfiltered_payload = json.loads(unfiltered.stdout)
+        filtered_payload = json.loads(filtered.stdout)
+        assert unfiltered_payload["summary"]["warnings"] > 0, (
+            f"fixture must produce at least one Z502 warning unfiltered.\n"
+            f"Output:\n{unfiltered.stdout}"
+        )
+        assert filtered_payload["summary"]["warnings"] == 0, (
+            f"--only Z301 must filter out non-Z301 warnings; got "
+            f"{filtered_payload['summary']['warnings']} (unfiltered had "
+            f"{unfiltered_payload['summary']['warnings']}).\n"
+            f"Unfiltered:\n{unfiltered.stdout}\nFiltered:\n{filtered.stdout}"
+        )
+
+    def test_format_json_is_actually_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._SHORT_PAGE})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "placeholders", "--format", "json"])
+
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            raise AssertionError(
+                f"--format json must produce parseable JSON, not the text "
+                f"renderer's output.\nOutput:\n{result.stdout}"
+            ) from None
+        assert payload["summary"]["warnings"] > 0
+
+    def test_format_sarif_is_actually_sarif(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._SHORT_PAGE})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "placeholders", "--format", "sarif"])
+
+        payload = json.loads(result.stdout)
+        assert "sarif" in payload.get("$schema", "").lower(), (
+            f"--format sarif must produce a SARIF document, not the text "
+            f"renderer's output.\nOutput:\n{result.stdout}"
+        )
+
+
 # ── --exit-zero suppresses Exit 1 (general errors) ──────────────────────────
 
 
