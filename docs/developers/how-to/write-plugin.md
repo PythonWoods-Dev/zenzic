@@ -21,11 +21,9 @@ runtime via the `zenzic.rules` [entry-point group][ep].
 
 ## The Rule Contract
 
-Every plugin rule must satisfy four non-negotiable requirements. The first
-three are enforced at engine construction time — a rule that violates any of
-them is rejected with a `PluginContractError` before the first file is
-scanned. The fourth (code namespace) is a required rule with no mechanical
-enforcement yet — see its own section below for what that means in practice.
+Every plugin rule must satisfy four non-negotiable requirements, all enforced
+at engine construction time — a rule that violates any of them is rejected
+with a `PluginContractError` before the first file is scanned.
 
 ### 1. Defined at module level
 
@@ -98,18 +96,12 @@ plugin claiming one of those codes can cause its own findings to be silently
 discarded by logic that assumes only Zenzic's built-in scanners can produce
 them.
 
-!!! warning "This requirement is not yet mechanically enforced"
-    Unlike the three requirements above, nothing currently rejects a plugin
-    rule whose `rule_id` collides with a real Zenzic code — the intended
-    check (`_validate_plugin_code` in `core/rules.py`) inspects an attribute
-    named `code`, which `BaseRule` does not define; every plugin's `rule_id`
-    is the attribute actually used downstream, and it is never validated.
-    Confirmed live: a plugin declaring `rule_id = "Z201"` loads without error
-    today. This is a known, tracked gap (`.claude/state/03-priority-table.md`,
-    `V031_SECURITY_FIX_FULL_CLOSURE` Phase 5 finding), not yet fixed. Until it
-    is, honor this requirement voluntarily — do not choose a `rule_id` that
-    could plausibly become a real Zenzic code (a `<your-plugin-id>:` prefix,
-    as used in the Plugin tier's documented format, is the safe choice).
+This is mechanically enforced at load time (`_validate_plugin_code` in
+`core/rules.py`): a plugin whose `rule_id` matches a bare `Z\d{3}` pattern, or
+that does not start with `<your-plugin-id>:`, is rejected with a
+`PluginContractError` before it can produce a single finding. Choose a
+`rule_id` prefixed with your own plugin id (the Plugin tier's documented
+format) and this requirement is satisfied automatically.
 
 ---
 
