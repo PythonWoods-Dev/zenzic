@@ -17,11 +17,10 @@
 # The relative path to your documentation root.
 #
 # BEHAVIOR:
-#   - If commented out (default), Zenzic uses Auto-Discovery to find your
-#     docs based on the engine (reads docusaurus.config.ts, mkdocs.yml…).
+#   - If commented out (default), Zenzic uses "docs" as the documentation root.
 #   - Set to "." to scan the entire repository (L1 system exclusions apply).
 #
-# DEFAULT: Auto-discovered
+# DEFAULT: "docs"
 #
 # docs_dir = "."
 
@@ -30,9 +29,16 @@ fail_under = 98
 max_sentence_length = 50
 # exit_zero = false
 # respect_vcs_ignore = true
-# validate_same_page_anchors = true
 
 excluded_external_urls = []
+
+# Theme assets (favicon, logos, fonts) consumed by the site's own CSS/HTML
+# templates, never referenced from a Markdown page — previously kept quiet
+# only as a side effect of docs/how-to/use-brand-system.md's own link list,
+# which was deleted as brand-identity content out of scope for a technical
+# tool's public docs (see V031_CROSS_REPO_BUG_RESOLUTION_SPRINT addendum).
+excluded_asset_dirs = ["overrides", "brand", "fonts"]
+excluded_assets = ["favicon.ico"]
 
 
 # Z204 Privacy Gate — terms that must never appear in published docs.
@@ -42,11 +48,41 @@ excluded_external_urls = []
 excluded_file_patterns = []
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
 [governance.directory_policies]
+# docs/index.md: routing/SEO-only file, real content lives in
+# overrides/partials/homepage/ — see commit 59bc449.
+"docs/index.md" = ["Z411", "Z502"]
 "docs/**" = ["Z106"]
 "docs/blog/posts/**" = ["Z410", "Z411", "Z513"]
-"docs/developers/explanation/adr-vault/records/**" = ["Z410", "Z411"]
+# Individual ADR records and the internal release runbook are pulled from the
+# public nav (versioned reference material, link-checked normally, but never
+# expected to appear in site navigation) — see
+# V031_MULTI_ROOT_DOCUMENTATION_ARCHITECTURE_ASSESSMENT. Z402 (ORPHAN_PAGE) is
+# a strategic exemption (0 DQS debt points), not a suppression of a real
+# defect: nav-absence was never a defect for this category. Z103 (ORPHAN_LINK)
+# is the same category from the linking side — a link INTO this archive is
+# not broken just because its target left the nav; it's a real, working,
+# intentional cross-reference to a page readers can still reach directly or
+# via GitHub. Exempted here (self-referencing ADR pages) and on each specific
+# file elsewhere in the site that cites an archived ADR or the release
+# runbook — see V031_DOCUMENTATION_PRUNING_EXECUTION.
+"docs/developers/explanation/adr-vault/records/**" = ["Z103", "Z402", "Z410", "Z411"]
+"docs/developers/explanation/adr-vault/index.md" = ["Z103"]
+"docs/developers/how-to/release-governance-protocol.md" = ["Z402"]
+"docs/developers/how-to/troubleshooting.md" = ["Z103"]
+"docs/developers/index.md" = ["Z103"]
+"docs/developers/reference/cli-architecture.md" = ["Z103"]
+"docs/developers/explanation/governance/licensing.md" = ["Z103"]
+"docs/reference/compatibility.md" = ["Z103"]
+"docs/explanation/privacy-gate.md" = ["Z103"]
+"docs/explanation/the-zenzic-trinity.md" = ["Z103"]
+"docs/blog/posts/2026-08-11-zenzic-v0280-governance-and-extensibility.md" = ["Z103"]
 "docs/developers/reference/**" = ["Z513"]
 "docs/reference/**" = ["Z513"]
 "docs/tutorials/examples/**" = ["Z410", "Z411"]
-"docs/tutorials/examples/z1xx-links/**" = ["Z107"]
 "docs/tutorials/examples/z5xx-content/**" = ["Z506"]
+# z506's page opens with a deliberately malformed frontmatter delimiter ("--"
+# instead of "---") -- that malformation IS the fixture. A side effect is that
+# the "description:" line then parses as an H2 with no body, so Z512 fires on a
+# heading the author never wrote. Suppressed for this one page: fixing it would
+# mean repairing the delimiter, which would delete the demonstration.
+"docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z512"]

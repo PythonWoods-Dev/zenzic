@@ -12,7 +12,7 @@ description: "How to propose new features or changes to Zenzic."
 
 # Change requests
 
-Zenzic is a static content analysis framework for Markdown documentation. We aim to support a wide range
+Zenzic is a deterministic document integrity engine for Markdown/MDX graphs. We aim to support a wide range
 of use cases, and change requests are an essential mechanism for ensuring that
 our software meets the needs of our community.
 
@@ -51,63 +51,61 @@ them in the change request.**
 
 ## Issue template
 
-Our change request template consists of the following parts:
+Opening a new issue and selecting **Feature Request** loads
+[`feature_request.yml`](https://github.com/PythonWoods/zenzic/blob/main/.github/ISSUE_TEMPLATE/feature_request.yml),
+which asks for the following fields:
 
-- Title
-- Context <small>optional</small>
-- Description
-- Related links
-- Use cases
-- Visuals <small>optional</small>
-- Checklist
+- Feature category <small>required</small>
+- Problem to solve <small>required</small>
+- Proposed solution <small>required</small>
+- Alternatives considered <small>optional</small>
+- Zenzic design pillars <small>self-check</small>
+- Pre-submission checklist <small>required</small>
 
-### Title
+### Feature category
 
-A good title is short and descriptive — a one-sentence executive summary of
-the idea, so the potential impact and benefit can be inferred at a glance.
+A dropdown naming the kind of change: a new check, a new engine adapter, a
+new Shield credential family, a CLI command or flag, a `.zenzic.toml`
+configuration option, a custom-rules DSL extension, a performance
+improvement, developer/API surface, or "Other." Picking the right category
+routes the request to the right reviewer.
 
-### Context <small>optional</small> {#context}
+### Problem to solve
 
-Provide additional context to help us understand what you are trying to achieve.
-Don't write about the change request here.
+What gap does this fill? What currently breaks or is missing? Focus on the
+problem, not the solution yet.
 
-> **Why this might be helpful**: some ideas might only benefit specific settings
-> or edge cases. Context helps us prioritize more accurately.
+- **Explain the <u>what</u>, not the <u>why</u>** — describe the gap
 
-### Description
+  precisely; broader motivation belongs in this same field but stays brief.
 
-Provide a detailed and precise description of your idea. Explain why it is
-relevant to Zenzic specifically.
+- **One idea at a time** — open separate requests for unrelated ideas.
 
-- **Explain the <u>what</u>, not the <u>why</u>** – focus on describing the
+### Proposed solution
 
-    proposed change precisely. Benefits belong in the Use cases section.
+Describe the feature in concrete terms. For a new adapter proposal, describe
+the entry-point registration, which `BaseAdapter` methods it implements, and
+how engine-specific config will be read.
 
-- **Keep it short** – be brief and to the point.
+### Alternatives considered
 
-- **One idea at a time** – open separate change requests for unrelated ideas.
+What other approaches did you consider, and why did you rule them out? This
+field is optional but speeds up review — it tells us you've already thought
+through the design space.
 
-### Related links
+### Zenzic design pillars
 
-Provide relevant links to issues or documentation sections related to your
-change request, including any prior community discussions.
+A self-check confirming your proposal respects the Core's three
+non-negotiable constraints: **source-first** (operates on raw source files,
+no documentation engine required to run or be installed), **no
+subprocesses** (pure Python/stdlib only, no `subprocess.run` in the linting
+path), and **pure functions** (deterministic, side-effect-free, testable
+without I/O).
 
-### Use cases
+### Pre-submission checklist
 
-Explain how your change request would work from an author's and user's
-perspective — what's the expected impact, who will benefit, and would it
-potentially break existing functionality?
-
-### Visuals <small>optional</small> {#visuals}
-
-If you have sketches, screenshots, mockups, or examples from other tools, share
-them here. You can drag and drop files into the text area or include links.
-
-### Checklist
-
-Thanks for following the guide and creating a high-quality change request. The
-checklist ensures that you have read this guide and provided us with every piece
-of information to review your idea.
+Confirms you searched existing issues for a duplicate proposal, and whether
+documentation needs updating alongside the feature.
 
 **We'll take it from here.**
 

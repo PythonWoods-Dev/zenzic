@@ -213,12 +213,12 @@ reports, link_errors = scan_docs_references(
     Path("."),
     exclusion_mgr,
     config=config,
-    validate_links=True,   # set False to skip HTTP validation
+    validate_links=True,  # set False to skip HTTP validation
 )
 
 for report in reports:
     if report.security_findings:
-        raise SystemExit(2)   # your code is responsible for exit-code enforcement
+        raise SystemExit(2)  # your code is responsible for exit-code enforcement
     for finding in report.findings:
         print(finding)
 
@@ -237,12 +237,12 @@ number of files in the repository:
 
 | Repo size | Engine behaviour | Reason |
 | :--- | :--- | :--- |
-| < 50 files | Sequential (always) | Process-spawn overhead (~200–400 ms) exceeds the parallelism benefit |
-| ≥ 50 files, `workers=1` | Sequential | Explicit serial override |
-| ≥ 50 files, `workers=None` or `workers=N` | Parallel (`ProcessPoolExecutor`) | CPU-bound regex work dominates; linear scaling |
+| < 1000 files | Sequential (always) | Process-spawn overhead (~200–400 ms) exceeds the parallelism benefit |
+| ≥ 1000 files, `workers=1` | Sequential | Explicit serial override |
+| ≥ 1000 files, `workers=None` or `workers=N` | Parallel (`ProcessPoolExecutor`) | CPU-bound regex work dominates; linear scaling |
 | 5 000+ files | Parallel with `workers=cpu_count` | Proven 3–6× speedup on 8-core runners |
 
-The 50-file threshold (`ADAPTIVE_PARALLEL_THRESHOLD`) is the conservative
+The `ADAPTIVE_PARALLEL_THRESHOLD` (1000 files) is the conservative
 break-even point where parallelism pays for its own startup cost.
 
 ```python
@@ -257,14 +257,16 @@ exclusion_mgr = LayeredExclusionManager(config)
 # Default: sequential (workers=1, zero overhead)
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config)
 
-# Explicit parallel: 4 workers, auto-activates only if ≥ 50 files
+# Explicit parallel: 4 workers, auto-activates only if ≥ 1000 files
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config, workers=4)
 
 # Fully automatic: ProcessPoolExecutor picks worker count from os.cpu_count()
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config, workers=None)
 
 # With external link validation (works in both sequential and parallel mode)
-reports, link_errors = scan_docs_references(Path("."), exclusion_mgr, config=config, validate_links=True, workers=None)
+reports, link_errors = scan_docs_references(
+    Path("."), exclusion_mgr, config=config, validate_links=True, workers=None
+)
 ```
 
 **Determinism guarantee:** results are always sorted by `file_path` regardless
@@ -392,7 +394,7 @@ by Zenzic when the Zensical engine is active.  Links to these resources are flag
 docs/
 ├── index.md
 ├── features.md
-└── _private/           ← Zensical ignores this directory entirely
+└── _private/           ← Zenzic's ZensicalAdapter ignores this directory entirely
     └── notes.md        ← links to this file → UNREACHABLE_LINK
 ```
 
@@ -411,9 +413,12 @@ This rule applies to any path segment starting with `_`:
 | `_drafts/test.md` | `IGNORED` → `UNREACHABLE_LINK` |
 | `public/page.md` | `REACHABLE` — served normally |
 
-!!! note "MkDocs does not have this rule"
-    MkDocs does not treat underscore-prefixed directories as private.  Only Zensical
-    enforces the `_`-prefix convention.  When switching engines, audit any `_`-prefixed
+!!! note "This is Zenzic's own convention, not a Zensical platform feature"
+    Neither MkDocs nor Zensical itself treats underscore-prefixed directories as private —
+    verified against Zensical's own official documentation, which describes no such
+    convention. This is a modeling choice Zenzic's `ZensicalAdapter` applies internally
+    (`_zensical.py`) when the Zensical engine is active; MkDocs-engine and Standalone-engine
+    projects are unaffected. When switching engines, audit any `_`-prefixed
     directories in your docs tree.
 
 ---
@@ -490,6 +495,7 @@ The **Custom Rule SDK v3** (`ZenzicRuleV3` + `RuleMetadata`) provides a typed fr
 from pathlib import Path
 from zenzic.sdk import ZenzicRuleV3, RuleMetadata
 from zenzic.core.rules import RuleFinding
+
 
 class ForbiddenInternalUrlRule(ZenzicRuleV3):
     metadata = RuleMetadata(

@@ -19,14 +19,14 @@ import fnmatch
 import posixpath
 from collections.abc import Callable, Generator, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.codes import code_severity, exit_contract_severity
 from zenzic.core.credentials import (
     SecurityFinding,
-    scan_line_for_forbidden_terms,
-    scan_lines_with_lookback,
+    scan_security_findings,
     scan_url_for_secrets,
 )
 from zenzic.core.discovery import (
@@ -35,10 +35,13 @@ from zenzic.core.discovery import (
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
+    iter_security_scan_sources,
     walk_files,
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
+from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
+from zenzic.core.ui import format_elapsed_ms
 from zenzic.core.validator import _POLYGLOT_EXTRACTOR, LinkValidator, PolyglotExtractor
 from zenzic.models.config import (
     ZenzicConfig,
@@ -69,6 +72,8 @@ CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
         ".jsx",
         ".mjs",
         ".cjs",
+        ".mts",
+        ".cts",
         # Systems languages
         ".rs",
         ".go",
@@ -137,12 +142,12 @@ _INLINE_CODE_RE = re.compile(r"`[^`]+`")
 def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = None) -> Path:
     """Walk upward from *search_from* (or CWD) until a Zenzic project root marker is found.
 
-    Root markers (first match wins, checked in order):
+    Root markers (any match wins; each ancestor directory is checked against
+    all four before moving further up):
     - ``.git/``  — universal VCS marker.
     - ``.zenzic.toml`` — Zenzic's own configuration file.
-
-    Using engine-neutral markers keeps the Core independent of any specific
-    documentation build engine (e.g. ``mkdocs.yml`` is intentionally excluded).
+    - ``zensical.toml`` — Zensical engine config.
+    - ``mkdocs.yml`` — MkDocs engine config.
 
     This is more robust than ``Path(__file__).parents[N]`` because it works
     regardless of where the CLI is invoked from inside the repo.
@@ -175,8 +180,9 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
         return start
 
     raise RuntimeError(
-        "Could not locate repo root: no .git directory or .zenzic.toml found in any "
-        f"ancestor of {start}. Run Zenzic from inside the repository."
+        "Could not locate repo root: no .git directory, .zenzic.toml, zensical.toml, "
+        f"or mkdocs.yml found in any ancestor of {start}. Run Zenzic from inside the "
+        "repository."
     )
 
 
@@ -214,8 +220,13 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
 
     Returns:
         A :class:`~zenzic.core.reporter.Finding` ready for the ZenzicReporter
-        pipeline.  Z204 FORBIDDEN_TERM findings use ``severity="security_breach"``
-        with code ``"Z204"``; all other credential scanner findings use ``"Z201"``.
+        pipeline.  Z204 FORBIDDEN_TERM findings use code ``"Z204"``; all other
+        credential scanner findings use ``"Z201"``. Severity for both is
+        derived from :func:`~zenzic.core.codes.exit_contract_severity` — the
+        single Core-layer authority also consulted by ``_check.py``'s
+        finding-conversion loop — never a hardcoded literal, so this bridge
+        cannot silently disagree with any other caller about what these two
+        codes' severity is.
     """
     try:
         rel = str(sf.file_path.relative_to(repo_root))
@@ -223,26 +234,30 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
         rel = str(sf.file_path)
 
     if sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Categorical finding identifier
+        code = "Z204"
         return Finding(
             rel_path=rel,
             line_no=sf.line_no,
-            code="Z204",
-            severity="security_breach",
+            code=code,
+            severity=exit_contract_severity(code),
             message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
             source_line=sf.url,
             col_start=sf.col_start,
             match_text=sf.match_text,
+            is_likely_placeholder=sf.is_likely_placeholder,
         )
 
+    code = "Z201"
     return Finding(
         rel_path=rel,
         line_no=sf.line_no,
-        code="Z201",
-        severity="security_breach",
+        code=code,
+        severity=exit_contract_severity(code),
         message=f"Secret detected ({sf.secret_type}) — rotate immediately.",
         source_line=sf.url,
         col_start=sf.col_start,
         match_text=sf.match_text,
+        is_likely_placeholder=sf.is_likely_placeholder,
     )
 
 
@@ -350,10 +365,23 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     Returns:
         Set of normalised asset paths relative to docs root.
     """
+    from zenzic.core.governance import _parse_frontmatter_dict
     from zenzic.core.validator import PolyglotExtractor
 
     extractor = PolyglotExtractor()
     referenced: set[str] = set()
+
+    # 0. Frontmatter `image` key (e.g. social card / OG image references —
+    #    see docs/how-to/configure-social-metadata.md) — not a markdown-body
+    #    link, so invisible to the AST/HTML/inline-link passes below.
+    frontmatter = _parse_frontmatter_dict(text)
+    fm_image = frontmatter.get("image")
+    if fm_image and not fm_image.startswith(("http://", "https://", "data:", "#")):
+        clean_url = unquote(fm_image.split("?")[0].split("#")[0])
+        base = page_dir if page_dir else "."
+        normalized = posixpath.normpath(posixpath.join(base, clean_url))
+        if not normalized.startswith(".."):
+            referenced.add(normalized)
 
     # 1. AST Reference Link Definitions ([label]: dest) from PolyglotExtractor
     for ref_node in extractor.extract_ref_defs(text):
@@ -535,7 +563,18 @@ def find_unused_assets(
             continue
         if rel_path.suffix in CODE_ASSET_SUFFIXES:
             continue
-        if rel_path.name in {"robots.txt", "_redirects", "CNAME", "sitemap.xml"}:
+        # Site-root machine-readable artifacts, not documentation content.
+        # llms.txt / llms-ctx-full.txt are generated into the built site by
+        # hooks/generate_llms_txt.py; if a project also keeps one in docs_dir,
+        # analysing it as a page would report findings against generated output.
+        if rel_path.name in {
+            "robots.txt",
+            "_redirects",
+            "CNAME",
+            "sitemap.xml",
+            "llms.txt",
+            "llms-ctx-full.txt",
+        }:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue
@@ -827,27 +866,15 @@ class ReferenceScanner:
                 return
 
         lines = text.splitlines(keepends=True)
+        # Credentials (Z201) and forbidden terms (Z204) come from one shared
+        # primitive, so the CLI and the LSP cannot disagree about which security
+        # findings a file contains — see scan_security_findings' own docstring for
+        # the two divergences that made sharing necessary.
         secret_line_nos: set[int] = set()
         credential_events: list[HarvestEvent] = []
-        for finding in scan_lines_with_lookback(enumerate(lines, start=1), self.file_path):
+        for finding in scan_security_findings(text, self.file_path, self._config):
             credential_events.append((finding.line_no, "SECRET", finding))
             secret_line_nos.add(finding.line_no)
-
-        fp = self._config.forbidden_patterns if self._config else []
-        if fp:
-            fp_compiled = self._config.forbidden_patterns_compiled if self._config else None
-            for lineno, raw_line in enumerate(lines, start=1):
-                if lineno in secret_line_nos:
-                    continue
-                for finding in scan_line_for_forbidden_terms(
-                    raw_line,
-                    fp,
-                    self.file_path,
-                    lineno,
-                    compiled_pattern=fp_compiled,
-                ):
-                    credential_events.append((finding.line_no, "SECRET", finding))
-                    secret_line_nos.add(finding.line_no)
 
         content_events: list[HarvestEvent] = []
         in_block = False
@@ -921,7 +948,7 @@ class ReferenceScanner:
                             detail=(
                                 f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
                             ),
-                            is_warning=False,
+                            is_warning=code_severity("Z301") == "warning",
                         )
                     )
 
@@ -969,7 +996,7 @@ class ReferenceScanner:
                     line_no=def_line,
                     issue="Z302",
                     detail=(f"Reference '[{norm_id}]: {url}' is defined but never used."),
-                    is_warning=True,
+                    is_warning=code_severity("Z302") == "warning",
                 )
             )
 
@@ -985,7 +1012,7 @@ class ReferenceScanner:
                         f"Reference ID '[{norm_id}]' is defined more than once. "
                         "First definition wins (CommonMark §4.7)."
                     ),
-                    is_warning=True,
+                    is_warning=code_severity("Z303") == "warning",
                 )
             )
 
@@ -1058,7 +1085,7 @@ def _scan_single_file(
         from zenzic.core.suppressions import SuppressionTracker
 
         # Pre-compute global suppression codes for this specific file
-        # to prevent consuming redundant inline directives (ADR-084).
+        # to prevent consuming redundant inline directives.
         globally_suppressed_codes: dict[str, list[str]] = {}
         if getattr(config, "governance", None):
             repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
@@ -1112,15 +1139,29 @@ def _scan_single_file(
         #   2. Each matching directive is marked consumed=True.
         report.rule_findings = rule_engine.run_with_tracker(md_file, text, tracker)
 
-        # Inject Z201 findings derived from harvest() — single-pass, no re-scan.
-        # Z201 is non-suppressible so tracker filtering is intentionally skipped.
+        # Inject Z201/Z204 findings derived from harvest() — single-pass, no re-scan.
+        # Both codes are non-suppressible so tracker filtering is intentionally
+        # skipped. harvest() yields FORBIDDEN_TERM findings (Z204) alongside
+        # credential/secret findings (Z201) — mirror the branch already used by
+        # _map_credential_to_finding() above so the two codes aren't conflated.
         if security_findings:
             from zenzic.core.rules import RuleFinding as _RF
 
-            z201 = [
+            security_rule_findings = [
                 _RF(
+                    rule_id="Z204",
+                    severity=code_severity("Z204"),
+                    file_path=sf.file_path,
+                    line_no=sf.line_no,
+                    message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
+                    match_text=sf.match_text,
+                    matched_line=sf.url,
+                    col_start=sf.col_start,
+                )
+                if sf.secret_type == "FORBIDDEN_TERM"  # noqa: S105  # Categorical finding identifier
+                else _RF(
                     rule_id="Z201",
-                    severity="error",
+                    severity=code_severity("Z201"),
                     file_path=sf.file_path,
                     line_no=sf.line_no,
                     message=f"Credential or secret detected: {sf.secret_type}",
@@ -1130,7 +1171,7 @@ def _scan_single_file(
                 )
                 for sf in security_findings
             ]
-            report.rule_findings = z201 + report.rule_findings
+            report.rule_findings = security_rule_findings + report.rule_findings
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
@@ -1232,12 +1273,22 @@ def _run_vsm_and_urp_pass(
 
     orphaned_urls: set[str] = set()
     dead_end_urls: set[str] = set()
+    traceability_violations: dict[str, tuple[str, list[str]]] = {}
     if hasattr(adapter, "get_entry_points"):
-        from zenzic.core.topology import detect_dead_ends, detect_orphans
+        from zenzic.core.topology import (
+            detect_dead_ends,
+            detect_orphans,
+            detect_traceability_violations,
+        )
 
         entry_points = adapter.get_entry_points(vsm)
         orphaned_urls = set(detect_orphans(vsm, entry_points))
         dead_end_urls = set(detect_dead_ends(vsm))
+        if config.policies and config.policies.traceability_targets:
+            for url, _rel_src, target_glob, req_sources in detect_traceability_violations(
+                vsm, config.policies.traceability_targets, docs_root=docs_root, repo_root=repo_root
+            ):
+                traceability_violations[url] = (target_glob, req_sources)
 
     raw_extracted_links: dict[Path, list[ExtractedLink]] = {}
     links_cache: dict[Path, list[LinkInfo]] = {}
@@ -1366,7 +1417,7 @@ def _run_vsm_and_urp_pass(
                             1,
                             "Z410",
                             f"Document is isolated and unreachable from defined entry points: '{canonical_url}'",
-                            severity="warning",
+                            severity=code_severity("Z410"),
                             matched_line="",
                         )
                     )
@@ -1380,10 +1431,22 @@ def _run_vsm_and_urp_pass(
                             1,
                             "Z411",
                             f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
-                            severity="warning",
+                            severity=code_severity("Z411"),
                             matched_line="",
                         )
                     )
+            if canonical_url in traceability_violations:
+                target_glob, req_sources = traceability_violations[canonical_url]
+                r.rule_findings.append(
+                    RuleFinding(
+                        r.file_path,
+                        1,
+                        "Z412",
+                        f"Document matches traceability target '{target_glob}' but has no inbound references from required source namespaces {req_sources}",
+                        severity=code_severity("Z412"),
+                        matched_line="",
+                    )
+                )
 
         if cycle_nodes and r.file_path in links_cache:
             for link in links_cache[r.file_path]:
@@ -1401,7 +1464,7 @@ def _run_vsm_and_urp_pass(
                                             link.lineno,
                                             "Z106",
                                             f"'{link.url}' is part of a circular link cycle",
-                                            severity="error",
+                                            severity=code_severity("Z106"),
                                             matched_line="",
                                             col_start=link.col_start,
                                             match_text=link.match_text,
@@ -1429,9 +1492,9 @@ def _run_vsm_and_urp_pass(
                     RuleFinding(
                         target_path,
                         1,
-                        "Z110",
+                        "Z112",
                         f"{target_path.name}:1: Stale absolute_path_allowlist entry '{entry}': no link matched this prefix across all scanned files",
-                        severity="warning",
+                        severity=code_severity("Z112"),
                     )
                 )
 
@@ -1545,6 +1608,7 @@ def _build_rule_engine(
                     pattern=cr.pattern,
                     message=cr.message,
                     severity=cr.severity,
+                    link=cr.link,
                 )
             )
 
@@ -1668,6 +1732,7 @@ def scan_docs_references(
     content_roots: list[Path] | None = None,
     show_progress: bool = False,
     progress_instance: Any | None = None,
+    rule_engine_target: Path | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1684,10 +1749,11 @@ def scan_docs_references(
       External URL validation is performed in the main process after all
       workers complete.
 
-    The threshold default (50 files) is a conservative heuristic: below it,
-    ``ProcessPoolExecutor`` spawn overhead (~200–400 ms on a cold interpreter)
-    exceeds the parallelism benefit.  Override with ``workers=N`` to select a
-    specific pool size when parallel mode is active.
+    The :data:`ADAPTIVE_PARALLEL_THRESHOLD` default is a conservative
+    heuristic: below it, ``ProcessPoolExecutor`` spawn overhead (~200–400 ms
+    on a cold interpreter) exceeds the parallelism benefit.  Override with
+    ``workers=N`` to select a specific pool size when parallel mode is
+    active.
 
     **Determinism guarantee:** results are always sorted by ``file_path``
     regardless of execution mode.
@@ -1723,6 +1789,16 @@ def scan_docs_references(
         content_roots:  Optional extra markdown roots injected by caller.
         show_progress:  When ``True``, display a rich progress bar on stderr.
         progress_instance: Optional external Rich Progress instance.
+        rule_engine_target: When set, restricts rule-engine execution (AST
+                        parsing + all Z1xx-Z6xx content/editorial rules) to
+                        this single resolved file. Every other file still
+                        runs the cheap reference/security/link pipeline
+                        (Pass 1-3) so link resolution, credential scanning,
+                        and VSM topology remain correct project-wide — only
+                        the expensive per-file rule pass is skipped for
+                        non-target files. Forces sequential execution
+                        (parallel mode is pointless when only one file's
+                        rule findings are kept).
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1760,6 +1836,17 @@ def scan_docs_references(
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
 
+    # A rule-engine target outside docs_root (e.g. CHANGELOG.md/README.md at
+    # repo root) is never discovered by iter_markdown_sources(docs_root, ...)
+    # above, since it only walks docs_root. Inject it explicitly so its own
+    # rule pass still runs — otherwise the target would silently receive
+    # zero rule-engine findings while docs_root's full VSM/topology scan
+    # continues unaffected.
+    if rule_engine_target is not None:
+        _resolved_target_for_injection = rule_engine_target.resolve(strict=False)
+        if _resolved_target_for_injection not in {f.resolve(strict=False) for f in md_files}:
+            md_files.append(_resolved_target_for_injection)
+
     static_assets: set[Path] = set()
     if docs_root.is_dir():
         for fpath in walk_files(docs_root, set(config.excluded_dirs), exclusion_manager, config):
@@ -1788,10 +1875,81 @@ def scan_docs_references(
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
-    if not md_files:
-        return [], []
+    # Security-tier immunity: a file scoped out by excluded_dirs /
+    # excluded_file_patterns / --exclude-dir is excluded from quality analysis,
+    # never from the credential scan — Z201/Z204/Z205 are non-suppressible by
+    # any mechanism, and "the file was never looked at" is a suppression
+    # mechanism. Files already in the corpus are scanned by harvest(); this
+    # pass covers only the ones user scoping removed, and it emits
+    # security-only reports (no quality findings), so exclusion semantics for
+    # every other tier are preserved.
+    _scanned_paths = {f.resolve(strict=False) for f in md_files}
+    _security_only_reports: list[IntegrityReport] = []
+    _sec_engine: Any = None
 
-    use_parallel = workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD
+    def _security_urp_findings(_p: Path, _t: str) -> list[Any]:
+        """Link-tier security findings for a file user scoping removed."""
+        nonlocal _sec_engine
+        from zenzic.models.vsm import VirtualSiteMap
+
+        if _sec_engine is None:
+            from zenzic.core.adapters import get_adapter
+            from zenzic.core.incremental import IncrementalAnalysisEngine
+
+            # repo_root is optional on this entry point; the engine and the
+            # adapter factory both require a real path.
+            _root = repo_root if repo_root is not None else docs_root
+            _sec_engine = IncrementalAnalysisEngine(
+                config,
+                # None is accepted here on purpose: `security_only` restricts the
+                # pass to Z202/Z203/Z205, none of which consult the rule engine.
+                cast("Any", rule_engine),
+                get_adapter(config.build_context, docs_root, _root),
+                docs_root,
+                _root,
+            )
+        try:
+            found: list[Any] = _sec_engine._run_urp_checks(
+                VirtualSiteMap(), _p, _t, security_only=True
+            )
+        except Exception:  # pragma: no cover - a malformed excluded file must not abort the scan
+            return []
+        return found
+
+    for _sec_file in iter_security_scan_sources(
+        docs_root,
+        config,
+        exclusion_manager,
+        content_roots=content_roots,
+        locale_roots=locale_roots,
+    ):
+        if _sec_file.resolve(strict=False) in _scanned_paths:
+            continue
+        try:
+            _sec_text = _sec_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        _sec_findings = list(scan_security_findings(_sec_text, _sec_file, config))
+        # The other three fifths of the tier. Z202/Z203/Z205 come from the URP
+        # pass, which runs over the user-scoped walk, so scoping a directory out
+        # went on silencing them long after the credential half was made immune.
+        _sec_rule_findings = _security_urp_findings(_sec_file, _sec_text)
+        if _sec_findings or _sec_rule_findings:
+            _security_only_reports.append(
+                IntegrityReport(
+                    file_path=_sec_file,
+                    rule_findings=_sec_rule_findings,
+                    score=0.0,
+                    security_findings=_sec_findings,
+                )
+            )
+
+    if not md_files:
+        return _security_only_reports, []
+
+    use_parallel = (
+        workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD and rule_engine_target is None
+    )
 
     # Initialise Visual Progress Bar context if requested.
     progress = None
@@ -1826,12 +1984,12 @@ def scan_docs_references(
             f"[cyan]Parsing[/cyan] [dim]{len(md_files)} files ({_mode_label})...[/dim]",
             total=len(md_files),
         )
-        if validate_links:
-            task_validate_id = progress.add_task(
-                "[blue]Validating links...[/blue]",
-                total=None,  # indeterminate until parsing completes
-                start=False,
-            )
+        # The link-validation line is deliberately *not* created here. Its size
+        # (the deduplicated URL count) is unknown until parsing has finished, and
+        # a task created with total=None renders as a pulsing indeterminate bar —
+        # announcing, for the whole parsing and VSM window, a phase that has not
+        # started. It is added at the point the count becomes known instead, in
+        # both the parallel and sequential paths below.
 
     _t0 = time.monotonic()
 
@@ -1843,7 +2001,15 @@ def scan_docs_references(
             actual_workers = workers if workers is not None else os.cpu_count() or 1
             chunk_size = max(4, len(md_files) // (actual_workers * 2))
             chunks = [md_files[i : i + chunk_size] for i in range(0, len(md_files), chunk_size)]
-            work_items = [(chunk, config, rule_engine) for chunk in chunks]
+            # The sovereign context is a ContextVar, and a ContextVar does not
+            # cross a process boundary. Read it here, in the parent, and hand it
+            # to each worker explicitly: without this the child re-read the
+            # module default and `--audit` silently stopped overriding
+            # suppressions once a corpus crossed ADAPTIVE_PARALLEL_THRESHOLD --
+            # the one mode that exists to reveal hidden debt, going quiet on
+            # exactly the repositories that have the most of it.
+            _force_audit = get_sovereign_context().force_audit
+            work_items = [(chunk, config, rule_engine, _force_audit) for chunk in chunks]
             executor = concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers)
             try:
                 futures_map: dict[concurrent.futures.Future[list[IntegrityReport]], list[Path]] = {
@@ -1899,17 +2065,28 @@ def scan_docs_references(
             finally:
                 t0_teardown = time.perf_counter()
                 executor.shutdown(wait=True)
-                teardown_ms = (time.perf_counter() - t0_teardown) * 1000
+                teardown_s = time.perf_counter() - t0_teardown
 
             if progress:
                 progress.add_task(
-                    f"Finalizing parallel workers (IPC teardown)... [dim]({teardown_ms:.1f}ms)[/dim]",
+                    f"Finalizing parallel workers (IPC teardown)... {format_elapsed_ms(teardown_s)}",
                     total=1,
                     completed=1,
                 )
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
+            # Same split as the sequential path below: stamp parsing before the
+            # VSM/URP pass, which carries its own line.
+            _parse_elapsed_s = time.monotonic() - _t0
+            if progress and task_id is not None:
+                progress.update(
+                    task_id,
+                    description=f"Parsing {len(md_files)} files ({_mode_label})... {format_elapsed_ms(_parse_elapsed_s)}",
+                )
+
+            _t_vsm = time.monotonic()
+            task_vsm = progress.add_task(_VSM_TASK_LABEL, total=1) if progress else None
             _run_vsm_and_urp_pass(
                 reports,
                 md_files,
@@ -1921,12 +2098,13 @@ def scan_docs_references(
                 content_roots=content_roots,
                 static_assets=static_assets,
             )
-
-            if progress and task_id is not None:
-                _parse_elapsed_ms = (time.monotonic() - _t0) * 1000
+            if progress and task_vsm is not None:
                 progress.update(
-                    task_id,
-                    description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_ms:.1f}ms)[/dim]",
+                    task_vsm,
+                    completed=1,
+                    description=(
+                        f"{_VSM_TASK_LABEL} {format_elapsed_ms(time.monotonic() - _t_vsm)}"
+                    ),
                 )
 
             if getattr(config, "_global_tracker", None):
@@ -1957,7 +2135,7 @@ def scan_docs_references(
                             _sf.file_path = _locale_path_remap[_sf.file_path]
 
             if not validate_links:
-                return reports, []
+                return reports + _security_only_reports, []
 
             # Phase B in main process: lightweight sequential pass for URL
             # registration.  Workers discard scanners; we re-collect ref_maps here
@@ -1985,13 +2163,11 @@ def scan_docs_references(
                         pass
 
             n_urls = validator_b.unique_url_count
-            if progress and task_validate_id is not None:
-                progress.update(
-                    task_validate_id,
-                    description=f"Validating links ({n_urls} external URLs)...",
+            if progress:
+                task_validate_id = progress.add_task(
+                    f"Validating links ({n_urls} external URLs)...",
                     total=max(1, n_urls),
                 )
-                progress.start_task(task_validate_id)
 
             def _advance_cb() -> None:
                 if progress and task_validate_id is not None:
@@ -1999,15 +2175,15 @@ def scan_docs_references(
 
             t0_val = time.perf_counter()
             link_errors = validator_b.validate(progress_callback=_advance_cb if progress else None)
-            elapsed_ms_val = (time.perf_counter() - t0_val) * 1000
+            elapsed_val_s = time.perf_counter() - t0_val
             if progress and task_validate_id is not None:
                 progress.update(
                     task_validate_id,
                     completed=max(1, n_urls),
-                    description=f"Validating links ({n_urls} external URLs)... [dim]({elapsed_ms_val:.1f}ms)[/dim]",
+                    description=f"Validating links ({n_urls} external URLs)... {format_elapsed_ms(elapsed_val_s)}",
                 )
 
-            return reports, link_errors
+            return reports + _security_only_reports, link_errors
 
         # Sequential path — zero overhead, full O(N) link-validation support.
         reports_seq: list[IntegrityReport] = []
@@ -2016,6 +2192,9 @@ def scan_docs_references(
         # Anchors collected as side effect of CombinedHeadingRule; reused in VSM pass.
         preloaded_anchors_seq: dict[Path, set[str]] = {}
         _seq_rule_engine = _build_rule_engine(config, anchors_out=preloaded_anchors_seq)
+        _resolved_rule_engine_target = (
+            rule_engine_target.resolve(strict=False) if rule_engine_target is not None else None
+        )
 
         for md_file in md_files:
             text = ""
@@ -2025,13 +2204,42 @@ def scan_docs_references(
                     md_contents_seq[md_file] = text
                 except OSError:
                     pass
-            report, secure_scanner = _scan_single_file(md_file, config, _seq_rule_engine, text=text)
+            # When scoped to a single target, skip the expensive rule pass
+            # (AST parsing + all Z1xx-Z6xx rules) for every other file — Pass
+            # 1-3 (security/link/reference) still run below via
+            # _scan_single_file, and _run_vsm_and_urp_pass falls back to the
+            # standalone anchors_in_file() for VSM topology on files that
+            # never ran CombinedHeadingRule, so link/anchor resolution stays
+            # correct project-wide.
+            _file_rule_engine = (
+                _seq_rule_engine
+                if _resolved_rule_engine_target is None
+                or md_file.resolve(strict=False) == _resolved_rule_engine_target
+                else None
+            )
+            report, secure_scanner = _scan_single_file(
+                md_file, config, _file_rule_engine, text=text
+            )
             reports_seq.append(report)
             if validate_links and secure_scanner is not None:
                 secure_scanners_seq.append(secure_scanner)
             if progress and task_id is not None:
                 progress.advance(task_id)
 
+        # Parsing proper ends at the last advance() above — stamp the label here,
+        # before the VSM/URP pass, which now carries its own line. Measuring
+        # through that pass (as this did previously) made the label disagree with
+        # its own row: Rich sets finished_time on the final advance(), so the row
+        # showed the parse-only elapsed while the label showed parse + VSM.
+        _parse_elapsed_seq_s = time.monotonic() - _t0
+        if progress and task_id is not None:
+            progress.update(
+                task_id,
+                description=f"Parsing {len(md_files)} files ({_mode_label})... {format_elapsed_ms(_parse_elapsed_seq_s)}",
+            )
+
+        _t_vsm_seq = time.monotonic()
+        task_vsm_seq = progress.add_task(_VSM_TASK_LABEL, total=1) if progress else None
         _run_vsm_and_urp_pass(
             reports_seq,
             md_files,
@@ -2045,12 +2253,13 @@ def scan_docs_references(
             preloaded_md_contents=md_contents_seq,
             preloaded_anchors=preloaded_anchors_seq,
         )
-
-        if progress and task_id is not None:
-            _parse_elapsed_seq_ms = (time.monotonic() - _t0) * 1000
+        if progress and task_vsm_seq is not None:
             progress.update(
-                task_id,
-                description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_seq_ms:.1f}ms)[/dim]",
+                task_vsm_seq,
+                completed=1,
+                description=(
+                    f"{_VSM_TASK_LABEL} {format_elapsed_ms(time.monotonic() - _t_vsm_seq)}"
+                ),
             )
 
         elapsed_seq = time.monotonic() - _t0
@@ -2073,7 +2282,7 @@ def scan_docs_references(
                         _sf.file_path = _locale_path_remap[_sf.file_path]
 
         if not validate_links:
-            return reports_seq, []
+            return reports_seq + _security_only_reports, []
 
         # Phase B — global URL deduplication and async HTTP validation.
         # Uses the already-populated ref_maps from Phase A — no second file read.
@@ -2093,28 +2302,41 @@ def scan_docs_references(
                             validator_seq.register(link.url, r.file_path, link.line_no)
 
         n_urls_seq = validator_seq.unique_url_count
-        if progress and task_validate_id is not None:
-            progress.update(
-                task_validate_id,
-                description=f"Validating links ({n_urls_seq} external URLs)...",
+        if progress:
+            task_validate_id = progress.add_task(
+                f"Validating links ({n_urls_seq} external URLs)...",
                 total=max(1, n_urls_seq),
             )
-            progress.start_task(task_validate_id)
 
         def _advance_seq_cb() -> None:
             if progress and task_validate_id is not None:
                 progress.advance(task_validate_id, 1)
 
+        t0_val_seq = time.perf_counter()
         link_errors = validator_seq.validate(
             progress_callback=_advance_seq_cb if progress else None
         )
-        return reports_seq, link_errors
+        elapsed_val_seq_s = time.perf_counter() - t0_val_seq
+        if progress and task_validate_id is not None:
+            progress.update(
+                task_validate_id,
+                completed=max(1, n_urls_seq),
+                description=(
+                    f"Validating links ({n_urls_seq} external URLs)... "
+                    f"{format_elapsed_ms(elapsed_val_seq_s)}"
+                ),
+            )
+        return reports_seq + _security_only_reports, link_errors
     finally:
         if owns_progress and progress:
             progress.stop()
 
 
 # ─── Adaptive parallel worker ─────────────────────────────────────────────────
+
+#: Progress-line label for the VSM/URP resolution pass. Shared by the parallel
+#: and sequential paths so the two never drift apart in wording.
+_VSM_TASK_LABEL = "Building VSM & resolving references..."
 
 #: Files below this threshold are scanned sequentially (zero process-spawn
 #: overhead).  Above it, scan_docs_references() switches to a
@@ -2126,7 +2348,7 @@ ADAPTIVE_PARALLEL_THRESHOLD: int = 1000
 #: If a worker exceeds this limit it is abandoned and a Z902 timeout finding
 #: is emitted for the file instead of a normal IntegrityReport.  The purpose
 #: is to guard against I/O hangs, network stalls, and worker process crashes
-#: that would otherwise deadlock the entire parallel pipeline.  (ZRT-002 fix)
+#: that would otherwise deadlock the entire parallel pipeline.
 _WORKER_TIMEOUT_S: int = 30
 
 
@@ -2140,7 +2362,7 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
 
     A Z902 finding indicates a systemic stall (I/O hang, network timeout,
     worker process crash) rather than a regex issue — all CustomRule patterns
-    are DFA-safe since ZRT-007 replaced the NFA engine with Google RE2.
+    are DFA-safe, compiled via Google RE2.
 
     Args:
         md_file: Absolute path of the file whose worker timed out.
@@ -2160,7 +2382,7 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
             "Worker stalled — possible I/O hang, network timeout, or process crash. "
             "Custom rule patterns are DFA-safe (ZRT-007); this is a systemic stall."
         ),
-        severity="error",
+        severity=code_severity("Z902"),
     )
     return IntegrityReport(
         file_path=md_file,
@@ -2192,7 +2414,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
             f"Worker for '{md_file.name}' raised an unexpected exception: "
             f"{type(exc).__name__}: {exc}"
         ),
-        severity="error",
+        severity=code_severity("Z901"),
     )
     return IntegrityReport(
         file_path=md_file,
@@ -2204,7 +2426,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
 
 
 def _chunk_worker(
-    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None],
+    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None, bool],
 ) -> list[IntegrityReport]:
     """Top-level chunk worker function for ``ProcessPoolExecutor``.
 
@@ -2213,19 +2435,22 @@ def _chunk_worker(
     processing of subsequent files in the chunk is aborted immediately.
 
     Args:
-        args: ``(chunk_files, config, rule_engine)`` tuple.
+        args: ``(chunk_files, config, rule_engine, force_audit)`` tuple. The
+            last element re-establishes the sovereign context inside the child
+            process, which a ContextVar cannot reach on its own.
 
     Returns:
         List of :class:`IntegrityReport` for files in the chunk.
     """
-    chunk_files, config, rule_engine = args
+    chunk_files, config, rule_engine, force_audit = args
     reports: list[IntegrityReport] = []
-    for md_file in chunk_files:
-        report = _worker((md_file, config, rule_engine))
-        reports.append(report)
-        if report.security_findings:
-            # ADR-020: Stop processing remaining files in this chunk immediately.
-            break
+    with sovereign_context(force_audit=force_audit):
+        for md_file in chunk_files:
+            report = _worker((md_file, config, rule_engine))
+            reports.append(report)
+            if report.security_findings:
+                # ADR-020: stop processing the rest of this chunk immediately.
+                break
     return reports
 
 

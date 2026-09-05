@@ -23,11 +23,17 @@ from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ZenzicConfig
 from zenzic.models.diagnostics import (
     ZenzicDiagnostic,
 )
 from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap, build_vsm
+
+
+#: The ``source`` value Zenzic stamps on every diagnostic it emits
+#: (:mod:`zenzic.models.diagnostics`). Used to establish that a diagnostic
+#: handed back by the client is ours before acting on it as ours.
+_ZENZIC_DIAGNOSTIC_SOURCE = "zenzic"
 
 
 def uri_to_path(uri: str) -> Path:
@@ -77,6 +83,14 @@ class LanguageServer:
 
         # Diagnostics tracking to prevent ghost diagnostics on file deletion
         self.file_diagnostics: set[str] = set()
+
+        # Auto-fix-on-save (textDocument/willSaveWaitUntil) -- off by default,
+        # user opt-in via the zenzic.autoFixOnSave client setting.
+        self.auto_fix_on_save: bool = False
+
+        # Auto-repair inbound links on rename (workspace/willRenameFiles) --
+        # off by default, user opt-in via zenzic.autoRepairLinksOnRename.
+        self.auto_repair_links_on_rename: bool = False
 
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
@@ -290,7 +304,27 @@ class LanguageServer:
             return True
 
         if self._is_config_file_change(uri):
-            return True
+            # _is_config_file_change matches by basename alone, with no
+            # location check of its own -- so any file anywhere on the
+            # filesystem named pyproject.toml or .zenzic.toml used to be
+            # declared in-domain, including a copy inside .git/ or one
+            # entirely outside the repo. `should_exclude_file` cannot be
+            # reused here to filter those out: pyproject.toml is itself in
+            # SYSTEM_EXCLUDED_FILE_NAMES (it is not documentation content),
+            # so it would reject the legitimate repo-root case this branch
+            # exists for. The two checks that actually distinguish "a real
+            # config file worth a hot-reload" from the false-positive cases:
+            # inside repo_root, and no system/VCS directory (.git,
+            # node_modules, ...) on the path between repo_root and the file.
+            try:
+                config_path = uri_to_path(uri).resolve()
+            except Exception:
+                return False
+            if config_path.is_relative_to(self.repo_root):
+                rel_parts = config_path.relative_to(self.repo_root).parts[:-1]
+                if not any(part in SYSTEM_EXCLUDED_DIRS for part in rel_parts):
+                    return True
+            return False
 
         try:
             if not self.config:
@@ -305,8 +339,14 @@ class LanguageServer:
 
             path = uri_to_path(uri).resolve()
 
-            # Enforce LayeredExclusionManager (Layer 3 User Exclusions & Guardrails)
-            if self.exclusion_mgr.should_exclude_file(path, docs_root):
+            # Only the non-user layers (system guardrails, VCS) put a file
+            # fully outside the domain. A file excluded by user configuration
+            # stays in the pipeline: the engine gives it a security-only pass
+            # (Z201/Z204 are never suppressible, and a buffer the server
+            # refuses to look at would be a suppression mechanism), and the
+            # engine — not this gate — is the single place that decides what
+            # user scoping hides.
+            if self.exclusion_mgr.security_view().should_exclude_file(path, docs_root):
                 return False
 
             if path.is_relative_to(docs_root):
@@ -421,6 +461,10 @@ class LanguageServer:
             self.adapter = None
             self.engine = None
             self.vsm = None
+            # _build_vsm_sync only re-creates the rule engine when this is None, so
+            # without the reset a user's newly added custom rule, brand term, or
+            # plugin silently never fires after a visibly successful config reload.
+            self.rule_engine = None
             self._build_vsm_sync()
             self._sync_workspace_and_publish()
             return
@@ -480,6 +524,14 @@ class LanguageServer:
         params = message.get("params", {})
         msg_id = message.get("id")
 
+        # Positive membership first. A Response carries "result" or "error" and
+        # no "method"; testing only for the absence of "method" classified the
+        # client's ordinary reply to our own client/registerCapability request
+        # as a malformed request, and answered a response with an error frame on
+        # an id the client had already retired -- every session.
+        if "result" in message or "error" in message:
+            return
+
         if not method:
             self.send_error(msg_id, -32600, "Invalid Request: missing method")
             return
@@ -495,13 +547,44 @@ class LanguageServer:
                 if first_ws.get("uri", "").startswith("file://"):
                     self.repo_root = uri_to_path(first_ws["uri"])
 
+            init_options = params.get("initializationOptions") or {}
+            if isinstance(init_options, dict) and "autoFixOnSave" in init_options:
+                self.auto_fix_on_save = bool(init_options["autoFixOnSave"])
+            if isinstance(init_options, dict) and "autoRepairLinksOnRename" in init_options:
+                self.auto_repair_links_on_rename = bool(init_options["autoRepairLinksOnRename"])
+
             self.send_response(
                 msg_id,
                 result={
                     "capabilities": {
-                        "textDocumentSync": 2,  # Incremental sync (Zero-DBT Enforcement)
+                        # Object form (not the bare TextDocumentSyncKind int) is
+                        # required to additionally declare willSaveWaitUntil --
+                        # vscode-languageclient only auto-forwards
+                        # workspace.onWillSaveTextDocument to the server when this
+                        # is true (textSynchronization.js checks
+                        # textDocumentSyncOptions.willSaveWaitUntil).
+                        "textDocumentSync": {
+                            "openClose": True,
+                            "change": 2,  # Incremental sync (Zero-DBT Enforcement)
+                            "willSaveWaitUntil": True,
+                        },
                         "hoverProvider": True,
                         "codeActionProvider": True,
+                        # workspace/willRenameFiles: vscode-languageclient only
+                        # auto-forwards vscode.workspace.onWillRenameFiles when
+                        # this filter is declared (fileOperations.js).
+                        "workspace": {
+                            "fileOperations": {
+                                "willRename": {
+                                    "filters": [
+                                        {
+                                            "scheme": "file",
+                                            "pattern": {"glob": "**/*.{md,mdx,markdown}"},
+                                        }
+                                    ]
+                                }
+                            }
+                        },
                     },
                     "serverInfo": {"name": "Zenzic Language Server", "version": __version__},
                 },
@@ -570,6 +653,14 @@ class LanguageServer:
             changes = params.get("changes", [])
             self._handle_file_changes(changes)
 
+        elif method == "workspace/didChangeConfiguration":
+            settings = params.get("settings") or {}
+            zenzic_settings = settings.get("zenzic") if isinstance(settings, dict) else None
+            if isinstance(zenzic_settings, dict) and "autoFixOnSave" in zenzic_settings:
+                self.auto_fix_on_save = bool(zenzic_settings["autoFixOnSave"])
+            if isinstance(zenzic_settings, dict) and "autoRepairLinksOnRename" in zenzic_settings:
+                self.auto_repair_links_on_rename = bool(zenzic_settings["autoRepairLinksOnRename"])
+
         elif method == "shutdown":
             self.shutdown_received = True
             if msg_id is not None:
@@ -600,15 +691,51 @@ class LanguageServer:
                     self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/hover":
-            self._handle_hover(params, msg_id)
+            # Same guarantee as codeAction below, which stated it as a rule and
+            # then implemented it at one handler out of four.
+            try:
+                self._handle_hover(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=None)
         elif method == "textDocument/codeAction":
-            self._handle_code_action(params, msg_id)
+            # A request MUST be answered. Client-supplied params reach arithmetic
+            # and attribute access inside the handler (a string where a line
+            # number is expected, a list where an object is), and an exception
+            # there escaped to serve()'s catch-all, which logs to stderr and
+            # moves on -- leaving the request unanswered forever and the client
+            # waiting on an id that will never come back. Malformed input is the
+            # client's error to make; a hang is ours.
+            try:
+                self._handle_code_action(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=[])
+        elif method == "textDocument/willSaveWaitUntil":
+            try:
+                self._handle_will_save_wait_until(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=[])
+        elif method == "workspace/willRenameFiles":
+            try:
+                self._handle_will_rename_files(params, msg_id)
+            except Exception:  # noqa: BLE001 -- must not escape; a response is owed
+                if msg_id is not None:
+                    self.send_response(msg_id, result=None)
         elif method == "textDocument/didClose":
             uri = params.get("textDocument", {}).get("uri", "")
             self.documents.did_close(params)
             self.dirty_documents.pop(uri, None)
             if self.overlay:
                 self.overlay.remove(uri)
+        else:
+            # An unrecognised method is a protocol answer, not silence: a
+            # request must get -32601, a notification (no id) must get
+            # nothing. The chain simply ended, so a client asking for an
+            # unimplemented capability waited forever.
+            if msg_id is not None:
+                self.send_error(msg_id, -32601, f"Method not found: {method}")
 
     def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
         """Run validation incrementally via the decoupled engine.
@@ -647,7 +774,6 @@ class LanguageServer:
         # Instantiate engine if needed (ADR-075: transport-agnostic analysis)
         if self.rule_engine is None:
             return
-        is_full_rebuild = self.engine is None
         if self.engine is None:
             self.engine = IncrementalAnalysisEngine(
                 config=self.config,
@@ -683,25 +809,28 @@ class LanguageServer:
                 }
             )
 
-        # State Hygiene (LSP-FIX-017): Clear ghost diagnostics for files that no longer exist.
-        # If a file was deleted or its route removed, process_changes won't return it in results,
-        # so we must actively detect missing URIs and broadcast an empty diagnostics array.
-        # PERF: Only run this on full topology rebuilds to avoid O(N) resolve() calls during incremental typing.
-        if is_full_rebuild and self.engine is not None:
-            dead_uris = []
-            for uri in list(self.file_diagnostics):
-                path = uri_to_path(uri).resolve()
-                if path not in self.engine.md_contents_cache:
-                    self.send_message(
-                        {
-                            "jsonrpc": "2.0",
-                            "method": "textDocument/publishDiagnostics",
-                            "params": {"uri": uri, "diagnostics": []},
-                        }
-                    )
-                    dead_uris.append(uri)
-            for dead_uri in dead_uris:
-                self.file_diagnostics.remove(dead_uri)
+        # NOTE: ghost-diagnostic clearing for genuinely-gone files is handled
+        # engine-side (IncrementalAnalysisEngine.process_changes, "Ghost
+        # diagnostic clearing (LSP-FIX-017 -- engine side)"), which injects an
+        # empty-diagnostics entry into `results` for any URI in
+        # `_uris_with_active_diagnostics` no longer present this cycle --
+        # already published by the loop above. A second, server-side copy of
+        # this check used to live here, keyed on `path not in
+        # self.engine.md_contents_cache`: a security-only file (excluded from
+        # quality analysis, still scanned for Z201/Z204, deliberately never
+        # inserted into md_contents_cache) satisfied that predicate while
+        # still very much alive, so this copy could ghost-clear a live,
+        # non-suppressible finding the engine-side check above correctly
+        # keeps. It was also provably unreachable in practice: `is_full_
+        # rebuild` is `self.engine is None` captured at the top of this
+        # method, and the only place that resets `self.engine = None`
+        # (workspace/didChangeWatchedFiles' config-reload branch) always
+        # calls `_build_vsm_sync()` -- which rebuilds `self.engine` -- before
+        # this method runs, so `is_full_rebuild` was never True here except
+        # on the very first sync of the server's lifetime, when
+        # `file_diagnostics` is still empty. Removed rather than patched:
+        # the guarantee it duplicated is both correct and live one layer
+        # down.
 
         # DQS emission intentionally removed (LSP-FIX-014).
         # The LSP operates in incremental mode and only sees topological findings
@@ -712,7 +841,14 @@ class LanguageServer:
         # (`zenzic check all --strict`) in CI/CD batch mode.
 
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
-        if msg_id is None or self.vsm is None or not self.repo_root or not self.config:
+        if msg_id is None:
+            return
+        # A request MUST be answered. `not self.repo_root` is an ordinary client
+        # state -- a single-file editor window sends neither rootUri nor
+        # workspaceFolders -- and returning here left every hover in such a
+        # session pending forever. `result: null` is a complete answer.
+        if self.vsm is None or not self.repo_root or not self.config:
+            self.send_response(msg_id, result=None)
             return
 
         doc = params.get("textDocument", {})
@@ -751,11 +887,28 @@ class LanguageServer:
                 break
 
         if not matched:
-            self.send_response(msg_id, result=None)
+            # No active diagnostic here. A suppression directive on this line is
+            # the likely reason there is nothing to report, and explaining that is
+            # more useful than an empty hover — it is the only way to see, without
+            # editing the file, whether a `zenzic:ignore` comment is doing anything.
+            suppression_md = self._explain_suppression_at(uri, line)
+            self.send_response(
+                msg_id,
+                result=(
+                    {"contents": {"kind": "markdown", "value": suppression_md}}
+                    if suppression_md
+                    else None
+                ),
+            )
             return
 
         code = matched.code
-        from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS
+        from zenzic.core.codes import (
+            CODE_DEFINITIONS,
+            CODE_DESCRIPTIONS,
+            NON_INLINE_SUPPRESSIBLE_CODES,
+            NON_SUPPRESSIBLE_CODES,
+        )
 
         defn = CODE_DEFINITIONS.get(code)
         desc = CODE_DESCRIPTIONS.get(code, "No remediation guidance available.")
@@ -769,10 +922,91 @@ class LanguageServer:
             contents.append(f"**{code}**")
         contents.append(desc)
 
+        # The finding is live, so say why an inline comment would not silence it.
+        # Reaching for one is the natural next move after reading a diagnostic, and
+        # for these two families it is the wrong move.
+        if code in NON_SUPPRESSIBLE_CODES:
+            contents.append(
+                "🔒 **Not suppressible.** This is a Tier-0 security code — no inline "
+                "comment or configuration can silence it."
+            )
+        elif code in NON_INLINE_SUPPRESSIBLE_CODES:
+            contents.append(
+                "⚙️ **Not suppressible inline** (ADR-093). Govern this code through "
+                "`.zenzic.toml`'s `directory_policies` or `per_file_ignores`; an inline "
+                "comment here would be reported as a dead suppression (`Z603`)."
+            )
+
         self.send_response(
             msg_id,
             result={"contents": {"kind": "markdown", "value": "\n\n".join(contents)}},
         )
+
+    def _explain_suppression_at(self, uri: str, line: int) -> str | None:
+        """Markdown explaining any suppression directive on *line*, else ``None``.
+
+        Read-only by construction: it asks :meth:`SuppressionTracker.explain_suppression`,
+        never ``is_suppressed``. The latter consumes the directive it matches, so a
+        hover built on it would silently erase the ``Z603`` dead-suppression finding
+        for the very comment the user is pointing at.
+        """
+        text = self.documents.documents.get(uri)
+        if text is None:
+            return None
+
+        from zenzic.core.suppressions import SuppressionTracker
+
+        line_no = line + 1  # LSP positions are 0-based; directives are 1-based.
+        try:
+            tracker = SuppressionTracker(uri_to_path(uri), text)
+        except Exception:
+            return None
+
+        directive = next((d for d in tracker.directives if d.line_no == line_no), None)
+        if directive is None:
+            return None
+
+        code = directive.code
+        if code == "DATA-ZENZIC-IGNORE":
+            return (
+                "**Suppression directive** — `data-zenzic-ignore`\n\n"
+                "Silences HTML hygiene findings (`Z12x`) on this element."
+            )
+
+        verdict = tracker.explain_suppression(line_no, code)
+        header = f"**Suppression directive** — `{code}`"
+
+        if verdict.source == "non-suppressible":
+            body = (
+                f"🔒 **Has no effect.** `{code}` is a Tier-0 security code and cannot be "
+                "suppressed by any mechanism. This comment is reported as `Z603`."
+            )
+        elif verdict.source == "non-inline-suppressible":
+            body = (
+                f"⚙️ **Has no effect** (ADR-093). `{code}` is governed only through "
+                "`.zenzic.toml` — `directory_policies` or `per_file_ignores` — never by an "
+                "inline comment. This comment is reported as `Z603`."
+            )
+        elif verdict.source == "directory-policy":
+            body = (
+                f"↩️ **Redundant.** `{code}` is already covered for this file by the "
+                f"`directory_policies` pattern `{verdict.pattern}` in `.zenzic.toml`, so this "
+                "comment adds nothing and is reported as `Z603`."
+            )
+        elif verdict.source == "force-audit":
+            body = (
+                "🔍 **Ignored for this run.** `--audit` mode is active, which deliberately "
+                "reports every finding regardless of suppression."
+            )
+        elif verdict.source == "inline":
+            body = f"✅ **Active.** Suppresses `{code}` findings on this line."
+        else:
+            body = (
+                f"⚠️ **Nothing to suppress.** No `{code}` finding occurs on this line, so this "
+                "comment is reported as a dead suppression (`Z603`). Remove it."
+            )
+
+        return f"{header}\n\n{body}"
 
     def _handle_code_action(self, params: dict[str, Any], msg_id: int | str | None) -> None:
         """Handle textDocument/codeAction JSON-RPC requests by generating CodeActions with WorkspaceEdit."""
@@ -785,6 +1019,20 @@ class LanguageServer:
         diagnostics = context.get("diagnostics", [])
 
         if not uri or not diagnostics:
+            self.send_response(msg_id, result=[])
+            return
+
+        # Every peer handler bounds the client-supplied path before acting on
+        # it -- didOpen, didChange, _handle_file_changes, _handle_hover and
+        # _handle_will_rename_files all do. This one did not, and its quick
+        # fixes replace the document's full range, so aimed at a file outside
+        # the documentation domain it both disclosed that file's contents in
+        # the returned newText and offered to overwrite it with a Markdown
+        # round-trip. Confirmed reaching a file outside repo_root and one
+        # inside .git/, a System Guardrail directory.
+        if not (
+            self._is_supported_doc_uri(uri) or self._is_config_file_change(uri)
+        ) or not self._is_within_domain(uri):
             self.send_response(msg_id, result=[])
             return
 
@@ -802,10 +1050,17 @@ class LanguageServer:
             return
 
         from zenzic.core import regex as re
-        from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
+        from zenzic.core.codes import (
+            CODE_DEFINITIONS,
+            NON_INLINE_SUPPRESSIBLE_CODES,
+            NON_SUPPRESSIBLE_CODES,
+        )
         from zenzic.core.mutator import (
+            BareUrlMutation,
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
+            HeadingPunctuationMutation,
+            MalformedListMutation,
             Mutation,
             Mutator,
             UntaggedCodeBlockMutation,
@@ -817,8 +1072,19 @@ class LanguageServer:
         for diag in diagnostics:
             raw_code = diag.get("code")
             diag_code = str(raw_code) if raw_code is not None else ""
-            if not diag_code and "message" in diag:
-                m = re.search(r"\[(Z\d{3})\]", str(diag["message"]))
+            # Scraping the code out of the message covers a client that drops
+            # `code` on the codeAction round-trip, but it must ask provenance
+            # first. Many language servers omit `code` entirely, and Zenzic's
+            # own wire format is "[Z501] message", so any tool echoing a
+            # Zenzic-formatted string -- a spell checker quoting the offending
+            # span, a page quoting CLI output -- yields a message this fallback
+            # would adopt, offering a zenzic:ignore comment for a finding that
+            # is not ours and that the comment cannot silence. Every diagnostic
+            # Zenzic emits carries source "zenzic" (models/diagnostics.py), so
+            # that is the membership test: positive provenance, not merely a
+            # well-formed code.
+            if not diag_code and diag.get("source") == _ZENZIC_DIAGNOSTIC_SOURCE:
+                m = re.search(r"\[(Z\d{3})\]", str(diag.get("message", "")))
                 if m:
                     diag_code = m.group(1)
 
@@ -837,6 +1103,15 @@ class LanguageServer:
                     line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
                     mutations.append(DeadSuppressionMutation({line_no}))
                     title = "Fix Z603: Remove dead inline suppression"
+                elif diag_code == "Z515":
+                    mutations.append(BareUrlMutation())
+                    title = "Fix Z515: Wrap bare URL in angle brackets"
+                elif diag_code == "Z517":
+                    mutations.append(HeadingPunctuationMutation())
+                    title = "Fix Z517: Strip trailing heading punctuation"
+                elif diag_code == "Z520":
+                    mutations.append(MalformedListMutation())
+                    title = "Fix Z520: Convert to a valid Markdown list"
 
                 if mutations:
                     try:
@@ -844,6 +1119,24 @@ class LanguageServer:
                         mutator = Mutator(mutations)
                         new_ast, changed = mutator.mutate(ast)
                     except Exception:
+                        # Ambiguous/failed mutation: skip and notify via the
+                        # log, never guess -- same pattern as the auto-fix-on-
+                        # save handler's identical failure shape. Without
+                        # this, a genuine bug here is indistinguishable from
+                        # an ordinary "no fix available" diagnostic.
+                        self.send_message(
+                            {
+                                "jsonrpc": "2.0",
+                                "method": "window/logMessage",
+                                "params": {
+                                    "type": 2,  # Warning
+                                    "message": (
+                                        f"Zenzic codeAction: mutation failed for "
+                                        f"{diag_code} in {uri}, no fix offered."
+                                    ),
+                                },
+                            }
+                        )
                         changed = False
 
                     if changed:
@@ -874,7 +1167,26 @@ class LanguageServer:
                         }
                         code_actions.append(action)
 
-            if diag_code and diag_code not in NON_SUPPRESSIBLE_CODES:
+            if diag_code and diag_code in NON_INLINE_SUPPRESSIBLE_CODES:
+                suppress_action = {
+                    "title": f"Suppress {diag_code} (configure via .zenzic.toml)",
+                    "kind": "quickfix",
+                    "diagnostics": [diag],
+                    "disabled": {
+                        "reason": (
+                            f"{diag_code} is a topological finding. "
+                            "Configure suppression in .zenzic.toml via [directory_policies] or [per_file_ignores]."
+                        )
+                    },
+                }
+                code_actions.append(suppress_action)
+            # Positive membership, not merely 'not forbidden': editors hand every
+            # provider's diagnostics to every provider's code-action handler, so a
+            # foreign code (markdownlint's MD036, say) satisfies 'not in
+            # NON_SUPPRESSIBLE_CODES' trivially. Offering a zenzic:ignore comment for
+            # it writes a directive the other linter cannot read, leaving the finding
+            # live while the editor implies it was handled.
+            elif diag_code in CODE_DEFINITIONS and diag_code not in NON_SUPPRESSIBLE_CODES:
                 insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
                 # Use a large character index to append to the end of the line
                 insert_char = 9999
@@ -900,3 +1212,256 @@ class LanguageServer:
                 code_actions.append(suppress_action)
 
         self.send_response(msg_id, result=code_actions)
+
+    def _handle_will_save_wait_until(
+        self, params: dict[str, Any], msg_id: int | str | None
+    ) -> None:
+        """Handle textDocument/willSaveWaitUntil: auto-fix-on-save.
+
+        Reuses the exact same Mutation classes as manual Quick Fix
+        (:meth:`_handle_code_action`) and ``zenzic fix`` -- no new fix logic,
+        only a new trigger.  Off unless ``self.auto_fix_on_save`` is True
+        (client opt-in via the ``zenzic.autoFixOnSave`` setting).
+
+        Safety gate: a fixable code is skipped entirely for this save if ANY
+        occurrence of that code anywhere in the file is inline-suppressed --
+        the Mutation classes have no per-occurrence location scoping (only
+        DeadSuppressionMutation does), so partial suppression cannot be
+        respected surgically; skipping the whole code is the fail-safe choice
+        over silently "fixing" a suppressed occurrence against user intent.
+        """
+        if msg_id is None:
+            return
+        if not self.auto_fix_on_save:
+            self.send_response(msg_id, result=[])
+            return
+
+        uri = params.get("textDocument", {}).get("uri", "")
+        content = self.documents.documents.get(uri)
+        if content is None or not uri.startswith("file://") or self.config is None:
+            self.send_response(msg_id, result=[])
+            return
+
+        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.mutator import (
+            BareUrlMutation,
+            EmptyLinkTextMutation,
+            HeadingPunctuationMutation,
+            MalformedListMutation,
+            Mutation,
+            Mutator,
+            UntaggedCodeBlockMutation,
+        )
+        from zenzic.core.parser import parse, serialize
+        from zenzic.core.scanner import _scan_single_file
+
+        path = uri_to_path(uri)
+        try:
+            report, _ = _scan_single_file(
+                path, self.config, rule_engine=self.rule_engine, text=content
+            )
+        except Exception:
+            # Fail-safe: an unexpected scan error must never silently corrupt
+            # the file -- skip this save cycle's auto-fix entirely.
+            self.send_response(msg_id, result=[])
+            return
+
+        suppressed_codes: set[str] = set()
+        if report.suppression_tracker is not None:
+            suppressed_codes = {d.code for d in report.suppression_tracker.directives if d.consumed}
+
+        active_fixable_codes = {
+            f.rule_id
+            for f in report.rule_findings
+            if (defn := CODE_DEFINITIONS.get(f.rule_id)) and getattr(defn, "fixable", False)
+        }
+        codes_to_fix = active_fixable_codes - suppressed_codes
+
+        mutation_factory: dict[str, type] = {
+            "Z108": EmptyLinkTextMutation,
+            "Z505": UntaggedCodeBlockMutation,
+            "Z515": BareUrlMutation,
+            "Z517": HeadingPunctuationMutation,
+            "Z520": MalformedListMutation,
+            # Z603 (DeadSuppressionMutation) deliberately excluded: it needs
+            # specific dead-suppression line numbers as constructor state,
+            # which is exactly the kind of new fix-selection logic this
+            # trigger must not invent; dead suppressions stay reachable via
+            # the existing per-diagnostic Quick Fix and `zenzic fix`.
+        }
+        mutations: list[Mutation] = [
+            mutation_factory[code]() for code in codes_to_fix if code in mutation_factory
+        ]
+
+        if not mutations:
+            self.send_response(msg_id, result=[])
+            return
+
+        try:
+            ast = parse(content)
+            mutator = Mutator(mutations)
+            new_ast, changed = mutator.mutate(ast)
+        except Exception:
+            # Ambiguous/failed mutation: skip and notify via the log, never guess.
+            self.send_message(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "window/logMessage",
+                    "params": {
+                        "type": 2,  # Warning
+                        "message": f"Zenzic auto-fix-on-save: mutation failed for {uri}, skipped.",
+                    },
+                }
+            )
+            self.send_response(msg_id, result=[])
+            return
+
+        if not changed:
+            self.send_response(msg_id, result=[])
+            return
+
+        new_content = serialize(new_ast)
+        lines = content.splitlines(keepends=True)
+        total_lines = max(0, len(lines) - 1)
+        last_line_len = len(lines[-1]) if lines else 0
+        full_range = {
+            "start": {"line": 0, "character": 0},
+            "end": {"line": total_lines, "character": last_line_len},
+        }
+        self.send_response(msg_id, result=[{"range": full_range, "newText": new_content}])
+
+    def _handle_will_rename_files(self, params: dict[str, Any], msg_id: int | str | None) -> None:
+        """Handle workspace/willRenameFiles: auto-repair inbound links.
+
+        Reuses ``resolve_href_target`` (unchanged) via
+        :class:`~zenzic.core.mutator.RenameLinkMutation` to find and rewrite
+        relative links pointing at each renamed file's OLD path -- no new
+        link-resolution logic, only new fix-application logic matching the
+        codebase's existing Mutation pattern.
+
+        Scope is bounded by the VSM's existing ``incoming_links`` reverse
+        index (canonical URL -> set of linking file paths) -- an O(1) lookup
+        per rename, not a workspace-wide scan.
+
+        Off unless ``self.auto_repair_links_on_rename`` is True.  Skips (does
+        not guess) when: the renamed file isn't a tracked Markdown/MDX
+        document, it has no VSM entry, a linking file is excluded via
+        ``.zenzic.toml``, or a link uses an alias href style
+        (``RenameLinkMutation`` itself declines those).
+        """
+        if msg_id is None:
+            return
+        if not self.auto_repair_links_on_rename:
+            self.send_response(msg_id, result=None)
+            return
+        if self.vsm is None or self.config is None or self.repo_root is None:
+            self.send_response(msg_id, result=None)
+            return
+
+        from zenzic.core.discovery import DOC_SUFFIXES
+        from zenzic.core.mutator import Mutator, RenameLinkMutation
+        from zenzic.core.parser import parse, serialize
+
+        docs_root = self._resolve_docs_root()
+        docs_root_str = str(docs_root)
+        repo_root_str = str(self.repo_root)
+
+        changes: dict[str, list[dict[str, Any]]] = {}
+        skipped_files: list[str] = []
+
+        for file_op in params.get("files", []):
+            old_uri = file_op.get("oldUri", "")
+            new_uri = file_op.get("newUri", "")
+            if not old_uri.startswith("file://") or not new_uri.startswith("file://"):
+                continue
+            try:
+                old_path = uri_to_path(old_uri)
+                new_path = uri_to_path(new_uri)
+            except Exception:  # noqa: S112 -- malformed URI, skip this pair silently
+                continue
+            if old_path.suffix.lower() not in DOC_SUFFIXES:
+                continue
+
+            try:
+                old_rel_posix = old_path.resolve().relative_to(docs_root.resolve()).as_posix()
+            except ValueError:
+                continue  # renamed file is outside docs_root -- not VSM-tracked
+
+            canonical_url = next(
+                (url for url, route in self.vsm.items() if route.source == old_rel_posix), None
+            )
+            if canonical_url is None:
+                continue  # not in the VSM (excluded, or VSM stale) -- skip, don't guess
+
+            linking_files = self.vsm.incoming_links.get(canonical_url, set())
+            old_abs = str(old_path.resolve())
+            new_abs = str(new_path.resolve())
+
+            for linking_path in linking_files:
+                if self.exclusion_mgr is not None and self.exclusion_mgr.should_exclude_file(
+                    linking_path, docs_root
+                ):
+                    skipped_files.append(str(linking_path))
+                    continue
+
+                linking_uri = linking_path.resolve().as_uri()
+                content = self.documents.documents.get(linking_uri)
+                if content is None:
+                    try:
+                        content = linking_path.read_text(encoding="utf-8")
+                    except OSError:
+                        skipped_files.append(str(linking_path))
+                        continue
+
+                try:
+                    mutation = RenameLinkMutation(
+                        source_file=linking_path,
+                        docs_root_str=docs_root_str,
+                        repo_root_str=repo_root_str,
+                        old_abs=old_abs,
+                        new_abs=new_abs,
+                    )
+                    ast = parse(content)
+                    new_ast, changed = Mutator([mutation]).mutate(ast)
+                except Exception:
+                    skipped_files.append(str(linking_path))
+                    continue
+
+                if not changed:
+                    continue
+
+                new_content = serialize(new_ast)
+                lines = content.splitlines(keepends=True)
+                total_lines = max(0, len(lines) - 1)
+                last_line_len = len(lines[-1]) if lines else 0
+                changes[linking_uri] = [
+                    {
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": total_lines, "character": last_line_len},
+                        },
+                        "newText": new_content,
+                    }
+                ]
+
+        if skipped_files:
+            self.send_message(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "window/logMessage",
+                    "params": {
+                        "type": 2,  # Warning
+                        "message": (
+                            "Zenzic auto-repair-on-rename: skipped "
+                            f"{len(skipped_files)} file(s) (excluded, unreadable, "
+                            f"or mutation error): {', '.join(skipped_files)}"
+                        ),
+                    },
+                }
+            )
+
+        if not changes:
+            self.send_response(msg_id, result=None)
+            return
+
+        self.send_response(msg_id, result={"changes": changes})

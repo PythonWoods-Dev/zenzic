@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z510 HEADING_HIERARCHY_SKIP gallery example
+#
+# docs/index.md has an H3 heading immediately following an H1 heading,
+# with no intervening H2 level. Zenzic's built-in HeadingHierarchyRule
+# (Z510) is always active and flags skipped heading levels — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z510 ×1 — skipped heading level)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

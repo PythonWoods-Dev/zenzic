@@ -54,7 +54,10 @@ GLOBAL_TOML_TEMPLATE: str = (
     "fail_under = 100\n"
     "# exit_zero = false\n"
     "# respect_vcs_ignore = true\n"
-    "# validate_same_page_anchors = true\n"
+    "# baseline_stale_days: age (days) after which the saved score snapshot\n"
+    "# (.zenzic-score.json) is flagged stale in `zenzic score --json`'s\n"
+    "# baseline_status field. Defaults to 7 when unset.\n"
+    "# baseline_stale_days = 7\n"
     "\n"
     "# External URLs excluded from the broken-link check"
     " (applies only with --strict)\n"
@@ -137,11 +140,24 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.\n"
     "#\n"
     "# [governance.directory_policies]\n"
-    '# "blog/**"                       = ["Z601"]  # historical archive\n'
-    '# "docs/explanation/registry.mdx" = ["Z601"]  # SSOT codename registry\n'
+    '# "blog/**"                       = ["Z411", "Z601"]  # historical archive & dead-ends\n'
+    '# "docs/specs/**"                 = ["Z412"]          # traceability exemption\n'
+    '# "docs/explanation/registry.mdx" = ["Z601", "Z620"]  # SSOT codename registry\n'
     "\n"
     "# Governance Playbook:\n"
     "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"
+    "\n"
+    "# --- REPOSITORY HEALTH (zenzic doctor) ---\n"
+    "# Conventions checked by 'zenzic doctor' and used by 'zenzic adr new'.\n"
+    "# All defaults resolve inside your published documentation tree; doctor reads\n"
+    "# public repository content only and never inspects gitignored directories.\n"
+    "# Every value below is the default — uncomment only to override.\n"
+    "#\n"
+    "# [doctor]\n"
+    '# adr_vault_path = "docs/developers/explanation/adr-vault"  # where decision records live\n'
+    '# adr_citation_pattern = "ADR-\\\\d{{3}}"                   # how a citation looks in prose/code\n'
+    '# redirects_path = "docs/_redirects"                     # structurally validated if present\n'
+    "# redirects_expected_blanks = 8                           # 0 disables the blank-line check\n"
     "\n"
     "# --- POLICY-AS-CODE ENGINE ---\n"
     "[policies]\n"
@@ -160,6 +176,10 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# max_document_complexity: Maximum allowed document complexity score (Z619).\n"
     "# weasel_words: List of words to detect in technical prose (Z519).\n"
     "# enable_passive_voice_check: Enable passive voice detection heuristic (Z518).\n"
+    "# required_table_columns: Markdown table missing required column header (Z521).\n"
+    "# table_cell_enums: Table cell value not in allowed enum list (Z522).\n"
+    "# required_heading_order: Headings appear out of configured sequential order (Z523).\n"
+    "# traceability_targets: Required cross-directory traceability link missing (Z412).\n"
     "required_frontmatter_keys = []\n"
     "forbidden_external_domains = []\n"
     "forbidden_frontmatter_keys = []\n"
@@ -170,10 +190,18 @@ GLOBAL_TOML_TEMPLATE: str = (
     "max_document_complexity = 0\n"
     "weasel_words = []\n"
     "enable_passive_voice_check = false\n"
+    "required_heading_order = []\n"
     "# [policies.frontmatter_schema_match]\n"
     '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
     "# [policies.cross_namespace_restrictions]\n"
     '# "docs/public" = ["docs/internal"]\n'
+    "# [policies.required_table_columns]\n"
+    '# "*" = ["Status", "Description"]\n'
+    '# "^API Reference$" = ["Method", "Endpoint"]\n'
+    "# [policies.table_cell_enums]\n"
+    '# Status = ["draft", "review", "stable"]\n'
+    "# [policies.traceability_targets]\n"
+    '# "docs/specs/**" = ["docs/architecture/**"]\n'
     "\n"
     "# --- NETWORK I/O ---\n"
     "[network]\n"
@@ -187,16 +215,21 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
+    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
     "\n"
-    "# --- HTML POLYGLOT INTEGRITY (v0.17.0) ---\n"
-    "# Zenzic v0.17.0 analyses <a>/<img> via the Uniform Resolver Pipeline.\n"
-    '# Suppress Z120-Z124 with: <a href="..." data-zenzic-ignore>text</a>\n'
+    "# --- HTML POLYGLOT INTEGRITY ---\n"
+    "# Zenzic analyses <a>/<img> via the Uniform Resolver Pipeline.\n"
+    '# Suppress inline HTML findings with: <a href="..." data-zenzic-ignore>text</a>\n'
     "# Z205 (javascript:, data:) is NEVER suppressible. Absolute security gate.\n"
-    "# Each suppression: -1.0 pts DQS. exclude_patterns=[RELEASE.md, CITATION.cff]\n"
-    "\n"
-    "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
-    "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
+    "# --- GATE 4: AUTOMATION (Pre-commit & CI/CD) ---\n"
+    "# Track 1 — Pre-commit Hook (Recommended: add to .pre-commit-config.yaml):\n"
+    "# repos:\n"
+    "#   - repo: https://github.com/PythonWoods/zenzic\n"
+    "#     rev: v0.30.0\n"
+    "#     hooks:\n"
+    "#       - id: zenzic-guard\n"
     "#\n"
+    "# Track 2 / CI — GitHub Actions (Optional: add to .github/workflows/zenzic.yml):\n"
     "# name: zenzic\n"
     "# on: [pull_request, push]\n"
     "# jobs:\n"
@@ -205,7 +238,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "#     steps:\n"
     "#       - uses: actions/checkout@v4\n"
     "#       - name: Run Zenzic Action\n"
-    "#         uses: pythonwoods/zenzic-action@v1\n"
+    "#         uses: pythonwoods/zenzic-action@v2\n"
     "#       - name: Verify Badge Freshness\n"
     "#         run: uvx zenzic score --check-stamp\n"
 )
@@ -301,7 +334,7 @@ LOCAL_TOML_TEMPLATE: str = (
     "\n"
     "# Directory policy — silent exemption (0 pt debt, shown in --audit).\n"
     "# [governance.directory_policies]\n"
-    '# "blog/**" = ["Z601"]\n'
+    '# "blog/**" = ["Z411", "Z601"]\n'
     "\n"
     "[secrets]\n"
     "# ---------------------------------------------------------------------------\n"
@@ -331,7 +364,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "# ---------------------------------------------------------------------------\n"
     "# Zenzic — Documentation Quality System\n"
-    "# Full reference: https://zenzic.dev/docs/reference/configuration/\n"
+    "# Full reference: https://zenzic.dev/reference/configuration-reference/\n"
     "# Precedence: pyproject.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
     "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
     "# ---------------------------------------------------------------------------\n"
@@ -352,7 +385,10 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "fail_under = 100\n"
     "# exit_zero = false\n"
     "# respect_vcs_ignore = true\n"
-    "# validate_same_page_anchors = true\n"
+    "# baseline_stale_days: age (days) after which the saved score snapshot\n"
+    "# (.zenzic-score.json) is flagged stale in `zenzic score --json`'s\n"
+    "# baseline_status field. Defaults to 7 when unset.\n"
+    "# baseline_stale_days = 7\n"
     "\n"
     "# External URLs excluded from the broken-link check (--strict only).\n"
     '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
@@ -413,7 +449,9 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# BEHAVIOR: Matched findings are silently dropped — ZERO debt added.\n"
     "# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.\n"
     "#\n"
-    '# "blog/**"      = ["Z601"]  # historical archive\n'
+    '# "blog/**"                       = ["Z411", "Z601"]  # historical archive & dead-ends\n'
+    '# "docs/specs/**"                 = ["Z412"]          # traceability exemption\n'
+    '# "docs/explanation/registry.mdx" = ["Z601", "Z620"]  # SSOT codename registry\n'
     "\n"
     "# --- POLICY-AS-CODE ENGINE ---\n"
     "[tool.zenzic.policies]\n"
@@ -430,6 +468,10 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# max_document_complexity: Maximum allowed document complexity score (Z619).\n"
     "# weasel_words: List of words to detect in technical prose (Z519).\n"
     "# enable_passive_voice_check: Enable passive voice detection heuristic (Z518).\n"
+    "# required_table_columns: Markdown table missing required column header (Z521).\n"
+    "# table_cell_enums: Table cell value not in allowed enum list (Z522).\n"
+    "# required_heading_order: Headings appear out of configured sequential order (Z523).\n"
+    "# traceability_targets: Required cross-directory traceability link missing (Z412).\n"
     "required_frontmatter_keys = []\n"
     "forbidden_external_domains = []\n"
     "forbidden_frontmatter_keys = []\n"
@@ -440,6 +482,18 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "max_document_complexity = 0\n"
     "weasel_words = []\n"
     "enable_passive_voice_check = false\n"
+    "required_heading_order = []\n"
+    "# [tool.zenzic.policies.frontmatter_schema_match]\n"
+    '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
+    "# [tool.zenzic.policies.cross_namespace_restrictions]\n"
+    '# "docs/public" = ["docs/internal"]\n'
+    "# [tool.zenzic.policies.required_table_columns]\n"
+    '# "*" = ["Status", "Description"]\n'
+    '# "^API Reference$" = ["Method", "Endpoint"]\n'
+    "# [tool.zenzic.policies.table_cell_enums]\n"
+    '# Status = ["draft", "review", "stable"]\n'
+    "# [tool.zenzic.policies.traceability_targets]\n"
+    '# "docs/specs/**" = ["docs/architecture/**"]\n'
     "\n"
     "# --- NETWORK I/O ---\n"
     "[tool.zenzic.network]\n"
@@ -453,10 +507,17 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
+    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
     "\n"
-    "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
-    "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
+    "# --- GATE 4: AUTOMATION (Pre-commit & CI/CD) ---\n"
+    "# Track 1 — Pre-commit Hook (Recommended: add to .pre-commit-config.yaml):\n"
+    "# repos:\n"
+    "#   - repo: https://github.com/PythonWoods/zenzic\n"
+    "#     rev: v0.30.0\n"
+    "#     hooks:\n"
+    "#       - id: zenzic-guard\n"
     "#\n"
+    "# Track 2 / CI — GitHub Actions (Optional: add to .github/workflows/zenzic.yml):\n"
     "# name: zenzic\n"
     "# on: [pull_request, push]\n"
     "# jobs:\n"
@@ -465,7 +526,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "#     steps:\n"
     "#       - uses: actions/checkout@v4\n"
     "#       - name: Run Zenzic Action\n"
-    "#         uses: pythonwoods/zenzic-action@v1\n"
+    "#         uses: pythonwoods/zenzic-action@v2\n"
     "#       - name: Verify Badge Freshness\n"
     "#         run: uvx zenzic score --check-stamp\n"
 )

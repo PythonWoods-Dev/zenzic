@@ -22,13 +22,13 @@ This reference collection is organized into focused, authoritative specification
 
 | Reference Page | Scope & Contents |
 | :--- | :--- |
-| **[Configuration Reference](./configuration-reference.md)** | `docs_dir`, exclusion lists, threshold rules, `[policies]` settings, `[governance]` blocks |
-| **[Finding Codes Catalog](./finding-codes.md)** | Complete encyclopedia of all 36+ `Zxxx` diagnostic codes, Opt-In policies, and remediation steps |
-| **[Scoring Algorithm](./scoring-algorithm.md)** | 5-stage DQS computation, weight matrix, 36-code penalty reference table, and Governance Escalation |
+| **[Configuration Reference](./configuration-reference.md)** | `docs_dir`, exclusion lists, threshold rules, `[policies]` settings, `[governance]` and `[doctor]` blocks |
+| **[Finding Codes Catalog](./finding-codes.md)** | Complete encyclopedia of all 72 `Zxxx` diagnostic codes, Opt-In policies, and remediation steps |
+| **[Scoring Algorithm](./scoring-algorithm.md)** | 5-stage DQS computation, weight matrix, full penalty reference table, and Governance Escalation |
 | **[Suppression Policy](./suppression-policy.md)** | Managed Technical Debt framework, 4 suppression levels, Technical Debt Ledger, and `zenzic audit` |
 | **[CLI Command Reference](./cli.md)** | Complete guide to `zenzic check`, `zenzic score`, `zenzic audit`, `zenzic lab`, and `zenzic diff` |
 | **[Advanced Features](./advanced-features.md)** | Policy-as-Code Engine, Custom Rule SDK v3, Three-Pass Pipeline, and programmatic Python API |
-| **[Brand System](./brand-system.md)** | Brand kit, palette tokens (`--zz-*`), and Surface Discipline guidelines |
+| **[Engine Configuration Guide](./engines.md)** | Adapter discovery, `[build_context]` fields, and per-engine capability differences (MkDocs, Zensical, Standalone) |
 | **[Glossary](./glossary.md)** | Rigorous definitions for domain terms (VSM, DQS, Policy-as-Code, Audit Mode, Enterprise SARIF) |
 
 ---
@@ -42,7 +42,6 @@ docs_dir = "docs"
 excluded_dirs = ["includes", "assets", "stylesheets", "overrides"]
 excluded_file_patterns = ["temp_*.md"]
 placeholder_max_words = 50
-validate_same_page_anchors = false
 fail_under = 80
 
 [policies]
@@ -62,3 +61,7 @@ engine = "mkdocs"
 default_locale = "en"
 locales = ["it"]
 ```
+
+If your project already uses `pyproject.toml` for Python tooling, the same fields also work
+nested under `[tool.zenzic]` (Track 2) — see [Embedded in `pyproject.toml`](./configuration-reference.md#embedded-in-pyprojecttoml)
+for the priority chain between the two forms.

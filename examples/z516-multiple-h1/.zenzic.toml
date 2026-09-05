@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z516 MULTIPLE_H1_HEADINGS gallery example
+#
+# docs/index.md contains two H1 headings in the same document. Zenzic's
+# built-in MultipleH1HeadingsRule (Z516) is always active and flags
+# documents with more than one H1 — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z516 ×1 — multiple H1 headings)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

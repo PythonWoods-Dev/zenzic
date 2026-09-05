@@ -206,7 +206,6 @@ def explain(
         "fail_under",
         "snippet_min_lines",
         "placeholder_max_words",
-        "validate_same_page_anchors",
         "respect_vcs_ignore",
         "forbidden_patterns",
     ):

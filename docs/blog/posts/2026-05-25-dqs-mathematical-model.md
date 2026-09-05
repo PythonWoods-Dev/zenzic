@@ -36,6 +36,9 @@ The three paradox codes received their penalties in the migration:
 | Z111 | VIRTUAL_ROUTE_BROKEN | 8.0 pts | Structural |
 | Z113 | AUTHOR_KEY_COLLISION | 2.0 pts | Structural |
 
+!!! note "Historical snapshot"
+    This table reflects the code registry as of v0.8.0. `Z111` has since been reassigned to a different meaning (`CONFIG_SCHEMA_ERROR`), and `Z113` has been removed entirely — codes referenced in this historical example may since have been renamed or removed.
+
 ---
 
 ## From Allowance to Flat-Cost
@@ -74,7 +77,7 @@ DQS = \begin{cases}
 \end{cases}
 $$
 
-where $\mathcal{S} = \{Z201, Z202, Z203, Z204\}$, $n$ is the total active suppression count, and:
+where $\mathcal{S} = \{Z201, Z202, Z203, Z204\}$ (as of v0.8.0 — see historical note below), $n$ is the total active suppression count, and:
 
 $$
 S_{\text{gravity}} =
@@ -95,6 +98,11 @@ DQS = \max\!\left(0,\; S_{\text{gravity}} - \left| F_s \right| \times \text{Debt
 $$
 
 where $\left| F_s \right|$ is the total suppression count and $\text{DebtCost} = 1$.
+
+!!! note "Historical snapshot"
+    The Security Override set $\mathcal{S}$ reflects v0.8.0. `Z205` (`FORBIDDEN_SCHEME`) was added
+    to this set in v0.17.0, after this post was written — the current set has five members, not
+    four. The suppression-debt formula itself is unchanged.
 
 ---
 

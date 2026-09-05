@@ -133,8 +133,19 @@ def print_suppression_audit_footer(
     *,
     cap_exceeded: bool = False,
     audit_mode: bool = False,
+    scoped_to_single_file: bool = False,
 ) -> None:
-    """Print suppression audit footer in a consistent compact format."""
+    """Print suppression audit footer in a consistent compact format.
+
+    Args:
+        scoped_to_single_file: When ``True``, the caller is running a
+            single-file ``check <file>`` scan — the DQS score line above
+            this footer is file-scoped, but the suppression CAP is
+            deliberately a project-level governance ceiling, not a per-file
+            concept, so the number printed here always stays project-wide.
+            Setting this appends an explicit "(project-wide)" label so the
+            two adjacent lines never present unstated, mismatched scopes.
+    """
     tags: list[str] = []
     if suppression_audit.extended_debt:
         tags.append("[yellow][EXTENDED DEBT][/yellow]")
@@ -143,10 +154,12 @@ def print_suppression_audit_footer(
     if cap_exceeded:
         tags.append(f"[{ZenzicPalette.ERROR}][CAP_EXCEEDED][/]")
     suffix = f" {' '.join(tags)}" if tags else ""
+    scope_label = f" [{ZenzicPalette.DIM}](project-wide)[/]" if scoped_to_single_file else ""
     _shared.console.print(
         f"{emoji('lock')} [{ZenzicPalette.DIM}]Suppression Audit:[/] "
         f"{suppression_audit.total}/{suppression_audit.cap} "
         f"(inline: {suppression_audit.inline_count}, per-file: {suppression_audit.per_file_count})"
+        f"{scope_label}"
         f"{suffix}"
     )
     if audit_mode:

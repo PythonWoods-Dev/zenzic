@@ -15,6 +15,7 @@ Gap closed: ``docs/internal/arch_gaps.md`` § "Security Pipeline Coverage".
 
 from __future__ import annotations
 
+import json
 import shutil
 import textwrap
 from pathlib import Path
@@ -22,6 +23,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from zenzic.core.ui import emoji
 from zenzic.main import app
 
 
@@ -95,6 +97,76 @@ class TestPathTraversalGuardE2E:
             f"got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
 
+    def test_z203_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z203 finding for a single dangerous
+        link, not two — regression for the missing Z202/Z203 entries in
+        _check.py's rule-finding skip-list, which let the same RuleFinding
+        surface once via validate_links_structured()'s LinkError path and
+        again via the generic rule-finding loop."""
+        sandbox = tmp_path / "traversal"
+        shutil.copytree(_TRAVERSAL_SANDBOX, sandbox)
+        monkeypatch.chdir(sandbox)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.stdout.count("[Z203]") == 1, (
+            f"Expected exactly one [Z203] finding, got "
+            f"{result.stdout.count('[Z203]')}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_z203_status_message_reports_correct_exit_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The printed verdict must say Exit code 3, matching the process's
+        actual exit code — regression for reporter.py's message-selection
+        chain, which had no branch for `incidents_count` and silently fell
+        through to the generic 'Exit code 1 is mandatory' text."""
+        sandbox = tmp_path / "traversal"
+        shutil.copytree(_TRAVERSAL_SANDBOX, sandbox)
+        monkeypatch.chdir(sandbox)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 3
+        assert "Exit code 3 is mandatory" in result.stdout, (
+            f"Expected the verdict to name Exit code 3 (matching the actual "
+            f"exit code), got:\n{result.stdout}"
+        )
+        assert "Exit code 1 is mandatory" not in result.stdout
+
+
+# ── Z108 double-emission — same skip-list bug shape as Z202/Z203 above ──────────
+
+_Z108_GALLERY_EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "z108-empty-link-text"
+
+
+class TestZ108DoubleEmissionE2E:
+    """Z108 must not double-emit, same root cause as the fixed Z202/Z203 bug."""
+
+    def test_z108_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z108 finding for a single empty
+        link, not two — regression for the missing Z108 entry in
+        _check.py's rule-finding skip-list, the same bug shape as the
+        already-fixed Z202/Z203 double-emission: Z108 is a member of
+        validator.py's link_codes set, so its RuleFinding already surfaces
+        once via validate_links_structured()'s LinkError path and, without
+        the skip-list entry, a second time via the generic rule-finding
+        loop."""
+        sandbox = tmp_path / "z108"
+        shutil.copytree(_Z108_GALLERY_EXAMPLE, sandbox)
+        monkeypatch.chdir(sandbox)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.stdout.count("[Z108]") == 1, (
+            f"Expected exactly one [Z108] finding, got "
+            f"{result.stdout.count('[Z108]')}.\nOutput:\n{result.stdout}"
+        )
+
 
 # ── Credential Breach — Exit 2 (credential leak) ────────────────────────────────
 
@@ -130,6 +202,196 @@ class TestCredentialBreachE2E:
         )
         assert "ZENZIC" in (result.stdout + result.stderr)
 
+    def test_z201_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z201 finding for a single leaked
+        credential, not two — same root-cause family as the already-fixed
+        Z202/Z203/Z108 double-emission bugs: a Z201 RuleFinding is injected
+        into report.rule_findings (scanner.py _scan_single_file) AND
+        report.security_findings is independently converted via
+        _map_credential_to_finding() in the same _to_findings() pass — without
+        a skip-list entry, the rule_findings copy surfaces a second time.
+
+        The duplicate is not merely cosmetic: it carries severity="error"
+        (from bare code_severity("Z201")) instead of "security_breach" (the
+        CLI-layer Z2xx reclassification _map_credential_to_finding applies),
+        so it renders through the normal bracketed-list path ("[Z201] ...")
+        rather than the SECURITY BREACH DETECTED panel the correct copy uses
+        — the two copies are visually distinct, not an obvious repeat. The
+        secret-type message text is the one signal common to both renderings.
+        """
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.stdout.count("aws-access-key") == 1, (
+            f"Expected exactly one aws-access-key finding, got "
+            f"{result.stdout.count('aws-access-key')}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_z201_finding_not_double_emitted_in_sarif(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same regression as above, verified in --format sarif output.
+
+        SARIF is used here (not --format json) because check_all's JSON
+        summary shape deduplicates by (rel_path, line_no, code) before
+        counting security_breaches, masking the duplicate; SARIF's results
+        array is unfiltered and reflects the real underlying Finding count.
+        """
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--format", "sarif"])
+        payload = json.loads(result.stdout)
+        z201_results = [r for r in payload["runs"][0]["results"] if r["ruleId"] == "Z201"]
+        assert len(z201_results) == 1, (
+            f"Expected exactly one Z201 SARIF result, got {len(z201_results)}.\n"
+            f"Output:\n{result.stdout}"
+        )
+
+    def test_z204_finding_not_double_emitted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check all` must render a single Z204 finding for a single forbidden
+
+        term, not two — same root-cause family as Z201/Z202/Z203/Z108: a Z204
+        RuleFinding is injected into report.rule_findings
+        (scanner.py:_scan_single_file) AND report.security_findings is
+        independently converted via _map_credential_to_finding() in the same
+        _to_findings() pass. Same wrong-severity duplicate shape as Z201: the
+        rule_findings copy uses bare code_severity("Z204") ("error"), not the
+        CLI-layer "security_breach" reclassification, so it renders through
+        the normal bracketed-list path rather than the POLICY VIOLATION
+        DETECTED panel the correct copy uses.
+        """
+        _make_sandbox(
+            tmp_path,
+            {
+                ".zenzic.local.toml": '[core]\nforbidden_patterns = ["InternalCodename"]\n',
+                "docs/index.md": (
+                    "# Cloud Setup\n\n"
+                    "This page mentions InternalCodename in the body text, "
+                    "which is a forbidden project term.\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        # "InternalCodename" legitimately appears twice within a single
+        # finding's own panel (the "Finding:" message quotes it, the "Term:"
+        # line repeats it) -- count POLICY VIOLATION DETECTED panels instead,
+        # one per underlying Finding.
+        assert result.stdout.count("POLICY VIOLATION DETECTED") == 1, (
+            f"Expected exactly one POLICY VIOLATION DETECTED panel, got "
+            f"{result.stdout.count('POLICY VIOLATION DETECTED')}.\nOutput:\n{result.stdout}"
+        )
+        assert f"{emoji('cross')} 0 errors" in result.stdout, (
+            f"Expected 0 errors (the wrong-severity duplicate must not survive "
+            f"as a normal error-severity finding):\n{result.stdout}"
+        )
+
+    def test_z204_finding_not_double_emitted_in_sarif(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same regression as above, verified in --format sarif output."""
+        _make_sandbox(
+            tmp_path,
+            {
+                ".zenzic.local.toml": '[core]\nforbidden_patterns = ["InternalCodename"]\n',
+                "docs/index.md": (
+                    "# Cloud Setup\n\n"
+                    "This page mentions InternalCodename in the body text, "
+                    "which is a forbidden project term.\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--format", "sarif"])
+        payload = json.loads(result.stdout)
+        z204_results = [r for r in payload["runs"][0]["results"] if r["ruleId"] == "Z204"]
+        assert len(z204_results) == 1, (
+            f"Expected exactly one Z204 SARIF result, got {len(z204_results)}.\n"
+            f"Output:\n{result.stdout}"
+        )
+
+    def test_z201_finding_not_double_emitted_in_check_references(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check references` must render a single Z201 finding for a single
+        leaked credential, not two — the same double-emission bug `check all`
+        was fixed for (this test's sibling above), present in a sibling
+        command that never received the fix: `check_references`'s
+        finding-assembly loop (`_check.py`) has no `_RULE_FINDING_SKIP_CODES`
+        filter on `report.rule_findings`, unlike `check_all`'s equivalent
+        loop. Found by a targeted multi-persona sweep of this session's own
+        Z2xx dual-authority fix, confirmed live: `zenzic check references`
+        on a single-credential fixture reports "2 security breaches".
+        """
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "references"])
+
+        assert result.stdout.count("aws-access-key") == 1, (
+            f"Expected exactly one aws-access-key finding, got "
+            f"{result.stdout.count('aws-access-key')}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_z201_finding_not_double_emitted_in_check_references_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same regression as above, verified in --format json output."""
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "references", "--format", "json"])
+        payload = json.loads(result.stdout)
+        assert payload["summary"]["security_breaches"] == 1, (
+            f"Expected exactly one security breach, got "
+            f"{payload['summary']['security_breaches']}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_references_only_flag_actually_filters(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check references --only <code>` must actually narrow the report —
+        found alongside the double-emission bug above: `check_references`
+        accepts and validates `--only` but never calls `_filter_flat_findings`
+        with it, unlike every other check subcommand (`links`, `orphans`,
+        `assets`, `all`). Confirmed live: `--only Z301` (a code this fixture
+        cannot produce) left the output byte-identical to the unfiltered run.
+        """
+        _make_sandbox(
+            tmp_path,
+            {
+                "docs/index.md": (
+                    "# Page\n\n"
+                    "Enough ordinary prose here to clear the placeholder "
+                    "word-count check without producing any Z301 finding.\n"
+                    "[a link](./index.md)\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(tmp_path)
+
+        unfiltered = runner.invoke(app, ["check", "references", "--format", "json"])
+        filtered = runner.invoke(app, ["check", "references", "--format", "json", "--only", "Z301"])
+
+        unfiltered_payload = json.loads(unfiltered.stdout)
+        filtered_payload = json.loads(filtered.stdout)
+        assert filtered_payload["summary"]["warnings"] == 0, (
+            f"--only Z301 must filter out non-Z301 warnings; got "
+            f"{filtered_payload['summary']['warnings']} (unfiltered had "
+            f"{unfiltered_payload['summary']['warnings']}).\n"
+            f"Unfiltered:\n{unfiltered.stdout}\nFiltered:\n{filtered.stdout}"
+        )
+
     def test_credential_scanner_exit_2_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -142,6 +404,257 @@ class TestCredentialBreachE2E:
         assert result.exit_code == 2, (
             f"--exit-zero must not suppress Exit 2 (security_breach), "
             f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
+# ── Forbidden Scheme — Exit 2 (Z205, part of the Tier-0 "never suppressible" set) ──
+
+
+class TestForbiddenSchemeE2E:
+    """Z205 FORBIDDEN_SCHEME must exit 2 — it is listed alongside Z201/Z204 in
+    the Tier-0 invariant "Exit 2: Credential Scanner Breach (Z201, Z204, Z205).
+    Never suppressible." Regression for: Z205 is detected by a rule check (not
+    the credential-scanner bridge in ``_map_credential_to_finding``), so its
+    ``Finding.severity`` was derived from ``CodeDefinition.severity`` via
+    ``_finding_severity()`` — which returns the raw catalog value ``"error"``
+    for Z205 instead of ``"security_breach"``, since only Z203 has a special
+    case in that function. The result: Z205 was exiting 1, not 2, and was
+    exposed to the same suppression machinery as an ordinary error.
+    """
+
+    _FORBIDDEN_SCHEME_DOC = """\
+        # Interactive Widget
+
+        This page embeds a widget link using a scheme that must never be
+        permitted in published documentation, regardless of context.
+
+        <a href="javascript:alert(document.cookie)">Click for details</a>
+    """
+
+    def test_forbidden_scheme_exits_2(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """check all exits 2 when a javascript: scheme href is present."""
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 2, (
+            f"Z205 must exit 2 (security_breach) per the Tier-0 'Z201, Z204, "
+            f"Z205 — never suppressible' contract, got {result.exit_code}.\n"
+            f"Output:\n{result.stdout}"
+        )
+        assert "SECURITY BREACH DETECTED" in result.stdout
+        assert "forbidden scheme 'javascript:' detected" in result.stdout
+
+    def test_forbidden_scheme_exit_2_not_suppressed_by_exit_zero(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--exit-zero must NOT suppress Z205's Exit 2 — documented contract."""
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--exit-zero"])
+
+        assert result.exit_code == 2, (
+            f"--exit-zero must not suppress Z205's Exit 2 (security_breach), "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
+# ── check links — Exit 2 gap (single-subcommand parity with check_all) ──────
+
+
+class TestCheckLinksSecurityBreachExitCodeE2E:
+    """``zenzic check links`` must exit 2 on a security_breach finding, in
+    every output format — same contract ``check_all`` already honors.
+
+    Regression for: check_links' four output branches (json, sarif,
+    github-annotations, text) each only checked ``severity == "security_incident"``
+    (Exit 3) and ``severity == "error"`` (Exit 1) before returning/raising —
+    none of them checked ``severity == "security_breach"`` at all, so a Z205
+    finding (FORBIDDEN_SCHEME, in link_codes and therefore routed through
+    check_links) fell through to Exit 1 instead of the Tier-0-mandated Exit 2.
+    Discovered during V031_PRE_RELEASE_FINAL_CLOSURE while auditing check_all's
+    blast radius for the Z205 severity fix; not fixed there per that
+    directive's declared scope. Fixed here.
+    """
+
+    _FORBIDDEN_SCHEME_DOC = TestForbiddenSchemeE2E._FORBIDDEN_SCHEME_DOC
+
+    def test_check_links_text_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links"])
+
+        assert result.exit_code == 2, (
+            f"check links (text) must exit 2 on a Z205 security_breach finding, "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_links_json_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "json"])
+
+        assert result.exit_code == 2, (
+            f"check links --format json must exit 2 on a Z205 security_breach "
+            f"finding, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_links_sarif_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "sarif"])
+
+        assert result.exit_code == 2, (
+            f"check links --format sarif must exit 2 on a Z205 security_breach "
+            f"finding, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_links_github_annotations_exits_2_on_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._FORBIDDEN_SCHEME_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "github-annotations"])
+
+        assert result.exit_code == 2, (
+            f"check links --format github-annotations must exit 2 on a Z205 "
+            f"security_breach finding, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
+# ── check links / check placeholders — Credential Scanner Wiring Gap ────────
+
+
+class TestCheckLinksPlaceholdersCredentialScanE2E:
+    """``zenzic check links`` and ``zenzic check placeholders`` must invoke the
+    credential scanner and exit 2 on a Z201 breach, in parity with
+    ``check_all``/``check_references``.
+
+    Regression for: both subcommands already call scan_docs_references()
+    (check_placeholders directly, check_links via validate_links_structured())
+    -- the credential scanner runs on every file, every time, as part of that
+    pipeline's harvest() pass -- but neither subcommand ever reads the
+    resulting IntegrityReport.security_findings, so a real credential leak
+    produced zero signal and an ordinary exit 0/1 through these two entry
+    points, silently violating the Tier-0 "Exit 2: Credential Scanner Breach
+    -- Never suppressible" contract. Discovered during
+    V031_CHECK_LINKS_PLACEHOLDERS_EXIT2_GAP (2026-08-24), fixed here
+    (V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK, 2026-08-25) --
+    the fix costs no extra scan time, since the scan already ran; it only
+    adds a loop over already-computed security_findings, mirroring
+    check_all's existing _map_credential_to_finding pattern.
+    """
+
+    _BREACH_DOC = TestCredentialBreachE2E._BREACH_DOC
+
+    def test_check_links_exits_2_on_credential_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links"])
+
+        assert result.exit_code == 2, (
+            f"check links must exit 2 on a Z201 security_breach finding, "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_placeholders_exits_2_on_credential_breach(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "placeholders"])
+
+        assert result.exit_code == 2, (
+            f"check placeholders must exit 2 on a Z201 security_breach finding, "
+            f"got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+
+
+class TestCheckPlaceholdersOnlyAndFormatE2E:
+    """``check placeholders`` accepts and validates ``--only``/``--format`` but,
+
+    unlike every sibling flat-findings subcommand (``links``, ``orphans``,
+    ``assets``, ``references``), never calls ``_filter_flat_findings`` and never
+    branches on ``output_format`` before falling through to the text renderer.
+    Same shape of bug as the ``check references --only`` gap fixed under
+    ``V031_...`` (see ``TestCheckLinksPlaceholdersCredentialScanE2E`` above and
+    ``test_check_references_only_flag_actually_filters``), independently
+    reproduced here for ``placeholders``.
+    """
+
+    _SHORT_PAGE = "# Page\n\nToo short.\n"
+
+    def test_only_flag_actually_filters(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._SHORT_PAGE})
+        monkeypatch.chdir(tmp_path)
+
+        unfiltered = runner.invoke(app, ["check", "placeholders", "--format", "json"])
+        filtered = runner.invoke(
+            app, ["check", "placeholders", "--format", "json", "--only", "Z301"]
+        )
+
+        unfiltered_payload = json.loads(unfiltered.stdout)
+        filtered_payload = json.loads(filtered.stdout)
+        assert unfiltered_payload["summary"]["warnings"] > 0, (
+            f"fixture must produce at least one Z502 warning unfiltered.\n"
+            f"Output:\n{unfiltered.stdout}"
+        )
+        assert filtered_payload["summary"]["warnings"] == 0, (
+            f"--only Z301 must filter out non-Z301 warnings; got "
+            f"{filtered_payload['summary']['warnings']} (unfiltered had "
+            f"{unfiltered_payload['summary']['warnings']}).\n"
+            f"Unfiltered:\n{unfiltered.stdout}\nFiltered:\n{filtered.stdout}"
+        )
+
+    def test_format_json_is_actually_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._SHORT_PAGE})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "placeholders", "--format", "json"])
+
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            raise AssertionError(
+                f"--format json must produce parseable JSON, not the text "
+                f"renderer's output.\nOutput:\n{result.stdout}"
+            ) from None
+        assert payload["summary"]["warnings"] > 0
+
+    def test_format_sarif_is_actually_sarif(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _make_sandbox(tmp_path, {"docs/index.md": self._SHORT_PAGE})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "placeholders", "--format", "sarif"])
+
+        payload = json.loads(result.stdout)
+        assert "sarif" in payload.get("$schema", "").lower(), (
+            f"--format sarif must produce a SARIF document, not the text "
+            f"renderer's output.\nOutput:\n{result.stdout}"
         )
 
 

@@ -117,14 +117,16 @@ def security(session: nox.Session) -> None:
 
 @nox.session(python="3.14")
 def mutation(session: nox.Session) -> None:
-    """Run mutation testing with mutmut on the security-critical core modules.
+    """Run mutation testing with mutmut on the credential scanner.
 
-    Targets (configured in ``[tool.mutmut]`` in ``pyproject.toml``):
-    - ``src/zenzic/core/rules.py``    — rule engine and regex canary
+    Target (configured as ``source_paths`` in ``[tool.mutmut]``, ``pyproject.toml``):
     - ``src/zenzic/core/credentials.py``   — secret detection (ZRT-001/ZRT-003)
-    - ``src/zenzic/core/reporter.py`` — _obfuscate_secret() masking function
 
-    A surviving mutant means a test gap.  Goal: mutation score ≥ 90%.
+    A surviving mutant means a test gap.  Target: mutation score >= 90%; measured 68.2%
+    as of 2026-09-05 (285 killed / 133 survived / 0 uncovered on the credential scanner).
+
+    This session computes no floor and fails on nothing.  CI runs ``just mutation``
+    instead, which reads mutmut's own stats export and fails below a recorded floor.
 
     Implementation note — non-editable install:
         ``uv sync`` installs zenzic as an editable package whose ``.pth`` file

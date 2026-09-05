@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,7 +17,14 @@ from zenzic.core.adapters import get_adapter
 from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
 from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
-from zenzic.core.codes import CODE_DEFINITIONS
+from zenzic.core.codes import (
+    CODE_DEFINITIONS,
+    NON_SUPPRESSIBLE_CODES,
+    SECURITY_BREACH_CODES,
+    SECURITY_FINDING_CODES,
+    SECURITY_INCIDENT_CODES,
+    exit_contract_severity,
+)
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -24,14 +32,14 @@ from zenzic.core.scanner import (
     _map_credential_to_finding,
     find_missing_directory_indices,
     find_orphans,
-    find_repo_root,
     find_unused_assets,
     scan_docs_references,
 )
 from zenzic.core.scorer import compute_score
 from zenzic.core.sovereign_context import sovereign_context
-from zenzic.core.ui import ZenzicPalette
+from zenzic.core.ui import ZenzicPalette, format_elapsed_ms
 from zenzic.core.validator import (
+    LINK_CODES,
     LinkError,
     SnippetError,
     check_nav_contract,
@@ -42,6 +50,7 @@ from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
 
 from . import _shared
+from ._command_setup import setup_command
 from ._governance import (
     SuppressionAudit,
     _apply_directory_policies,
@@ -55,7 +64,6 @@ from ._governance import (
     resolve_governance_panel_title,
 )
 from ._metadata import COMMAND_BY_NAME
-from ._target_resolver import _apply_target
 
 
 check_app = _shared.create_app(
@@ -76,23 +84,15 @@ def _validate_only_flag(only: str | None) -> None:
             raise typer.Exit(1)
 
 
-def _finding_severity(code: str) -> str:
-    """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
-
-    Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
-    ``"info"`` for note-level informational codes (Z106, Z114, Z906), and the
-    CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
-    Unknown codes default to ``"error"`` since the validator only emits findings
-    when it detects a genuine problem.
-    """
-    if code == "Z203":
-        return "security_incident"
-    defn = CODE_DEFINITIONS.get(code)
-    if defn is None:
-        return "error"
-    if defn.severity == "note":
-        return "info"
-    return defn.severity  # "error" or "warning"
+# _finding_severity is a re-export, not a second implementation: every one of
+# its 17 call sites in this module was written against this name, and
+# renaming all of them to exit_contract_severity is a mechanical churn this
+# fix does not need to make to eliminate the literal it used to hardcode.
+# The one and only implementation lives in codes.py — see its docstring for
+# why (an adversarial SDK v3 rule claiming code="Z201" exposed the gap this
+# choke point closes: two independent authorities for Z201/Z204's severity,
+# one of which silently fell through to the wrong tier).
+_finding_severity = exit_contract_severity
 
 
 # ── Check commands ────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ def check_links(
         help="Treat warnings as errors (exit non-zero on any warning).",
     ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, sarif, or github-annotations."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -139,7 +139,7 @@ def check_links(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     quiet: bool = typer.Option(
         False,
@@ -159,6 +159,7 @@ def check_links(
     ),
 ) -> None:
     """Check for broken internal links and enforce strict warning policy when requested."""
+    _shared._validate_output_format(output_format, _shared._ANNOTATION_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -168,27 +169,9 @@ def check_links(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, _ = ZenzicConfig.load(repo_root)
-    if offline:
-        config.build_context.offline_mode = True
-    if exclude_url:
-        config = config.model_copy(
-            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
-        )
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    config, repo_root, docs_root, exclusion_mgr, _, _, _ = setup_command(
+        path, offline=offline, exclude_url=exclude_url
+    )
 
     def _rel(path: Path) -> str:
         try:
@@ -202,6 +185,29 @@ def check_links(
     _roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _roots if _roots else None
 
+    # Content roots (an MkDocs monorepo's !include'd sub-project docs) live
+    # outside docs_root, and the security tier must reach every tree this scan
+    # reaches -- every sibling subcommand passes these, and omitting them here
+    # made one repository answer exit 2 under `check all` and exit 0 under
+    # `check links`.
+    _content = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content if _content else None
+
+    # Scan once, share the reports with validate_links_structured() (via its
+    # own `reports=` reuse parameter) so credential-scan results already
+    # computed during this same pass aren't discarded. See
+    # V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK: harvest() already
+    # runs the credential scanner unconditionally as part of this scan; this
+    # subcommand previously threw its output away instead of surfacing it.
+    reports, ext_errors = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        validate_links=strict and not no_external,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+    )
     link_errors = validate_links_structured(
         docs_root,
         exclusion_mgr,
@@ -210,6 +216,8 @@ def check_links(
         strict=strict,
         locale_roots=locale_roots,
         check_external=not no_external,
+        reports=reports,
+        ext_errors=ext_errors,
     )
     elapsed = time.monotonic() - t0
 
@@ -226,6 +234,9 @@ def check_links(
         )
         for err in link_errors
     ]
+    for report in reports:
+        for sf in report.security_findings:
+            findings.append(_map_credential_to_finding(sf, repo_root))
     _append_z620_findings(
         findings, config, repo_root, check_all=False, check_external_urls=not no_external
     )
@@ -233,9 +244,7 @@ def check_links(
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
-        incidents = sum(1 for f in findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -245,9 +254,7 @@ def check_links(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
-        incidents = sum(1 for f in findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -255,9 +262,7 @@ def check_links(
         return
     elif output_format == "github-annotations":
         _shared._output_github_annotations(findings)
-        incidents = sum(1 for f in findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -277,7 +282,9 @@ def check_links(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
         if no_external and output_format == "text":
             footer_lines.append(
@@ -289,15 +296,14 @@ def check_links(
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             ok_message="No broken links found.",
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(*footer_lines),
         )
-    incidents = sum(1 for f in findings if f.severity == "security_incident")
-    if incidents:
-        raise typer.Exit(3)
+    _evaluate_security_exit(findings)
     if errors or (strict and warnings):
         raise typer.Exit(1)
 
@@ -320,7 +326,7 @@ def check_orphans(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -339,6 +345,7 @@ def check_orphans(
     ),
 ) -> None:
     """Detect .md files not listed in the nav."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -347,26 +354,11 @@ def check_orphans(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(
+        path, engine_override=engine, offline=offline
+    )
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    config = _shared._apply_engine_override(config, engine)
-    if offline:
-        config.build_context.offline_mode = True
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -394,7 +386,7 @@ def check_orphans(
             rel_path=_rel(docs_root / path),
             line_no=0,
             code="Z402",
-            severity="warning",
+            severity=_finding_severity("Z402"),
             message="Physical file not listed in navigation.",
         )
         for path in orphans
@@ -430,12 +422,15 @@ def check_orphans(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=True,
@@ -449,6 +444,12 @@ def check_orphans(
 
 @check_app.command(name="snippets")
 def check_snippets(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
@@ -458,7 +459,7 @@ def check_snippets(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -474,31 +475,19 @@ def check_snippets(
     ),
 ) -> None:
     """Validate Python code blocks in documentation Markdown files."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
         no_header = True
     if ci:
+        strict = True
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -525,7 +514,7 @@ def check_snippets(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
                 code="Z503",
-                severity="error",
+                severity=_finding_severity("Z503"),
                 message=s_err.message,
                 source_line=src,
             )
@@ -534,7 +523,8 @@ def check_snippets(
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
         errors_count = sum(1 for f in findings if f.severity == "error")
-        if errors_count:
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
@@ -542,7 +532,8 @@ def check_snippets(
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
-        if errors_count:
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
 
@@ -559,19 +550,22 @@ def check_snippets(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             ok_message="All code snippets are syntactically valid.",
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
-    if errors:
+    if errors > 0 or (strict and warnings > 0):
         raise typer.Exit(1)
 
 
@@ -598,7 +592,7 @@ def check_references(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -627,6 +621,7 @@ def check_references(
       1 — Dangling References or (with --strict) warnings found.
       2 — SECURITY CRITICAL: a secret was detected in a reference URL.
     """
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -636,23 +631,9 @@ def check_references(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -697,18 +678,35 @@ def check_references(
                     rel_path=rel,
                     line_no=ref_f.line_no,
                     code=ref_f.issue,
-                    severity="warning" if ref_f.is_warning else "error",
+                    severity=_finding_severity(ref_f.issue),
                     message=ref_f.detail,
                     source_line=src,
                 )
             )
         for rule_f in report.rule_findings:
+            # Z201/Z204 rule-findings are injected here alongside every other
+            # rule-engine finding (scanner.py's harvest-derived security_only
+            # sweep), but report.security_findings below independently
+            # converts the same secrets via _map_credential_to_finding.
+            # Skip only SECURITY_FINDING_CODES here, NOT the full
+            # _RULE_FINDING_SKIP_CODES (which also excludes LINK_CODES):
+            # check_all is safe using the wider skip-list because it first
+            # extracts every LINK_CODES-matching rule_finding into a separate
+            # LinkError list (validator.py's link-error builder) before this
+            # loop runs; check_references has no equivalent extraction step,
+            # so filtering LINK_CODES here would silently drop Z202/Z203 and
+            # every other link finding this command is supposed to report —
+            # confirmed by a real regression caught in this same fix pass
+            # (test_traversal_exits_3_from_every_subcommand went 3->0 for
+            # check references when the wider skip-list was tried first).
+            if rule_f.rule_id in SECURITY_FINDING_CODES:
+                continue
             findings.append(
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
                     code=rule_f.rule_id,
-                    severity=rule_f.severity,
+                    severity=_finding_severity(rule_f.rule_id),
                     message=rule_f.message,
                     source_line=rule_f.matched_line or "",
                     col_start=rule_f.col_start,
@@ -724,16 +722,16 @@ def check_references(
                 rel_path="(external-urls)",
                 line_no=0,
                 code="Z101",
-                severity="error",
+                severity=_finding_severity("Z101"),
                 message=err_str,
             )
         )
 
+    findings = _filter_flat_findings(findings, only)
+
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count or (strict and warnings_count):
@@ -743,9 +741,7 @@ def check_references(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
-        breaches = sum(1 for f in findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count or (strict and warnings_count):
@@ -765,12 +761,15 @@ def check_references(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=strict,
@@ -779,9 +778,7 @@ def check_references(
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
 
-    breaches = sum(1 for f in findings if f.severity == "security_breach")
-    if breaches:
-        raise typer.Exit(2)
+    _evaluate_security_exit(findings)
     if errors or (strict and warnings):
         raise typer.Exit(1)
 
@@ -797,7 +794,7 @@ def check_assets(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -813,6 +810,7 @@ def check_assets(
     ),
 ) -> None:
     """Detect unused images and assets in the documentation."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
@@ -821,22 +819,11 @@ def check_assets(
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(
+        path, include_adapter_metadata=True
+    )
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
@@ -844,9 +831,6 @@ def check_assets(
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
-    exclusion_mgr = _shared._build_exclusion_manager(
-        config, repo_root, docs_root, adapter_metadata_files=adapter_meta
-    )
 
     def _rel(path: Path) -> str:
         try:
@@ -870,7 +854,7 @@ def check_assets(
             rel_path=_rel(docs_root / path),
             line_no=0,
             code="Z405",
-            severity="warning",
+            severity=_finding_severity("Z405"),
             message="File not referenced in any documentation page.",
         )
         for path in unused
@@ -906,12 +890,15 @@ def check_assets(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             strict=True,
@@ -925,6 +912,12 @@ def check_assets(
 
 @check_app.command(name="placeholders")
 def check_placeholders(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
@@ -934,7 +927,7 @@ def check_placeholders(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -950,31 +943,19 @@ def check_placeholders(
     ),
 ) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
+    _shared._validate_output_format(output_format, _shared._BASE_FORMATS)
     _validate_only_flag(only)
 
     if ci or quiet:
         no_header = True
     if ci:
+        strict = True
         if output_format == "text":
             output_format = "github-annotations"
 
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, repo_root, docs_root, exclusion_mgr, _, loaded_from_file, _ = setup_command(path)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint()
-    if path is not None:
-        config, _, docs_root, _ = _apply_target(repo_root, config, path)
-        try:
-            docs_root.relative_to(repo_root)
-        except ValueError:
-            repo_root = docs_root
-    else:
-        docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
@@ -1008,13 +989,40 @@ def check_placeholders(
                         rel_path=rel,
                         line_no=rule_f.line_no,
                         code=rule_f.rule_id,
-                        severity=rule_f.severity,
+                        severity=_finding_severity(rule_f.rule_id),
                         message=rule_f.message,
                         source_line=rule_f.matched_line or "",
                         col_start=rule_f.col_start,
                         match_text=rule_f.match_text or "",
                     )
                 )
+        # harvest() already runs the credential scanner unconditionally as
+        # part of scan_docs_references() above; surface its results instead
+        # of discarding them. See
+        # V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK.
+        for sf in report.security_findings:
+            findings.append(_map_credential_to_finding(sf, repo_root))
+
+    findings = _filter_flat_findings(findings, only)
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        _evaluate_security_exit(findings)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _engine = _build_rule_engine(config)
+        _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
+        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _evaluate_security_exit(findings)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
 
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
@@ -1029,24 +1037,38 @@ def check_placeholders(
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr
+        )
         errors, warnings = reporter.render(
             findings,
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
-            strict=True,
+            strict=strict,
             ok_message="No placeholder stubs found.",
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
         )
-    if errors or warnings:
+    _evaluate_security_exit(findings)
+    if errors > 0 or (strict and warnings > 0):
         raise typer.Exit(1)
 
 
 # ── All-checks aggregate ──────────────────────────────────────────────────────
+
+#: Codes to skip in the generic rule-finding loop below because they already
+#: surface via a dedicated path: link-integrity codes surface via
+#: ``validate_links_structured`` (``Z620`` excluded — it has no dedicated
+#: path and must still flow through this loop), and Z201/Z204 surface via
+#: :func:`_map_credential_to_finding`'s ``security_findings`` conversion.
+#: Derived from the two SSoT sets rather than a fresh literal, so this can
+#: never drift out of sync with either one — a hardcoded copy would silently
+#: go stale as the two source sets change independently.
+_RULE_FINDING_SKIP_CODES: frozenset[str] = (LINK_CODES - {"Z620"}) | SECURITY_FINDING_CODES
 
 
 @dataclass
@@ -1061,58 +1083,95 @@ class _AllCheckResults:
     directory_index_issues: list[Path]
     config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
 
-    @property
-    def failed(self) -> bool:
-        ref_errors = any(r.has_errors for r in self.reference_reports)
-        return bool(
-            self.link_errors
-            or self.orphans
-            or self.snippet_errors
-            or self.unused_assets
-            or self.nav_contract_errors
-            or ref_errors
-            or self.security_events
-        )
+
+# Codes that --only can never filter out, regardless of its contents: the
+# Tier-0 Exit Code Contract states Z201/Z202/Z203/Z204/Z205 are non-suppressible
+# (CLAUDE.md Forbidden Actions: "DO NOT suppress Z2xx security codes. They are
+# inviolable."), and Z110/Z111 are fatal config-load errors that must always
+# surface. --only narrows which OTHER codes are reported; it must never be able
+# to silence this set, whether or not any of its members are explicitly listed.
+# The set IS codes.py's NON_SUPPRESSIBLE_CODES — "codes no output filter may
+# drop" and "codes nothing may suppress" are one contract with one authority,
+# so this is an alias, never a restatement of the members (a copy that merely
+# agrees today drifts the day one side gains a code; enforced by
+# tests/test_always_evaluated_ssot_structural.py).
+def _evaluate_security_exit(findings: Iterable[Finding]) -> None:
+    """The single authority for the security tier's exit code. Raises or returns.
+
+    Keyed on the finding's **code**, never its severity. Severity is set by
+    whichever subsystem constructed the finding, and producers disagree: the
+    credential bridge stamps ``security_breach`` directly, while
+    ``incremental.py`` emits ``Z203`` with ``code_severity("Z203")`` ==
+    ``"error"``. A severity-based test therefore reports a rendered path
+    traversal as an ordinary quality finding, which is exactly how
+    ``check references`` came to exit 1 on a Z203 while its SARIF output for
+    the same run said "Critical security finding detected". The code is
+    structural and cannot be overwritten downstream, so it is the authority.
+
+    Every early exit that can run after findings exist must call this first --
+    three separate defects (the Z906 "audit skipped" shortcut, the unreadable
+    -file clean bill, and the corrupt-baseline handler) were each one branch
+    returning ahead of the contract. One choke point is cheaper to keep right
+    than N branches that each have to remember.
+    """
+    codes = {f.code for f in findings}
+    if codes & SECURITY_INCIDENT_CODES:
+        raise typer.Exit(3)
+    if codes & SECURITY_BREACH_CODES:
+        raise typer.Exit(2)
+
+
+#: Severities that force a non-zero exit regardless of anything else on screen.
+#: Named once so a presentation shortcut cannot return before the exit logic
+#: that consumes them (see the Z906 guard in ``check all``).
+_SECURITY_SEVERITIES: frozenset[str] = frozenset({"security_incident", "security_breach"})
+
+_ALWAYS_EVALUATED_CODES: frozenset[str] = NON_SUPPRESSIBLE_CODES
 
 
 def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
-    """Destructively filter CheckResults keeping only the specified Z-codes."""
+    """Destructively filter CheckResults keeping only the specified Z-codes
+    (plus the always-evaluated set: fatal config errors Z110/Z111 and the
+    non-suppressible Z2xx security tier — see _ALWAYS_EVALUATED_CODES)."""
     if not only_str:
         return
     allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
     if not allowed:
         return
+    effective_allowed = allowed | _ALWAYS_EVALUATED_CODES
 
-    results.link_errors = [e for e in results.link_errors if e.code in allowed]
-    if "Z402" not in allowed:
+    results.link_errors = [e for e in results.link_errors if e.code in effective_allowed]
+    if "Z402" not in effective_allowed:
         results.orphans = []
-    if "Z503" not in allowed:
+    if "Z503" not in effective_allowed:
         results.snippet_errors = []
-    if "Z405" not in allowed:
+    if "Z405" not in effective_allowed:
         results.unused_assets = []
-    if "Z406" not in allowed:
+    if "Z406" not in effective_allowed:
         results.nav_contract_errors = []
-    if "Z401" not in allowed:
+    if "Z401" not in effective_allowed:
         results.directory_index_issues = []
-    if "Z404" not in allowed:
+    if "Z404" not in effective_allowed:
         results.config_asset_issues = []
 
     for rep in results.reference_reports:
-        rep.findings = [f for f in rep.findings if f.issue in allowed]
-        rep.rule_findings = [f for f in rep.rule_findings if getattr(f, "rule_id", "") in allowed]
-        if "Z201" not in allowed:
-            rep.security_findings = []
+        rep.findings = [f for f in rep.findings if f.issue in effective_allowed]
+        rep.rule_findings = [
+            f for f in rep.rule_findings if getattr(f, "rule_id", "") in effective_allowed
+        ]
+        # security_findings (Z201/Z204/Z205) are always evaluated — never cleared.
 
 
 def _filter_flat_findings(findings: list[Finding], only_str: str | None) -> list[Finding]:
-    """Filter a flat list of findings keeping only the specified Z-codes (except fatal config errors Z110, Z111)."""
+    """Filter a flat list of findings keeping only the specified Z-codes (plus
+    the always-evaluated set: fatal config errors Z110/Z111 and the
+    non-suppressible Z2xx security tier — see _ALWAYS_EVALUATED_CODES)."""
     if not only_str:
         return findings
     allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
     if not allowed:
         return findings
-    bypass_codes = {"Z110", "Z111"}
-    return [f for f in findings if f.code in allowed or f.code in bypass_codes]
+    return [f for f in findings if f.code in allowed or f.code in _ALWAYS_EVALUATED_CODES]
 
 
 # _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
@@ -1129,8 +1188,21 @@ def _collect_all_results(
     check_external: bool = True,
     show_progress: bool = False,
     init_start_time: float | None = None,
+    suppression_s: float | None = None,
+    rule_engine_target: Path | None = None,
 ) -> _AllCheckResults:
-    """Run all seven checks and return results as a typed container."""
+    """Run all eight checks and return results as a typed container.
+
+    The eight checks, matching :class:`_AllCheckResults`'s eight non-derived
+    fields: link validation, orphan detection, snippet validation, unused-asset
+    detection, nav-contract validation (``Z406``), directory-index validation
+    (``Z401``), config-asset validation (``Z404``), and the combined
+    reference/rule-engine/security pipeline (``scan_docs_references``, which
+    itself covers ``Z2xx`` security, ``Z3xx`` references, ``Z5xx`` content —
+    including placeholders — and ``Z6xx`` brand rules in a single pass).
+    ``security_events`` is a derived summary count from that last pipeline,
+    not a ninth independent check.
+    """
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
@@ -1159,12 +1231,26 @@ def _collect_all_results(
             console=_shared.get_console(),
         )
         progress.start()
-        _init_ms = (time.perf_counter() - (init_start_time or time.perf_counter())) * 1000
-        progress.add_task(
-            f"Initializing environment & VSM... [dim]({_init_ms:.1f}ms)[/dim]",
-            total=1,
+        # The window from check_all's first statement to here also contains the
+        # inline-suppression audit, which the caller times separately and passes
+        # in. Subtract it so this line reports only real environment/VSM setup
+        # and the audit gets its own line below, rather than 88% of the audit's
+        # cost being displayed under an "Initializing environment & VSM" label.
+        _init_s = time.perf_counter() - (init_start_time or time.perf_counter())
+        _init_s = max(0.0, _init_s - (suppression_s or 0.0))
+        _task_init = progress.add_task("Initializing environment & VSM...", total=1)
+        progress.update(
+            _task_init,
             completed=1,
+            description=f"Initializing environment & VSM... {format_elapsed_ms(_init_s)}",
         )
+        if suppression_s is not None:
+            _task_suppr = progress.add_task("Auditing inline suppressions...", total=1)
+            progress.update(
+                _task_suppr,
+                completed=1,
+                description=f"Auditing inline suppressions... {format_elapsed_ms(suppression_s)}",
+            )
 
     try:
         ref_reports, ext_errors = scan_docs_references(
@@ -1176,6 +1262,7 @@ def _collect_all_results(
             content_roots=content_roots,
             show_progress=show_progress,
             progress_instance=progress,
+            rule_engine_target=rule_engine_target,
         )
         security_events = sum(len(r.security_findings) for r in ref_reports)
 
@@ -1192,6 +1279,18 @@ def _collect_all_results(
             if r.suppression_tracker is not None
         }
 
+        # Network-bound when check_external is on, and previously the single
+        # largest un-attributed phase: measured at ~253ms of an otherwise
+        # unexplained ~458ms gap between the sum of the visible phases and the
+        # run's own reported total. It gets its own line for the same reason the
+        # others do — an invisible phase is the one most likely to look like a
+        # stall.
+        _t_link_check = time.perf_counter()
+        task_links = (
+            progress.add_task("Cross-checking link graph...", total=1)
+            if progress is not None
+            else None
+        )
         link_errors = validate_links_structured(
             docs_root,
             exclusion_mgr,
@@ -1204,6 +1303,15 @@ def _collect_all_results(
             reports=ref_reports,
             ext_errors=ext_errors,
         )
+        if progress is not None and task_links is not None:
+            progress.update(
+                task_links,
+                completed=1,
+                description=(
+                    "Cross-checking link graph... "
+                    f"{format_elapsed_ms(time.perf_counter() - _t_link_check)}"
+                ),
+            )
 
         for r in ref_reports:
             if r.suppression_tracker is not None:
@@ -1229,11 +1337,11 @@ def _collect_all_results(
                 ignored_patterns=adapter.get_ignored_patterns(),
                 adapter=adapter,
             )
-            elapsed_ms = (time.perf_counter() - t0) * 1000
+            elapsed_s = time.perf_counter() - t0
             progress.update(
                 task_orphans,
                 completed=1,
-                description=f"Checking orphan pages & topology... [dim]({elapsed_ms:.1f}ms)[/dim]",
+                description=f"Checking orphan pages & topology... {format_elapsed_ms(elapsed_s)}",
             )
 
             task_snippets = progress.add_task(
@@ -1243,11 +1351,11 @@ def _collect_all_results(
             )
             t0 = time.perf_counter()
             snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
-            elapsed_ms = (time.perf_counter() - t0) * 1000
+            elapsed_s = time.perf_counter() - t0
             progress.update(
                 task_snippets,
                 completed=1,
-                description=f"Validating code snippets... [dim]({elapsed_ms:.1f}ms)[/dim]",
+                description=f"Validating code snippets... {format_elapsed_ms(elapsed_s)}",
             )
 
             task_assets = progress.add_task(
@@ -1264,11 +1372,11 @@ def _collect_all_results(
                 content_roots=content_roots,
                 adapter_metadata_files=adapter.get_metadata_files(),
             )
-            elapsed_ms = (time.perf_counter() - t0) * 1000
+            elapsed_s = time.perf_counter() - t0
             progress.update(
                 task_assets,
                 completed=1,
-                description=f"Checking unused assets & media... [dim]({elapsed_ms:.1f}ms)[/dim]",
+                description=f"Checking unused assets & media... {format_elapsed_ms(elapsed_s)}",
             )
         else:
             orphans = find_orphans(
@@ -1291,20 +1399,61 @@ def _collect_all_results(
                 adapter_metadata_files=adapter.get_metadata_files(),
             )
 
+        # Hoisted out of the return statement below so each can be timed and
+        # given its own progress line. Both are real checks (Z406 nav contract,
+        # Z401 directory index) that ran invisibly before, contributing to the
+        # gap between the visible phases and the reported total. Evaluation
+        # order is unchanged: nav contract still runs before directory index,
+        # exactly as argument evaluation ordered them.
+        _t_nav = time.perf_counter()
+        task_nav = (
+            progress.add_task("Checking nav contract...", total=1) if progress is not None else None
+        )
+        nav_contract_errors = check_nav_contract(
+            repo_root,
+            exclusion_mgr,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "mkdocs",
+        )
+        if progress is not None and task_nav is not None:
+            progress.update(
+                task_nav,
+                completed=1,
+                description=(
+                    f"Checking nav contract... {format_elapsed_ms(time.perf_counter() - _t_nav)}"
+                ),
+            )
+
+        _t_dir_idx = time.perf_counter()
+        task_dir_idx = (
+            progress.add_task("Checking directory indices...", total=1)
+            if progress is not None
+            else None
+        )
+        directory_index_issues = find_missing_directory_indices(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            provides_index=adapter.provides_index,
+        )
+        if progress is not None and task_dir_idx is not None:
+            progress.update(
+                task_dir_idx,
+                completed=1,
+                description=(
+                    "Checking directory indices... "
+                    f"{format_elapsed_ms(time.perf_counter() - _t_dir_idx)}"
+                ),
+            )
+
         return _AllCheckResults(
             link_errors=link_errors,
             orphans=orphans,
             snippet_errors=snippet_errors,
             unused_assets=unused_assets,
-            nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
+            nav_contract_errors=nav_contract_errors,
             reference_reports=ref_reports,
             security_events=security_events,
-            directory_index_issues=find_missing_directory_indices(
-                docs_root,
-                exclusion_mgr,
-                config=config,
-                provides_index=adapter.provides_index,
-            ),
+            directory_index_issues=directory_index_issues,
             config_asset_issues=config_asset_issues,
         )
     finally:
@@ -1346,6 +1495,24 @@ def _to_findings(
     """Convert all result types into a flat list of :class:`Finding`."""
     findings: list[Finding] = []
 
+    # Local, call-scoped cache: a file can appear in both snippet_errors and
+    # reference_reports (e.g. one page with both a snippet issue and a
+    # dangling reference), and each category independently re-reads the file
+    # for `source_line` context. This dedupes reads *within this call only*
+    # — deduping across the eight independent sub-checks in
+    # _collect_all_results would require scanner.py/validator.py to expose
+    # raw file content on their result objects, which they don't; that's a
+    # larger, out-of-scope change tracked separately.
+    _content_cache: dict[Path, list[str] | None] = {}
+
+    def _cached_lines(path: Path) -> list[str] | None:
+        if path not in _content_cache:
+            try:
+                _content_cache[path] = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                _content_cache[path] = None
+        return _content_cache[path]
+
     def _rel(path: Path) -> str:
         try:
             return path.relative_to(repo_root).as_posix()
@@ -1372,26 +1539,23 @@ def _to_findings(
                 rel_path=_rel(docs_root / path),
                 line_no=0,
                 code="Z402",
-                severity="warning",
+                severity=_finding_severity("Z402"),
                 message="Physical file not listed in navigation.",
             )
         )
 
     for s_err in results.snippet_errors:
         src = ""
-        if s_err.line_no > 0 and s_err.file_path.is_file():
-            try:
-                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
-                if 0 < s_err.line_no <= len(lines):
-                    src = lines[s_err.line_no - 1].strip()
-            except OSError:
-                pass
+        if s_err.line_no > 0:
+            lines = _cached_lines(s_err.file_path)
+            if lines and 0 < s_err.line_no <= len(lines):
+                src = lines[s_err.line_no - 1].strip()
         findings.append(
             Finding(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
                 code="Z503",
-                severity="error",
+                severity=_finding_severity("Z503"),
                 message=s_err.message,
                 source_line=src,
             )
@@ -1403,7 +1567,7 @@ def _to_findings(
                 rel_path=_rel(docs_root / path),
                 line_no=0,
                 code="Z405",
-                severity="warning",
+                severity=_finding_severity("Z405"),
                 message="File not referenced in any documentation page.",
             )
         )
@@ -1414,19 +1578,14 @@ def _to_findings(
                 rel_path="(nav)",
                 line_no=0,
                 code="Z406",
-                severity="error",
+                severity=_finding_severity("Z406"),
                 message=msg,
             )
         )
 
     for report in results.reference_reports:
         rel = _rel(report.file_path)
-        _lines: list[str] = []
-        if report.file_path.is_file():
-            try:
-                _lines = report.file_path.read_text(encoding="utf-8").splitlines()
-            except OSError:
-                pass
+        _lines = _cached_lines(report.file_path) or []
         for ref_f in report.findings:
             src = ""
             if _lines and 0 < ref_f.line_no <= len(_lines):
@@ -1436,34 +1595,20 @@ def _to_findings(
                     rel_path=rel,
                     line_no=ref_f.line_no,
                     code=ref_f.issue,
-                    severity="warning" if ref_f.is_warning else "error",
+                    severity=_finding_severity(ref_f.issue),
                     message=ref_f.detail,
                     source_line=src,
                 )
             )
         for rule_f in report.rule_findings:
-            if rule_f.rule_id in (
-                "Z101",
-                "Z102",
-                "Z103",
-                "Z104",
-                "Z105",
-                "Z106",
-                "Z110",
-                "Z120",
-                "Z121",
-                "Z122",
-                "Z123",
-                "Z124",
-                "Z205",
-            ):
+            if rule_f.rule_id in _RULE_FINDING_SKIP_CODES:
                 continue
             findings.append(
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
                     code=rule_f.rule_id,
-                    severity=rule_f.severity,
+                    severity=_finding_severity(rule_f.rule_id),
                     message=rule_f.message,
                     source_line=rule_f.matched_line,
                     col_start=rule_f.col_start,
@@ -1480,7 +1625,7 @@ def _to_findings(
                 rel_path=_rel(docs_root / dir_path),
                 line_no=0,
                 code="Z401",
-                severity="info",
+                severity=_finding_severity("Z401"),
                 message=(
                     "Directory contains Markdown files but has no index page — "
                     "the directory URL may return a 404."
@@ -1494,7 +1639,7 @@ def _to_findings(
                 rel_path=rel_path,
                 line_no=0,
                 code="Z404",
-                severity="warning",
+                severity=_finding_severity("Z404"),
                 message=message,
             )
         )
@@ -1514,7 +1659,7 @@ def check_all(
         None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
     ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, sarif, or github-annotations."
     ),
     ci: bool = typer.Option(
         False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
@@ -1522,7 +1667,7 @@ def check_all(
     only: str | None = typer.Option(
         None,
         "--only",
-        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded, except the non-suppressible Z2xx security tier and fatal config errors (Z110/Z111), which are always evaluated.",
     ),
     exit_zero: bool | None = typer.Option(
         None, "--exit-zero", help="Always exit 0; report issues without failing."
@@ -1610,24 +1755,40 @@ def check_all(
         "--baseline",
         help="Path to a baseline snapshot file to consume (defaults to .zenzic-baseline.json if present in workspace root).",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
-    """Run all checks: links, orphans, snippets, placeholders, assets, references.
+    """Run all checks: links, orphans, snippets, unused assets, nav contract,
+    directory indices, config assets, and the reference/content/security
+    pipeline (which also covers placeholders, brand rules, and credential
+    scanning).
 
     Optionally pass PATH to scope the audit to a single Markdown file or a custom
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
+    _shared._validate_output_format(output_format, _shared._ANNOTATION_FORMATS)
     _t_init_start = time.perf_counter()
     _validate_only_flag(only)
 
     # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
+    # Plain CLI-usage error: Exit 1, not Exit 2 (reserved for security breaches
+    # per the Tier-0 Exit Code Contract).
     if strict and exit_zero:
         typer.echo(
             "ERROR: --strict and --exit-zero are mutually exclusive. "
             "--strict promotes warnings to errors; --exit-zero suppresses all exit codes.",
             err=True,
         )
-        raise typer.Exit(2)
+        raise typer.Exit(1)
 
     if ci:
         strict = True
@@ -1638,58 +1799,44 @@ def check_all(
     # CEO-052 "The Sovereign Root Fix": when an explicit target PATH is given,
     # derive repo_root by searching upward FROM that path — not from CWD.
     # "The configuration follows the target, not the caller."
-    _search_from: Path | None = None
-    if path is not None:
-        _pre = Path(path).resolve()
-        _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
-        repo_root = find_repo_root(search_from=_search_from)
-        config, loaded_from_file = ZenzicConfig.load(repo_root)
+        (
+            config,
+            repo_root,
+            docs_root,
+            exclusion_mgr,
+            _single_file,
+            loaded_from_file,
+            _target_hint,
+        ) = setup_command(
+            path,
+            config_file=_config_file_override,
+            engine_override=engine,
+            offline=offline,
+            exclude_url=exclude_url,
+            cli_exclude_dirs=exclude_dir,
+            cli_include_dirs=include_dir,
+        )
     except RuntimeError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
-    config = _shared._apply_engine_override(config, engine)
-    if offline:
-        config.build_context.offline_mode = True
-    if exclude_url:
-        config = config.model_copy(
-            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
-        )
 
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
-
-    _single_file: Path | None = None
-    _target_hint: str | None = None
-    if path is not None:
-        config, _single_file, _, _target_hint = _apply_target(repo_root, config, path)
-
-    docs_root = (repo_root / config.docs_dir).resolve()
-    # CEO-043: explicit target may live outside the CWD repo root.
-    # Adopt the target as the sovereign sandbox so the path traversal guard
-    # rejects escapes FROM the target, not the location OF the target.
-    try:
-        docs_root.relative_to(repo_root)
-    except ValueError:
-        repo_root = docs_root
-    exclusion_mgr = _shared._build_exclusion_manager(
-        config,
-        repo_root,
-        docs_root,
-        exclude_dirs=exclude_dir,
-        include_dirs=include_dir,
-    )
 
     effective_strict = strict if strict is not None else config.strict
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
     t0 = time.monotonic()
+    _t_suppr_start = time.perf_counter()
     inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
         docs_root, config, exclusion_mgr
     )
     per_file_suppressions = count_per_file_ignores(config)
+    _suppression_s = time.perf_counter() - _t_suppr_start
     suppression_audit = SuppressionAudit(
         inline_count=inline_suppressions,
         per_file_count=per_file_suppressions,
@@ -1735,12 +1882,12 @@ def check_all(
             check_external=not no_external,
             show_progress=show_progress,
             init_start_time=_t_init_start,
+            suppression_s=_suppression_s,
+            rule_engine_target=_single_file,
         )
 
     if only:
         _apply_only_filter(results, only)
-
-    elapsed = time.monotonic() - t0
 
     with sovereign_context(force_audit=audit):
         all_findings = _to_findings(results, docs_root, repo_root, config)
@@ -1762,10 +1909,39 @@ def check_all(
     _findings_counts: dict[str, int] = {}
     for _f in all_findings:
         _findings_counts[_f.code] = _findings_counts.get(_f.code, 0) + 1
+
+    # DQS scope parity: Z-code finding penalties above are already scoped to
+    # _single_file (all_findings was filtered before this point). The
+    # suppression/technical-debt penalty must match that scope instead of
+    # always reflecting the whole project — otherwise a single-file scan
+    # silently mixes "this file's findings" with "the whole project's debt",
+    # an undocumented hybrid a user has no way to detect from the score
+    # alone. suppression_audit itself (used for the CAP fail-hard gate above,
+    # and passed as-is to SARIF/text reporting) stays project-wide on
+    # purpose: the suppression cap is a project-level governance ceiling,
+    # not a per-file concept. Only the score/JSON-payload view is rescoped.
+    _score_suppression_audit = suppression_audit
+    if _single_file is not None:
+        try:
+            _sf_rel_for_score = str(_single_file.relative_to(docs_root))
+        except ValueError:
+            # Target lives outside docs_root (e.g. CHANGELOG.md at repo root) —
+            # inline_hotspots is keyed relative to docs_root, so a target
+            # outside it cannot carry an inline suppression by construction.
+            _sf_inline_count = 0
+        else:
+            _sf_inline_count = suppression_audit.inline_hotspots.get(_sf_rel_for_score, 0)
+        _score_suppression_audit = SuppressionAudit(
+            inline_count=_sf_inline_count,
+            per_file_count=0,
+            cap=suppression_audit.cap,
+            inline_hotspots=({_sf_rel_for_score: _sf_inline_count} if _sf_inline_count else {}),
+        )
+
     _score_report = compute_score(
         _findings_counts,
-        suppression_count=suppression_audit.total,
-        suppression_cap=suppression_audit.cap,
+        suppression_count=_score_suppression_audit.total,
+        suppression_cap=_score_suppression_audit.cap,
     )
 
     if update_baseline:
@@ -1789,21 +1965,30 @@ def check_all(
                 typer.echo(
                     f"ERROR: Failed to load baseline '{baseline_file_path}': {exc}", err=True
                 )
+                # A malformed baseline is a configuration problem, not a licence
+                # to forget what the scan already found: `all_findings` is
+                # populated well before this point, so exiting 1 here downgraded
+                # a live credential breach from 2 to 1. A checked-in, writable
+                # artifact must not be able to do that.
+                _evaluate_security_exit(all_findings)
                 raise typer.Exit(1) from None
 
+    # The single elapsed measurement behind the summary line's total. It spans
+    # from just before the suppression audit through analysis AND the
+    # post-analysis stage above (findings conversion, governance filters,
+    # scoring, baseline) — so it is legitimately larger than the sum of the
+    # progress lines, which stop at the end of analysis. An earlier duplicate
+    # assignment sat immediately after _collect_all_results and was always
+    # overwritten here before ever being read; it is removed, because its only
+    # effect was to make this window look narrower than it is.
     elapsed = time.monotonic() - t0
 
     if output_format == "json":
         _shared._output_check_all_json_findings(
-            results, all_findings, repo_root, docs_root, config, suppression_audit
+            results, all_findings, repo_root, docs_root, config, _score_suppression_audit
         )
 
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
@@ -1820,12 +2005,7 @@ def check_all(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(all_findings, __version__, rules_map=_rules_map)
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
@@ -1841,12 +2021,7 @@ def check_all(
     elif output_format == "github-annotations":
         _shared._output_github_annotations(all_findings)
 
-        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-        if incidents:
-            raise typer.Exit(3)
-        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-        if breaches:
-            raise typer.Exit(2)
+        _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:
             unbaselined = sum(
@@ -1868,13 +2043,22 @@ def check_all(
         reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        docs_count, assets_count = _shared._count_docs_assets(
+        docs_count, config_count, assets_count = _shared._count_docs_assets(
             docs_root, repo_root, exclusion_mgr, config
         )
         if _single_file is not None:
-            docs_count, assets_count = 1, 0
+            docs_count, config_count, assets_count = 1, 0, 0
 
-        if docs_count == 0 and _single_file is None:
+        # "No files found" is a presentation shortcut, and it must never sit
+        # upstream of the exit-code contract. The security-only pass scans files
+        # user scoping removed from the corpus, so a tree whose every page is
+        # excluded has a zero page count and can still hold a live credential —
+        # skipping the audit there reported exit 0 over a real breach, while
+        # --quiet and --format json (which have no such shortcut) reported 2.
+        # One corpus must not get three answers, so the shortcut yields whenever
+        # a non-suppressible finding exists and the normal path renders it.
+        _has_security = any(f.severity in _SECURITY_SEVERITIES for f in all_findings)
+        if docs_count == 0 and _single_file is None and not _has_security:
             _target_display = _target_hint or "./"
             _shared.console.print(
                 f"[bold yellow]\u26a0 Z906 NO_FILES_FOUND[/bold yellow] — "
@@ -1898,15 +2082,23 @@ def check_all(
                 f"[{ZenzicPalette.DIM}]Baseline: {active_baseline.score}/100 "
                 f"({baselined_cnt} baselined, {new_cnt} new)[/]"
             )
+            # Both messages name what the count is measured against. Printed
+            # directly under a "(N baselined, N new)" line whose own numbers are
+            # typically zero here, a bare "341 issues resolved" gave the reader
+            # no referent for where 341 came from.
+            _recorded = active_baseline.findings_count
             if fixed_cnt > 0:
                 if fixed_cnt > 50 and new_cnt == 0:
                     _footer_lines.append(
-                        f"[{ZenzicPalette.SUCCESS}]✨ Massive technical debt reduction detected ({fixed_cnt} issues resolved). "
-                        f"Baseline is stale. Run 'zenzic check all --update-baseline' to lock in this clean state.[/]"
+                        f"[{ZenzicPalette.SUCCESS}]✨ Massive technical debt reduction detected: "
+                        f"{fixed_cnt} of the {_recorded} findings recorded in the baseline no "
+                        f"longer occur. Baseline is stale. Run 'zenzic check all "
+                        f"--update-baseline' to lock in this clean state.[/]"
                     )
                 else:
                     _footer_lines.append(
-                        f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} baselined issue{'s' if fixed_cnt != 1 else ''} resolved! "
+                        f"[{ZenzicPalette.SUCCESS}]💡 {fixed_cnt} of the {_recorded} findings "
+                        f"recorded in the baseline no longer occur. "
                         f"Run 'zenzic check --update-baseline' to refresh baseline.[/]"
                     )
 
@@ -1918,11 +2110,22 @@ def check_all(
                 f"{'s' if _score_report.security_findings != 1 else ''} detected)[/]"
             )
         else:
-            _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
-            _pre_breaches = sum(
-                1 for _f in all_findings if _f.severity in {"security_breach", "security_incident"}
-            )
-            _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
+            # Non-suppressible security findings always fail regardless of
+            # baseline; plain errors and strict-promoted warnings are
+            # baseline-sensitive, matching the real exit-code decision
+            # (unbaselined_defects, below) and reporter.py's baseline_active
+            # verdict fix (same bug shape, one screen away).
+            if active_baseline is not None:
+                _pre_errors = sum(
+                    1 for _f in all_findings if _f.severity == "error" and not _f.is_baselined
+                )
+                _pre_warnings = sum(
+                    1 for _f in all_findings if _f.severity == "warning" and not _f.is_baselined
+                )
+            else:
+                _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
+                _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
+            _pre_breaches = sum(1 for _f in all_findings if _f.severity in _SECURITY_SEVERITIES)
             _gate_failed = (
                 _pre_breaches > 0 or _pre_errors > 0 or (effective_strict and _pre_warnings > 0)
             )
@@ -1941,23 +2144,22 @@ def check_all(
             version=__version__,
             elapsed=elapsed,
             docs_count=docs_count,
+            config_count=config_count,
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             target=_target_hint,
             strict=effective_strict,
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(*_footer_lines),
+            baseline_active=active_baseline is not None,
         )
 
     if output_format == "text" and not quiet:
-        print_suppression_audit_footer(suppression_audit, audit_mode=audit)
+        print_suppression_audit_footer(
+            suppression_audit, audit_mode=audit, scoped_to_single_file=_single_file is not None
+        )
 
-    incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-    if incidents:
-        raise typer.Exit(3)
-    breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-    if breaches:
-        raise typer.Exit(2)
+    _evaluate_security_exit(all_findings)
 
     if active_baseline is not None:
         unbaselined_defects = sum(

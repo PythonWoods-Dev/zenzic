@@ -152,10 +152,10 @@ The Zenzic solution is an **Anti-Corruption Layer (Facade)** around regex operat
 ```python
 from zenzic.core import regex
 
+
 def contains_secret(line: str) -> bool:
     # contributor-facing API stays stable
     return regex.search(SECRET_PATTERN, line) is not None
-
 ```
 
 This design gives us three guarantees at once:

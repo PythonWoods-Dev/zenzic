@@ -8,8 +8,6 @@ description: "Analysis of the z601-brand-obsolescence fixture."
 
 **Z-Code:** `Z601 BRAND_OBSOLESCENCE` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z601BrandObsolescence />
-
 ---
 
 ## The Fixture

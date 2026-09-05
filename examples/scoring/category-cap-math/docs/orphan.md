@@ -17,6 +17,8 @@ the penalty table:
 | Z111 | VIRTUAL_ROUTE_BROKEN | error | 0.0 pts | **8.0 pts** |
 | Z113 | AUTHOR_KEY_COLLISION | error | 0.0 pts | **2.0 pts** |
 
+*Historical snapshot as of v0.8.0 — `Z111` has since been reassigned to a different meaning, and `Z113` has been removed entirely. Codes referenced in this historical example may since have been renamed or removed.*
+
 **The paradox**: a repo with 50 Z103 findings would block CI (exit 1) yet
 report DQS = 100/100, because the scorer saw no penalty for Z103.
 

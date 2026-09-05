@@ -13,9 +13,10 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-Zenzic v0.27.0 expands the engine from a structural validator into a full **Deterministic Quality Platform**, introducing evolutionary baseline tracking, topological graph analysis, mathematical content readability linting, and formal TOML configuration validation.
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "Deterministic Quality Platform". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
-![Zenzic v0.27.0: Deterministic Quality Platform](../../assets/images/blog/launch_v0270.webp)
+Zenzic v0.27.0 expands the engine from a structural validator into a full **Deterministic Quality Platform**, introducing evolutionary baseline tracking, topological graph analysis, mathematical content readability linting, and formal TOML configuration validation.
 
 <!-- more -->
 
@@ -80,6 +81,13 @@ When a fatal configuration error occurs, the engine emits `Z110`/`Z111` attached
 ---
 
 ## Summary of New Diagnostic Codes
+
+!!! note "Historical snapshot"
+    This table reflects the code registry as of v0.27.0. Five of its rows have since
+    changed: `Z410` is now a `warning` rather than an `error`; `Z411`'s penalty rose
+    from 2.0 to 5.0; and `Z510`, `Z511` and `Z512` all now carry 1.0 rather than
+    3.0/2.0/2.0. See [Finding Codes](../../reference/finding-codes.md) for the current
+    values.
 
 | Code | Name | Severity | Penalty | Suppressible | Quick Fix |
 | :--- | :--- | :--- | :--- | :--- | :--- |

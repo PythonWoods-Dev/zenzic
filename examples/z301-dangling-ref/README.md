@@ -4,7 +4,7 @@
 # Z301 DANGLING_REF — Gallery Example
 
 **Category:** Z3xx Reference Integrity
-**Expected exit:** 1 (warnings)
+**Expected exit:** 0 (warnings only; 1 under `--strict`)
 
 ## What this demonstrates
 
@@ -29,7 +29,7 @@ zenzic check references
 docs/index.md:9:  Z301  DANGLING_REF  reference ID 'missing-ref' is used but never defined
 ```
 
-Exit code **1**.
+Exit code **0** (warning-level finding, non-blocking by default); **1** under `--strict`.
 
 ## Fix
 

@@ -15,14 +15,16 @@ The Zenzic **Deterministic Quality Score (DQS)** provides a single **0–100 val
 
 ## DQS Category Weights
 
-The Quality Score is a weighted composite of four distinct check categories:
+The Quality Score is a weighted composite of four distinct check categories. This table mirrors
+[Scoring Algorithm Reference](../reference/scoring-algorithm.md)'s canonical 5-tier weight
+matrix — treat that page as the source of truth if the two ever appear to disagree.
 
 | Category | Primary Commands | Finding Codes | Weight | Bucket Cap |
 | :--- | :--- | :--- | :---: | :---: |
-| **Structural Integrity** | `zenzic check links` | `Z101`–`Z105`, `Z107`–`Z109`, `Z113`, `Z121`, `Z124`, `Z410`–`Z411` | **30%** | 30 pts |
-| **Navigation Graph** | `zenzic check orphans` | `Z301`–`Z303`, `Z402` | **25%** | 25 pts |
+| **Structural Integrity** | `zenzic check links` | `Z101`–`Z105`, `Z107`–`Z109`, `Z112`, `Z121`, `Z124`, `Z410`–`Z411` | **30%** | 30 pts |
+| **Navigation Graph** | `zenzic check orphans` | `Z301`–`Z303`, `Z402`, `Z412` | **25%** | 25 pts |
 | **Brand & Governance** | `zenzic check assets` | `Z620`, `Z404`–`Z406`, `Z601`, `Z603`, `Z610`–`Z619` | **25%** | 25 pts |
-| **Content Excellence** | `zenzic check all` | `Z120`, `Z122`, `Z403`, `Z501`–`Z503`, `Z505`–`Z506`, `Z510`–`Z520` | **20%** | 20 pts |
+| **Content Excellence** | `zenzic check all` | `Z120`, `Z122`, `Z403`, `Z501`–`Z503`, `Z505`–`Z506`, `Z510`–`Z523` | **20%** | 20 pts |
 
 !!! danger "Inviolable Security Override"
     If any security finding is detected — **Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**, **Z204 Privacy Gate**, **Z205 XSS Gate** — the Quality Score **collapses to 0/100 unconditionally**. A repository with active secret leaks receives zero quality credit.
@@ -64,24 +66,34 @@ $$\text{Final DQS Score} = 42.0 - 8 = \mathbf{34 / 100}$$
 
 ## CLI Quality Breakdown Ledger
 
-Executing `zenzic score` prints a transparent breakdown ledger detailing raw deductions, category caps, and debt subtotals:
+Executing `zenzic score` prints a transparent breakdown ledger detailing raw deductions, category caps, and the Gravity Cap Enforcement stage — captured live against a real fixture (2 `Z502` content findings, 15 `Z601` brand violations, no suppressions):
 
 ```text title="Terminal"
-✨ Quality Score: 65/100
+✨ Quality Score: 70/100
+  Base Score: 100
 
-╭─ Quality Breakdown ──────────────────────────────────────╮
-│   Category     Issues  Weight  Raw Pts  Applied Pts      │
-├──────────────────────────────────────────────────────────┤
-│ ✓ structural      0      30%      0           0          │
-│ ✓ navigation      0      25%      0           0          │
-│ ✗ content         2      20%     -4          -4          │
-│ ✗ brand          15      25%    -30         -25 (CAPPED) │
-├──────────────────────────────────────────────────────────┤
-│   Σ Subtotal                                71           │
-╰──────────────────────────────────────────────────────────╯
-  ! Technical Debt (6 suppressions)          -6 pts
-  = Final Quality Score                      65 / 100
+                                  Quality Breakdown
+╭──────┬──────────────────────┬────────┬────────┬─────────┬─────────────────────────╮
+│  •   │ Category             │ Issues │ Weight │ Raw Pts │             Applied Pts │
+├──────┼──────────────────────┼────────┼────────┼─────────┼─────────────────────────┤
+│  ✔   │ structural           │      0 │    30% │       0 │                       0 │
+│  ✔   │ navigation           │ 1 info │    25% │       0 │                       0 │
+│  ✘   │ content              │      2 │    20% │      -2 │                      -2 │
+│  ✘   │ brand                │     15 │    25% │     -60 │ -25 (Max limit reached) │
+├──────┼──────────────────────┼────────┼────────┼─────────┼─────────────────────────┤
+│      │ Σ Category Penalties │        │        │         │                     -27 │
+╰──────┴──────────────────────┴────────┴────────┴─────────┴─────────────────────────╯
+  ! Gravity Cap Enforcement (Brand = 0): -3 pts
+  ! Technical Debt (0 suppressions): 0 pts
+  = Final Score: 100 - 30 = 70
 ```
+
+Category penalties alone total 27 (structural 0 + navigation 0 + content 2 + brand 25). Because
+the brand bucket is fully zeroed (Applied Pts `0.0 / 25.0`), the Gravity Cap stage additionally
+caps the pre-debt subtotal at 70 — here forcing 3 more points off (100 − 27 = 73, capped to 70)
+before any suppression debt is applied. The `! Gravity Cap Enforcement` line appears in the
+output specifically when this stage is triggered; on a run where no category bucket is fully
+zeroed, this line is absent and the score is simply `100 − Σ Category Penalties − suppression debt`.
 
 ---
 

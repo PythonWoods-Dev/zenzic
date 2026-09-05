@@ -15,8 +15,6 @@ categories:
 
 Zenzic v0.26.0 introduces the **Asynchronous CLI Execution Bridge**, bringing the global Documentation Quality Score (DQS) into the editor authoring environment while enforcing 100% mathematical determinism between terminal runs and VS Code status bar indicators.
 
-![Zenzic v0.26.0: DQS Workspace UI & Asynchronous CLI Bridge](../../assets/images/blog/launch_v0260.webp)
-
 <!-- more -->
 
 ## Reconciling Editor Performance with Global Scoring
@@ -31,8 +29,6 @@ Zenzic v0.26.0 solves this fundamental architectural challenge by establishing a
 ---
 
 ## Architectural Invariants Preserved
-
-This section details the specifications and guidelines for Architectural Invariants Preserved within the Zenzic ecosystem.
 
 ### 1. Absolute Determinism
 
@@ -129,8 +125,6 @@ Zenzic v0.26.0 contributes a new command to VS Code:
 ---
 
 ## Upgrade Guide
-
-This section details the specifications and guidelines for Upgrade Guide within the Zenzic ecosystem.
 
 ### Core Engine & CLI
 

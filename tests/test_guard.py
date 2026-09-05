@@ -50,18 +50,25 @@ def test_is_doc_source_txt_false() -> None:
 
 
 def test_scan_file_for_secrets_oserror(tmp_path: Path) -> None:
-    """OSError when reading a file returns empty findings list."""
+    """An unreadable file returns no findings AND reports itself unreadable.
+
+    The second element is the whole point: an empty finding list alone cannot
+    distinguish "this file is clean" from "this file could not be opened", and
+    a secret gate that conflates the two reports a clean bill it did not earn.
+    """
     missing = tmp_path / "nonexistent.md"
-    result = _scan_file_for_secrets(missing, [])
-    assert result == []
+    findings, readable = _scan_file_for_secrets(missing, [])
+    assert findings == []
+    assert readable is False
 
 
 def test_scan_file_for_secrets_clean_file(tmp_path: Path) -> None:
-    """A file with no secrets returns an empty list."""
+    """A genuinely clean file returns no findings and reports itself readable."""
     doc = tmp_path / "clean.md"
     doc.write_text("# Hello\n\nThis is a clean document.\n")
-    result = _scan_file_for_secrets(doc, [])
-    assert result == []
+    findings, readable = _scan_file_for_secrets(doc, [])
+    assert findings == []
+    assert readable is True
 
 
 # ── _staged_doc_files ─────────────────────────────────────────────────────────
@@ -212,7 +219,7 @@ def test_guard_scan_clean_text(tmp_path: Path) -> None:
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
-        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([], True)),
     ):
         result = runner.invoke(app, ["guard", "scan"])
     assert result.exit_code == 0
@@ -234,7 +241,7 @@ def test_guard_scan_with_findings_text_exits_2(tmp_path: Path) -> None:
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
-        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[finding]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([finding], True)),
     ):
         result = runner.invoke(app, ["guard", "scan"])
     assert result.exit_code == 2
@@ -256,7 +263,7 @@ def test_guard_scan_with_findings_json_exits_2(tmp_path: Path) -> None:
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
-        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[finding]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([finding], True)),
     ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
     assert result.exit_code == 2
@@ -272,7 +279,7 @@ def test_guard_scan_json_clean_exits_0(tmp_path: Path) -> None:
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
-        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([], True)),
     ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
     assert result.exit_code == 0

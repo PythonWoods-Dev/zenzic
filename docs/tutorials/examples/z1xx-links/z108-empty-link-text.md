@@ -8,8 +8,6 @@ description: "Analysis of the z108-empty-link-text fixture: a link whose label i
 
 **Z-Code:** `Z108 EMPTY_LINK_TEXT` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z108EmptyLinkText />
-
 ---
 
 ## The Fixture

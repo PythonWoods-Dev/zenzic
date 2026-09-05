@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.scorer import (
+    DEFAULT_BASELINE_STALE_DAYS,
     ScoreReport,
     compute_score,
     load_snapshot,
@@ -223,6 +224,12 @@ def test_unknown_code_contributes_zero_deduction() -> None:
     assert report.score == 100
 
 
+def test_default_baseline_stale_days_is_a_plain_constant() -> None:
+    """DEFAULT_BASELINE_STALE_DAYS is a pure, I/O-free constant (no filesystem access)."""
+    assert DEFAULT_BASELINE_STALE_DAYS == 7
+    assert isinstance(DEFAULT_BASELINE_STALE_DAYS, int)
+
+
 def test_to_dict_structure() -> None:
     # Z101:1 → struct 32; Z503:2 → content 10; Z405:1 → brand 7; nav 20 → total 69
     report = compute_score({"Z101": 1, "Z503": 2, "Z405": 1})
@@ -307,14 +314,6 @@ def test_z111_config_schema_error_score() -> None:
     """Z111 CONFIG_SCHEMA_ERROR: 0.0 DQS penalty (config abort, score 0)."""
     r_z111 = compute_score({"Z111": 1})
     assert r_z111.score == 0
-
-
-def test_z113_structural_penalty() -> None:
-    """Z113 AUTHOR_KEY_COLLISION: -2.0 pts from structural bucket (ADR-031)."""
-    report = compute_score({"Z113": 1})
-    structural = next(c for c in report.categories if c.name == "structural")
-    assert structural.issues == 1
-    assert report.score == 98
 
 
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
@@ -539,8 +538,8 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 # ─── CLI: check all --exit-zero ───────────────────────────────────────────────
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -570,7 +569,7 @@ def test_check_all_exit_zero_with_failures(
     assert "FAILED" in result.stdout  # report is printed but exit is 0
 
 
-@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._command_setup.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
     "zenzic.cli._check.validate_links_structured",

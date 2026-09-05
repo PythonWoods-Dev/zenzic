@@ -24,6 +24,7 @@ from rich.text import Text
 from zenzic import __version__
 from zenzic.cli._check import (
     _collect_all_results,
+    _filter_flat_findings,
     _to_findings,
 )
 from zenzic.cli._shared import (
@@ -78,9 +79,24 @@ class _Act:
     example_dir: str
     expected_pass: bool
     expected_breach: bool = False
+    expected_incident: bool = False
+    """True for scenarios whose finding carries ``severity="security_incident"``
+    (currently Z203 only) — Exit Code 3, distinct from ``expected_breach``'s
+    ``"security_breach"``/Exit Code 2. Neither ``errors`` (severity=="error")
+    nor ``has_breach`` (severity=="security_breach") observes this severity,
+    so it needs its own expectation flag; see :attr:`_ActResult.has_incident`.
+    """
     show_info: bool = False
     docs_root_override: str | None = None
     single_file: str | None = None
+    emitted_code: str | None = None
+    """Override for the code the engine actually emits, when it differs from
+    ``code`` (the gallery lookup key / directory name). Used to filter ``lab``
+    output. Only set when the engine consolidates a catalog code into a
+    different one at runtime (e.g. Z109/Z104 are both reported as Z101) --
+    the gallery entry keeps its historical key so ``zenzic lab z109`` still
+    works, but filtering targets the code that is really emitted.
+    """
 
 
 _GALLERY: dict[str, _Act] = {
@@ -105,6 +121,13 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z111-config-schema-error",
         expected_pass=False,
     ),
+    "z112": _Act(
+        code="z112",
+        title="Stale Allowlist Entry",
+        description="Z112 STALE_ALLOWLIST_ENTRY — unused absolute_path_allowlist entry in .zenzic.toml; exit 0 (warning)",
+        example_dir="z112-stale-allowlist",
+        expected_pass=True,
+    ),
     "z620": _Act(
         code="z620",
         title="Stale Global Suppression",
@@ -122,9 +145,13 @@ _GALLERY: dict[str, _Act] = {
     "z109": _Act(
         code="z109",
         title="External Link Broken",
-        description="Z109 EXTERNAL_LINK_BROKEN — external URL references that resolve to missing pages",
+        description=(
+            "Z109 EXTERNAL_LINK_BROKEN — external URL unreachable; consolidated "
+            "and reported as Z101 LINK_BROKEN by the current engine"
+        ),
         example_dir="z109-external-link-broken",
         expected_pass=False,
+        emitted_code="Z101",
     ),
     "z201": _Act(
         code="z201",
@@ -182,6 +209,14 @@ _GALLERY: dict[str, _Act] = {
         description="Z202 PATH_TRAVERSAL — link escapes the docs root boundary; non-suppressible, exit 1 (error)",
         example_dir="z202-path-traversal",
         expected_pass=False,
+    ),
+    "z203": _Act(
+        code="z203",
+        title="Fatal Path Traversal",
+        description="Z203 PATH_TRAVERSAL_FATAL — traversal targets an OS system directory (/etc/, /root/, ...); non-suppressible, exit 3 (security incident)",
+        example_dir="z203-fatal-path-traversal",
+        expected_pass=False,
+        expected_incident=True,
     ),
     "z204": _Act(
         code="z204",
@@ -331,12 +366,44 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z520-malformed-list",
         expected_pass=False,
     ),
+    "z521": _Act(
+        code="z521",
+        title="Required Table Column Missing",
+        description="Z521 REQUIRED_TABLE_COLUMN — table missing required column header",
+        example_dir="z521-required-table-column",
+        expected_pass=False,
+    ),
+    "z522": _Act(
+        code="z522",
+        title="Table Cell Enum Violation",
+        description="Z522 TABLE_CELL_ENUM — table cell value outside allowed enum list",
+        example_dir="z522-table-cell-enum",
+        expected_pass=False,
+    ),
+    "z523": _Act(
+        code="z523",
+        title="Heading Order Violation",
+        description="Z523 HEADING_ORDER_VIOLATION — headings appear out of configured sequence",
+        example_dir="z523-heading-order",
+        expected_pass=False,
+    ),
+    "z412": _Act(
+        code="z412",
+        title="Traceability Broken",
+        description="Z412 TRACEABILITY_BROKEN — document lacks required inbound references from target namespaces",
+        example_dir="z412-traceability-broken",
+        expected_pass=False,
+    ),
     "z104": _Act(
         code="z104",
         title="File Not Found",
-        description="Z104 FILE_NOT_FOUND — link target file missing from the filesystem; penalty 8.0, exit 1",
+        description=(
+            "Z104 FILE_NOT_FOUND — link target file missing from the filesystem; "
+            "consolidated and reported as Z101 LINK_BROKEN by the current engine"
+        ),
         example_dir="z104-file-not-found",
         expected_pass=False,
+        emitted_code="Z101",
     ),
     "z107": _Act(
         code="z107",
@@ -543,11 +610,16 @@ class _ActResult:
     elapsed: float
     engine: str
     docs_count: int = 0
+    config_count: int = 0
     assets_count: int = 0
+    collateral_hidden: int = 0
+    has_incident: bool = False
 
     @property
     def total_files(self) -> int:
-        return self.docs_count + self.assets_count
+        # Config files were previously folded into docs_count; keep them in the
+        # total so the lab summary's file count is unchanged by the split.
+        return self.docs_count + self.config_count + self.assets_count
 
     @property
     def throughput(self) -> float:
@@ -558,13 +630,24 @@ class _ActResult:
     def met_expectation(self) -> bool:
         if self.act.expected_breach:
             return self.has_breach
+        if self.act.expected_incident:
+            return self.has_incident
         if self.act.expected_pass:
             return self.errors == 0
         return self.errors > 0 or self.warnings > 0
 
 
-def _run_act(act: _Act, examples_root: Path) -> _ActResult:
-    """Run all checks for *act* against its example directory."""
+def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResult:
+    """Run all checks for *act* against its example directory.
+
+    By default, output is filtered to only the scenario's own code (plus any
+    fatal config codes) via the same ``--only`` mechanism used by ``check
+    all`` -- the raw list otherwise mixes in incidental findings that the
+    minimal gallery fixture also happens to trigger (e.g. short-content or
+    dead-end-node warnings), which is not what the scenario is teaching.
+    Pass ``show_all=True`` (``zenzic lab <code> --all``) to see the complete,
+    unfiltered finding list instead.
+    """
     example_dir = examples_root / act.example_dir
     from zenzic.core.exceptions import ConfigurationError
 
@@ -580,7 +663,13 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
             warnings=0,
             has_breach=False,
             elapsed=elapsed,
-            engine="standalone",
+            # Config loading is what just failed, so the engine was never
+            # determined. Reporting a concrete "standalone" here asserted a
+            # specific engine that was never resolved — the summary table's
+            # Engine column showed it as fact for every config-error scenario
+            # (Z001/Z110/Z111), including fixtures whose broken config declares
+            # a different engine entirely.
+            engine="unknown",
             docs_count=0,
             assets_count=0,
         )
@@ -602,21 +691,35 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     )
     elapsed = time.monotonic() - t0
 
-    findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir, config=config)
+    only_str = (act.emitted_code or act.code.upper()) if not show_all else None
 
     from zenzic.cli._check import _append_z620_findings
     from zenzic.cli._governance import _apply_directory_policies
 
-    findings = _apply_directory_policies(findings, config)
-    _append_z620_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
+    unfiltered_findings: list[Finding] = _to_findings(
+        results, docs_root, repo_root=example_dir, config=config
+    )
+    unfiltered_findings = _apply_directory_policies(unfiltered_findings, config)
+    _append_z620_findings(
+        unfiltered_findings, config, example_dir, check_all=True, check_external_urls=True
+    )
+
+    collateral_hidden = 0
+    if only_str:
+        findings = _filter_flat_findings(unfiltered_findings, only_str)
+        collateral_hidden = len(unfiltered_findings) - len(findings)
+    else:
+        findings = unfiltered_findings
 
     if single_file is not None:
         sf_rel = str(single_file.relative_to(example_dir))
         findings = [f for f in findings if f.rel_path == sf_rel]
 
-    docs_count, assets_count = _count_docs_assets(docs_root, example_dir, exclusion_mgr, config)
+    docs_count, config_count, assets_count = _count_docs_assets(
+        docs_root, example_dir, exclusion_mgr, config
+    )
     if single_file is not None:
-        docs_count, assets_count = 1, 0
+        docs_count, config_count, assets_count = 1, 0, 0
 
     reporter = ZenzicReporter(get_console(), docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
@@ -624,6 +727,7 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
         version=__version__,
         elapsed=elapsed,
         docs_count=docs_count,
+        config_count=config_count,
         assets_count=assets_count,
         engine=config.build_context.engine,
         target=target_hint,
@@ -631,6 +735,7 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     )
 
     has_breach = any(f.severity == "security_breach" for f in findings)
+    has_incident = any(f.severity == "security_incident" for f in findings)
     return _ActResult(
         act=act,
         errors=errors,
@@ -639,7 +744,10 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
         elapsed=elapsed,
         engine=config.build_context.engine,
         docs_count=docs_count,
+        config_count=config_count,
         assets_count=assets_count,
+        collateral_hidden=collateral_hidden,
+        has_incident=has_incident,
     )
 
 
@@ -651,6 +759,10 @@ def _status_cell(r: _ActResult) -> str:
         if r.has_breach:
             return "[bold red]BREACH[/] [green]✓[/]"
         return "[yellow]BREACH expected -- not triggered[/] [red]✗[/]"
+    if r.act.expected_incident:
+        if r.has_incident:
+            return "[bold red]INCIDENT[/] [green]✓[/]"
+        return "[yellow]INCIDENT expected -- not triggered[/] [red]✗[/]"
     if r.act.expected_pass:
         if r.errors == 0:
             return "[bold green]PASS[/] [green]✓[/]"
@@ -735,8 +847,17 @@ def _print_act_seal(r: _ActResult) -> None:
     )
     seal_items: list[Text] = [
         Text.from_markup(f"[{ZenzicPalette.DIM}]{files_line}[/]"),
-        Text(),
     ]
+    if r.collateral_hidden:
+        n = r.collateral_hidden
+        shown_code = r.act.emitted_code or r.act.code.upper()
+        seal_items.append(
+            Text.from_markup(
+                f"[{ZenzicPalette.DIM}]{n} unrelated finding{'s' if n != 1 else ''} hidden"
+                f" (not {shown_code}) {emoji('dot')} pass --all to see everything[/]"
+            )
+        )
+    seal_items.append(Text())
     if r.met_expectation:
         verdict = f"{emoji('check')} {r.act.code.upper()} — {r.act.title} — expectation met."
         seal_items.append(Text.from_markup(f"[bold {ZenzicPalette.SUCCESS}]{verdict}[/]"))
@@ -768,7 +889,14 @@ def _print_gallery_index() -> None:
     table.add_column("Description", style=ZenzicPalette.WARNING)
     table.add_column("Expects", justify="center", min_width=8)
     for act in sorted(_GALLERY.values(), key=lambda a: a.code):
-        expects = "[red]BREACH[/]" if act.expected_breach else "[yellow]FAIL[/]"
+        if act.expected_breach:
+            expects = "[red]BREACH[/]"
+        elif act.expected_incident:
+            expects = "[red]INCIDENT[/]"
+        elif act.expected_pass:
+            expects = "[green]PASS[/]"
+        else:
+            expects = "[yellow]FAIL[/]"
         table.add_row(act.code.upper(), act.title, act.description, expects)
     con.print(table)
     con.print(
@@ -792,6 +920,16 @@ def lab(
         "-l",
         help="Print the gallery index without running checks.",
     ),
+    show_all: bool = typer.Option(
+        False,
+        "--all",
+        help=(
+            "Show the full, unfiltered finding list instead of only the "
+            "scenario's own code. By default, findings unrelated to the "
+            "requested code (e.g. incidental Z411/Z502 noise from a minimal "
+            "fixture page) are hidden."
+        ),
+    ),
 ) -> None:
     """Zenzic Lab — interactive showcase of bundled documentation examples.
 
@@ -802,7 +940,16 @@ def lab(
         [bold cyan]zenzic lab z101[/]   -- run the Z101 LINK_BROKEN scenario
         [bold cyan]zenzic lab z201[/]   -- run the Z201 CREDENTIAL_SECRET scenario
         [bold cyan]zenzic lab all[/]    -- run all gallery scenarios
+        [bold cyan]zenzic lab z101 --all[/] -- show every finding, not just Z101
         [bold cyan]zenzic lab --list[/] -- print gallery index without running
+
+    By default, each scenario's output is filtered to only the finding
+    code(s) it exists to demonstrate. Pass --all to see the complete,
+    unfiltered check output for the fixture instead.
+
+    Exit code: 0 when every requested scenario meets its expectation, 1 if
+    any scenario does not — this makes ``zenzic lab all`` usable as a
+    regression gate (e.g. in CI) rather than only an interactive demo.
     """
     con = get_console()
     con.print()
@@ -846,6 +993,19 @@ def lab(
     act_results: list[_ActResult] = []
     for act in scenarios_to_run:
         con.print()
+        # Frame an intentionally-failing fixture *before* its output, not only
+        # after. These scenarios reproduce a real failing scan verbatim —
+        # "FAILED: Hard errors detected. Exit code 1 is mandatory." and all —
+        # and the reader otherwise meets that line with no indication it is the
+        # point of the exercise, learning so only from the LAB RESULT seal
+        # printed further down.
+        _expectation = (
+            f"[{ZenzicPalette.DIM}]This scenario is designed to fail — the output below "
+            f"is the expected {act.code.upper()} detection, not a problem with your "
+            f"install.[/]"
+            if not act.expected_pass
+            else f"[{ZenzicPalette.DIM}]This scenario is designed to pass cleanly.[/]"
+        )
         con.print(
             Group(
                 Text.from_markup(
@@ -853,12 +1013,16 @@ def lab(
                 ),
                 Text(),
                 Text.from_markup(f"[bold]{act.description}[/]"),
+                Text.from_markup(_expectation),
             )
         )
-        result = _run_act(act, examples_root)
+        result = _run_act(act, examples_root, show_all=show_all)
         act_results.append(result)
 
     if len(act_results) == 1:
         _print_act_seal(act_results[0])
     elif len(act_results) > 1:
         _print_summary(act_results)
+
+    if any(not r.met_expectation for r in act_results):
+        raise typer.Exit(1)

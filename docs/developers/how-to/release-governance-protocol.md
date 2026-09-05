@@ -158,7 +158,6 @@ Operational consequences:
 Canonical reference:
 
 - [Shared Sovereign Verification Model](../explanation/sovereign-verification-model.md)
-- [Supply-Chain Assurance Profile](../reference/supply-chain-assurance-profile.md)
 
 ### Contributor Runbook (Local Setup) {#contributor-runbook-local-setup}
 

@@ -91,6 +91,13 @@ constitute the document graph, how routes are resolved, and which structural
 checks are active. When no recognized configuration file is present, `standalone`
 is the default.
 
+!!! note "Historical snapshot"
+    This post is dated 2026-05-27. `docusaurus` was a real, supported adapter mode
+    at the time of writing; it was removed in v0.14.0 (2026-06-21) — see
+    [Why We Dropped Docusaurus](2026-06-13-why-we-dropped-docusaurus.md). The
+    real current adapter modes are `mkdocs`, `zensical`, `standalone`,
+    `prebuilt`, and `vsm`.
+
 The adapter label carries a constraint that is not stated elsewhere in the
 output. In `standalone` mode, the navigation manifest is absent. Checks that
 require a resolved route graph — orphaned-page detection being the primary
@@ -369,8 +376,6 @@ represents the maximum security contract: the `docs_dir` configuration value or
 a scanned path attempted to escape the repository boundary toward system paths.
 Like Exit 2, it precedes all other exit-code evaluation. `--exit-zero` has no
 effect.
-
-<CredentialTerminal />
 
 The evaluation order is fixed: Exit 3 conditions are checked first, Exit 2
 second, Exit 1 third. This order ensures that security contracts are never

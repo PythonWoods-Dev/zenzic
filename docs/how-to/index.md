@@ -23,7 +23,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](install.md)
 
-- :material-tune:{ .lg .middle style="color: #6366f1;" } **[Configuration Strategy](initialize-configuration.md)**
+- :material-tune:{ .lg .middle style="color: #6366f1;" } **[Initialize Configuration](initialize-configuration.md)**
 
     ---
 
@@ -54,14 +54,6 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
     Enforce zero-regression gates in GitHub Actions, GitLab CI, and custom CI pipelines.
 
     [:material-arrow-right: Read Guide](configure-ci-cd.md)
-
-- :material-git:{ .lg .middle style="color: #0284c7;" } **[Pre-Commit & Git Hooks](workflow-integration.md)**
-
-    ---
-
-    Integrate sub-50ms secret scanning and fast link linting on staged files.
-
-    [:material-arrow-right: Read Guide](workflow-integration.md)
 
 - :material-shield-badge-outline:{ .lg .middle style="color: #0284c7;" } **[DQS Status Badges](add-badges.md)**
 
@@ -95,6 +87,14 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-privacy-gate.md)
 
+- :material-format-letter-case:{ .lg .middle style="color: #10b981;" } **[Integrate Vale and Zenzic](integrate-vale-and-zenzic.md)**
+
+    ---
+
+    Run prose-style and structural-integrity checks in the same pre-commit pass.
+
+    [:material-arrow-right: Read Guide](integrate-vale-and-zenzic.md)
+
 - :material-link-variant:{ .lg .middle style="color: #10b981;" } **[Cross-Site & Remote Links](manage-cross-site-links.md)**
 
     ---
@@ -103,19 +103,11 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](manage-cross-site-links.md)
 
-- :material-palette-outline:{ .lg .middle style="color: #10b981;" } **[Brand Governance System](use-brand-system.md)**
-
-    ---
-
-    Configure brand term dictionaries and eradicate obsolete product naming conventions.
-
-    [:material-arrow-right: Read Guide](use-brand-system.md)
-
 - :material-share-variant-outline:{ .lg .middle style="color: #10b981;" } **[Social Metadata & SEO](configure-social-metadata.md)**
 
     ---
 
-    Validate OpenGraph social cards, meta descriptions, and sitemap topology.
+    How Zenzic's asset checker recognizes social card images — setup itself is your build engine's job.
 
     [:material-arrow-right: Read Guide](configure-social-metadata.md)
 
@@ -139,7 +131,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     ---
 
-    Migrate documentation seamlessly between MkDocs, Zensical, and Docusaurus.
+    Migrate documentation seamlessly between MkDocs and Zensical.
 
     [:material-arrow-right: Read Guide](migrate-engines.md)
 

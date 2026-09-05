@@ -21,9 +21,9 @@ runtime via the `zenzic.rules` [entry-point group][ep].
 
 ## The Rule Contract
 
-Every plugin rule must satisfy three non-negotiable requirements.  These are
-enforced at engine construction time — a rule that violates any of them is
-rejected with a `PluginContractError` before the first file is scanned.
+Every plugin rule must satisfy four non-negotiable requirements, all enforced
+at engine construction time — a rule that violates any of them is rejected
+with a `PluginContractError` before the first file is scanned.
 
 ### 1. Defined at module level
 
@@ -34,9 +34,11 @@ functions or closures cannot be pickled and **will be rejected**.
 # ✓ correct — importable as my_rules.NoDraftRule
 class NoDraftRule(BaseRule): ...
 
+
 # ✗ wrong — not pickleable; will raise PluginContractError at load time
 def make_rule():
     class NoDraftRule(BaseRule): ...
+
     return NoDraftRule()
 ```
 
@@ -55,7 +57,8 @@ incorrectly.
 ```python
 # ✓ compiled regex is pickleable
 class NoDraftRule(BaseRule):
-    _pattern = re.compile(r"(?i)\bDRAFT\b")   # class-level attribute
+    _pattern = re.compile(r"(?i)\bDRAFT\b")  # class-level attribute
+
 
 # ✓ also fine as an instance attribute set in __init__
 class NoDraftRule(BaseRule):
@@ -81,6 +84,25 @@ class NoDraftRule(BaseRule):
     of the engine — mutations are local to the worker and discarded on
     completion.  All state must be returned as `RuleFinding` objects.
 
+### 4. Code namespace does not collide with a core Zenzic code
+
+A plugin rule's `rule_id` must never equal a real Zenzic-owned finding code
+(`Z101`, `Z201`, and so on — the full set is `codes.py`'s `CODE_DEFINITIONS`
+registry). A collision is meaningless at best: two unrelated findings sharing
+one code in every report, baseline, and suppression file. It is dangerous at
+worst. Several internal code paths key exclusively on `rule_id` to decide
+whether a finding belongs to Zenzic's own non-suppressible security tier. A
+plugin claiming one of those codes can cause its own findings to be silently
+discarded by logic that assumes only Zenzic's built-in scanners can produce
+them.
+
+This is mechanically enforced at load time (`_validate_plugin_code` in
+`core/rules.py`): a plugin whose `rule_id` matches a bare `Z\d{3}` pattern, or
+that does not start with `<your-plugin-id>:`, is rejected with a
+`PluginContractError` before it can produce a single finding. Choose a
+`rule_id` prefixed with your own plugin id (the Plugin tier's documented
+format) and this requirement is satisfied automatically.
+
 ---
 
 ## Minimal example
@@ -90,6 +112,7 @@ class NoDraftRule(BaseRule):
 import re
 from pathlib import Path
 from zenzic.rules import BaseRule, RuleFinding
+
 
 class NoInternalHostnameRule(BaseRule):
     """Flag occurrences of the internal hostname in public documentation."""
@@ -220,8 +243,9 @@ Rules that need to validate links against the routing table should override
 
 ```python
 from collections.abc import Mapping
-from zenzic.core.rules import BaseRule, RuleFinding
+from zenzic.core.rules import BaseRule, ResolutionContext, RuleFinding
 from zenzic.models.vsm import Route
+
 
 class NoOrphanLinkRule(BaseRule):
     @property
@@ -229,12 +253,19 @@ class NoOrphanLinkRule(BaseRule):
         return "MYORG-002"
 
     def check(self, file_path, text):
-        return []   # no standalone check; requires VSM context
+        return []  # no standalone check; requires VSM context
 
-    def check_vsm(self, file_path, text, vsm: Mapping[str, Route], anchors_cache):
+    def check_vsm(
+        self,
+        file_path,
+        text,
+        vsm: Mapping[str, Route],
+        anchors_cache,
+        context: ResolutionContext | None = None,
+    ):
         # vsm maps canonical URL → Route; consult vsm[url].status
         ...
-        return []   # return list[Violation]
+        return []  # return list[Violation]
 ```
 
 See [`BaseRule`][api-baserule] in the API reference for the complete interface.
@@ -250,6 +281,7 @@ setup required:
 from zenzic.rules import run_rule
 from my_org_rules.rules import NoInternalHostnameRule
 
+
 def test_internal_hostname_detected():
     findings = run_rule(
         NoInternalHostnameRule(),
@@ -258,6 +290,7 @@ def test_internal_hostname_detected():
     assert len(findings) == 1
     assert findings[0].rule_id == "MYORG-001"
     assert findings[0].severity == "error"
+
 
 def test_clean_content_passes():
     findings = run_rule(NoInternalHostnameRule(), "All public content here.")

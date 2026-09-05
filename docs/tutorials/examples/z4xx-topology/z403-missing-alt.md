@@ -8,8 +8,6 @@ description: "Analysis of the z403-missing-alt fixture."
 
 **Z-Code:** `Z403 MISSING_ALT` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z403MissingAlt />
-
 ---
 
 ## The Fixture

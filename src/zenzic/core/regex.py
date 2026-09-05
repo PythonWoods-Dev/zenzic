@@ -29,11 +29,21 @@ else:
     Match = Any
 
 # 3. Export RE2 Engine Functions
-_SUPPORTED_FLAGS = IGNORECASE | MULTILINE | DOTALL | VERBOSE | ASCII
+# VERBOSE is deliberately NOT supported: RE2 has no ``(?x)`` inline operator, so
+# translating it produced ``invalid perl operator: (?x`` at compile time. It was
+# previously listed here and translated below, which advertised support for a
+# flag that could never work — every use raised a confusing RE2 parse error
+# instead of the ACL's own clear message. It stays re-exported above for stdlib
+# API compatibility, but passing it now raises the explicit error below.
+_SUPPORTED_FLAGS = IGNORECASE | MULTILINE | DOTALL | ASCII
 
 
 def _apply_flags(pattern: str, flags: int = 0) -> str:
-    unsupported = flags & ~_SUPPORTED_FLAGS
+    # int() on both sides: these constants are ``enum.IntFlag`` members, and
+    # ``~`` on an IntFlag is bounded to the bits that flag type defines. Masking
+    # without the coercion silently accepted (and dropped) any flag outside
+    # ``re.RegexFlag``'s own bits instead of rejecting it.
+    unsupported = int(flags) & ~int(_SUPPORTED_FLAGS)
     if unsupported:
         raise error(f"Unsupported regex flags for RE2 facade: {unsupported!r}")
 
@@ -44,8 +54,6 @@ def _apply_flags(pattern: str, flags: int = 0) -> str:
         inline += "m"
     if flags & DOTALL:
         inline += "s"
-    if flags & VERBOSE:
-        inline += "x"
     # NOTE: ASCII is accepted for stdlib API compatibility, but RE2's Python
     # bindings do not expose a direct equivalent toggle. Semantics remain RE2-default.
 

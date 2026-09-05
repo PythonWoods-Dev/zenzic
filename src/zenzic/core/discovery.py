@@ -2,15 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 """Centralised file-discovery utilities for the Zenzic Core.
 
-Every module that needs to iterate over documentation source files or asset
-files must use the helpers defined here.  This ensures that ``excluded_dirs``
-(including the ``SYSTEM_EXCLUDED_DIRS`` guardrails merged at config load time)
-and ``excluded_file_patterns`` are applied **universally** — scanner, validator,
-credential scanner, and orphan-checker all see the exact same file set.
+Every module that walks the filesystem must use the helpers defined here. No
+module performs its own ``os.walk``/``rglob``; a structural test enforces it.
+
+Two properties depend on that, and only the first was ever written down:
+
+1. ``excluded_dirs`` (including the ``SYSTEM_EXCLUDED_DIRS`` guardrails merged
+   at config load time) and ``excluded_file_patterns`` are applied
+   **universally** — scanner, validator, credential scanner and orphan-checker
+   all see the exact same file set.
+2. **Every yielded path is resolved and confirmed to be inside the repository
+   root.** This is the engine's actual path-traversal boundary: an engine
+   config, a monorepo include or a prebuilt route can name any directory on
+   the machine, and the check here is what stops those bytes being read. A
+   walk added elsewhere does not merely miss an exclusion — it leaves the
+   repository.
 
 Public API
 ----------
-* :func:`walk_files` — low-level ``os.walk`` with directory pruning.
+* :func:`walk_files` — low-level ``os.walk`` with directory pruning, for the
+  scanned corpus (needs a :class:`LayeredExclusionManager`).
+* :func:`iter_files_within` — the same boundary with no exclusion layer, for
+  components that walk a configured subpath rather than the corpus.
 * :func:`iter_markdown_sources` — yield ``.md`` / ``.mdx`` files honouring
   both directory *and* filename exclusions.
 """
@@ -140,6 +153,39 @@ def walk_files(
             yield fpath
 
 
+def iter_files_within(
+    root: Path,
+    repo_root: Path,
+    *,
+    suffixes: frozenset[str] | None = None,
+) -> Generator[Path, None, None]:
+    """Yield files under *root* that genuinely resolve inside *repo_root*.
+
+    The boundary half of :func:`walk_files`, without the exclusion layer, for
+    components that walk a **configured subpath** rather than the scanned
+    corpus — ``doctor``'s decision-record vault and citation roots. Those have
+    no :class:`LayeredExclusionManager` to consult and previously called
+    ``rglob`` directly, which meant they inherited no boundary at all: a
+    configured path containing ``..`` walked straight out of the repository.
+
+    Symlinks are resolved before the check, so a link inside the tree pointing
+    outside it is skipped rather than followed.
+    """
+    resolved_repo_root = repo_root.resolve(strict=False)
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for fname in sorted(filenames):
+            fpath = Path(dirpath) / fname
+            if suffixes is not None and fpath.suffix not in suffixes:
+                continue
+            resolved = fpath.resolve(strict=False)
+            try:
+                if not resolved.is_relative_to(resolved_repo_root):
+                    continue
+            except ValueError:
+                continue
+            yield fpath
+
+
 def iter_locale_markdown_sources(
     locale_root: Path,
     locale_name: str,
@@ -225,6 +271,54 @@ def iter_extra_content_markdown_sources(
         rel = md_file.relative_to(content_root)
         logical_rel = (prefix_path / rel) if prefix_path is not None else rel
         yield md_file, logical_rel
+
+
+def iter_security_scan_sources(
+    docs_root: Path,
+    config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    content_roots: list[Path] | None = None,
+    locale_roots: list[tuple[Path, str]] | None = None,
+) -> Generator[Path, None, None]:
+    """Yield every doc source the security tier must scan, ignoring user scoping.
+
+    Counterpart to :func:`iter_markdown_sources` for the credential and
+    forbidden-term scan (Z201/Z204/Z205): user-configured exclusions
+    (``excluded_dirs``, ``excluded_file_patterns``, CLI ``--exclude-dir``)
+    scope files out of *quality* analysis only — the security tier is never
+    suppressible, by any mechanism, so its discovery walks the corpus through
+    the manager's :meth:`~LayeredExclusionManager.security_view`, which keeps
+    only the system guardrails and the VCS layer.
+
+    The scan must cover **every** tree ``scan_docs_references`` reaches for
+    quality analysis, not just ``docs_root``: an MkDocs monorepo's included
+    sub-project docs (``content_roots``) and i18n locale trees
+    (``locale_roots``) live outside ``docs_root``, and a user exclusion
+    matching a file there would otherwise hide a credential from both the
+    corpus and this pass — the exact defect this function exists to close,
+    re-opened on a different root. Extra roots are deduplicated against
+    ``docs_root`` and each other by resolved path.
+
+    Yields:
+        Absolute :class:`~pathlib.Path` objects (deterministic per-root order).
+    """
+    view = exclusion_manager.security_view()
+    roots: list[Path] = [docs_root, *(content_roots or []), *(lr[0] for lr in (locale_roots or []))]
+    seen: set[Path] = set()
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for md_file in walk_files(root, set(), view, config):
+            if md_file.suffix not in DOC_SUFFIXES:
+                continue
+            if view.should_exclude_file(md_file, root):
+                continue
+            resolved = md_file.resolve(strict=False)
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            yield md_file
 
 
 def iter_markdown_sources(

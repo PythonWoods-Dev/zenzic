@@ -6,9 +6,7 @@ description: "Analysis of the z503-snippet-error fixture."
 
 # Z503 — Snippet Error
 
-**Z-Code:** `Z503 SNIPPET_ERROR` · **Engine:** `standalone` · **Exit:** `1`
-
-<Z503SnippetError />
+**Z-Code:** `Z503 SNIPPET_ERROR` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 

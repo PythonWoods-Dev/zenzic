@@ -63,8 +63,6 @@ Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)
 
 ## The Three Z603 Scenarios
 
-This section details the specifications and guidelines for The Three Z603 Scenarios within the Zenzic ecosystem.
-
 ### Scenario A — Dead Directive (this page)
 
 A valid link has a `zenzic:ignore: Z101` directive that is never consumed.
@@ -100,13 +98,19 @@ aws_key = AKIA••••••••••••EXAMPLE <!-- zenzic:ignore: Z2
 
 ## Policy Isolation
 
-The `docs/tutorials/examples/**` directory is covered by a `Z603` exemption in
-`.zenzic.toml` so this intentional fixture does not fail the Quality Gate:
+The fixture directories carry directory policies in `.zenzic.toml` so that
+intentional demonstration content does not fail the Quality Gate:
 
 ```toml
 [governance.directory_policies]
-"docs/tutorials/examples/**" = ["Z401", "Z506", "Z603"]
+"docs/tutorials/examples/**" = ["Z410", "Z411"]
+"docs/tutorials/examples/z5xx-content/**" = ["Z506"]
 ```
+
+`Z603` is not among them, and does not need to be: the dead suppression above
+sits inside a fenced example block, so the engine never reads it as a live
+directive. Verified with `zenzic check all --audit`, which bypasses every
+suppression and still reports no `Z603` against this page.
 
 ---
 

@@ -6,7 +6,7 @@ description: How Zenzic discovers documentation files and the 4-level Layered Ex
 
 # Discovery & Exclusion
 
-Every Zenzic check -- links, orphans, snippets, placeholders, assets, references -- operates on the same set of files. This guarantee is enforced by a **single entry point** for file discovery and a **4-level exclusion hierarchy** that determines which files and directories are included or excluded from scanning.
+Every Zenzic check -- links, orphans, snippets, unused assets, nav contract, directory indices, config assets, and the reference/content/security pipeline (which also covers placeholders, brand rules, and credential scanning) -- operates on the same set of files. This guarantee is enforced by a **single entry point** for file discovery and a **4-level exclusion hierarchy** that determines which files and directories are included or excluded from scanning.
 
 ---
 
@@ -21,16 +21,18 @@ from the target path, searching for a recognised root marker.
 
 ### Root Markers {#root-markers}
 
-Two markers are authorised (first match wins):
+Four markers are authorised (first match wins):
 
 | Marker | Description |
 | :--- | :--- |
 | `.git/` | Universal VCS marker — present in any Git-tracked repository |
 | `.zenzic.toml` | Zenzic's own configuration file — the explicit governance contract |
+| `zensical.toml` | A Zensical project's own configuration file |
+| `mkdocs.yml` | An MkDocs project's own configuration file |
 
-Both are intentionally engine-neutral: `mkdocs.yml`, `zensical.toml`, and similar
-build-engine files are not root markers. The Core must remain independent of any specific
-documentation framework.
+The error message below still names only `.git`/`.zenzic.toml` explicitly — it predates the
+later addition of `zensical.toml`/`mkdocs.yml` as accepted markers and hasn't been updated to
+match; logged separately for a source-level fix, not a documentation defect on its own.
 
 ### Why a Root Marker is Mandatory {#why-mandatory}
 
@@ -70,9 +72,8 @@ If none of these conditions are met, Zenzic rejects the invocation with an expli
 All modules that need to iterate over documentation source files must call `iter_markdown_sources`. Direct calls to `Path.rglob()`, `os.walk()`, or `Path.iterdir()` from scanner, validator, or credential scanner are prohibited by design. This function:
 
 1. Walks the `docs_root` directory using `os.walk()` with **in-place directory pruning** (excluded subtrees are never entered).
-2. Yields only `.md` and `.md` files, in deterministic sorted order.
-3. Skips symbolic links.
-4. Delegates all exclusion decisions to the `LayeredExclusionManager`.
+2. Yields only `.md` and `.mdx` files, in deterministic sorted order.
+3. Delegates all exclusion decisions to the `LayeredExclusionManager`.
 
 The benefit is architectural: when a directory is excluded, it is excluded everywhere -- scanner, validator, credential scanner, and orphan-checker all see the exact same file set. There is no risk of one module "forgetting" to apply an exclusion rule.
 
@@ -86,7 +87,13 @@ The function takes three arguments:
 
 ## Layered Exclusion Hierarchy {#layered-exclusion}
 
-Zenzic uses a 4-level exclusion model. Each level has a distinct role and a defined precedence. The hierarchy is evaluated top-to-bottom; the **first matching rule wins**.
+Zenzic uses a 4-level exclusion model, named L1-L4. Each level's *name* reflects its role, not
+its evaluation position — the real evaluation order (per `src/zenzic/core/exclusion.py`'s own
+module docstring) is L1, L2 (Forced Inclusions), **L4 (CLI Overrides)**, L2-VCS, L3 (Config
+Exclusions), Default. CLI overrides are checked before VCS-ignore and config exclusions, not
+after — so `--include-dir` can currently override both `.gitignore` and `.zenzic.toml`
+`excluded_dirs`. The hierarchy is evaluated top-to-bottom in that real order; the **first
+matching rule wins**.
 
 ### The Four Levels {#four-levels}
 
@@ -96,14 +103,14 @@ flowchart TD
     L1 -->|".git, .venv, node_modules..."| EXCLUDED_L1[EXCLUDED - Immutable]
     L1 -->|Not in guardrails| L2{L2: Forced Inclusions}
     L2 -->|"included_dirs / included_file_patterns"| INCLUDED_L2[INCLUDED - Forced]
-    L2 -->|Not force-included| L2VCS{L2-VCS: .gitignore}
+    L2 -->|Not force-included| L4{L4: CLI Overrides}
+    L4 -->|"--exclude-dir"| EXCLUDED_L4[EXCLUDED - CLI]
+    L4 -->|"--include-dir"| INCLUDED_L4[INCLUDED - CLI]
+    L4 -->|No CLI override| L2VCS{L2-VCS: .gitignore}
     L2VCS -->|"respect_vcs_ignore=true & match"| EXCLUDED_VCS[EXCLUDED - VCS]
     L2VCS -->|No VCS match| L3{L3: Config Exclusions}
     L3 -->|"excluded_dirs / excluded_file_patterns"| EXCLUDED_L3[EXCLUDED - Config]
-    L3 -->|Not config-excluded| L4{L4: CLI Overrides}
-    L4 -->|"--exclude-dir"| EXCLUDED_L4[EXCLUDED - CLI]
-    L4 -->|"--include-dir"| INCLUDED_L4[INCLUDED - CLI]
-    L4 -->|No CLI override| INCLUDED[INCLUDED - Default]
+    L3 -->|Not config-excluded| INCLUDED[INCLUDED - Default]
 
     style EXCLUDED_L1 fill:#ef4444,color:#fff
     style EXCLUDED_VCS fill:#f59e0b,color:#fff
@@ -126,10 +133,11 @@ flowchart TD
 System Guardrails are **immutable**. They are always excluded regardless of any configuration, CLI flag, or forced inclusion. They protect Zenzic from scanning directories that should never contain documentation source files:
 
 ```text
-.git          .github       .venv         node_modules
-.nox          .tox          .pytest_cache .mypy_cache
-.ruff_cache   __pycache__   .cache
-.hypothesis   .temp
+.git          .github       _zenzic_core  .zenzic_cache
+.venv         node_modules  .nox          .tox
+.pytest_cache .mypy_cache   .ruff_cache   .hypothesis
+build         dist          temp          .temp
+tmp           mutants       out           .vscode-test
 ```
 
 System Guardrails cannot be removed or overridden. They are merged into `excluded_dirs` unconditionally during config initialization. Even `included_dirs` cannot override them -- this is the sole exception to the forced-inclusion rule.
@@ -161,7 +169,7 @@ Per-run overrides via `--exclude-dir` and `--include-dir` flags extend or narrow
 
 ## `respect_vcs_ignore` — VCS Exclusion Semantics {#respect-vcs-ignore}
 
-`respect_vcs_ignore` controls whether Zenzic applies `.gitignore` patterns as an additional exclusion layer. Its default is `false`, implementing the **Zero-Config surprise principle**: the scan perimeter is exactly the filesystem as visible to the developer, with no implicit hidden exclusions.
+`respect_vcs_ignore` controls whether Zenzic applies `.gitignore` patterns as an additional exclusion layer. Its default is `true` — the scan perimeter follows the same VCS-ignore boundary the rest of the toolchain already respects. See [Exclusion Design](./exclusion-design.md) for the rationale and the tradeoffs of disabling it, and [Configuration Reference](../reference/configuration-reference.md#respect-vcs-ignore) for the field-level specification.
 
 When enabled, Zenzic loads `.gitignore` patterns from two locations: the repository root and the docs directory (if a separate `.gitignore` exists there). The VCS ignore parser implements the full gitignore specification, including negation (`!`), path anchoring, and glob wildcards.
 
@@ -189,8 +197,8 @@ The Privacy Gate (Exclusion Zone) defines a strict boundary where Zenzic's scann
 
 - **Directory pruning** is applied during `os.walk()`, not after. Excluded subtrees (e.g. `node_modules/` with thousands of files) are never entered.
 - For non-Markdown files, `walk_files()` uses the same `os.walk()` engine with in-place pruning. Unlike `Path.rglob("*")`, it never enters excluded trees.
-- File patterns are **pre-compiled** to `re.Pattern` at `LayeredExclusionManager` construction time using `fnmatch.translate()`.
-- VCS patterns with no negation rules use a **combined regex** fast path -- all positive rules are merged into a single compiled regex for O(1) matching per path.
+- File patterns are **pre-compiled** to RE2 patterns at `LayeredExclusionManager` construction time using `translate_glob_to_re2()` — a purpose-built translator, not `fnmatch.translate()`, since RE2 doesn't support every construct `fnmatch.translate()` can emit.
+- VCS patterns are delegated to the third-party `pathspec.PathSpec.from_lines()` (`GitWildMatchPattern`), not a Zenzic-authored combined-regex fast path.
 - The `LayeredExclusionManager` is constructed **once** per CLI invocation and passed by reference through the entire pipeline.
 - A separate hard-prune set is used by `find_unused_assets` for `excluded_asset_dirs`.
 
@@ -223,15 +231,23 @@ The invariant guarantees that every engine-generated URL traces back to at least
 
 | Engine          | Implements `get_extra_content_roots` | Status                                                                |
 |-----------------|--------------------------------------|------------------------------------------------------------------------|
-| MkDocs (Material) | No                                  | Opt-in deferred until `material/blog` plugin becomes available.   |
+| MkDocs (Material) | Yes                                 | Discovers monorepo docs roots via `_discover_monorepo_docs_roots()`.  |
 | Zensical        | No                                   | Architecture is identical -- enabled when an out-of-tree plugin ships. |
 | Standalone      | No                                   | No plugins; `docs_root` is the entire content surface.                 |
 
+Monorepo sub-projects are found from the `mkdocs-monorepo-plugin` configuration and
+from `nav`. Every documented `!include` spelling is recognised: a bare list entry
+(`- '!include ./sub'`), an entry keyed on the directive, and the plugin's own titled
+form (`- Sub: '!include ./sub/mkdocs.yml'`). The `nav` tree is walked recursively, so
+an include nested inside a section is found too. This matters beyond navigation: the
+roots discovered here are what the credential scan walks, so a sub-project Zenzic
+cannot reach is a sub-project it cannot scan.
+
 ### `inspect routes` — Site Map Export {#inspect-routes}
 
-The `inspect routes` command exposes the VSM to external consumers as a deterministic JSON structure. Each record carries four fields: `url`, `kind` (`physical` or `virtual`), `source_files` (a sorted array of repo-relative paths that cause the URL to exist), and a `digest` — a SHA-256 fingerprint derived from the URL and its source files.
+The `inspect routes` command exposes the VSM to external consumers as a deterministic JSON structure. Each record carries four fields: `url`, `kind` (one of `physical`, `tag`, `tag_index`, `pagination`, `author`, or `author_index`), `source_files` (a sorted array of repo-relative paths that cause the URL to exist), and a `digest` — a SHA-256 fingerprint derived from the URL and its source files.
 
-The `--kind` flag narrows output to `physical`, `virtual`, or `all` (default). JSON is written exclusively to `stdout`; diagnostics go to `stderr`.
+The `--kind` flag narrows output to `physical`, `virtual`, or `all` (default) — a coarser filter than the record's own `kind` field, where `virtual` matches every non-`physical` value above.
 
 This design makes the VSM composable: external tools, CI/CD dashboards, or specialized tooling can consume the site map without running the full scanner.
 

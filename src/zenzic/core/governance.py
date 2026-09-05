@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
 import zenzic.core.regex as re
-from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, code_severity
 from zenzic.core.exclusion import translate_glob_to_re2
 from zenzic.models.config import ZenzicConfig
 
@@ -130,11 +130,18 @@ def apply_per_file_ignores(
             filtered.append(finding)
             continue
 
-        suppressed = any(
-            (fnmatch(rel_path, pattern) or (docs_rel is not None and fnmatch(docs_rel, pattern)))
-            and code in codes
-            for pattern, codes in normalized_map.items()
-        )
+        suppressed = False
+        for pattern, allowed_codes in normalized_map.items():
+            matches = fnmatch(rel_path, pattern) or (
+                docs_rel is not None and fnmatch(docs_rel, pattern)
+            )
+            if matches and code in allowed_codes:
+                suppressed = True
+                tracker = getattr(config, "_global_tracker", None)
+                if tracker:
+                    tracker.mark_per_file_ignore_used(pattern, code)
+                break
+
         if suppressed:
             continue
         filtered.append(finding)
@@ -237,6 +244,9 @@ class PolicyEvaluator:
         self._forbidden_content: list[str] = config.policies.forbidden_content_patterns
         self._required_headings: list[str] = config.policies.required_heading_patterns
         self._max_complexity: int = config.policies.max_document_complexity
+        self._required_table_columns: dict[str, list[str]] = config.policies.required_table_columns
+        self._table_cell_enums: dict[str, list[str]] = config.policies.table_cell_enums
+        self._required_heading_order: list[str] = config.policies.required_heading_order
 
     # ── Public surface ────────────────────────────────────────────────────────
 
@@ -254,6 +264,9 @@ class PolicyEvaluator:
             or self._forbidden_content
             or self._required_headings
             or (self._max_complexity > 0)
+            or self._required_table_columns
+            or self._table_cell_enums
+            or self._required_heading_order
         )
 
     def check(
@@ -309,6 +322,23 @@ class PolicyEvaluator:
         if self._max_complexity > 0:
             findings.extend(self._check_document_complexity(file_path, content))
 
+        if self._required_table_columns:
+            from zenzic.core.content import check_required_table_columns
+
+            findings.extend(
+                check_required_table_columns(file_path, content, self._required_table_columns)
+            )
+
+        if self._table_cell_enums:
+            from zenzic.core.content import check_table_cell_enums
+
+            findings.extend(check_table_cell_enums(file_path, content, self._table_cell_enums))
+
+        if self._required_heading_order:
+            from zenzic.core.content import check_heading_order
+
+            findings.extend(check_heading_order(file_path, content, self._required_heading_order))
+
         return findings
 
     def _check_forbidden_content(self, file_path: Path, content: str) -> list[RuleFinding]:
@@ -355,7 +385,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z617",
-                            severity="warning",
+                            severity=code_severity("Z617"),
                             file_path=file_path,
                             line_no=i,
                             message=(
@@ -416,7 +446,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z618",
-                        severity="warning",
+                        severity=code_severity("Z618"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -481,7 +511,7 @@ class PolicyEvaluator:
             return [
                 RuleFinding(
                     rule_id="Z619",
-                    severity="warning",
+                    severity=code_severity("Z619"),
                     file_path=file_path,
                     line_no=1,
                     message=(
@@ -512,7 +542,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z610",
-                        severity="warning",
+                        severity=code_severity("Z610"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -530,7 +560,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z612",
-                        severity="warning",
+                        severity=code_severity("Z612"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -555,7 +585,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z613",
-                            severity="error",
+                            severity=code_severity("Z613"),
                             file_path=file_path,
                             line_no=1,
                             message=(
@@ -604,7 +634,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z614",
-                            severity="error",
+                            severity=code_severity("Z614"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -636,7 +666,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z611",
-                            severity="warning",
+                            severity=code_severity("Z611"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -682,7 +712,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z615",
-                        severity="warning",
+                        severity=code_severity("Z615"),
                         file_path=file_path,
                         line_no=line_no,
                         message=(
@@ -836,7 +866,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z616",
-                            severity="error",
+                            severity=code_severity("Z616"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(

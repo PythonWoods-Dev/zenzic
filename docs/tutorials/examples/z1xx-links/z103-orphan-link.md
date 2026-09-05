@@ -8,8 +8,6 @@ description: "Walk through the z103-orphan-link fixture: a link to an existing f
 
 **Z-Code:** `Z103 ORPHAN_LINK` · **Engine:** `zensical` · **Exit:** `1`
 
-<Z103OrphanLink />
-
 ---
 
 ## The Fixture
@@ -25,9 +23,10 @@ It contains two documents and two configuration files:
 | `zensical.toml` | Nav declaration — `guide.md` deliberately excluded |
 
 `zensical.toml` declares a nav with only `index.md`. The file `guide.md` exists on
-disk but has no nav entry — its VSM status is `ORPHAN_BUT_EXISTING`. When `index.md`
-links to it at line 16, Zenzic's `VSMBrokenLinkRule` fires Z103: the link bypasses
-navigation and makes the page reachable only via direct URL.
+disk but has no nav entry — its status in the Virtual Site Map (VSM) is
+`ORPHAN_BUT_EXISTING`. When `index.md` links to it at line 16, Zenzic's
+`VSMBrokenLinkRule` fires Z103: the link bypasses navigation and makes the page
+reachable only via direct URL.
 
 ```toml title="examples/z103-orphan-link/zensical.toml"
 [project]

@@ -38,12 +38,13 @@ TOML array-of-tables syntax.
 
 ## TOML placement
 
-Place all `[[custom_rules]]` blocks **before** the `[build_context]` section. `[build_context]`
-must be the last section in `.zenzic.toml` — TOML table headers apply to all subsequent keys, so
-any top-level field written after `[build_context]` would silently become a `build_context` sub-key.
+Root-level keys (like `docs_dir`) must precede any table header — TOML applies a table header to
+all subsequent keys, so a top-level field written after any `[section]` would silently become
+that section's sub-key. `[[custom_rules]]` blocks can go anywhere after the root-level keys;
+there is no required ordering relative to `[build_context]` specifically.
 
 ```toml
-# Correct ordering
+# Correct ordering — root keys first, tables in any order after that
 docs_dir = "docs"
 
 [[custom_rules]]
@@ -52,9 +53,36 @@ pattern  = "(?i)\\bDRAFT\\b"
 message  = "Remove DRAFT marker before publishing."
 severity = "warning"
 
-[build_context]          # ← always last
+[build_context]
 engine = "mkdocs"
 ```
+
+---
+
+## Rationale links
+
+An optional `link` field attaches a URL to the finding, shown alongside the message. Use it to
+point at the internal policy or style-guide page that explains *why* the rule exists, so a
+reader hitting the finding doesn't have to go ask someone:
+
+```toml
+[[custom_rules]]
+id       = "ZZ-NOINTERNAL"
+pattern  = "internal\\.corp\\.example\\.com"
+message  = "Internal hostname must not appear in public documentation."
+severity = "error"
+link     = "https://wiki.example.com/hostname-policy"
+```
+
+Produces:
+
+```text
+docs/test.md:1:4  ✘  [ZZ-NOINTERNAL]  Internal hostname must not appear in
+public docs. (see https://wiki.example.com/hostname-policy)
+```
+
+`link` is entirely optional — a rule with no `link` set produces exactly its configured
+`message`, unchanged.
 
 ---
 
@@ -67,8 +95,10 @@ engine = "mkdocs"
 | Match anywhere on line | `EXAMPLE` (no anchors needed — matching is per-line) |
 | Exclude false positives | Use word boundaries `\b` to avoid matching `EXAMPLES` when looking for `EXAMPLE` |
 
-All patterns are applied with Python `re.search` — a match anywhere on the line triggers the
-finding. Use `^` and `$` anchors only when you need to constrain to the start or end of the line.
+Patterns are compiled with **RE2** (`zenzic.core.regex`, ADR-013), not Python's `re` module — a
+match anywhere on the line triggers the finding. Use `^` and `$` anchors only when you need to
+constrain to the start or end of the line. RE2 does not support lookaheads, lookbehinds, or
+backreferences; a pattern using them fails at config-load time rather than matching unexpectedly.
 
 ---
 
@@ -76,10 +106,13 @@ finding. Use `^` and `$` anchors only when you need to constrain to the start or
 
 `[[custom_rules]]` applies a regex line-by-line. If your rule requires **AST-level access**
 (e.g., inspecting heading hierarchy, counting paragraphs, or analyzing HTML tag attributes),
-use the **Custom AST Rules API v2** instead:
+use the **Custom Rule SDK v3** instead:
 
-- Drop a `.py` file in `.zenzic/rules/` — no packaging, no entry-points.
-- Subclass [`BaseASTRule`](../developers/how-to/write-ast-rule.md) and implement
-  `visit_block_node()` / `visit_html_node()`.
+- Drop a `.py` file in `.zenzic/rules/` for auto-discovery, or register it explicitly via
+  `[[custom_rules]] class_name = "my_module.my_rules.MyRule"` in `.zenzic.toml`.
+- Subclass `ZenzicRuleV3` and declare a typed `RuleMetadata`.
 
-→ [Writing Custom AST Rules (API v2)](../developers/how-to/write-ast-rule.md)
+The legacy v2 API (`BaseASTRule`) was hard-deprecated and removed in v0.28.0 — instantiating a v2
+rule now raises `PluginContractError` at load time.
+
+→ [Writing Custom Rules (Custom Rule SDK v3)](../developers/how-to/write-ast-rule.md)

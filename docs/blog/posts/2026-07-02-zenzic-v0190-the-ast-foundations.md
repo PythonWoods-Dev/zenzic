@@ -20,8 +20,6 @@ This release represents a fundamental shift in how Zenzic understands and intera
 
 <!-- more -->
 
-![Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix](../../assets/images/blog/zenzic-v0190-the-ast-foundations.webp)
-
 ---
 
 ## The Shift from Regex to a Lossless AST

@@ -265,6 +265,69 @@ just verify
 | **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** |
 | Show version | `just version` | — | Print current version from bump-my-version |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
+| Hero screenshot | `just screenshot-hero` | — | Run the "Power Triad" sandbox (`tests/sandboxes/hero_specimen/`) for a manual landing-page terminal screenshot — exits 3 by design, capture the output rather than treating it as a failure |
+| Circular-link screenshot | `just screenshot-circular` | — | Run the circular-link sandbox (`tests/sandboxes/screenshot_circular/`) for a manual terminal screenshot demonstrating `Z106` `CIRCULAR_LINK` |
+
+---
+
+## Type Checking: `mypy` Is Authoritative
+
+**`mypy` is the project's authoritative type-checker.** It is the one actually run by the
+gates — `nox -s typecheck` and the `mypy` `pre-commit` hook, both running `mypy src/` — so its
+verdict is deterministic and reproducible for every contributor and in CI, independent of
+which editor anyone happens to use. Configuration lives in one place, `[tool.mypy]` in
+`pyproject.toml` (`strict = true`, `python_version = "3.10"`).
+
+Pylance (or Pyright, or any other in-editor checker) is a useful interactive aid, but it is
+**not** the gating standard, and it does not always agree with `mypy` — the two implement
+different inference and reachability rules. Practical consequences:
+
+- **Do not "fix" a line that `mypy` accepts** because your editor underlines it. If the
+  gate is green, the code is correct by this project's standard. If you want the squiggle
+  gone, prefer a change `mypy` also considers an improvement (a real annotation) over a
+  suppression comment.
+- **Do not add a `# type: ignore` that `mypy` does not need.** `strict = true` enables
+  `warn_unused_ignores`, so an unnecessary suppression is itself reported as an error —
+  an ignore added purely to satisfy an editor will fail the gate.
+- **Pin the error code** when a suppression is genuinely required: write
+  `# type: ignore[union-attr]`, not a bare `# type: ignore`. A wrongly-coded ignore
+  suppresses nothing and is reported as unused, which is exactly how a real defect once
+  hid in this repository — a test helper annotated `-> object` produced `attr-defined`
+  errors that the `[union-attr]` ignores on those lines never covered, so both the errors
+  and the dead comments sat unnoticed.
+
+`tests/` is not yet covered by the gate (the gates run `mypy src/`). Contributions to
+`tests/` are still expected to be annotated in good faith, and the remaining known errors
+there are tracked for burndown before the gate is extended.
+
+---
+
+## Editor Tooling vs the Gate
+
+The same principle extends beyond type checking: **the gate — pre-commit, `just verify`,
+CI — is the authority on every finding, and the editor is an interactive aid.** Where a
+VS Code extension can be pointed at the exact tool version the gate runs, this repository
+does so in the committed `.vscode/settings.json`:
+
+- **mypy** — `"mypy-type-checker.importStrategy": "fromEnvironment"` makes the mypy
+  extension run the `.venv`'s mypy, the same binary the pre-commit hook invokes via
+  `uv run mypy src/`. Without it the extension falls back to the mypy it bundles, which
+  is generally a different version producing genuinely different analysis.
+- **Ruff** — `"ruff.importStrategy": "fromEnvironment"` makes the Ruff extension use the
+  `.venv`'s ruff, the same pinned version the pre-commit gate runs, and Ruff is set as
+  the workspace's Python formatter. The gate formats with `ruff format`; do not enable a
+  second Python formatter (e.g. Black) — it can only disagree with the gate.
+
+One asymmetry cannot be closed: **markdownlint**. The gate pins `markdownlint-cli`
+(exact SHA-pinned version in `.pre-commit-config.yaml`), while the VS Code markdownlint
+extension bundles its own engine (`markdownlint-cli2`) and exposes no setting that points
+it at another version — its settings control rule configuration, not the engine. Both
+sides read the same `.markdownlint.json`, but engine versions differ, so behaviour can
+diverge in either direction — mostly the editor flagging findings the gate's older engine
+does not have (`.markdownlint.json` sets `default: true`, so a newer engine's new rules
+switch themselves on), occasionally the reverse where a rule was relaxed upstream. When
+they disagree, the gate is right by definition: a squiggle the gate does not report needs
+no code change, and a clean editor does not excuse a red `just verify`.
 
 ---
 

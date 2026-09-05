@@ -29,11 +29,13 @@ class LegacyRule(BaseASTRule):
     def __init__(self) -> None:
         super().__init__(rule_id="LOCAL-001", severity="error")
 
-    def visit_block_node(self, node: BlockNode, file_path: Path) -> Generator[RuleFinding, None, None]:
-        ...
+    def visit_block_node(
+        self, node: BlockNode, file_path: Path
+    ) -> Generator[RuleFinding, None, None]: ...
 
-    def visit_html_node(self, node: object, file_path: Path) -> Generator[RuleFinding, None, None]:
-        ...
+    def visit_html_node(
+        self, node: object, file_path: Path
+    ) -> Generator[RuleFinding, None, None]: ...
 ```
 
 ### After (Custom Rule SDK v3 — Current)
@@ -97,6 +99,12 @@ SDK v3 rules inherit from `ZenzicRuleV3` and require a typed `RuleMetadata` decl
 | `docs_url` | `Optional[str]` | Optional URL to rule documentation. | `None` |
 | `supports_autofix` | `bool` | Whether automated quick-fixes are supported. | `False` |
 
+`code` may be any string that is not one of Zenzic's own reserved finding
+codes (the full set in `codes.py`'s `CODE_DEFINITIONS`, e.g. `Z101`, `Z201`) —
+attempting to construct a `RuleMetadata` with a reserved code raises
+`ValueError` immediately, rather than the rule silently producing findings
+that downstream logic mistakes for a different, built-in code's output.
+
 ---
 
 ## Visitor Interface
@@ -128,6 +136,7 @@ To preserve mathematical determinism ($O(N)$ runtime complexity) and maintain en
 ```python
 from pathlib import Path
 from zenzic.sdk.examples import NoTodoRule
+
 
 def test_no_todo_rule(tmp_path: Path) -> None:
     rule = NoTodoRule()

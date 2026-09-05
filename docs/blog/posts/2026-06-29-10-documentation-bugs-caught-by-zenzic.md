@@ -21,8 +21,6 @@ Here are 10 subtle, frustrating, and downright dangerous documentation bugs that
 !!! abstract "Architectural Update"
     *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
-![10 Documentation Bugs Caught by Zenzic](../../assets/images/blog/10-documentation-bugs-caught-by-zenzic.webp)
-
 ---
 
 ## 1. The "Ghost Anchor" (Z102)

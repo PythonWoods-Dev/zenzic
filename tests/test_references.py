@@ -472,7 +472,12 @@ class TestReferenceScannerCrossCheck:
         assert len(findings) == 1
         assert findings[0].issue == "Z301"
         assert "ghost_id" in findings[0].detail
-        assert findings[0].is_warning is False
+        # is_warning is True: Z301 is classified "warning" in codes.py's
+        # CODE_DEFINITIONS (the SSoT); it used to hardcode False here,
+        # which caused every dangling reference to hard-fail a plain
+        # `zenzic check` run with no --strict, contradicting the Tier-0
+        # Exit Code Contract (fixed in V031_Z301_SEVERITY_FIX_AND_BACKLOG_SEQUENCING).
+        assert findings[0].is_warning is True
 
     def test_cross_check_case_insensitive(self, tmp_path: Path) -> None:
         """[text][REF] must resolve [ref]: url (case-insensitive)."""
@@ -594,7 +599,11 @@ class TestReferenceScannerIntegrityReport:
         content = "See [ghost][undefined].\n"
         report = self._run_full_pipeline(tmp_path, content)
         assert report.is_secure is True  # no secrets
-        assert report.has_errors is True  # DANGLING is a hard error
+        # DANGLING (Z301) is a warning per codes.py's CODE_DEFINITIONS, not a
+        # hard error -- it used to be hardcoded as one here, which caused a
+        # lone dangling reference to hard-fail a plain `zenzic check` run
+        # with no --strict (fixed in V031_Z301_SEVERITY_FIX_AND_BACKLOG_SEQUENCING).
+        assert report.has_errors is False
 
 
 # ══════════════════════════════════════════════════════════════════════════════

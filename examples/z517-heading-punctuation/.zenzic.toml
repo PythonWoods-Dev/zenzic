@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z517 HEADING_PUNCTUATION gallery example
+#
+# docs/index.md contains a heading ending with a period. Zenzic's built-in
+# HeadingPunctuationRule (Z517) is always active and flags invalid trailing
+# heading punctuation (., :, ;) — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z517 ×1 — heading ends with punctuation)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

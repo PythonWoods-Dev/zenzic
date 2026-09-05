@@ -24,6 +24,7 @@ from zenzic.core.codes import (
     CODE_DEFINITIONS,
     CODE_DESCRIPTIONS,
     CODE_NAMES,
+    SECURITY_TIER_CODES,
     get_sarif_name,
 )
 from zenzic.core.exclusion import LayeredExclusionManager
@@ -36,21 +37,27 @@ from ._metadata import COMMAND_BY_NAME
 
 # ── Console singleton & UI gateway ───────────────────────────────────────────
 
+_env_force_color = bool(os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR"))
+
 console = Console(
     highlight=False,
     no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=True
-    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
-    else None,
+    force_terminal=True if _env_force_color else None,
+    # Forcing the terminal alone still leaves color *depth* to Rich's own
+    # auto-detection from TERM/COLORTERM, which under-detects (falls back to
+    # 16-color "standard") in an environment that advertises no truecolor
+    # support — silently collapsing distinct severity colors like WARNING's
+    # amber and ERROR's rose to the same ANSI code. Forcing "truecolor"
+    # alongside force_terminal is what FORCE_COLOR is actually for.
+    color_system="truecolor" if _env_force_color else None,
 )
 
 stderr_console = Console(
     stderr=True,
     highlight=False,
     no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=True
-    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
-    else None,
+    force_terminal=True if _env_force_color else None,
+    color_system="truecolor" if _env_force_color else None,
 )
 
 _ui = ZenzicUI(stderr_console)
@@ -68,8 +75,14 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
         console = Console(highlight=False, no_color=True)
         stderr_console = Console(stderr=True, highlight=False, no_color=True)
     elif force_color:
-        console = Console(highlight=False, force_terminal=True)
-        stderr_console = Console(stderr=True, highlight=False, force_terminal=True)
+        # force_terminal alone leaves color depth to auto-detection, which
+        # under-detects (16-color "standard") without an advertised
+        # truecolor terminal — see the module-level Console construction
+        # above for the full explanation.
+        console = Console(highlight=False, force_terminal=True, color_system="truecolor")
+        stderr_console = Console(
+            stderr=True, highlight=False, force_terminal=True, color_system="truecolor"
+        )
     # else: keep existing console — no_color=False + force_color=False means "auto",
     # which is already set correctly in the module-level Console (force_terminal=None).
     _ui = ZenzicUI(stderr_console)
@@ -138,6 +151,37 @@ _NO_CONFIG_HINT = Panel(
 
 _MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif"})
 
+#: Formats every ``check`` subcommand renders. ``check all`` and ``check links``
+#: additionally emit ``github-annotations``; the rest genuinely do not implement
+#: it, so accepting it there produced plain text with no error.
+_BASE_FORMATS: tuple[str, ...] = ("text", "json", "sarif")
+_ANNOTATION_FORMATS: tuple[str, ...] = (*_BASE_FORMATS, "github-annotations")
+
+
+def _validate_output_format(output_format: str, supported: tuple[str, ...]) -> None:
+    """Reject an ``--format`` value the invoked command does not render.
+
+    ``--only`` has always rejected an unknown finding code; ``--format`` accepted
+    anything and fell through to text. The dangerous case was not a typo but a
+    value valid on a *different* subcommand: a CI step asking ``check assets``
+    for ``github-annotations`` received prose on stdout and a success-shaped
+    exit, with nothing indicating the requested format was never produced.
+    """
+    if output_format in supported:
+        return
+    options = ", ".join(f"[bold]{f}[/]" for f in supported)
+    hint = ""
+    if output_format in _ANNOTATION_FORMATS:
+        hint = (
+            f"\n\n  [dim]{output_format!r} is a valid format for other commands, "
+            f"but this one does not render it.[/]"
+        )
+    console.print(
+        f"[red]ERROR:[/] Unsupported output format [bold]{output_format!r}[/] "
+        f"for this command.\n  Valid options: {options}{hint}"
+    )
+    raise typer.Exit(1)
+
 
 def _print_no_config_hint(output_format: str = "text") -> None:
     """Print a one-time informational panel when running without .zenzic.toml.
@@ -194,6 +238,7 @@ def _output_json_findings(
                 "code": f.code,
                 "severity": f.severity,
                 "message": f.message,
+                "fixable": bool(getattr(CODE_DEFINITIONS.get(f.code), "fixable", False)),
             }
             for f in findings
         ],
@@ -240,14 +285,27 @@ def _output_check_all_json_findings(
     ref_errors = []
     for r in results.reference_reports:
         rel = _rel(r.file_path)
+        try:
+            rel_d = r.file_path.relative_to(repo_root / config.docs_dir)
+        except ValueError:
+            rel_d = r.file_path
+        # Both loops below deliberately include every severity (error AND
+        # warning) — the field is named "references", not "reference_errors",
+        # and text/SARIF output already report both. Filtering by severity
+        # here alone would make this field inconsistent with itself
+        # (Z1xx warnings dropped, Z5xx/Z6xx warnings kept) as well as with
+        # every other output format.
         for f in r.findings:
-            if not f.is_warning:
-                if _is_allowed(rel, f.line_no, f.issue):
-                    try:
-                        rel_d = r.file_path.relative_to(repo_root / config.docs_dir)
-                    except ValueError:
-                        rel_d = r.file_path
-                    ref_errors.append(f"{rel_d}:{f.line_no} [{f.issue}] — {f.detail}")
+            if _is_allowed(rel, f.line_no, f.issue):
+                ref_errors.append(f"{rel_d}:{f.line_no} [{f.issue}] — {f.detail}")
+        # rule_findings (Z1xx-Z6xx AST/content/editorial rules, e.g. Z502
+        # SHORT_CONTENT, Z512 HEADING_SECTION_EMPTY) is a separate attribute
+        # from findings (Z1xx/Z3xx reference-pipeline output) — previously
+        # never read here, so any rule-engine finding was silently absent
+        # from this field regardless of severity.
+        for rf in r.rule_findings:
+            if _is_allowed(rel, rf.line_no, rf.rule_id):
+                ref_errors.append(f"{rel_d}:{rf.line_no} [{rf.rule_id}] — {rf.message}")
 
     report = {
         "links": [
@@ -266,6 +324,8 @@ def _output_check_all_json_findings(
             msg for msg in results.nav_contract_errors if _is_allowed("(nav)", 0, "Z406")
         ],
         "references": ref_errors,
+        "security_breaches": sum(1 for f in all_findings if f.severity == "security_breach"),
+        "security_incidents": sum(1 for f in all_findings if f.severity == "security_incident"),
         "suppression_count": suppression_audit.total if suppression_audit else 0,
         "suppression_cap": suppression_audit.cap if suppression_audit else 0,
         "suppression_debt_pts": suppression_audit.excess if suppression_audit else 0,
@@ -329,21 +389,31 @@ def _output_sarif_findings(
                 }
             ],
         }
+        properties: dict[str, object] = {}
         if f.severity in _SARIF_SECURITY_SEVERITY:
-            result["properties"] = {"security-severity": _SARIF_SECURITY_SEVERITY[f.severity]}
+            properties["security-severity"] = _SARIF_SECURITY_SEVERITY[f.severity]
+        if f.is_likely_placeholder:
+            properties["is_likely_placeholder"] = True
+        if properties:
+            result["properties"] = properties
         sarif_results.append(result)
 
     rules: list[dict[str, object]] = []
     for rule_id in sorted(seen_rule_ids):
         rule_def = CODE_DEFINITIONS.get(rule_id)
+        # fixable is only ever True for Core/Governance codes with a real,
+        # wired Mutation class (see tests/test_fixable_code_wiring_structural.py) --
+        # plugin and custom (ZZ-) rules have no Zenzic-built-in auto-fix engine.
+        fixable = False
         if rule_def is not None:
             category = rule_def.category or (
                 "governance" if rule_id.startswith("Z6") else "uncategorized"
             )
             penalty = rule_def.penalty
             level = rule_def.severity
-            help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+            help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
             short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
+            fixable = bool(getattr(rule_def, "fixable", False))
         elif rules_map and rule_id in rules_map:
             rule_obj = rules_map[rule_id]
             meta = getattr(rule_obj, "metadata", None)
@@ -353,20 +423,20 @@ def _output_sarif_findings(
                 level = _sarif_level(getattr(meta, "severity", "warning"))
                 help_uri = (
                     getattr(meta, "docs_url", None)
-                    or f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+                    or f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
                 )
                 short_desc = getattr(meta, "description", getattr(meta, "title", rule_id))
             else:
                 category = "custom"
                 penalty = 1.0
                 level = "warning"
-                help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+                help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
                 short_desc = rule_id
         else:
             category = "custom" if rule_id.startswith("ZZ-") else "uncategorized"
             penalty = 1.0 if rule_id.startswith("ZZ-") else 0.0
             level = "warning"
-            help_uri = f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}"
+            help_uri = f"https://zenzic.dev/reference/finding-codes/#{rule_id.lower()}"
             short_desc = CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
 
         rule_entry: dict[str, object] = {
@@ -379,6 +449,7 @@ def _output_sarif_findings(
             "properties": {
                 "category": category,
                 "penalty": penalty,
+                "fixable": fixable,
             },
         }
         rules.append(rule_entry)
@@ -398,7 +469,7 @@ def _output_sarif_findings(
     execution_successful = True
     notifications = []
     for f in findings:
-        if f.code in {"Z201", "Z202", "Z203", "Z204", "Z205"}:
+        if f.code in SECURITY_TIER_CODES:
             execution_successful = False
             notifications.append(
                 {
@@ -514,11 +585,27 @@ def _build_exclusion_manager(
 
 
 def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
-    """F4-1: Reject docs_dir paths that escape the repository root.
+    """Reject a **config-derived** ``docs_root`` that escapes the repository root.
 
-    Raises :class:`typer.Exit` with code 3 (path traversal guard) if
-    ``docs_root.resolve()`` is not under ``repo_root.resolve()``.
-    This prevents path-traversal attacks via ``docs_dir = "../../etc"``.
+    Scope, stated precisely because this function reads like a general guard and
+    is not one: it only ever sees the root the CLI computed from
+    ``(repo_root / config.docs_dir)``. A root resolved by an *adapter* —
+    ``mkdocs.yml``'s own ``docs_dir``, a monorepo ``!include``, ``zensical.toml``,
+    a prebuilt VSM route — never passes through here, so this raises nothing for
+    any of them.
+
+    That is not a gap, because it is not the boundary. The boundary is
+    ``discovery.walk_files``/``iter_files_within``, which resolve every candidate
+    path against the repository root on the way out; adapters report roots and
+    never construct an exclusion manager, so they cannot move it. See the Single
+    Traversal Primitive invariant, and
+    ``tests/test_adapter_roots_cannot_escape_the_repo.py``, which probes all five
+    adapter vectors with a live credential and a positive control.
+
+    What this function adds is an *early, legible* failure for the one case a
+    user can fix by editing their own ``.zenzic.toml``: raising
+    :class:`typer.Exit` with code 3 beats letting discovery silently yield
+    nothing and reporting an empty corpus.
     """
     resolved_repo = repo_root.resolve()
     resolved_docs = docs_root.resolve()
@@ -541,12 +628,22 @@ def _count_docs_assets(
     repo_root: Path,
     exclusion_mgr: LayeredExclusionManager,
     config: ZenzicConfig | None = None,
-) -> tuple[int, int]:
-    """Return ``(docs_count, assets_count)`` for the analysis telemetry line.
+) -> tuple[int, int, int]:
+    """Return ``(pages_count, config_count, assets_count)`` for the telemetry line.
 
-    When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
-    locale translation trees (e.g. MkDocs or Zensical ``docs-it/``) are counted in
-    ``docs_count`` as well.
+    Split three ways rather than two because the second figure is not what a
+    reader assumes. This previously returned a single ``docs_count`` that summed
+    Markdown pages *and* configuration files (``.yml``/``.yaml``/``.toml`` under
+    the docs root, plus root-level ``.yml``/``.yaml``), which put it in direct
+    conflict with the parsing progress line a few rows above it: the same run
+    would report "Parsing 263 files" and "268 docs" and explain neither. Pages
+    and config are now counted separately so each label means exactly one thing.
+
+    ``pages_count`` covers ``.md``/``.mdx`` — the documents actually fed through
+    the analysis pipeline, matching what the parsing line counts. When *config*
+    is provided and the adapter exposes ``get_locale_source_roots()``, locale
+    translation trees (e.g. MkDocs or Zensical ``docs-it/``) count as pages too.
+    ``config_count`` covers the engine/config files discovered alongside them.
     """
     from zenzic.core.discovery import walk_files
     from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
@@ -555,13 +652,18 @@ def _count_docs_assets(
     _CONFIG = {".yml", ".yaml", ".toml"}
     _DOC_EXT = {".md", ".mdx"}
     if not docs_root.is_dir():
-        return 0, 0
-    docs_count = sum(
+        return 0, 0, 0
+    pages_count = sum(
         1
         for p in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
-        if p.suffix.lower() in _DOC_EXT or p.suffix.lower() in _CONFIG
+        if p.suffix.lower() in _DOC_EXT
     )
-    docs_count += sum(
+    config_count = sum(
+        1
+        for p in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+        if p.suffix.lower() in _CONFIG
+    )
+    config_count += sum(
         1 for p in repo_root.iterdir() if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
     )
     assets_count = sum(
@@ -576,9 +678,9 @@ def _count_docs_assets(
 
         adapter = get_adapter(config.build_context, docs_root, repo_root)
         for locale_root, _ in adapter.get_locale_source_roots(repo_root):
-            docs_count += sum(
+            pages_count += sum(
                 1
                 for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
                 if p.suffix.lower() in _DOC_EXT
             )
-    return docs_count, assets_count
+    return pages_count, config_count, assets_count

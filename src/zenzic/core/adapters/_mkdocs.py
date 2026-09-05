@@ -57,6 +57,40 @@ def _iter_path_like_values(value: Any) -> list[str]:
     return out
 
 
+def _collect_nav_includes(node: Any, out: list[str]) -> None:
+    """Collect ``!include`` targets from a nav tree, at any depth.
+
+    The plugin's own documented spelling puts the directive in the *value* of a
+    titled entry (``- Sub: '!include ./sub/mkdocs.yml'``). The previous version
+    read bare string items and dicts keyed on ``!include``, and never looked at
+    a value, so the canonical form matched nothing and the sub-project's
+    ``docs_dir`` was never discovered — which is a security reach gap, because
+    these roots are what ``iter_security_scan_sources`` walks.
+
+    Nav is a tree, so this recurses: an include can sit inside a section, and a
+    matcher that only reads the top level would be the same defect one level
+    down.
+    """
+    if isinstance(node, str):
+        if node.startswith("!include"):
+            parts = node.split(maxsplit=1)
+            if len(parts) == 2 and parts[1].strip():
+                out.append(parts[1].strip())
+        return
+    if isinstance(node, list):
+        for item in node:
+            _collect_nav_includes(item, out)
+        return
+    if isinstance(node, dict):
+        for key, value in node.items():
+            # A dict keyed on the directive carries a bare path as its value;
+            # every other key is a section title whose value may itself be one.
+            if key == "!include" and isinstance(value, str) and value.strip():
+                out.append(value.strip())
+            else:
+                _collect_nav_includes(value, out)
+
+
 def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
     """Extract include-config paths from monorepo-style MkDocs plugins."""
     includes: list[str] = []
@@ -68,18 +102,7 @@ def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
                 continue
             includes.extend(_iter_path_like_values(plugin_cfg[key]))
 
-    nav = doc_config.get("nav")
-    if isinstance(nav, list):
-        for item in nav:
-            if isinstance(item, str) and item.startswith("!include"):
-                parts = item.split(maxsplit=1)
-                if len(parts) == 2 and parts[1].strip():
-                    includes.append(parts[1].strip())
-            elif isinstance(item, dict):
-                include_val = item.get("!include")
-                if isinstance(include_val, str) and include_val.strip():
-                    includes.append(include_val.strip())
-
+    _collect_nav_includes(doc_config.get("nav"), includes)
     return includes
 
 

@@ -6,8 +6,6 @@ description: "Build protocol and guidelines for the Tailwind CSS external artifa
 
 # Tailwind CSS External Build Artifact
 
-This section details the specifications and guidelines for Tailwind CSS External Build Artifact within the Zenzic ecosystem.
-
 ---
 
 ## Protocol

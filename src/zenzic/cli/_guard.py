@@ -11,12 +11,13 @@ from pathlib import Path
 import typer
 from rich.table import Table
 
+from zenzic.core.adapters import get_adapter
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
-    scan_line_for_secrets,
+    scan_lines_with_lookback,
 )
-from zenzic.core.discovery import iter_markdown_sources
+from zenzic.core.discovery import iter_security_scan_sources
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -35,17 +36,37 @@ def _is_doc_source(path: Path) -> bool:
     return path.suffix.lower() in {".md", ".mdx"}
 
 
-def _scan_file_for_secrets(path: Path, forbidden_patterns: list[str]) -> list[SecurityFinding]:
+def _scan_file_for_secrets(
+    path: Path, forbidden_patterns: list[str]
+) -> tuple[list[SecurityFinding], bool]:
+    """Scan one file, reporting whether it could actually be read.
+
+    Returns ``(findings, readable)``. The second element exists because an
+    empty finding list previously meant two different things — "this file holds
+    no secrets" and "this file could not be opened" — and the caller could not
+    tell them apart. A secret gate must never report a clean bill it did not
+    earn, so an unreadable file is surfaced rather than silently counted as
+    scanned.
+    """
     findings: list[SecurityFinding] = []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return findings
+    except (OSError, UnicodeDecodeError):
+        # UnicodeDecodeError is a ValueError, not an OSError, so it escaped the
+        # handler entirely: the first non-UTF-8 file aborted the whole scan and
+        # every later target went unscanned. It belongs on the unreadable path
+        # like any other file the gate could not read.
+        return findings, False
 
+    # The cross-line lookback (ZRT-007) is what catches a secret split across
+    # two consecutive lines. The corpus scan has always used it; this gate
+    # scanned line by line, so `zenzic check` caught a split token and the
+    # pre-commit hook -- the boundary that actually keeps the leak out of
+    # history -- did not. Same detector on both sides now.
+    findings.extend(scan_lines_with_lookback(enumerate(lines, start=1), path))
     for idx, line in enumerate(lines, start=1):
-        findings.extend(scan_line_for_secrets(line, path, idx))
         findings.extend(scan_line_for_forbidden_terms(line, forbidden_patterns, path, idx))
-    return findings
+    return findings, True
 
 
 def _staged_doc_files(repo_root: Path) -> list[Path]:
@@ -95,7 +116,7 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
     if paths:
         repo_scan_root = repo_root.resolve()
         repo_scan_mgr = _shared._build_exclusion_manager(config, repo_root, repo_scan_root)
-        repo_markdown = sorted(iter_markdown_sources(repo_scan_root, config, repo_scan_mgr))
+        repo_markdown = sorted(iter_security_scan_sources(repo_scan_root, config, repo_scan_mgr))
         repo_markdown_set = set(repo_markdown)
 
         resolved: list[Path] = []
@@ -112,7 +133,22 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
 
     if not docs_root.is_dir():
         return []
-    return sorted(iter_markdown_sources(docs_root, config, exclusion_mgr))
+    # The secret gate must reach every tree the quality scan reaches, not just
+    # docs_root: an MkDocs monorepo's included sub-project docs and i18n locale
+    # trees live outside docs_root, and a credential there must never be scoped
+    # away from `guard scan`. Discover them the same way `check` does.
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    return sorted(
+        iter_security_scan_sources(
+            docs_root,
+            config,
+            exclusion_mgr,
+            content_roots=_content_roots or None,
+            locale_roots=_locale_roots or None,
+        )
+    )
 
 
 def _mask_secret(secret: str) -> str:
@@ -174,8 +210,12 @@ def scan(
     findings: list[SecurityFinding] = []
     forbidden_patterns = [p for p in config.forbidden_patterns if isinstance(p, str) and p.strip()]
 
+    unreadable: list[Path] = []
     for target in targets:
-        findings.extend(_scan_file_for_secrets(target, forbidden_patterns))
+        _found, _readable = _scan_file_for_secrets(target, forbidden_patterns)
+        findings.extend(_found)
+        if not _readable:
+            unreadable.append(target)
 
     if output_format == "json":
         items = []
@@ -190,12 +230,18 @@ def scan(
                 }
             )
         payload = {
-            "targets": len(targets),
+            # Only files actually read are reported as scanned; an unreadable
+            # file is listed separately so a consumer cannot mistake "could not
+            # open" for "held nothing".
+            "targets": len(targets) - len(unreadable),
+            "unreadable": [str(_p) for _p in unreadable],
             "findings": items,
         }
         print(json.dumps(payload, indent=2))
         if findings:
             raise typer.Exit(2)
+        if unreadable:
+            raise typer.Exit(1)
         return
 
     table = Table(
@@ -227,6 +273,20 @@ def scan(
             f"{len(findings)} finding(s) across {len(targets)} file(s)."
         )
         raise typer.Exit(2)
+
+    # Fail closed: files the gate could not open are files it did not clear.
+    # Reporting them as scanned, or exiting 0 alongside them, would hand the
+    # commit a clean bill the scan never earned.
+    if unreadable:
+        if not quiet:
+            _shared.console.print(
+                f"[bold {ZenzicPalette.ERROR}]Secret Guard could not read "
+                f"{len(unreadable)} file(s)[/] — unscanned, so the result is "
+                f"inconclusive rather than clean:"
+            )
+            for _p in unreadable:
+                _shared.console.print(f"  [{ZenzicPalette.DIM}]{_p}[/]")
+        raise typer.Exit(1)
 
     if not quiet:
         _shared.console.print(

@@ -47,11 +47,6 @@ class TestFrozenCodesContract:
         # Any change here MUST be approved by the Architecture Council and documented
         # in ADR amendments and RELEASE.md.
         golden_snapshot: dict[str, dict[str, str]] = {
-            "Z000": {
-                "name": "UNSUPPORTED_ENGINE",
-                "description": "Unsupported or removed engine identifier in .zenzic.toml — configuration guard raised before analysis begins",
-                "sarif_level": "error",
-            },
             "Z201": {
                 "name": "CREDENTIAL_SECRET",
                 "description": "Potential credential or secret detected in documentation content",

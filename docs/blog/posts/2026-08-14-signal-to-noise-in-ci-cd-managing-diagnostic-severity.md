@@ -14,8 +14,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Signal to Noise Ratio](../../assets/images/blog/signal_to_noise.webp)
-
 A static analyzer is only as useful as its signal-to-noise ratio.
 
 If a tool floods a CI/CD pipeline with hundreds of low-value notices, developers eventually stop paying attention. The result is predictable: triage becomes slower, dashboards become cluttered, and governance loses credibility.

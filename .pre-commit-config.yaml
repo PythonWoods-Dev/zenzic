@@ -28,7 +28,11 @@ repos:
     hooks:
       - id: markdownlint
         exclude: ^examples/
-        args: ["--fix"]
+        # Deliberately NOT --fix. `.markdownlint.json` sets `default: true`, so
+        # every rule a future markdownlint release adds is enabled the moment
+        # `rev` is bumped. With --fix that would silently rewrite files across
+        # the corpus on the next run; without it, the same bump surfaces as a
+        # reviewable failure and each new rule gets a deliberate disposition.
 
   # 3. Ruff (linting & formatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -78,6 +82,33 @@ repos:
         entry: uv run zenzic guard scan --staged --quiet --no-header
         language: system
         types_or: [markdown, mdx]
+        pass_filenames: false
+
+  # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
+  #     Not a formatter: it never edits the file, it fails loudly when the file
+  #     changes shape. Added after commit 36c5f70 silently gained 18 blank lines
+  #     through the comment header with no identifiable vector.
+  - repo: local
+    hooks:
+      - id: redirects-structure
+        name: Redirects structure tripwire
+        entry: python3 scripts/check_redirects_structure.py
+        language: system
+        files: ^docs/_redirects$
+        pass_filenames: false
+
+  # 7c. Blog link schedule — staggered-publication invariant for docs/blog/posts/.
+  #     A live (non-draft) post must never link to a still-draft post: a real
+  #     mkdocs build --strict stays clean either way, since the blog plugin just
+  #     excludes drafts from the build rather than treating a link into one as
+  #     broken. This is the only thing that actually enforces the schedule.
+  - repo: local
+    hooks:
+      - id: blog-link-schedule
+        name: Blog link schedule gate
+        entry: python3 scripts/check_blog_link_schedule.py
+        language: system
+        files: ^docs/blog/posts/.*\.md$
         pass_filenames: false
 
   # 8. Final Guard — score gate + badge freshness + full audit (pre-push only)

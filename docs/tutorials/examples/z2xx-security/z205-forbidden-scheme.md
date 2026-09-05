@@ -7,7 +7,7 @@ description: "Z205 fires when an HTML anchor uses a critical forbidden scheme (d
 
 ## Z205 Forbidden Scheme
 
-**Severity:** `security_incident` | **Exit code:** `3` | **Suppressible:** `False`
+**Severity:** `security_breach` | **Exit code:** `2` | **Suppressible:** `False`
 
 `Z205` is triggered when a critical forbidden scheme like `javascript:` or `data:` is detected in an `href` or `src` attribute.
 

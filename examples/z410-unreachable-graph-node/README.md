@@ -27,4 +27,4 @@ Exit code **1**.
 
 ## Fix
 
-Either add `"secret.md"` to the `nav` array in `zensical.toml`, link to it from `index.md`, or suppress it using `<!-- zenzic:ignore:Z410 -->`.
+Either add `"secret.md"` to the `nav` array in `zensical.toml`, link to it from `index.md`, or configure suppression in `.zenzic.toml` using `[governance.directory_policies]` or `[governance.per_file_ignores]` (topological finding per ADR-093).

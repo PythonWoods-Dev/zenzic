@@ -23,3 +23,7 @@ docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming soon!' matched
 ```
 
 Run `zenzic check content` to reproduce the findings.
+
+Placeholder text is easy to forget once a page ships, since it renders
+without any visual warning and only a targeted content scan will surface
+it before a reader stumbles across an unfinished section.

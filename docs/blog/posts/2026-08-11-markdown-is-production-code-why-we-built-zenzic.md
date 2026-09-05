@@ -18,8 +18,6 @@ categories:
 
 ## Markdown Is Production Code: Why We Built Zenzic
 
-![Markdown is Production Code](../../assets/images/blog/markdown_is_code.webp)
-
 We built Zenzic because we kept seeing the same problem: a documentation repository could be technically “green” while the documentation itself was already broken.
 
 A build can succeed while an internal link points to a file that no longer exists. A page can remain in the repository while no navigation path reaches it. An anchor can become invalid after a heading is renamed. An image can disappear while the Markdown still references it. A code example can contain a live credential that gets copied into a public repository.
@@ -380,7 +378,7 @@ For a project using a documentation framework:
 uvx zenzic check all .
 ```
 
-We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs, Zensical, and Docusaurus-oriented setups.
+We support standalone repositories as well as framework-oriented workflows through adapters, including MkDocs and Zensical. Docusaurus support was removed in v0.14.0 after forensic analysis found it structurally incompatible with static analysis on runtime-generated routes — see [Why We Dropped Docusaurus](2026-06-13-why-we-dropped-docusaurus.md).
 
 The intended gate semantics are straightforward:
 
@@ -538,14 +536,14 @@ We did not build Zenzic to replace the entire documentation ecosystem.
 
 Different tools solve different problems:
 
-| Tool | Primary responsibility | Relationship with Zenzic |
+| Category | Primary responsibility | Relationship with Zenzic |
 |------|------------------------|--------------------------|
-| markdownlint | Markdown style and formatting | Complementary |
-| Vale | Editorial style and terminology | Complementary |
-| Lychee | Link and HTTP endpoint checking | Partial overlap |
-| Codespell | Spelling errors | Complementary |
-| Gitleaks or TruffleHog | Secrets across repository content and history | Complementary, not automatically replaceable |
-| MkDocs / Docusaurus / Zensical build | Rendering, plugins, and compilation | Not replaceable |
+| Markdown style/formatting linters | Markdown style and formatting | Complementary |
+| Editorial style/terminology linters | Editorial style and terminology | Complementary |
+| Link/HTTP endpoint checkers | Link and HTTP endpoint checking | Partial overlap |
+| Spell-checking tools | Spelling errors | Complementary |
+| Repository-wide secret scanners | Secrets across repository content and history | Complementary, not automatically replaceable |
+| MkDocs / Zensical build | Rendering, plugins, and compilation | Not replaceable |
 | Browser or HTML tests | Accessibility and rendered behaviour | Not replaceable |
 
 Zenzic can replace scripts that were custom-built to detect orphan pages, unused assets, missing local files, or certain navigation defects.
@@ -570,19 +568,9 @@ Zenzic is the structural and security layer of a documentation toolchain, not th
 
 ## What Zenzic Does Not Try to Replace
 
-We think this distinction is important enough to state explicitly.
+We think this distinction is important enough to state explicitly. Zenzic isn't a documentation builder, a Markdown style linter, an editorial style tool, a repository-wide secret scanner, or a browser-based accessibility and rendering test suite—and we don't intend it to become one.
 
-We are not trying to replace your documentation builder.
-
-We are not trying to replace Markdown style linters.
-
-We are not trying to replace editorial style tools.
-
-We are not trying to replace repository-wide secret scanners.
-
-We are not trying to replace browser-based accessibility or rendering tests.
-
-We are trying to enforce a different property:
+What we're trying to enforce is a different property:
 
 Documentation integrity at source level.
 
@@ -753,11 +741,7 @@ Reduce risk by detecting structural and security failures before release.
 Save review time by automating mechanical checks that would otherwise create repetitive review loops.
 Make CI reliable by tying the same repository state to the same findings and the same gate result.
 
-We are not claiming that Zenzic replaces every other documentation tool.
-
-We are not claiming that a source-level integrity scan can replace a full documentation build.
-
-We are not claiming that every repository needs another quality gate.
+We aren't claiming Zenzic replaces every other documentation tool, that a source-level integrity scan can replace a full documentation build, or that every repository needs another quality gate.
 
 Our claim is narrower—and, we think, more useful:
 

@@ -38,6 +38,7 @@ class CustomRuleConfig(BaseModel):
         pattern = "internal\\.corp\\.example\\.com"
         message = "Internal hostname must not appear in public docs."
         severity = "error"
+        link = "https://wiki.example.com/hostname-policy"  # optional
 
     TOML example (SDK v3 Python class)::
 
@@ -61,6 +62,10 @@ class CustomRuleConfig(BaseModel):
     class_name: str | None = Field(
         default=None,
         description="Fully qualified Python class name for a Custom Rule SDK v3 rule.",
+    )
+    link: str | None = Field(
+        default=None,
+        description="Optional rationale URL, shown alongside the message in the finding.",
     )
 
     @field_validator("id", mode="before")
@@ -126,7 +131,7 @@ class ProjectMetadata(BaseModel):
     obsolete_names_exclude_patterns: list[str] = Field(
         default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
         description=(
-            "Glob patterns (relative to docs_dir) for files excluded from Z905. "
+            "Glob patterns (relative to docs_dir) for files excluded from Z601. "
             "CHANGELOG*.md is excluded by default to allow historical prose."
         ),
     )
@@ -173,6 +178,100 @@ class BuildContext(BaseModel):
         default=False,
         description="When True, adapters force flat URL structure (e.g. use_directory_urls=False) for offline builds.",
     )
+
+
+class DoctorConfig(BaseModel):
+    """Repository-health conventions read by ``zenzic doctor`` and ``zenzic adr new``.
+
+    These checks depend on choices that are not universal — where a project keeps
+    its architectural decision records, how it cites them in prose and code, where
+    its redirects file lives. Hardcoding Zenzic's own layout would make the
+    commands useless to anyone else, so the layout is configuration and the
+    defaults are simply Zenzic's own values.
+
+    **Public repository content only.** Every default resolves inside the
+    published tree. `zenzic doctor` deliberately cannot inspect `.claude/` or
+    `.human/`: both are gitignored, so neither exists in a clone or in CI, and a
+    check that silently passed for everyone but one developer would be worse than
+    no check. Paths reaching into either are rejected rather than merely
+    defaulted away from, so the boundary cannot be opted out of by configuration.
+    """
+
+    adr_vault_path: Path = Field(
+        # Zenzic's own public vault. Never `.claude/` — see the class docstring:
+        # that directory is gitignored and absent from every clone, so pointing a
+        # shipped check at it would make the check structurally unrunnable.
+        default=Path("docs/developers/explanation/adr-vault"),
+        description=(
+            "Directory holding architectural decision records, relative to the "
+            "repository root. Must be inside the published documentation tree."
+        ),
+    )
+    adr_citation_pattern: str = Field(
+        default=r"ADR-\d{3}",
+        description=(
+            "Regular expression matching an ADR citation in source or prose. "
+            "Compiled once at config load; an invalid pattern is a config error."
+        ),
+    )
+    redirects_path: Path = Field(
+        default=Path("docs/_redirects"),
+        description=(
+            "Redirects file to structurally validate, relative to the repository "
+            "root. Set to a non-existent path to skip the redirect check."
+        ),
+    )
+    redirects_expected_blanks: int = Field(
+        default=8,
+        ge=0,
+        description=(
+            "Expected blank-line count in the redirects file. Blank lines belong "
+            "only to its comment header, so an unexplained change is a signal "
+            "that something reshaped the file. Set to 0 to disable the count."
+        ),
+    )
+
+    @field_validator("adr_vault_path", "redirects_path")
+    @classmethod
+    def _must_be_public_repo_content(cls, value: Path) -> Path:
+        """Refuse absolute paths, traversal, and anything reaching a gitignored plane.
+
+        ``doctor`` walks these paths with ``rglob`` directly rather than through
+        ``discovery.walk_files``, so it does not inherit the repository-root boundary
+        check every corpus read gets. This validator *is* that boundary. It already
+        refused an absolute path; ``..`` was the sibling case it did not, and
+        ``adr_vault_path = "../outside"`` therefore loaded cleanly and had doctor read
+        a decision-record vault outside the repository entirely.
+        """
+        if value.is_absolute():
+            raise ValueError(
+                f"{value} is absolute; doctor paths are relative to the repository root."
+            )
+        parts_ordered = Path(value).parts
+        if ".." in parts_ordered:
+            raise ValueError(
+                f"{value} traverses outside the repository root; doctor paths must stay "
+                "inside the published tree."
+            )
+        parts = set(parts_ordered)
+        for private in (".claude", ".human"):
+            if private in parts:
+                raise ValueError(
+                    f"{value} points inside '{private}', which is gitignored and absent "
+                    "from every clone. Doctor checks operate on public repository "
+                    "content only."
+                )
+        return value
+
+    @field_validator("adr_citation_pattern")
+    @classmethod
+    def _must_compile(cls, value: str) -> str:
+        """Reject an unusable pattern at load time, not midway through a scan."""
+        try:
+            re.compile(value)
+        except Exception as exc:  # RE2 raises its own error type
+            raise ValueError(f"adr_citation_pattern is not a valid regex: {exc}") from exc
+        return value
 
 
 class GovernanceConfig(BaseModel):
@@ -350,6 +449,42 @@ class PoliciesConfig(BaseModel):
             "Strictly opt-in."
         ),
     )
+    required_table_columns: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a heading/context pattern (or '*' for all tables) to a list "
+            "of required column header names. Missing columns emit Z521 REQUIRED_TABLE_COLUMN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"*": ["Status", "Description"], "^API Reference$": ["Method", "Endpoint"]}'
+        ),
+    )
+    table_cell_enums: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping column header names to allowed string enum values. "
+            "Cells with values outside this whitelist emit Z522 TABLE_CELL_ENUM. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"Status": ["draft", "review", "stable"]}'
+        ),
+    )
+    required_heading_order: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of RE2 regex heading patterns that must appear in strictly ascending sequential order. "
+            "Out-of-order headings emit Z523 HEADING_ORDER_VIOLATION. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["^Overview$", "^Usage$", "^API Reference$"]'
+        ),
+    )
+    traceability_targets: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a target documentation glob pattern to a list of source documentation glob patterns. "
+            "Target documents not linked by at least one matching source document emit Z412 TRACEABILITY_BROKEN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"docs/specs/**": ["docs/architecture/**"]}'
+        ),
+    )
 
     @field_validator("required_url_schemes")
     @classmethod
@@ -371,7 +506,12 @@ class PoliciesConfig(BaseModel):
                 ) from err
         return v
 
-    @field_validator("forbidden_content_patterns", "required_heading_patterns", "weasel_words")
+    @field_validator(
+        "forbidden_content_patterns",
+        "required_heading_patterns",
+        "required_heading_order",
+        "weasel_words",
+    )
     @classmethod
     def _validate_re2_list_patterns(cls, v: list[str]) -> list[str]:
         for pattern in v:
@@ -617,17 +757,6 @@ class ZenzicConfig(BaseModel):
             "being in .gitignore — e.g. 'api.generated.md'."
         ),
     )
-    validate_same_page_anchors: bool = Field(
-        default=True,
-        description=(
-            "When True, same-page anchor links (#section) are validated against the "
-            "headings present in the source file. A link like [text](#missing) is "
-            "reported as broken when no heading in the file produces that slug. "
-            "Disabled by default because single-page anchor IDs can also be generated "
-            "by HTML attributes, custom plugins, or build-time macros that are invisible "
-            "at source-scan time."
-        ),
-    )
     excluded_external_urls: list[str] = Field(
         default=[],
         description=(
@@ -664,6 +793,14 @@ class ZenzicConfig(BaseModel):
             "The --fail-under CLI flag overrides this value when explicitly provided."
         ),
     )
+    baseline_stale_days: int | None = Field(
+        default=None,
+        description=(
+            "Age in days after which the saved score snapshot (.zenzic-score.json) is "
+            "considered stale in `zenzic score --json`'s baseline_status field. "
+            "None (default) falls back to Core's DEFAULT_BASELINE_STALE_DAYS (7)."
+        ),
+    )
     strict: bool = Field(
         default=False,
         description=(
@@ -693,6 +830,13 @@ class ZenzicConfig(BaseModel):
     project_metadata: ProjectMetadata = Field(
         default_factory=ProjectMetadata,
         description=("Optional metadata used by remediation messaging and legacy compatibility."),
+    )
+    doctor: DoctorConfig = Field(
+        default_factory=DoctorConfig,
+        description=(
+            "Repository-health conventions for 'zenzic doctor' and 'zenzic adr new'. "
+            "Operates on public repository content only."
+        ),
     )
     governance: GovernanceConfig = Field(
         default_factory=GovernanceConfig,
@@ -815,20 +959,22 @@ class ZenzicConfig(BaseModel):
                 "policies",
             }
         )
+        from rich.markup import escape as _md_escape
+
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
                     _cfg_log.warning(
-                        ".zenzic.toml: unknown section [%s] will be ignored — "
+                        ".zenzic.toml: unknown section \\[%s] will be ignored — "
                         "all keys nested inside it are silently discarded. "
                         "Root-level settings (e.g. placeholder_patterns, docs_dir) "
-                        "must appear BEFORE any [section] header.",
-                        key,
+                        "must appear BEFORE any \\[section] header.",
+                        _md_escape(str(key)),
                     )
                 else:
                     _cfg_log.warning(
                         ".zenzic.toml: unknown key '%s' will be ignored.",
-                        key,
+                        _md_escape(str(key)),
                     )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
         if "build_context" in data and isinstance(data["build_context"], dict):
@@ -903,7 +1049,6 @@ class ZenzicConfig(BaseModel):
                 "fail_under",
                 "exit_zero",
                 "respect_vcs_ignore",
-                "validate_same_page_anchors",
                 "excluded_external_urls",
                 "forbidden_patterns",
                 "excluded_dirs",
@@ -946,11 +1091,13 @@ class ZenzicConfig(BaseModel):
                     )
 
     @classmethod
-    def load(cls, repo_root: Path) -> tuple[ZenzicConfig, bool]:
+    def load(cls, repo_root: Path, *, config_file: Path | None = None) -> tuple[ZenzicConfig, bool]:
         """Load configuration following the Agnostic Citizen priority chain.
 
         Priority order (first match wins):
 
+        0. *config_file*, if given — an explicit override path, bypassing
+           discovery entirely. Used by ``--config PATH`` on the CLI.
         1. ``.zenzic.toml`` at *repo_root* — the authoritative sovereign config.
         2. ``[tool.zenzic]`` table in ``pyproject.toml`` at *repo_root*.
         3. Built-in defaults (``loaded_from_file`` returned as ``False``).
@@ -960,22 +1107,71 @@ class ZenzicConfig(BaseModel):
         Rich-formatted message — silent fallback would hide user mistakes.
 
         Args:
-            repo_root: Repository root that may contain config files.
+            repo_root: Repository root that may contain config files. Also
+                used as the base for ``.zenzic.local.toml`` overlay lookup
+                and any relative paths inside the loaded config, even when
+                *config_file* is given.
+            config_file: Optional explicit path to a TOML file to load
+                instead of the normal ``.zenzic.toml``/``pyproject.toml``
+                discovery. Does not have to live under *repo_root*. Must
+                exist and parse as valid TOML — a missing or malformed
+                override raises rather than silently falling through to
+                discovery, matching the existing "no silent fallback"
+                contract for the two discovered paths.
 
         Returns:
             A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
-            ``True`` when either ``.zenzic.toml`` or ``pyproject.toml`` was
-            found and parsed, ``False`` when built-in defaults are in use.
+            ``True`` when *config_file*, ``.zenzic.toml``, or
+            ``pyproject.toml`` was found and parsed, ``False`` when built-in
+            defaults are in use.
 
         Raises:
             :class:`~zenzic.core.exceptions.ZenzicConfigError`: When a
-                config file is present but cannot be parsed.
+                config file is present but cannot be parsed, or when an
+                explicit *config_file* override does not exist.
         """
         from pydantic import ValidationError
 
         from zenzic.core.exceptions import (
             ZenzicConfigError,  # deferred to avoid circular import
         )
+
+        # ── Priority 0: explicit config_file override ──────────────────────────
+        if config_file is not None:
+            if not config_file.is_file():
+                raise ZenzicConfigError(
+                    f"[bold red]{config_file}[/] does not exist.\n\n"
+                    "The --config path must point to an existing TOML file.",
+                    context={"config_path": str(config_file), "file": str(config_file)},
+                )
+            try:
+                with config_file.open("rb") as f:
+                    data = tomllib.load(f)
+            except tomllib.TOMLDecodeError as exc:
+                raise ZenzicConfigError(
+                    f"[bold red]{config_file}[/] contains a syntax error and cannot be loaded.\n"
+                    f"  [red]{exc}[/]\n\n"
+                    "Fix the TOML syntax error and re-run Zenzic.",
+                    context={"config_path": str(config_file), "file": str(config_file)},
+                ) from exc
+            cls._validate_no_swallowed_root_keys(data)
+            try:
+                config = cls._build_from_data(data)
+                config.origin_file = config_file
+                cls._apply_local_toml(config, repo_root)
+            except ValidationError as exc:
+                errors_str = "\n".join(
+                    f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                    for err in exc.errors()
+                )
+                raise ZenzicConfigError(
+                    f"Configuration validation failed in [bold red]{config_file}[/]:\n{errors_str}",
+                    context={"errors": exc.errors(), "file": str(config_file)},
+                ) from exc
+            from zenzic.core.suppressions import GlobalUsageTracker
+
+            config._global_tracker = GlobalUsageTracker(config)
+            return config, True
 
         # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
         zenzic_toml = repo_root / ".zenzic.toml"
@@ -1270,6 +1466,7 @@ def load_config_with_diagnostics(
     """
     from pydantic import ValidationError
 
+    from zenzic.core.codes import code_severity
     from zenzic.core.reporter import Finding
 
     target_file = config_file if config_file else (repo_root / ".zenzic.toml")
@@ -1359,7 +1556,7 @@ def load_config_with_diagnostics(
             rel_path=err_file_str,
             line_no=line_no,
             code="Z110",
-            severity="error",
+            severity=code_severity("Z110"),
             message=f"TOML syntax error in configuration file: {exc}",
             source_line=source_line,
         )
@@ -1387,7 +1584,7 @@ def load_config_with_diagnostics(
                     rel_path=rel_file_str,
                     line_no=line_no,
                     code="Z111",
-                    severity="error",
+                    severity=code_severity("Z111"),
                     message=msg,
                     match_text=last_key,
                     source_line=source_line,
@@ -1409,7 +1606,7 @@ def load_config_with_diagnostics(
             rel_path=err_rel_path,
             line_no=1,
             code="Z111",
-            severity="error",
+            severity=code_severity("Z111"),
             message=f"Configuration error: {exc}",
         )
         return None, [finding]

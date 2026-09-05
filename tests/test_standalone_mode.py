@@ -46,11 +46,6 @@ def _zensical(repo: Path, nav: list[str] | None = None) -> None:
     )
 
 
-def _docusaurus(repo: Path) -> None:
-    """Write a minimal docusaurus.config.ts into *repo*."""
-    (repo / "docusaurus.config.ts").write_text('module.exports = { title: "Test" };\n')
-
-
 def _run_find_orphans(
     repo_root: Path, config: ZenzicConfig, mgr: LayeredExclusionManager
 ) -> list[Path]:

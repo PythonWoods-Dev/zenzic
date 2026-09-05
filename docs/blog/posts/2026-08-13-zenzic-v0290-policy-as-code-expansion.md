@@ -13,8 +13,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Zenzic v0.29.0 Policy-as-Code Expansion](../../assets/images/blog/launch_v0290.webp)
-
 Zenzic v0.29.0 delivers the **Policy-as-Code Expansion** milestone. This release transforms the governance engine into a comprehensive compliance tool, introducing strict metadata validation, Zero-Trust link policies, and topological boundary enforcement.
 
 <!-- more -->

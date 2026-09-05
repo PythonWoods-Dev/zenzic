@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z515 BARE_URL_USED gallery example
+#
+# docs/index.md contains a raw URL in prose that is not wrapped in Markdown
+# link syntax. Zenzic's built-in BareUrlUsedRule (Z515) is always active
+# and flags bare URLs — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z515 ×1 — bare URL in prose)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

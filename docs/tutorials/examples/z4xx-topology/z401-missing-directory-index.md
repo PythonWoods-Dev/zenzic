@@ -8,8 +8,6 @@ description: "Walk through the z401-missing-directory-index fixture: a guide dir
 
 **Z-Code:** `Z401 MISSING_DIRECTORY_INDEX` · **Engine:** `zensical` · **Exit:** `0`
 
-<Z401MissingDirectoryIndex />
-
 ---
 
 ## The Fixture
@@ -84,7 +82,7 @@ omit the directory URL or return a 404:
 
 - **Scan Type:** `Structure Validator (zensical engine)`
 - **Severity:** `Info`
-- **Impact:** Deducts **2.0 DQS points** (navigation category, weight 0.25).
+- **Impact:** Informational only — deducts **no DQS points**.
 
 ---
 

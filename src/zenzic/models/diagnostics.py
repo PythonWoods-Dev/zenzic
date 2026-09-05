@@ -84,7 +84,7 @@ class ZenzicDiagnostic:
             "severity": int(self.severity),
             "code": self.code,
             "codeDescription": {
-                "href": f"https://zenzic.dev/docs/reference/finding-codes#{self.code}",
+                "href": f"https://zenzic.dev/reference/finding-codes/#{self.code.lower()}",
             },
             "source": self.source,
             "message": f"[{self.code}] {self.message}",

@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core import regex as re
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule, RuleFinding
 from zenzic.core.scanner import scan_docs_references
 from zenzic.models.config import ZenzicConfig
@@ -96,6 +97,183 @@ def test_parallel_single_worker_is_sequential(tmp_path: Path) -> None:
     # All refs should resolve (we defined [ref] in every file)
     for report in result:
         assert report.score == 100.0
+
+
+def test_parsing_label_agrees_with_its_own_elapsed_column(tmp_path: Path) -> None:
+    """The Parsing label must not report a window wider than its own progress row.
+
+    Rich stamps ``finished_time`` on the final ``advance()`` — i.e. when the last
+    file is parsed — and ``TimeElapsedColumn`` renders that. The label used to be
+    written after the VSM/URP pass instead, so a single row showed two figures
+    measuring different windows (observed on this repository: label 3405.8ms,
+    column 0:00:02 from a real finished_time of 2047.6ms). The VSM pass now has
+    its own line, so the label must agree with the column to within rounding.
+    """
+    from rich.progress import Progress
+
+    repo = _make_docs(tmp_path, n_files=6)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = Progress()
+    scan_docs_references(docs_root, mgr, config=config, workers=1, progress_instance=progress)
+
+    parsing = [t for t in progress.tasks if t.description.startswith("Parsing")]
+    assert parsing, "no Parsing task was created"
+    match = re.search(r"\(([\d.]+)ms\)", parsing[0].description)
+    assert match, f"Parsing label carries no duration: {parsing[0].description!r}"
+    label_ms = float(match.group(1))
+    finished_time = parsing[0].finished_time
+    assert finished_time is not None, "Parsing task never reached Rich's finished state"
+    column_ms = finished_time * 1000
+
+    # The label is stamped microseconds after the final advance(), so allow a
+    # small delta — but nothing like the whole VSM pass, which is what this
+    # regression guards against.
+    assert abs(label_ms - column_ms) < 100, (
+        f"Parsing label ({label_ms:.1f}ms) disagrees with its own elapsed column "
+        f"({column_ms:.1f}ms) — the label is measuring past the end of parsing again"
+    )
+
+
+def test_vsm_pass_has_its_own_progress_line(tmp_path: Path) -> None:
+    """The VSM/URP resolution pass must be visible as its own phase.
+
+    Measured at ~1.4s on this repository's own docs tree — previously the single
+    largest stretch of work with no progress line, silently folded into Parsing.
+    """
+    from rich.progress import Progress
+
+    repo = _make_docs(tmp_path, n_files=4)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = Progress()
+    scan_docs_references(docs_root, mgr, config=config, workers=1, progress_instance=progress)
+
+    vsm = [t for t in progress.tasks if t.description.startswith("Building VSM")]
+    assert vsm, f"no VSM task: {[t.description for t in progress.tasks]!r}"
+    assert "ms)" in vsm[0].description, f"VSM line reports no duration: {vsm[0].description!r}"
+
+
+def test_sequential_validate_links_task_shows_elapsed_ms(tmp_path: Path) -> None:
+    """The 'Validating links' progress task must report its own elapsed time on
+    completion in the sequential path, matching every sibling task (parsing,
+    orphans, snippets, unused assets) and matching the parallel path's own
+    equivalent update at scanner.py:2091-2096. The sequential branch currently
+    updates the task's description once at start (without a duration) and
+    never again — the task never receives a finishing description with
+    ``(X.Yms)``, unlike the identical parallel-path logic which does.
+    """
+    from rich.progress import Progress
+
+    # No http(s) links in the fixture — n_urls stays 0, so the test exercises
+    # the task's start/finish description bookkeeping without any real network
+    # call (validate() with an empty registry does no I/O).
+    repo = tmp_path
+    docs = repo / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("# Page\n\nNo links here.\n")
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = Progress()
+    scan_docs_references(
+        docs_root,
+        mgr,
+        config=config,
+        validate_links=True,
+        workers=1,  # forces the sequential path regardless of file count
+        progress_instance=progress,
+    )
+
+    validate_tasks = [t for t in progress.tasks if t.description.startswith("Validating links")]
+    assert validate_tasks, "no 'Validating links' task was created"
+    assert "ms)" in validate_tasks[0].description, (
+        "the 'Validating links' task's final description never shows its own "
+        f"elapsed time, unlike every other progress line: {validate_tasks[0].description!r}"
+    )
+
+
+class _RecordingProgress:
+    """A ``Progress`` that records the arguments of every ``add_task`` call.
+
+    The defect under test is visible only *at creation time*: the task is later
+    given a real total, so a post-hoc inspection of ``progress.tasks`` cannot
+    distinguish "was determinate throughout" from "spent the whole parsing phase
+    as a pulsing indeterminate bar and was corrected at the end".
+    """
+
+    def __init__(self) -> None:
+        from rich.progress import Progress
+
+        self._inner = Progress()
+        self.created: list[tuple[str, object]] = []
+
+    def add_task(self, description: str, **kwargs: object) -> object:
+        self.created.append((description, kwargs.get("total")))
+        return self._inner.add_task(description, **kwargs)  # type: ignore[arg-type]
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._inner, name)
+
+
+def _run_with_recording_progress(tmp_path: Path) -> _RecordingProgress:
+    repo = tmp_path
+    docs = repo / "docs"
+    docs.mkdir()
+    # A real http(s) link, so the validation phase is genuinely entered and a
+    # URL count actually exists to be used as the bar's total.
+    (docs / "page.md").write_text("# Page\n\n[x](https://example.invalid/a)\n")
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+
+    progress = _RecordingProgress()
+    scan_docs_references(
+        repo / config.docs_dir,
+        mgr,
+        config=config,
+        validate_links=True,
+        workers=1,
+        progress_instance=progress,  # type: ignore[arg-type]
+    )
+    return progress
+
+
+def test_validate_links_task_is_never_created_indeterminate(tmp_path: Path) -> None:
+    """The link-validation line must not render as a pulsing indeterminate bar.
+
+    It was created up front with ``total=None``, before parsing began, so Rich
+    rendered it as a pulsing bar with no percentage and a ``-:--:--`` clock for
+    the entire parsing and VSM window — announcing a phase that had not started
+    and whose size was not yet known. Every sibling line is determinate from the
+    moment it appears.
+    """
+    progress = _run_with_recording_progress(tmp_path)
+    links = [(d, total) for d, total in progress.created if "Validating links" in d]
+    assert links, f"no link-validation task created: {[d for d, _ in progress.created]!r}"
+    for description, total in links:
+        assert total is not None, (
+            f"{description!r} was created with total=None — Rich renders that as an "
+            "indeterminate pulsing bar for the whole window before validation starts"
+        )
+
+
+def test_validate_links_line_appears_after_the_vsm_line(tmp_path: Path) -> None:
+    """Progress lines must appear in the order their work actually runs.
+
+    Link validation runs *after* the VSM pass in both paths, but the task was
+    created before parsing, so it was displayed above a phase that in fact
+    precedes it.
+    """
+    progress = _run_with_recording_progress(tmp_path)
+    order = [d for d, _ in progress.created]
+    vsm = next(i for i, d in enumerate(order) if d.startswith("Building VSM"))
+    links = next(i for i, d in enumerate(order) if "Validating links" in d)
+    assert links > vsm, f"link validation is displayed before the VSM pass it follows: {order!r}"
 
 
 @pytest.mark.parametrize("workers", [0, -1, -8])

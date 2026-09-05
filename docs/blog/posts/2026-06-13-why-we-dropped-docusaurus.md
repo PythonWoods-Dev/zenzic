@@ -108,7 +108,7 @@ Zenzic's architecture is designed exclusively for documentation engines whose an
 In practice, this defines our current support and future roadmap:
 
 - **MkDocs** *(Supported)* — anchors derived from `python-markdown` heading slugification, stable and documented
-- **Zensical** *(Supported)* — Python-native engine; anchor generation is fully controlled within the same deterministic model
+- **Zensical** *(Supported)* — a Rust-core engine with a Python package interface; anchor generation is fully controlled within the same deterministic model, no external runtime execution required
 - **Standalone** *(Supported)* — engine-agnostic static analysis over Markdown source trees without a framework adapter contract
 - **Sphinx** *(Roadmap)* — architecture-compatible candidate via deterministic `docutils`-based anchors, but no native adapter is currently shipped
 - **Hugo** *(Roadmap)* — architecture-compatible candidate via deterministic `goldmark`-based anchors, but no native adapter is currently shipped

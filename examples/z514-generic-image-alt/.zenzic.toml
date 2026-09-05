@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z514 GENERIC_IMAGE_ALT_TEXT gallery example
+#
+# docs/index.md contains an image tag using the generic filler word "image"
+# as alt text. Zenzic's built-in GenericImageAltTextRule (Z514) is always
+# active and flags non-descriptive alt text — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z514 ×1 — generic image alt text)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

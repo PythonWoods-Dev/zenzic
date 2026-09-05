@@ -8,8 +8,6 @@ description: "Analysis of the z303-duplicate-def fixture."
 
 **Z-Code:** `Z303 DUPLICATE_DEF` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z303DuplicateDef />
-
 ---
 
 ## The Fixture

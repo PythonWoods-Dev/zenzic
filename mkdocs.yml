@@ -14,6 +14,14 @@ repo_name: PythonWoods/zenzic
 edit_uri: edit/main/docs/
 copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
 
+# on_post_build: corrects mkdocs-rss-plugin's hardcoded feed-discovery <link>
+# tags, which ignore plugins.rss.feeds_filenames below (known upstream
+# limitation — see hooks/fix_rss_feed_discovery_links.py for detail).
+hooks:
+  - hooks/fix_rss_feed_discovery_links.py
+  - hooks/publish_schemas.py
+  - hooks/generate_llms_txt.py
+
 extra_css:
   - assets/css/zenzic-tailwind.min.css
   - assets/css/extra.css
@@ -31,6 +39,8 @@ exclude_docs: |
 
 not_in_nav: |
   includes/*
+  developers/explanation/adr-vault/records/*
+  developers/how-to/release-governance-protocol.md
 
 # --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
 # navigation.tabs maps each top-level nav entry to a tab in the header.
@@ -42,35 +52,33 @@ nav:
       - Tutorials Index: tutorials/index.md
       - Quick Start Tutorial: tutorials/first-audit.md
       - Install & First Run: how-to/install.md
-      - Configuration Setup: how-to/initialize-configuration.md
+      - Configuration: how-to/initialize-configuration.md
     - Delivery Mechanisms:
       - Editor Index: editor/index.md
-      - VS Code Extension (LSP): editor/vscode.md
-      - Third-Party Editors (LSP): how-to/editor-integrations.md
+      - VS Code Extension: editor/vscode.md
+      - Third-Party Editors: how-to/editor-integrations.md
       - GitHub Action (CI/CD): how-to/configure-ci-cd.md
       - GitHub Action Reference: reference/zenzic-action.md
 
 
     - How-to Guides:
       - How-to Index: how-to/index.md
-      - Manage Technical Debt: how-to/handle-technical-debt.md
+      - Technical Debt: how-to/handle-technical-debt.md
+      - Repository Health: how-to/check-repository-health.md
       - Add Custom Rules: how-to/add-custom-rules.md
       - Configure Adapters: how-to/configure-adapter.md
       - Privacy Gate: how-to/configure-privacy-gate.md
-      - Configuration Strategy: how-to/configuration-strategy.md
+      - Integrate Vale and Zenzic: how-to/integrate-vale-and-zenzic.md
       - Cross-Site Links: how-to/manage-cross-site-links.md
       - Engine Migration: how-to/migrate-engines.md
-      - Use Brand System: how-to/use-brand-system.md
-      - Workflow Integration: how-to/workflow-integration.md
       - Configure Social Metadata: how-to/configure-social-metadata.md
       - Add Status Badges: how-to/add-badges.md
       - Troubleshooting: how-to/troubleshooting.md
-    - Rule Reference & Catalog:
+    - Rules & Catalog:
       - Rules Index: rules/index.md
       - Finding Codes Index: reference/finding-codes.md
       - Core Rule Checks: reference/checks.md
-      - Rule Specification Cards:
-        - rules/Z000.md
+      - Rule Cards:
         - rules/Z001.md
         - rules/Z101.md
         - rules/Z102.md
@@ -83,8 +91,7 @@ nav:
         - rules/Z109.md
         - rules/Z110.md
         - rules/Z111.md
-        - rules/Z113.md
-        - rules/Z114.md
+        - rules/Z112.md
         - rules/Z620.md
         - rules/Z120.md
         - rules/Z121.md
@@ -107,6 +114,7 @@ nav:
         - rules/Z406.md
         - rules/Z410.md
         - rules/Z411.md
+        - rules/Z412.md
         - rules/Z501.md
         - rules/Z502.md
         - rules/Z503.md
@@ -124,6 +132,9 @@ nav:
         - rules/Z518.md
         - rules/Z519.md
         - rules/Z520.md
+        - rules/Z521.md
+        - rules/Z522.md
+        - rules/Z523.md
         - rules/Z601.md
         - rules/Z603.md
         - rules/Z610.md
@@ -139,11 +150,13 @@ nav:
         - rules/Z901.md
         - rules/Z902.md
         - rules/Z906.md
-      - Interactive Rule Examples:
+      - Rule Examples:
         - tutorials/examples/index.md
-        - Z0xx Core Index: tutorials/examples/z0xx-core/index.md
+        - Z0xx Core: tutorials/examples/z0xx-core/index.md
         - tutorials/examples/z0xx-core/z001-config-error.md
-        - Z1xx Links Index: tutorials/examples/z1xx-links/index.md
+        - tutorials/examples/z0xx-core/z110-config-syntax-error.md
+        - tutorials/examples/z0xx-core/z111-config-schema-error.md
+        - Z1xx Links: tutorials/examples/z1xx-links/index.md
         - tutorials/examples/z1xx-links/z101-broken-links.md
         - tutorials/examples/z1xx-links/z102-anchor-missing.md
         - tutorials/examples/z1xx-links/z103-orphan-link.md
@@ -152,57 +165,84 @@ nav:
         - tutorials/examples/z1xx-links/z107-circular-anchor.md
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
-        - tutorials/examples/z1xx-links/z110-stale-allowlist.md
+        - tutorials/examples/z1xx-links/z112-stale-allowlist.md
         - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
         - tutorials/examples/z1xx-links/z121-missing-href.md
         - tutorials/examples/z1xx-links/z122-jump-link.md
         - tutorials/examples/z1xx-links/z123-non-http-scheme.md
         - tutorials/examples/z1xx-links/z124-opaque-context.md
-        - Z2xx Security Index: tutorials/examples/z2xx-security/index.md
+        - Z2xx Security: tutorials/examples/z2xx-security/index.md
         - tutorials/examples/z2xx-security/z201-credentials.md
         - tutorials/examples/z2xx-security/z202-path-traversal.md
+        - tutorials/examples/z2xx-security/z203-fatal-path-traversal.md
         - tutorials/examples/z2xx-security/z204-forbidden-term.md
         - tutorials/examples/z2xx-security/z205-forbidden-scheme.md
-        - Z3xx References Index: tutorials/examples/z3xx-references/index.md
+        - Z3xx References: tutorials/examples/z3xx-references/index.md
         - tutorials/examples/z3xx-references/z301-dangling-ref.md
         - tutorials/examples/z3xx-references/z302-dead-def.md
         - tutorials/examples/z3xx-references/z303-duplicate-def.md
-        - Z4xx Topology Index: tutorials/examples/z4xx-topology/index.md
+        - Z4xx Topology: tutorials/examples/z4xx-topology/index.md
         - tutorials/examples/z4xx-topology/z401-missing-directory-index.md
         - tutorials/examples/z4xx-topology/z402-orphan-page.md
         - tutorials/examples/z4xx-topology/z403-missing-alt.md
         - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
         - tutorials/examples/z4xx-topology/z405-unused-assets.md
         - tutorials/examples/z4xx-topology/z406-nav-contract.md
-        - Z5xx Content Index: tutorials/examples/z5xx-content/index.md
+        - tutorials/examples/z4xx-topology/z410-unreachable-graph-node.md
+        - tutorials/examples/z4xx-topology/z411-dead-end-node.md
+        - tutorials/examples/z4xx-topology/z412-traceability-broken.md
+        - Z5xx Content: tutorials/examples/z5xx-content/index.md
         - tutorials/examples/z5xx-content/z501-placeholder.md
         - tutorials/examples/z5xx-content/z502-short-content.md
         - tutorials/examples/z5xx-content/z503-snippet-error.md
         - tutorials/examples/z5xx-content/z505-untagged-code-block.md
         - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
-        - Z6xx Brand Index: tutorials/examples/z6xx-brand/index.md
+        - tutorials/examples/z5xx-content/z516-multiple-h1.md
+        - tutorials/examples/z5xx-content/z510-heading-hierarchy.md
+        - tutorials/examples/z5xx-content/z511-excessive-sentence-length.md
+        - tutorials/examples/z5xx-content/z512-empty-section.md
+        - tutorials/examples/z5xx-content/z513-duplicate-heading.md
+        - tutorials/examples/z5xx-content/z514-generic-image-alt.md
+        - tutorials/examples/z5xx-content/z515-bare-url.md
+        - tutorials/examples/z5xx-content/z517-heading-punctuation.md
+        - tutorials/examples/z5xx-content/z518-passive-voice.md
+        - tutorials/examples/z5xx-content/z519-weasel-words.md
+        - tutorials/examples/z5xx-content/z520-malformed-list.md
+        - tutorials/examples/z5xx-content/z521-required-table-column.md
+        - tutorials/examples/z5xx-content/z522-table-cell-enum.md
+        - tutorials/examples/z5xx-content/z523-heading-order.md
+        - Z6xx Brand: tutorials/examples/z6xx-brand/index.md
         - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
         - tutorials/examples/z6xx-brand/z603-dead-suppression.md
+        - tutorials/examples/z6xx-brand/z613-frontmatter-schema-mismatch.md
+        - tutorials/examples/z6xx-brand/z614-unapproved-domain.md
+        - tutorials/examples/z6xx-brand/z616-cross-namespace-link.md
+        - tutorials/examples/z6xx-brand/z617-forbidden-content.md
+        - tutorials/examples/z6xx-brand/z610-required-frontmatter.md
+        - tutorials/examples/z6xx-brand/z611-forbidden-domain.md
+        - tutorials/examples/z6xx-brand/z612-forbidden-frontmatter-key.md
+        - tutorials/examples/z6xx-brand/z615-forbidden-url-scheme.md
+        - tutorials/examples/z6xx-brand/z618-required-heading.md
+        - tutorials/examples/z6xx-brand/z619-max-complexity.md
         - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
-    - Technical Reference:
+    - Reference:
       - CLI Specification: reference/cli.md
       - Configuration Schema: reference/configuration-reference.md
       - Suppression Policy: reference/suppression-policy.md
-      - DQS Scoring Algorithm: reference/scoring-algorithm.md
+      - Scoring Algorithm: reference/scoring-algorithm.md
       - Engine Adapters: reference/engines.md
+      - Compatibility Matrix: reference/compatibility.md
       - Advanced Features: reference/advanced-features.md
       - JSON & SARIF API: reference/api-json.md
-      - Brand Kit: reference/brand-kit.md
-      - Brand System: reference/brand-system.md
       - Glossary: reference/glossary.md
       - GitHub Action Reference: reference/zenzic-action.md
       - Reference Index: reference/index.md
-    - Core Architecture:
+    - Architecture:
       - Explanation Index: explanation/index.md
       - Architecture Index: architecture/index.md
       - Why Zenzic: explanation/why-zenzic.md
       - System Architecture: explanation/architecture.md
-      - Language Server Architecture: explanation/language-server-architecture.md
+      - Language Server: explanation/language-server-architecture.md
       - Core Mechanics: explanation/core-mechanics.md
       - Scoring System: explanation/scoring-system.md
       - Baseline Tracking: explanation/baseline-tracking.md
@@ -215,73 +255,50 @@ nav:
       - The Zenzic Trinity: explanation/the-zenzic-trinity.md
       - GitHub Action Internals: explanation/github-action-internals.md
       - Privacy Gate: explanation/privacy-gate.md
-      - Brand Philosophy: explanation/brand-philosophy.md
       - Community Index: explanation/community-index.md
 
 
   - Developer Documentation:
     - developers/index.md
     - How-to:
-      - Developer How-to Index: developers/how-to/index.md
+      - How-to Index: developers/how-to/index.md
+      - Write an ADR: developers/how-to/write-an-adr.md
       - Contribute:
         - developers/how-to/contribute/index.md
         - developers/how-to/contribute/pull-requests.md
         - developers/how-to/contribute/report-a-bug.md
         - developers/how-to/contribute/report-a-docs-issue.md
         - developers/how-to/contribute/request-a-change.md
+        - developers/how-to/contribute/propose-a-custom-rule.md
       - developers/how-to/implement-adapter.md
-      - developers/how-to/release-governance-protocol.md
       - developers/how-to/write-a-check.md
       - developers/how-to/write-plugin.md
       - developers/how-to/write-ast-rule.md
       - developers/how-to/troubleshooting.md
     - Reference:
-      - Developer Reference Index: developers/reference/index.md
+      - Reference Index: developers/reference/index.md
       - developers/reference/adapter-api.md
-      - developers/reference/adapter-examples.md
       - developers/reference/ast-foundations.md
       - developers/reference/cli-architecture.md
       - developers/reference/credential-scanner-obligations.md
-      - developers/reference/supply-chain-assurance-profile.md
       - developers/reference/zenzic-style.md
     - Explanation:
-      - Developer Explanation Index: developers/explanation/index.md
+      - Explanation Index: developers/explanation/index.md
       - developers/explanation/adapter-internals.md
       - Architecture:
         - architecture/lsp-integration.md
       - ADR Vault:
         - developers/explanation/adr-vault/index.md
-        - ADR Records Index: developers/explanation/adr-vault/records/index.md
-
-        - developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md
-        - developers/explanation/adr-vault/records/adr-007-sovereign-sandbox.md
-        - developers/explanation/adr-vault/records/adr-020-mirror-law.md
-        - developers/explanation/adr-vault/records/adr-021-parallel-audit.md
-        - developers/explanation/adr-vault/records/adr-022-english-only-governance.md
-        - developers/explanation/adr-vault/records/adr-075-radical-unawareness.md
-        - developers/explanation/adr-vault/records/adr-090-silent-on-success-unix-philosophy.md
-        - developers/explanation/adr-vault/records/adr-091-single-pass-ast-and-cqs.md
-        - developers/explanation/adr-vault/records/adr-092-comprehensive-bump-coverage.md
-        - developers/explanation/adr-vault/records/adr-agnostic-universalism.md
-        - developers/explanation/adr-vault/records/adr-bilingual-structural.md
-        - developers/explanation/adr-vault/records/adr-decentralized-cli.md
-        - developers/explanation/adr-vault/records/adr-discovery.md
-        - developers/explanation/adr-vault/records/adr-lint-source.md
-        - developers/explanation/adr-vault/records/adr-native-telemetry.md
-        - developers/explanation/adr-vault/records/adr-path-sovereignty.md
-        - developers/explanation/adr-vault/records/adr-regex-acl.md
-        - developers/explanation/adr-vault/records/adr-unified-perimeter.md
+        - developers/explanation/adr-vault/records/index.md
+      - developers/explanation/cli-contract-stability.md
       - developers/explanation/core-laws.md
-      - developers/explanation/mdx-asset-rationale.md
+      - developers/explanation/svg-vs-native-asset-rationale.md
       - developers/explanation/sovereign-verification-model.md
-      - developers/explanation/tailwind-mkdocs-bridge.md
       - Governance:
         - developers/explanation/governance/index.md
         - developers/explanation/governance/evolution_policy.md
         - developers/explanation/governance/exit_strategy.md
         - developers/explanation/governance/licensing.md
-        - developers/explanation/governance/technical-debt.md
-        - developers/explanation/governance/lpgp.md
 
   - Blog: blog/
 
@@ -294,13 +311,15 @@ theme:
   language: en
   font: false
   palette:
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    # No `media:` on either entry: Material evaluates media queries in order to
+    # pick a first-visit default, so any `(prefers-color-scheme: ...)` here would
+    # hand the choice to the visitor's OS. Dark is the default unconditionally;
+    # the toggle still reaches light and the choice is then remembered.
+    - scheme: slate
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -335,8 +354,8 @@ extra:
       link: /blog/rss.xml
       name: RSS Feed
     - icon: fontawesome/solid/square-rss
-      link: /blog/atom.xml
-      name: Atom Feed
+      link: /blog/rss-updated.xml
+      name: RSS Feed (Recently Updated)
 
 markdown_extensions:
   - abbr
@@ -398,7 +417,7 @@ plugins:
       stylesheet: /blog/rss.xsl
       feeds_filenames:
         rss_created: blog/rss.xml
-        rss_updated: blog/atom.xml
+        rss_updated: blog/rss-updated.xml
   - minify:
       minify_html: true
       minify_css: true

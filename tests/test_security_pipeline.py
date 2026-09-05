@@ -17,10 +17,15 @@ Covers two bugs discovered during Z204 red-teaming (v0.9.0):
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
+
+from typer.testing import CliRunner
 
 from zenzic.core.credentials import SecurityFinding
 from zenzic.core.scanner import ReferenceScanner, _map_credential_to_finding
+from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport, ReferenceFinding
 
@@ -177,3 +182,58 @@ def test_no_security_breach_emits_structural_findings(tmp_path: Path) -> None:
     assert any(f.issue == "Z302" for f in report.findings), (
         "Z302 must be emitted for orphan definitions on clean files"
     )
+
+
+# ─── Z204 rule_id mislabeling regression (V031) ──────────────────────────────
+
+
+def test_z204_rule_findings_use_z204_not_z201() -> None:
+    """RuleFinding injection in _scan_single_file must not hardcode Z201.
+
+    Regression for: ``harvest()`` yields SecurityFinding objects for BOTH
+    credential secrets and Z204 FORBIDDEN_TERM hits (the latter via
+    ``scan_line_for_forbidden_terms``), but the ``RuleFinding`` list built
+    from ``security_findings`` in ``_scan_single_file`` unconditionally set
+    ``rule_id="Z201"`` — unlike ``_map_credential_to_finding``, which already
+    branches correctly on ``secret_type == "FORBIDDEN_TERM"``. A Z204 hit was
+    reported as ``[Z201]  Credential or secret detected: FORBIDDEN_TERM``
+    instead of ``[Z204]  Forbidden term detected — remove from
+    documentation: '...'``, in both text and ``--format json`` output.
+
+    Text assertion updated (V031_SKIPLIST_BUG_FAMILY_CLOSURE): Z204 was
+    later found to double-emit for an unrelated reason (the same
+    report.rule_findings-vs-report.security_findings skip-list bug already
+    fixed for Z108/Z201/Z202/Z203) — the RuleFinding copy this test
+    originally checked the *label* of no longer reaches display at all once
+    Z204 was added to _check.py's skip-list; only the correctly-labelled
+    security_breach-severity copy (via _map_credential_to_finding) survives,
+    rendered through the "POLICY VIOLATION DETECTED" panel, not a bracketed
+    "[Z204]" list entry. The mislabelling this test guards against remains a
+    real, valid regression to prevent — reformulated below via the panel
+    text and JSON output (JSON's `references` field is built by a separate,
+    unfiltered re-walk of rule_findings/reference_reports and still uses the
+    bracketed "[Z204]" label there, unaffected by the skip-list change).
+    """
+    runner = CliRunner()
+    cwd = os.getcwd()
+    os.chdir("examples/z204-forbidden-term")
+    try:
+        text_result = runner.invoke(app, ["check", "all"])
+        json_result = runner.invoke(app, ["check", "all", "--format", "json"])
+    finally:
+        os.chdir(cwd)
+
+    assert "[Z201]" not in text_result.stdout, (
+        f"Z204 FORBIDDEN_TERM finding mislabeled as Z201 in text output:\n{text_result.stdout}"
+    )
+    assert "POLICY VIOLATION DETECTED" in text_result.stdout, (
+        f"Expected the POLICY VIOLATION DETECTED panel in text output, got:\n{text_result.stdout}"
+    )
+    assert "Forbidden term detected" in text_result.stdout
+    assert "Credential or secret detected: FORBIDDEN_TERM" not in text_result.stdout
+
+    json_start = json_result.stdout.find("{")
+    payload = json.loads(json_result.stdout[json_start:])
+    refs = " ".join(payload.get("references", []))
+    assert "[Z201]" not in refs, f"Z204 finding mislabeled as Z201 in JSON output: {refs!r}"
+    assert "[Z204]" in refs, f"Expected [Z204] in JSON output, got: {refs!r}"

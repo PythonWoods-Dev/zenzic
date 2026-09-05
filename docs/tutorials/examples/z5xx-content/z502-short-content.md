@@ -8,8 +8,6 @@ description: "Analysis of the z502-short-content fixture."
 
 **Z-Code:** `Z502 SHORT_CONTENT` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z502ShortContent />
-
 ---
 
 ## The Fixture

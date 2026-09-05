@@ -6,9 +6,7 @@ description: "Analysis of the z301-dangling-ref fixture."
 
 # Z301 — Dangling Ref
 
-**Z-Code:** `Z301 DANGLING_REF` · **Engine:** `standalone` · **Exit:** `1`
-
-<Z301DanglingRef />
+**Z-Code:** `Z301 DANGLING_REF` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 

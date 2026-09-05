@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Validation logic: native link checking (internal + external) and snippet checks.
 
-Link validation no longer invokes any external process.  Instead it uses a
-pure-Python two-pass approach:
+Link validation never invokes an external process. It uses a pure-Python
+two-pass approach:
 
 1. Read every ``.md`` file under ``docs/`` into memory, extract all Markdown
    links while skipping fenced code blocks and inline code spans.
@@ -29,10 +29,11 @@ import asyncio
 import contextlib
 import html
 import json
+import posixpath
 import sys
 import textwrap
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 
 
 if sys.version_info >= (3, 11):
@@ -42,6 +43,7 @@ else:
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
+from urllib.parse import unquote, urlsplit
 
 import httpx
 import yaml
@@ -159,11 +161,17 @@ VALIDATION_PARALLEL_THRESHOLD = 50
 
 # ─── PolyglotExtractor — RE2 constants (v0.17.0) ─────────────────────────────
 
-# Stadio 1: cattura atomica <a> e <img> (multilinea, DFA-pure, O(N)).
-# Vincolo: il carattere '>' termina il tag e non è ammesso nei valori degli attributi.
-_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\b(?P<attrs>[^>]*?)>")
+# Stage 1: atomic capture of <a> and <img> (multiline, DFA-pure, O(N)).
+# Constraint: the '>' character terminates the tag and is not allowed in attribute values.
+# Case-insensitive because HTML tag names are, and Markdown passes raw HTML
+# through untouched: without `(?i)` an uppercase `<A HREF=...>` matched nothing
+# at all, so the whole polyglot pipeline skipped the tag and both Z203 (exit 3)
+# and Z205 (exit 2) were bypassed by shift-key alone. The `.lower()` applied to
+# the captured tag name downstream was dead code until now -- it documented the
+# intent this pattern did not implement.
+_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?is)<(a|img)\b(?P<attrs>[^>]*?)>")
 
-# Stadio 2: parsing lineare coppie attributo=valore.
+# Stage 2: linear parsing of attribute=value pairs.
 _RE_POLY_ATTR: re.RegexPattern = re.compile(
     r"(?P<key>[\w:@-]+)"
     r"(?:\s*=\s*"
@@ -173,7 +181,7 @@ _RE_POLY_ATTR: re.RegexPattern = re.compile(
     r"))?",
 )
 
-# Attributi Safe-Core: pass senza diagnostica (ADR-075 — nessun parser esterno).
+# Safe-Core attributes: pass with no diagnostic (ADR-075 — no external parser).
 _POLY_SAFE_CORE: frozenset[str] = frozenset(
     {
         "href",
@@ -193,9 +201,9 @@ _POLY_SAFE_CORE: frozenset[str] = frozenset(
         "data-zenzic-ignore",
     }
 )
-_POLY_ARIA_PREFIX = "aria-"  # aria-* è sempre Safe-Core
+_POLY_ARIA_PREFIX = "aria-"  # aria-* is always Safe-Core
 
-# Attributi Blacklist: Z124 OPAQUE_HTML_CONTEXT.
+# Blacklisted attributes: Z124 OPAQUE_HTML_CONTEXT.
 _POLY_BLACKLIST: frozenset[str] = frozenset(
     {
         "data-url",
@@ -206,10 +214,36 @@ _POLY_BLACKLIST: frozenset[str] = frozenset(
 )
 _POLY_ON_PREFIX = "on"  # on* event-handlers → Z124
 
-# Schemi vietati (Security Gate — Z205, non sopprimibile, Exit 2).
+# Forbidden schemes (Security Gate — Z205, non-suppressible, Exit 2).
 _POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
-# Schemi informativi (Z123, nessuna risoluzione path).
+# Informational schemes (Z123, no path resolution).
 _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
+
+#: Codes whose RuleFinding is already surfaced via the LinkError path in
+#: :func:`validate_links_structured` below. Public (not underscore-prefixed)
+#: so other modules — notably ``_check.py``'s rule-finding skip-list — can
+#: derive from this set instead of maintaining an independent copy.
+LINK_CODES: frozenset[str] = frozenset(
+    {
+        "Z101",
+        "Z102",
+        "Z103",
+        "Z104",
+        "Z105",
+        "Z106",
+        "Z108",
+        "Z112",
+        "Z620",
+        "Z120",
+        "Z121",
+        "Z122",
+        "Z123",
+        "Z124",
+        "Z202",
+        "Z203",
+        "Z205",
+    }
+)
 
 # Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
 _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.*)$")
@@ -223,32 +257,32 @@ _POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL
 _POLY_DISPLAY_MATH_RE: re.RegexPattern = re.compile(r"\$\$.*?\$\$", re.DOTALL)
 _POLY_INLINE_MATH_RE: re.RegexPattern = re.compile(r"\$[^$\n]+\$")
 
-# Strip whitespaces and control characters from URLs prima del check Z205.
+# Strip whitespace and control characters from URLs before the Z205 check.
 _POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
 
 
 @dataclass(frozen=True, slots=True)
 class HtmlNodeInfo:
-    """Nodo HTML estratto dal PolyglotExtractor (tag ``<a>`` o ``<img>``).
+    """HTML node extracted by the PolyglotExtractor (``<a>`` or ``<img>`` tag).
 
-    Contiene tutti i dati necessari all'emissione di Z120–Z124 e Z205
-    senza ulteriori accessi al testo sorgente.
+    Carries every datum needed to emit Z120–Z124 and Z205 without any
+    further access to the source text.
 
     Attributes:
-        tag:               ``"a"`` oppure ``"img"``.
-        href:              Valore di ``href`` (per ``<a>``) o ``src`` (per ``<img>``).
-                           ``None`` se l'attributo è assente.
-        line_no:           Numero di riga 1-based nel sorgente originale.
-        suppressed:        ``True`` se ``data-zenzic-ignore`` è presente sul tag.
-        z205_scheme:       Schema vietato rilevato (``"javascript:"`` / ``"data:"``);
-                           ``None`` se il tag non è un vettore Z205.
-        unknown_attrs:     Attributi non censiti nella Safe-Core list → Z120.
-        blacklisted_attrs: Attributi blacklistati (event-handler, shadow-routing) → Z124.
-        is_missing_href:   ``True`` se ``href``/``src`` è assente o vuoto → Z121.
-        is_jump_link:      ``True`` se ``href="#"`` → Z122.
-        info_scheme:       Schema informativo (``mailto:``, ``tel:``, ``ftp:``)
-                           se rilevato → Z123; ``None`` altrimenti.
-        raw_tag:           Testo originale del tag (per messaggi diagnostici).
+        tag:               ``"a"`` or ``"img"``.
+        href:              Value of ``href`` (for ``<a>``) or ``src`` (for ``<img>``).
+                           ``None`` when the attribute is absent.
+        line_no:           1-based line number in the original source.
+        suppressed:        ``True`` when ``data-zenzic-ignore`` is present on the tag.
+        z205_scheme:       Forbidden scheme detected (``"javascript:"`` / ``"data:"``);
+                           ``None`` when the tag is not a Z205 vector.
+        unknown_attrs:     Attributes not in the Safe-Core list → Z120.
+        blacklisted_attrs: Blacklisted attributes (event-handler, shadow-routing) → Z124.
+        is_missing_href:   ``True`` when ``href``/``src`` is absent or empty → Z121.
+        is_jump_link:      ``True`` when ``href="#"`` → Z122.
+        info_scheme:       Informational scheme (``mailto:``, ``tel:``, ``ftp:``)
+                           if detected → Z123; ``None`` otherwise.
+        raw_tag:           Original tag text (for diagnostic messages).
     """
 
     tag: str
@@ -266,7 +300,7 @@ class HtmlNodeInfo:
 
 @dataclass
 class ReferenceLinkNode:
-    """Nodo estratto dal PolyglotExtractor per una definizione di link di riferimento ([label]: dest)."""
+    """Node extracted by the PolyglotExtractor for a reference link definition ([label]: dest)."""
 
     label: str
     dest: str
@@ -275,32 +309,32 @@ class ReferenceLinkNode:
 
 
 class PolyglotExtractor:
-    """Estrattore a due stadi per tag HTML nativi e definizioni di riferimento Markdown.
+    """Two-stage extractor for native HTML tags and Markdown reference definitions.
 
-    Implementa la **Uniform Resolver Pipeline** (URP) di Zenzic v0.17.0:
-    la forma sintattica (Markdown vs HTML vs Reference Defs) è un dettaglio di trasporto;
-    l'analisi avviene sul valore risolto del puntamento.
+    Implements Zenzic's **Uniform Resolver Pipeline** (URP, v0.17.0):
+    the syntactic form (Markdown vs HTML vs reference defs) is a transport
+    detail; analysis operates on the resolved target value.
 
-    **Invarianti (ADR-075 / ADR-020):**
+    **Invariants (ADR-075 / ADR-020):**
 
-    * Complessità O(N): RE2/DFA-pure, nessun backtracking, nessun subprocess.
-    * Z205 (FORBIDDEN_SCHEME) è verificato **prima** di ``data-zenzic-ignore``
-      (sicurezza ha precedenza assoluta sulla soppressione).
-    * Supporta tag ``<a>``, ``<img>`` e definizioni di riferimento Markdown (CommonMark §4.7).
-    * Fence-skipping obbligatorio: i blocchi ``code``/``pre`` vengono oscurati
-      prima dell'estrazione per evitare falsi positivi in esempi di codice.
+    * O(N) complexity: RE2/DFA-pure, no backtracking, no subprocess.
+    * Z205 (FORBIDDEN_SCHEME) is checked **before** ``data-zenzic-ignore``
+      (security takes absolute precedence over suppression).
+    * Supports ``<a>`` and ``<img>`` tags and Markdown reference definitions (CommonMark §4.7).
+    * Mandatory fence-skipping: ``code``/``pre`` blocks are masked before
+      extraction to avoid false positives in code examples.
     """
 
     def extract(self, text: str, *, _premasked: str | None = None) -> list[HtmlNodeInfo]:
-        """Estrae tutti i nodi HTML rilevanti dal testo sorgente.
+        """Extract every relevant HTML node from the source text.
 
         Args:
-            text: Contenuto Markdown grezzo (no I/O).
+            text: Raw Markdown content (no I/O).
             _premasked: Optional pre-computed buffer with comments, fences, and math masked.
 
         Returns:
-            Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
-            trovato fuori dai blocchi di codice.
+            List of :class:`HtmlNodeInfo`, one per ``<a>``/``<img>`` tag
+            found outside code blocks.
         """
         if _premasked is not None:
             masked = self._mask_inline_code(_premasked)
@@ -312,7 +346,7 @@ class PolyglotExtractor:
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()
             attrs_str = m.group("attrs")
-            # Calcolare line_no dal testo originale (non mascherato)
+            # Compute line_no from the original (unmasked) text
             line_no = text[: m.start()].count("\n") + 1
             nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
         return nodes
@@ -320,11 +354,11 @@ class PolyglotExtractor:
     def extract_ref_defs(
         self, text: str, *, _premasked: str | None = None
     ) -> list[ReferenceLinkNode]:
-        """Estrae tutte le definizioni di link di riferimento ([label]: dest) fuori dai blocchi di codice.
+        """Extract every reference link definition ([label]: dest) outside code blocks.
 
         Implementa CommonMark §4.7 Reference Link Definition parsing via PolyglotExtractor.
         Fence-skipping obbligatorio tramite _mask_fences() e _mask_comments().
-        First-definition-wins per la risoluzione dei duplicati.
+        First-definition-wins for duplicate resolution.
         """
         masked = (
             _premasked
@@ -464,7 +498,7 @@ class PolyglotExtractor:
         return text
 
     def _mask_inline_code(self, text: str) -> str:
-        """Sostituisce blocchi inline code con spazi bianchi preservando gli offset."""
+        """Replace inline code spans with whitespace, preserving offsets."""
         from zenzic.core.validator import _INLINE_CODE_RE
 
         return _INLINE_CODE_RE.sub(
@@ -472,11 +506,11 @@ class PolyglotExtractor:
         )
 
     def _mask_fences(self, text: str) -> str:
-        """Sostituisce blocchi code/pre con spazi bianchi preservando gli offset.
+        """Replace code/pre blocks with whitespace, preserving offsets.
 
-        Utilizza la stessa logica di fence-detection di :class:`SuppressionTracker`
-        (tre o più backtick/tilde) per garantire coerenza nel trattamento dei
-        blocchi di codice a livello di codebase.
+        Uses the same fence-detection logic as :class:`SuppressionTracker`
+        (three or more backticks/tildes) so code blocks are treated
+        consistently across the codebase.
         """
         lines = text.split("\n")
         result: list[str] = []
@@ -504,7 +538,7 @@ class PolyglotExtractor:
         return "\n".join(result)
 
     def _mask_math(self, text: str) -> str:
-        """Sostituisce blocchi matematici ($$...$$ e $...$) con spazi bianchi preservando i caratteri di a capo."""
+        """Replace math blocks ($$...$$ and $...$) with whitespace, preserving newline characters."""
         text = _POLY_DISPLAY_MATH_RE.sub(
             lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
         )
@@ -514,15 +548,15 @@ class PolyglotExtractor:
         return text
 
     def _parse_node(self, tag: str, attrs_str: str, line_no: int, raw_tag: str) -> HtmlNodeInfo:
-        """Parsing lineare della stringa ``attrs`` e classificazione governance.
+        """Linear parsing of the ``attrs`` string and governance classification.
 
-        **Ordine di priorità:**
+        **Priority order:**
 
-        1. Estrae ``href``/``src``.
-        2. **Verifica Z205** (schema vietato) — avviene PRIMA di tutto il resto.
-        3. Rileva ``data-zenzic-ignore``.
-        4. Classifica ogni attributo: Safe-Core / Blacklist / Unknown.
-        5. Determina Z121/Z122/Z123.
+        1. Extract ``href``/``src``.
+        2. **Check Z205** (forbidden scheme) — happens BEFORE everything else.
+        3. Detect ``data-zenzic-ignore``.
+        4. Classify each attribute: Safe-Core / Blacklist / Unknown.
+        5. Determine Z121/Z122/Z123.
         """
         href_key = "src" if tag == "img" else "href"
         href: str | None = None
@@ -548,9 +582,9 @@ class PolyglotExtractor:
             elif key == "data-zenzic-ignore":
                 suppressed = True
             elif key.startswith(_POLY_ARIA_PREFIX):
-                pass  # aria-* è sempre Safe-Core
+                pass  # aria-* is always Safe-Core
             elif key in _POLY_SAFE_CORE:
-                pass  # Safe-Core: pass senza diagnostica
+                pass  # Safe-Core: pass with no diagnostic
             elif key in _POLY_BLACKLIST or key.startswith(_POLY_ON_PREFIX):
                 blacklisted.append(key)
             else:
@@ -591,7 +625,7 @@ class PolyglotExtractor:
         )
 
 
-# Singleton per l'uso nel pipeline di validazione.
+# Singleton for use in the validation pipeline.
 _POLYGLOT_EXTRACTOR = PolyglotExtractor()
 
 
@@ -646,7 +680,76 @@ class LinkError:
 # Detects hrefs that, after traversal, would reach an OS system directory.
 # Triggering this classifier upgrades a PATH_TRAVERSAL error to a
 # PATH_TRAVERSAL_SUSPICIOUS security incident (Exit Code 3).
-_RE_SYSTEM_PATH: re.RegexPattern = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
+#: Directory names that mark an OS system location when a traversal *lands* on
+#: one. Compared against the first surviving path segment, never substring-
+#: searched: ``../../guide/usr/manual.md`` contains ``/usr/`` and is ordinary
+#: documentation, while ``../../../../etc/passwd`` arrives at ``etc``.
+_SYSTEM_ROOT_DIRS: frozenset[str] = frozenset(
+    {
+        # POSIX
+        "etc",
+        "root",
+        "var",
+        "proc",
+        "sys",
+        "usr",
+        "boot",
+        "dev",
+        "bin",
+        "sbin",
+        # Windows -- the classifier used to be POSIX-only, so a backslash path
+        # targeting system32 produced no finding at all.
+        "windows",
+        "winnt",
+        "system32",
+        "programdata",
+    }
+)
+
+
+#: Percent-decoding rounds applied before a traversal is classified. One pass
+#: is not enough: ``..%252f`` decodes to ``..%2f``, which still is not ``../``,
+#: so a single ``unquote`` leaves a double-encoded traversal looking like an
+#: ordinary relative filename. The loop is bounded because the input is
+#: untrusted and a fixed point is not guaranteed to arrive quickly.
+_MAX_DECODE_ROUNDS = 5
+
+
+def _decode_percent_encoding(value: str) -> str:
+    """Percent-decode *value* until it stops changing, at most a few rounds.
+
+    The security tier and the link resolver must agree on what a URL says.
+    ``incremental.py`` already resolved links through ``unquote`` while the
+    traversal check read the raw text, so ``..%2f..%2fetc%2fpasswd`` reached
+    ``/etc/passwd`` and produced no finding: the two halves of the same
+    pipeline disagreed about the same string.
+
+    Pure string work, no filesystem access — the Zero I/O property of the
+    validator hot-path is unaffected.
+    """
+    for _ in range(_MAX_DECODE_ROUNDS):
+        decoded = unquote(value)
+        if decoded == value:
+            break
+        value = decoded
+    return value
+
+
+def is_allowlisted_absolute(url: str, decoded_url: str, allowlist: Iterable[str]) -> bool:
+    """Whether *url* is exempted by a configured absolute-path prefix.
+
+    Must be consulted **before** :func:`_classify_traversal_intent`, not after.
+    The classifier reads the first surviving path segment, so a documentation
+    section named ``dev/`` or ``usr/`` makes an ordinary site-absolute link
+    "suspicious" — and the emission sites turned that into a non-suppressible
+    exit 3. The allowlist was read only in the branch that classification had
+    already skipped past, so the escape hatch the configuration documents could
+    never apply to the finding it was meant to clear.
+
+    Both spellings are matched, because a link that only *decodes* to an
+    absolute path reaches the same branch.
+    """
+    return any(url.startswith(p) or decoded_url.startswith(p) for p in allowlist if p)
 
 
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
@@ -656,11 +759,35 @@ def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
     A traversal to ``../../sibling-repo/README.md`` is a boundary violation
     but has no OS-exploitation intent.  Only the former warrants Exit Code 3.
 
-    This check intentionally remains a fast regex scan over the raw href
-    string — no filesystem calls, no Path resolution — to stay within the
-    Zero I/O constraint of the validator hot-path.
+    Classification is by *destination*, not by text. The previous
+    implementation substring-searched the raw href for ``/etc/``, ``/usr/`` and
+    friends, which is true of a real attack and equally true of
+    ``../../guide/usr/manual.md`` — raising a **non-suppressible exit 3** on
+    legitimate documentation, with no escape hatch, which is the worse
+    direction to be wrong in. It was also case-sensitive and POSIX-only, so
+    ``/ETC/passwd`` silently downgraded to a boundary crossing and a
+    backslash path to ``system32`` produced nothing at all.
+
+    The href is percent-decoded first (repeatedly — see
+    ``_decode_percent_encoding``). ``%2f`` is a slash to everything that
+    resolves the link and was not one to this classifier, so every encoded
+    spelling of a system traversal classified as an ordinary boundary
+    crossing, or was never routed here at all.
+
+    Still pure string work — no filesystem calls, no ``Path`` resolution — so
+    the validator hot-path keeps its Zero I/O property.
     """
-    return "suspicious" if _RE_SYSTEM_PATH.search(href) else "boundary"
+    decoded = _decode_percent_encoding(href)
+    candidate = decoded.split("?", 1)[0].split("#", 1)[0].replace("\\", "/")
+    # normpath collapses '.' and interior '..' without touching the filesystem.
+    normalized = posixpath.normpath(candidate)
+    segments = [seg for seg in normalized.split("/") if seg not in ("", ".")]
+    # Drop the leading escape hops; what remains is where the link arrives.
+    while segments and segments[0] == "..":
+        segments.pop(0)
+    if segments and segments[0].casefold() in _SYSTEM_ROOT_DIRS:
+        return "suspicious"
+    return "boundary"
 
 
 def _build_link_graph(
@@ -1079,6 +1206,33 @@ async def _ping_url(
         return f"external link '{url}' — connection error: {exc}"
 
 
+def _url_matches_excluded_prefix(url: str, prefix: str) -> bool:
+    """Return True if *url* is excluded by a declared ``excluded_external_urls`` *prefix*.
+
+    Compares the parsed scheme and host of *url* against *prefix* exactly
+    before falling back to a plain string-prefix check on the remainder.
+    A raw ``url.startswith(prefix)`` is vulnerable to host spoofing: a
+    declared prefix of ``"https://trusted.com"`` would also match
+    ``"https://trusted.com.evil.com/..."``, since that string genuinely
+    starts with the declared prefix even though its real host is
+    ``trusted.com.evil.com``, not ``trusted.com`` (CWE-20). Parsing both
+    sides and requiring an exact scheme+host match closes that bypass while
+    still allowing a prefix to scope a specific path under that host (e.g.
+    ``https://github.com/YourOrg/YourRepo``, the documented config example).
+    """
+    parsed_url = urlsplit(url)
+    parsed_prefix = urlsplit(prefix)
+    if not parsed_prefix.hostname:
+        return False
+    if parsed_url.scheme != parsed_prefix.scheme:
+        return False
+    if parsed_url.hostname != parsed_prefix.hostname:
+        return False
+    if parsed_url.port != parsed_prefix.port:
+        return False
+    return url.startswith(prefix)
+
+
 async def _check_external_links(
     entries: list[tuple[str, str, int]],
     config: ZenzicConfig,
@@ -1105,7 +1259,7 @@ async def _check_external_links(
         # Defense-in-depth: skip excluded external URLs even if not pre-filtered by caller
         is_excluded = False
         for prefix in excluded:
-            if url.startswith(prefix):
+            if _url_matches_excluded_prefix(url, prefix):
                 is_excluded = True
                 if global_tracker:
                     global_tracker.mark_excluded_external_url_used(prefix)
@@ -1227,56 +1381,89 @@ def generate_virtual_site_map(
 def check_nav_contract(
     repo_root: Path,
     exclusion_manager: LayeredExclusionManager,
+    engine: str = "mkdocs",
 ) -> list[str]:
-    """Validate ``extra.alternate`` links against the Virtual Site Map.
+    """Validate alternate-language links against the Virtual Site Map.
 
-    Loads ``mkdocs.yml``, projects the full set of URLs the build engine will
-    generate via :func:`generate_virtual_site_map`, then checks that every
-    ``extra.alternate`` link resolves to a URL that exists in that map.
+    Loads the active engine's config -- ``mkdocs.yml``'s ``extra.alternate``
+    for ``engine="mkdocs"``, or ``zensical.toml``'s ``[project.extra].alternate``
+    for ``engine="zensical"`` (structurally identical -- same name/link/lang
+    shape per entry -- see zensical.org/docs/setup/language/) -- projects the
+    full set of URLs the build engine will generate via
+    :func:`generate_virtual_site_map`, then
+    checks that every alternate link resolves to a URL that exists in that
+    map.
 
     No heuristics, no regex on URL patterns.  If a link is not in the VSM,
     it is a 404 — regardless of *why* the author wrote it.
 
     Args:
         repo_root: Repository root directory.
+        engine: Active build engine ("mkdocs" or "zensical"). Determines
+            which config file and alternate-links field are read.
 
     Returns:
         List of human-readable error strings (empty = no violations).
     """
-    from zenzic.core.adapter import find_config_file
-
     errors: list[str] = []
-    config_file = find_config_file(repo_root)
-    if config_file is None:
-        return errors
-    with config_file.open(encoding="utf-8") as f:
-        try:
-            doc_config: dict[str, Any] = (
-                yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
-            )
-        except yaml.YAMLError:
-            return errors
 
-    # ── Extract docs_structure ────────────────────────────────────────────────
-    docs_structure: str = "suffix"  # default assumption
-    plugins = doc_config.get("plugins", [])
-    if isinstance(plugins, list):
-        for plugin in plugins:
-            if not isinstance(plugin, dict):
-                continue
-            i18n = plugin.get("i18n")
-            if not isinstance(i18n, dict):
-                continue
-            docs_structure = i18n.get("docs_structure", "suffix")
-            break
+    if engine == "zensical":
+        from zenzic.core.adapters._zensical import find_zensical_config
+
+        config_file = find_zensical_config(repo_root)
+        if config_file is None:
+            return errors
+        try:
+            with config_file.open("rb") as f:
+                doc_config: dict[str, Any] = tomllib.load(f) or {}
+        except (tomllib.TOMLDecodeError, OSError):
+            return errors
+        project = doc_config.get("project")
+        if not isinstance(project, dict):
+            project = {}
+        docs_dir = project.get("docs_dir", "docs")
+        # Zensical i18n directory-structure ("suffix" vs "folder") detection
+        # is out of this fix's scope -- "suffix" is the same default already
+        # assumed for mkdocs when no i18n plugin config is present.
+        docs_structure = "suffix"
+        extra = project.get("extra") or {}
+        source_label = "zensical.toml [project.extra].alternate"
+    else:
+        from zenzic.core.adapter import find_config_file
+
+        config_file = find_config_file(repo_root)
+        if config_file is None:
+            return errors
+        with config_file.open(encoding="utf-8") as f:
+            try:
+                doc_config = (
+                    yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
+                )
+            except yaml.YAMLError:
+                return errors
+
+        # ── Extract docs_structure ────────────────────────────────────────
+        docs_structure = "suffix"  # default assumption
+        plugins = doc_config.get("plugins", [])
+        if isinstance(plugins, list):
+            for plugin in plugins:
+                if not isinstance(plugin, dict):
+                    continue
+                i18n = plugin.get("i18n")
+                if not isinstance(i18n, dict):
+                    continue
+                docs_structure = i18n.get("docs_structure", "suffix")
+                break
+
+        docs_dir = doc_config.get("docs_dir", "docs")
+        extra = doc_config.get("extra") or {}
+        source_label = "mkdocs.yml extra.alternate"
 
     # ── Build the Virtual Site Map ────────────────────────────────────────────
-    docs_dir = doc_config.get("docs_dir", "docs")
     docs_root_path = repo_root / docs_dir
     vsm = generate_virtual_site_map(docs_root_path, docs_structure, exclusion_manager)
 
-    # ── Validate every extra.alternate link against the VSM ──────────────────
-    extra = doc_config.get("extra") or {}
+    # ── Validate every alternate link against the VSM ─────────────────────────
     alternate = extra.get("alternate", []) if isinstance(extra, dict) else []
     if not isinstance(alternate, list):
         return errors
@@ -1292,7 +1479,7 @@ def check_nav_contract(
         normalised = link if link.endswith("/") else link + "/"
         if normalised not in vsm:
             errors.append(
-                f"mkdocs.yml extra.alternate[{lang}]: link '{link}' does not "
+                f"{source_label}[{lang}]: link '{link}' does not "
                 f"correspond to any URL the build engine will generate. "
                 f"The Virtual Site Map contains no entry for '{normalised}'. "
                 f"Use a path that maps to an existing source file "
@@ -1335,25 +1522,7 @@ def validate_links_structured(
         ext_errors = []
 
     link_errors: list[LinkError] = []
-    link_codes = {
-        "Z101",
-        "Z102",
-        "Z103",
-        "Z104",
-        "Z105",
-        "Z106",
-        "Z108",
-        "Z110",
-        "Z620",
-        "Z120",
-        "Z121",
-        "Z122",
-        "Z123",
-        "Z124",
-        "Z202",
-        "Z203",
-        "Z205",
-    }
+    link_codes = LINK_CODES
 
     for report in reports:
         for rf in report.rule_findings:
@@ -1618,7 +1787,7 @@ class LinkValidator:
         if excluded:
             global_tracker = getattr(self._config, "_global_tracker", None)
             for prefix in excluded:
-                if url.startswith(prefix):
+                if _url_matches_excluded_prefix(url, prefix):
                     if global_tracker:
                         global_tracker.mark_excluded_external_url_used(prefix)
                     return  # do not schedule for HTTP validation

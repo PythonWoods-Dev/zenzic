@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
+from typing import Any
 from unittest.mock import ANY, patch
 
 import pytest
@@ -50,7 +52,7 @@ def test_cli_help() -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 def test_check_links_ok(_links, _cfg, _root) -> None:
@@ -60,7 +62,7 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
     assert "No broken links found." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -81,11 +83,14 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
     assert "Z104" in result.stdout or "error" in result.stdout.lower()
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
+    # reports=/ext_errors= were added so check_links can reuse the single
+    # scan_docs_references() pass (and its credential-scan results) instead
+    # of discarding them -- see V031_EXIT2_WIRING_AND_Z406_ADAPTER_AGNOSTICISM_CHECK.
     mock_links.assert_called_once_with(
         (_ROOT / "docs").resolve(),
         ANY,
@@ -94,10 +99,12 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
         strict=True,
         locale_roots=None,
         check_external=True,
+        reports=ANY,
+        ext_errors=ANY,
     )
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -117,7 +124,7 @@ def test_check_links_system_path_traversal_exits_3(_links, _cfg, _root) -> None:
     assert result.exit_code == 3
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -153,7 +160,7 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "No orphan pages found." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.find_orphans", return_value=[Path("orphan.md")])
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
@@ -168,7 +175,7 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
@@ -178,7 +185,7 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     assert "All code snippets are syntactically valid." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_snippets",
@@ -191,10 +198,22 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     ],
 )
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
+    # Z503 is "warning" per codes.py's CODE_DEFINITIONS (the SSoT) -- it used
+    # to hardcode severity="error" here, which caused every snippet syntax
+    # error to hard-fail unconditionally (fixed in
+    # V031_SEVERITY_HARDCODE_ARCHITECTURAL_REMEDIATION, same bug shape as
+    # Z301/Z406). `check snippets` originally had no --strict flag at all,
+    # so a warning could never be promoted to a hard failure on this
+    # subcommand -- that gap is closed in
+    # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP, verified below.
     result = runner.invoke(app, ["check", "snippets"])
-    assert result.exit_code == 1
+    assert result.exit_code == 0
     assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z503" in result.stdout
+
+    result_strict = runner.invoke(app, ["check", "snippets", "--strict"])
+    assert result_strict.exit_code == 1
+    assert "Z503" in result_strict.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +221,7 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
@@ -212,7 +231,7 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
     assert "No unused assets found." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.find_unused_assets", return_value=[Path("assets/unused.png")])
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
@@ -227,7 +246,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
@@ -237,7 +256,7 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     assert "No placeholder stubs found." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_placeholders_with_findings(_refs, _cfg, _root) -> None:
@@ -256,10 +275,20 @@ def test_check_placeholders_with_findings(_refs, _cfg, _root) -> None:
     ]
     _refs.return_value = ([rep], [])
 
+    # check_placeholders used to hardcode strict=True unconditionally --
+    # every warning-level finding hard-failed even without --strict, and the
+    # reporter would misleadingly print "Warnings promoted to errors via
+    # --strict flag" even though no such flag was passed. Fixed in
+    # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP: strict is now a real,
+    # gated flag, default False, consistent with check_links/check_all.
     result = runner.invoke(app, ["check", "placeholders"])
-    assert result.exit_code == 1
+    assert result.exit_code == 0
     assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z502" in result.stdout
+
+    result_strict = runner.invoke(app, ["check", "placeholders", "--strict"])
+    assert result_strict.exit_code == 1
+    assert "Z502" in result_strict.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -283,18 +312,22 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "unused_assets",
         "nav_contract",
         "references",
+        "security_breaches",
+        "security_incidents",
         "suppression_count",
         "suppression_cap",
         "suppression_debt_pts",
         "debt_status",
     }
+    assert data["security_breaches"] == 0
+    assert data["security_incidents"] == 0
     assert data["suppression_count"] == 0
     assert data["suppression_cap"] == 30
     assert data["suppression_debt_pts"] == 0
     assert data["debt_status"] == "CLEAN"
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -325,8 +358,8 @@ def test_check_all_json_with_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -342,8 +375,8 @@ def test_check_all_text_ok(
     assert "Analysis complete" in result.stdout or "No broken links" in result.stdout
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 2))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 2))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -395,7 +428,7 @@ def test_check_all_text_with_all_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -410,7 +443,7 @@ def test_check_all_quiet_ok(_refs, _nav, _assets, _snip, _orphans, _links, _cfg,
     assert "zenzic" not in result.stdout.lower() or result.stdout.strip() == ""
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -440,7 +473,7 @@ def test_check_all_quiet_with_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -470,7 +503,7 @@ def test_check_all_ci_forces_github_annotations(
     assert "docs/index.md,line=1,title=Z104::broken link" in out_normalized
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -511,8 +544,8 @@ def test_check_all_only_filters_findings(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -541,7 +574,7 @@ def test_check_all_strict_fails_on_warnings_only(
     assert result.exit_code == 1
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -575,7 +608,7 @@ def test_check_all_no_strict_passes_on_warnings_only(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 def test_check_all_target_not_found(_cfg, _root) -> None:
     """Non-existent target must exit 1 with an error message."""
@@ -613,7 +646,12 @@ def test_check_all_target_file_outside_docs(
     (repo / "README.md").write_text(f"# Project\n\n{_body}\n")
     monkeypatch.chdir(repo)
 
-    result = runner.invoke(app, ["check", "all", "README.md"])
+    # --no-header disables the animated Rich progress bar (show_progress =
+    # not (ci or no_header or quiet or output_format != "text"), _check.py:1718)
+    # -- without it, mutmut's concurrent worker processes can race the
+    # progress bar's ANSI clear-line sequences against CliRunner's stdout
+    # capture, corrupting this exact assertion (V031_MUTMUT_ENV_TEST_FRAGILITY).
+    result = runner.invoke(app, ["check", "all", "README.md", "--no-header"])
     assert result.exit_code == 0
     assert "1 file" in result.stdout
     assert "README.md" in result.stdout
@@ -661,6 +699,47 @@ def test_check_all_external_docs_root_not_blocked_by_boundary_check(
     assert result.exit_code != 3, (
         f"Path traversal guard incorrectly blocked an explicit external path.\n{result.output}"
     )
+
+
+def test_check_all_cross_repo_target_scans_the_target_not_the_caller_docs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Regression baseline for V031_SETUP_COMMAND_CONTROLLED_WIRING_ATTEMPT.
+
+    A cross-repo target (outside the caller's own repo_root entirely) must
+    scan exactly the target's own files -- not the caller's docs_dir (which
+    here is deliberately left empty, so any leakage would show up as 0 files
+    scanned, and any wrong-root regression would show up as a file-count or
+    finding-count mismatch). Written BEFORE wiring check_all through
+    setup_command() to lock in current behavior as the baseline this attempt
+    is measured against, per that directive's Phase 1.
+    """
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / ".zenzic.toml").touch()
+    # Caller's own docs/ is empty -- if check_all ever scanned this instead
+    # of the external target, file/finding counts below would not match.
+
+    # The external target is a *separate* project (its own root marker) --
+    # find_repo_root(search_from=...) walks up FROM the target, not from
+    # CWD (CEO-052 Sovereign Root Fix), so a bare external directory with no
+    # marker of its own would fail before ever reaching docs_root resolution.
+    ext_repo = tmp_path / "ext_repo"
+    ext_docs = ext_repo / "docs"
+    ext_docs.mkdir(parents=True)
+    (ext_repo / ".zenzic.toml").touch()
+    (ext_docs / "index.md").write_text(
+        "# External Docs\n\n" + "word " * 60 + "\n\n[broken](missing.md)\n"
+    )
+
+    monkeypatch.chdir(repo)
+    rel = os.path.relpath(ext_docs, repo)  # resolves to "../ext_repo/docs"
+    result = runner.invoke(app, ["check", "all", rel])
+
+    assert result.exit_code == 1, result.output
+    assert "1 file" in result.stdout
+    assert "missing.md" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -823,11 +902,54 @@ class TestZenzicReporter:
 
 
 # ---------------------------------------------------------------------------
+# _finding_severity — Z2xx non-suppressible severity mapping
+# ---------------------------------------------------------------------------
+
+
+class TestFindingSeverityZ2xxMapping:
+    """``_finding_severity()`` must map every code in the Tier-0 'Exit 2:
+    never suppressible' set (Z201, Z204, Z205) to ``"security_breach"``.
+
+    Z201/Z204 normally reach ``Finding.severity`` via the credential-scanner
+    bridge (``_map_credential_to_finding``), which hardcodes
+    ``severity="security_breach"`` and never calls ``_finding_severity()``.
+    Z205 is detected by a rule check and reaches ``Finding.severity`` via
+    ``_finding_severity(err.code)`` instead — which, before this fix, fell
+    through to the raw ``CodeDefinition.severity`` catalog value (``"error"``)
+    because only Z203 had a special case. This test targets the function
+    directly, independent of which code path a given code takes today.
+    """
+
+    def test_z205_maps_to_security_breach(self) -> None:
+        from zenzic.cli._check import _finding_severity
+
+        assert _finding_severity("Z205") == "security_breach", (
+            "Z205 FORBIDDEN_SCHEME is listed in the Tier-0 'Exit 2 — never "
+            "suppressible' set alongside Z201/Z204 and must map to "
+            "'security_breach', not the raw CodeDefinition severity ('error')."
+        )
+
+    def test_z203_still_maps_to_security_incident(self) -> None:
+        """Regression guard: fixing Z205 must not disturb Z203's Exit 3 mapping."""
+        from zenzic.cli._check import _finding_severity
+
+        assert _finding_severity("Z203") == "security_incident"
+
+    def test_z202_still_maps_to_plain_error(self) -> None:
+        """Z202 PATH_TRAVERSAL is not in the Tier-0 Exit-2 set (only Z203 is
+        Exit 3) — it must remain a plain 'error' (Exit 1), not be swept into
+        this fix."""
+        from zenzic.cli._check import _finding_severity
+
+        assert _finding_severity("Z202") == "error"
+
+
+# ---------------------------------------------------------------------------
 # check references — rule_findings surfaced in CLI output
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
     "zenzic.cli._check.scan_docs_references",
@@ -840,7 +962,7 @@ def test_check_references_ok(_scan, _cfg, _root) -> None:
     assert "All references resolved." in result.stdout
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None:
@@ -1048,6 +1170,33 @@ def test_init_pyproject_flag_appends_tool_section(
     assert ".zenzic.local.toml" in (repo / ".gitignore").read_text(encoding="utf-8")
 
 
+def test_init_pyproject_section_comment_has_no_phantom_docs_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[tool.zenzic] header comment must not bake in a phantom /docs/-prefixed URL.
+
+    Regression for: PYPROJECT_TOML_SECTION_TEMPLATE's "Full reference:"
+    comment pointed at https://zenzic.dev/docs/reference/configuration/ — the
+    real page is docs/reference/configuration-reference.md, served at
+    /reference/configuration-reference/ (no /docs/ prefix, and the slug was
+    also wrong), same defect class already fixed in README.md this session.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "myapp"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 0, result.output
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "zenzic.dev/docs/" not in content, (
+        f"Phantom /docs/-prefixed URL in pyproject.toml comment:\n{content}"
+    )
+    assert "zenzic.dev/reference/configuration-reference" in content
+
+
 def test_init_preserves_existing_local_file_and_backfills_gitignore(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1247,6 +1396,51 @@ def _fatal_report() -> object:
         findings_counts={"Z201": 1},
         categories=cats,
     )
+
+
+def _z0xx_only_report() -> object:
+    """ScoreReport with a synthetic Z0xx-prefixed key and no real Z2xx/security finding.
+
+    Z0xx codes (config abort, e.g. Z001) can never actually reach
+    findings_counts in practice — ZenzicConfig.load() raises ConfigurationError
+    and exits 1 before _run_all_checks() is ever called. This fixture forces
+    the scenario synthetically to lock the *intended* contract: diff's fatal
+    detection considers Z2xx only, not a stale "Z0xx or Z2xx" prefix check.
+    """
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    cats = [
+        CategoryScore(
+            name="structural", weight=0.30, issues=1, category_score=0.9, contribution=0.27
+        ),
+        CategoryScore(
+            name="navigation", weight=0.25, issues=0, category_score=1.0, contribution=0.25
+        ),
+        CategoryScore(name="content", weight=0.20, issues=0, category_score=1.0, contribution=0.20),
+        CategoryScore(name="brand", weight=0.25, issues=0, category_score=1.0, contribution=0.25),
+    ]
+    return ScoreReport(score=100, findings_counts={"Z001": 1}, categories=cats)
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_z0xx_only_does_not_trigger_fatal(
+    _root, _cfg, mock_run, _excl, tmp_path: Path
+) -> None:
+    """A synthetic Z0xx-only findings_counts entry must NOT trigger FATAL/Exit 2.
+
+    Locks diff's fatal detection to Z2xx (security) only, guarding against the
+    removed "Z0xx or Z2xx" prefix check being silently reintroduced.
+    """
+    mock_run.return_value = _z0xx_only_report()
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--format", "json", "--base", str(baseline)])
+    assert result.exit_code != 2, result.output
+    data = json.loads(result.stdout)
+    assert data["fatal_override"] is False
+    assert data["fatal_codes"] == []
 
 
 def _halt_report() -> object:
@@ -1553,8 +1747,8 @@ class TestShowInfoFilter:
         assert errors == 0
         assert warnings == 0
 
-    @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-    @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+    @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+    @patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
     @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
     @patch("zenzic.cli._check.validate_links_structured", return_value=[])
     @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -1587,6 +1781,237 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
 # ---------------------------------------------------------------------------
 # score — D083 Iron Gate
 # ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_status_absent_when_no_snapshot(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports baseline_status='absent' when no .zenzic-score.json exists."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["baseline_status"] == "absent"
+    assert data["baseline_age_days"] is None
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_status_fresh_within_threshold(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports baseline_status='fresh' for a recently saved snapshot."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    (tmp_path / ".zenzic-score.json").write_text("{}", encoding="utf-8")
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["baseline_status"] == "fresh"
+    assert data["baseline_age_days"] == 0
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_status_stale_beyond_threshold(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports baseline_status='stale' when the snapshot exceeds the threshold."""
+    from zenzic.core.scorer import DEFAULT_BASELINE_STALE_DAYS, CategoryScore, ScoreReport
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text("{}", encoding="utf-8")
+    old_time = time.time() - (DEFAULT_BASELINE_STALE_DAYS + 1) * 86400
+    os.utime(snapshot, (old_time, old_time))
+
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["baseline_status"] == "stale"
+    assert data["baseline_age_days"] >= DEFAULT_BASELINE_STALE_DAYS + 1
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_baseline_stale_days_config_override(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """A .zenzic.toml baseline_stale_days override changes the fresh/stale boundary."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+    from zenzic.models.config import ZenzicConfig
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text("{}", encoding="utf-8")
+    old_time = time.time() - 2 * 86400  # 2 days old
+    os.utime(snapshot, (old_time, old_time))
+
+    custom_cfg = ZenzicConfig(baseline_stale_days=1)
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (custom_cfg, True)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    # 2 days old, threshold=1 day → stale (would be "fresh" under the default 7-day threshold)
+    assert data["baseline_status"] == "stale"
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_trend_none_when_no_baseline(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json reports score_trend=None when no snapshot exists to compare against."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=91,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["score_trend"] is None
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_trend_computed_from_saved_snapshot(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json's score_trend reflects the delta against the saved snapshot."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "score": 80,
+                "threshold": 0,
+                "categories": [
+                    {
+                        "name": "structural",
+                        "weight": 0.30,
+                        "issues": 2,
+                        "category_score": 0.5,
+                        "contribution": 0.15,
+                        "raw_penalty": 15.0,
+                        "is_capped": False,
+                    }
+                ],
+                "suppression_count": 0,
+                "suppression_cap": 30,
+                "suppression_debt_pts": 0,
+                "debt_status": "CLEAN",
+            }
+        ),
+        encoding="utf-8",
+    )
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=91,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["score_trend"] == {
+        "baseline_score": 80,
+        "current_score": 91,
+        "delta": 11,
+    }
+
+
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+def test_score_json_trend_none_when_snapshot_incompatible(
+    mock_root: object, mock_cfg: object, mock_run: object, tmp_path: Path
+) -> None:
+    """score --json degrades gracefully (score_trend=None) for a legacy-schema snapshot."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    snapshot = tmp_path / ".zenzic-score.json"
+    snapshot.write_text(json.dumps({"schema_version": 1, "score": 80}), encoding="utf-8")
+    mock_root.return_value = tmp_path  # type: ignore[attr-defined]
+    mock_cfg.return_value = (_CFG, False)  # type: ignore[attr-defined]
+    mock_run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=91,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["score_trend"] is None
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
@@ -1686,6 +2111,51 @@ def test_score_breakdown(_run: object, _cfg: object, _root: object) -> None:
     assert "Base Score:" in result.stdout
     assert "Total Category Penalties:" in result.stdout
     assert "Technical Debt Penalty:" in result.stdout
+    # The brand bucket is clean here (category_score=1.0, not zeroed) — the
+    # Gravity Cap Loss line must say so, not unconditionally claim the brand
+    # bucket was zeroed regardless of whether the cap actually fired.
+    assert "Gravity Cap Loss:           -0.0 pts (not triggered)" in result.stdout
+    assert "Brand bucket zeroed cap" not in result.stdout
+
+    single_char_separator_lines = [line for line in result.stdout.splitlines() if line == "━"]
+    assert not single_char_separator_lines, (
+        "Expected compact ━ separator lines (one line, many characters), not one line per "
+        f"character; found {len(single_char_separator_lines)} single-character separator lines "
+        "in the output — this is the fragmented-separator regression."
+    )
+    full_width_separator_lines = [
+        line for line in result.stdout.splitlines() if line.count("━") >= 40
+    ]
+    assert len(full_width_separator_lines) >= 2, (
+        "Expected at least 2 full-width ━ separator lines (before the category breakdown and "
+        f"before the mathematical transparency section); found {full_width_separator_lines!r}"
+    )
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+def test_score_breakdown_gravity_cap_triggered(_run: object, _cfg: object, _root: object) -> None:
+    """When the brand bucket is genuinely zeroed, the Gravity Cap Loss line must
+    say so — the counterpart to test_score_breakdown's not-triggered case.
+    """
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=70,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30, raw_penalty=0.0, is_capped=False),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25, raw_penalty=0.0, is_capped=False),
+            CategoryScore("content", 0.20, 1, 0.90, 0.18, raw_penalty=2.0, is_capped=False),
+            CategoryScore("brand", 0.25, 15, 0.0, 0.0, raw_penalty=25.0, is_capped=True),
+        ],
+        findings_counts={"Z601": 15, "Z502": 1},
+        suppression_count=0,
+    )
+    result = runner.invoke(app, ["score", "--breakdown"])
+    assert result.exit_code == 0
+    assert "Gravity Cap Loss:           -3.0 pts (Brand bucket zeroed cap)" in result.stdout
+    assert "not triggered" not in result.stdout
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
@@ -1801,7 +2271,7 @@ def test_score_check_stamp_and_stamp_mutually_exclusive(_cfg: object, _root: obj
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 def test_check_links_short_format_alias(_links, _cfg, _root) -> None:
@@ -1812,7 +2282,7 @@ def test_check_links_short_format_alias(_links, _cfg, _root) -> None:
     assert "findings" in data or isinstance(data, list | dict)
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 def test_check_orphans_short_format_alias(_orphans, _cfg, _root) -> None:
@@ -1823,7 +2293,7 @@ def test_check_orphans_short_format_alias(_orphans, _cfg, _root) -> None:
     assert "findings" in data or isinstance(data, list | dict)
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -1860,34 +2330,232 @@ def test_init_local_flag_scaffolds_only_local_toml(
     assert not (tmp_path / ".zenzic.toml").exists()
 
 
-def test_init_plugin_local_conflict_exits_2(
+def test_init_local_flag_gitignore_note_renders_real_newline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--plugin combined with --local must exit 2 with an informative error."""
+    """The 'Zenzic Local Sandbox' panel must render a real line break, not '\\n'.
+
+    Regression for: the gitignore-status lines appended in ``_scaffold_local_toml``
+    (``_standalone.py``) were built with a literal ``"...\\\\n"`` (double-escaped)
+    instead of a real ``"\\n"``, so the panel printed the two literal characters
+    backslash-n instead of breaking to a new line. Covers the "additions made"
+    branch (site 1: gitignore created/appended).
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert "\\n" not in result.output, (
+        f"Literal backslash-n leaked into panel output:\n{result.output}"
+    )
+    assert "Security Note" in result.output
+
+
+def test_init_local_flag_gitignore_already_protects_note_renders_real_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers the "already protects" branch (site 2) for the same '\\n' bug."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".gitignore").write_text(".zenzic.local.toml\n.zenzic_cache/\n", encoding="utf-8")
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert "\\n" not in result.output, (
+        f"Literal backslash-n leaked into panel output:\n{result.output}"
+    )
+    assert "already protects" in result.output
+
+
+def test_init_local_flag_no_git_repo_note_renders_real_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers the "no Git repository detected" branch (site 3) for the same '\\n' bug."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert "\\n" not in result.output, (
+        f"Literal backslash-n leaked into panel output:\n{result.output}"
+    )
+    assert "No Git repository detected" in result.output
+
+
+def test_init_next_steps_ci_cd_link_has_no_phantom_docs_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """'Next steps' CI/CD link must not bake in a phantom /docs/-prefixed URL.
+
+    Regression for: the link pointed at
+    https://zenzic.dev/docs/how-to/configure-ci-cd — mkdocs serves
+    docs/how-to/configure-ci-cd.md at /how-to/configure-ci-cd/ (docs_dir is
+    stripped from the served path, same defect class already fixed in
+    README.md this session), so the shipped link 404s.
+    """
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0, result.output
+    assert "zenzic.dev/docs/" not in result.output, (
+        f"Phantom /docs/-prefixed URL in 'Next steps' output:\n{result.output}"
+    )
+    assert "zenzic.dev/how-to/configure-ci-cd" in result.output
+
+
+def test_init_plugin_local_conflict_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--plugin combined with --local is a plain CLI-usage error: exit 1, not Exit 2
+
+    (Exit 2 is reserved for security breaches — Tier-0 Exit Code Contract).
+    """
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--plugin", "myrule", "--local"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 1, result.output
     assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
 
 
-def test_init_plugin_pyproject_conflict_exits_2(
+def test_init_plugin_pyproject_conflict_exits_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--plugin combined with --pyproject must exit 2 with an informative error."""
+    """--plugin combined with --pyproject is a plain CLI-usage error: exit 1, not Exit 2."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--plugin", "myrule", "--pyproject"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 1, result.output
     assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
 
 
 def test_init_plugin_alone_does_not_conflict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--plugin without conflicting flags must not exit 2 (scaffold runs)."""
+    """--plugin without conflicting flags must not raise a conflict (scaffold runs)."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init", "--plugin", "myrule"])
-    # Exit 0 = scaffold created. Any non-2 exit is fine here.
-    assert result.exit_code != 2, result.output
+    # Exit 0 = scaffold created. Any non-1 exit is fine here (no conflict raised).
+    assert result.exit_code != 1, result.output
+
+
+def test_init_flag_conflicts_use_the_same_exit_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All of init's flag-conflict checks must agree on one exit code.
+
+    Regression guard: --plugin+--local/--pyproject and --local+--pyproject
+    previously diverged (Exit 2 vs Exit 1) for structurally identical
+    "these flags cannot combine" errors, with no principled reason for the
+    difference (V031_CODE_BACKLOG_BATCH1_EXECUTION_AND_PROACTIVE_ADVISORY_CODIFICATION).
+    This test locks all three conflict pairs to the same exit code so a third
+    site can't silently reintroduce the divergence.
+    """
+    monkeypatch.chdir(tmp_path)
+    plugin_local = runner.invoke(app, ["init", "--plugin", "myrule", "--local"])
+    plugin_pyproject = runner.invoke(app, ["init", "--plugin", "myrule", "--pyproject"])
+    local_pyproject = runner.invoke(app, ["init", "--local", "--pyproject"])
+    assert plugin_local.exit_code == plugin_pyproject.exit_code == local_pyproject.exit_code == 1
+
+
+def test_check_all_config_flag_loads_explicit_override_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--config PATH must load that exact file instead of discovering .zenzic.toml.
+
+    Proves real end-to-end threading (CLI option → ZenzicConfig.load(config_file=...))
+    by pointing docs_dir at a directory only the override config names.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "wrong_docs").mkdir()
+    (tmp_path / "wrong_docs" / "index.md").write_text("# Wrong\n")
+    override_docs = tmp_path / "right_docs"
+    override_docs.mkdir()
+    (override_docs / "index.md").write_text("# Right\n")
+
+    # A .zenzic.toml at repo_root pointing at the WRONG docs dir — must be ignored
+    # entirely once --config names a different file.
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "wrong_docs"\n')
+
+    configs_dir = tmp_path / "configs"
+    configs_dir.mkdir()
+    override_config = configs_dir / "prod.toml"
+    override_config.write_text('docs_dir = "right_docs"\n')
+
+    result = runner.invoke(
+        app, ["check", "all", "--config", str(override_config), "--format", "json", "--quiet"]
+    )
+    assert result.exit_code in (0, 1), result.output
+    payload = json.loads(result.stdout)
+    # The override config's docs_dir ("right_docs") was scanned — its page heading
+    # ("Right") appears in the findings. "wrong_docs" (from .zenzic.toml, which the
+    # override must take priority over) was never scanned at all.
+    assert "Right" in json.dumps(payload)
+    assert "Wrong" not in json.dumps(payload)
+
+
+def test_check_all_config_flag_missing_file_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--config pointing at a nonexistent file must fail, not silently fall back to discovery."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["check", "all", "--config", str(tmp_path / "nope.toml")])
+    assert result.exit_code != 0
+
+
+def test_score_config_flag_loads_explicit_override_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic score --config PATH loads that exact file instead of discovering .zenzic.toml."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "wrong_docs").mkdir()
+    (tmp_path / "wrong_docs" / "index.md").write_text("# Wrong\n")
+    (tmp_path / "right_docs").mkdir()
+    (tmp_path / "right_docs" / "index.md").write_text("# Right\n")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "wrong_docs"\n')
+    override_config = tmp_path / "prod.toml"
+    override_config.write_text('docs_dir = "right_docs"\n')
+
+    result = runner.invoke(
+        app, ["score", "--config", str(override_config), "--format", "json", "--no-header"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    # Only "right_docs" (from the override config) was scored: 1 issue for the
+    # short page. "wrong_docs" (from .zenzic.toml) must be entirely ignored.
+    assert payload["categories"][2]["issues"] >= 1  # content category
+
+
+def test_score_config_flag_missing_file_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic score --config pointing at a nonexistent file must fail cleanly."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["score", "--config", str(tmp_path / "nope.toml")])
+    assert result.exit_code != 0
+    assert "does not exist" in result.output or "ERROR" in result.output
+
+
+def test_diff_config_flag_threaded_to_config_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic diff --config PATH loads that exact file (proven via a missing-file error)."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["diff", "--config", str(tmp_path / "nope.toml")])
+    assert result.exit_code != 0
+    assert "does not exist" in result.output or "ERROR" in result.output
+
+
+def test_audit_config_flag_threaded_to_config_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zenzic audit --config PATH loads that exact file instead of discovering .zenzic.toml."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "right_docs").mkdir()
+    (tmp_path / "right_docs" / "index.md").write_text("# Right\n")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "wrong_docs"\n')
+    override_config = tmp_path / "prod.toml"
+    override_config.write_text('docs_dir = "right_docs"\n')
+
+    result = runner.invoke(app, ["audit", "--config", str(override_config), "--format", "json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    # docs_dir "wrong_docs" (from .zenzic.toml) does not exist on disk at all — if
+    # the override config file were ignored, this would find 0 files, not 1.
+    assert payload["executive_summary"]["total_files"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1895,10 +2563,10 @@ def test_init_plugin_alone_does_not_conflict(
 # ---------------------------------------------------------------------------
 
 
-def test_check_all_strict_exit_zero_conflict_exits_2() -> None:
-    """--strict and --exit-zero together must exit 2 with mutual-exclusion message."""
+def test_check_all_strict_exit_zero_conflict_exits_1() -> None:
+    """--strict and --exit-zero together is a plain CLI-usage error: exit 1, not Exit 2."""
     result = runner.invoke(app, ["check", "all", "--strict", "--exit-zero"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 1, result.output
     assert "mutually exclusive" in result.output.lower() or "exclusive" in result.output.lower()
 
 
@@ -1914,7 +2582,7 @@ def test_check_all_strict_alone_does_not_conflict(_mock_collect) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli._check.find_repo_root", side_effect=RuntimeError("no .git found"))
+@patch("zenzic.cli._command_setup.find_repo_root", side_effect=RuntimeError("no .git found"))
 def test_check_all_runtime_error_exits_1(_root) -> None:
     """RuntimeError from find_repo_root in check all must produce Exit 1 + ERROR message."""
     result = runner.invoke(app, ["check", "all"])
@@ -1938,7 +2606,7 @@ def test_diff_runtime_error_exits_1(_root) -> None:
     assert "ERROR" in result.output or "error" in result.output.lower()
 
 
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -1958,8 +2626,8 @@ def test_check_links_circular_link_note_strict_exits_0(_links, _cfg, _root) -> N
     assert result.exit_code == 0
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
@@ -1981,6 +2649,7 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=True,
         progress_instance=ANY,
+        rule_engine_target=ANY,
     )
     mock_scan.reset_mock()
 
@@ -1994,6 +2663,7 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=False,
         progress_instance=None,
+        rule_engine_target=ANY,
     )
     mock_scan.reset_mock()
 
@@ -2007,7 +2677,96 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=False,
         progress_instance=None,
+        rule_engine_target=ANY,
     )
+
+
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_init_task_marked_finished(
+    _scan, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
+) -> None:
+    """The 'Initializing environment & VSM' progress task must reach Rich's
+    finished state (task.finished_time set), or SpinnerColumn renders an
+    endlessly-animating spinner frame instead of blank/finished text — Rich
+    only sets finished_time inside Progress.update(), never inside add_task(),
+    even when add_task() is called with completed >= total.
+    """
+    import rich.progress
+
+    captured: list[rich.progress.Progress] = []
+
+    class SpyProgress(rich.progress.Progress):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    with patch("rich.progress.Progress", SpyProgress):
+        runner.invoke(app, ["check", "all"])
+
+    assert captured, "no Progress instance was constructed"
+    init_task = captured[0].tasks[0]
+    assert init_task.description.startswith("Initializing environment & VSM")
+    assert init_task.finished, (
+        "the init task's finished_time was never set — SpinnerColumn will "
+        "render an animating frame forever instead of the finished state"
+    )
+
+
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_suppression_audit_has_its_own_progress_line(
+    _scan: object,
+    _nav: object,
+    _assets: object,
+    _snip: object,
+    _orphans: object,
+    _links: object,
+    _cfg: object,
+    _root: object,
+    _count: object,
+) -> None:
+    """The inline-suppression audit must be reported on its own progress line.
+
+    It runs inside the window the "Initializing environment & VSM" line
+    measures, so before this was split out that line silently attributed the
+    audit's cost (measured at ~88% of the line's total on this repository's own
+    docs tree) to environment/VSM setup, which is not what it was doing.
+    """
+    import rich.progress
+
+    captured: list[rich.progress.Progress] = []
+
+    class SpyProgress(rich.progress.Progress):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    with patch("rich.progress.Progress", SpyProgress):
+        runner.invoke(app, ["check", "all"])
+
+    assert captured, "no Progress instance was constructed"
+    descriptions = [t.description for t in captured[0].tasks]
+    suppr = [d for d in descriptions if d.startswith("Auditing inline suppressions")]
+    assert suppr, (
+        "the inline-suppression audit has no progress line of its own; its cost "
+        f"is still folded into another phase. Lines seen: {descriptions!r}"
+    )
+    assert "ms)" in suppr[0], f"suppression audit line reports no duration: {suppr[0]!r}"
 
 
 def test_templates_root_keys_not_swallowed() -> None:
@@ -2064,6 +2823,146 @@ def test_check_all_only_filter_excludes_z118(
         catch_exceptions=False,
     )
     assert "Z620" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# check all — --only must never silence the non-suppressible Z2xx security tier
+#
+# Tier-0 Exit Code Contract (CLAUDE.md): "Exit 2: Credential Scanner Breach
+# (Z201, Z204, Z205). Never suppressible." Forbidden Actions: "DO NOT suppress
+# Z2xx security codes. They are inviolable." Discovered live (V031_FOUNDATIONS_
+# THEME2_PROGRESSIVE_GATES_DRAFT, 2026-08-30): --only could silently drop the
+# entire security_findings list whenever "Z201" specifically was absent from
+# the --only value, regardless of which other Z2xx codes were listed.
+# ---------------------------------------------------------------------------
+
+
+def _write_credential_fixture(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text(
+        "# Test\n\nexport AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE1234567890ABCD\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+
+def test_check_all_only_omitting_z201_still_reports_credential_breach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The exact discovery fixture: --only Z204 (Z204 present, Z201 absent) must
+    still report the real Z201 credential finding, not silently drop it."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    _write_credential_fixture(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z204", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "SECURITY BREACH DETECTED" in result.output
+    assert "aws-access-key" in result.output
+    assert result.exit_code == 2
+
+
+def test_check_all_only_with_no_security_codes_still_reports_breach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--only naming zero Z2xx codes at all (e.g. a team scoping to link checks
+    only) must still surface a real credential breach, not treat the absence
+    of every security code as an implicit opt-out."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    _write_credential_fixture(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "SECURITY BREACH DETECTED" in result.output
+    assert "aws-access-key" in result.output
+    assert result.exit_code == 2
+
+
+def test_check_all_only_partial_z2xx_list_still_reports_every_z2xx_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--only listing only SOME Z2xx codes must not drop the others: separate
+    fixtures for a credential (Z201) and a forbidden URI scheme (Z205) must
+    each still report their own breach even when --only names neither.
+
+    Deliberately two separate files, not one combined fixture: combining both
+    findings in a single file was found (while writing this test) to surface
+    only one of the two breaches per run — a distinct, pre-existing detection-
+    completeness question unrelated to --only filtering, out of this
+    directive's scope, flagged separately (03-priority-table.md) rather than
+    conflated with the filtering behavior under test here.
+    """
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "credential.md").write_text(
+        "# Credential\n\nexport AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE1234567890ABCD\n",
+        encoding="utf-8",
+    )
+    (docs / "scheme.md").write_text(
+        '# Scheme\n\n<a href="javascript:alert(1)">click</a>\n',
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "aws-access-key" in result.output
+    assert "forbidden scheme" in result.output
+    assert result.exit_code == 2
+
+
+def test_check_all_only_path_traversal_codes_always_evaluated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Z202/Z203 (path traversal) must also survive --only omission, same as
+    the credential/forbidden-scheme tier — they share the same non-suppressible
+    Exit Code Contract guarantee."""
+    monkeypatch.chdir(tmp_path)
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text(
+        "# Test\n\nSystem path: [system](/etc/passwd)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["check", "all", "--only", "Z101", "--no-header"],
+        catch_exceptions=False,
+    )
+    assert "Z203" in result.output
+    assert result.exit_code == 3
 
 
 def test_env_command() -> None:

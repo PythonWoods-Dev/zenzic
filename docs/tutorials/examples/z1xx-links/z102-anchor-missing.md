@@ -8,8 +8,6 @@ description: "Walk through the z102-anchor-missing fixture: a fragment link targ
 
 **Z-Code:** `Z102 ANCHOR_MISSING` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z102AnchorMissing />
-
 ---
 
 ## The Fixture

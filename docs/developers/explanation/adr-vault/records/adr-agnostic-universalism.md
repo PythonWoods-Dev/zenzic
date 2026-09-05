@@ -8,6 +8,12 @@ description: "ADR 005: Z404 CONFIG_ASSET_MISSING extended to all supported engin
 
 # ADR 005: Agnostic Universalism — Z404 for All Engines
 
+> This ADR's core decision — universal Z404 coverage across all supported engines — remains
+> active and current for the engines Zenzic supports today: MkDocs, Zensical, and Standalone.
+> Docusaurus was removed as of `v0.14.0` (see [ADR 006](./adr-unified-perimeter.md)); the table
+> below keeps its row, marked accordingly, since it illustrates the pre-universalization state
+> this ADR's own Context section describes.
+
 **Status:** Active
 **Decider:** Architecture Lead
 **Date:** 2026-04-20
@@ -37,10 +43,18 @@ main scan pass.
 
 | Engine | Assets checked |
 |--------|---------------|
-| Docusaurus | `customCss`, `favicon`, Open Graph `image`, social card paths in `themeConfig` |
+| Docusaurus *(removed v0.14.0, historical)* | `customCss`, `favicon`, Open Graph `image`, social card paths in `themeConfig` |
 | MkDocs | `theme.favicon`, `theme.logo` (resolved relative to `docs_dir/`) |
-| Zensical | `[project].favicon`, `[project].logo` |
+| Zensical | `[project.theme].favicon`, `[project.theme].logo` per Zensical's own documented schema — see errata below |
 | Standalone | — (no engine config file; check is a no-op) |
+
+> **Errata (2026-08-29)**: `check_config_assets()`'s current implementation (`_zensical.py:100-106`)
+> reads `favicon`/`logo` directly from `[project]`, not the nested `[project.theme]` table
+> Zensical's own live documentation (`zensical.org/docs/setup/logo-and-icons/`) actually
+> specifies. A real Zensical project following Zensical's own docs will place these fields
+> under `[project.theme]`, where this check never looks — `Z404` effectively cannot catch a
+> missing favicon/logo for Zensical projects today. Not fixed here; logged as a real code
+> defect in `03-priority-table.md`, not a documentation correction.
 
 ---
 

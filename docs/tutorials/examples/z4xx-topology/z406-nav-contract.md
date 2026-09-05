@@ -6,9 +6,7 @@ description: "Walk through the z406-nav-contract fixture: mkdocs.yml declares ex
 
 # Z406 — Nav Contract
 
-**Z-Code:** `Z406 NAV_CONTRACT` · **Engine:** `mkdocs` · **Exit:** `1`
-
-<Z406NavContract />
+**Z-Code:** `Z406 NAV_CONTRACT` · **Engine:** `mkdocs` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 
@@ -82,7 +80,7 @@ documentation engine will generate from the source tree. Every URL declared in
 switcher produces a 404:
 
 - **Scan Type:** `Nav Contract Checker (mkdocs engine)`
-- **Severity:** `Error`
+- **Severity:** `Warning`
 - **Impact:** Deducts **2.0 DQS points** (brand governance category, weight 0.25).
 
 ---

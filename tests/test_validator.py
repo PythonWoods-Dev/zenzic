@@ -156,6 +156,56 @@ class TestPolyglotUnifiedExtractor:
         assert all_links[0].line_no == 5
 
 
+class TestForbiddenSchemeBypassPrevention:
+    """Z205 forbidden-scheme detection must survive 4 known bypass techniques.
+
+    Regression coverage for a fixture (``tests/fixtures/z205-bypass-test.md``,
+    from Direttiva CEO onwards) that documented these payloads but was never
+    actually loaded by any test — the payloads themselves were confirmed still
+    genuinely caught by live end-to-end reproduction before writing these
+    (``zenzic check all --show-info`` on each, real ``SECURITY BREACH
+    DETECTED`` panel, real Exit 2, for all 4). These tests assert the same
+    detection at the unit level: ``HtmlNodeInfo.z205_scheme`` is the field
+    ``_parse_node`` sets when ``_POLY_FORBIDDEN_SCHEMES`` matches the
+    normalised href (``html.unescape`` then whitespace/control-char strip,
+    applied before the scheme comparison — the exact mechanism that defeats
+    all 4 techniques below).
+    """
+
+    def test_double_href_attack_uses_first_occurrence(self) -> None:
+        """A second, decoy href must not shadow a malicious first href."""
+        html = '<a href="javascript:alert(1)" href="safe.md">Double Href Attack</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].href == "javascript:alert(1)"
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_html_entity_encoded_scheme_is_unescaped_before_check(self) -> None:
+        """A numeric HTML entity inside the scheme must not bypass detection."""
+        html = '<a href="&#106;avascript:alert(1)">HTML Entities</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_embedded_whitespace_in_scheme_is_stripped_before_check(self) -> None:
+        """A literal space inside the scheme must not bypass detection."""
+        html = '<a href="java script:alert(1)">Whitespace</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_embedded_control_char_in_scheme_is_stripped_before_check(self) -> None:
+        """An HTML-entity-encoded control character must not bypass detection."""
+        html = '<a href="java&#x09;script:alert(1)">Control Chars</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+
 # ─── slug_heading (pure) ──────────────────────────────────────────────────────
 
 
@@ -1615,7 +1665,7 @@ class TestCheckExternalFlag:
 
 
 def test_validator_short_circuits_analysis_on_z001(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a malformed config structure causes a short-circuit before scanning starts."""
     import sys
@@ -1647,7 +1697,7 @@ def test_validator_short_circuits_analysis_on_z001(
 
 
 def test_cli_z001_outputs_json(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a Z001 error is correctly formatted as JSON."""
     import json
@@ -1677,7 +1727,7 @@ def test_cli_z001_outputs_json(
 
 
 def test_cli_z001_outputs_sarif(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a Z001 error is correctly formatted as SARIF."""
     import json
@@ -1712,7 +1762,7 @@ def test_cli_z001_outputs_sarif(
 
 
 def test_stale_allowlist_entry(tmp_path: Path) -> None:
-    """Verify that Z110 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
+    """Verify that Z112 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
     from zenzic.core.validator import validate_links_structured
     from zenzic.models.config import ZenzicConfig
 
@@ -1736,9 +1786,9 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
         check_external=False,
     )
 
-    z110_errors = [e for e in errors if e.error_type == "Z110"]
+    z110_errors = [e for e in errors if e.error_type == "Z112"]
     assert len(z110_errors) == 1
-    assert z110_errors[0].error_type == "Z110"
+    assert z110_errors[0].error_type == "Z112"
     assert "/unused/" in z110_errors[0].message
     assert z110_errors[0].file_path == tmp_path / ".zenzic.toml"
     assert ".zenzic.toml:1: Stale absolute_path_allowlist entry" in z110_errors[0].message
@@ -1757,9 +1807,9 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
         check_external=False,
     )
 
-    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z110"]
+    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z112"]
     assert len(z110_errors_pyproject) == 1
-    assert z110_errors_pyproject[0].error_type == "Z110"
+    assert z110_errors_pyproject[0].error_type == "Z112"
     assert "/unused/" in z110_errors_pyproject[0].message
     assert z110_errors_pyproject[0].file_path == tmp_path / "pyproject.toml"
     assert (

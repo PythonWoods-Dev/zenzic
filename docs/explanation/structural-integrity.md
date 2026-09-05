@@ -46,7 +46,7 @@ Structural Integrity rules catch these breaks **before the build runs**:
 | [`Z106`](../reference/finding-codes.md#z106) | `CIRCULAR_LINK` | Circular link cycles — structural telemetry, not a defect (see [architectural rationale](../reference/finding-codes.md#z106)) |
 | [`Z107`](../reference/finding-codes.md#z107) | `CIRCULAR_ANCHOR` | Self-referential anchor links |
 | [`Z108`](../reference/finding-codes.md#z108) | `EMPTY_LINK_TEXT` | Empty or whitespace-only link labels |
-| [`Z110`](../reference/finding-codes.md#z110) | `STALE_ALLOWLIST_ENTRY` | Unused entries in absolute path allowlist |
+| [`Z112`](../reference/finding-codes.md#z112) | `STALE_ALLOWLIST_ENTRY` | Unused entries in absolute path allowlist |
 | [`Z401`](../reference/finding-codes.md#z401) | `MISSING_DIRECTORY_INDEX` | Directories without a reachable `index.md` |
 | [`Z402`](../reference/finding-codes.md#z402) | `ORPHAN_PAGE` | Files unreachable from any navigation path |
 | [`Z404`](../reference/finding-codes.md#z404) | `CONFIG_ASSET_MISSING` | Assets declared in config that do not exist on disk |
@@ -62,14 +62,16 @@ contributors, and processed by build pipelines that may hold access to productio
 A single leaked API key in a Markdown file — committed in a rush, pushed to a public
 repository — is a supply-chain incident, not an editorial oversight.
 
-Security rules are **non-suppressible by design**. Exit codes 2 and 3 bypass `--exit-zero`
-and `fail-on-error: false` unconditionally:
+Security rules are **non-suppressible by design** — none of them can be silenced by
+`zenzic:ignore`, and their exit codes bypass `--exit-zero` and `fail-on-error: false`
+unconditionally. `Z202` is the one exception to the *exit code* pattern here: it stays a plain
+exit 1 rather than escalating, but remains just as non-suppressible as the rest:
 
 | Finding Code | Name | What it catches | Exit |
 | :--- | :--- | :--- | :---: |
 | [`Z201`](../reference/finding-codes.md#z201) | `CREDENTIAL_SECRET` | Credentials, API keys, tokens in any source line | 2 |
-| [`Z202`](../reference/finding-codes.md#z202) | `PATH_TRAVERSAL` | System path escape in a link or config value | 3 |
-| [`Z203`](../reference/finding-codes.md#z203) | `PATH_TRAVERSAL_SUSPICIOUS` | Relative traversal patterns escaping the docs root | 3 |
+| [`Z202`](../reference/finding-codes.md#z202) | `PATH_TRAVERSAL` | Relative traversal patterns escaping the docs root | 1 |
+| [`Z203`](../reference/finding-codes.md#z203) | `PATH_TRAVERSAL_FATAL` | Traversal targeting an OS system directory in a link or config value | 3 |
 
 See [Exclusion Zone](./privacy-gate.md) and [The Zenzic Trinity](./the-zenzic-trinity.md)
 for the complete exit code contract.
@@ -104,22 +106,22 @@ contract between the author and every tool in the pipeline.
 You might ask: why does Zenzic implement `Z505 (Untagged Code Blocks)` when static analysis tools
 like `markdownlint` already detect this?
 
-The answer is **[Pillar 2: Zero Subprocesses](./the-zenzic-trinity.md)**.
+The answer is **[Pillar 2: Zero Subprocesses](../developers/explanation/governance/index.md#the-supreme-law-the-three-pillars)**.
 
-Traditional Markdown tools require a full Node.js runtime and hundreds of megabytes of
-`node_modules`. For a Python-based DevOps pipeline, a security-conscious enterprise, or any
-team running CI in a minimal container, this dependency creates friction: additional toolchain
-configuration, runtime version pinning, and transitive supply-chain exposure. We call this
-the **Node.js Tax** — the hidden overhead of requiring a second runtime stack just to validate
-documentation structure.
+Traditional Markdown tools require a second runtime stack — Node.js itself, plus its own
+`node_modules` dependency tree — alongside whatever your documentation pipeline already runs.
+For a Python-based DevOps pipeline, a security-conscious enterprise, or any team running CI in
+a minimal container, this creates friction: additional toolchain configuration, runtime version
+pinning, and a second dependency tree to keep patched. We call this the **Node.js Tax** — the
+hidden overhead of requiring a second runtime stack just to validate documentation structure.
 
 ```text
-Without Zenzic         With Zenzic
-─────────────────────  ─────────────────────────
-npm install            uvx zenzic check all
-node_modules/ ~300 MB  (zero persistent install)
-Node ≥ 18 required     Python 3.10+ required
-npm audit surface      Zero transitive risk
+Without Zenzic          With Zenzic
+──────────────────────  ─────────────────────────
+npm install              uvx zenzic check all
+Node.js runtime + deps   (zero persistent install)
+Node ≥ 18 required       Python 3.10+ required
+A second dependency tree Zero transitive risk
 ```
 
 By providing core structural checks in pure Python, Zenzic enables professional-grade
@@ -168,7 +170,7 @@ non-negotiable gate; the others can be advisories depending on your team's matur
 
 ## Further Reading {#further-reading}
 
-- [The Zenzic Trinity](./the-zenzic-trinity.md) — The three non-negotiable pillars: Zero Subprocesses, Pure Functions, Structural Analysis
+- [The Zenzic Trinity](./the-zenzic-trinity.md) — How logic, intent, and enforcement constrain each other across the engine, its documentation, and the surfaces that apply it
 - [Exclusion Zone](./privacy-gate.md) — The exit code contract and the inviolable security gate
 - [Finding Codes Reference](../reference/finding-codes.md) — The complete Zxxx registry with remediation steps
 - [Scoring System](./scoring-system.md) — How the Deterministic Quality Score is computed

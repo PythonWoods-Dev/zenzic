@@ -18,7 +18,6 @@ Operational governance and release troubleshooting start here:
 
 - [Governance Playbook: Troubleshooting and Invariants](how-to/release-governance-protocol.md)
 - [Shared Sovereign Verification Model](explanation/sovereign-verification-model.md)
-- [Supply-Chain Assurance Profile](reference/supply-chain-assurance-profile.md)
 
 ---
 
@@ -42,13 +41,13 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Read Guide](how-to/implement-adapter.md)
 
-- :material-folder-play-outline:{ .lg .middle style="color: #10b981;" } **[Example Projects](reference/adapter-examples.md)**
+- :material-folder-play-outline:{ .lg .middle style="color: #10b981;" } **[Z-Code Gallery](../tutorials/examples/index.md)**
 
     ---
 
-    Four self-contained runnable fixtures demonstrating correct and incorrect Zenzic configurations.
+    Reproducible, runnable fixtures for every diagnostic code Zenzic emits — run any scenario locally via `zenzic lab`.
 
-    [:material-arrow-right: Explore Fixtures](reference/adapter-examples.md)
+    [:material-arrow-right: Explore the Gallery](../tutorials/examples/index.md)
 
 - :material-shield-lock-open-outline:{ .lg .middle style="color: #f59e0b;" } **[Governance Playbook](how-to/release-governance-protocol.md)**
 
@@ -66,14 +65,6 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Read Model](explanation/sovereign-verification-model.md)
 
-- :material-certificate-outline:{ .lg .middle style="color: #6366f1;" } **[Supply-Chain Assurance](reference/supply-chain-assurance-profile.md)**
-
-    ---
-
-    Auditable supply-chain controls, security baselines, and verification runbook commands.
-
-    [:material-arrow-right: View Profile](reference/supply-chain-assurance-profile.md)
-
 </div>
 
 ---
@@ -87,13 +78,13 @@ Zenzic uses [`just`](https://github.com/casey/just) as its interactive command r
 |:--------|:------------|
 | `just sync` | Install / update all dependency groups (`uv sync --all-groups`) |
 | `just check` | **Self-lint — run Zenzic on its own documentation (strict)** |
-| `just test` | Run the test suite (delegates to `nox -s tests`, Hypothesis **dev** profile) |
-| `just test-full` | Run the test suite with Hypothesis **ci** profile (500 examples) |
-| `just verify` | **Pre-push gate: lint-all + build + verify-codes + strict audit + score stamp + freshness check** |
-| `just build` | Build the documentation site (fast, no strict enforcement) |
-| `just build-prod` | Build the documentation site (strict mode, mirrors CI) |
-| `just serve [port]` | Start the live-reload documentation server (default port 8000) |
-| `just clean` | Remove generated artefacts (`site/`, `dist/`, `.hypothesis/`, caches, score file) |
+| `just test` | Run the test suite directly via `pytest -n auto` (parallel, no coverage), Hypothesis **dev** profile |
+| `just test-full` | Run the test suite via `nox -s tests` with Hypothesis **ci** profile (500 examples) |
+| `just verify` | **Pre-push gate: pre-commit hooks + pip-audit + pytest (coverage enforced) + `zenzic check all --strict` + `zenzic score --stamp`** |
+| `just docs-build` | Build the documentation site (`mkdocs build --strict` — always strict, no fast/non-strict variant) |
+| `just docs-serve [args]` | Start the live-reload documentation server |
+| `just check-badges` | Verify badge freshness (`zenzic score --check-stamp`) without mutating anything — the CI-safe counterpart to `just verify`'s stamp step |
+| `just clean` | Remove generated artefacts (`dist/`, `.pytest_cache/`, `.hypothesis/`, `.zenzic-score.json`, `coverage.json` — **not** `site/`) |
 
 The Zenzic self-linting duty — `just check` — is the first command to run after
 any documentation change. Run `just verify` before every push to `main`.
@@ -121,13 +112,21 @@ HYPOTHESIS_PROFILE=purity just test  # pre-release
 <details>
 <summary>Mutation testing</summary>
 
-Use `nox -s mutation` to run [mutmut](https://mutmut.readthedocs.io/) against
-`src/zenzic/core/rules.py`. This is deliberately **not** part of `just verify`
-— run it manually after working on the rule engine:
+Use `just mutation` to run [mutmut](https://mutmut.readthedocs.io/) against
+`src/zenzic/core/credentials.py` (`[tool.mutmut]` in `pyproject.toml`) and check the
+score against a recorded floor. **CI runs this on every build.**
 
 ```bash
-nox -s mutation
+just mutation
 ```
+
+The score is a ratchet, not the target: the credential scanner measures **68.2%**
+against a stated target of **≥ 90%**, and the gate prints that gap on every run. See
+[Credential Scanner Obligations](reference/credential-scanner-obligations) for what it
+does and does not promise.
+
+`nox -s mutation` also exists and runs mutmut, but computes no floor and fails on
+nothing.
 
 </details>
 

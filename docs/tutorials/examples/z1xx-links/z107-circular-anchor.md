@@ -6,9 +6,7 @@ description: "Walk through the z107-circular-anchor fixture: a self-referential 
 
 # Z107 — Circular Anchor
 
-**Z-Code:** `Z107 CIRCULAR_ANCHOR` · **Engine:** `standalone` · **Exit:** `0`
-
-<Z107CircularAnchor />
+**Z-Code:** `Z107 CIRCULAR_ANCHOR` · **Engine:** `standalone` · **Exit:** `1`
 
 ---
 
@@ -68,7 +66,7 @@ Analysis complete: All statically-detectable links, credentials, and references
 verified.
 ```
 
-Exit code: `0`
+Exit code: `1`
 
 ---
 
@@ -87,7 +85,7 @@ the link target. Common causes:
 Metadata:
 
 - **Scan Type:** `Rule Engine (built-in, always active)`
-- **Severity:** `Warning`
+- **Severity:** `Error`
 - **Impact:** Deducts **1.0 DQS point** (structural category, weight 0.30).
 
 ---

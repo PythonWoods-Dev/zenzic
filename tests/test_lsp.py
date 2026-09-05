@@ -5,6 +5,7 @@
 import io
 import json
 from pathlib import Path
+from typing import Any
 
 from zenzic.lsp.documents import DocumentManager
 from zenzic.lsp.server import LanguageServer
@@ -75,7 +76,7 @@ def test_language_server_lifecycle() -> None:
     req3 = {"jsonrpc": "2.0", "id": 2, "method": "shutdown", "params": {}}
     req4 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         return header + body
@@ -109,7 +110,14 @@ def test_language_server_lifecycle() -> None:
 
     assert resp["jsonrpc"] == "2.0"
     assert resp["id"] == 1
-    assert resp["result"]["capabilities"]["textDocumentSync"] == 2
+    # Object form (not the bare TextDocumentSyncKind int) is required to also
+    # declare willSaveWaitUntil for auto-fix-on-save; "change": 2 preserves
+    # the original Incremental sync kind.
+    assert resp["result"]["capabilities"]["textDocumentSync"] == {
+        "openClose": True,
+        "change": 2,
+        "willSaveWaitUntil": True,
+    }
 
 
 def test_publish_diagnostics() -> None:
@@ -134,7 +142,7 @@ def test_publish_diagnostics() -> None:
     }
     req2 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -210,7 +218,7 @@ def test_debounce_diagnostics() -> None:
     }
     req4 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -279,7 +287,7 @@ def test_zero_config_security_invariant(tmp_path) -> None:
     }
     req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -362,7 +370,7 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
             },
         }
 
-        def encode_rpc(msg: dict) -> bytes:
+        def encode_rpc(msg: dict[str, Any]) -> bytes:
             body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
             header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
             return header + body
@@ -460,12 +468,12 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
 # ─── CLI/ZLS Parity tests: Z403 and Z102 ─────────────────────────────────────
 
 
-def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> list[dict]:
+def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> list[dict[str, Any]]:
     """Run the ZLS on a single document and return all emitted diagnostics."""
     import io
     import json
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         return header + body
@@ -490,7 +498,7 @@ def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> li
     out_stream.seek(0)
     output = out_stream.read()
 
-    all_diagnostics: list[dict] = []
+    all_diagnostics: list[dict[str, Any]] = []
     for part in output.split(b"\r\n\r\n"):
         if b"publishDiagnostics" not in part:
             continue
@@ -588,7 +596,7 @@ def test_lsp_security_rules_masking() -> None:
     }
     req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         import json
 
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
@@ -701,6 +709,39 @@ def test_is_within_domain(tmp_path) -> None:
     assert server._is_within_domain((docs_dir / "index.md").as_uri()) is True
     assert server._is_within_domain((tmp_path / "README.md").as_uri()) is False
     assert server._is_within_domain((tmp_path / "other" / "page.md").as_uri()) is False
+
+
+def test_is_within_domain_config_file_match_is_not_basename_only(tmp_path) -> None:
+    """`_is_config_file_change` matches by basename alone, with no location
+    check, and used to be consulted before the guardrail/repo-root check --
+    so any file anywhere named pyproject.toml/.zenzic.toml was declared
+    in-domain, including copies inside .git/ and entirely outside the repo."""
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".git").mkdir()
+    server = LanguageServer()
+    server.repo_root = tmp_path
+
+    real_config = tmp_path / "pyproject.toml"
+    real_config.write_text("[project]\n")
+    assert server._is_within_domain(real_config.as_uri()) is True, (
+        "a real pyproject.toml at the repo root must remain in-domain"
+    )
+
+    git_copy = tmp_path / ".git" / "pyproject.toml"
+    git_copy.write_text("[project]\n")
+    assert server._is_within_domain(git_copy.as_uri()) is False, (
+        "a pyproject.toml inside .git/ must not be declared in-domain via the "
+        "basename-only config-file shortcut"
+    )
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as outside_dir:
+        outside_config = Path(outside_dir) / "pyproject.toml"
+        outside_config.write_text("[project]\n")
+        assert server._is_within_domain(outside_config.as_uri()) is False, (
+            "a pyproject.toml entirely outside repo_root must not be in-domain"
+        )
 
 
 def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
@@ -885,6 +926,66 @@ def test_lsp_code_action_z108(tmp_path) -> None:
     assert "[TODO](https://example.com)" in edits[0]["newText"]
 
 
+def test_lsp_code_action_z515_z517_z520_parity(tmp_path) -> None:
+    """CLI/LSP parity fix: Z515/Z517/Z520 were fixable=True in codes.py and already
+    wired into `zenzic fix`, but textDocument/codeAction had no branch for them --
+    manual Quick Fix in the editor silently offered nothing for 3 of the 6 fixable
+    codes. Reuses the same Mutation classes `zenzic fix` already uses."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "See https://example.com for more.\n"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 102,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 34},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 4},
+                                "end": {"line": 0, "character": 23},
+                            },
+                            "code": "Z515",
+                            "source": "Zenzic",
+                            "message": "[Z515] Bare URL used",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    response = json.loads(raw.split("\r\n\r\n")[1])
+    actions = response["result"]
+    fix_actions = [a for a in actions if a["title"].startswith("Fix Z515")]
+    assert len(fix_actions) == 1
+    edits = fix_actions[0]["edit"]["changes"][doc_uri]
+    assert "<https://example.com>" in edits[0]["newText"]
+
+
 def test_lsp_code_action_unfixable(tmp_path) -> None:
     """Verify textDocument/codeAction returns empty list for unfixable & non-suppressible diagnostics."""
     server = LanguageServer()
@@ -1050,7 +1151,14 @@ def test_lsp_workspace_initialization_does_not_emit_dqs(tmp_path) -> None:
 
 
 def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
-    """Verify that files inside excluded_dirs (from .zenzic.toml) are dropped by LSP handlers and produce 0 diagnostics."""
+    """A file inside excluded_dirs stays in the pipeline but yields 0 quality diagnostics.
+
+    User scoping governs the quality tier only: the buffer is admitted (the
+    security tier must still see it — Z201/Z204 are never suppressible), and
+    the engine — not the server's domain gate — decides that every non-security
+    diagnostic stays suppressed. This fixture has no credentials, so the
+    admitted buffer must produce exactly zero diagnostics.
+    """
     config_file = tmp_path / ".zenzic.toml"
     config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/tutorials/examples"]\n')
 
@@ -1066,7 +1174,9 @@ def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
     server._build_vsm_sync()
 
     ex_uri = ex_file.resolve().as_uri()
-    assert not server._is_within_domain(ex_uri)
+    # Admitted: user exclusions no longer put a file outside the domain —
+    # only system guardrails and VCS do (the security tier must see it).
+    assert server._is_within_domain(ex_uri)
 
     server.handle_message(
         {
@@ -1078,8 +1188,15 @@ def test_lsp_excluded_files_produce_no_diagnostics(tmp_path) -> None:
         }
     )
 
-    # Document was dropped by domain / exclusion gate
-    assert ex_uri not in server.documents.documents
+    assert ex_uri in server.documents.documents
+
+    assert server.vsm is not None and server.engine is not None
+    assert server.overlay is not None
+    results = server.engine.process_changes(server.vsm, server.overlay, {ex_uri})
+    assert results.get(ex_uri, []) == [], (
+        "an excluded, credential-free file must yield zero diagnostics — "
+        f"got {[d.code for d in results.get(ex_uri, [])]}"
+    )
 
 
 def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
@@ -1121,7 +1238,11 @@ def test_lsp_html_asset_links_resolve_without_z101(tmp_path) -> None:
 
 
 def test_lsp_enforces_user_excluded_dirs(tmp_path) -> None:
-    """Verify that opening a file inside an excluded_dirs path (from .zenzic.toml) emits 0 diagnostics."""
+    """Opening a credential-free file under excluded_dirs emits 0 diagnostics.
+
+    The buffer is admitted (user scoping never hides the security tier); with
+    no security content, the engine suppresses everything else it finds.
+    """
     config_file = tmp_path / ".zenzic.toml"
     config_file.write_text('excluded_dirs = ["examples"]\n')
 
@@ -1147,7 +1268,7 @@ def test_lsp_enforces_user_excluded_dirs(tmp_path) -> None:
         }
     )
 
-    assert ex_uri not in server.documents.documents
+    assert ex_uri in server.documents.documents
 
     if server.vsm is None:
         server._build_vsm_sync()
@@ -1178,8 +1299,10 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
 
     Acceptance criterion:
         Opening the file via ``textDocument/didOpen`` with an absolute
-        ``file://`` URI must result in the server dropping the document (domain
-        gate) and publishing exactly **0 diagnostics** for that URI.
+        ``file://`` URI publishes exactly **0 diagnostics** for that URI: the
+        buffer is admitted (user scoping never hides the security tier), and
+        with no credentials in the fixture the engine suppresses every quality
+        finding the content would otherwise raise.
     """
     import io
     import json
@@ -1205,7 +1328,7 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
     index_md = docs_dir / "index.md"
     index_md.write_text("# Home\nWelcome.\n")
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
         return header + body
@@ -1243,9 +1366,10 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
     server = LanguageServer(stdin=in_stream, stdout=out_stream)
     server.serve()
 
-    # Gate 1: domain check must have dropped the document
-    assert excluded_uri not in server.documents.documents, (
-        "Excluded file must be dropped by _is_within_domain before entering DocumentManager"
+    # Gate 1: the document is admitted — exclusion decisions now live in the
+    # engine, which still owes this buffer a security pass.
+    assert excluded_uri in server.documents.documents, (
+        "user-excluded file must be admitted so the security tier can see it"
     )
 
     # Gate 2: no diagnostics must have been published for the excluded URI
@@ -1267,7 +1391,8 @@ def test_lsp_absolute_uri_excluded_path_emits_zero_diagnostics(tmp_path) -> None
 
     assert diag_count_for_excluded == 0, (
         f"Expected 0 diagnostics for excluded URI, got {diag_count_for_excluded}. "
-        "LSP-FIX-008 path normalisation regression."
+        "Either the LSP-FIX-008 path normalisation regressed, or quality "
+        "findings leaked past user exclusion for a credential-free file."
     )
 
 
@@ -1394,11 +1519,11 @@ def test_file_deletion_clears_ghost_diagnostics(tmp_path: "Path") -> None:  # no
         encoding="utf-8",
     )
 
-    def _encode(msg: dict) -> bytes:
+    def _encode(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         return f"Content-Length: {len(body)}\r\n\r\n".encode() + body
 
-    def _parse_frames(raw: bytes) -> list[dict]:
+    def _parse_frames(raw: bytes) -> list[dict[str, Any]]:
         """Parse all Content-Length-framed JSON-RPC messages from a byte stream."""
         msgs = []
         offset = 0
@@ -1636,20 +1761,61 @@ def test_lsp_code_action_suppression(tmp_path) -> None:
     assert "Fix Z108: Inject placeholder link text ('TODO')" in titles
     assert "Suppress Z108 for this line" in titles
 
+    # 4. Test Z412 / Z410 (Topological findings - NON_INLINE_SUPPRESSIBLE_CODES per ADR-093)
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 204,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 10},
+                            },
+                            "code": "Z412",
+                            "source": "Zenzic",
+                            "message": "[Z412] Target document is untraceable",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 1
+    assert actions[0]["title"] == "Suppress Z412 (configure via .zenzic.toml)"
+    assert "disabled" in actions[0]
+    assert "directory_policies" in actions[0]["disabled"]["reason"]
+
 
 # ─── LSP-FIX-017 & Filesystem Truth tests ─────────────────────────────────────
 
 
-def _encode_rpc(msg: dict) -> bytes:
+def _encode_rpc(msg: dict[str, Any]) -> bytes:
     """Encode a single JSON-RPC 2.0 message as LSP wire format."""
     body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
     header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
     return header + body
 
 
-def _parse_lsp_messages(raw: bytes) -> list[dict]:
+def _parse_lsp_messages(raw: bytes) -> list[dict[str, Any]]:
     """Parse all JSON-RPC messages from a raw LSP byte stream."""
-    messages: list[dict] = []
+    messages: list[dict[str, Any]] = []
     parts = raw.split(b"\r\n\r\n")
     for part in parts:
         # Each part is either a header or a body fragment; the body follows
@@ -1968,7 +2134,7 @@ def test_initialized_registers_directory_watcher() -> None:
     import tempfile
     from pathlib import Path
 
-    def encode_rpc(msg: dict) -> bytes:
+    def encode_rpc(msg: dict[str, Any]) -> bytes:
         body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
         return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
 
@@ -2038,3 +2204,786 @@ def test_initialized_registers_directory_watcher() -> None:
         assert "**/" in registered_patterns, (
             f"Directory watcher '**/' not found in registered patterns: {registered_patterns}"
         )
+
+
+def _send_will_save_wait_until(server: "LanguageServer", out_stream, doc_uri: str, msg_id: int):
+    """Send textDocument/willSaveWaitUntil and return the parsed JSON-RPC response."""
+    out_stream.seek(0)
+    out_stream.truncate(0)
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": "textDocument/willSaveWaitUntil",
+            "params": {"textDocument": {"uri": doc_uri}, "reason": 1},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    return json.loads(raw.split("\r\n\r\n")[1])
+
+
+def _init_server_with_config(tmp_path: Path) -> "LanguageServer":
+    from zenzic.core.scanner import _build_rule_engine
+    from zenzic.models.config import ZenzicConfig
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server.config, _ = ZenzicConfig.load(tmp_path)
+    server.rule_engine = _build_rule_engine(server.config)
+    return server
+
+
+def test_lsp_capability_advertises_will_save_wait_until() -> None:
+    """The initialize response must declare willSaveWaitUntil so vscode-languageclient
+    auto-forwards vscode.workspace.onWillSaveTextDocument to the server (LSP spec:
+    a client only calls textDocument/willSaveWaitUntil when the server opts in)."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": None, "capabilities": {}},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    response = json.loads(raw.split("\r\n\r\n")[1])
+    sync = response["result"]["capabilities"]["textDocumentSync"]
+    assert isinstance(sync, dict), (
+        "textDocumentSync must be the object form to declare willSaveWaitUntil"
+    )
+    assert sync["willSaveWaitUntil"] is True
+
+
+def test_lsp_will_save_wait_until_disabled_by_default(tmp_path: Path) -> None:
+    """Auto-fix-on-save must be OFF by default -- returns no edits even for a fixable finding."""
+    server = _init_server_with_config(tmp_path)
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "```\ncode\n```\n"}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 300)
+    assert resp["result"] == []
+
+
+def test_lsp_will_save_wait_until_fixes_z505_when_enabled(tmp_path: Path) -> None:
+    """With autoFixOnSave enabled, a real Z505 finding is auto-fixed via the SAME
+    UntaggedCodeBlockMutation already used by manual Quick Fix and `zenzic fix` --
+    no new fix logic, only a new trigger."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "```\ncode\n```\n"}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 301)
+    edits = resp["result"]
+    assert len(edits) == 1
+    assert "```text" in edits[0]["newText"]
+
+
+def test_lsp_will_save_wait_until_no_op_on_clean_document(tmp_path: Path) -> None:
+    """No fixable findings -> empty edit list, not a no-op full-document replacement."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": doc_uri,
+                    "text": "# Clean Document\n\nNothing wrong here.\n",
+                }
+            },
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 302)
+    assert resp["result"] == []
+
+
+def test_lsp_will_save_wait_until_skips_code_with_any_suppressed_occurrence(tmp_path: Path) -> None:
+    """Safety gate (Phase 3): if ANY occurrence of a fixable code is suppressed anywhere
+    in the file, auto-fix must skip that code entirely rather than risk 'fixing' the
+    occurrence the user explicitly suppressed. Two bare URLs, one suppressed."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    # Line 1's Z515 is suppressed (verified via _scan_single_file: consumed=True,
+    # no active Z515 finding for line 1); line 3's Z515 is a real, active finding.
+    doc_text = (
+        "See https://example.com for info. <!-- zenzic:ignore: Z515 -->\n\n"
+        "Also see https://other.example.com here.\n"
+    )
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 303)
+    assert resp["result"] == [], (
+        "the un-suppressed Z515 occurrence must NOT be auto-fixed while a sibling "
+        "occurrence of the same code is explicitly suppressed in the same file"
+    )
+
+
+def test_lsp_will_save_wait_until_fixes_all_six_fixable_codes(tmp_path: Path) -> None:
+    """Completes CLI/LSP parity: all 6 fixable=True codes (not just the 3 manual
+    Quick Fix already wired) are reachable via auto-fix-on-save."""
+    server = _init_server_with_config(tmp_path)
+    server.auto_fix_on_save = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "## Heading.\n\nSee https://example.com for more.\n"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    resp = _send_will_save_wait_until(server, out_stream, doc_uri, 304)
+    edits = resp["result"]
+    assert len(edits) == 1
+    new_text = edits[0]["newText"]
+    assert "## Heading\n" in new_text, "Z517 heading punctuation should be stripped"
+    assert "<https://example.com>" in new_text, "Z515 bare URL should be angle-bracketed"
+
+
+def test_lsp_did_change_configuration_toggles_auto_fix_on_save(tmp_path: Path) -> None:
+    """workspace/didChangeConfiguration updates the flag live, no server restart needed."""
+    server = _init_server_with_config(tmp_path)
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    assert server.auto_fix_on_save is False
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeConfiguration",
+            "params": {"settings": {"zenzic": {"autoFixOnSave": True}}},
+        }
+    )
+    assert server.auto_fix_on_save is True
+
+
+def _send_will_rename_files(
+    server: "LanguageServer", out_stream, old_uri: str, new_uri: str, msg_id: int
+):
+    out_stream.seek(0)
+    out_stream.truncate(0)
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": "workspace/willRenameFiles",
+            "params": {"files": [{"oldUri": old_uri, "newUri": new_uri}]},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    return json.loads(raw.split("\r\n\r\n")[1])
+
+
+def test_lsp_capability_advertises_will_rename_files() -> None:
+    """initialize must declare workspace.fileOperations.willRename so
+    vscode-languageclient auto-forwards vscode.workspace.onWillRenameFiles."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": None, "capabilities": {}},
+        }
+    )
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    response = json.loads(raw.split("\r\n\r\n")[1])
+    filters = response["result"]["capabilities"]["workspace"]["fileOperations"]["willRename"][
+        "filters"
+    ]
+    assert filters[0]["scheme"] == "file"
+
+
+def test_lsp_will_rename_files_disabled_by_default(tmp_path: Path) -> None:
+    """Off by default -- returns no WorkspaceEdit even for a real inbound link."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md).\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 400
+    )
+    assert resp["result"] is None
+
+
+def test_lsp_will_rename_files_repairs_inbound_link(tmp_path: Path) -> None:
+    """Real fixture: A links to B, rename B -> B2, confirm A's link is rewritten.
+    Reuses resolve_href_target (via RenameLinkMutation) -- no new resolution logic."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md) for details.\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    old_uri = (docs_dir / "b.md").as_uri()
+    new_uri = (docs_dir / "b2.md").as_uri()
+    resp = _send_will_rename_files(server, out_stream, old_uri, new_uri, 401)
+
+    a_uri = (docs_dir / "a.md").resolve().as_uri()
+    changes = resp["result"]["changes"]
+    assert a_uri in changes
+    assert "[B](b2.md)" in changes[a_uri][0]["newText"]
+
+
+def test_lsp_will_rename_files_skips_non_markdown_rename(tmp_path: Path) -> None:
+    """Scoped to Markdown/MDX document renames only -- an image rename is a no-op
+    for this feature (Z405/asset-reference repair is a different, unimplemented
+    concern, not silently half-handled here)."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "logo.png").write_bytes(b"\x89PNG\r\n")
+    (docs_dir / "a.md").write_text("# A\n![Logo](./logo.png)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "logo.png").as_uri(), (docs_dir / "logo2.png").as_uri(), 402
+    )
+    assert resp["result"] is None
+
+
+def test_lsp_will_rename_files_skips_excluded_linking_file(tmp_path: Path) -> None:
+    """Safety gate (Phase 3): a linking file excluded via .zenzic.toml is left
+    untouched, even though it has a real inbound link to the renamed file."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md) for details.\n")
+    (tmp_path / ".zenzic.toml").write_text('excluded_file_patterns = ["a.md"]\n')
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 403
+    )
+    assert resp["result"] is None, (
+        "the excluded file must not be rewritten even though it links to the renamed file"
+    )
+
+
+def test_lsp_will_rename_files_skips_alias_style_href(tmp_path: Path) -> None:
+    """Safety gate (Phase 3): a docs-root-relative ('/...') href is left untouched
+    rather than guessing which alias style to reconstruct."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](/b.md) for details.\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 404
+    )
+    assert resp["result"] is None, "an alias-style href must be skipped, not guessed at"
+
+
+def test_lsp_did_change_configuration_toggles_auto_repair_links_on_rename(tmp_path: Path) -> None:
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    assert server.auto_repair_links_on_rename is False
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeConfiguration",
+            "params": {"settings": {"zenzic": {"autoRepairLinksOnRename": True}}},
+        }
+    )
+    assert server.auto_repair_links_on_rename is True
+
+
+def test_lsp_will_rename_files_partial_success_one_excluded_one_fixed(tmp_path: Path) -> None:
+    """Safety (Phase 3): renaming a heavily-linked page must not fail all-or-nothing.
+    Two files link to B; one is excluded (skipped, reported), the other is fixed."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "b.md").write_text("# B\nContent.\n")
+    (docs_dir / "a.md").write_text("# A\nSee [B](./b.md) for details.\n")
+    (docs_dir / "c.md").write_text("# C\nAlso see [B](./b.md) here.\n")
+    (tmp_path / ".zenzic.toml").write_text('excluded_file_patterns = ["a.md"]\n')
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server, out_stream, (docs_dir / "b.md").as_uri(), (docs_dir / "b2.md").as_uri(), 405
+    )
+
+    a_uri = (docs_dir / "a.md").resolve().as_uri()
+    c_uri = (docs_dir / "c.md").resolve().as_uri()
+    changes = resp["result"]["changes"]
+    assert a_uri not in changes, "excluded file must not appear in the WorkspaceEdit"
+    assert c_uri in changes, "the non-excluded file must still be fixed independently"
+    assert "[B](b2.md)" in changes[c_uri][0]["newText"]
+
+
+def test_lsp_code_action_ignores_foreign_diagnostics(tmp_path) -> None:
+    """A suppression must only be offered for Zenzic's own findings.
+
+    Editors surface every provider's diagnostics to every provider's code-action
+    handler. The eligibility check asked whether a code was *forbidden* from
+    suppression rather than whether it was ours, so any foreign code passed: a
+    markdownlint ``MD036`` produced "Suppress MD036 for this line", writing a
+    ``zenzic:ignore:`` comment that markdownlint cannot read. The finding stayed
+    live underneath while the editor implied it had been handled.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "# Title\n\n**Emphasis used as a heading**\n"
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 33},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 33},
+                            },
+                            "severity": 2,
+                            "code": "MD036",
+                            "source": "markdownlint",
+                            "message": "MD036/no-emphasis-as-heading: Emphasis used instead of a heading",
+                        }
+                    ],
+                    "only": ["quickfix"],
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    assert "MD036" not in payload, (
+        "Zenzic offered a code action for a markdownlint diagnostic; its suppression "
+        f"comment syntax does not suppress foreign findings:\n{payload}"
+    )
+
+
+def test_lsp_code_action_ignores_foreign_diagnostic_quoting_a_zenzic_code(tmp_path) -> None:
+    """A foreign diagnostic with no ``code`` must not be adopted via its message.
+
+    ``_handle_code_action`` falls back to scraping ``[Z\\d{3}]`` out of a
+    diagnostic's message when the ``code`` field is absent — a real need, since
+    a client may drop ``code`` on the codeAction round-trip. But many other
+    language servers omit ``code`` entirely, and Zenzic's own wire format is
+    ``[Z501] message``, so any tool echoing a Zenzic-formatted string (a spell
+    checker quoting the offending span, a doc quoting CLI output) produced a
+    message the fallback happily adopted. Zenzic then offered
+    "Suppress Z501 for this line" on another tool's finding — the Round 1
+    foreign-diagnostic defect, reached through the message path instead of the
+    code path. Provenance decides: Zenzic stamps ``source: "zenzic"`` on every
+    diagnostic it emits, so the fallback is gated on that.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "# Title\n\nProse here.\n"}},
+        }
+    )
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 10},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 10},
+                            },
+                            "severity": 2,
+                            "source": "cspell",
+                            "message": "Spelling: did you mean '[Z501]'?",
+                        }
+                    ],
+                    "only": ["quickfix"],
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    assert "Z501" not in payload, (
+        "Zenzic adopted a foreign diagnostic by scraping a Z-code out of its "
+        f"message; the suppression it offers cannot silence another tool:\n{payload}"
+    )
+
+
+def test_lsp_code_action_refuses_paths_outside_the_documentation_domain(tmp_path) -> None:
+    """``textDocument/codeAction`` must bound the client-supplied path.
+
+    It was the only request handler acting on a ``file://`` URI without a
+    containment check, while five peers gate. Because its quick fixes replace
+    the document's full range, aiming it at an out-of-domain file both
+    disclosed that file's contents in the returned ``newText`` and offered to
+    overwrite it with a Markdown round-trip — confirmed against a file outside
+    ``repo_root`` and one inside ``.git/``.
+    """
+    (tmp_path / "mkdocs.yml").write_text("site_name: D\n", encoding="utf-8")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Home\n\nProse.\n", encoding="utf-8")
+
+    outside = tmp_path.parent / f"outside-{tmp_path.name}.md"
+    outside.write_text("# Outside\n\n```\nprint(1)\n```\n", encoding="utf-8")
+
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    uri = outside.resolve().as_uri()
+    assert not server._is_within_domain(uri), "fixture must be out of domain to be meaningful"
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 31,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": uri},
+                "range": {
+                    "start": {"line": 2, "character": 0},
+                    "end": {"line": 2, "character": 3},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 2, "character": 0},
+                                "end": {"line": 2, "character": 3},
+                            },
+                            "severity": 1,
+                            "code": "Z505",
+                            "source": "zenzic",
+                            "message": "[Z505] fenced block has no language",
+                        }
+                    ],
+                    "only": ["quickfix"],
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    assert "print(1)" not in payload, (
+        f"the out-of-domain file's contents were echoed back to the client:\n{payload}"
+    )
+    assert "Fix Z505" not in payload and "Suppress Z505" not in payload, (
+        f"an edit was offered for a file outside the documentation domain:\n{payload}"
+    )
+
+
+def test_lsp_code_action_always_answers_a_malformed_request(tmp_path) -> None:
+    """A request must be answered even when its params are malformed.
+
+    Client-supplied values reach arithmetic and attribute access inside the
+    handler — a string where a line number is expected, a list where an object
+    is. The exception escaped to ``serve()``'s catch-all, which logs and moves
+    on, leaving the request unanswered forever and the client waiting on an id
+    that never comes back. Malformed input is the client's error to make; a
+    hang is ours.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    page = docs / "index.md"
+    page.write_text("# H\n\nProse.\n", encoding="utf-8")
+    uri = page.resolve().as_uri()
+    good_range = {"start": {"line": 2, "character": 0}, "end": {"line": 2, "character": 3}}
+
+    malformed = [
+        {
+            "diagnostics": [
+                {
+                    "range": {"start": {"line": "x", "character": 0}, "end": good_range["end"]},
+                    "code": "Z505",
+                    "source": "zenzic",
+                    "message": "m",
+                }
+            ]
+        },
+        {"diagnostics": ["not-an-object"]},
+        {"diagnostics": [{"range": [1, 2], "code": "Z505", "source": "zenzic", "message": "m"}]},
+    ]
+    for context in malformed:
+        server = LanguageServer()
+        out_stream = io.BytesIO()
+        server.stdout = out_stream
+        server.repo_root = tmp_path
+        server._build_vsm_sync()
+        server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {"textDocument": {"uri": uri, "text": page.read_text(encoding="utf-8")}},
+            }
+        )
+        out_stream.seek(0)
+        out_stream.truncate(0)
+        server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 77,
+                "method": "textDocument/codeAction",
+                "params": {"textDocument": {"uri": uri}, "range": good_range, "context": context},
+            }
+        )
+        out_stream.seek(0)
+        assert '"id":77' in out_stream.read().decode(), (
+            f"no response was sent for a malformed codeAction request: {context!r}"
+        )
+
+
+def test_lsp_config_hot_reload_does_not_ghost_clear_security_only_findings(tmp_path) -> None:
+    """A config hot-reload's full rebuild must not erase a security-only
+    finding it never re-admits into ``md_contents_cache``.
+
+    ``excluded_dirs`` scopes out an on-disk credential-carrying file from
+    quality analysis, but the security tier must still see it (Z201 is
+    never suppressible) — via the ``security_only`` sweep, which
+    deliberately never inserts the path into ``md_contents_cache`` (that
+    is what "security-only" means; see incremental.py's own comment at the
+    ``security_only[buf_path] = buf_text`` assignment). The server's ghost-
+    clearing predicate (``path not in self.engine.md_contents_cache``) is
+    only evaluated on a full rebuild (``is_full_rebuild = self.engine is
+    None``), reached in practice via a config file change resetting
+    ``self.engine = None``. Every security-only URI satisfies that
+    predicate, so the very next full rebuild broadcasts an empty
+    diagnostics array for it, erasing the Z201 the prior cycle published.
+    """
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/secrets"]\n')
+
+    secrets_dir = docs_dir / "secrets"
+    secrets_dir.mkdir()
+    leak_file = secrets_dir / "leak.md"
+    leak_file.write_text("# Leak\n\naws_key = AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+    leak_uri = leak_file.resolve().as_uri()
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    # Precondition: the security-only sweep publishes Z201 on the first full
+    # sync, and the path is genuinely excluded from md_contents_cache.
+    server._sync_workspace_and_publish()
+    assert server.engine is not None
+    assert leak_file.resolve() not in server.engine.md_contents_cache, (
+        "fixture invalid: security-only path must stay out of md_contents_cache"
+    )
+    assert leak_uri in server.file_diagnostics, (
+        "precondition failed: Z201 must be published as an active diagnostic "
+        "before the config reload this test exercises"
+    )
+
+    # Trigger the config hot-reload path: this resets self.engine = None, so
+    # the next _sync_workspace_and_publish() runs with is_full_rebuild=True.
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    config_uri = config_file.resolve().as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {"changes": [{"uri": config_uri, "type": 2}]},
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    ghost_clears = [
+        line
+        for line in payload.splitlines()
+        if leak_uri in line and '"diagnostics":[]' in line.replace(" ", "")
+    ]
+    assert not ghost_clears, (
+        "the config hot-reload's full rebuild ghost-cleared a security-only "
+        f"finding it never re-admitted into md_contents_cache: {ghost_clears}"
+    )
+
+
+def test_is_full_rebuild_never_ghost_clears_a_live_security_only_finding(tmp_path) -> None:
+    """Direct reproduction of the condition the test above could never
+    actually reach: ``is_full_rebuild = self.engine is None`` captured True.
+
+    The config-reload path always calls ``_build_vsm_sync()`` (which rebuilds
+    ``self.engine``) before ``_sync_workspace_and_publish()``, so that path
+    never observes ``is_full_rebuild=True`` except on the server's very first
+    sync, when ``file_diagnostics`` is still empty -- the prior test passed
+    without ever exercising the buggy predicate. This test forces the real
+    condition directly: reset ``self.engine = None`` with no intervening
+    rebuild, then re-sync, exactly the shape LSP-FIX-017's own state-hygiene
+    pass is meant to run under.
+    """
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/secrets"]\n')
+
+    secrets_dir = docs_dir / "secrets"
+    secrets_dir.mkdir()
+    leak_file = secrets_dir / "leak.md"
+    leak_file.write_text("# Leak\n\naws_key = AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+    leak_uri = leak_file.resolve().as_uri()
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server._sync_workspace_and_publish()
+
+    assert leak_file.resolve() not in server.engine.md_contents_cache, (
+        "fixture invalid: security-only path must stay out of md_contents_cache"
+    )
+    assert leak_uri in server.file_diagnostics, (
+        "precondition failed: Z201 must be published as an active diagnostic"
+    )
+
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    # Force the real is_full_rebuild=True condition with no intervening
+    # _build_vsm_sync() -- the case the config-reload path never reaches.
+    server.engine = None
+    server._sync_workspace_and_publish()
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    ghost_clears = [
+        line
+        for line in payload.splitlines()
+        if leak_uri in line and '"diagnostics":[]' in line.replace(" ", "")
+    ]
+    assert not ghost_clears, (
+        "a genuine full rebuild (is_full_rebuild=True) ghost-cleared a live, "
+        f"non-suppressible security-only finding: {ghost_clears}"
+    )
+    assert leak_uri in server.file_diagnostics, (
+        "the finding must still be tracked as active after the rebuild"
+    )

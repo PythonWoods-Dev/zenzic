@@ -8,8 +8,6 @@ description: "Analysis of the z505-untagged-code-block fixture."
 
 **Z-Code:** `Z505 UNTAGGED_CODE_BLOCK` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z505UntaggedCodeBlock />
-
 ---
 
 ## The Fixture

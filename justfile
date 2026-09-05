@@ -29,6 +29,17 @@ ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 
+# The hook install is deliberately part of setup rather than a separate step a
+# developer has to know about -- three of the four ecosystem repositories were
+# once found running with no hooks installed at all, which is the precondition
+# Rule 31 now blocks on. Running this makes that precondition self-healing.
+#
+# Bootstrap a fresh clone: install dependencies and git hooks.
+setup:
+    uv sync --all-groups
+    uvx pre-commit install -t pre-commit -t pre-push
+    @echo "Setup complete. Run 'just verify' to check everything passes."
+
 # Install or update all dependency groups
 sync:
     uv sync --all-groups
@@ -57,6 +68,12 @@ test-slow *args:
 test-cov *args:
     {{ runner }} pytest -m "not slow" --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
+# Mutation gate for the credential scanner (Z201/Z204/Z205 path).
+# Ratchet, not the Tier-0 target: see scripts/mutation_gate.py for why the floor
+# is the measured score and not the documented 90%.
+mutation:
+    {{ runner }} python scripts/mutation_gate.py
+
 # Full audit: includes slow tests (deadlock guards, 1k-file torture, Hypothesis ci).
 # Run on Ubuntu only; reserved for pre-release validation.
 test-cov-full *args:
@@ -73,14 +90,15 @@ lint:
     {{ runner }} pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ → structural audit → score + stamp.
-verify: _check-hooks release-contracts check-pinning docs-build
+# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ (coverage enforced) → structural audit → score + stamp.
+verify: _check-hooks _check-governance release-contracts check-pinning docs-build
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
     {{ runner }} pip-audit
-    @echo "==> [3/5] Test suite..."
-    {{ runner }} pytest tests/
+    @echo "==> [3/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml)..."
+    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
+    @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
     @echo "==> [4/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [5/5] Score computation and badge stamp (zenzic score --stamp)..."
@@ -107,25 +125,77 @@ check-pinning:
     fi
     echo "✓ ADR-089: all pre-commit hooks pinned to immutable commit hashes."
 
+# Blocking gate, not a warning. A pre-commit hook that is merely declared in
+# .pre-commit-config.yaml runs nothing: the hook has to be installed into
+# .git/hooks for the commit-time gate to exist at all. Three of the four
+# ecosystem repositories were found with no hook installed, so every commit
+# in them bypassed markdownlint, REUSE and the formatter silently.
+#
+# A missing pre-commit hook cannot block its own commit -- there is nothing
+# installed to run -- so this check fails `just verify` instead, which is the
+# pre-push path and what CI runs. Exit 1, never a warning: the previous
+# version of this recipe printed the same diagnosis and let the work proceed.
+# Blocking gate, not a warning. A pre-commit hook that is merely declared in
+# .pre-commit-config.yaml runs nothing: the hook has to be installed into
+# .git/hooks for the commit-time gate to exist at all. Three of the four
+# ecosystem repositories were found with no hook installed, so every commit
+# in them bypassed markdownlint, REUSE and the formatter silently.
+#
+# A missing pre-commit hook cannot block its own commit -- there is nothing
+# installed to run -- so this check fails `just verify` instead, which is the
+# pre-push path and what CI runs. Exit 1, never a warning: the previous
+# version of this recipe printed the same diagnosis and let the work proceed.
 _check-hooks:
     #!/usr/bin/env bash
+    set -euo pipefail
+    # CI checks out a bare working tree and never commits from it, so git hooks
+    # are meaningless there -- and requiring them would fail every run for a
+    # condition no CI job can or should fix. The gate exists for the machine
+    # where commits are actually authored.
+    if [ -n "${CI:-}" ]; then
+        echo "CI environment: git-hook check skipped (hooks gate local commits only)"
+        exit 0
+    fi
     _missing=0
-    if [ ! -f .git/hooks/pre-commit ]; then
-        echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
-        echo "Without it, static checks and type-checks will NOT run automatically on git commit."
-        echo "👉 Fix it by running: uv run --active pre-commit install"
+    for _h in pre-commit pre-push; do
+        if [ ! -f ".git/hooks/${_h}" ] || ! grep -qi "pre-commit" ".git/hooks/${_h}"; then
+            echo -e "\033[31mBLOCKED: the ${_h} hook is not installed (or is not pre-commit's).\033[0m"
+            echo "  Without it the ${_h} gate does not run, and defects reach the remote."
+            echo "  Fix: uvx pre-commit install -t ${_h}"
+            _missing=1
+        fi
+    done
+    if [ "${_missing}" -ne 0 ]; then
         echo ""
-        _missing=1
+        echo "Refusing to continue with an uninstalled git hook. See Rule 31."
+        exit 1
     fi
-    if [ ! -f .git/hooks/pre-push ]; then
-        echo -e "\033[33m⚠️  WARNING: pre-push hook is not installed.\033[0m"
-        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
-        echo "👉 Fix it by running: uv run --active pre-commit install -t pre-push"
-        echo ""
-        _missing=1
-    fi
+    echo "git hooks installed (pre-commit, pre-push)"
 
-# Enforce release contracts: dirty allowed only in release-dry.
+_check-governance:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The governance trees (.claude/, .human/) are gitignored by design, so git
+    # records neither their presence nor their loss. The manifest at the repo
+    # root is the substitute audit trail; this recipe makes it a gate rather
+    # than a hand-run check (Rule 31: a check nobody is obliged to walk through
+    # fails exactly as a missing check does).
+    if [ -n "${CI:-}" ]; then
+        echo "CI environment: governance-manifest check skipped (the trees are gitignored and absent in CI)"
+        exit 0
+    fi
+    if [ ! -f .governance-manifest.json ] && [ -z "$(ls -A .claude 2>/dev/null)" ]; then
+        echo "no governance trees and no manifest on this machine: check skipped"
+        exit 0
+    fi
+    if [ -f .governance-manifest.json ] && [ ! -f .claude/scripts/governance_manifest.py ]; then
+        echo -e "\033[31mBLOCKED: a governance manifest exists but .claude/scripts/governance_manifest.py does not.\033[0m"
+        echo "  The governance tree this manifest measures has been lost or emptied. Restore it before pushing."
+        exit 1
+    fi
+    # exit 1 = drift, 2 = no baseline yet (run: python3 .claude/scripts/governance_manifest.py generate)
+    python3 .claude/scripts/governance_manifest.py verify
+
 release-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -192,6 +262,14 @@ docs-serve +args="":
 docs-build:
 	uv run --extra docs mkdocs build --strict
 
+# Report which staggered-publication blog links are ready to paste back in
+# (target now live) vs still pending (target still draft). Always exits 0 --
+# this is a report to run before each day's publish action, not a gate. The
+# gate itself is scripts/check_blog_link_schedule.py's default mode, wired
+# into pre-commit and CI.
+blog-link-schedule:
+	uv run python3 scripts/check_blog_link_schedule.py --schedule
+
 # Optimize blog images and animated GIFs for web performance
 optimize-assets:
     #!/usr/bin/env bash
@@ -199,3 +277,14 @@ optimize-assets:
     echo "==> Optimizing animated GIFs with gifsicle..."
     find docs/assets/images -name "*.gif" -exec gifsicle -O3 --colors 128 --lossy=80 {} -o {} \;
     echo "✓ Assets optimized successfully."
+
+# Run the "Power Triad" sandbox for a landing-page terminal screenshot (broken
+# link, path traversal, leaked credential) — output is meant to be captured
+# manually, not asserted on
+screenshot-hero:
+    cd tests/sandboxes/hero_specimen && {{runner}} zenzic check all --strict
+
+# Run the circular-link sandbox for a terminal screenshot demonstrating Z106
+# CIRCULAR_LINK detection — output is meant to be captured manually
+screenshot-circular:
+    cd tests/sandboxes/screenshot_circular && {{runner}} zenzic check all --show-info

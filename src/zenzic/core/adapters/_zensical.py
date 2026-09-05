@@ -97,13 +97,25 @@ def _extract_config_declared_assets(doc_config: dict[str, Any]) -> set[str]:
     """Extract theme favicon, logo, extra_css, extra_javascript relative asset paths."""
     assets: set[str] = set()
 
-    # Native zensical.toml format
+    # Native zensical.toml format. favicon/logo live under [project.theme];
+    # extra_css/extra_javascript live directly under [project] — two
+    # different nesting depths, both confirmed against Zensical's own
+    # current documentation (zensical.org/docs/setup/logo-and-icons/,
+    # zensical.org/docs/customization/).
     project = doc_config.get("project") or {}
     if isinstance(project, dict):
-        for key in ("favicon", "logo"):
-            val = project.get(key)
-            if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
-                assets.add(val.lstrip("/"))
+        project_theme = project.get("theme") or {}
+        if isinstance(project_theme, dict):
+            for key in ("favicon", "logo"):
+                val = project_theme.get(key)
+                if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
+                    assets.add(val.lstrip("/"))
+        for key in ("extra_css", "extra_javascript"):
+            items = project.get(key) or []
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str) and not item.startswith(("http://", "https://")):
+                        assets.add(item.lstrip("/"))
 
     # mkdocs.yml format (compat mode)
     theme = doc_config.get("theme") or {}
@@ -150,7 +162,9 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
         project = cfg.get("project") or {}
         docs_dir = str(project.get("docs_dir") or "docs") if isinstance(project, dict) else "docs"
         docs_root = repo_root / docs_dir
-        theme_dict = project if isinstance(project, dict) else {}
+        theme_dict = project.get("theme") or {} if isinstance(project, dict) else {}
+        if not isinstance(theme_dict, dict):
+            theme_dict = {}
     else:
         docs_dir = str(cfg.get("docs_dir") or "docs")
         docs_root = repo_root / docs_dir
@@ -389,6 +403,17 @@ class ZensicalAdapter(BaseAdapter):
         if rel_posix in ("index.md", "README.md"):
             return "REACHABLE"
 
+        # 3b. A non-root README.md not listed in nav is never auto-promoted —
+        # mirrors MkDocsAdapter's identical, deliberate convention. README.md
+        # is a real per-directory index-page candidate at any nesting level
+        # (confirmed live against Zensical's own docs), but unlike index.md it
+        # is treated as a GitHub-convention overflow file, not a page expected
+        # to be explicitly navigable — flagging it as an orphan would be a
+        # false positive on correctly-structured content. This check runs
+        # before rule 4 so it applies even when no nav is declared at all.
+        if rel.name == "README.md" and rel_posix not in nav_paths:
+            return "IGNORED"
+
         # 4. Listed in nav or locale shadow
         if (
             not self._has_explicit_nav
@@ -441,8 +466,14 @@ class ZensicalAdapter(BaseAdapter):
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when Zensical will serve an index page for this directory.
 
-        Zensical uses ``index.md`` as the canonical index file for a directory,
-        rendering it at the directory URL without a filename suffix.
+        Zensical treats a file as an index page if its basename is ``index.md``
+        or ``README.md`` (see zensical.org/docs/authoring/markdown/), applied
+        at any directory level, not just the docs root. Precedence when both
+        exist in the same directory is explicitly undefined upstream ("it is
+        better to avoid having both" — zensical/backlog#135), so this method
+        does not attempt to model one: it only answers whether *an* index
+        exists, which is true either way regardless of which file Zensical
+        would pick.
         It also recognizes dynamic directories managed by plugins.
 
         I/O is permitted here — this method is called once per directory during
@@ -452,10 +483,13 @@ class ZensicalAdapter(BaseAdapter):
             directory_path: Absolute path to the directory to inspect.
 
         Returns:
-            ``True`` if an ``index.md`` exists in the directory, or if the
-            directory is dynamically served by an active plugin.
+            ``True`` if an ``index.md`` or ``README.md`` exists in the
+            directory, or if the directory is dynamically served by an active
+            plugin.
         """
         if (directory_path / "index.md").exists():
+            return True
+        if (directory_path / "README.md").exists():
             return True
         return directory_path.resolve() in self.dynamic_directories
 

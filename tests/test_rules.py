@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
@@ -127,6 +128,29 @@ def test_custom_rule_info_severity_not_error() -> None:
     rule = CustomRule(id="ZZ006", pattern=r"x", message="x found.", severity="info")
     findings = rule.check(_FILE, "x\n")
     assert not findings[0].is_error
+
+
+def test_custom_rule_no_link_message_unchanged() -> None:
+    """A CustomRule with no `link` produces exactly the configured message,
+    byte-for-byte — existing rules with no link keep working unchanged."""
+    rule = CustomRule(id="ZZ011", pattern=r"TODO", message="Remove TODO.", severity="warning")
+    findings = rule.check(_FILE, "TODO: fix this.\n")
+    assert findings[0].message == "Remove TODO."
+
+
+def test_custom_rule_link_appears_in_finding_message() -> None:
+    """A CustomRule with `link` set surfaces it in the finding's message."""
+    rule = CustomRule(
+        id="ZZ012",
+        pattern=r"TODO",
+        message="Remove TODO.",
+        severity="warning",
+        link="https://wiki.example.com/todo-policy",
+    )
+    findings = rule.check(_FILE, "TODO: fix this.\n")
+    assert len(findings) == 1
+    assert "Remove TODO." in findings[0].message
+    assert "https://wiki.example.com/todo-policy" in findings[0].message
 
 
 # ─── AdaptiveRuleEngine ───────────────────────────────────────────────────────────────
@@ -315,6 +339,18 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
     class _EP:
         def __init__(self, name: str) -> None:
             self.name = name
+            self.dist = None
+
+    class _NamespacedRule(BaseRule):
+        def __init__(self, plugin_id: str) -> None:
+            self._id = f"{plugin_id}:ok"
+
+        @property
+        def rule_id(self) -> str:
+            return self._id
+
+        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+            return []
 
     registry = PluginRegistry()
     monkeypatch.setattr(
@@ -327,7 +363,7 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
 
     def _fake_load(ep: _EP, *_args: object, **_kwargs: object) -> BaseRule:
         loaded_names.append(ep.name)
-        return _PluginTodoRule()
+        return _NamespacedRule(ep.name)
 
     monkeypatch.setattr(registry, "_load_entry_point", _fake_load)
 
@@ -495,14 +531,20 @@ class TestVSMBrokenLinkRule:
         assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
 
-    # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
+    # ── ORPHAN status → Z103 ──────────────────────────────────────────────────
 
-    def test_orphan_link_emits_z002_warning(self) -> None:
+    def test_orphan_link_emits_z103_at_its_ssot_severity(self) -> None:
+        """Regression: this Violation's level was hardcoded "warning", disagreeing
+        with codes.py's CODE_DEFINITIONS (Z103 = "error") -- a real, executed
+        disagreement for any consumer reading the raw Violation/RuleFinding
+        object directly rather than through a CLI render path, which re-derives
+        the correct severity independently. Now derived from code_severity(),
+        the same Core-layer SSoT every other emission site in this method uses."""
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
         assert violations[0].code == "Z103"
-        assert violations[0].level == "warning"
+        assert violations[0].level == code_severity("Z103")
         assert "ORPHAN_LINK" in violations[0].message
 
     # ── External links are skipped ────────────────────────────────────────────
@@ -799,7 +841,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert "ghost.md" in v.context
 
     def test_orphan_violation_exact_fields(self) -> None:
-        """Assert every field of a Z002 violation."""
+        """Assert every field of a Z103 violation."""
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
@@ -807,8 +849,8 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert v.file_path == _FILE
         assert v.line_no == 1
         assert v.code == "Z103"
-        assert v.level == "warning"
-        assert not v.is_error
+        assert v.level == code_severity("Z103")
+        assert v.is_error
         assert "ORPHAN_LINK" in v.message
         assert "not in the site navigation" in v.message
         assert "Readers cannot reach this page via the nav tree." in v.message
@@ -1688,7 +1730,10 @@ class TestCircularAnchorRule:
         assert len(findings) == 1
         assert findings[0].rule_id == "Z107"
         assert findings[0].line_no == 1
-        assert findings[0].severity == "warning"
+        # "error" per codes.py's CODE_DEFINITIONS (the SSoT) -- this used to
+        # assert "warning", locking in a hardcoded-severity bug (fixed in
+        # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP).
+        assert findings[0].severity == "error"
 
     def test_z107_matches_multi_word_anchor(self) -> None:
         """[Foo Bar](#foo-bar) → slug('Foo Bar') == 'foo-bar' → Z107."""
@@ -1722,6 +1767,24 @@ class TestCircularAnchorRule:
         findings = rule.check(_ANCHOR_FILE, text)
         assert len(findings) == 1
         assert findings[0].col_start == text.index("[Foo]")
+
+    def test_z107_true_self_reference_still_flagged(self) -> None:
+        """Link text/fragment match AND the link sits under that very heading
+        → genuine no-op self-reference → still flagged."""
+        rule = self._rule()
+        text = "## Foo\n\nSee [Foo](#foo) above.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+
+    def test_z107_no_false_positive_cross_section_reference(self) -> None:
+        """[Z101](#z101) written from inside a *different* section (## Z104)
+        must NOT be flagged: it navigates to a distinct section that merely
+        shares a name with its own link text, not a circular no-op."""
+        rule = self._rule()
+        text = "## Z104\n\nSee also [Z101](#z101) for the related code.\n\n## Z101\n\nDetails.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
 
 
 # ─── UntaggedCodeBlockRule (Z505) ─────────────────────────────────────────────

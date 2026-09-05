@@ -30,6 +30,7 @@ class Finding:
     col_start: int = 0
     match_text: str = ""
     is_baselined: bool = False
+    is_likely_placeholder: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -144,8 +145,13 @@ def _render_snippet(
         # Surgical caret: render only when the checker provided native position data
         # AND the caret falls within the visible (non-truncated) portion of the line.
         if is_err and match_text and col_start >= 0:
-            caret_len = len(match_text)
-            if col_start + caret_len <= max_src:
+            # A caret marks a span of *this* line, so it can never be wider than
+            # the line beneath it. `match_text` may be a whole raw HTML tag
+            # spanning several source lines, which otherwise draws a caret far
+            # past the text it points at — 103 characters under a two-character
+            # `<a` in the shipped z120 example.
+            caret_len = min(len(match_text), max(0, len(src) - col_start))
+            if caret_len and col_start + caret_len <= max_src:
                 ct = Text()
                 ct.append(f"    {' ' * gutter_w}  ", style=ZenzicPalette.DIM)
                 ct.append("│  ", style=ZenzicPalette.DIM)
@@ -153,6 +159,27 @@ def _render_snippet(
                 result.append(ct)
 
     return result
+
+
+def _strip_docs_prefix(rel_path: str, docs_dir: str) -> str:
+    """Drop the ``docs_dir`` prefix that *rel_path* already carries.
+
+    Findings report project-relative paths (``docs/index.md``) while snippets
+    resolve against the docs root (``<repo>/docs``), so joining the two directly
+    asks for ``<repo>/docs/docs/index.md``. That file does not exist and the
+    frame silently degrades to its one-line fallback.
+
+    A no-op when ``docs_dir`` is ``.`` or when the prefix is already absent, so
+    a repository-root layout renders exactly as before. Multi-segment roots
+    (``src/docs``) are stripped whole rather than one component at a time.
+    """
+    prefix = str(docs_dir).replace("\\", "/").strip("/")
+    if not prefix or prefix == ".":
+        return rel_path
+    normalized = rel_path.replace("\\", "/")
+    if normalized.startswith(f"{prefix}/"):
+        return normalized[len(prefix) + 1 :]
+    return rel_path
 
 
 class ZenzicReporter:
@@ -182,6 +209,7 @@ class ZenzicReporter:
         version: str,
         elapsed: float,
         docs_count: int = 0,
+        config_count: int = 0,
         assets_count: int = 0,
         engine: str = "auto",
         target: str | None = None,
@@ -189,6 +217,7 @@ class ZenzicReporter:
         ok_message: str | None = None,
         show_info: bool = False,
         footer_notice: FooterNotice | None = None,
+        baseline_active: bool = False,
     ) -> tuple[int, int]:
         """Print the full Zenzic Report.
 
@@ -203,6 +232,14 @@ class ZenzicReporter:
                 secure."`` (all-clear panel) or ``"All checks passed."`` (with
                 warnings).  Individual commands should pass a specific message
                 such as ``"No broken links found."``.
+            baseline_active: When ``True``, the printed verdict ("FAILED: Hard
+                errors detected. Exit code 1 is mandatory.") is computed from
+                unbaselined findings only, matching the caller's real
+                baseline-aware exit-code decision. Non-suppressible security
+                findings (breach/incident) always fail regardless — a baseline
+                cannot exempt them. The returned ``(error_count, warning_count)``
+                tuple and the printed summary line's counts are unaffected —
+                both remain raw totals; only the FAILED/OK verdict changes.
 
         Returns:
             ``(error_count, warning_count)`` — breaches are counted separately
@@ -226,12 +263,16 @@ class ZenzicReporter:
 
         # ── Telemetry line ────────────────────────────────────────────────────
         dot = emoji("dot")
-        total = docs_count + assets_count
+        total = docs_count + config_count + assets_count
         parts = [engine]
         if target is not None:
             parts.append(target)
         if total:
-            breakdown = f"([{ZenzicPalette.BRAND}]{docs_count}[/] docs, [{ZenzicPalette.BRAND}]{assets_count}[/] assets)"
+            _seg = [f"[{ZenzicPalette.BRAND}]{docs_count}[/] pages"]
+            if config_count:
+                _seg.append(f"[{ZenzicPalette.BRAND}]{config_count}[/] config")
+            _seg.append(f"[{ZenzicPalette.BRAND}]{assets_count}[/] assets")
+            breakdown = "(" + ", ".join(_seg) + ")"
             parts.append(
                 f"[{ZenzicPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
             )
@@ -246,13 +287,24 @@ class ZenzicReporter:
         if breach_findings:
             for bf in breach_findings:
                 self._con.print()
+                placeholder_tag = (
+                    f"  [{ZenzicPalette.DIM}][LIKELY PLACEHOLDER][/]"
+                    if bf.is_likely_placeholder
+                    else ""
+                )
                 if bf.code == "Z204":
                     self._con.print(
-                        Text("\u2718 POLICY VIOLATION DETECTED", style="bold white on #8b0000")
+                        Text.from_markup(
+                            "[bold white on #8b0000]\u2718 POLICY VIOLATION DETECTED[/]"
+                            f"{placeholder_tag}"
+                        )
                     )
                 else:
                     self._con.print(
-                        Text("\u2718 SECURITY BREACH DETECTED", style="bold white on #8b0000")
+                        Text.from_markup(
+                            "[bold white on #8b0000]\u2718 SECURITY BREACH DETECTED[/]"
+                            f"{placeholder_tag}"
+                        )
                     )
                 self._con.print(
                     Text.from_markup(f"  {emoji('cross')} [bold]Finding:[/]    {_esc(bf.message)}")
@@ -334,7 +386,7 @@ class ZenzicReporter:
 
         renderables: list[RenderableType] = []
         for rel_path in sorted(grouped):
-            abs_path = self._docs_root / rel_path
+            abs_path = self._docs_root / _strip_docs_prefix(rel_path, self._docs_dir)
             for idx, f in enumerate(sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code))):
                 if idx > 0:
                     renderables.append(Text())  # breathing between findings within a file
@@ -427,14 +479,37 @@ class ZenzicReporter:
 
         # ── Status line (verdict) ─────────────────────────────────────────────
         renderables.append(Text())  # breathing before verdict
+        # Non-suppressible security findings always fail regardless of baseline;
+        # plain errors and strict-promoted warnings are baseline-sensitive, matching
+        # _check.py's real exit-code decision (unbaselined_defects).
+        if baseline_active:
+            verdict_errors = sum(
+                1 for f in findings if f.severity == "error" and not f.is_baselined
+            )
+            verdict_warnings = sum(
+                1 for f in findings if f.severity == "warning" and not f.is_baselined
+            )
+        else:
+            verdict_errors = errors
+            verdict_warnings = warnings
         has_hard_failures = (
-            (breaches_count > 0) or (policy_count > 0) or (incidents_count > 0) or (errors > 0)
+            (breaches_count > 0)
+            or (policy_count > 0)
+            or (incidents_count > 0)
+            or (verdict_errors > 0)
         )
-        has_strict_failures = strict and warnings > 0
+        has_strict_failures = strict and verdict_warnings > 0
         has_failures = has_hard_failures or has_strict_failures
         if has_failures:
             if has_hard_failures:
-                if breaches_count and policy_count:
+                if incidents_count:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
+                            " Security incidents detected. Exit code 3 is mandatory."
+                        )
+                    )
+                elif breaches_count and policy_count:
                     renderables.append(
                         Text.from_markup(
                             f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"

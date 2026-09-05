@@ -201,6 +201,61 @@ class LayeredExclusionManager:
 
         self._global_tracker = getattr(config, "_global_tracker", None)
 
+    def security_view(self) -> LayeredExclusionManager:
+        """A copy of this manager with every user-configurable layer stripped.
+
+        The credential/forbidden-term tier (Z201/Z204/Z205) must scan every
+        file that ships, so its discovery pass ignores ``excluded_dirs``,
+        ``excluded_file_patterns``, CLI ``--exclude-dir`` **and ``.gitignore``**
+        — configuration can scope a file out of quality analysis, never out of
+        the secret scan.
+
+        The VCS layer used to be retained here, on the rationale that
+        gitignored content is outside the published corpus. That rationale was
+        wrong twice over. ``pathspec`` implements gitignore *pattern matching*;
+        it does not implement git's rule that an **already-tracked file is
+        never ignored**, so adding one line to ``.gitignore`` hid a file from
+        Zenzic while git kept tracking it — the file still shipped and still
+        rendered, which is the exact opposite of the boundary this docstring
+        claimed. And ``.gitignore`` is user-editable and reviewer-invisible,
+        which made it a suppression mechanism for a tier three separate code
+        paths call non-suppressible.
+
+        Adapter-supplied metadata filenames are stripped for the same reason.
+        That set exists so an engine's own config is not analysed as
+        documentation, but ``ZensicalAdapter`` folds in every string under
+        ``extra_css``/``extra_javascript``/``theme.logo``/``theme.favicon`` with
+        no extension filter, and the manager matches it by **basename anywhere
+        in the tree** as an L1a guardrail — so ``extra_css = ["leak.md"]`` in a
+        project's own config hid every ``leak.md`` from the credential scan.
+        A guardrail the scanned project can write into is user-controllable by
+        definition. Nothing is lost by dropping it here: this view only walks
+        ``DOC_SUFFIXES`` files, and a real engine config is not one.
+
+        Only the system guardrails survive: they are the engine's own
+        internals (``.git``, ``node_modules``, build output), fixed in code and
+        not editable by the project under scan. That is the whole boundary now.
+        """
+        view = object.__new__(LayeredExclusionManager)
+        view._system_dirs = self._system_dirs
+        # Stripped: config-driven, basename-matched tree-wide, and writable by
+        # the project under scan -- see the docstring above.
+        view._adapter_metadata_files = frozenset()
+        view._repo_root = self._repo_root
+        view._config_excluded_dirs = frozenset()
+        view._config_included_dirs = frozenset()
+        view._cli_exclude_dirs = frozenset()
+        view._cli_include_dirs = frozenset()
+        view._config_excluded_patterns = []
+        view._config_included_patterns = []
+        # Stripped, not retained: see the docstring above. A user-editable file
+        # must not be able to decide what the security tier looks at.
+        view._respect_vcs = False
+        view._vcs_pathspec = None
+        # A read-only discovery pass must not consume tracker state (CQS).
+        view._global_tracker = None
+        return view
+
     def should_exclude_dir(self, dir_name: str, rel_path: str | None = None) -> bool:
         """Return True if a directory should be excluded during walk.
 
