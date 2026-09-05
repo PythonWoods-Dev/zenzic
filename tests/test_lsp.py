@@ -711,6 +711,39 @@ def test_is_within_domain(tmp_path) -> None:
     assert server._is_within_domain((tmp_path / "other" / "page.md").as_uri()) is False
 
 
+def test_is_within_domain_config_file_match_is_not_basename_only(tmp_path) -> None:
+    """`_is_config_file_change` matches by basename alone, with no location
+    check, and used to be consulted before the guardrail/repo-root check --
+    so any file anywhere named pyproject.toml/.zenzic.toml was declared
+    in-domain, including copies inside .git/ and entirely outside the repo."""
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".git").mkdir()
+    server = LanguageServer()
+    server.repo_root = tmp_path
+
+    real_config = tmp_path / "pyproject.toml"
+    real_config.write_text("[project]\n")
+    assert server._is_within_domain(real_config.as_uri()) is True, (
+        "a real pyproject.toml at the repo root must remain in-domain"
+    )
+
+    git_copy = tmp_path / ".git" / "pyproject.toml"
+    git_copy.write_text("[project]\n")
+    assert server._is_within_domain(git_copy.as_uri()) is False, (
+        "a pyproject.toml inside .git/ must not be declared in-domain via the "
+        "basename-only config-file shortcut"
+    )
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as outside_dir:
+        outside_config = Path(outside_dir) / "pyproject.toml"
+        outside_config.write_text("[project]\n")
+        assert server._is_within_domain(outside_config.as_uri()) is False, (
+            "a pyproject.toml entirely outside repo_root must not be in-domain"
+        )
+
+
 def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     """Verify that textDocument/didOpen for out-of-bounds .md files (e.g. root README.md when docs_dir='docs') is dropped."""
     docs_dir = tmp_path / "docs"
@@ -2894,4 +2927,63 @@ def test_lsp_config_hot_reload_does_not_ghost_clear_security_only_findings(tmp_p
     assert not ghost_clears, (
         "the config hot-reload's full rebuild ghost-cleared a security-only "
         f"finding it never re-admitted into md_contents_cache: {ghost_clears}"
+    )
+
+
+def test_is_full_rebuild_never_ghost_clears_a_live_security_only_finding(tmp_path) -> None:
+    """Direct reproduction of the condition the test above could never
+    actually reach: ``is_full_rebuild = self.engine is None`` captured True.
+
+    The config-reload path always calls ``_build_vsm_sync()`` (which rebuilds
+    ``self.engine``) before ``_sync_workspace_and_publish()``, so that path
+    never observes ``is_full_rebuild=True`` except on the server's very first
+    sync, when ``file_diagnostics`` is still empty -- the prior test passed
+    without ever exercising the buggy predicate. This test forces the real
+    condition directly: reset ``self.engine = None`` with no intervening
+    rebuild, then re-sync, exactly the shape LSP-FIX-017's own state-hygiene
+    pass is meant to run under.
+    """
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/secrets"]\n')
+
+    secrets_dir = docs_dir / "secrets"
+    secrets_dir.mkdir()
+    leak_file = secrets_dir / "leak.md"
+    leak_file.write_text("# Leak\n\naws_key = AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+    leak_uri = leak_file.resolve().as_uri()
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server._sync_workspace_and_publish()
+
+    assert leak_file.resolve() not in server.engine.md_contents_cache, (
+        "fixture invalid: security-only path must stay out of md_contents_cache"
+    )
+    assert leak_uri in server.file_diagnostics, (
+        "precondition failed: Z201 must be published as an active diagnostic"
+    )
+
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    # Force the real is_full_rebuild=True condition with no intervening
+    # _build_vsm_sync() -- the case the config-reload path never reaches.
+    server.engine = None
+    server._sync_workspace_and_publish()
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    ghost_clears = [
+        line
+        for line in payload.splitlines()
+        if leak_uri in line and '"diagnostics":[]' in line.replace(" ", "")
+    ]
+    assert not ghost_clears, (
+        "a genuine full rebuild (is_full_rebuild=True) ghost-cleared a live, "
+        f"non-suppressible security-only finding: {ghost_clears}"
+    )
+    assert leak_uri in server.file_diagnostics, (
+        "the finding must still be tracked as active after the rebuild"
     )

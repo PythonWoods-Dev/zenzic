@@ -23,7 +23,7 @@ from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ZenzicConfig
 from zenzic.models.diagnostics import (
     ZenzicDiagnostic,
 )
@@ -304,7 +304,27 @@ class LanguageServer:
             return True
 
         if self._is_config_file_change(uri):
-            return True
+            # _is_config_file_change matches by basename alone, with no
+            # location check of its own -- so any file anywhere on the
+            # filesystem named pyproject.toml or .zenzic.toml used to be
+            # declared in-domain, including a copy inside .git/ or one
+            # entirely outside the repo. `should_exclude_file` cannot be
+            # reused here to filter those out: pyproject.toml is itself in
+            # SYSTEM_EXCLUDED_FILE_NAMES (it is not documentation content),
+            # so it would reject the legitimate repo-root case this branch
+            # exists for. The two checks that actually distinguish "a real
+            # config file worth a hot-reload" from the false-positive cases:
+            # inside repo_root, and no system/VCS directory (.git,
+            # node_modules, ...) on the path between repo_root and the file.
+            try:
+                config_path = uri_to_path(uri).resolve()
+            except Exception:
+                return False
+            if config_path.is_relative_to(self.repo_root):
+                rel_parts = config_path.relative_to(self.repo_root).parts[:-1]
+                if not any(part in SYSTEM_EXCLUDED_DIRS for part in rel_parts):
+                    return True
+            return False
 
         try:
             if not self.config:
@@ -754,7 +774,6 @@ class LanguageServer:
         # Instantiate engine if needed (ADR-075: transport-agnostic analysis)
         if self.rule_engine is None:
             return
-        is_full_rebuild = self.engine is None
         if self.engine is None:
             self.engine = IncrementalAnalysisEngine(
                 config=self.config,
@@ -790,25 +809,28 @@ class LanguageServer:
                 }
             )
 
-        # State Hygiene (LSP-FIX-017): Clear ghost diagnostics for files that no longer exist.
-        # If a file was deleted or its route removed, process_changes won't return it in results,
-        # so we must actively detect missing URIs and broadcast an empty diagnostics array.
-        # PERF: Only run this on full topology rebuilds to avoid O(N) resolve() calls during incremental typing.
-        if is_full_rebuild and self.engine is not None:
-            dead_uris = []
-            for uri in list(self.file_diagnostics):
-                path = uri_to_path(uri).resolve()
-                if path not in self.engine.md_contents_cache:
-                    self.send_message(
-                        {
-                            "jsonrpc": "2.0",
-                            "method": "textDocument/publishDiagnostics",
-                            "params": {"uri": uri, "diagnostics": []},
-                        }
-                    )
-                    dead_uris.append(uri)
-            for dead_uri in dead_uris:
-                self.file_diagnostics.remove(dead_uri)
+        # NOTE: ghost-diagnostic clearing for genuinely-gone files is handled
+        # engine-side (IncrementalAnalysisEngine.process_changes, "Ghost
+        # diagnostic clearing (LSP-FIX-017 -- engine side)"), which injects an
+        # empty-diagnostics entry into `results` for any URI in
+        # `_uris_with_active_diagnostics` no longer present this cycle --
+        # already published by the loop above. A second, server-side copy of
+        # this check used to live here, keyed on `path not in
+        # self.engine.md_contents_cache`: a security-only file (excluded from
+        # quality analysis, still scanned for Z201/Z204, deliberately never
+        # inserted into md_contents_cache) satisfied that predicate while
+        # still very much alive, so this copy could ghost-clear a live,
+        # non-suppressible finding the engine-side check above correctly
+        # keeps. It was also provably unreachable in practice: `is_full_
+        # rebuild` is `self.engine is None` captured at the top of this
+        # method, and the only place that resets `self.engine = None`
+        # (workspace/didChangeWatchedFiles' config-reload branch) always
+        # calls `_build_vsm_sync()` -- which rebuilds `self.engine` -- before
+        # this method runs, so `is_full_rebuild` was never True here except
+        # on the very first sync of the server's lifetime, when
+        # `file_diagnostics` is still empty. Removed rather than patched:
+        # the guarantee it duplicated is both correct and live one layer
+        # down.
 
         # DQS emission intentionally removed (LSP-FIX-014).
         # The LSP operates in incremental mode and only sees topological findings
@@ -1097,6 +1119,24 @@ class LanguageServer:
                         mutator = Mutator(mutations)
                         new_ast, changed = mutator.mutate(ast)
                     except Exception:
+                        # Ambiguous/failed mutation: skip and notify via the
+                        # log, never guess -- same pattern as the auto-fix-on-
+                        # save handler's identical failure shape. Without
+                        # this, a genuine bug here is indistinguishable from
+                        # an ordinary "no fix available" diagnostic.
+                        self.send_message(
+                            {
+                                "jsonrpc": "2.0",
+                                "method": "window/logMessage",
+                                "params": {
+                                    "type": 2,  # Warning
+                                    "message": (
+                                        f"Zenzic codeAction: mutation failed for "
+                                        f"{diag_code} in {uri}, no fix offered."
+                                    ),
+                                },
+                            }
+                        )
                         changed = False
 
                     if changed:

@@ -71,8 +71,21 @@ class DocumentManager:
                 # a permanent desync with no signal.
                 text = self._apply_edit(text, start, end, change.get("text", ""))
             else:
-                # Full sync fallback (if the editor decides to send a full string)
-                text = change.get("text", "")
+                # Full sync fallback (if the editor decides to send a full string).
+                # A missing "text" key is refused rather than silently treated as
+                # an empty string -- the same distinction the incremental-range
+                # guard above already draws. Blanking the whole buffer clears
+                # every diagnostic for the file with no signal, which is the
+                # "answer clean for bytes you did not look at" shape.
+                if "text" not in change:
+                    logging.getLogger("zenzic.lsp").warning(
+                        'didChange full-sync for %s carried no "text" key; '
+                        "dropping the buffer rather than replacing it with an empty string",
+                        uri,
+                    )
+                    self.documents.pop(uri, None)
+                    return
+                text = change["text"]
 
         self.documents[uri] = text
 

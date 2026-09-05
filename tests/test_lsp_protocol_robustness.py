@@ -242,3 +242,103 @@ class TestAMalformedRangeDoesNotSilentlyDesync:
             }
         )
         assert dm.documents["u"] == "goodbye\n"
+
+
+class TestAFullSyncChangeWithNoTextKeyDoesNotSilentlyEmptyTheBuffer:
+    """A full-sync ``didChange`` (no ``range`` key) with no ``"text"`` key at all
+    used to be indistinguishable from one legitimately setting the document to
+    the empty string: both took ``change.get("text", "")``. A malformed message
+    then silently blanked the buffer -- clearing every diagnostic for the file,
+    the same "answer clean for bytes you did not look at" shape the sibling
+    incremental-range guard above was already fixed for. Missing-key is now
+    refused the same way: the buffer is dropped, not replaced.
+    """
+
+    def test_a_missing_text_key_drops_the_buffer_rather_than_emptying_it(self) -> None:
+        dm = DocumentManager()
+        dm.did_open({"textDocument": {"uri": "u", "text": "hello\n"}})
+        dm.did_change({"textDocument": {"uri": "u"}, "contentChanges": [{}]})
+        assert dm.documents.get("u") != "", (
+            "a change object with no text key at all silently emptied the "
+            "buffer with no signal; every later diagnostic then reports "
+            "against content the editor does not have"
+        )
+        assert "u" not in dm.documents
+
+    def test_an_explicit_empty_string_still_applies(self) -> None:
+        """Control: a genuine full-document clear (editor sends text: "") must
+        still work -- only a missing key is refused, not an empty value."""
+        dm = DocumentManager()
+        dm.did_open({"textDocument": {"uri": "u", "text": "hello\n"}})
+        dm.did_change({"textDocument": {"uri": "u"}, "contentChanges": [{"text": ""}]})
+        assert dm.documents["u"] == ""
+
+
+class TestACodeActionMutationFailureIsNotSilent:
+    """``_handle_code_action``'s per-diagnostic mutation attempt swallows any
+    exception with a bare ``except Exception: changed = False`` -- correct for
+    protocol liveness (the request is still answered, ``result=[]`` for that
+    diagnostic), but a genuine handler bug now surfaces as indistinguishable
+    from "no fix available," with nothing to tell a developer the difference.
+    The sibling auto-fix-on-save handler already logs a ``window/logMessage``
+    warning for the identical failure shape; this handler now does too.
+    """
+
+    def test_a_mutation_crash_still_answers_and_logs_a_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import zenzic.core.mutator as mutator_mod
+
+        def _boom(self: object, ast: object) -> tuple[object, bool]:
+            raise RuntimeError("synthetic mutation crash")
+
+        monkeypatch.setattr(mutator_mod.Mutator, "mutate", _boom)
+
+        srv, out = _server()
+        doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+        srv.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {"textDocument": {"uri": doc_uri, "text": "```\ncode\n```\n"}},
+            }
+        )
+        out.truncate(0)
+        out.seek(0)
+        srv.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 77,
+                "method": "textDocument/codeAction",
+                "params": {
+                    "textDocument": {"uri": doc_uri},
+                    "context": {
+                        "diagnostics": [
+                            {
+                                "range": {
+                                    "start": {"line": 0, "character": 0},
+                                    "end": {"line": 0, "character": 3},
+                                },
+                                "code": "Z505",
+                                "source": "zenzic",
+                                "message": "[Z505] Fenced code block has no language specifier",
+                            }
+                        ]
+                    },
+                },
+            }
+        )
+
+        frames = _frames(out)
+        response = next(f for f in frames if f.get("id") == 77)
+        assert response.get("result") is not None, "the request must still be answered"
+        titles = [a["title"] for a in response["result"]]
+        assert not any(t.startswith("Fix Z505") for t in titles), (
+            "the crashed mutation must not silently produce a fix action"
+        )
+
+        warnings = [f for f in frames if f.get("method") == "window/logMessage"]
+        assert warnings, (
+            "a genuine mutation crash produced no window/logMessage warning -- "
+            "indistinguishable from an ordinary 'no fix available' diagnostic"
+        )
