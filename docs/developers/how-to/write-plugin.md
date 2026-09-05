@@ -21,9 +21,11 @@ runtime via the `zenzic.rules` [entry-point group][ep].
 
 ## The Rule Contract
 
-Every plugin rule must satisfy three non-negotiable requirements.  These are
-enforced at engine construction time — a rule that violates any of them is
-rejected with a `PluginContractError` before the first file is scanned.
+Every plugin rule must satisfy four non-negotiable requirements. The first
+three are enforced at engine construction time — a rule that violates any of
+them is rejected with a `PluginContractError` before the first file is
+scanned. The fourth (code namespace) is a required rule with no mechanical
+enforcement yet — see its own section below for what that means in practice.
 
 ### 1. Defined at module level
 
@@ -83,6 +85,31 @@ class NoDraftRule(BaseRule):
     parallel mode.  Worker processes each receive an independent pickle copy
     of the engine — mutations are local to the worker and discarded on
     completion.  All state must be returned as `RuleFinding` objects.
+
+### 4. Code namespace does not collide with a core Zenzic code
+
+A plugin rule's `rule_id` must never equal a real Zenzic-owned finding code
+(`Z101`, `Z201`, and so on — the full set is `codes.py`'s `CODE_DEFINITIONS`
+registry). A collision is meaningless at best: two unrelated findings sharing
+one code in every report, baseline, and suppression file. It is dangerous at
+worst. Several internal code paths key exclusively on `rule_id` to decide
+whether a finding belongs to Zenzic's own non-suppressible security tier. A
+plugin claiming one of those codes can cause its own findings to be silently
+discarded by logic that assumes only Zenzic's built-in scanners can produce
+them.
+
+!!! warning "This requirement is not yet mechanically enforced"
+    Unlike the three requirements above, nothing currently rejects a plugin
+    rule whose `rule_id` collides with a real Zenzic code — the intended
+    check (`_validate_plugin_code` in `core/rules.py`) inspects an attribute
+    named `code`, which `BaseRule` does not define; every plugin's `rule_id`
+    is the attribute actually used downstream, and it is never validated.
+    Confirmed live: a plugin declaring `rule_id = "Z201"` loads without error
+    today. This is a known, tracked gap (`.claude/state/03-priority-table.md`,
+    `V031_SECURITY_FIX_FULL_CLOSURE` Phase 5 finding), not yet fixed. Until it
+    is, honor this requirement voluntarily — do not choose a `rule_id` that
+    could plausibly become a real Zenzic code (a `<your-plugin-id>:` prefix,
+    as used in the Plugin tier's documented format, is the safe choice).
 
 ---
 
