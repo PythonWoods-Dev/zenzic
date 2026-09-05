@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
@@ -530,14 +531,20 @@ class TestVSMBrokenLinkRule:
         assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
 
-    # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
+    # ── ORPHAN status → Z103 ──────────────────────────────────────────────────
 
-    def test_orphan_link_emits_z002_warning(self) -> None:
+    def test_orphan_link_emits_z103_at_its_ssot_severity(self) -> None:
+        """Regression: this Violation's level was hardcoded "warning", disagreeing
+        with codes.py's CODE_DEFINITIONS (Z103 = "error") -- a real, executed
+        disagreement for any consumer reading the raw Violation/RuleFinding
+        object directly rather than through a CLI render path, which re-derives
+        the correct severity independently. Now derived from code_severity(),
+        the same Core-layer SSoT every other emission site in this method uses."""
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
         assert violations[0].code == "Z103"
-        assert violations[0].level == "warning"
+        assert violations[0].level == code_severity("Z103")
         assert "ORPHAN_LINK" in violations[0].message
 
     # ── External links are skipped ────────────────────────────────────────────
@@ -834,7 +841,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert "ghost.md" in v.context
 
     def test_orphan_violation_exact_fields(self) -> None:
-        """Assert every field of a Z002 violation."""
+        """Assert every field of a Z103 violation."""
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
@@ -842,8 +849,8 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert v.file_path == _FILE
         assert v.line_no == 1
         assert v.code == "Z103"
-        assert v.level == "warning"
-        assert not v.is_error
+        assert v.level == code_severity("Z103")
+        assert v.is_error
         assert "ORPHAN_LINK" in v.message
         assert "not in the site navigation" in v.message
         assert "Readers cannot reach this page via the nav tree." in v.message

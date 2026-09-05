@@ -1742,7 +1742,7 @@ class VSMBrokenLinkRule(BaseRule):
                             f"'{url}' resolves to '{target_url}' which is not in the "
                             "Virtual Site Map — the target file may not exist"
                         ),
-                        level="error",
+                        level=code_severity(self.rule_id),
                         context=raw_line,
                     )
                 )
@@ -1760,7 +1760,7 @@ class VSMBrokenLinkRule(BaseRule):
                                 "(ORPHAN_LINK / UNREACHABLE_LINK). "
                                 "Readers cannot reach this page via the nav tree."
                             ),
-                            level="warning",
+                            level=code_severity("Z103"),
                             context=raw_line,
                         )
                     )
@@ -1776,7 +1776,7 @@ class VSMBrokenLinkRule(BaseRule):
                             f"'{route.status}' — the page exists but is not reachable "
                             "via site navigation (UNREACHABLE_LINK)"
                         ),
-                        level="error",
+                        level=code_severity(self.rule_id),
                         context=raw_line,
                     )
                 )
