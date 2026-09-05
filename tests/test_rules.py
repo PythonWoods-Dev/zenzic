@@ -338,6 +338,18 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
     class _EP:
         def __init__(self, name: str) -> None:
             self.name = name
+            self.dist = None
+
+    class _NamespacedRule(BaseRule):
+        def __init__(self, plugin_id: str) -> None:
+            self._id = f"{plugin_id}:ok"
+
+        @property
+        def rule_id(self) -> str:
+            return self._id
+
+        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+            return []
 
     registry = PluginRegistry()
     monkeypatch.setattr(
@@ -350,7 +362,7 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
 
     def _fake_load(ep: _EP, *_args: object, **_kwargs: object) -> BaseRule:
         loaded_names.append(ep.name)
-        return _PluginTodoRule()
+        return _NamespacedRule(ep.name)
 
     monkeypatch.setattr(registry, "_load_entry_point", _fake_load)
 

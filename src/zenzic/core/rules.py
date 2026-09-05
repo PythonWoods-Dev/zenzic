@@ -1997,8 +1997,18 @@ class PluginRegistry:
 
         loaded: list[BaseRule] = []
         for pid in requested:
-            rule = self._load_entry_point(eps_by_name[pid])
-            self._validate_plugin_code(rule, pid)
+            ep = eps_by_name[pid]
+            rule = self._load_entry_point(ep)
+            # Core-distributed entry points (e.g. "broken-links" ->
+            # VSMBrokenLinkRule, rule_id "Z101") are exempt from the
+            # third-party namespace contract below -- the same distinction
+            # load_core_rules() already draws via ep.dist.name == "zenzic".
+            # Without this, a config explicitly listing "broken-links" in
+            # `plugins` would fail on any normal install, where the real
+            # entry point (not the no-entry-point fallback further above)
+            # is what actually resolves.
+            if ep.dist is None or ep.dist.name != "zenzic":
+                self._validate_plugin_code(rule, pid)
             loaded.append(rule)
         return loaded
 
@@ -2008,23 +2018,25 @@ class PluginRegistry:
         Contract:
         - Plugins must not emit core ``Zxxx`` namespace codes.
         - Plugin codes must be prefixed as ``<plugin-id>:<code>``.
-        - Plugins cannot emit security exit codes reserved for core scanners.
+        - Plugins cannot emit security exit codes reserved for core scanners
+          (``PLUGIN_FORBIDDEN_EXITS`` = Exit 2/3) — enforced structurally by
+          the two checks above, not by a separate attribute: ``rule.rule_id``
+          is the only per-rule code a plugin can declare (``BaseRule`` has no
+          ``primary_exit`` member, so a prior version of this check read one
+          that no rule, core or plugin, has ever set — a no-op identical in
+          shape to the ``code`` bug below). Once a code is confirmed prefixed,
+          it can never equal a bare member of ``SECURITY_TIER_CODES``
+          (``Z201``-``Z205``), which is the only thing the exit-code
+          computation (``_evaluate_security_exit``/``code_severity``) ever
+          matches against — so it can never force Exit 2 or 3.
         """
-        from zenzic.core.codes import PLUGIN_FORBIDDEN_EXITS
         from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
 
-        code = getattr(rule, "code", None)
-        if isinstance(code, str):
-            if re.fullmatch(r"Z\d{3}", code):
-                raise PluginContractError(
-                    "Third-party plugins must use '<plugin-id>:<code>' format"
-                )
-            if not code.startswith(f"{plugin_id}:"):
-                raise PluginContractError(f"Plugin code '{code}' must start with '{plugin_id}:'.")
-
-        primary_exit = getattr(rule, "primary_exit", None)
-        if isinstance(primary_exit, int) and primary_exit in PLUGIN_FORBIDDEN_EXITS:
-            raise PluginContractError("Plugins cannot emit Exit 2 or 3")
+        code = rule.rule_id
+        if re.fullmatch(r"Z\d{3}", code):
+            raise PluginContractError("Third-party plugins must use '<plugin-id>:<code>' format")
+        if not code.startswith(f"{plugin_id}:"):
+            raise PluginContractError(f"Plugin code '{code}' must start with '{plugin_id}:'.")
 
     def _load_entry_point(self, ep: EntryPoint) -> BaseRule:
         """Load and instantiate one entry-point as a :class:`BaseRule`."""
