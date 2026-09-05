@@ -313,16 +313,85 @@ class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
         _write(root, "docs/page.md", "[a](/etc/passwd)")
         assert _run(root, monkeypatch, "check", "all", "--quiet") == 3
 
-    def test_an_unallowlisted_absolute_link_is_unchanged(
+    def test_an_unallowlisted_absolute_link_to_a_real_page_no_longer_false_positives(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Pins the boundary of this fix: without an entry, behaviour is as before.
-
-        The remaining false positive — an OS-root-named docs section with no
-        allowlist entry — is a separate, logged design decision, not something
-        this change silently alters.
+        """The remaining false positive this class used to pin as unchanged
+        behaviour is now fixed generally, not via a per-repo allowlist entry
+        (V031_LAST_TWO_BLOCKERS_CLOSURE): the classifier's segment-name match
+        is checked against real filesystem existence before Z203 fires, using
+        the same ``resolve_href_target`` single source of truth this module
+        already uses for Z104 asset resolution. No `absolute_path_allowlist`
+        is configured here at all.
         """
         root = _project(tmp_path)
         _write(root, "docs/dev/setup.md", "Setup instructions live here.")
         _write(root, "docs/page.md", "[a](/dev/setup.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") != 3, (
+            "/dev/setup.md is a real page in this repo and must not raise a "
+            "non-suppressible Z203 with no allowlist configured"
+        )
+
+
+class TestOSRootNamedDocsSectionsAreNoLongerFalsePositivesAtScale:
+    """All 14 names in ``_SYSTEM_ROOT_DIRS`` (validator.py), not just the one
+    case (``dev/``) the original report and the allowlist workaround covered.
+    Rule 35: a multi-part guarantee must be tested against every part it
+    protects, not just the instance that surfaced it. No config workaround —
+    each of these fixtures has no ``absolute_path_allowlist`` entry at all.
+    """
+
+    @pytest.mark.parametrize(
+        "directory",
+        [
+            "etc",
+            "root",
+            "var",
+            "proc",
+            "sys",
+            "usr",
+            "boot",
+            "dev",
+            "bin",
+            "sbin",
+            "windows",
+            "winnt",
+            "system32",
+            "programdata",
+        ],
+    )
+    def test_a_real_page_under_a_system_root_named_directory_is_not_z203(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: str
+    ) -> None:
+        root = _project(tmp_path)
+        _write(root, f"docs/{directory}/setup.md", "Setup instructions live here.")
+        _write(root, "docs/page.md", f"[a](/{directory}/setup.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") != 3, (
+            f"/{directory}/setup.md is a real page in this repo (no allowlist "
+            f"configured) and must not raise a non-suppressible Z203"
+        )
+
+    def test_a_genuine_traversal_to_a_real_system_path_still_exits_3(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Control: the fix must not weaken real traversal detection. A link
+        to a path that does not exist anywhere under docs_root, whose first
+        segment is a system-root name, must still be treated as a genuine
+        traversal target."""
+        root = _project(tmp_path)
+        _write(root, "docs/page.md", "[a](/etc/passwd)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3, (
+            "a link to a nonexistent /etc/passwd must still raise Z203 — "
+            "the fix must discriminate on real existence, not stop checking"
+        )
+
+    def test_a_genuine_traversal_via_dotdot_to_a_real_system_path_still_exits_3(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Second control, via the other traversal shape (relative ../ hops
+        rather than a leading /), confirming the fix is scoped to the
+        absolute-path branch and does not touch the ../ branch's own,
+        already-correct behaviour."""
+        root = _project(tmp_path)
+        _write(root, "docs/sub/page.md", "[a](../../../../etc/passwd)")
         assert _run(root, monkeypatch, "check", "all", "--quiet") == 3

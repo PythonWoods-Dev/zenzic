@@ -1110,6 +1110,25 @@ class IncrementalAnalysisEngine:
             # Z105 / Z203
             elif parsed.path.startswith("/") or decoded_path.startswith("/"):
                 _intent = _classify_traversal_intent(url)
+                # A segment name matching _SYSTEM_ROOT_DIRS is necessary but
+                # not sufficient: a documentation section legitimately named
+                # dev/, usr/, var/ etc. matches the same names a real OS
+                # traversal target would. Classification by destination, not
+                # text (the classifier's own stated design), was still
+                # trusting text alone -- it never checked whether the
+                # destination is real. Reusing resolve_href_target (the
+                # single source of truth this module already uses for Z104
+                # asset resolution) and a real filesystem check distinguishes
+                # a same-repo page from an actual system path with the same
+                # first segment, without requiring per-repo allowlist
+                # configuration. Confirmed live across all 14 names in
+                # _SYSTEM_ROOT_DIRS before this fix (V031_LAST_TWO_BLOCKERS_CLOSURE).
+                if _intent == "suspicious" and not _allowlisted:
+                    _target = Path(
+                        resolve_href_target(path, decoded_path, _docs_root_str, _repo_root_str)
+                    )
+                    if _target.is_file():
+                        _intent = "boundary"
                 if _intent == "suspicious" and not _allowlisted:
                     findings.append(
                         RuleFinding(
