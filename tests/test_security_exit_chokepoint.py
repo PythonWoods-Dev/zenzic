@@ -105,3 +105,55 @@ class TestSubcommandsAgreeOnTheSecurityTier:
         _project(tmp_path, "[x](/etc/passwd)")
         codes = {f: _run(tmp_path, "all", "-f", f) for f in ("json", "sarif", "github-annotations")}
         assert set(codes.values()) == {3}, f"output format changed the verdict: {codes}"
+
+
+class TestFindingSeverityAgreesWithTheChokePointForEveryTierCode:
+    """The exit-code choke point (SECURITY_TIER_CODES/SECURITY_INCIDENT_CODES/
+    SECURITY_BREACH_CODES) is one authority for "is this finding security-
+    tier." A second, independent authority existed in core/scanner.py's
+    ``_map_credential_to_finding``, which hardcoded ``severity="security_breach"``
+    for Z201/Z204 directly rather than deriving it — while ``_check.py``'s
+    ``_finding_severity()`` special-cased only Z203/Z205, silently returning
+    the ordinary base severity ("error") for Z201/Z204 to any *other* caller.
+
+    Confirmed live and adversarially: an SDK v3 custom rule declaring
+    ``code="Z201"`` produced a rule-engine finding with severity "error" (not
+    "security_breach"), which `_check.py`'s `_RULE_FINDING_SKIP_CODES` then
+    silently discarded entirely — zero finding, zero warning, `zenzic check
+    all` exit 0, DQS 100. Two defects, same root cause: no single function
+    can answer "what severity should a Z2xx code have" for every one of the
+    four codes without either hardcoding a duplicate copy or, worse, silently
+    falling through to the wrong tier.
+    """
+
+    def test_finding_severity_agrees_with_the_tier_for_every_security_code(self) -> None:
+        from zenzic.cli._check import _finding_severity
+
+        for code in SECURITY_INCIDENT_CODES:
+            assert _finding_severity(code) == "security_incident", (
+                f"{code} is in SECURITY_INCIDENT_CODES but _finding_severity "
+                f"returned {_finding_severity(code)!r}"
+            )
+        for code in SECURITY_BREACH_CODES:
+            assert _finding_severity(code) == "security_breach", (
+                f"{code} is in SECURITY_BREACH_CODES but _finding_severity "
+                f"returned {_finding_severity(code)!r}"
+            )
+
+    def test_rule_metadata_cannot_reintroduce_the_adversarial_z201_case(self) -> None:
+        """The adversarial case that surfaced this: an SDK v3 rule claiming a
+        reserved security code must fail construction, not silently vanish."""
+        import pytest
+
+        from zenzic.models.rules import RuleMetadata
+
+        for code in SECURITY_TIER_CODES:
+            with pytest.raises(ValueError, match=code):
+                RuleMetadata(
+                    code=code,
+                    title="Adversarial",
+                    description="Claims a reserved security-tier code.",
+                    severity="error",
+                    category="content",
+                    penalty=1.0,
+                )

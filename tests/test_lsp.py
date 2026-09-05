@@ -2825,3 +2825,73 @@ def test_lsp_code_action_always_answers_a_malformed_request(tmp_path) -> None:
         assert '"id":77' in out_stream.read().decode(), (
             f"no response was sent for a malformed codeAction request: {context!r}"
         )
+
+
+def test_lsp_config_hot_reload_does_not_ghost_clear_security_only_findings(tmp_path) -> None:
+    """A config hot-reload's full rebuild must not erase a security-only
+    finding it never re-admits into ``md_contents_cache``.
+
+    ``excluded_dirs`` scopes out an on-disk credential-carrying file from
+    quality analysis, but the security tier must still see it (Z201 is
+    never suppressible) — via the ``security_only`` sweep, which
+    deliberately never inserts the path into ``md_contents_cache`` (that
+    is what "security-only" means; see incremental.py's own comment at the
+    ``security_only[buf_path] = buf_text`` assignment). The server's ghost-
+    clearing predicate (``path not in self.engine.md_contents_cache``) is
+    only evaluated on a full rebuild (``is_full_rebuild = self.engine is
+    None``), reached in practice via a config file change resetting
+    ``self.engine = None``. Every security-only URI satisfies that
+    predicate, so the very next full rebuild broadcasts an empty
+    diagnostics array for it, erasing the Z201 the prior cycle published.
+    """
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    config_file = tmp_path / ".zenzic.toml"
+    config_file.write_text('docs_dir = "docs"\nexcluded_dirs = ["docs/secrets"]\n')
+
+    secrets_dir = docs_dir / "secrets"
+    secrets_dir.mkdir()
+    leak_file = secrets_dir / "leak.md"
+    leak_file.write_text("# Leak\n\naws_key = AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+    leak_uri = leak_file.resolve().as_uri()
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+
+    # Precondition: the security-only sweep publishes Z201 on the first full
+    # sync, and the path is genuinely excluded from md_contents_cache.
+    server._sync_workspace_and_publish()
+    assert server.engine is not None
+    assert leak_file.resolve() not in server.engine.md_contents_cache, (
+        "fixture invalid: security-only path must stay out of md_contents_cache"
+    )
+    assert leak_uri in server.file_diagnostics, (
+        "precondition failed: Z201 must be published as an active diagnostic "
+        "before the config reload this test exercises"
+    )
+
+    # Trigger the config hot-reload path: this resets self.engine = None, so
+    # the next _sync_workspace_and_publish() runs with is_full_rebuild=True.
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+    config_uri = config_file.resolve().as_uri()
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {"changes": [{"uri": config_uri, "type": 2}]},
+        }
+    )
+
+    out_stream.seek(0)
+    payload = out_stream.read().decode()
+    ghost_clears = [
+        line
+        for line in payload.splitlines()
+        if leak_uri in line and '"diagnostics":[]' in line.replace(" ", "")
+    ]
+    assert not ghost_clears, (
+        "the config hot-reload's full rebuild ghost-cleared a security-only "
+        f"finding it never re-admitted into md_contents_cache: {ghost_clears}"
+    )

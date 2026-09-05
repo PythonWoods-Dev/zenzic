@@ -117,3 +117,53 @@ def test_sdk_v3_loading_via_config(tmp_path: Path) -> None:
     todo_findings = [f for f in findings if f.rule_id == "ZZ-NO-TODO"]
     assert len(todo_findings) == 1
     assert todo_findings[0].line_no == 2
+
+
+def test_rule_metadata_rejects_reserved_zenzic_code() -> None:
+    """An SDK v3 rule cannot claim a real Zenzic-owned Z-code.
+
+    ``CustomRuleConfig.id`` (regex-flavor custom rules) already requires the
+    ``ZZ-`` prefix for exactly this reason (ADR-012 code-namespace
+    collision). ``RuleMetadata.code`` had no equivalent guard: a
+    ``class_name``-registered SDK v3 rule could declare ``code="Z201"`` and
+    have its own findings silently discarded by ``_check.py``'s
+    ``_RULE_FINDING_SKIP_CODES`` (which assumes any Z201 rule-finding is a
+    duplicate of the credential-scanner bridge's own dedicated path) —
+    reachable, confirmed live: the adversarial rule loads, its finding is
+    dropped with zero trace, `zenzic check all` reports a clean pass.
+    """
+    import pytest
+
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    with pytest.raises(ValueError, match="Z201"):
+        RuleMetadata(
+            code="Z201",
+            title="Adversarial",
+            description="Claims a reserved security code.",
+            severity="error",
+            category="content",
+            penalty=1.0,
+        )
+
+    # Non-reserved codes (the SDK's own documented convention) remain valid.
+    RuleMetadata(
+        code="MY_RULE_001",
+        title="Fine",
+        description="Not a real Zenzic code.",
+        severity="warning",
+        category="content",
+        penalty=1.0,
+    )
+    RuleMetadata(
+        code="ZZ-NO-TODO",
+        title="Also fine",
+        description="Conventional custom-rule namespace.",
+        severity="warning",
+        category="content",
+        penalty=1.0,
+    )
+
+    # Precondition sanity: Z201 really is a real, currently-defined code —
+    # otherwise this test would pass for the wrong reason.
+    assert "Z201" in CODE_DEFINITIONS

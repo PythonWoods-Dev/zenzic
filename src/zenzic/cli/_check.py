@@ -87,24 +87,36 @@ def _validate_only_flag(only: str | None) -> None:
 def _finding_severity(code: str) -> str:
     """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
 
-    Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
-    ``"security_breach"`` for Z205 (Tier-0 'Exit 2 — never suppressible' set,
-    alongside Z201/Z204 which reach this severity via the credential-scanner
-    bridge in ``_map_credential_to_finding`` instead of this function), and
-    the base SSoT severity (``"error"``, ``"warning"``, or ``"info"`` —
-    derived from ``codes.py`` via ``code_severity()``, the same Core-layer
-    helper ``rules.py`` and ``incremental.py`` use) for all others. Unknown
-    codes default to ``"error"`` since the validator only emits findings
-    when it detects a genuine problem.
+    Returns ``"security_incident"`` for every member of ``SECURITY_INCIDENT_CODES``
+    and ``"security_breach"`` for every member of ``SECURITY_BREACH_CODES`` —
+    the same two sets that partition the Z2xx security tier for the exit-code
+    contract (``codes.py``) — and the base SSoT severity (``"error"``,
+    ``"warning"``, or ``"info"`` — derived from ``codes.py`` via
+    ``code_severity()``, the same Core-layer helper ``rules.py`` and
+    ``incremental.py`` use) for all others. Unknown codes default to
+    ``"error"`` since the validator only emits findings when it detects a
+    genuine problem.
 
-    This is the CLI-layer wrapper around ``code_severity()``: the Z2xx
+    This function is the single authority any *caller* consults for a code's
+    exit-relevant severity — including a code arriving from an ordinary
+    ``report.rule_findings`` entry, which could in principle be any code, not
+    only ones this module expects. Z201/Z204 previously reached
+    ``"security_breach"`` only via a second, independent hardcoded literal in
+    ``_map_credential_to_finding`` (core/scanner.py), while this function
+    special-cased only Z203/Z205 and silently fell through to the ordinary
+    base severity for Z201/Z204. The two authorities agreed only because
+    Z201/Z204 rule-engine findings were assumed unreachable (skipped via
+    ``_RULE_FINDING_SKIP_CODES``) — an assumption an adversarial SDK v3 rule
+    declaring ``code="Z201"`` broke, producing an "error"-severity finding
+    that the skip-list then silently discarded with no trace at all. This is
+    the CLI-layer wrapper around ``code_severity()``: the Z2xx
     security-breach/security-incident reclassification is a CLI-only
     reporting concern (exit-code contract), not part of the Core severity
     vocabulary ``RuleFinding.severity`` accepts.
     """
-    if code == "Z203":
+    if code in SECURITY_INCIDENT_CODES:
         return "security_incident"
-    if code == "Z205":
+    if code in SECURITY_BREACH_CODES:
         return "security_breach"
     try:
         return code_severity(code)

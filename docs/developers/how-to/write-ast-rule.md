@@ -99,6 +99,12 @@ SDK v3 rules inherit from `ZenzicRuleV3` and require a typed `RuleMetadata` decl
 | `docs_url` | `Optional[str]` | Optional URL to rule documentation. | `None` |
 | `supports_autofix` | `bool` | Whether automated quick-fixes are supported. | `False` |
 
+`code` may be any string that is not one of Zenzic's own reserved finding
+codes (the full set in `codes.py`'s `CODE_DEFINITIONS`, e.g. `Z101`, `Z201`) —
+attempting to construct a `RuleMetadata` with a reserved code raises
+`ValueError` immediately, rather than the rule silently producing findings
+that downstream logic mistakes for a different, built-in code's output.
+
 ---
 
 ## Visitor Interface
