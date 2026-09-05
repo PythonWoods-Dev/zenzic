@@ -198,3 +198,35 @@ def test_inspect_capabilities_docstring_scanner_count_matches_registry() -> None
     assert expected in doc, (
         f"Docstring must state the live scanner count ({expected!r}); got: {doc!r}"
     )
+
+
+# ── exit_contract_severity: single Core-layer authority for Z2xx tier ──────────
+
+
+def test_exit_contract_severity_covers_all_four_tier_codes() -> None:
+    """One function, in codes.py, answers the exit-contract severity for
+    every member of SECURITY_INCIDENT_CODES/SECURITY_BREACH_CODES — the
+    single source both the CLI's finding-conversion loop and the credential-
+    scanner bridge must consult, so the two can never disagree again."""
+    from zenzic.core.codes import (
+        SECURITY_BREACH_CODES,
+        SECURITY_INCIDENT_CODES,
+        exit_contract_severity,
+    )
+
+    for code in SECURITY_INCIDENT_CODES:
+        assert exit_contract_severity(code) == "security_incident"
+    for code in SECURITY_BREACH_CODES:
+        assert exit_contract_severity(code) == "security_breach"
+
+
+def test_exit_contract_severity_falls_through_to_base_severity() -> None:
+    from zenzic.core.codes import code_severity, exit_contract_severity
+
+    assert exit_contract_severity("Z101") == code_severity("Z101")
+
+
+def test_exit_contract_severity_unknown_code_defaults_to_error() -> None:
+    from zenzic.core.codes import exit_contract_severity
+
+    assert exit_contract_severity("Z999999-NOT-REAL") == "error"

@@ -365,10 +365,11 @@ def code_severity(code: str) -> Literal["error", "warning", "info"]:
     and has never accepted ``"note"``).
 
     This is the Core-layer SSoT lookup for any subsystem that constructs a
-    finding object and needs its severity (e.g. ``rules.py``'s
-    ``RuleFinding``). The Z2xx security-breach/security-incident
-    reclassification is a separate, CLI-layer-only concern -- see
-    ``_check.py``'s ``_finding_severity()`` for that translation.
+    finding object and needs its base severity (e.g. ``rules.py``'s
+    ``RuleFinding``). For the Z2xx security-tier's exit-contract
+    reclassification (``"security_incident"``/``"security_breach"``,
+    consulted by more than one subsystem — see the module-level note above
+    ``exit_contract_severity`` below), use that function instead.
 
     Raises:
         KeyError: if *code* is not a registered code. Every call site here
@@ -380,6 +381,51 @@ def code_severity(code: str) -> Literal["error", "warning", "info"]:
     if severity == "note":
         return "info"
     return cast(Literal["error", "warning"], severity)
+
+
+#: Codes emitted both as a rule-engine ``RuleFinding`` (via ``CredentialScannerRule``)
+#: and independently as a ``SecurityFinding`` converted by
+#: ``core/scanner.py``'s ``_map_credential_to_finding``. Public so a caller's
+#: skip-list can derive from this set instead of maintaining an independent
+#: copy that could silently drift out of sync.
+SECURITY_FINDING_CODES: frozenset[str] = frozenset({"Z201", "Z204"})
+
+
+def exit_contract_severity(code: str) -> str:
+    """Return *code*'s severity for the Exit Code Contract's Z2xx security
+    tier — the single authority for "what severity does this code carry
+    toward the exit-code decision," consulted by every subsystem that
+    constructs a ``Finding``/checks exit-code eligibility for a code that
+    could be in the security tier.
+
+    This used to be two independent authorities that could (and did)
+    disagree: the CLI's ``_check.py`` special-cased only Z203/Z205 in its own
+    local function, while ``core/scanner.py``'s credential-scanner bridge
+    hardcoded ``"security_breach"`` for Z201/Z204 directly, never consulting
+    the CLI's function (nor could it, without a circular import — scanner.py
+    sits below cli/_check.py in the import graph). An SDK v3 rule claiming
+    ``code="Z201"`` exposed the gap: the CLI's function returned the ordinary
+    base severity for it, and a downstream skip-list then silently discarded
+    the resulting finding entirely, assuming any rule-engine Z201 duplicated
+    the credential bridge's own path.
+
+    Returns ``"security_incident"`` for every member of
+    ``SECURITY_INCIDENT_CODES``, ``"security_breach"`` for every member of
+    ``SECURITY_BREACH_CODES``, and :func:`code_severity`'s base severity for
+    everything else (``"error"`` for an unregistered code, matching
+    :func:`code_severity`'s own KeyError-avoidant callers elsewhere in this
+    module's design — this function is called with finding codes that may
+    originate from an adversarial or malformed rule, unlike ``code_severity``,
+    so it must not raise).
+    """
+    if code in SECURITY_INCIDENT_CODES:
+        return "security_incident"
+    if code in SECURITY_BREACH_CODES:
+        return "security_breach"
+    try:
+        return code_severity(code)
+    except KeyError:
+        return "error"
 
 
 #: Human-readable name for each code (for report headers).

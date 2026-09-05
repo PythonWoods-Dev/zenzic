@@ -8,8 +8,10 @@ bridge for credential findings — so they must not also surface a second time
 via the generic rule-finding loop) was a manually-maintained tuple literal.
 Four confirmed bugs this session (``Z202``/``Z203``/``Z108``/``Z201``/``Z204``
 double-emissions) all had the same root cause: the literal drifted out of sync
-with ``validator.py``'s ``link_codes`` set or ``scanner.py``'s security-findings
-construction, one member at a time, across separate directives.
+with ``validator.py``'s ``link_codes`` set or ``codes.py``'s
+``SECURITY_FINDING_CODES`` (moved there from ``scanner.py`` so ``codes.py``
+can also expose the unified ``exit_contract_severity()`` choke point without
+a circular import), one member at a time, across separate directives.
 
 This test parses ``_check.py``'s AST directly and asserts that the skip-list
 comparator is a derived expression (a ``Name``/``Attribute`` reference, or a
@@ -55,7 +57,7 @@ def _find_hardcoded_skip_list_literals() -> list[str]:
                 violations.append(
                     f"line {node.lineno}: hardcoded skip-list literal with "
                     f"{len(z_code_literals)} Z-code string constants -- must derive from "
-                    f"validator.LINK_CODES / scanner.SECURITY_FINDING_CODES instead of "
+                    f"validator.LINK_CODES / codes.SECURITY_FINDING_CODES instead of "
                     f"a fresh literal that can silently drift out of sync."
                 )
 
@@ -70,8 +72,8 @@ def test_check_py_skip_list_is_not_a_hardcoded_literal() -> None:
 def test_check_py_skip_list_matches_the_real_ssot_derivation() -> None:
     """The actual skip-list _check.py uses must equal the SSoT-derived formula."""
     from zenzic.cli import _check
-    from zenzic.core import scanner
+    from zenzic.core import codes
     from zenzic.core.validator import LINK_CODES
 
-    expected = (LINK_CODES - {"Z620"}) | scanner.SECURITY_FINDING_CODES
+    expected = (LINK_CODES - {"Z620"}) | codes.SECURITY_FINDING_CODES
     assert _check._RULE_FINDING_SKIP_CODES == expected

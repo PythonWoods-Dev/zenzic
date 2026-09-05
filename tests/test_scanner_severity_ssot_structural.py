@@ -18,11 +18,13 @@ This test parses scanner.py's AST directly and asserts that no
 RuleFinding(...) call site passes a bare string literal as its severity=
 keyword argument. It does NOT scan Finding(...) call sites
 (the CLI-layer reporter.py class) -- scanner.py's two Finding(...)
-constructions (_map_credential_to_finding, Z201/Z204) use a bare
-"security_breach" literal deliberately: this is the documented CLI-layer
-security-severity bridge _check.py's own _finding_severity() docstring
-already cross-references, not part of the RuleFinding SSoT concern this
-test (and its three siblings) guards.
+constructions in _map_credential_to_finding (Z201/Z204) no longer use a
+bare "security_breach" literal at all (V031_SECURITY_FIX_FULL_CLOSURE
+eliminated it in favour of direct derivation from codes.py's
+exit_contract_severity()); see
+test_credential_severity_no_hardcoded_literal_structural.py for that
+guard. This test's own scope remains RuleFinding construction sites only,
+a separate concern from that Finding-layer guard.
 """
 
 from __future__ import annotations

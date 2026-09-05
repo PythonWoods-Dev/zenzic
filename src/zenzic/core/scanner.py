@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
-from zenzic.core.codes import SECURITY_BREACH_CODES, code_severity
+from zenzic.core.codes import code_severity, exit_contract_severity
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_security_findings,
@@ -202,33 +202,6 @@ def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) ->
     return sorted(all_md - nav_paths)
 
 
-#: Codes emitted both as a rule-engine ``RuleFinding`` (via ``CredentialScannerRule``)
-#: and independently as a ``SecurityFinding`` converted by
-#: :func:`_map_credential_to_finding` below. Public so ``_check.py``'s
-#: rule-finding skip-list can derive from this set instead of maintaining
-#: an independent copy that could silently drift out of sync.
-SECURITY_FINDING_CODES: frozenset[str] = frozenset({"Z201", "Z204"})
-
-
-def _assert_still_a_security_breach_code(code: str) -> None:
-    """Structural drift guard: fail loudly, not silently, if ``code`` is ever
-    removed from ``SECURITY_BREACH_CODES`` without this bridge being updated.
-
-    ``_map_credential_to_finding`` hardcodes ``severity="security_breach"``
-    for Z201/Z204 rather than deriving it dynamically (``Finding.severity``
-    is a free-form string, ``SECURITY_BREACH_CODES`` a membership set with no
-    value to derive) — this call is what keeps that hardcoding from silently
-    drifting out of sync with ``codes.py``'s own classification the way it
-    once did against ``_check.py``'s ``_finding_severity()``.
-    """
-    if code not in SECURITY_BREACH_CODES:
-        raise AssertionError(
-            f"{code!r} is no longer in SECURITY_BREACH_CODES (codes.py) but "
-            "_map_credential_to_finding still hardcodes severity="
-            "'security_breach' for it — update both together."
-        )
-
-
 def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
     """Convert a :class:`SecurityFinding` into a reporter :class:`Finding`.
 
@@ -249,10 +222,10 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
         A :class:`~zenzic.core.reporter.Finding` ready for the ZenzicReporter
         pipeline.  Z204 FORBIDDEN_TERM findings use code ``"Z204"``; all other
         credential scanner findings use ``"Z201"``. Severity for both is
-        derived from ``SECURITY_BREACH_CODES`` (``codes.py``) rather than a
-        second, independently-maintained ``"security_breach"`` literal — the
-        same set the CLI's ``_finding_severity()`` choke point consults, so
-        this bridge cannot silently disagree with it about what these two
+        derived from :func:`~zenzic.core.codes.exit_contract_severity` — the
+        single Core-layer authority also consulted by ``_check.py``'s
+        finding-conversion loop — never a hardcoded literal, so this bridge
+        cannot silently disagree with any other caller about what these two
         codes' severity is.
     """
     try:
@@ -262,12 +235,11 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
 
     if sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Categorical finding identifier
         code = "Z204"
-        _assert_still_a_security_breach_code(code)
         return Finding(
             rel_path=rel,
             line_no=sf.line_no,
             code=code,
-            severity="security_breach",
+            severity=exit_contract_severity(code),
             message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
             source_line=sf.url,
             col_start=sf.col_start,
@@ -276,12 +248,11 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
         )
 
     code = "Z201"
-    _assert_still_a_security_breach_code(code)
     return Finding(
         rel_path=rel,
         line_no=sf.line_no,
         code=code,
-        severity="security_breach",
+        severity=exit_contract_severity(code),
         message=f"Secret detected ({sf.secret_type}) — rotate immediately.",
         source_line=sf.url,
         col_start=sf.col_start,

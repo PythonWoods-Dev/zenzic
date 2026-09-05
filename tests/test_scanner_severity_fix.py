@@ -21,14 +21,15 @@ correct" majorities hiding live bugs, and incremental.py's 17-site sweep
 found 3 mismatches despite an earlier 6-site sample all matching).
 
 Two further sites (scanner.py's _map_credential_to_finding, lines ~226-241)
-construct the CLI-layer `Finding` class (not `RuleFinding`) with a bare
-`severity="security_breach"` literal for Z201/Z204 -- this is the exact,
-deliberate CLI-layer security-severity bridge _check.py's own
-_finding_severity() docstring already cross-references ("Z201/Z204 ...
-reach this severity via the credential-scanner bridge in
-_map_credential_to_finding instead of this function"). Not a bug, not
-covered by the new structural test (which scans RuleFinding(...) sites
-only, matching the rules.py/incremental.py precedent).
+construct the CLI-layer `Finding` class (not `RuleFinding`) for Z201/Z204.
+These used a bare `severity="security_breach"` literal at the time this
+docstring was first written; V031_SECURITY_FIX_FULL_CLOSURE later
+eliminated that literal entirely in favour of direct derivation from
+codes.py's exit_contract_severity() (see
+test_credential_severity_no_hardcoded_literal_structural.py). Not covered
+by this file's own structural test either way (which scans RuleFinding(...)
+sites only, matching the rules.py/incremental.py precedent) — noted here
+only so this docstring does not describe a literal that no longer exists.
 """
 
 from __future__ import annotations

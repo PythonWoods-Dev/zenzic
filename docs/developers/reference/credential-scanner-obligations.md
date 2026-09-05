@@ -189,7 +189,7 @@ mutants**:
 
 | Mutant name | What is changed | Test that must kill it |
 |-------------|----------------|------------------------|
-| **The Invisible** | `severity="security_breach"` → `severity="warning"` in `_map_credentials_to_finding()` | `test_map_always_emits_security_breach_severity` |
+| **The Invisible** | `exit_contract_severity()`'s `Z201`/`Z204` branch (`codes.py`) returns `"warning"` instead of `"security_breach"` — the mutation site moved here from a bare literal in `_map_credential_to_finding()` when `V031_SECURITY_FIX_FULL_CLOSURE` eliminated the literal in favour of direct derivation | `test_map_always_emits_security_breach_severity`, `test_finding_severity_agrees_with_the_tier_for_every_security_code` |
 | **The Amnesiac** | `_obfuscate_secret()` returns `raw` instead of the redacted form | `test_obfuscate_never_leaks_raw_secret` |
 | **The Silencer** | `_map_credentials_to_finding()` returns `None` instead of a `Finding` | `test_pipeline_appends_breach_finding_to_list` |
 

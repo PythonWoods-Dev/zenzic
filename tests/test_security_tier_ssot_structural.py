@@ -75,7 +75,8 @@ def test_no_module_restates_the_whole_security_tier_as_a_literal() -> None:
     """Fix the class, not the instance: catch a restatement anywhere in Core.
 
     Only a literal carrying the *entire* tier counts. A proper subset is a
-    different concept, not a copy — ``scanner.SECURITY_FINDING_CODES`` is
+    different concept, not a copy — ``codes.SECURITY_FINDING_CODES`` (moved
+    here from ``scanner.py`` by ``V031_SECURITY_FIX_FULL_CLOSURE``) is
     ``{Z201, Z204}``, the codes the credential scanner itself emits, while
     ``Z202``/``Z203``/``Z205`` come from the traversal and scheme checks. Forcing
     that to alias the tier would couple two unrelated ideas and change behaviour;

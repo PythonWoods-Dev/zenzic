@@ -21,13 +21,13 @@ from zenzic.core.codes import (
     CODE_DEFINITIONS,
     NON_SUPPRESSIBLE_CODES,
     SECURITY_BREACH_CODES,
+    SECURITY_FINDING_CODES,
     SECURITY_INCIDENT_CODES,
-    code_severity,
+    exit_contract_severity,
 )
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
-    SECURITY_FINDING_CODES,
     _build_rule_engine,
     _map_credential_to_finding,
     find_missing_directory_indices,
@@ -84,44 +84,15 @@ def _validate_only_flag(only: str | None) -> None:
             raise typer.Exit(1)
 
 
-def _finding_severity(code: str) -> str:
-    """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
-
-    Returns ``"security_incident"`` for every member of ``SECURITY_INCIDENT_CODES``
-    and ``"security_breach"`` for every member of ``SECURITY_BREACH_CODES`` —
-    the same two sets that partition the Z2xx security tier for the exit-code
-    contract (``codes.py``) — and the base SSoT severity (``"error"``,
-    ``"warning"``, or ``"info"`` — derived from ``codes.py`` via
-    ``code_severity()``, the same Core-layer helper ``rules.py`` and
-    ``incremental.py`` use) for all others. Unknown codes default to
-    ``"error"`` since the validator only emits findings when it detects a
-    genuine problem.
-
-    This function is the single authority any *caller* consults for a code's
-    exit-relevant severity — including a code arriving from an ordinary
-    ``report.rule_findings`` entry, which could in principle be any code, not
-    only ones this module expects. Z201/Z204 previously reached
-    ``"security_breach"`` only via a second, independent hardcoded literal in
-    ``_map_credential_to_finding`` (core/scanner.py), while this function
-    special-cased only Z203/Z205 and silently fell through to the ordinary
-    base severity for Z201/Z204. The two authorities agreed only because
-    Z201/Z204 rule-engine findings were assumed unreachable (skipped via
-    ``_RULE_FINDING_SKIP_CODES``) — an assumption an adversarial SDK v3 rule
-    declaring ``code="Z201"`` broke, producing an "error"-severity finding
-    that the skip-list then silently discarded with no trace at all. This is
-    the CLI-layer wrapper around ``code_severity()``: the Z2xx
-    security-breach/security-incident reclassification is a CLI-only
-    reporting concern (exit-code contract), not part of the Core severity
-    vocabulary ``RuleFinding.severity`` accepts.
-    """
-    if code in SECURITY_INCIDENT_CODES:
-        return "security_incident"
-    if code in SECURITY_BREACH_CODES:
-        return "security_breach"
-    try:
-        return code_severity(code)
-    except KeyError:
-        return "error"
+# _finding_severity is a re-export, not a second implementation: every one of
+# its 17 call sites in this module was written against this name, and
+# renaming all of them to exit_contract_severity is a mechanical churn this
+# fix does not need to make to eliminate the literal it used to hardcode.
+# The one and only implementation lives in codes.py — see its docstring for
+# why (an adversarial SDK v3 rule claiming code="Z201" exposed the gap this
+# choke point closes: two independent authorities for Z201/Z204's severity,
+# one of which silently fell through to the wrong tier).
+_finding_severity = exit_contract_severity
 
 
 # ── Check commands ────────────────────────────────────────────────────────────
@@ -713,6 +684,23 @@ def check_references(
                 )
             )
         for rule_f in report.rule_findings:
+            # Z201/Z204 rule-findings are injected here alongside every other
+            # rule-engine finding (scanner.py's harvest-derived security_only
+            # sweep), but report.security_findings below independently
+            # converts the same secrets via _map_credential_to_finding.
+            # Skip only SECURITY_FINDING_CODES here, NOT the full
+            # _RULE_FINDING_SKIP_CODES (which also excludes LINK_CODES):
+            # check_all is safe using the wider skip-list because it first
+            # extracts every LINK_CODES-matching rule_finding into a separate
+            # LinkError list (validator.py's link-error builder) before this
+            # loop runs; check_references has no equivalent extraction step,
+            # so filtering LINK_CODES here would silently drop Z202/Z203 and
+            # every other link finding this command is supposed to report —
+            # confirmed by a real regression caught in this same fix pass
+            # (test_traversal_exits_3_from_every_subcommand went 3->0 for
+            # check references when the wider skip-list was tried first).
+            if rule_f.rule_id in SECURITY_FINDING_CODES:
+                continue
             findings.append(
                 Finding(
                     rel_path=rel,
@@ -738,6 +726,8 @@ def check_references(
                 message=err_str,
             )
         )
+
+    findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)

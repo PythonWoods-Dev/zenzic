@@ -320,6 +320,78 @@ class TestCredentialBreachE2E:
             f"Output:\n{result.stdout}"
         )
 
+    def test_z201_finding_not_double_emitted_in_check_references(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check references` must render a single Z201 finding for a single
+        leaked credential, not two — the same double-emission bug `check all`
+        was fixed for (this test's sibling above), present in a sibling
+        command that never received the fix: `check_references`'s
+        finding-assembly loop (`_check.py`) has no `_RULE_FINDING_SKIP_CODES`
+        filter on `report.rule_findings`, unlike `check_all`'s equivalent
+        loop. Found by a targeted multi-persona sweep of this session's own
+        Z2xx dual-authority fix, confirmed live: `zenzic check references`
+        on a single-credential fixture reports "2 security breaches".
+        """
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "references"])
+
+        assert result.stdout.count("aws-access-key") == 1, (
+            f"Expected exactly one aws-access-key finding, got "
+            f"{result.stdout.count('aws-access-key')}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_z201_finding_not_double_emitted_in_check_references_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same regression as above, verified in --format json output."""
+        _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "references", "--format", "json"])
+        payload = json.loads(result.stdout)
+        assert payload["summary"]["security_breaches"] == 1, (
+            f"Expected exactly one security breach, got "
+            f"{payload['summary']['security_breaches']}.\nOutput:\n{result.stdout}"
+        )
+
+    def test_check_references_only_flag_actually_filters(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`check references --only <code>` must actually narrow the report —
+        found alongside the double-emission bug above: `check_references`
+        accepts and validates `--only` but never calls `_filter_flat_findings`
+        with it, unlike every other check subcommand (`links`, `orphans`,
+        `assets`, `all`). Confirmed live: `--only Z301` (a code this fixture
+        cannot produce) left the output byte-identical to the unfiltered run.
+        """
+        _make_sandbox(
+            tmp_path,
+            {
+                "docs/index.md": (
+                    "# Page\n\n"
+                    "Enough ordinary prose here to clear the placeholder "
+                    "word-count check without producing any Z301 finding.\n"
+                    "[a link](./index.md)\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(tmp_path)
+
+        unfiltered = runner.invoke(app, ["check", "references", "--format", "json"])
+        filtered = runner.invoke(app, ["check", "references", "--format", "json", "--only", "Z301"])
+
+        unfiltered_payload = json.loads(unfiltered.stdout)
+        filtered_payload = json.loads(filtered.stdout)
+        assert filtered_payload["summary"]["warnings"] == 0, (
+            f"--only Z301 must filter out non-Z301 warnings; got "
+            f"{filtered_payload['summary']['warnings']} (unfiltered had "
+            f"{unfiltered_payload['summary']['warnings']}).\n"
+            f"Unfiltered:\n{unfiltered.stdout}\nFiltered:\n{filtered.stdout}"
+        )
+
     def test_credential_scanner_exit_2_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
