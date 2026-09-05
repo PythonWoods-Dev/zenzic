@@ -1,7 +1,7 @@
 ---
 title: "Bring Your Own Rules: Policy-as-Code Without Forking Zenzic"
 slug: custom-rules-policy-as-code
-date: 2026-09-05
+date: 2026-09-05 12:00:00
 draft: true
 authors:
   - pythonwoods
@@ -146,5 +146,3 @@ Whichever path you start from, the rule itself lives in the same `.zenzic.toml` 
 ## Closing
 
 Across all three articles in this sequence, a legacy repository now has a complete on-ramp. Freezing existing debt with a baseline and narrowing which built-in codes are load-bearing on day one with `--only` get a gate running before the documentation is clean. Extending the rule set itself with organization-specific policy, in the same config file, with no second tool to maintain, is this article's contribution. None of it requires the documentation to be clean first, and none of it requires forking the engine to say "this specific thing must never appear in our docs."
-
-The next article in this series moves from documentation content to the environment it can and can't reach — [Zero Network, By Default: The Privacy Gate for Regulated Documentation](2026-09-03-privacy-first-offline-scanning.md).

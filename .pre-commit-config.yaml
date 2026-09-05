@@ -97,6 +97,20 @@ repos:
         files: ^docs/_redirects$
         pass_filenames: false
 
+  # 7c. Blog link schedule — staggered-publication invariant for docs/blog/posts/.
+  #     A live (non-draft) post must never link to a still-draft post: a real
+  #     mkdocs build --strict stays clean either way, since the blog plugin just
+  #     excludes drafts from the build rather than treating a link into one as
+  #     broken. This is the only thing that actually enforces the schedule.
+  - repo: local
+    hooks:
+      - id: blog-link-schedule
+        name: Blog link schedule gate
+        entry: python3 scripts/check_blog_link_schedule.py
+        language: system
+        files: ^docs/blog/posts/.*\.md$
+        pass_filenames: false
+
   # 8. Final Guard — score gate + badge freshness + full audit (pre-push only)
   - repo: local
     hooks:

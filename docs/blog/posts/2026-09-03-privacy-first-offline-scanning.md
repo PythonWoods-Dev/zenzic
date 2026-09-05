@@ -1,7 +1,7 @@
 ---
 title: "Zero Network, By Default: The Privacy Gate for Regulated Documentation"
 slug: privacy-first-offline-scanning
-date: 2026-09-05
+date: 2026-09-05 11:00:00
 draft: true
 authors:
   - pythonwoods
@@ -154,5 +154,3 @@ For a full account of why these three distribution paths are treated as distinct
 Offline-by-default and the Privacy Gate solve two different halves of the same compliance question. The first means a security review doesn't have to ask what a scan sends off-machine, because under default operation, nothing does. The second means that if a confidential term does make it into a document anyway, it's caught with the same zero-tolerance treatment as a leaked credential, using a file that's structurally incapable of being committed alongside the docs it's protecting. Together, they let a regulated team adopt a documentation quality gate as a genuine yes-or-no security question, answered once, rather than a case-by-case exception it has to keep re-justifying.
 
 Full field reference for `forbidden_patterns`, and the complete precedence chain across `.zenzic.toml`, `pyproject.toml [tool.zenzic]`, and `.zenzic.local.toml`, is in the [Configuration Reference](../../reference/configuration-reference.md#local-sanctuary). Step-by-step setup, including the `.gitignore` verification command above, is in [Configure the Privacy Gate](../../how-to/configure-privacy-gate.md).
-
-The next article in this series turns to content that's deliberately archived rather than actively maintained — [Archived on Purpose: Exempting One Finding Without Losing the Rest](2026-09-04-archived-on-purpose-directory-policies.md).

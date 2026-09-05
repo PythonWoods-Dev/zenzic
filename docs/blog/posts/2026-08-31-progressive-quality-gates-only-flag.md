@@ -1,7 +1,7 @@
 ---
 title: "Enforce What Matters First: Progressive Quality Gates with --only"
 slug: progressive-quality-gates-only-flag
-date: 2026-09-05
+date: 2026-09-05 13:00:00
 draft: true
 authors:
   - pythonwoods
@@ -114,5 +114,3 @@ Between baseline tracking and `--only`, a legacy repository has everything it ne
 Snapshot the existing debt with a baseline. Choose the smallest `--only` list that covers what actually can't ship broken. Expand both over time, on the team's own schedule — not as a blocking prerequisite to getting a gate at all.
 
 Full reference for `--only`, including flag behavior for `zenzic check` versus `zenzic fix`, is in the [CLI reference](../../reference/cli.md) and the [technical-debt how-to guide](../../how-to/handle-technical-debt.md#progressive-adoption).
-
-Once the gate is running on the codes that matter today, the next question is what happens when a team needs a rule Zenzic doesn't ship at all — the subject of [Bring Your Own Rules: Policy-as-Code Without Forking Zenzic](2026-09-01-custom-rules-policy-as-code.md).

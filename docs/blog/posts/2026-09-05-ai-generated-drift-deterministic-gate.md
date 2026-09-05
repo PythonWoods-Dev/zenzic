@@ -1,7 +1,7 @@
 ---
 title: "Looks Right, Isn't: Why AI-Generated Documentation Needs a Deterministic Gate"
 slug: ai-generated-drift-deterministic-gate
-date: 2026-09-05
+date: 2026-09-05 08:00:00
 draft: true
 authors:
   - pythonwoods

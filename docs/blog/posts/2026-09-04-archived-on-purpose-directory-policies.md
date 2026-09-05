@@ -1,7 +1,7 @@
 ---
 title: "Archived on Purpose: Exempting One Finding Without Losing the Rest"
 slug: archived-on-purpose-directory-policies
-date: 2026-09-05
+date: 2026-09-05 10:00:00
 draft: true
 authors:
   - pythonwoods
@@ -115,5 +115,3 @@ uvx zenzic@0.30.0 check all
 An archive directory and a pile of unfixed debt look similar from the outside — both trip findings that a clean-nav repository wouldn't have. They aren't the same problem, and treating them the same way either leaves permanently-true findings cluttering a baseline forever, or tempts a team toward a broader carve-out that quietly turns off checking on that directory altogether. `directory_policies` exists for the narrower case in between: content whose only real defect is not being in the nav, on purpose, where every other defect a document could have — a broken link, thin content, missing structure — keeps getting caught exactly as it would anywhere else in the repository.
 
 Full field reference for `directory_policies`, including its interaction with `per_file_ignores` and `suppression_cap`, is in the [Configuration Reference](../../reference/configuration-reference.md#directory-policies).
-
-That closes the practical sequence. For the scoring model all five of these mechanisms sit on top of — what actually gets weighted into a score, and what sits outside it entirely — see [The Quality Pyramid: Four Scored Categories, One Zero-Tolerance Gate](2026-09-02-quality-pyramid-five-layers-of-the-dqs.md).

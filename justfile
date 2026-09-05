@@ -262,6 +262,14 @@ docs-serve +args="":
 docs-build:
 	uv run --extra docs mkdocs build --strict
 
+# Report which staggered-publication blog links are ready to paste back in
+# (target now live) vs still pending (target still draft). Always exits 0 --
+# this is a report to run before each day's publish action, not a gate. The
+# gate itself is scripts/check_blog_link_schedule.py's default mode, wired
+# into pre-commit and CI.
+blog-link-schedule:
+	uv run python3 scripts/check_blog_link_schedule.py --schedule
+
 # Optimize blog images and animated GIFs for web performance
 optimize-assets:
     #!/usr/bin/env bash

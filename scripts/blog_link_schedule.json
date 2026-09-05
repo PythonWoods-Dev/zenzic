@@ -1,0 +1,32 @@
+[
+  {
+    "source": "2026-08-30-snapshot-your-debt-baseline-quality-gates.md",
+    "target": "2026-08-31-progressive-quality-gates-only-flag.md",
+    "paragraph": "Baseline tracking answers \"how do we start gating without fixing everything.\" It does not answer a related but separate question: once a gate is on, how does a team progressively raise the bar on which specific rules it enforces, without re-litigating the whole rule set at once. That is the subject of [Enforce What Matters First: Progressive Quality Gates with --only](2026-08-31-progressive-quality-gates-only-flag.md), the next article in this series."
+  },
+  {
+    "source": "2026-08-31-progressive-quality-gates-only-flag.md",
+    "target": "2026-09-01-custom-rules-policy-as-code.md",
+    "paragraph": "Once the gate is running on the codes that matter today, the next question is what happens when a team needs a rule Zenzic doesn't ship at all -- the subject of [Bring Your Own Rules: Policy-as-Code Without Forking Zenzic](2026-09-01-custom-rules-policy-as-code.md)."
+  },
+  {
+    "source": "2026-09-01-custom-rules-policy-as-code.md",
+    "target": "2026-09-03-privacy-first-offline-scanning.md",
+    "paragraph": "The next article in this series moves from documentation content to the environment it can and can't reach -- [Zero Network, By Default: The Privacy Gate for Regulated Documentation](2026-09-03-privacy-first-offline-scanning.md)."
+  },
+  {
+    "source": "2026-09-03-privacy-first-offline-scanning.md",
+    "target": "2026-09-04-archived-on-purpose-directory-policies.md",
+    "paragraph": "The next article in this series turns to content that's deliberately archived rather than actively maintained -- [Archived on Purpose: Exempting One Finding Without Losing the Rest](2026-09-04-archived-on-purpose-directory-policies.md)."
+  },
+  {
+    "source": "2026-09-04-archived-on-purpose-directory-policies.md",
+    "target": "2026-09-02-quality-pyramid-five-layers-of-the-dqs.md",
+    "paragraph": "That closes the practical sequence. For the scoring model all five of these mechanisms sit on top of -- what actually gets weighted into a score, and what sits outside it entirely -- see [The Quality Pyramid: Four Scored Categories, One Zero-Tolerance Gate](2026-09-02-quality-pyramid-five-layers-of-the-dqs.md)."
+  },
+  {
+    "source": "2026-09-02-quality-pyramid-five-layers-of-the-dqs.md",
+    "target": "2026-09-05-ai-generated-drift-deterministic-gate.md",
+    "paragraph": "The other companion piece in this series asks a different question about the same shape -- not what gets measured, but why new violations of it are showing up faster than they used to: [Looks Right, Isn't: Why AI-Generated Documentation Needs a Deterministic Gate](2026-09-05-ai-generated-drift-deterministic-gate.md)."
+  }
+]
