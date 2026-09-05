@@ -234,6 +234,8 @@ pytest_add_cli_args_test_selection = [
     "tests/test_gitignore_cannot_hide_credentials.py",
     "tests/test_security_exit_chokepoint.py",
     "tests/test_adapter_metadata_not_a_security_bypass.py",
+    "tests/test_placeholder_classification.py",
+    "tests/test_credentials_obfuscation.py",
 ]
 # Every entry here is required either by the hatchling build backend
 # (README.md for [project].readme; examples/ for

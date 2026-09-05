@@ -16,6 +16,16 @@ never wired into ``just`` or CI, so no score had ever been computed — and with
 its original ``tests/`` selection it could not even collect, because suites that
 read repository artifacts outside ``also_copy`` fail inside mutmut's sandbox.
 
+**Raised to 68.2%** (285 killed, 133 survived, 0 with no covering test) after
+adding two already-existing, self-contained unit-test files
+(``test_placeholder_classification.py``, ``test_credentials_obfuscation.py``) to
+``pytest_add_cli_args_test_selection`` in ``pyproject.toml`` — both import
+``credentials.py`` internals directly and already covered real gaps (e.g. the
+``_is_likely_placeholder`` case-fold direction, ``_normalize_line_for_scan``'s
+dangerous-character fast-path skip), they were simply never in the list the
+mutation run actually uses. Not every remaining survivor is a real gap of this
+shape; the rest is tracked as scheduled work, not gated further in this pass.
+
 Gating at 90% today would fail every build; gating at the measured value and
 calling the invariant satisfied would be a workaround that changes what is shown
 rather than what is true. So this gate is a **ratchet**: it prevents the score
@@ -37,7 +47,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STATS = REPO_ROOT / "mutants" / "mutmut-cicd-stats.json"
 
 #: Measured floor. See the module docstring before changing this.
-FLOOR = 55.0
+FLOOR = 67.0
 #: The number the Tier-0 invariant claims. Printed, not enforced, until it is real.
 INVARIANT_TARGET = 90.0
 

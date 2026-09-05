@@ -66,7 +66,7 @@ If your check touches the credential scanner or `harvest()`, see the dedicated
 The four obligations are Worker Timeout, Regex-Canary, the Dual-Stream Invariant, and the
 mutation score. The first three are enforced on every PR touching `src/zenzic/core/`. The
 fourth is gated in CI as a no-regression floor rather than at its stated target: the
-credential scanner currently measures **56.5%** against a target of **≥ 90%**, and closing
+credential scanner currently measures **68.2%** against a target of **≥ 90%**, and closing
 that gap is open work. The reference page explains what the gate does and does not promise.
 
 ---

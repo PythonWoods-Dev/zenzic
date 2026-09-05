@@ -157,7 +157,7 @@ before merging.
 
 ---
 
-## Obligation 4 — Mutation Score: target ≥ 90%, currently 56.5%
+## Obligation 4 — Mutation Score: target ≥ 90%, currently 68.2%
 
 Any PR that modifies `src/zenzic/core/` must maintain or improve the mutation score on the
 affected module. The target is **≥ 90%**. The measured score is **not there yet**, and this
@@ -165,10 +165,11 @@ page states both rather than only the target.
 
 !!! warning "Current state, measured"
 
-    The first real run of the harness (2026-09-02) scored **56.5%** on the credential
-    scanner: 231 mutants killed, 178 survived, 9 with no covering test. Closing the gap is
-    tracked as its own work item. Until it closes, treat this obligation as a direction,
-    not as a property the codebase already has.
+    The credential scanner scores **68.2%**: 285 mutants killed, 133 survived, 0 with no
+    covering test (2026-09-05, after the test-selection the gate runs against was corrected
+    to include two existing suites it had omitted — no code change). Closing the remaining
+    gap is tracked as its own work item. Until it closes, treat this obligation as a
+    direction, not as a property the codebase already has.
 
 CI runs the gate on every build, as a **ratchet**: `just mutation` fails when the score
 drops below a recorded floor, and prints the distance to the 90% target on every run. It
