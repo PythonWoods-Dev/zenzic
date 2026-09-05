@@ -129,6 +129,29 @@ def test_custom_rule_info_severity_not_error() -> None:
     assert not findings[0].is_error
 
 
+def test_custom_rule_no_link_message_unchanged() -> None:
+    """A CustomRule with no `link` produces exactly the configured message,
+    byte-for-byte — existing rules with no link keep working unchanged."""
+    rule = CustomRule(id="ZZ011", pattern=r"TODO", message="Remove TODO.", severity="warning")
+    findings = rule.check(_FILE, "TODO: fix this.\n")
+    assert findings[0].message == "Remove TODO."
+
+
+def test_custom_rule_link_appears_in_finding_message() -> None:
+    """A CustomRule with `link` set surfaces it in the finding's message."""
+    rule = CustomRule(
+        id="ZZ012",
+        pattern=r"TODO",
+        message="Remove TODO.",
+        severity="warning",
+        link="https://wiki.example.com/todo-policy",
+    )
+    findings = rule.check(_FILE, "TODO: fix this.\n")
+    assert len(findings) == 1
+    assert "Remove TODO." in findings[0].message
+    assert "https://wiki.example.com/todo-policy" in findings[0].message
+
+
 # ─── AdaptiveRuleEngine ───────────────────────────────────────────────────────────────
 
 

@@ -463,6 +463,68 @@ class TestShared:
         # Restore to default
         _shared.configure_console()
 
+    def test_configure_console_force_color_distinguishes_severity_colors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``force_color=True`` must produce genuinely distinct ANSI codes for
+        different hex colors, even in an environment with no advertised
+        truecolor support (``TERM``/``COLORTERM`` both unset) — the exact
+        condition under which Zenzic's amber WARNING and rose ERROR severity
+        colors previously collapsed to the identical 16-color ANSI code.
+        """
+        monkeypatch.delenv("TERM", raising=False)
+        monkeypatch.delenv("COLORTERM", raising=False)
+        from zenzic.cli import _shared
+        from zenzic.core.ui import ZenzicPalette
+
+        try:
+            _shared.configure_console(force_color=True)
+            import io
+
+            from rich.text import Text
+
+            # Exercise the real, reconfigured singleton — not a fresh probe —
+            # since that is what every CLI command actually prints through.
+            _shared.console.file = io.StringIO()
+            _shared.console.print(Text("WARN", style=f"bold {ZenzicPalette.WARNING}"), end="")
+            _shared.console.print(Text("ERROR", style=f"bold {ZenzicPalette.ERROR}"), end="")
+            output = _shared.console.file.getvalue()
+            warn_code = output.split("WARN")[0]
+            error_code = output.split("ERROR")[0].rsplit("\x1b[0m", 1)[-1]
+            assert warn_code != error_code, (
+                f"WARNING and ERROR severity colors collapsed to the same ANSI "
+                f"code ({warn_code!r}) — force_color must force truecolor depth, "
+                f"not just force_terminal."
+            )
+        finally:
+            _shared.configure_console()
+
+    def test_configure_console_force_color_no_regression_with_real_truecolor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Forcing ``color_system='truecolor'`` produces the same result as
+        auto-detection in an environment that genuinely advertises truecolor
+        support — no regression, forcing it is a no-op there in effect."""
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setenv("COLORTERM", "truecolor")
+        from zenzic.cli import _shared
+        from zenzic.core.ui import ZenzicPalette
+
+        try:
+            _shared.configure_console(force_color=True)
+            import io
+
+            from rich.text import Text
+
+            _shared.console.file = io.StringIO()
+            _shared.console.print(Text("WARN", style=f"bold {ZenzicPalette.WARNING}"), end="")
+            _shared.console.print(Text("ERROR", style=f"bold {ZenzicPalette.ERROR}"), end="")
+            output = _shared.console.file.getvalue()
+            assert "245;158;11" in output  # WARNING amber, real 24-bit RGB
+            assert "244;63;94" in output  # ERROR rose, real 24-bit RGB
+        finally:
+            _shared.configure_console()
+
     def test_configure_console_default(self) -> None:
         """Cover the ``else`` (auto) branch."""
         from zenzic.cli import _shared

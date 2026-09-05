@@ -59,6 +59,33 @@ engine = "mkdocs"
 
 ---
 
+## Rationale links
+
+An optional `link` field attaches a URL to the finding, shown alongside the message. Use it to
+point at the internal policy or style-guide page that explains *why* the rule exists, so a
+reader hitting the finding doesn't have to go ask someone:
+
+```toml
+[[custom_rules]]
+id       = "ZZ-NOINTERNAL"
+pattern  = "internal\\.corp\\.example\\.com"
+message  = "Internal hostname must not appear in public documentation."
+severity = "error"
+link     = "https://wiki.example.com/hostname-policy"
+```
+
+Produces:
+
+```text
+docs/test.md:1:4  ✘  [ZZ-NOINTERNAL]  Internal hostname must not appear in
+public docs. (see https://wiki.example.com/hostname-policy)
+```
+
+`link` is entirely optional — a rule with no `link` set produces exactly its configured
+`message`, unchanged.
+
+---
+
 ## Pattern tips
 
 | Goal | Pattern |

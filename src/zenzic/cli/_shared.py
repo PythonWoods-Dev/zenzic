@@ -37,21 +37,27 @@ from ._metadata import COMMAND_BY_NAME
 
 # ── Console singleton & UI gateway ───────────────────────────────────────────
 
+_env_force_color = bool(os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR"))
+
 console = Console(
     highlight=False,
     no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=True
-    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
-    else None,
+    force_terminal=True if _env_force_color else None,
+    # Forcing the terminal alone still leaves color *depth* to Rich's own
+    # auto-detection from TERM/COLORTERM, which under-detects (falls back to
+    # 16-color "standard") in an environment that advertises no truecolor
+    # support — silently collapsing distinct severity colors like WARNING's
+    # amber and ERROR's rose to the same ANSI code. Forcing "truecolor"
+    # alongside force_terminal is what FORCE_COLOR is actually for.
+    color_system="truecolor" if _env_force_color else None,
 )
 
 stderr_console = Console(
     stderr=True,
     highlight=False,
     no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=True
-    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
-    else None,
+    force_terminal=True if _env_force_color else None,
+    color_system="truecolor" if _env_force_color else None,
 )
 
 _ui = ZenzicUI(stderr_console)
@@ -69,8 +75,14 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
         console = Console(highlight=False, no_color=True)
         stderr_console = Console(stderr=True, highlight=False, no_color=True)
     elif force_color:
-        console = Console(highlight=False, force_terminal=True)
-        stderr_console = Console(stderr=True, highlight=False, force_terminal=True)
+        # force_terminal alone leaves color depth to auto-detection, which
+        # under-detects (16-color "standard") without an advertised
+        # truecolor terminal — see the module-level Console construction
+        # above for the full explanation.
+        console = Console(highlight=False, force_terminal=True, color_system="truecolor")
+        stderr_console = Console(
+            stderr=True, highlight=False, force_terminal=True, color_system="truecolor"
+        )
     # else: keep existing console — no_color=False + force_color=False means "auto",
     # which is already set correctly in the module-level Console (force_terminal=None).
     _ui = ZenzicUI(stderr_console)

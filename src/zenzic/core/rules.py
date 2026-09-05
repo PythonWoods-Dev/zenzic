@@ -443,12 +443,16 @@ class CustomRule(BaseRule):
         pattern: Regular-expression string applied to each non-blank line.
         message: Human-readable explanation shown in the finding.
         severity: ``"error"`` (default), ``"warning"``, or ``"info"``.
+        link: Optional rationale URL. When set, appended to the finding's
+            message as ``"{message} (see {link})"``. A rule with no link
+            produces exactly its configured message, unchanged.
     """
 
     id: str
     pattern: str
     message: str
     severity: Severity = "error"
+    link: str | None = None
     # Compiled with RE2; typed via the shared RegexPattern alias.
     _compiled: re.RegexPattern = field(init=False, repr=False, compare=False)
 
@@ -477,6 +481,7 @@ class CustomRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         """Apply the pattern line-by-line to *text*."""
         findings: list[RuleFinding] = []
+        message = f"{self.message} (see {self.link})" if self.link else self.message
         for lineno, line in enumerate(text.splitlines(), start=1):
             m = self._compiled.search(line)
             if m:
@@ -485,7 +490,7 @@ class CustomRule(BaseRule):
                         file_path=file_path,
                         line_no=lineno,
                         rule_id=self.id,
-                        message=self.message,
+                        message=message,
                         severity=self.severity,
                         matched_line=line,
                         col_start=m.start(),

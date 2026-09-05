@@ -215,6 +215,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
+    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
     "\n"
     "# --- HTML POLYGLOT INTEGRITY ---\n"
     "# Zenzic analyses <a>/<img> via the Uniform Resolver Pipeline.\n"
@@ -506,6 +507,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
+    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
     "\n"
     "# --- GATE 4: AUTOMATION (Pre-commit & CI/CD) ---\n"
     "# Track 1 — Pre-commit Hook (Recommended: add to .pre-commit-config.yaml):\n"

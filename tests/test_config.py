@@ -142,8 +142,33 @@ severity = "warning"
     assert len(config.custom_rules) == 2
     assert config.custom_rules[0].id == "ZZ-NOINTERNAL"
     assert config.custom_rules[0].severity == "error"
+    # No link set: field defaults to None, existing rules keep working unchanged.
+    assert config.custom_rules[0].link is None
     assert config.custom_rules[1].id == "ZZ-NODRAFT"
     assert config.custom_rules[1].severity == "warning"
+
+
+def test_load_config_custom_rules_link_field(tmp_path: Path) -> None:
+    """[[custom_rules]] entries may optionally carry a `link` rationale URL."""
+    toml_content = """
+[[custom_rules]]
+id = "ZZ-NOINTERNAL"
+pattern = "internal\\\\.corp"
+message = "Internal hostname in docs."
+severity = "error"
+link = "https://wiki.example.com/hostname-policy"
+
+[[custom_rules]]
+id = "ZZ-NODRAFT"
+pattern = "(?i)\\\\bDRAFT\\\\b"
+message = "Remove DRAFT marker."
+severity = "warning"
+"""
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.custom_rules[0].link == "https://wiki.example.com/hostname-policy"
+    # A rule with no link declared keeps the field as None, not an empty string.
+    assert config.custom_rules[1].link is None
     assert loaded is True
 
 

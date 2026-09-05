@@ -1609,6 +1609,7 @@ def _build_rule_engine(
                     pattern=cr.pattern,
                     message=cr.message,
                     severity=cr.severity,
+                    link=cr.link,
                 )
             )
 

@@ -1162,6 +1162,7 @@ severity = "warning"
 | `message` | `str \| None` | `None` | Human-readable explanation shown in findings (regex-flavor rules only) |
 | `severity` | `str` | `"error"` | `"error"`, `"warning"`, or `"info"` |
 | `class_name` | `str \| None` | `None` | Dotted import path to a Custom Rule SDK v3 class for AST-level rules (mutually exclusive with `pattern`) |
+| `link` | `str \| None` | `None` | Optional rationale URL (regex-flavor rules only). When set, appended to the finding's message as `"{message} (see {link})"`; omitted entirely when unset. |
 
 None of the fields are enforced as required at the schema level — a regex-flavor entry missing `id`, `pattern`, or `message` is silently skipped by the scanner rather than raising a load-time error.
 

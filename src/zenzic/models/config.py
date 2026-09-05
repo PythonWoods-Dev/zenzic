@@ -38,6 +38,7 @@ class CustomRuleConfig(BaseModel):
         pattern = "internal\\.corp\\.example\\.com"
         message = "Internal hostname must not appear in public docs."
         severity = "error"
+        link = "https://wiki.example.com/hostname-policy"  # optional
 
     TOML example (SDK v3 Python class)::
 
@@ -61,6 +62,10 @@ class CustomRuleConfig(BaseModel):
     class_name: str | None = Field(
         default=None,
         description="Fully qualified Python class name for a Custom Rule SDK v3 rule.",
+    )
+    link: str | None = Field(
+        default=None,
+        description="Optional rationale URL, shown alongside the message in the finding.",
     )
 
     @field_validator("id", mode="before")
