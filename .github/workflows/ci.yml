@@ -89,7 +89,7 @@ jobs:
         run: python3 scripts/check_redirects_structure.py
 
       - name: Blog link schedule gate
-        run: uv run python3 scripts/check_blog_link_schedule.py
+        run: uv run python scripts/check_blog_link_schedule.py
 
       - name: Verify Badge Freshness
         run: uv run zenzic score --check-stamp --ci
