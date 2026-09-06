@@ -69,7 +69,14 @@ jobs:
       # regression is a security problem rather than a coverage statistic. The
       # harness was configured in pyproject.toml but never invoked anywhere, so no
       # score had ever been produced; this step is what makes it real.
+      # mutmut has no native Windows support at all (upstream tracks this at
+      # https://github.com/boxed/mutmut/issues/397) -- this is not a scoping
+      # choice, the tool cannot run there. Restricted to Linux rather than
+      # skipped everywhere: the gate still runs at full strength on every PR
+      # via the ubuntu-latest slots, so coverage of the credential scanner is
+      # unchanged; only the platform that cannot execute the tool is excused.
       - name: Mutation gate (credential scanner)
+        if: runner.os == 'Linux'
         run: just mutation
 
       - name: Run Zenzic Quality Gate
