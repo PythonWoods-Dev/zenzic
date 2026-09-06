@@ -1086,7 +1086,7 @@ class _AllCheckResults:
 
 # Codes that --only can never filter out, regardless of its contents: the
 # Tier-0 Exit Code Contract states Z201/Z202/Z203/Z204/Z205 are non-suppressible
-# (CLAUDE.md Forbidden Actions: "DO NOT suppress Z2xx security codes. They are
+# (project policy: "DO NOT suppress Z2xx security codes. They are
 # inviolable."), and Z110/Z111 are fatal config-load errors that must always
 # surface. --only narrows which OTHER codes are reported; it must never be able
 # to silence this set, whether or not any of its members are explicitly listed.
@@ -1475,9 +1475,9 @@ def _append_z620_findings(
         check_all=check_all, check_external_urls=check_external_urls
     ):
         try:
-            rp = str(stale.file_path.relative_to(repo_root))
+            rp = stale.file_path.relative_to(repo_root).as_posix()
         except ValueError:
-            rp = str(stale.file_path)
+            rp = stale.file_path.as_posix()
         findings.append(
             Finding(
                 rel_path=rp,
@@ -1900,7 +1900,7 @@ def check_all(
             all_findings = _filter_flat_findings(all_findings, only)
 
     if _single_file is not None:
-        _sf_rel = str(_single_file.relative_to(repo_root))
+        _sf_rel = _single_file.relative_to(repo_root).as_posix()
         all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
 
     # ── Baseline Handling ──────────────────────────────────────────────────────
@@ -1923,7 +1923,7 @@ def check_all(
     _score_suppression_audit = suppression_audit
     if _single_file is not None:
         try:
-            _sf_rel_for_score = str(_single_file.relative_to(docs_root))
+            _sf_rel_for_score = _single_file.relative_to(docs_root).as_posix()
         except ValueError:
             # Target lives outside docs_root (e.g. CHANGELOG.md at repo root) —
             # inline_hotspots is keyed relative to docs_root, so a target

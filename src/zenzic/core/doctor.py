@@ -130,7 +130,7 @@ def check_adr_citations(repo_root: Path, config: DoctorConfig) -> list[DoctorFin
             except (OSError, UnicodeDecodeError):
                 continue
             for match in compiled.finditer(text):
-                cited.setdefault(match.group(0).upper(), str(path.relative_to(repo_root)))
+                cited.setdefault(match.group(0).upper(), path.relative_to(repo_root).as_posix())
 
     return [
         DoctorFinding(
@@ -160,14 +160,14 @@ def check_redirects(repo_root: Path, config: DoctorConfig) -> list[DoctorFinding
             DoctorFinding(
                 check="redirects",
                 message=f"could not read: {exc}",
-                location=str(config.redirects_path),
+                location=config.redirects_path.as_posix(),
             )
         ]
     if lines and lines[-1] == "":
         lines.pop()
 
     findings: list[DoctorFinding] = []
-    where = str(config.redirects_path)
+    where = config.redirects_path.as_posix()
 
     blanks = sum(1 for line in lines if not line.strip())
     if config.redirects_expected_blanks and blanks != config.redirects_expected_blanks:
