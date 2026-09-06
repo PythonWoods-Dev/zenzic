@@ -120,8 +120,8 @@ score against a recorded floor. **CI runs this on every build.**
 just mutation
 ```
 
-The score is a ratchet, not the target: the credential scanner measures **68.2%**
-against a stated target of **≥ 90%**, and the gate prints that gap on every run. See
+The score is a ratchet: the credential scanner measures **95.7%** against a stated target
+of **≥ 90%**, met, and the floor prevents it silently dropping back down. See
 [Credential Scanner Obligations](reference/credential-scanner-obligations) for what it
 does and does not promise.
 

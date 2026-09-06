@@ -157,32 +157,34 @@ before merging.
 
 ---
 
-## Obligation 4 — Mutation Score: target ≥ 90%, currently 68.2%
+## Obligation 4 — Mutation Score: target ≥ 90%, currently 95.7%
 
 Any PR that modifies `src/zenzic/core/` must maintain or improve the mutation score on the
-affected module. The target is **≥ 90%**. The measured score is **not there yet**, and this
-page states both rather than only the target.
+affected module. The target is **≥ 90%**, and it is met.
 
-!!! warning "Current state, measured"
+!!! success "Current state, measured"
 
-    The credential scanner scores **68.2%**: 285 mutants killed, 133 survived, 0 with no
-    covering test (2026-09-05, after the test-selection the gate runs against was corrected
-    to include two existing suites it had omitted — no code change). Closing the remaining
-    gap is tracked as its own work item. Until it closes, treat this obligation as a
-    direction, not as a property the codebase already has.
+    The credential scanner scores **95.7%**: 400 mutants killed, 18 survived, 0 with no
+    covering test (2026-09-06, `V031_MUTATION_SURVIVOR_TRIAGE_AND_KILL` — a full triage of
+    every survivor at the prior 68.2% baseline, closed across two already-existing test
+    files the gate's own scope had omitted plus one new file,
+    `tests/test_credential_scanner_mutation_survivors.py`). The remaining 18 survivors are
+    documented individually, in that file, as equivalent mutants no real input can
+    distinguish (an unreachable initial sentinel, a Python stdlib default matching the
+    literal removed, a hardcoded field value coinciding with its dataclass default, and
+    similar) — not a queue of undone work.
 
 CI runs the gate on every build, as a **ratchet**: `just mutation` fails when the score
-drops below a recorded floor, and prints the distance to the 90% target on every run. It
-does not gate at 90% — doing so would fail every build today, and gating at the measured
-value while calling the obligation satisfied would change what is shown rather than what
-is true.
+drops below a recorded floor (currently 95.7%, raised to match). The floor exists so a
+future change can't silently erode this coverage back down while still passing — it does
+not re-permit dropping to some lower "acceptable" value.
 
 ```bash
 just mutation
 ```
 
-The gate targets `src/zenzic/core/credentials.py` against the nine suites that exercise it.
-`nox -s mutation` also exists and runs mutmut, but computes **no** floor and fails on
+The gate targets `src/zenzic/core/credentials.py` against the thirteen suites that exercise
+it. `nox -s mutation` also exists and runs mutmut, but computes **no** floor and fails on
 nothing — prefer `just mutation`, which is what CI runs. Any PR touching the
 `_map_credentials_to_finding()` conversion function, the `SECURITY_BREACH` severity path
 in `ZenzicReporter`, or the exit-code routing in `cli.py` **must kill all three mandatory
