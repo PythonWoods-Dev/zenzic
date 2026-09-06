@@ -283,6 +283,16 @@ class HtmlNodeInfo:
         info_scheme:       Informational scheme (``mailto:``, ``tel:``, ``ftp:``)
                            if detected → Z123; ``None`` otherwise.
         raw_tag:           Original tag text (for diagnostic messages).
+        col_start:         0-based column of the tag within its own line.
+        attr_cols:         Attribute name → 0-based column of that attribute's
+                           *name* within the line. Reported by the parser
+                           rather than re-derived downstream: a consumer
+                           searching the source line for an attribute cannot
+                           distinguish the same tag appearing twice on one
+                           line, nor an attribute name occurring inside an
+                           earlier attribute's value (``title="onclick demo"``
+                           before a real ``onclick=``). The parser already
+                           knows both, so it says so.
     """
 
     tag: str
@@ -296,6 +306,8 @@ class HtmlNodeInfo:
     is_jump_link: bool
     info_scheme: str | None
     raw_tag: str
+    col_start: int = 0
+    attr_cols: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -348,7 +360,26 @@ class PolyglotExtractor:
             attrs_str = m.group("attrs")
             # Compute line_no from the original (unmasked) text
             line_no = text[: m.start()].count("\n") + 1
-            nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
+            # Column within the line, not an offset into the file. Safe to
+            # compute against `text` using an index from `masked`: every
+            # masking pass replaces characters one-for-one and preserves
+            # newlines, an invariant the line_no computation above already
+            # relies on.
+            line_start = text.rfind("\n", 0, m.start()) + 1
+            col_start = m.start() - line_start
+            nodes.append(
+                self._parse_node(
+                    tag,
+                    attrs_str,
+                    line_no,
+                    m.group(0),
+                    col_start=col_start,
+                    # Group 2 is ``attrs``, addressed by index rather than by
+                    # name: RE2's Match.start() accepts only integer group
+                    # numbers, unlike the stdlib's.
+                    attrs_offset=m.start(2) - m.start(),
+                )
+            )
         return nodes
 
     def extract_ref_defs(
@@ -547,7 +578,16 @@ class PolyglotExtractor:
         )
         return text
 
-    def _parse_node(self, tag: str, attrs_str: str, line_no: int, raw_tag: str) -> HtmlNodeInfo:
+    def _parse_node(
+        self,
+        tag: str,
+        attrs_str: str,
+        line_no: int,
+        raw_tag: str,
+        *,
+        col_start: int = 0,
+        attrs_offset: int = 0,
+    ) -> HtmlNodeInfo:
         """Linear parsing of the ``attrs`` string and governance classification.
 
         **Priority order:**
@@ -564,12 +604,24 @@ class PolyglotExtractor:
         unknown: list[str] = []
         blacklisted: list[str] = []
         seen_attrs: set[str] = set()
+        # name -> 0-based column within the node's line. Built here because
+        # this is the only place that knows where each attribute really is:
+        # `col_start` locates the tag in the line, `attrs_offset` locates the
+        # attribute string inside the tag, and the match locates the name
+        # inside that string. A downstream search over the line cannot
+        # reconstruct this without guessing.
+        attr_cols: dict[str, int] = {}
 
         for m in _RE_POLY_ATTR.finditer(attrs_str):
             key_raw = m.group("key")
             if not key_raw:
                 continue
             key = key_raw.lower()
+            # Group 1 is ``key``; RE2's Match.start() takes only integers.
+            # setdefault, not assignment: a repeated attribute keeps the
+            # position of its first occurrence, which is the one a reader
+            # looking at the line will find.
+            attr_cols.setdefault(key, col_start + attrs_offset + m.start(1))
             if key in seen_attrs:
                 continue
             seen_attrs.add(key)
@@ -622,6 +674,8 @@ class PolyglotExtractor:
             is_jump_link=is_jump_link,
             info_scheme=info_scheme,
             raw_tag=raw_tag,
+            col_start=col_start,
+            attr_cols=attr_cols,
         )
 
 

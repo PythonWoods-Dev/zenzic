@@ -50,6 +50,7 @@ from zenzic.core.rules import (
 from zenzic.core.suppressions import SuppressionTracker
 from zenzic.core.validator import (
     _POLY_CLEAN_URL_RE,
+    HtmlNodeInfo,
     PolyglotExtractor,
     _classify_traversal_intent,
     _decode_percent_encoding,
@@ -913,6 +914,27 @@ class IncrementalAnalysisEngine:
         # Polyglot Extractor
         for node in PolyglotExtractor().extract(text):
             ctx = _source_line(node.line_no)
+
+            def _span(attr: str | None, _node: HtmlNodeInfo = node) -> tuple[int, str]:
+                """Where the caret goes, and how wide.
+
+                A finding that names one attribute must mark that attribute:
+                marking the whole opening tag says "everything here", which is
+                the opposite of what the message says. Positions come from the
+                parser (``attr_cols``), which knows where each attribute
+                really is; nothing here searches the line, because a search
+                cannot tell the same tag twice on one line apart, nor an
+                attribute name sitting inside an earlier attribute's value.
+
+                Falls back to the tag's own span when there is no attribute to
+                point at (a missing href has no offending attribute) or when
+                the attribute is somehow absent from the map.
+                """
+                if attr is not None and attr in _node.attr_cols:
+                    return _node.attr_cols[attr], attr
+                return _node.col_start, _node.raw_tag
+
+            href_attr = "src" if node.tag == "img" else "href"
             if node.z205_scheme:
                 findings.append(
                     RuleFinding(
@@ -922,8 +944,8 @@ class IncrementalAnalysisEngine:
                         f"forbidden scheme '{node.z205_scheme}' detected",
                         severity=code_severity("Z205"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(href_attr)[0],
+                        match_text=_span(href_attr)[1],
                     )
                 )
             for attr in node.blacklisted_attrs:
@@ -935,8 +957,8 @@ class IncrementalAnalysisEngine:
                         f"opaque attribute '{attr}' detected",
                         severity=code_severity("Z124"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(attr)[0],
+                        match_text=_span(attr)[1],
                     )
                 )
             if node.is_missing_href:
@@ -948,8 +970,8 @@ class IncrementalAnalysisEngine:
                         "missing href or src",
                         severity=code_severity("Z121"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(None)[0],
+                        match_text=_span(None)[1],
                     )
                 )
             if node.is_jump_link:
@@ -961,8 +983,8 @@ class IncrementalAnalysisEngine:
                         "href='#' detected",
                         severity=code_severity("Z122"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(href_attr)[0],
+                        match_text=_span(href_attr)[1],
                     )
                 )
             for attr in node.unknown_attrs:
@@ -974,8 +996,8 @@ class IncrementalAnalysisEngine:
                         f"unknown attribute '{attr}'",
                         severity=code_severity("Z120"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(attr)[0],
+                        match_text=_span(attr)[1],
                     )
                 )
             if node.info_scheme:
@@ -987,8 +1009,8 @@ class IncrementalAnalysisEngine:
                         f"non-HTTP scheme '{node.info_scheme}'",
                         severity=code_severity("Z123"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(href_attr)[0],
+                        match_text=_span(href_attr)[1],
                     )
                 )
 
