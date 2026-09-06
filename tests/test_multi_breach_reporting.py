@@ -33,6 +33,7 @@ from zenzic.core.adapters import get_adapter
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.models.config import ZenzicConfig
+from zenzic.models.vsm import VirtualSiteMap
 
 
 _PROSE = (
@@ -64,7 +65,12 @@ def _urp_codes(tmp_path: Path, body: str) -> list[str]:
         docs_root=docs,
         repo_root=tmp_path,
     )
-    return [f.rule_id for f in engine._run_urp_checks(None, page, text)]
+    # An empty VirtualSiteMap, not None: security_only mode never consults it
+    # (see _run_urp_checks' own docstring), and this is the same pattern
+    # every real security_only call site in scanner.py/incremental.py uses.
+    return [
+        f.rule_id for f in engine._run_urp_checks(VirtualSiteMap(), page, text, security_only=True)
+    ]
 
 
 class TestSchemeAndCredentialCoexist:

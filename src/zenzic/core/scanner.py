@@ -19,7 +19,7 @@ import fnmatch
 import posixpath
 from collections.abc import Callable, Generator, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
@@ -1903,7 +1903,7 @@ def scan_docs_references(
                 config,
                 # None is accepted here on purpose: `security_only` restricts the
                 # pass to Z202/Z203/Z205, none of which consult the rule engine.
-                cast("Any", rule_engine),
+                rule_engine,
                 get_adapter(config.build_context, docs_root, _root),
                 docs_root,
                 _root,

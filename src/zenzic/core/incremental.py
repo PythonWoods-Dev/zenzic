@@ -90,7 +90,8 @@ class IncrementalAnalysisEngine:
 
     Attributes:
         config: Active Zenzic configuration.
-        rule_engine: Adaptive Rule Engine instance.
+        rule_engine: Adaptive Rule Engine instance, or ``None`` for a
+            security-only engine (see ``rule_engine`` in ``__init__``).
         adapter: Build-engine adapter (Standalone, MkDocs, or Zensical).
         docs_root: Resolved absolute path to the documentation directory.
         repo_root: Resolved absolute path to the repository root.
@@ -101,7 +102,7 @@ class IncrementalAnalysisEngine:
     def __init__(
         self,
         config: ZenzicConfig,
-        rule_engine: AdaptiveRuleEngine,
+        rule_engine: AdaptiveRuleEngine | None,
         adapter: BaseAdapter,
         docs_root: Path,
         repo_root: Path,
@@ -110,7 +111,10 @@ class IncrementalAnalysisEngine:
 
         Args:
             config: Active Zenzic configuration.
-            rule_engine: Pre-built Adaptive Rule Engine.
+            rule_engine: Pre-built Adaptive Rule Engine, or ``None`` for a
+                security-only engine — every call site that omits it restricts
+                itself to ``security_only=True`` passes (Z201/Z202/Z203/Z204/
+                Z205), none of which consult it.
             adapter: Build-engine adapter for routing metadata.
             docs_root: Resolved absolute path to the docs directory.
             repo_root: Resolved absolute path to the repository root.

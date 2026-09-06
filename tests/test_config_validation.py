@@ -60,7 +60,15 @@ def test_scanner_halts_markdown_analysis_on_config_error(tmp_path: Path) -> None
     reports, _ = scan_docs_references(docs, excl, repo_root=tmp_path)
     assert len(reports) == 1
     assert len(reports[0].findings) == 1
-    assert reports[0].findings[0].code == "Z110"
+    # IntegrityReport.findings declares list[ReferenceFinding], but
+    # scan_docs_references' own config-error path (scanner.py) constructs it
+    # from load_config_with_diagnostics()'s list[Any] of real Finding objects
+    # instead -- a genuine, narrower-than-reality field type for this one
+    # construction path, not a test error. Widening the field to a Union is
+    # a real model change affecting every consumer of `.findings`, out of
+    # scope for a type-check-only pass; the runtime object really does carry
+    # `.code`, confirmed by this test passing.
+    assert reports[0].findings[0].code == "Z110"  # type: ignore[attr-defined]
 
 
 def test_incremental_engine_emits_config_diagnostic_without_crashing(tmp_path: Path) -> None:

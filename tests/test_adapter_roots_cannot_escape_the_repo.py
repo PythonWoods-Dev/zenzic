@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -170,7 +171,10 @@ class TestDoctorPathsStayInsideTheRepository:
     def _load(tmp_path: Path, value: str):
         from zenzic.models.config import ZenzicConfig
 
-        return ZenzicConfig(**{"doctor": {"adr_vault_path": value}})
+        # dict[str, Any]: see test_security.py's identical fix for why the
+        # narrower inferred type breaks every unrelated field on **unpack.
+        config_data: dict[str, Any] = {"doctor": {"adr_vault_path": value}}
+        return ZenzicConfig(**config_data)
 
     @pytest.mark.parametrize(
         "value", ["../outside", "../../etc", "docs/../../outside", "./../outside"]

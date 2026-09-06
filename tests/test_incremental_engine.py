@@ -81,7 +81,7 @@ def test_engine_detects_forbidden_terms(tmp_path: Path) -> None:
     (tmp_path / ".zenzic.toml").write_text(
         'forbidden_patterns = ["ProjectOmniInternal"]\n', encoding="utf-8"
     )
-    config = ZenzicConfig(docs_dir="docs", forbidden_patterns=["ProjectOmniInternal"])
+    config = ZenzicConfig(docs_dir=Path("docs"), forbidden_patterns=["ProjectOmniInternal"])
 
     engine, vsm, overlay = _make_engine(tmp_path, config)
     results = engine.process_changes(vsm, overlay)
@@ -114,7 +114,7 @@ def test_engine_forbidden_term_overlapping_a_credential_is_not_double_reported(
         encoding="utf-8",
     )
     (tmp_path / ".zenzic.toml").write_text('forbidden_patterns = ["IOSFODNN7"]\n', encoding="utf-8")
-    config = ZenzicConfig(docs_dir="docs", forbidden_patterns=["IOSFODNN7"])
+    config = ZenzicConfig(docs_dir=Path("docs"), forbidden_patterns=["IOSFODNN7"])
 
     engine, vsm, overlay = _make_engine(tmp_path, config)
     results = engine.process_changes(vsm, overlay)
