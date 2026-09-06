@@ -33,8 +33,8 @@ bypassing adapter resolution entirely.
            ``resolve_href_target()`` (extracted from
            ``InMemoryPathResolver._build_target`` in ``resolver.py``), so
            both the resolver and the incremental engine agree on what an
-           ``@site/`` alias means. See `.claude/state/03-priority-table.md`
-           for the fix disposition.
+           ``@site/`` alias means. Tracked internally for the fix
+           disposition.
 """
 
 from __future__ import annotations

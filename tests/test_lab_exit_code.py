@@ -6,9 +6,9 @@ Regression for: `lab <code>`/`lab all` printed a clear PASS/FAIL verdict per
 scenario (via `_ActResult.met_expectation`) but never propagated it to the
 process exit code — `lab` always exited 0, even when every single scenario
 visibly failed its expectation. This defeated `lab all`'s use as an internal
-regression gate (confirmed used as such in this session's own verification
-evidence): a CI step running `zenzic lab all` would report success
-regardless of what the printed table said.
+regression gate (confirmed used as such in real verification evidence): a
+CI step running `zenzic lab all` would report success regardless of what
+the printed table said.
 """
 
 from __future__ import annotations

@@ -18,9 +18,8 @@
 #   just verify      — Final Guard (pre-commit + test-cov + check)
 #   just clean       — remove generated artefacts
 
-# Private-tree recipes (governance-manifest check, priority-table report) live
-# in .justfile.local, gitignored and absent on a fresh clone -- every recipe
-# below still works without it (V031_EXTRACT_PRIVATE_RECIPES_FROM_PUBLIC_JUSTFILE).
+# Optional local recipes live in .justfile.local, gitignored and absent on a
+# fresh clone -- every recipe below still works without it.
 import? '.justfile.local'
 
 set shell := ["bash", "-c"]
@@ -36,8 +35,8 @@ ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # The hook install is deliberately part of setup rather than a separate step a
 # developer has to know about -- three of the four ecosystem repositories were
-# once found running with no hooks installed at all, which is the precondition
-# Rule 31 now blocks on. Running this makes that precondition self-healing.
+# once found running with no hooks installed at all, a precondition this now
+# blocks on. Running this makes that precondition self-healing.
 #
 # Bootstrap a fresh clone: install dependencies and git hooks.
 setup:
@@ -94,14 +93,45 @@ test-full *args:
 lint:
     {{ runner }} pre-commit run --all-files
 
+# Optional repository-local checks. They are defined only in the gitignored
+# `.justfile.local`, so they cannot be static dependencies of `verify` -- a
+# fresh clone without that file must still parse and run `verify` cleanly
+# rather than fail with an unknown-dependency error at parse time.
+#
+# The outcomes below are deliberately different, because they are different
+# failures. A clone with no local recipe file is ordinary: nothing is wrong,
+# and the skip is announced rather than hidden. A clone that has *opted in* to
+# local tooling and then lost its recipe file is a half-installed setup, where
+# the checks the operator believes are running silently are not -- that fails
+# hard, because a control absent from the execution path is indistinguishable
+# from one that was never written.
+#
+# The opt-in marker is a local git config key, deliberately not a file or
+# directory name. `.git/config` is never cloned, pushed or forked, so this
+# cannot be inherited by accident: a fork that creates a directory this
+# project also happens to use is a legitimate fork, not a broken install, and
+# must behave exactly like a plain clone. Opt in with:
+#     git config --local zenzic.local-tooling true
+_local-checks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f .justfile.local ]; then
+        just _local-gates
+        exit 0
+    fi
+    if git config --local --get zenzic.local-tooling >/dev/null 2>&1; then
+        echo -e "\033[31mBLOCKED: this clone opts in to local tooling, but '.justfile.local' is missing.\033[0m" >&2
+        echo "  The local checks cannot run, so this would verify less than it appears to." >&2
+        echo "  Restore '.justfile.local', or opt out with:" >&2
+        echo "    git config --local --unset zenzic.local-tooling" >&2
+        exit 1
+    fi
+    echo "note: '.justfile.local' not present — repository-local checks skipped (expected for a fresh clone)."
+
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ (coverage enforced) → structural audit → score + stamp.
-# The governance-manifest check (_check-governance) is not a static dependency:
-# it is defined only in the optional, gitignored .justfile.local, so a fresh
-# clone without that file must still parse and run this recipe cleanly rather
-# than fail with an unknown-dependency error at parse time.
 verify: _check-hooks release-contracts check-pinning docs-build
-    @bash -c 'if [ -f .justfile.local ]; then just _check-governance; fi'
+    @just _local-checks
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
@@ -177,7 +207,7 @@ _check-hooks:
     done
     if [ "${_missing}" -ne 0 ]; then
         echo ""
-        echo "Refusing to continue with an uninstalled git hook. See Rule 31."
+        echo "Refusing to continue with an uninstalled git hook."
         exit 1
     fi
     echo "git hooks installed (pre-commit, pre-push)"

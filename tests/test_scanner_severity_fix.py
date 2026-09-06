@@ -5,18 +5,18 @@
 Exhaustive enumeration of scanner.py's RuleFinding(...) construction sites
 (8 sites, following the same method already proven for _check.py, rules.py,
 and incremental.py) found two live severity mismatches against codes.py's
-CODE_DEFINITIONS -- scanner.py is the fourth subsystem this session to
+CODE_DEFINITIONS -- scanner.py is the fourth subsystem found to
 exhibit the "hardcoded severity literal bypasses the SSoT" bug:
 
 - Z106 (CIRCULAR_LINK): codes.py says "note" (-> "info"), scanner.py's
   circular-cycle detection in _run_vsm_and_urp_pass() hardcoded "error".
 - Z902 (RULE_TIMEOUT): codes.py says "warning", scanner.py's
   _make_timeout_report() hardcoded "error" -- a second, independent live
-  site for the exact Z902 bug already fixed once this session in rules.py.
+  site for the exact Z902 bug already fixed once before, in rules.py.
 
 The other 6 RuleFinding sites (Z201, Z410, Z411, Z412, Z112, Z901) already
 matched codes.py by inspection -- not treated as proof of correctness, per
-the standing caution this session (both _check.py and rules.py had "mostly
+the standing caution here (both _check.py and rules.py had "mostly
 correct" majorities hiding live bugs, and incremental.py's 17-site sweep
 found 3 mismatches despite an earlier 6-site sample all matching).
 

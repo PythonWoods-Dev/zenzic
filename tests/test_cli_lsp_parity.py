@@ -4,10 +4,9 @@
 ``IncrementalAnalysisEngine`` (the LSP-shared, single-file analysis primitive
 also used directly by ``zenzic-mcp``'s ``check_document``).
 
-The two paths do not share a common orchestration primitive (tracked as an
-architectural question in ``.claude/state/03-priority-table.md``,
-``V031_CLI_LSP_CHECK_LOGIC_DUPLICATION``) — this is the cheap near-term guard
-that finding's own recommendation proposed: a fixture-based parity test so a
+The two paths do not share a common orchestration primitive (tracked
+internally as an open architectural question) — this is the cheap near-term
+guard that finding's own recommendation proposed: a fixture-based parity test so a
 future change wired into one path but not the other fails loudly here,
 instead of silently desynchronizing CLI, LSP, and MCP results. It codifies a
 comparison already done manually once (three fixtures, all matched) as a
@@ -39,8 +38,7 @@ _EXAMPLES_ROOT = Path(__file__).resolve().parents[1] / "examples"
 
 #: CLI topology detection is nav-membership-based (Z402/Z403); LSP topology
 #: detection is VSM-graph-reachability-based (Z410/Z411/Z412) — a known,
-#: already-tracked divergence (03-priority-table.md,
-#: V031_CLI_LSP_CHECK_LOGIC_DUPLICATION), not a new bug this test should
+#: already-tracked divergence, not a new bug this test should
 #: fail on. Live-verified while building this suite that Z106 (CIRCULAR_LINK)
 #: belongs to the same divergent family: a 2-page mutual-reference fixture
 #: produces Z106 on the CLI path but Z411 on the LSP path for the identical

@@ -291,8 +291,9 @@ class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
     decided.
 
     This is the same guard the ``rules.py`` skip site received, applied at the
-    three sites in ``incremental.py`` that actually emit the codes — which is
-    Rule 35's own requirement, applied to the fix that motivated Rule 35.
+    three sites in ``incremental.py`` that actually emit the codes — a
+    multi-part guarantee tested against every part it protects, not just the
+    one instance that originally surfaced it.
     """
 
     @pytest.mark.parametrize("directory", ["dev", "bin", "var", "usr"])
@@ -337,7 +338,7 @@ class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
 class TestOSRootNamedDocsSectionsAreNoLongerFalsePositivesAtScale:
     """All 14 names in ``_SYSTEM_ROOT_DIRS`` (validator.py), not just the one
     case (``dev/``) the original report and the allowlist workaround covered.
-    Rule 35: a multi-part guarantee must be tested against every part it
+    A multi-part guarantee must be tested against every part it
     protects, not just the instance that surfaced it. No config workaround —
     each of these fixtures has no ``absolute_path_allowlist`` entry at all.
     """

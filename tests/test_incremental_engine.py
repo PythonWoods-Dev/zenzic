@@ -63,8 +63,7 @@ def test_engine_full_sync_produces_diagnostics(tmp_path: Path) -> None:
 
 def test_engine_detects_forbidden_terms(tmp_path: Path) -> None:
     """Z204 FORBIDDEN_TERM must be detected via the LSP/incremental path too, not
-    only the CLI's check_all pipeline (03-priority-table.md,
-    V031_LIVE_EXECUTION_BUG_REMEDIATION: a forbidden term configured in
+    only the CLI's check_all pipeline: a forbidden term configured in
     .zenzic.local.toml previously produced no real-time LSP diagnostic at all
     while editing the same file in VS Code).
     """

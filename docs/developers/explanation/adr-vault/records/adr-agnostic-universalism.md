@@ -53,8 +53,8 @@ main scan pass.
 > Zensical's own live documentation (`zensical.org/docs/setup/logo-and-icons/`) actually
 > specifies. A real Zensical project following Zensical's own docs will place these fields
 > under `[project.theme]`, where this check never looks — `Z404` effectively cannot catch a
-> missing favicon/logo for Zensical projects today. Not fixed here; logged as a real code
-> defect in `03-priority-table.md`, not a documentation correction.
+> missing favicon/logo for Zensical projects today. Not fixed here; tracked internally as a
+> real code defect, not a documentation correction.
 
 ---
 

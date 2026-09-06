@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """The homepage carries the canonical tagline byte-exact.
 
-Rule 27 makes the tagline an absolute, never-diluted constraint: any content
+The tagline is an absolute, never-diluted constraint: any content
 quoting it must reproduce the exact text, unmodified. The failure mode this
 guards is not deletion — which anyone would notice — but quiet erosion: a
 comma becoming a semicolon, the em dash gaining spaces, "lightweight" being
-dropped as redundant. Each edit is defensible alone and none survives Rule 27.
+dropped as redundant. Each edit is defensible alone and none survives this test.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ def _text() -> str:
 
 def test_the_tagline_is_present_verbatim() -> None:
     assert CANONICAL in _text(), (
-        "the canonical tagline is missing or altered in hero.html — Rule 27 "
-        "requires it reproduced exactly, unmodified"
+        "the canonical tagline is missing or altered in hero.html — it "
+        "must be reproduced exactly, unmodified"
     )
 
 

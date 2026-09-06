@@ -93,7 +93,7 @@ def test_empty_link_text_mutation_is_idempotent() -> None:
     Holds by construction — apply() only injects "TODO" when the link has no
     text content, and the injected "TODO" text itself satisfies that
     precondition on any subsequent pass — but had no dedicated regression
-    test (`03-priority-table.md`, docs-hygiene auditor discovery). Auto-fix
+    test (found via a documentation-hygiene audit). Auto-fix
     tooling commonly runs to a fixed point (apply repeatedly until no
     further changes); a mutation that isn't genuinely idempotent would
     either loop forever or drift the content on repeated runs.

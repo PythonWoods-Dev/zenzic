@@ -3,11 +3,11 @@
 """Regression tests for V031_INCREMENTAL_PY_SEVERITY_AUDIT.
 
 Exhaustive enumeration of incremental.py's ~17 hardcoded-severity
-RuleFinding(...) construction sites (following the bounded 6-site sample
-from the prior session, which had checked Z201/Z205/Z410/Z411/Z123 plus one
+RuleFinding(...) construction sites (following a bounded 6-site sample
+from an earlier pass, which had checked Z201/Z205/Z410/Z411/Z123 plus one
 site it could not identify precisely) found three live mismatches against
 codes.py's CODE_DEFINITIONS -- the same "hardcoded literal bypasses the
-SSoT" bug shape already fixed twice this session in _check.py (Z406, Z503)
+SSoT" bug shape already fixed twice before, in _check.py (Z406, Z503)
 and rules.py (Z107, Z902):
 
 - Z120 (UNKNOWN_HTML_ATTRIBUTE): codes.py says "warning", incremental.py

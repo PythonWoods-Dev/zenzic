@@ -10,8 +10,8 @@ top-level handler (``main.py``) only catches ``ZenzicError``/
 abstract-method implementation, any arbitrary exception) crashed the entire
 ``zenzic check all`` process with a raw Python traceback instead of a clean,
 reported error. This was discovered as an aside while investigating the
-(separately closed) Z901/Z903 code-numbering question and logged in
-``.claude/state/03-priority-table.md`` as its own robustness item.
+(separately closed) Z901/Z903 code-numbering question and tracked
+internally as its own robustness item.
 
 ``get_adapter()`` is the single choke point used by every CLI command,
 ``scanner.py``, ``validator.py``, and the LSP server (15 call sites total) —

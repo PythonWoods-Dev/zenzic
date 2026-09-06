@@ -5,7 +5,7 @@
 # generate_blog_headers.sh — regenerate the Foundations series header images.
 #
 # Every image is a real `freeze` capture of real Zenzic output against a real
-# fixture built here — never a mock, never hand-edited (Rule 27). Run it and the
+# fixture built here — never a mock, never hand-edited. Run it and the
 # images are reproduced; nothing has to be reverse-engineered from a .webp.
 #
 #     bash scripts/generate_blog_headers.sh

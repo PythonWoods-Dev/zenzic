@@ -329,8 +329,8 @@ class TestCredentialBreachE2E:
         command that never received the fix: `check_references`'s
         finding-assembly loop (`_check.py`) has no `_RULE_FINDING_SKIP_CODES`
         filter on `report.rule_findings`, unlike `check_all`'s equivalent
-        loop. Found by a targeted multi-persona sweep of this session's own
-        Z2xx dual-authority fix, confirmed live: `zenzic check references`
+        loop. Found by a targeted multi-persona sweep of the Z2xx
+        dual-authority fix, confirmed live: `zenzic check references`
         on a single-credential fixture reports "2 security breaches".
         """
         _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})

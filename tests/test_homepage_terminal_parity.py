@@ -137,7 +137,7 @@ def test_the_block_gains_carets_and_context_when_the_cli_starts_emitting_them(
     lines and a ``^^^^`` caret under the offending token, but every finding
     currently falls back to a bare one-line frame because ``reporter.py``
     composes the snippet path as ``docs_root / rel_path`` where ``rel_path`` is
-    already project-relative (see ``03-priority-table.md``). When that is fixed,
+    already project-relative (tracked internally). When that is fixed,
     real output grows rows the homepage does not show, and the block must be
     regenerated in the same change rather than quietly under-selling the tool.
     """

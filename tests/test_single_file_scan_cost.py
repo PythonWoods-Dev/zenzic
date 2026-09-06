@@ -142,7 +142,7 @@ def test_single_file_scan_still_detects_target_rule_engine_finding(
     mismatch between the resolved target path and the paths yielded by the
     file walker) — the symptom would be a falsely clean/perfect score with
     no crash and no test failure elsewhere, the same class of defect as the
-    z510-z517 fixture isolation gap found earlier this session.
+    z510-z517 fixture isolation gap found previously.
     """
     root, short_file = z502_target_sandbox
     monkeypatch.chdir(root)
@@ -150,9 +150,9 @@ def test_single_file_scan_still_detects_target_rule_engine_finding(
     # NOTE: --format json is deliberately NOT used here. The legacy JSON
     # payload's `references` field is always empty regardless of scoping or
     # findings present — confirmed pre-existing via a direct git-stash/re-run
-    # comparison (identical `references: []` before and after this session's
-    # fix, both single-file and full-project) and now tracked as its own
-    # release-blocking item: V031_CHECK_ALL_JSON_LEGACY_REFERENCES_EMPTY.
+    # comparison (identical `references: []` before and after this
+    # performance fix, both single-file and full-project) and now tracked
+    # as its own release-blocking item: V031_CHECK_ALL_JSON_LEGACY_REFERENCES_EMPTY.
     # Text output is the channel confirmed correct here, so it's the
     # correctness oracle for this test.
     result = runner.invoke(app, ["check", "all", "docs/short.md"])
@@ -202,7 +202,7 @@ def test_single_file_scan_detects_rule_finding_for_target_outside_docs_root(
     `scan_docs_references()`'s file enumeration — so the rule engine never
     runs on the target at all, silently reporting a perfect score. Confirmed
     pre-existing via git-stash/re-run (identical zero-findings/100-score
-    result before and after this session's performance fix), and confirmed
+    result before and after this performance fix), and confirmed
     NOT caused by docs_root resolution itself — the resolved docs_root is
     structurally identical (`<repo_root>/docs`) in both the real repo's
     mkdocs auto-discovery and this synthetic sandbox's explicit

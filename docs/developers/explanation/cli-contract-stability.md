@@ -73,7 +73,8 @@ for another.
    names the old behaviour, the new behaviour, and the concrete consumer that breaks. "Any
    script parsing `X` will now see `Y`" — not "improved exit code handling".
 3. **A documentation update in the same commit**, not a follow-up: the reference page that
-   states the old behaviour is part of the change, per Rule 17.
+   states the old behaviour is part of the change, per this project's documentation-parity
+   discipline.
 4. **A test that pins the new behaviour**, so the next change to the same line has to
    argue with a failing assertion rather than a comment.
 

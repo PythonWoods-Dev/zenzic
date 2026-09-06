@@ -16,8 +16,7 @@ Z504 uses an intentionally minimal format (no Penalty/Exit fields, marked
 "(reserved)") and is excluded from the penalty check.
 
 ``test_finding_codes_heading_names_match_registry`` closes a narrower, separate
-gap (V031_TECHNICAL_DEBT_LEDGER_STRUCTURAL_ASSESSMENT's Rule 21 recommendation,
-implemented against this page rather than its original target,
+gap (implemented against this page rather than its original target,
 ``developers/explanation/governance/technical-debt.md``, which was cut in this
 same session before the recommendation could be implemented there): a heading's
 own *name* text (the part after ``Z101:``) was never checked against

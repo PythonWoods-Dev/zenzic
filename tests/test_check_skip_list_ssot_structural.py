@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Structural guard for V031_SKIPLIST_BUG_FAMILY_CLOSURE's Rule 21 recommendation.
+"""Structural guard against a recurring skip-list drift bug.
 
 ``_check.py``'s rule-finding skip-list (codes already surfaced via a separate
 path — ``link_codes`` for link-integrity findings, or the security-findings
 bridge for credential findings — so they must not also surface a second time
 via the generic rule-finding loop) was a manually-maintained tuple literal.
-Four confirmed bugs this session (``Z202``/``Z203``/``Z108``/``Z201``/``Z204``
+Four confirmed bugs (``Z202``/``Z203``/``Z108``/``Z201``/``Z204``
 double-emissions) all had the same root cause: the literal drifted out of sync
 with ``validator.py``'s ``link_codes`` set or ``codes.py``'s
 ``SECURITY_FINDING_CODES`` (moved there from ``scanner.py`` so ``codes.py``

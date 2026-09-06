@@ -26,9 +26,8 @@ dangerous-character fast-path skip), they were simply never in the list the
 mutation run actually uses.
 
 **Raised to 95.7%** (400 killed, 18 survived, 0 with no covering test) by a
-full triage of all 133 survivors then measured against this floor
-(``V031_MUTATION_SURVIVOR_TRIAGE_AND_KILL``). Two more already-existing,
-already-correct test files were in scope but not in this list
+full triage of all 133 survivors then measured against this floor.
+Two more already-existing, already-correct test files were in scope but not in this list
 (``test_forbidden_term_span_overlap.py``, whose thorough overlap-suppression
 tests alone closed 12 of ``scan_security_findings``'s 24 survivors) and one new
 file was added (``tests/test_credential_scanner_mutation_survivors.py``, 41
@@ -59,6 +58,15 @@ measured value clears the documented 90% target, the invariant is genuinely
 met rather than merely tracked.
 
 Raise ``FLOOR`` whenever the score improves. Never lower it to make a build pass.
+
+Why the raw survivor count is gated too
+----------------------------------------
+The percentage alone cannot catch every regression: a change that adds many new
+mutants to the module, almost all freshly killed but a few newly surviving,
+dilutes those new survivors into a score that can stay flat or even rise while
+clearing ``FLOOR``. ``MAX_SURVIVORS`` gates the raw count against the 18-mutant
+baseline the floor was measured at, so a genuinely new survivor fails the gate
+even when the percentage alone would not have noticed.
 """
 
 from __future__ import annotations
@@ -76,6 +84,15 @@ STATS = REPO_ROOT / "mutants" / "mutmut-cicd-stats.json"
 FLOOR = 95.7
 #: The number the Tier-0 invariant claims. Printed, not enforced, until it is real.
 INVARIANT_TARGET = 90.0
+#: The survivor count the 95.7% floor was measured at (18, all individually
+#: documented as equivalent mutants — see the module docstring). The
+#: percentage alone cannot catch every regression: a change that adds many
+#: new mutants, most freshly killed but a few newly surviving, can dilute
+#: those new survivors into a score that still clears FLOOR. Gating the raw
+#: count too closes that gap — raise this only alongside a real triage that
+#: documents each new equivalent mutant by name, the same discipline FLOOR
+#: already follows.
+MAX_SURVIVORS = 18
 
 
 def _run(*argv: str) -> int:
@@ -87,6 +104,54 @@ def _run(*argv: str) -> int:
     ).returncode
 
 
+def _decide(stats: dict[str, int]) -> tuple[int, list[str]]:
+    """Pure decision logic, isolated from the subprocess/file-I/O in ``main()``
+    so it is directly unit-testable (see ``tests/test_mutation_gate.py``).
+
+    Returns ``(exit_code, messages)`` — messages are the exact lines ``main()``
+    prints, in order; callers do not need to also re-derive the score.
+    """
+    killed, survived = stats["killed"], stats["survived"]
+    decided = killed + survived
+    if decided == 0:
+        return 2, ["mutation gate: no mutant was decided — the harness ran on nothing"]
+
+    # Rounded to the same 1-decimal precision FLOOR itself is documented and
+    # compared at: the raw ratio for the exact measurement FLOOR was set from
+    # (400 killed, 18 survived) is 95.6938...%, which is < 95.7 by strict
+    # floating-point comparison even though it rounds to the documented
+    # figure. Comparing raw-vs-rounded made the gate fail its own baseline.
+    score = round(100.0 * killed / decided, 1)
+    messages = [
+        f"mutation score: {score:.1f}%  "
+        f"({killed} killed, {survived} survived, {stats['no_tests']} with no covering test)",
+        f"floor: {FLOOR:.1f}%   Tier-0 invariant target: {INVARIANT_TARGET:.1f}%",
+    ]
+
+    if score < FLOOR:
+        messages.append(
+            f"FAILED: mutation score {score:.1f}% is below the {FLOOR:.1f}% floor. "
+            "A test that used to kill a mutant no longer does."
+        )
+        return 1, messages
+    if survived > MAX_SURVIVORS:
+        messages.append(
+            f"FAILED: {survived} mutants survived, above the {MAX_SURVIVORS} "
+            "documented-equivalent baseline, even though the score clears the "
+            "floor. A change added new mutants that diluted new survivors "
+            "into an unchanged-or-higher percentage — kill the new "
+            "survivor(s) with a real test, or document them as equivalent "
+            "and raise MAX_SURVIVORS to match."
+        )
+        return 1, messages
+    if score < INVARIANT_TARGET:
+        messages.append(
+            f"note: {INVARIANT_TARGET - score:.1f} points below the documented invariant; "
+            "the gap is tracked, not gated."
+        )
+    return 0, messages
+
+
 def main() -> int:
     # mutmut exits non-zero when mutants survive, which is the normal state here;
     # the gate is the score, so its exit code is deliberately not propagated.
@@ -96,32 +161,13 @@ def main() -> int:
         return 2
 
     stats = json.loads(STATS.read_text(encoding="utf-8"))
-    killed, survived = stats["killed"], stats["survived"]
-    decided = killed + survived
-    if decided == 0:
-        print("mutation gate: no mutant was decided — the harness ran on nothing", file=sys.stderr)
-        return 2
-
-    score = 100.0 * killed / decided
-    print(
-        f"mutation score: {score:.1f}%  "
-        f"({killed} killed, {survived} survived, {stats['no_tests']} with no covering test)"
-    )
-    print(f"floor: {FLOOR:.1f}%   Tier-0 invariant target: {INVARIANT_TARGET:.1f}%")
-
-    if score < FLOOR:
+    exit_code, messages = _decide(stats)
+    stream = sys.stderr if exit_code != 0 else sys.stdout
+    for message in messages:
         print(
-            f"FAILED: mutation score {score:.1f}% is below the {FLOOR:.1f}% floor. "
-            "A test that used to kill a mutant no longer does.",
-            file=sys.stderr,
+            message, file=stream if message.startswith(("FAILED", "mutation gate:")) else sys.stdout
         )
-        return 1
-    if score < INVARIANT_TARGET:
-        print(
-            f"note: {INVARIANT_TARGET - score:.1f} points below the documented invariant; "
-            "the gap is tracked, not gated."
-        )
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

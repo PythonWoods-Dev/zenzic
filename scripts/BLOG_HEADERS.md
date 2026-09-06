@@ -11,7 +11,7 @@ navigation, and hosting it there would mean declaring nav exemptions purely to
 accommodate build tooling.
 
 Every header listed here is a real `freeze` capture of real Zenzic output against
-a real fixture — never a mock, never hand-edited (Rule 27). This manifest exists
+a real fixture — never a mock, never hand-edited. This manifest exists
 so a regeneration never has to be reverse-engineered from a `.webp`.
 
 > **Status: dormant.** The blog is currently text-only — no post embeds an image,
