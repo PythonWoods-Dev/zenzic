@@ -406,22 +406,36 @@ class TestGuardScanFailsClosedOnUnreadableFiles:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         secret = self._repo(tmp_path)
-        secret.chmod(0o000)
-        try:
-            monkeypatch.chdir(tmp_path)
-            result = CliRunner().invoke(app, ["guard", "scan"], catch_exceptions=False)
-            assert result.exit_code != 0, (
-                "the secret gate reported a clean bill over a file it could not read — "
-                f"got exit {result.exit_code}:\n{result.output}"
-            )
-            assert "Secret Guard clean" not in result.output, (
-                f"output claims cleanliness it did not verify:\n{result.output}"
-            )
-            assert "could not read" in result.output, (
-                f"the gate must say what it failed to verify:\n{result.output}"
-            )
-        finally:
-            secret.chmod(0o644)
+
+        # chmod(0o000) does not make a file unreadable to its own creator on
+        # Windows -- the owner-permission bits it clears have no equivalent
+        # there, so the file stayed readable and this test never exercised the
+        # unreadable-file path at all on that platform (found via a real
+        # Windows CI run, not assumed). Simulating the OSError directly at the
+        # read call exercises the exact same code path -- _scan_file_for_secrets'
+        # `except (OSError, UnicodeDecodeError)` handler -- on every platform,
+        # which is the actual thing this test verifies; chmod was only ever the
+        # POSIX-specific means of inducing it.
+        real_read_text = Path.read_text
+
+        def _deny_read(self: Path, *args: object, **kwargs: object) -> str:
+            if self == secret:
+                raise PermissionError(13, "Permission denied", str(secret))
+            return real_read_text(self, *args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(Path, "read_text", _deny_read)
+        monkeypatch.chdir(tmp_path)
+        result = CliRunner().invoke(app, ["guard", "scan"], catch_exceptions=False)
+        assert result.exit_code != 0, (
+            "the secret gate reported a clean bill over a file it could not read — "
+            f"got exit {result.exit_code}:\n{result.output}"
+        )
+        assert "Secret Guard clean" not in result.output, (
+            f"output claims cleanliness it did not verify:\n{result.output}"
+        )
+        assert "could not read" in result.output, (
+            f"the gate must say what it failed to verify:\n{result.output}"
+        )
 
     def test_readable_repo_still_reports_clean(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
