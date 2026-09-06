@@ -1,5 +1,5 @@
 ---
-description: "Zero-Trust CI/CD Quality Gate integration, SARIF output, GitHub Actions, and the Exit Code Contract."
+description: "Zero-Trust CI/CD Quality Gate integration, SARIF and GitLab Code Quality output, GitHub Actions, and the Exit Code Contract."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
@@ -9,7 +9,7 @@ description: "Zero-Trust CI/CD Quality Gate integration, SARIF output, GitHub Ac
 
 Documentation drift is silent until a customer encounters a broken link in production or an unredacted API token reaches a public repository. Traditional CI linters attempt to catch syntax flaws, but fail to enforce structural contracts or prevent secret leaks before merge.
 
-Zenzic provides a **Zero-Trust CI/CD Quality Gate**. The core engine evaluates your documentation repository, computes a deterministic Document Quality Score (DQS), and emits native SARIF (Static Analysis Results Interchange Format) output directly into GitHub Code Scanning and CI pipelines.
+Zenzic provides a **Zero-Trust CI/CD Quality Gate**. The core engine evaluates your documentation repository, computes a deterministic Documentation Quality Score (DQS), and emits native SARIF (Static Analysis Results Interchange Format) output directly into GitHub Code Scanning and CI pipelines.
 
 ---
 
@@ -54,7 +54,7 @@ flowchart TD
 
 ## Exit Code Contract
 
-Zenzic enforces a non-negotiable exit code contract across all operating systems, CI runners, and output formats (`text`, `json`, `sarif`):
+Zenzic enforces a non-negotiable exit code contract across all operating systems, CI runners, and output formats (`text`, `json`, `sarif`, `github-annotations`, `gitlab-codequality`):
 
 !!! danger "Exit Code Contract"
     - **`Exit 0` — Success**: All statically-detectable links, anchors, references, and structural rules passed (or warnings suppressed within budget).
@@ -260,15 +260,23 @@ invocation only.
       stage: test
       image: ghcr.io/astral-sh/uv:latest
       script:
-        - uvx zenzic@0.30.0 check all --ci --format json > zenzic-report.json
+        - uvx zenzic@0.30.0 check all --ci --format gitlab-codequality > gl-code-quality-report.json
       artifacts:
-        paths:
-          - zenzic-report.json
+        reports:
+          codequality: gl-code-quality-report.json
     ```
 
-    Zenzic's `--format json` output is a category-keyed object, not GitLab's required
-    `codequality` array-of-objects schema — do not declare it under `artifacts.reports.codequality`.
-    Upload it as a plain artifact (above) for manual inspection or a custom conversion step.
+    `--format gitlab-codequality` emits GitLab's Code Quality schema directly, so the report
+    can be declared under `artifacts.reports.codequality` and findings appear inline on the
+    merge request rather than only as a downloadable file.
+
+    `--ci` composes with it: the flag only substitutes `github-annotations` when the format
+    is still the default `text`, so here it contributes just its other effects (warnings
+    promoted to errors, header suppressed).
+
+    If you would rather have the raw findings for a custom dashboard, `--format json` still
+    produces Zenzic's own category-keyed object — but that shape is not GitLab's schema, so
+    upload it under `artifacts.paths`, never under `artifacts.reports.codequality`.
 
 ---
 

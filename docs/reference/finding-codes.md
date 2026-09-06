@@ -1055,7 +1055,7 @@ Live-verified: the real elapsed wall-clock time before `zenzic check all` return
 
 **Severity:** `info` · **Penalty:** none · **Exit:** 0 · **Suppressible:** Yes (informational)
 
-No `.md` / `.md` files found in the resolved `docs_root` after all exclusion layers. Suppressed in machine-output formats (`json`, `sarif`).
+No `.md` / `.md` files found in the resolved `docs_root` after all exclusion layers. Suppressed in machine-output formats (`json`, `sarif`, `gitlab-codequality`).
 
 **Fix:**
 
@@ -1067,7 +1067,7 @@ No `.md` / `.md` files found in the resolved `docs_root` after all exclusion lay
 ## Reserved Codes (Inactive) {#reserved-codes}
 
 !!! note "Runtime-inactive by contract"
-    The codes in this section are defined in the Zenzic registry and reserved for engine implementations. They are **not emitted at runtime** and have **no impact on the Deterministic Quality Score**.
+    The codes in this section are defined in the Zenzic registry and reserved for engine implementations. They are **not emitted at runtime** and have **no impact on the Documentation Quality Score**.
 
 ---
 

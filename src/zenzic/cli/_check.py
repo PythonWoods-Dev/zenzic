@@ -55,6 +55,7 @@ from ._governance import (
     SuppressionAudit,
     _apply_directory_policies,
     _apply_per_file_ignores,
+    build_cap_exceeded_codequality_payload,
     build_cap_exceeded_json_payload,
     build_cap_exceeded_sarif_payload,
     collect_inline_suppression_stats,
@@ -1661,7 +1662,10 @@ def check_all(
         None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
     ),
     output_format: str = typer.Option(
-        "text", "--format", "-f", help="Output format: text, json, sarif, or github-annotations."
+        "text",
+        "--format",
+        "-f",
+        help="Output format: text, json, sarif, github-annotations, or gitlab-codequality.",
     ),
     ci: bool = typer.Option(
         False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
@@ -1777,7 +1781,7 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
-    _shared._validate_output_format(output_format, _shared._ANNOTATION_FORMATS)
+    _shared._validate_output_format(output_format, _shared._CODEQUALITY_FORMATS)
     _t_init_start = time.perf_counter()
     _validate_only_flag(only)
 
@@ -1859,6 +1863,8 @@ def check_all(
                     indent=2,
                 )
             )
+        elif output_format == "gitlab-codequality":
+            print(json.dumps(build_cap_exceeded_codequality_payload(suppression_audit), indent=2))
         elif output_format == "github-annotations":
             print(
                 f"::error title=Zenzic::Suppression CAP exceeded: {suppression_audit.total} > {suppression_audit.cap}"
@@ -2007,6 +2013,22 @@ def check_all(
         _engine = _build_rule_engine(config)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(all_findings, __version__, rules_map=_rules_map)
+        _evaluate_security_exit(all_findings)
+
+        if active_baseline is not None and not effective_exit_zero:
+            unbaselined = sum(
+                1 for f in all_findings if not f.is_baselined and f.severity == "error"
+            )
+            if unbaselined or _score_report.score < active_baseline.score:
+                raise typer.Exit(1)
+        elif not effective_exit_zero:
+            errors_count = sum(1 for f in all_findings if f.severity == "error")
+            if errors_count:
+                raise typer.Exit(1)
+        return
+    elif output_format == "gitlab-codequality":
+        _shared._output_codequality_findings(all_findings)
+
         _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:

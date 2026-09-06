@@ -41,7 +41,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--format` | `-f` | `text` | Output format: `text`, `json`, or `sarif`. |
+    | `--format` | `-f` | `text` | Output format: `text`, `json`, or `sarif`. `check all` and `check links` also accept `github-annotations`; `check all` additionally accepts `gitlab-codequality`. |
     | `--ci` | — | `false` | Run in CI mode (forces `github-annotations` output format and `--strict`). |
     | `--only` | — | — | Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded. |
     | `--show-info` | — | `false` | Show info-level findings (e.g. circular links) in the report. |
@@ -88,7 +88,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 === "zenzic score"
 
-    Compute the weighted Document Quality Score (DQS 0–100) and category breakdown:
+    Compute the weighted Documentation Quality Score (DQS 0–100) and category breakdown:
 
     | Argument / Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
@@ -1309,6 +1309,68 @@ it validates SARIF integrity before upload (truncation guard) and surfaces findi
 inline PR annotations.
 
 ---
+
+## GitLab Code Quality output {#gitlab-codequality-output}
+
+`check all` supports `--format gitlab-codequality`, which emits GitLab's Code Quality report
+schema so findings appear inline on a merge request instead of only as a downloadable file.
+
+```bash
+zenzic check all --format gitlab-codequality > gl-code-quality-report.json
+```
+
+Declare it under `artifacts.reports.codequality` in `.gitlab-ci.yml` — see
+[Configure CI/CD](../how-to/configure-ci-cd.md).
+
+The output is a single JSON array. Each element carries exactly the fields the schema
+requires:
+
+| Field | Value |
+| :--- | :--- |
+| `description` | The finding's human-readable message. |
+| `check_name` | The finding code (`Z101`, `Z201`, …) — the stable identifier GitLab groups and filters on. |
+| `fingerprint` | SHA-256 digest identifying this violation across commits. |
+| `severity` | One of `info`, `minor`, `major`, `critical`, `blocker`. |
+| `location.path` | Path relative to the repository root, never prefixed with `./`. |
+| `location.lines.begin` | Integer line number. File-level findings report line `1`. |
+
+### Severity mapping
+
+GitLab's severity vocabulary differs from Zenzic's, so the two are mapped explicitly:
+
+| Zenzic severity | GitLab severity |
+| :--- | :--- |
+| `security_breach` | `blocker` |
+| `security_incident` | `critical` |
+| `error` | `major` |
+| `warning` | `minor` |
+| `info` | `info` |
+
+A severity outside Zenzic's own set — possible from a plugin rule — maps to `minor` rather
+than being passed through. An unrecognised value would make the entire report unparseable,
+taking every other finding in the run with it.
+
+### Fingerprint stability
+
+The fingerprint deliberately **excludes** the line number. GitLab uses it to recognise the
+same violation across commits; including the line would report every finding below an
+inserted paragraph as newly introduced. Two identical findings in one file are instead
+distinguished by their order within the file, so fingerprints stay unique without becoming
+volatile.
+
+For a credential finding, the matched text contributes to the digest but is never emitted —
+the report contains the hash, not the secret.
+
+### Suppression cap failures
+
+When `governance.suppression_cap_fail_hard` aborts the run, the report contains a single
+`blocker` violation named `SUPPRESSION_CAP_EXCEEDED`, anchored to `.zenzic.toml`. An empty
+report would be displayed by GitLab as "no code quality issues" — a clean merge request for
+a failed pipeline.
+
+!!! note "Machine Silence — Rule R20"
+    As with `json` and `sarif`, all Rich banners and informational panels are suppressed on
+    `stdout` when this format is active.
 
 ## Engine override
 

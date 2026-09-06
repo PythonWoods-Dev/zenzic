@@ -22,7 +22,7 @@ Four surfaces, in descending order of how loudly a change to them will be felt.
 | Surface | Why it is load-bearing |
 | :--- | :--- |
 | **Exit codes** | The only part of the output a CI gate is guaranteed to read. A changed exit code silently changes what passes. |
-| **Machine-readable output** | `--format json`, `sarif`, `github-annotations`. Consumers parse these by field name; a renamed or removed field breaks them without an error message. |
+| **Machine-readable output** | `--format json`, `sarif`, `github-annotations`, `gitlab-codequality`. Consumers parse these by field name; a renamed or removed field breaks them without an error message. The last two are additionally bound by an *external* schema — GitHub's annotation syntax and GitLab's Code Quality schema — so a field is not ours to rename even when no Zenzic consumer reads it. |
 | **Command and option names** | A removed flag is a hard failure at invocation; a *repurposed* flag is worse, because it succeeds and does something else. |
 | **Finding-code identity** | `Z201` must always mean what `Z201` meant. Baselines, suppression files and `--only` lists are stored by code. |
 

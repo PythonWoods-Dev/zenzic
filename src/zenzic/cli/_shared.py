@@ -9,6 +9,7 @@ No other CLI module may instantiate Console or Panel directly.
 from __future__ import annotations
 
 import difflib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -166,13 +167,22 @@ _NO_CONFIG_HINT = Panel(
 )
 
 
-_MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif"})
+#: Formats whose stdout must stay valid against a schema -- no Rich panels, no
+#: hints, nothing but the document. ``gitlab-codequality`` belongs here for the
+#: same reason ``json`` does: a single stray line makes the artifact
+#: unparseable, and GitLab reports that as "no results" rather than as an error.
+_MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif", "gitlab-codequality"})
 
 #: Formats every ``check`` subcommand renders. ``check all`` and ``check links``
 #: additionally emit ``github-annotations``; the rest genuinely do not implement
 #: it, so accepting it there produced plain text with no error.
 _BASE_FORMATS: tuple[str, ...] = ("text", "json", "sarif")
 _ANNOTATION_FORMATS: tuple[str, ...] = (*_BASE_FORMATS, "github-annotations")
+#: ``check all`` only. A GitLab Code Quality report describes a whole pipeline
+#: job, and the per-aspect subcommands each see one slice of the findings --
+#: uploading one of those as the job's report would silently shrink the merge
+#: request's view to that slice.
+_CODEQUALITY_FORMATS: tuple[str, ...] = (*_ANNOTATION_FORMATS, "gitlab-codequality")
 
 
 def _validate_output_format(output_format: str, supported: tuple[str, ...]) -> None:
@@ -188,7 +198,7 @@ def _validate_output_format(output_format: str, supported: tuple[str, ...]) -> N
         return
     options = ", ".join(f"[bold]{f}[/]" for f in supported)
     hint = ""
-    if output_format in _ANNOTATION_FORMATS:
+    if output_format in _CODEQUALITY_FORMATS:
         hint = (
             f"\n\n  [dim]{output_format!r} is a valid format for other commands, "
             f"but this one does not render it.[/]"
@@ -362,6 +372,105 @@ _SARIF_SECURITY_SEVERITY: dict[str, str] = {
     "security_breach": "9.5",
     "security_incident": "9.0",
 }
+
+
+#: Zenzic severity -> GitLab Code Quality severity.
+#:
+#: GitLab's documented enum is exactly ``info``, ``minor``, ``major``,
+#: ``critical``, ``blocker`` (lowercase; nothing states it is case-insensitive,
+#: so it is treated as case-sensitive). A value outside that set does not
+#: degrade to a default -- it makes the whole report unparseable, taking every
+#: other finding in the run down with it. That is why the fallback below is a
+#: legal value rather than the input, and why a test asserts the table's own
+#: values are a subset of the enum.
+_GITLAB_SEVERITY: dict[str, str] = {
+    "security_breach": "blocker",
+    "security_incident": "critical",
+    "error": "major",
+    "warning": "minor",
+    "info": "info",
+}
+
+
+def _codequality_fingerprint(finding: Finding, occurrence: int) -> str:
+    """A stable, unique identifier for one violation.
+
+    GitLab identifies a violation *by* this value: two findings sharing one
+    fingerprint are one violation to GitLab, and one of them silently
+    disappears from the merge request.
+
+    The line number is deliberately **not** hashed. GitLab uses the fingerprint
+    to recognise the same violation across commits, so hashing the line would
+    report every finding below an inserted paragraph as newly introduced. What
+    disambiguates two identical findings in one file is instead ``occurrence``,
+    their index among identical siblings in a deterministically sorted list --
+    stable under edits elsewhere in the file, unique where it has to be.
+
+    ``match_text`` is included because it distinguishes two genuinely different
+    violations that share a message, and it is safe to include *because it is
+    hashed*: the digest is emitted, never the matched text, which for a
+    credential finding is the secret itself.
+    """
+    material = "\x00".join(
+        (
+            finding.rel_path.replace("\\", "/"),
+            finding.code,
+            finding.message,
+            finding.match_text,
+            str(occurrence),
+        )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _codequality_payload(findings: list[Finding]) -> list[dict[str, Any]]:
+    """Build GitLab's Code Quality report: a single array of violation objects.
+
+    Pure and deterministic -- it returns the structure rather than printing it,
+    so the schema can be asserted directly instead of through parsed stdout.
+    """
+    sorted_findings = sorted(
+        findings,
+        key=lambda f: (f.rel_path.replace("\\", "/"), max(f.line_no, 1), f.code, f.message),
+    )
+
+    seen: dict[tuple[str, str, str, str], int] = {}
+    entries: list[dict[str, Any]] = []
+    for f in sorted_findings:
+        # Path must be relative to the repository root with no "./" prefix --
+        # GitLab's troubleshooting guide names that prefix as a cause of a
+        # report that parses but displays nothing.
+        path = f.rel_path.replace("\\", "/")
+        while path.startswith("./"):
+            path = path[2:]
+
+        key = (path, f.code, f.message, f.match_text)
+        occurrence = seen.get(key, 0)
+        seen[key] = occurrence + 1
+
+        entries.append(
+            {
+                "description": f.message,
+                # The stable rule id, not the message: GitLab groups and filters
+                # on check_name, and a message carrying a path or a count would
+                # make every occurrence its own "check".
+                "check_name": f.code,
+                "fingerprint": _codequality_fingerprint(f, occurrence),
+                "severity": _GITLAB_SEVERITY.get(f.severity, "minor"),
+                "location": {
+                    "path": path,
+                    # line_no == 0 means "the file itself" internally. Zero is
+                    # not a line number; clamp as the SARIF emitter does.
+                    "lines": {"begin": max(f.line_no, 1)},
+                },
+            }
+        )
+    return entries
+
+
+def _output_codequality_findings(findings: list[Finding]) -> None:
+    """Print the Code Quality report to stdout. Nothing else may be printed."""
+    print(json.dumps(_codequality_payload(findings), indent=2))
 
 
 def _sarif_level(severity: str) -> str:

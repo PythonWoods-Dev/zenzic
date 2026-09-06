@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -301,6 +302,41 @@ def build_cap_exceeded_json_payload(suppression_audit: SuppressionAudit) -> dict
         "remediation": suppression_remediation_steps(),
         "playbook": "https://zenzic.dev/developers/how-to/release-governance-protocol",
     }
+
+
+def build_cap_exceeded_codequality_payload(
+    suppression_audit: SuppressionAudit,
+) -> list[dict[str, Any]]:
+    """Build a GitLab Code Quality report for a suppression-cap failure.
+
+    The cap breach aborts the run before any finding exists, so this is the one
+    Code Quality report Zenzic emits that is not derived from findings. It still
+    has to be a valid one: an empty or absent artifact is displayed by GitLab as
+    "no code quality issues", which would show a clean merge request for a
+    pipeline that failed. A single ``blocker`` violation says the opposite,
+    loudly, in the place a reviewer is already looking.
+
+    Anchored to ``.zenzic.toml`` line 1 -- the same location the SARIF payload
+    uses -- because that is where the cap is configured and where the remedy is
+    applied. The fingerprint is a constant: there is only ever one of these per
+    report, and a stable value lets GitLab recognise it as the same unresolved
+    breach across commits rather than a new one each pipeline.
+    """
+    message = (
+        f"Suppression cap exceeded: {suppression_audit.total}/{suppression_audit.cap} "
+        f"({suppression_audit.excess} over). Architectural debt limit reached. "
+        "Remediation: "
+        + " ".join(f"{i}. {step}" for i, step in enumerate(suppression_remediation_steps(), 1))
+    )
+    return [
+        {
+            "description": message,
+            "check_name": "SUPPRESSION_CAP_EXCEEDED",
+            "fingerprint": hashlib.sha256(b"zenzic:SUPPRESSION_CAP_EXCEEDED").hexdigest(),
+            "severity": "blocker",
+            "location": {"path": ".zenzic.toml", "lines": {"begin": 1}},
+        }
+    ]
 
 
 def build_cap_exceeded_sarif_payload(

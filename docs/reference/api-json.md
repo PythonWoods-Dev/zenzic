@@ -177,6 +177,19 @@ Each rule descriptor under `runs[0].tool.driver.rules` includes rich taxonomy an
 
 ---
 
+## GitLab Code Quality Contract
+
+`zenzic check all --format gitlab-codequality` emits GitLab's Code Quality report schema — a
+single JSON array whose objects carry `description`, `check_name`, `fingerprint`, `severity`
+and `location.path` + `location.lines.begin`.
+
+Unlike the JSON and SARIF contracts above, this one is **not ours to version**: the shape is
+GitLab's, and Zenzic conforms to it. The severity mapping, fingerprint stability rules and
+suppression-cap behaviour are specified in
+[CLI Reference → GitLab Code Quality output](./cli.md#gitlab-codequality-output).
+
+Available on `check all` only.
+
 ## Validation Guidance
 
 For strict machine consumers, validate payloads against `zenzic-output.schema.json` for JSON output or `tests/fixtures/sarif-2.1.0-schema.json` for SARIF output during CI.
