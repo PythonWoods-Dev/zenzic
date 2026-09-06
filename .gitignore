@@ -45,6 +45,10 @@ zenzic.code-workspace
 .agent/
 .deepcode/
 .redteam/
+# Private-tree recipes extracted from the public justfile (governance-manifest
+# check, priority-table report) — loaded via just's `import?` when present,
+# silently absent otherwise so a fresh clone's public recipes still all work.
+.justfile.local
 
 # ────────────────────────────────────────────────────────────────────────────
 # Python Build & Distribution

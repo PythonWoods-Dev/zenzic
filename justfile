@@ -18,6 +18,11 @@
 #   just verify      — Final Guard (pre-commit + test-cov + check)
 #   just clean       — remove generated artefacts
 
+# Private-tree recipes (governance-manifest check, priority-table report) live
+# in .justfile.local, gitignored and absent on a fresh clone -- every recipe
+# below still works without it (V031_EXTRACT_PRIVATE_RECIPES_FROM_PUBLIC_JUSTFILE).
+import? '.justfile.local'
+
 set shell := ["bash", "-c"]
 
 runner     := "uv run --active"
@@ -91,7 +96,12 @@ lint:
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ (coverage enforced) → structural audit → score + stamp.
-verify: _check-hooks _check-governance release-contracts check-pinning docs-build
+# The governance-manifest check (_check-governance) is not a static dependency:
+# it is defined only in the optional, gitignored .justfile.local, so a fresh
+# clone without that file must still parse and run this recipe cleanly rather
+# than fail with an unknown-dependency error at parse time.
+verify: _check-hooks release-contracts check-pinning docs-build
+    @bash -c 'if [ -f .justfile.local ]; then just _check-governance; fi'
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
@@ -172,30 +182,6 @@ _check-hooks:
     fi
     echo "git hooks installed (pre-commit, pre-push)"
 
-_check-governance:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # The governance trees (.claude/, .human/) are gitignored by design, so git
-    # records neither their presence nor their loss. The manifest at the repo
-    # root is the substitute audit trail; this recipe makes it a gate rather
-    # than a hand-run check (Rule 31: a check nobody is obliged to walk through
-    # fails exactly as a missing check does).
-    if [ -n "${CI:-}" ]; then
-        echo "CI environment: governance-manifest check skipped (the trees are gitignored and absent in CI)"
-        exit 0
-    fi
-    if [ ! -f .governance-manifest.json ] && [ -z "$(ls -A .claude 2>/dev/null)" ]; then
-        echo "no governance trees and no manifest on this machine: check skipped"
-        exit 0
-    fi
-    if [ -f .governance-manifest.json ] && [ ! -f .claude/scripts/governance_manifest.py ]; then
-        echo -e "\033[31mBLOCKED: a governance manifest exists but .claude/scripts/governance_manifest.py does not.\033[0m"
-        echo "  The governance tree this manifest measures has been lost or emptied. Restore it before pushing."
-        exit 1
-    fi
-    # exit 1 = drift, 2 = no baseline yet (run: python3 .claude/scripts/governance_manifest.py generate)
-    python3 .claude/scripts/governance_manifest.py verify
-
 release-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -269,42 +255,6 @@ docs-build:
 # into pre-commit and CI.
 blog-link-schedule:
 	uv run python3 scripts/check_blog_link_schedule.py --schedule
-
-# List every open (`[ ]`) row in the priority table, grouped by priority, so
-# nothing open is merged/tagged/published on the strength of "nobody asked."
-# Rule 37 (04-ai-operational-protocols.md): an issue this Team Manager already
-# knows about and does not restate before a release-gating action is a defect
-# the Tech Lead is deciding about without knowing it exists. Always exits 0 --
-# this is the proactive-disclosure report Rule 37 requires be run before any
-# merge/tag/publish step, not a gate that can block one; it also cannot see an
-# issue that was never logged into the table in the first place (that half of
-# Rule 37 stays a judgment call, same limit Rule 31/36 name for their checks).
-pending-review:
-	#!/usr/bin/env bash
-	set -euo pipefail
-	table=".claude/state/03-priority-table.md"
-	if [ ! -f "$table" ]; then
-	    echo "no $table on this machine: nothing to report"
-	    exit 0
-	fi
-	total=$(grep -c '^| `\[ \]`' "$table" || true)
-	if [ "$total" -eq 0 ]; then
-	    echo "priority table: 0 open rows"
-	    exit 0
-	fi
-	echo "priority table: $total open row(s), by priority:"
-	# The priority cell is not always a bare `**P1**` -- some rows append an
-	# annotation before the closing bold marker (e.g. `**P1 -- CONFIRMED LIVE,
-	# LOGGED NOT FIXED (...)**`), so match on the `**P<n>` prefix, not the
-	# whole cell.
-	for p in P0 P1 P2 P3 P4; do
-	    { grep "^| \`\[ \]\` | \*\*${p}[^0-9]" "$table" || true; } | while IFS='|' read -r _ _box _prio id title _rest; do
-	        echo "  [$p] ${id# } — ${title# }"
-	    done
-	done
-	{ grep "^| \`\[ \]\`" "$table" | grep -Ev '\*\*P[0-4][^0-9]' || true; } | while IFS='|' read -r _ _box _prio id title _rest; do
-	    echo "  [unclassified] ${id# } — ${title# }"
-	done
 
 # Optimize blog images and animated GIFs for web performance
 optimize-assets:
