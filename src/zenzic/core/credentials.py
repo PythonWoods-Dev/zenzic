@@ -636,7 +636,7 @@ def safe_read_line(
     to the caller, preventing the secret from entering any parser (YAML,
     Markdown, Regex).
 
-    This function is the **IO Middleware** mandated by the Tech Lead directive:
+    This function is the **IO Middleware** required per internal architecture decision:
     every line read during metadata extraction (frontmatter for slug, tags,
     draft status) must pass through the credential scanner before any parser sees it.
 

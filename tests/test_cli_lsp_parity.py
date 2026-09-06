@@ -15,7 +15,7 @@ permanent regression test rather than a one-off finding.
 
 This is not a substitute for the longer-term recommendation (extracting a
 shared orchestration primitive both paths converge on) — see that row for
-the architectural disposition, which remains open pending Tech Lead sign-off.
+the architectural disposition, which remains open pending internal sign-off.
 """
 
 from __future__ import annotations

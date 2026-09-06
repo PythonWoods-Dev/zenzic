@@ -2828,8 +2828,8 @@ def test_check_all_only_filter_excludes_z118(
 # ---------------------------------------------------------------------------
 # check all — --only must never silence the non-suppressible Z2xx security tier
 #
-# Tier-0 Exit Code Contract (CLAUDE.md): "Exit 2: Credential Scanner Breach
-# (Z201, Z204, Z205). Never suppressible." Forbidden Actions: "DO NOT suppress
+# Tier-0 Exit Code Contract: "Exit 2: Credential Scanner Breach
+# (Z201, Z204, Z205). Never suppressible." Project policy: "DO NOT suppress
 # Z2xx security codes. They are inviolable." Discovered live (V031_FOUNDATIONS_
 # THEME2_PROGRESSIVE_GATES_DRAFT, 2026-08-30): --only could silently drop the
 # entire security_findings list whenever "Z201" specifically was absent from

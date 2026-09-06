@@ -17,7 +17,7 @@ from pathlib import Path
 
 HERO = Path(__file__).resolve().parent.parent / "overrides/partials/homepage/hero.html"
 
-#: Byte-exact, from Rule 27 (`.claude/references/04-ai-operational-protocols.md`).
+#: Byte-exact, per internal brand/positioning policy.
 #: The em dash is U+2014 with no surrounding spaces. Do not reflow this string.
 CANONICAL = (
     "Formatters handle syntax. Prose linters handle grammar. Zenzic protects the "

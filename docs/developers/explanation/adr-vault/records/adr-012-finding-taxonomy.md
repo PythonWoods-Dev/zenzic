@@ -47,7 +47,7 @@ Freezing code identity (no reuse, no reassignment) exists for the same reason `N
 ## Invariants
 
 - Every finding code's leading digit places it in exactly one of the seven categories above; no code spans or straddles two categories.
-- `src/zenzic/core/codes.py`'s module docstring is the canonical, single source of truth for the current code registry — any other document listing codes (`docs/reference/finding-codes.md`, `.claude/references/03-dqs-and-mirror-law.md`) must match it, not restate an independent copy that could drift.
+- `src/zenzic/core/codes.py`'s module docstring is the canonical, single source of truth for the current code registry — any other document listing codes (`docs/reference/finding-codes.md`) must match it, not restate an independent copy that could drift.
 - A retired or removed finding code's number is never reassigned to a semantically different check.
 
 ---

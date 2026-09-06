@@ -13,7 +13,7 @@ dangling reference — a documented, deliberate override in
 reference hard-failed a plain ``zenzic check`` run with no ``--strict``
 flag, verified via live reproduction before this fix.
 
-The Tech Lead's decision: ``codes.py``'s "warning" classification is
+The internal architecture decision: ``codes.py``'s "warning" classification is
 authoritative. ``scanner.py``'s override is removed so Z301 behaves like
 any other warning-level finding (``--strict``-gated), matching its
 siblings Z302/Z303, which never had this override.

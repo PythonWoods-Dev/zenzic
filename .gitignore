@@ -16,15 +16,15 @@
 .zenzic.local.toml
 
 # ────────────────────────────────────────────────────────────────────────────
-# AI Orchestration & Private Workspace (Zero-Leak Governance)
+# Internal workspace and tooling configuration (not published)
 # ────────────────────────────────────────────────────────────────────────────
-# Private Tech Lead workspace (formerly .draft)
+# Internal workspace (formerly .draft)
 .architect/
-# Local AI routing rules (Trade Secret)
+# Local tool routing rules (internal)
 .clinerules
-# Cursor AI rules (Trade Secret)
+# Editor tool rules (internal)
 .cursorrules
-# AI Primers and Memory ledgers
+# Internal reference and memory ledgers
 .github/agents/
 # Legacy draft vaults
 .draft/
