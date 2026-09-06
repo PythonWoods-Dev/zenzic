@@ -23,14 +23,40 @@ adding two already-existing, self-contained unit-test files
 ``credentials.py`` internals directly and already covered real gaps (e.g. the
 ``_is_likely_placeholder`` case-fold direction, ``_normalize_line_for_scan``'s
 dangerous-character fast-path skip), they were simply never in the list the
-mutation run actually uses. Not every remaining survivor is a real gap of this
-shape; the rest is tracked as scheduled work, not gated further in this pass.
+mutation run actually uses.
 
-Gating at 90% today would fail every build; gating at the measured value and
-calling the invariant satisfied would be a workaround that changes what is shown
-rather than what is true. So this gate is a **ratchet**: it prevents the score
-from regressing while the gap to 90% is closed as its own work, and it prints
-the gap on every run so it cannot be forgotten.
+**Raised to 95.7%** (400 killed, 18 survived, 0 with no covering test) by a
+full triage of all 133 survivors then measured against this floor
+(``V031_MUTATION_SURVIVOR_TRIAGE_AND_KILL``). Two more already-existing,
+already-correct test files were in scope but not in this list
+(``test_forbidden_term_span_overlap.py``, whose thorough overlap-suppression
+tests alone closed 12 of ``scan_security_findings``'s 24 survivors) and one new
+file was added (``tests/test_credential_scanner_mutation_survivors.py``, 41
+tests) closing the rest: dead branches with zero coverage anywhere in the suite
+(the linear fallback of ``scan_line_for_forbidden_terms`` — the exact path
+``zenzic guard scan``, the pre-commit hook itself, always uses; the base64
+speculative-decode success path), unasserted ``SecurityFinding`` fields on
+otherwise-tested happy paths, and several ``continue``-vs-``break`` branch
+mutants where an already-seen secret type or an ambiguous credential line
+would otherwise have silently aborted scanning the rest of a line or file. No
+currently-shipped defect was found in the process — every gap was a missing
+assertion or an unexercised branch, not wrong behavior.
+
+The 18 remaining survivors are documented, individually, as equivalent
+mutants in that triage's own report and in this module's test file — not
+gated further because no real test can distinguish them from the code they
+mutate (an unreachable initial sentinel, a Python stdlib default that already
+matches the literal being removed, a window whose truncation can never reach
+content a real signature needs, and similar). This is why the floor sits at
+95.7% rather than 100%: the remaining gap is structural, not a queue of
+undone work.
+
+Gating at 90% before this triage would have failed every build; gating at the
+measured value and calling the invariant satisfied would have been a
+workaround that changes what is shown rather than what is true. So this gate
+is a **ratchet**: it prevents the score from regressing, and now that the
+measured value clears the documented 90% target, the invariant is genuinely
+met rather than merely tracked.
 
 Raise ``FLOOR`` whenever the score improves. Never lower it to make a build pass.
 """
@@ -47,7 +73,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STATS = REPO_ROOT / "mutants" / "mutmut-cicd-stats.json"
 
 #: Measured floor. See the module docstring before changing this.
-FLOOR = 67.0
+FLOOR = 95.7
 #: The number the Tier-0 invariant claims. Printed, not enforced, until it is real.
 INVARIANT_TARGET = 90.0
 
