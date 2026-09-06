@@ -32,27 +32,37 @@ runner = CliRunner()
 
 
 def test_placeholder_marker_detected_case_insensitive() -> None:
-    assert _is_likely_placeholder("sk-EXAMPLEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    assert _is_likely_placeholder("AKIAexample1234567890")
-    assert _is_likely_placeholder("ghp_PLACEHOLDER1234567890")
-    assert _is_likely_placeholder("sk-live-YOUR_API_KEY_HERE")
+    assert _is_likely_placeholder(
+        "sk-EXAMPLEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", secret_type="openai-api-key"
+    )
+    assert _is_likely_placeholder("AKIAexample1234567890", secret_type="aws-access-key")
+    # github-token is an unbounded signature: an attacker can append a marker
+    # to a live token and get exactly this answer, so the classifier now
+    # declines to answer at all for this family. "Not classifiable", not
+    # "not a placeholder" -- see test_placeholder_boundary_soundness.py.
+    assert not _is_likely_placeholder("ghp_PLACEHOLDER1234567890", secret_type="github-token")
+    assert _is_likely_placeholder("sk-live-YOUR_API_KEY_HERE", secret_type="stripe-live-key")
 
 
 def test_aws_documented_example_key_detected() -> None:
     """AWS's own publicly-documented example access key ID (from their docs)."""
-    assert _is_likely_placeholder("AKIAIOSFODNN7EXAMPLE")
+    assert _is_likely_placeholder("AKIAIOSFODNN7EXAMPLE", secret_type="aws-access-key")
 
 
 def test_repeated_character_run_detected() -> None:
     """A run of 8+ identical characters is a common dummy-token convention."""
-    assert _is_likely_placeholder("AKIAXXXXXXXXXXXXXXXX")
-    assert _is_likely_placeholder("sk-00000000000000000000000000000000000000000000")
+    assert _is_likely_placeholder("AKIAXXXXXXXXXXXXXXXX", secret_type="aws-access-key")
+    assert _is_likely_placeholder(
+        "sk-00000000000000000000000000000000000000000000", secret_type="openai-api-key"
+    )
 
 
 def test_genuine_looking_secret_not_flagged() -> None:
     """A realistic, high-entropy-looking token must not be misclassified."""
-    assert not _is_likely_placeholder("AKIAJ7ARBNTPDXVBQZ4A")
-    assert not _is_likely_placeholder("sk-proj-h3kD9fL2mQ8xR1vT6yN4wA7bC5eG0jK3pS9uV2z")
+    assert not _is_likely_placeholder("AKIAJ7ARBNTPDXVBQZ4A", secret_type="aws-access-key")
+    assert not _is_likely_placeholder(
+        "sk-proj-h3kD9fL2mQ8xR1vT6yN4wA7bC5eG0jK3pS9uV2z", secret_type="openai-api-key"
+    )
 
 
 # ── SecurityFinding construction sites set the field correctly ─────────────

@@ -103,10 +103,10 @@ class TestPlaceholderRunLengthBoundary:
         # A preceding different character exercises the run-restart logic too
         # (each new run must start counting from 1, not from a value already
         # close to the 8 threshold).
-        assert _is_likely_placeholder("X" + "A" * 7) is False
+        assert _is_likely_placeholder("X" + "A" * 7, secret_type="aws-access-key") is False
 
     def test_run_of_exactly_eight_is_a_placeholder(self) -> None:
-        assert _is_likely_placeholder("A" * 8) is True
+        assert _is_likely_placeholder("A" * 8, secret_type="aws-access-key") is True
 
 
 # NOTE: four mutants to `run_char`'s and `run_len`'s *initial* values

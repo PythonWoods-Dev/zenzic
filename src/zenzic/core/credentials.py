@@ -140,8 +140,15 @@ def _normalize_line_for_scan(line: str) -> str:
 # Per-pattern quick-prefix tuples: before invoking an RE2 search we verify that
 # at least one prefix is present via a cheap `in` check.  This reduces RE2
 # calls from N_patterns per passing line to at most 1 on average.
-_SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
-    ("openai-api-key", ("sk-",), re.compile(r"sk-[a-zA-Z0-9]{48}")),
+# Fourth element: ``bounded`` -- True when the pattern's length is fixed, so a
+# match cannot absorb characters an attacker appended after the real token.
+# It is not decoration: ``_is_likely_placeholder`` refuses to classify an
+# unbounded span, because a substring test over a span whose tail the attacker
+# controls returns whatever the attacker wants. Declaring it per signature
+# means adding a pattern forces the author to make the call explicitly rather
+# than inherit a default that happens to be wrong.
+_SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern, bool]] = [
+    ("openai-api-key", ("sk-",), re.compile(r"sk-[a-zA-Z0-9]{48}"), True),
     (
         "github-token",
         ("ghp_", "gho_", "ghu_", "ghs_", "ghr_", "GHP_", "GHO_", "GHU_", "GHS_", "GHR_"),
@@ -155,14 +162,20 @@ _SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
         # a missed real secret is worse than an extra flagged substring for
         # a non-suppressible security tier.
         re.compile(r"(?i)(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b"),
+        # Unbounded: stateless ghs_ tokens are JWT-shaped and variable-length,
+        # so there is no upper bound to pin the quantifier to.
+        False,
     ),
-    ("aws-access-key", ("AKIA",), re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("stripe-live-key", ("sk_live_",), re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
-    ("slack-token", ("xox",), re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
-    ("google-api-key", ("AIza",), re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
-    ("private-key", ("-----BEGIN",), re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
-    ("hex-encoded-payload", ("\\x",), re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
-    ("gitlab-pat", ("glpat-",), re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
+    ("aws-access-key", ("AKIA",), re.compile(r"AKIA[0-9A-Z]{16}"), True),
+    ("stripe-live-key", ("sk_live_",), re.compile(r"sk_live_[0-9a-zA-Z]{24}"), True),
+    # Unbounded: the {10,48} range lets an appended alphanumeric marker extend
+    # the match up to the ceiling.
+    ("slack-token", ("xox",), re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}"), False),
+    ("google-api-key", ("AIza",), re.compile(r"AIza[0-9A-Za-z\-_]{35}"), True),
+    ("private-key", ("-----BEGIN",), re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----"), True),
+    ("hex-encoded-payload", ("\\x",), re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}"), True),
+    # Unbounded: {20,} has no ceiling.
+    ("gitlab-pat", ("glpat-",), re.compile(r"glpat-[A-Za-z0-9\-_]{20,}"), False),
 ]
 
 # ── One gate, folded once ─────────────────────────────────────────────────────
@@ -179,9 +192,18 @@ _SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
 _QUICK_SUBSTRINGS_FOLDED: tuple[str, ...] = tuple(
     dict.fromkeys(s.casefold() for s in _QUICK_SUBSTRINGS)
 )
-_SECRETS_GATE: tuple[tuple[str, tuple[str, ...], re.RegexPattern], ...] = tuple(
-    (secret_type, tuple(dict.fromkeys(pfx.casefold() for pfx in prefixes)), pattern)
-    for secret_type, prefixes, pattern in _SECRETS
+_SECRETS_GATE: tuple[tuple[str, tuple[str, ...], re.RegexPattern, bool], ...] = tuple(
+    (secret_type, tuple(dict.fromkeys(pfx.casefold() for pfx in prefixes)), pattern, bounded)
+    for secret_type, prefixes, pattern, bounded in _SECRETS
+)
+
+#: Families whose matched span is trustworthy input for placeholder
+#: classification. Derived from the table so the two cannot drift.
+_BOUNDED_SECRET_TYPES: frozenset[str] = frozenset(
+    [secret_type for secret_type, _pfx, _pat, bounded in _SECRETS if bounded]
+    # Z204's span is `line[idx : idx + len(term)]` -- exactly the configured
+    # term, so it never had a tail an attacker could extend.
+    + ["FORBIDDEN_TERM"]
 )
 
 
@@ -276,7 +298,7 @@ _PLACEHOLDER_MARKERS: tuple[str, ...] = (
 )
 
 
-def _is_likely_placeholder(match_text: str) -> bool:
+def _is_likely_placeholder(match_text: str, *, secret_type: str) -> bool:
     """Deterministic, rule-based placeholder classification.
 
     True when *match_text* contains a well-known placeholder marker
@@ -285,7 +307,27 @@ def _is_likely_placeholder(match_text: str) -> bool:
     dummy-token conventions and do not occur in a real generated secret.
     Not a confidence score: a fixed lookup and a fixed structural check,
     nothing probabilistic (Tier-0 Invariant #1).
+
+    **Only classifies a span the attacker cannot extend.** This is a substring
+    test, so its answer belongs to whoever controls the tail of *match_text*.
+    Three signatures (``github-token``, ``slack-token``, ``gitlab-pat``) use
+    open-ended quantifiers, so appending ``example`` to a live token gets the
+    suffix swallowed into the match and flips the flag — turning a real secret
+    into one a reviewer skims past. For those families this returns ``False``
+    meaning *not classifiable*, never *not a placeholder*.
+
+    A tighter alphabet was the obvious alternative and was measured, not
+    assumed: removing ``.`` from the github class truncated a legitimate
+    550-character stateless ``ghs_`` token's match to 13 characters **and**
+    still admitted ``example`` and ``-example``. It cost real reporting
+    fidelity and closed nothing.
+
+    An unrecognised *secret_type* is treated as unbounded. A new signature
+    whose author forgot the flag loses a cosmetic tag; the alternative is
+    inheriting a hole in silence.
     """
+    if secret_type not in _BOUNDED_SECRET_TYPES:
+        return False
     upper = match_text.upper()
     if any(marker in upper for marker in _PLACEHOLDER_MARKERS):
         return True
@@ -328,7 +370,7 @@ def scan_url_for_secrets(
     if _folded_url is None:
         return
     _path: Path | None = None
-    for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
+    for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
         if not any(s in _folded_url for s in quick_prefixes):
             continue
         m = pattern.search(url)
@@ -342,7 +384,7 @@ def scan_url_for_secrets(
                 url=url,
                 col_start=m.start(),
                 match_text=m.group(0),
-                is_likely_placeholder=_is_likely_placeholder(m.group(0)),
+                is_likely_placeholder=_is_likely_placeholder(m.group(0), secret_type=secret_type),
             )
 
 
@@ -399,7 +441,7 @@ def scan_line_for_secrets(
         _gate_form = _gate_open(line_form)
         if _gate_form is None:
             continue
-        for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
+        for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
             if secret_type in seen:
                 continue
             if not any(s in _gate_form for s in quick_prefixes):
@@ -421,7 +463,9 @@ def scan_line_for_secrets(
                     url=line.strip(),  # always report the raw line for context
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
-                    is_likely_placeholder=_is_likely_placeholder(match_text),
+                    is_likely_placeholder=_is_likely_placeholder(
+                        match_text, secret_type=secret_type
+                    ),
                 )
 
     # ── Phase 3: Base64 speculative decoding (CEO-194) ────────────────────────
@@ -451,7 +495,7 @@ def scan_line_for_secrets(
             _folded_decoded = _gate_open(_decoded)
             if _folded_decoded is None:
                 continue
-            for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
+            for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
                 if secret_type in seen:
                     continue
                 if not any(s in _folded_decoded for s in quick_prefixes):
@@ -468,7 +512,9 @@ def scan_line_for_secrets(
                         url=line.strip(),
                         col_start=0,  # position in decoded text is meaningless in raw line
                         match_text=m.group(0),
-                        is_likely_placeholder=_is_likely_placeholder(m.group(0)),
+                        is_likely_placeholder=_is_likely_placeholder(
+                            m.group(0), secret_type=secret_type
+                        ),
                     )
 
 
@@ -521,7 +567,10 @@ def scan_line_for_forbidden_terms(
                 url=line.strip(),
                 col_start=m.start(),
                 match_text=m.group(0),
-                is_likely_placeholder=_is_likely_placeholder(m.group(0)),
+                is_likely_placeholder=_is_likely_placeholder(
+                    m.group(0),
+                    secret_type="FORBIDDEN_TERM",  # noqa: S106  # Finding category identifier
+                ),
             )
         return
 
@@ -537,7 +586,10 @@ def scan_line_for_forbidden_terms(
                 url=line.strip(),
                 col_start=idx,
                 match_text=line[idx : idx + len(term)],
-                is_likely_placeholder=_is_likely_placeholder(line[idx : idx + len(term)]),
+                is_likely_placeholder=_is_likely_placeholder(
+                    line[idx : idx + len(term)],
+                    secret_type="FORBIDDEN_TERM",  # noqa: S106  # Finding category identifier
+                ),
             )
             return  # one finding per line — first-match wins
 
@@ -598,7 +650,7 @@ def scan_lines_with_lookback(
             _folded_join = _gate_open(joined)
             if _folded_join is not None:
                 already_seen = seen_this_line | prev_seen
-                for secret_type, quick_prefixes, pattern in _SECRETS_GATE:
+                for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
                     if secret_type in already_seen:
                         continue
                     if not any(s in _folded_join for s in quick_prefixes):
@@ -612,7 +664,9 @@ def scan_lines_with_lookback(
                             url=raw_line.strip(),
                             col_start=0,
                             match_text=m.group(0),
-                            is_likely_placeholder=_is_likely_placeholder(m.group(0)),
+                            is_likely_placeholder=_is_likely_placeholder(
+                                m.group(0), secret_type=secret_type
+                            ),
                         )
                         seen_this_line.add(secret_type)
 
