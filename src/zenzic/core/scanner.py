@@ -229,9 +229,9 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
         codes' severity is.
     """
     try:
-        rel = str(sf.file_path.relative_to(repo_root))
+        rel = sf.file_path.relative_to(repo_root).as_posix()
     except ValueError:
-        rel = str(sf.file_path)
+        rel = sf.file_path.as_posix()
 
     if sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Categorical finding identifier
         code = "Z204"
