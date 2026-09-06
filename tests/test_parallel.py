@@ -238,7 +238,7 @@ def _run_with_recording_progress(tmp_path: Path) -> _RecordingProgress:
         config=config,
         validate_links=True,
         workers=1,
-        progress_instance=progress,  # type: ignore[arg-type]
+        progress_instance=progress,
     )
     return progress
 

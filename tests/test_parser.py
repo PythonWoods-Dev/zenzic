@@ -4,7 +4,7 @@
 
 import pytest
 
-from zenzic.core.ast import Document, Heading, Paragraph
+from zenzic.core.ast import Document, Heading, Paragraph, TextNode
 from zenzic.core.parser import parse, serialize
 
 
@@ -46,16 +46,23 @@ def test_ast_structure() -> None:
     assert h2.marker == "##"
     assert h2.prefix_space == " "
     assert len(h2.children) == 2
-    assert h2.children[0].text == "Title"
-    assert h2.children[1].text == "\n"
+    h2_child0, h2_child1 = h2.children
+    assert isinstance(h2_child0, TextNode)
+    assert isinstance(h2_child1, TextNode)
+    assert h2_child0.text == "Title"
+    assert h2_child1.text == "\n"
 
     p1 = ast.children[1]
     assert isinstance(p1, Paragraph)
-    assert p1.children[0].text == "\n"
+    p1_child0 = p1.children[0]
+    assert isinstance(p1_child0, TextNode)
+    assert p1_child0.text == "\n"
 
     p2 = ast.children[2]
     assert isinstance(p2, Paragraph)
-    assert p2.children[0].text == "A paragraph."
+    p2_child0 = p2.children[0]
+    assert isinstance(p2_child0, TextNode)
+    assert p2_child0.text == "A paragraph."
 
 
 def test_re2_compliance() -> None:

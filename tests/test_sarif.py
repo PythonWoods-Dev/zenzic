@@ -6,7 +6,8 @@ from pathlib import Path
 
 import jsonschema
 
-from zenzic.cli._shared import Finding, _output_sarif_findings
+from zenzic.cli._shared import _output_sarif_findings
+from zenzic.core.reporter import Finding
 from zenzic.sdk import RuleMetadata, ZenzicRuleV3
 
 

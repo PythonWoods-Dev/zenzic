@@ -43,12 +43,21 @@ def uri_to_path(uri: str) -> Path:
 
 
 class JsonRpcMessage(TypedDict, total=False):
-    """PEP 484 TypedDict for JSON-RPC 2.0 message validation."""
+    """PEP 484 TypedDict for JSON-RPC 2.0 message validation.
+
+    Covers both real shapes ``handle_message`` accepts: a Request/Notification
+    (``method``, optionally ``id``/``params``) and a Response (``id`` plus
+    ``result`` or ``error``, never ``method``) -- ``handle_message`` classifies
+    by the presence of ``result``/``error`` before ever looking at ``method``,
+    so both must be real fields here, not just request shape.
+    """
 
     jsonrpc: str
     id: int | str
     method: str
     params: dict[str, Any]
+    result: Any
+    error: dict[str, Any]
 
 
 class LanguageServer:

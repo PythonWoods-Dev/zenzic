@@ -74,11 +74,15 @@ def test_to_findings_reads_shared_file_content_only_once(tmp_path: Path) -> None
     real_read_text = Path.read_text
     call_count = 0
 
-    def _counting_read_text(self: Path, *args: object, **kwargs: object) -> str:
+    def _counting_read_text(
+        self: Path,
+        encoding: str | None = None,
+        errors: str | None = None,
+    ) -> str:
         nonlocal call_count
         if self == shared_file:
             call_count += 1
-        return real_read_text(self, *args, **kwargs)
+        return real_read_text(self, encoding, errors)
 
     with patch.object(Path, "read_text", _counting_read_text):
         findings = _to_findings(results, docs_root, tmp_path, ZenzicConfig())

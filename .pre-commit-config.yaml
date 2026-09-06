@@ -69,7 +69,7 @@ repos:
         # [project.dependencies] including google-re2. No additional_dependencies
         # needed here (that's only for mirrors-mypy repo hooks that run in
         # isolated virtualenvs outside the project's uv-managed environment).
-        entry: uv run mypy src/
+        entry: uv run mypy src/ tests/
         language: system
         types: [python]
         pass_filenames: false

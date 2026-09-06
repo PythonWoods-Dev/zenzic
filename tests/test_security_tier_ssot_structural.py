@@ -53,6 +53,10 @@ def _string_sets(tree: ast.AST) -> list[tuple[int, frozenset[str]]]:
             elts = list(node.args[0].elts)
         if elts is None:
             continue
+        # Both branches above only set elts when node is ast.Set or ast.Call,
+        # both ast.expr subclasses -- reasserted here since mypy does not
+        # carry that narrowing past the if/elif merge.
+        assert isinstance(node, ast.expr)
         members = {
             e.value for e in elts if isinstance(e, ast.Constant) and isinstance(e.value, str)
         }

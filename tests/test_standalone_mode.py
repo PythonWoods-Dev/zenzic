@@ -155,7 +155,10 @@ def test_get_adapter_auto_no_config_returns_standalone(tmp_path: Path) -> None:
     assert ctx.engine == "auto"
     adapter = get_adapter(ctx, tmp_path / "docs", tmp_path)
     assert isinstance(adapter, StandaloneAdapter)
-    assert ctx.engine == "standalone"
+    # mypy narrowed ctx.engine to Literal["auto"] from the assert above and
+    # cannot see that get_adapter() mutates it as a side effect -- a real
+    # mutation this test exists to verify, not a genuinely unreachable branch.
+    assert ctx.engine == "standalone"  # type: ignore[comparison-overlap]
 
 
 def test_get_adapter_auto_mkdocs_yml_routes_to_mkdocs(tmp_path: Path) -> None:

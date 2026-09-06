@@ -110,7 +110,10 @@ def _find_hardcodes_in_file(path: Path) -> list[str]:
             if kw.arg not in fields:
                 continue
             expected_type = fields[kw.arg]
-            if _is_bare_literal(kw.value, expected_type):
+            # _is_bare_literal already confirms isinstance(kw.value, ast.Constant)
+            # internally; repeated here so mypy narrows kw.value at this call
+            # site too, since that check does not cross the function boundary.
+            if _is_bare_literal(kw.value, expected_type) and isinstance(kw.value, ast.Constant):
                 violations.append(
                     f"{rel}:{kw.value.lineno}: {ctor_name}(..., {kw.arg}="
                     f"{kw.value.value!r}) is a bare literal -- must derive "

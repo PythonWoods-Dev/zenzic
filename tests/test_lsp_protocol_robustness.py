@@ -39,6 +39,7 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -55,7 +56,7 @@ def _server() -> tuple[LanguageServer, io.BytesIO]:
     return LanguageServer(stdin=io.BytesIO(), stdout=out), out
 
 
-def _frames(out: io.BytesIO) -> list[dict]:
+def _frames(out: io.BytesIO) -> list[dict[str, Any]]:
     """Parse every JSON-RPC frame written to the stream."""
     raw = out.getvalue().decode("utf-8", errors="replace")
     messages = []
@@ -117,7 +118,7 @@ class TestEveryRequestIsAnswered:
         ],
     )
     def test_a_request_gets_a_response_even_with_no_workspace(
-        self, method: str, params: dict
+        self, method: str, params: dict[str, Any]
     ) -> None:
         """No `rootUri` is a real client state — a single-file editor window."""
         srv, out = _server()
@@ -212,7 +213,7 @@ class TestAMalformedRangeDoesNotSilentlyDesync:
             {"range": {"start": {}, "end": {}}, "text": "X"},
         ],
     )
-    def test_the_buffer_never_silently_keeps_its_old_value(self, change: dict) -> None:
+    def test_the_buffer_never_silently_keeps_its_old_value(self, change: dict[str, Any]) -> None:
         dm = DocumentManager()
         dm.did_open({"textDocument": {"uri": "u", "text": "hello\n"}})
         dm.did_change({"textDocument": {"uri": "u"}, "contentChanges": [change]})

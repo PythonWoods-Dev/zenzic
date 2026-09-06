@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from zenzic.lsp.documents import DocumentManager
-from zenzic.lsp.server import LanguageServer
+from zenzic.lsp.server import JsonRpcMessage, LanguageServer
 
 
 def test_document_manager_incremental_sync() -> None:
@@ -1129,13 +1129,17 @@ def test_lsp_workspace_initialization_does_not_emit_dqs(tmp_path) -> None:
     stdout = io.BytesIO()
     server = LanguageServer(stdin=stdin, stdout=stdout)
 
-    init_msg = {
+    init_msg: JsonRpcMessage = {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "initialize",
         "params": {"rootUri": tmp_path.resolve().as_uri()},
     }
-    initialized_msg = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+    initialized_msg: JsonRpcMessage = {
+        "jsonrpc": "2.0",
+        "method": "initialized",
+        "params": {},
+    }
 
     server.handle_message(init_msg)
     server.handle_message(initialized_msg)
@@ -1474,6 +1478,9 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
     assert "mkdocs.yml" in server.adapter.watched_config_files
 
     index_uri = index_md.resolve().as_uri()
+    assert server.engine is not None
+    assert server.vsm is not None
+    assert server.overlay is not None
     results = server.engine.process_changes(server.vsm, server.overlay, {index_uri})
     diags = results.get(index_uri, [])
     z103_before = [d for d in diags if d.code == "Z103"]
@@ -1495,6 +1502,7 @@ def test_lsp_adapter_watched_config_files_hot_reload(tmp_path) -> None:
     # Re-evaluate index.md
     assert server.engine is not None
     assert server.vsm is not None
+    assert server.overlay is not None
     results_after = server.engine.process_changes(server.vsm, server.overlay, {index_uri})
     diags_after = results_after.get(index_uri, [])
     z103_after = [d for d in diags_after if d.code == "Z103"]
@@ -2959,6 +2967,7 @@ def test_is_full_rebuild_never_ghost_clears_a_live_security_only_finding(tmp_pat
     server._build_vsm_sync()
     server._sync_workspace_and_publish()
 
+    assert server.engine is not None
     assert leak_file.resolve() not in server.engine.md_contents_cache, (
         "fixture invalid: security-only path must stay out of md_contents_cache"
     )

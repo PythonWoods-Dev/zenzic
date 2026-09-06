@@ -242,6 +242,7 @@ class TestAuditSurvivesTheProcessBoundary:
     def test_the_worker_receives_and_establishes_the_context(self, tmp_path: Path) -> None:
         from zenzic.core.scanner import _chunk_worker
         from zenzic.core.sovereign_context import get_sovereign_context
+        from zenzic.models.config import ZenzicConfig
 
         seen: list[bool] = []
 
@@ -256,9 +257,9 @@ class TestAuditSurvivesTheProcessBoundary:
         try:
             for flag in (True, False):
                 with pytest.raises(RuntimeError):
-                    _chunk_worker(([tmp_path / "x.md"], scanner_mod.ZenzicConfig(), None, flag))
+                    _chunk_worker(([tmp_path / "x.md"], ZenzicConfig(), None, flag))
         finally:
-            scanner_mod._worker = original  # type: ignore[assignment]
+            scanner_mod._worker = original
 
         assert seen == [True, False], (
             "the chunk worker did not re-establish the sovereign context from its argument; "

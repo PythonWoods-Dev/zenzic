@@ -65,7 +65,7 @@ def fmt(session: nox.Session) -> None:
 def typecheck(session: nox.Session) -> None:
     """Run static type checking with mypy."""
     session.run(*_SYNC_LINT, external=True)
-    session.run("mypy", "src/")
+    session.run("mypy", "src/", "tests/")
 
 
 @nox.session(python="3.14")

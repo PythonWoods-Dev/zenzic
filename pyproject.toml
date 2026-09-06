@@ -184,6 +184,14 @@ strict = true
 ignore_missing_imports = true
 warn_unused_configs = false
 
+[[tool.mypy.overrides]]
+# This module deliberately constructs malformed adapters with wrong method
+# signatures to verify the adapter factory's own crash handling -- the
+# signature mismatches are the fixture, not an oversight. "Fixing" them would
+# defeat the test's entire purpose.
+module = "tests.test_adapter_factory_crash_handling"
+disable_error_code = ["override"]
+
 # ─── Pytest ───────────────────────────────────────────────────────────────────
 
 [tool.pytest.ini_options]
