@@ -16,38 +16,18 @@
 .zenzic.local.toml
 
 # ────────────────────────────────────────────────────────────────────────────
-# Internal workspace and tooling configuration (not published)
+# Internal workspace (not published)
 # ────────────────────────────────────────────────────────────────────────────
-# Internal workspace (formerly .draft)
-.architect/
-# Local tool routing rules (internal)
-.clinerules
-# Editor tool rules (internal)
-.cursorrules
-# Internal reference and memory ledgers
-.github/agents/
-# Legacy draft vaults
-.draft/
-/drafts/
-docs/.drafts/
-
 zenzic.code-workspace
-.gemini/
-.copilot/
-.cursor/
-.ai/
 .claude/
 .human/
-# Integrity manifest for the two trees above. It records their file paths, sizes
-# and hashes — never their content — but the paths alone would publish the shape
-# of a deliberately private tree, so it stays on the same side of the boundary.
+# Integrity manifest for the two directories above. It records their file
+# paths, sizes and hashes — never their content — but the paths alone would
+# publish the shape of a deliberately private tree, so it stays on the same
+# side of the boundary.
 .governance-manifest.json
-.agent/
-.deepcode/
-.redteam/
-# Private-tree recipes extracted from the public justfile (governance-manifest
-# check, priority-table report) — loaded via just's `import?` when present,
-# silently absent otherwise so a fresh clone's public recipes still all work.
+# Local-only recipes, loaded via just's `import?` when present and silently
+# absent otherwise, so a fresh clone's public recipes still all work.
 .justfile.local
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -189,19 +169,12 @@ Desktop.ini
 # Cloudflare Wrangler local cache
 .wrangler/
 
+# ────────────────────────────────────────────────────────────────────────────
+# Local scratch files
+# ────────────────────────────────────────────────────────────────────────────
+scratch_test/
+zenzic_errors_demo.md
+
 # ============================================================================
 # End of .gitignore
 # ============================================================================
-
-# AI Agent Private Memory
-.clinerules
-.github/agents/
-
-# AI Agents Configuration
-.github/agents/
-.clinerules
-
-# Architect Planning Sandbox
-.architect/
-scratch_test/
-zenzic_errors_demo.md
