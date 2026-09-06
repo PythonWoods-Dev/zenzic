@@ -110,11 +110,6 @@ replace = "rev: v{new_version}"
 
 [[tool.bumpversion.files]]
 filename = "README.md"
-search = '"version": "{current_version}"'
-replace = '"version": "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "README.md"
 search = "uvx zenzic@{current_version} check all"
 replace = "uvx zenzic@{new_version} check all"
 
