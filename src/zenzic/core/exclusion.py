@@ -235,14 +235,16 @@ class LayeredExclusionManager:
 
         Only :data:`SECURITY_EXEMPT_DIRS` survives, not the full
         ``SYSTEM_EXCLUDED_DIRS`` — a narrower set, and deliberately so.
-        ``SYSTEM_EXCLUDED_DIRS`` includes ``out``/``tmp``/``temp``/``.temp``,
-        ordinary directory names any project can create and write real
-        content into; treating them as "the engine's own internals, fixed in
-        code and not editable by the project under scan" was true for
-        ``.git``/``node_modules`` and false for those four, and a credential
-        pasted under ``docs/out/`` was invisible to this tier with no
-        configuration able to bring it back into scope — confirmed live,
-        exit 0 on a real AWS-shaped key sitting in exactly that directory.
+        ``SYSTEM_EXCLUDED_DIRS`` includes ``out``/``tmp``/``temp``/``.temp``/
+        ``.github`` — names a project either organically creates (the first
+        four) or whose contents it fully authors by hand (issue templates,
+        ``SECURITY.md``, under ``.github``); treating them as "the engine's
+        own internals, fixed in code and not editable by the project under
+        scan" was true for ``.git``/``node_modules`` and false for these
+        five, and a credential pasted under ``docs/out/`` (or
+        ``docs/.github/``) was invisible to this tier with no configuration
+        able to bring it back into scope — confirmed live, exit 0 on a real
+        AWS-shaped key sitting in exactly those directories.
         See :data:`SECURITY_EXEMPT_DIRS`'s own docstring for which names stay
         exempt and why.
         """

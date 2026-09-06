@@ -577,19 +577,44 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
 
 #: The subset of :data:`SYSTEM_EXCLUDED_DIRS` genuinely safe to also exempt
 #: from the credential/forbidden-term security tier (``security_view()`` in
-#: ``exclusion.py``). That view's own contract is "fixed in code and not
-#: editable by the project under scan" -- true for VCS internals and
-#: package-manager output, false for ``out``/``tmp``/``temp``/``.temp``:
-#: those are ordinary directory names any project can create and write real
-#: content into (a docs section literally named ``out/``, a scratch note
-#: someone forgot to delete), and a credential pasted there was invisible to
-#: the scanner with no way for a project to reconfigure it back into scope.
-#: ``build``/``dist``/``mutants`` are kept exempt: convention-owned by a
-#: specific build/test tool (wheel/JS-bundle output, mutmut's own working
-#: directory) rather than a name any project would organically choose for
-#: hand-authored content.
+#: ``exclusion.py``). An entry earns the exemption only if it satisfies
+#: *both* axes: (1) a conventional name owned by a specific tool or
+#: platform, not one a project would organically choose for its own
+#: content, and (2) machine-generated/opaque contents that a person never
+#: hand-types and ships -- "fixed in code and not editable by the project
+#: under scan," in ``security_view()``'s own words. Failing either axis
+#: keeps a directory in security scope even though it stays excluded from
+#: the ordinary quality scan.
+#:
+#: ``out``/``tmp``/``temp``/``.temp`` fail axis (1): those are ordinary
+#: directory names any project can create and write real content into (a
+#: docs section literally named ``out/``, a scratch note someone forgot to
+#: delete), and a credential pasted there was invisible to the scanner with
+#: no way for a project to reconfigure it back into scope.
+#:
+#: ``.github`` passes axis (1) -- the name is GitHub's own reserved
+#: convention, not a project's choice, same category as ``build``/``dist``/
+#: ``mutants``/``.vscode-test`` below -- but fails axis (2): CI/CD workflow
+#: YAML is one of the best-documented real-world vectors for an
+#: accidentally committed credential (a hardcoded token in a debug ``echo``
+#: or a copy-pasted curl example), and unlike the fully-gitignored internal
+#: workspace directories this project keeps outside version control (see
+#: ``.gitignore``), ``.github``'s contents are ordinarily *committed*: a
+#: real public repo ships its workflows, issue templates, and
+#: ``SECURITY.md``/``CONTRIBUTING.md`` right alongside its docs. Confirmed
+#: live (see ``test_security_exclusion_immunity.py``'s
+#: ``TestOrdinaryDirectoryNamesAreNotSecurityExempt``): a credential in
+#: ``docs/.github/ISSUE_TEMPLATE/`` was invisible to both quality and
+#: security scanning before this subtraction.
+#:
+#: ``build``/``dist``/``mutants``/``.vscode-test`` pass both axes:
+#: convention-owned by a specific build/test tool (wheel/JS-bundle output,
+#: mutmut's own working directory, the vscode-test runner's downloaded VS
+#: Code binary cache) *and* machine-generated -- no plausible path puts
+#: hand-typed, shipped content there the way a workflow file is hand-typed
+#: and shipped under ``.github``.
 SECURITY_EXEMPT_DIRS: Final[frozenset[str]] = SYSTEM_EXCLUDED_DIRS - frozenset(
-    {"out", "tmp", "temp", ".temp"}
+    {"out", "tmp", "temp", ".temp", ".github"}
 )
 
 # ── System File Guardrails (L1a) ─────────────────────────────────────────────

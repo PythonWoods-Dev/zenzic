@@ -1196,7 +1196,16 @@ class LanguageServer:
             # it writes a directive the other linter cannot read, leaving the finding
             # live while the editor implies it was handled.
             elif diag_code in CODE_DEFINITIONS and diag_code not in NON_SUPPRESSIBLE_CODES:
-                insert_line = max(0, diag.get("range", {}).get("start", {}).get("line", 0))
+                # Client-controlled (round-tripped from a diagnostic this
+                # server sent earlier): floored at 0, but a buggy or
+                # adversarial client can still name a line far beyond the
+                # real document, producing a WorkspaceEdit a client either
+                # rejects or pads with phantom blank lines up to that point
+                # (5B-C-5B-8). Clamp to the document's real last line too.
+                _max_line = max(0, len(content.splitlines()) - 1)
+                insert_line = min(
+                    max(0, diag.get("range", {}).get("start", {}).get("line", 0)), _max_line
+                )
                 # Use a large character index to append to the end of the line
                 insert_char = 9999
 

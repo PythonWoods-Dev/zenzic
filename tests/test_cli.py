@@ -216,6 +216,42 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     assert "Z503" in result_strict.stdout
 
 
+@patch("zenzic.cli._command_setup.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch(
+    "zenzic.cli._check.validate_snippets",
+    return_value=[
+        SnippetError(
+            file_path=Path("api.md"),
+            line_no=5,
+            message="SyntaxError in Python snippet — invalid syntax",
+        )
+    ],
+)
+def test_check_snippets_only_flag_actually_filters(_snip, _cfg, _root) -> None:
+    """``check snippets --only <code>`` must actually narrow the report --
+    unlike every sibling flat-findings subcommand (``links``, ``orphans``,
+    ``assets``, ``references``, ``placeholders``), ``check_snippets`` accepted
+    and validated ``--only`` but never called ``_filter_flat_findings`` with
+    it, same bug shape already fixed for ``references``/``placeholders``
+    (see ``test_check_references_only_flag_actually_filters`` and
+    ``TestCheckPlaceholdersOnlyAndFormatE2E`` in ``test_cli_e2e.py``)."""
+    unfiltered = runner.invoke(app, ["check", "snippets", "--format", "json"])
+    filtered = runner.invoke(app, ["check", "snippets", "--format", "json", "--only", "Z301"])
+
+    unfiltered_payload = json.loads(unfiltered.stdout)
+    filtered_payload = json.loads(filtered.stdout)
+    assert unfiltered_payload["summary"]["warnings"] > 0, (
+        f"fixture must produce at least one Z503 warning unfiltered.\nOutput:\n{unfiltered.stdout}"
+    )
+    assert filtered_payload["summary"]["warnings"] == 0, (
+        f"--only Z301 must filter out non-Z301 warnings; got "
+        f"{filtered_payload['summary']['warnings']} (unfiltered had "
+        f"{unfiltered_payload['summary']['warnings']}).\n"
+        f"Unfiltered:\n{unfiltered.stdout}\nFiltered:\n{filtered.stdout}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # check assets
 # ---------------------------------------------------------------------------
@@ -1179,7 +1215,7 @@ def test_init_pyproject_section_comment_has_no_phantom_docs_prefix(
     comment pointed at https://zenzic.dev/docs/reference/configuration/ — the
     real page is docs/reference/configuration-reference.md, served at
     /reference/configuration-reference/ (no /docs/ prefix, and the slug was
-    also wrong), same defect class already fixed in README.md this session.
+    also wrong), same defect class already fixed in README.md.
     """
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -2388,7 +2424,7 @@ def test_init_next_steps_ci_cd_link_has_no_phantom_docs_prefix(
     https://zenzic.dev/docs/how-to/configure-ci-cd — mkdocs serves
     docs/how-to/configure-ci-cd.md at /how-to/configure-ci-cd/ (docs_dir is
     stripped from the served path, same defect class already fixed in
-    README.md this session), so the shipped link 404s.
+    README.md), so the shipped link 404s.
     """
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["init"])
@@ -2904,9 +2940,8 @@ def test_check_all_only_partial_z2xx_list_still_reports_every_z2xx_code(
     Deliberately two separate files, not one combined fixture: combining both
     findings in a single file was found (while writing this test) to surface
     only one of the two breaches per run — a distinct, pre-existing detection-
-    completeness question unrelated to --only filtering, out of this
-    directive's scope, flagged separately (03-priority-table.md) rather than
-    conflated with the filtering behavior under test here.
+    completeness question unrelated to --only filtering, tracked separately
+    rather than conflated with the filtering behavior under test here.
     """
     monkeypatch.chdir(tmp_path)
     from typer.testing import CliRunner

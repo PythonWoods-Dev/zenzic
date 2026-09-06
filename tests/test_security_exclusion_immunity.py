@@ -504,7 +504,17 @@ class TestOrdinaryDirectoryNamesAreNotSecurityExempt:
     project can create and write real content into -- unlike VCS internals
     or package-manager output, nothing stops a project from putting a genuine
     documentation page (or a leaked credential) there. Confirmed live before
-    the fix: exit 0 on a real AWS-shaped key sitting in ``docs/out/``."""
+    the fix: exit 0 on a real AWS-shaped key sitting in ``docs/out/``.
+
+    ``.github`` fails the same test by a different route: it is a
+    tool-reserved *name* (GitHub owns the convention), but unlike ``.git``'s
+    binary internals, its contents are fully project-editable, hand-authored
+    Markdown -- issue templates, ``SECURITY.md``, ``CONTRIBUTING.md`` -- so a
+    pasted credential there is exactly as real as one in ``out/``. Confirmed
+    live before the fix: a ``.md`` file under ``docs/.github/`` was invisible
+    to both quality and security scanning, while the identical file in an
+    ordinary directory was caught.
+    """
 
     @pytest.mark.parametrize("dirname", ["out", "tmp", "temp", ".temp"])
     def test_credential_in_an_ordinary_named_directory_is_still_caught(
@@ -527,4 +537,24 @@ class TestOrdinaryDirectoryNamesAreNotSecurityExempt:
         exit_code, output = _check_all(tmp_path)
         assert "broken.md" not in output, (
             f"docs/out/ must stay excluded from ordinary quality findings:\n{output}"
+        )
+
+    def test_credential_in_dot_github_directory_is_still_caught(self, tmp_path: Path) -> None:
+        page = _project(tmp_path, "", ".github/ISSUE_TEMPLATE/leaked.md", f'aws_key = "{_SECRET}"')
+        assert page.exists()
+        exit_code, output = _check_all(tmp_path)
+        assert exit_code == 2, (
+            f"a credential under docs/.github/ must not be exempt from the "
+            f"security tier — got exit {exit_code}:\n{output}"
+        )
+
+    def test_quality_scan_exclusion_for_dot_github_is_unaffected(self, tmp_path: Path) -> None:
+        """The security-tier narrowing must not widen the ordinary quality
+        scan's own exclusion of ``.github`` -- Layer 1 discovery for
+        check_all's non-security passes must still skip it exactly as
+        before."""
+        _project(tmp_path, "", ".github/broken.md", "[dead link](nonexistent.md)")
+        exit_code, output = _check_all(tmp_path)
+        assert "broken.md" not in output, (
+            f"docs/.github/ must stay excluded from ordinary quality findings:\n{output}"
         )

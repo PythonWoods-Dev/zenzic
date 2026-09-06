@@ -1811,6 +1811,73 @@ def test_lsp_code_action_suppression(tmp_path) -> None:
     assert "directory_policies" in actions[0]["disabled"]["reason"]
 
 
+def test_lsp_code_action_suppression_clamps_out_of_range_line(tmp_path) -> None:
+    """The inline-suppression Quick Fix's insert line is client-controlled
+    (round-tripped from the diagnostic ``range.start.line`` the server sent
+    earlier) and had a floor (``max(0, ...)``) but no ceiling: a diagnostic
+    naming a line far beyond the real document (a buggy or adversarial
+    client) produced a WorkspaceEdit targeting a line that does not exist,
+    which a client applying it either rejects or pads with phantom blank
+    lines up to that point, corrupting the file. The insert line must be
+    clamped to the document's real last line, the same way it is already
+    floored at 0.
+    """
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = (tmp_path / "docs" / "index.md").as_uri()
+    doc_text = "[](https://example.com)\n[Broken link](missing.md)\n"
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 301,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 999999, "character": 0},
+                    "end": {"line": 999999, "character": 24},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 999999, "character": 0},
+                                "end": {"line": 999999, "character": 24},
+                            },
+                            "code": "Z101",
+                            "source": "Zenzic",
+                            "message": "[Z101] Target file missing.md does not exist",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw = out_stream.read().decode("utf-8")
+    resp = json.loads(raw.split("\r\n\r\n")[1])
+    actions = resp["result"]
+    assert len(actions) == 1
+    real_last_line = len(doc_text.splitlines()) - 1
+    edit = actions[0]["edit"]["changes"][doc_uri][0]
+    assert edit["range"]["start"]["line"] == real_last_line, (
+        f"insert line must be clamped to the document's real last line "
+        f"({real_last_line}); got {edit['range']['start']['line']!r}"
+    )
+
+
 # ─── LSP-FIX-017 & Filesystem Truth tests ─────────────────────────────────────
 
 

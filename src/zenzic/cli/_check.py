@@ -520,6 +520,8 @@ def check_snippets(
             )
         )
 
+    findings = _filter_flat_findings(findings, only)
+
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
         errors_count = sum(1 for f in findings if f.severity == "error")

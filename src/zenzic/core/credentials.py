@@ -47,7 +47,15 @@ if TYPE_CHECKING:
 # Unwrap inline code spans: `AKIA` → AKIA
 _BACKTICK_INLINE_RE = re.compile(r"`([^`]*)`")
 # Remove concatenation operators that split tokens: `AKIA` + `KEY` → AKIAKEY
-_CONCAT_OP_RE = re.compile(r"[`'\"\s]*\+[`'\"\s]*")
+# Both flanks are REQUIRED (`+` quantifier, not `*`): a bare `+` with no
+# adjacent quote/backtick/whitespace is indistinguishable from a `+` that is
+# simply part of a Base64 alphabet, and stripping it unconditionally shifted
+# every following Base64 group by one character, corrupting the decode of a
+# real secret placed after it -- an attacker-controllable scanner bypass
+# (5A-S5). Every documented split-token example already has whitespace on
+# both sides of the operator once backticks are unwrapped, so this loses no
+# real coverage.
+_CONCAT_OP_RE = re.compile(r"[`'\"\s]+\+[`'\"\s]+")
 # Replace table-cell separators with spaces
 _TABLE_PIPE_RE = re.compile(r"\|")
 # ZRT-007: strip HTML comments <!-- ... --> and MDX comments {/* ... */}
@@ -137,7 +145,16 @@ _SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
     (
         "github-token",
         ("ghp_", "gho_", "ghu_", "ghs_", "ghr_", "GHP_", "GHO_", "GHU_", "GHS_", "GHR_"),
-        re.compile(r"(?i)\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b"),
+        # No leading \b (5A-S7): this pattern also scans Base64-decoded text
+        # and cross-line lookback joins, neither of which the author ever
+        # typed a word boundary into deliberately -- a decoded/joined token
+        # immediately preceded by any word character (no separator at all)
+        # silently failed to match, dropping a real secret whose raw form
+        # was never scannable in the first place. Kept for hand-typed raw
+        # prose it would be nice to avoid false-flagging mid-identifier, but
+        # a missed real secret is worse than an extra flagged substring for
+        # a non-suppressible security tier.
+        re.compile(r"(?i)(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b"),
     ),
     ("aws-access-key", ("AKIA",), re.compile(r"AKIA[0-9A-Z]{16}")),
     ("stripe-live-key", ("sk_live_",), re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
@@ -415,10 +432,14 @@ def scan_line_for_secrets(
     # No symbol test: a base64 string carries no "=" when the plaintext length
     # is a multiple of 3 and need contain no "/" at all, so appending a single
     # space before encoding was enough to skip this decode entirely. (The "+"
-    # disjunct was dead regardless — _normalize_line_for_scan deletes every "+"
-    # as a concatenation operator before this line runs.) _BASE64_CANDIDATE_RE
-    # already imposes the 4-character-group structure and the length floor
-    # below already bounds the work, so the symbol test bought nothing.
+    # disjunct used to be dead too -- _normalize_line_for_scan deleted every
+    # bare "+" as a concatenation operator before this line ran, corrupting
+    # any Base64 blob that legitimately contained one; _CONCAT_OP_RE now
+    # requires an actual quote/backtick/whitespace flank, so a real "+" in a
+    # candidate token survives to reach _BASE64_CANDIDATE_RE below.)
+    # _BASE64_CANDIDATE_RE already imposes the 4-character-group structure
+    # and the length floor below already bounds the work, so the symbol test
+    # bought nothing.
     if len(normalized) >= 20:
         for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
             _candidate = _b64_match.group(0)
