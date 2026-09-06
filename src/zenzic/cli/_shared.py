@@ -37,28 +37,41 @@ from ._metadata import COMMAND_BY_NAME
 
 # ── Console singleton & UI gateway ───────────────────────────────────────────
 
-_env_force_color = bool(os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR"))
 
-console = Console(
-    highlight=False,
-    no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=True if _env_force_color else None,
-    # Forcing the terminal alone still leaves color *depth* to Rich's own
-    # auto-detection from TERM/COLORTERM, which under-detects (falls back to
-    # 16-color "standard") in an environment that advertises no truecolor
-    # support — silently collapsing distinct severity colors like WARNING's
-    # amber and ERROR's rose to the same ANSI code. Forcing "truecolor"
-    # alongside force_terminal is what FORCE_COLOR is actually for.
-    color_system="truecolor" if _env_force_color else None,
-)
+def _auto_consoles() -> tuple[Console, Console]:
+    """Build the pair of consoles auto-detection (no CLI flag either way) implies.
 
-stderr_console = Console(
-    stderr=True,
-    highlight=False,
-    no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=True if _env_force_color else None,
-    color_system="truecolor" if _env_force_color else None,
-)
+    Shared by the module-level singleton construction and by
+    :func:`configure_console`'s no-flags branch, so the two can never drift:
+    "auto" must mean the same thing whether it is the process's first console
+    or a later call resetting away from an explicit ``--no-color``/
+    ``--force-color``.
+    """
+    env_force_color = bool(os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR"))
+    env_no_color = os.environ.get("NO_COLOR") is not None
+    out = Console(
+        highlight=False,
+        no_color=env_no_color,
+        force_terminal=True if env_force_color else None,
+        # Forcing the terminal alone still leaves color *depth* to Rich's own
+        # auto-detection from TERM/COLORTERM, which under-detects (falls back to
+        # 16-color "standard") in an environment that advertises no truecolor
+        # support — silently collapsing distinct severity colors like WARNING's
+        # amber and ERROR's rose to the same ANSI code. Forcing "truecolor"
+        # alongside force_terminal is what FORCE_COLOR is actually for.
+        color_system="truecolor" if env_force_color else None,
+    )
+    err = Console(
+        stderr=True,
+        highlight=False,
+        no_color=env_no_color,
+        force_terminal=True if env_force_color else None,
+        color_system="truecolor" if env_force_color else None,
+    )
+    return out, err
+
+
+console, stderr_console = _auto_consoles()
 
 _ui = ZenzicUI(stderr_console)
 
@@ -83,8 +96,12 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
         stderr_console = Console(
             stderr=True, highlight=False, force_terminal=True, color_system="truecolor"
         )
-    # else: keep existing console — no_color=False + force_color=False means "auto",
-    # which is already set correctly in the module-level Console (force_terminal=None).
+    else:
+        # Neither flag is an explicit reset to auto, not a no-op: a prior call
+        # in the same process (e.g. zenzic-mcp's long-running embed serving
+        # multiple invocations) may have left no_color/force_color set, and
+        # "no flags this time" must not silently inherit that state.
+        console, stderr_console = _auto_consoles()
     _ui = ZenzicUI(stderr_console)
 
 

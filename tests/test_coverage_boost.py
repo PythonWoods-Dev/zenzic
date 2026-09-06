@@ -531,6 +531,30 @@ class TestShared:
 
         _shared.configure_console(no_color=False, force_color=False)
 
+    def test_configure_console_no_flags_resets_to_auto(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``configure_console()`` with neither flag must reset to auto, not
+        leave a previous call's ``no_color``/``force_color`` state stuck for
+        every later call in the same process — the failure mode that bites
+        ``zenzic-mcp``'s long-running embed, where one consumer's flag
+        changes another consumer's output."""
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.delenv("FORCE_COLOR", raising=False)
+        from zenzic.cli import _shared
+
+        try:
+            _shared.configure_console(no_color=True)
+            assert _shared.console.no_color is True
+
+            _shared.configure_console()
+            assert _shared.console.no_color is False, (
+                "a later call with no flags must reset color state to auto, "
+                "not silently keep the previous call's no_color=True"
+            )
+        finally:
+            _shared.configure_console()
+
     # ── get_ui / get_console ─────────────────────────────────────────────────
 
     def test_get_ui_returns_zenzic_ui(self) -> None:

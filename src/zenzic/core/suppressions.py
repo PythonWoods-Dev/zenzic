@@ -179,7 +179,14 @@ class SuppressionTracker:
         if get_sovereign_context().force_audit:
             return SuppressionVerdict(False, "force-audit")
 
-        if code in NON_SUPPRESSIBLE_CODES:
+        # Normalized once, up front: both non-suppressible guards below and
+        # every suppression-lookup branch after them must agree on the same
+        # code, or a lowercase caller could pass the guards (checked against
+        # the upper-case-only registries) and still reach a lookup branch
+        # that normalizes -- desynchronizing the two decisions.
+        upper = code.upper()
+
+        if upper in NON_SUPPRESSIBLE_CODES:
             return SuppressionVerdict(False, "non-suppressible")
 
         # ADR-093: graph-level and file-level findings cannot be suppressed
@@ -187,10 +194,8 @@ class SuppressionTracker:
         # mechanism as NON_SUPPRESSIBLE_CODES above: leave the directive
         # unconsumed so get_dead_suppressions() reports it as Z603, with a
         # message distinguishing this cause from an ordinary dead comment.
-        if code in NON_INLINE_SUPPRESSIBLE_CODES:
+        if upper in NON_INLINE_SUPPRESSIBLE_CODES:
             return SuppressionVerdict(False, "non-inline-suppressible")
-
-        upper = code.upper()
 
         # A governance policy already covers this code, so the inline directive
         # (if any) is deliberately NOT consumed -- get_dead_suppressions() then

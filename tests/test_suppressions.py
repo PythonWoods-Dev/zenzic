@@ -585,3 +585,21 @@ def test_global_usage_tracker_topology_policy_pair_consumption() -> None:
 
     assert ("docs/historical/**", "Z410") not in tracker.unused_dir_policies
     assert ("docs/historical/**", "Z411") not in tracker.unused_dir_policies
+
+
+class TestExplainSuppressionCaseNormalization:
+    """explain_suppression must normalize case before either non-suppressible
+    guard, not after -- a lowercase code must not slip past both guards to
+    reach the (upper-cased-only) suppression-lookup branches below them."""
+
+    def test_lowercase_non_suppressible_code_is_not_reported_suppressed(self) -> None:
+        tracker = SuppressionTracker(_FILE, "", globally_suppressed_codes={"Z201": ["*.md"]})
+        verdict = tracker.explain_suppression(line_no=1, code="z201")
+        assert verdict.suppressed is False
+        assert verdict.source == "non-suppressible"
+
+    def test_lowercase_non_inline_suppressible_code_is_not_reported_suppressed(self) -> None:
+        tracker = SuppressionTracker(_FILE, "", globally_suppressed_codes={"Z410": ["*.md"]})
+        verdict = tracker.explain_suppression(line_no=1, code="z410")
+        assert verdict.suppressed is False
+        assert verdict.source == "non-inline-suppressible"
