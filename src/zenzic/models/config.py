@@ -575,6 +575,23 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
     }
 )
 
+#: The subset of :data:`SYSTEM_EXCLUDED_DIRS` genuinely safe to also exempt
+#: from the credential/forbidden-term security tier (``security_view()`` in
+#: ``exclusion.py``). That view's own contract is "fixed in code and not
+#: editable by the project under scan" -- true for VCS internals and
+#: package-manager output, false for ``out``/``tmp``/``temp``/``.temp``:
+#: those are ordinary directory names any project can create and write real
+#: content into (a docs section literally named ``out/``, a scratch note
+#: someone forgot to delete), and a credential pasted there was invisible to
+#: the scanner with no way for a project to reconfigure it back into scope.
+#: ``build``/``dist``/``mutants`` are kept exempt: convention-owned by a
+#: specific build/test tool (wheel/JS-bundle output, mutmut's own working
+#: directory) rather than a name any project would organically choose for
+#: hand-authored content.
+SECURITY_EXEMPT_DIRS: Final[frozenset[str]] = SYSTEM_EXCLUDED_DIRS - frozenset(
+    {"out", "tmp", "temp", ".temp"}
+)
+
 # ── System File Guardrails (L1a) ─────────────────────────────────────────────
 # Files that Zenzic ALWAYS excludes from asset checks — universal development
 # toolchain files that are never documentation content.  Adapters may declare

@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     pass  # PEP 673; typing.Self requires Python 3.11+
 
 from zenzic.models.config import (
+    SECURITY_EXEMPT_DIRS,
     SYSTEM_EXCLUDED_DIRS,
     SYSTEM_EXCLUDED_FILE_NAMES,
     SYSTEM_EXCLUDED_FILE_PATTERNS,
@@ -232,12 +233,21 @@ class LayeredExclusionManager:
         definition. Nothing is lost by dropping it here: this view only walks
         ``DOC_SUFFIXES`` files, and a real engine config is not one.
 
-        Only the system guardrails survive: they are the engine's own
-        internals (``.git``, ``node_modules``, build output), fixed in code and
-        not editable by the project under scan. That is the whole boundary now.
+        Only :data:`SECURITY_EXEMPT_DIRS` survives, not the full
+        ``SYSTEM_EXCLUDED_DIRS`` — a narrower set, and deliberately so.
+        ``SYSTEM_EXCLUDED_DIRS`` includes ``out``/``tmp``/``temp``/``.temp``,
+        ordinary directory names any project can create and write real
+        content into; treating them as "the engine's own internals, fixed in
+        code and not editable by the project under scan" was true for
+        ``.git``/``node_modules`` and false for those four, and a credential
+        pasted under ``docs/out/`` was invisible to this tier with no
+        configuration able to bring it back into scope — confirmed live,
+        exit 0 on a real AWS-shaped key sitting in exactly that directory.
+        See :data:`SECURITY_EXEMPT_DIRS`'s own docstring for which names stay
+        exempt and why.
         """
         view = object.__new__(LayeredExclusionManager)
-        view._system_dirs = self._system_dirs
+        view._system_dirs = SECURITY_EXEMPT_DIRS
         # Stripped: config-driven, basename-matched tree-wide, and writable by
         # the project under scan -- see the docstring above.
         view._adapter_metadata_files = frozenset()

@@ -11,10 +11,10 @@ suppressible" guarantee: scoping a file out of *quality* analysis is legitimate
 configuration, but the credential/forbidden-term scan (Z201/Z204) is the one
 tier that must run regardless.
 
-System guardrails and VCS-ignore remain honored even by the security pass:
-gitignored content is deliberately outside the published corpus (and includes
-operator-private directories), so "everything that ships gets the secret scan"
-is the exact boundary — no narrower, no wider.
+Only :data:`~zenzic.models.config.SECURITY_EXEMPT_DIRS` survives the security
+pass now — VCS-ignore does not: see `test_gitignore_cannot_hide_credentials.py`
+for why that guardrail was later removed too. "Everything that ships gets the
+secret scan" is the boundary; a project's own `.gitignore` cannot narrow it.
 """
 
 from __future__ import annotations
@@ -496,4 +496,35 @@ class TestCheckLinksCoversContentRoots:
         assert all_code == links_code == 2, (
             f"subcommand changed the security verdict: check all={all_code}, "
             f"check links={links_code}"
+        )
+
+
+class TestOrdinaryDirectoryNamesAreNotSecurityExempt:
+    """``out``/``tmp``/``temp``/``.temp`` are ordinary directory names any
+    project can create and write real content into -- unlike VCS internals
+    or package-manager output, nothing stops a project from putting a genuine
+    documentation page (or a leaked credential) there. Confirmed live before
+    the fix: exit 0 on a real AWS-shaped key sitting in ``docs/out/``."""
+
+    @pytest.mark.parametrize("dirname", ["out", "tmp", "temp", ".temp"])
+    def test_credential_in_an_ordinary_named_directory_is_still_caught(
+        self, tmp_path: Path, dirname: str
+    ) -> None:
+        page = _project(tmp_path, "", f"{dirname}/leaked.md", f'aws_key = "{_SECRET}"')
+        assert page.exists()
+        exit_code, output = _check_all(tmp_path)
+        assert exit_code == 2, (
+            f"a credential under docs/{dirname}/ must not be exempt from the "
+            f"security tier — got exit {exit_code}:\n{output}"
+        )
+
+    def test_quality_scan_exclusion_for_out_is_unaffected(self, tmp_path: Path) -> None:
+        """The security-tier narrowing must not widen the ordinary quality
+        scan's own exclusion of these directories -- only security_view()
+        changes; Layer 1 discovery for check_all's non-security passes must
+        still skip them exactly as before."""
+        _project(tmp_path, "", "out/broken.md", "[dead link](nonexistent.md)")
+        exit_code, output = _check_all(tmp_path)
+        assert "broken.md" not in output, (
+            f"docs/out/ must stay excluded from ordinary quality findings:\n{output}"
         )
