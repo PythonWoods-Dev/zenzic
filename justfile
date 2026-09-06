@@ -270,6 +270,42 @@ docs-build:
 blog-link-schedule:
 	uv run python3 scripts/check_blog_link_schedule.py --schedule
 
+# List every open (`[ ]`) row in the priority table, grouped by priority, so
+# nothing open is merged/tagged/published on the strength of "nobody asked."
+# Rule 37 (04-ai-operational-protocols.md): an issue this Team Manager already
+# knows about and does not restate before a release-gating action is a defect
+# the Tech Lead is deciding about without knowing it exists. Always exits 0 --
+# this is the proactive-disclosure report Rule 37 requires be run before any
+# merge/tag/publish step, not a gate that can block one; it also cannot see an
+# issue that was never logged into the table in the first place (that half of
+# Rule 37 stays a judgment call, same limit Rule 31/36 name for their checks).
+pending-review:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	table=".claude/state/03-priority-table.md"
+	if [ ! -f "$table" ]; then
+	    echo "no $table on this machine: nothing to report"
+	    exit 0
+	fi
+	total=$(grep -c '^| `\[ \]`' "$table" || true)
+	if [ "$total" -eq 0 ]; then
+	    echo "priority table: 0 open rows"
+	    exit 0
+	fi
+	echo "priority table: $total open row(s), by priority:"
+	# The priority cell is not always a bare `**P1**` -- some rows append an
+	# annotation before the closing bold marker (e.g. `**P1 -- CONFIRMED LIVE,
+	# LOGGED NOT FIXED (...)**`), so match on the `**P<n>` prefix, not the
+	# whole cell.
+	for p in P0 P1 P2 P3 P4; do
+	    { grep "^| \`\[ \]\` | \*\*${p}[^0-9]" "$table" || true; } | while IFS='|' read -r _ _box _prio id title _rest; do
+	        echo "  [$p] ${id# } — ${title# }"
+	    done
+	done
+	{ grep "^| \`\[ \]\`" "$table" | grep -Ev '\*\*P[0-4][^0-9]' || true; } | while IFS='|' read -r _ _box _prio id title _rest; do
+	    echo "  [unclassified] ${id# } — ${title# }"
+	done
+
 # Optimize blog images and animated GIFs for web performance
 optimize-assets:
     #!/usr/bin/env bash
