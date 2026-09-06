@@ -59,7 +59,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     ---
 
-    Generate and stamp live Document Quality Score shields directly into your `README.md`.
+    Generate and stamp live Documentation Quality Score shields directly into your `README.md`.
 
     [:material-arrow-right: Read Guide](add-badges.md)
 

@@ -31,7 +31,7 @@ Zenzic doesn't document this as "five layers" anywhere else — not in the CLI, 
 
 ## The four categories that get scored
 
-The Deterministic Quality Score (DQS) is a weighted composite of exactly four check categories, documented in [Scoring System](../../explanation/scoring-system.md):
+The Documentation Quality Score (DQS) is a weighted composite of exactly four check categories, documented in [Scoring System](../../explanation/scoring-system.md):
 
 | Category | Weight | Bucket Cap |
 | :--- | :---: | :---: |

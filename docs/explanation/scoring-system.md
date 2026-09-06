@@ -1,15 +1,15 @@
 ---
-description: "The Deterministic Quality Score (DQS) — conceptual model, category weight matrix, finding codes, dual-gate architecture, worked example, and CLI breakdown."
+description: "The Documentation Quality Score (DQS) — conceptual model, category weight matrix, finding codes, dual-gate architecture, worked example, and CLI breakdown."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Scoring System — The Deterministic Quality Score (DQS)
+# Scoring System — The Documentation Quality Score (DQS)
 
 Unmonitored documentation drift corrupts developer trust. A broken link degrades user experience, while an unredacted credential key requires immediate security incident response.
 
-The Zenzic **Deterministic Quality Score (DQS)** provides a single **0–100 value** computed from the concrete finding count across every check. Zero findings evaluates to **100/100**. Given the same repository state and `.zenzic.toml` configuration, the score is **100% bit-for-bit deterministic** across machines, operating systems, and runners.
+The Zenzic **Documentation Quality Score (DQS)** provides a single **0–100 value** computed from the concrete finding count across every check. Zero findings evaluates to **100/100**. Given the same repository state and `.zenzic.toml` configuration, the score is **100% bit-for-bit deterministic** across machines, operating systems, and runners.
 
 ---
 

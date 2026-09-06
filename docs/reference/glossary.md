@@ -43,7 +43,7 @@ A documentation page that exists on disk and is listed in site navigation, but c
 
 ---
 
-### Document Quality Score (DQS) {#dqs}
+### Documentation Quality Score (DQS) {#dqs}
 
 A deterministic 0–100 quality score computed across four weighted categories: Structural (30%), Navigation (25%), Content (20%), and Governance & Brand (25%). Each category accumulates per-code penalty deductions. The score incorporates Governance Escalation (exponential penalty amplification for excess Z6xx findings), Gravity Cap, and flat-cost Technical Debt deductions.
 

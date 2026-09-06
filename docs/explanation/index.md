@@ -55,7 +55,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
 <div class="grid cards" markdown>
 
-- :material-calculator:{ .lg .middle style="color: #10b981;" } **[Document Quality Score (DQS)](scoring-system.md)**
+- :material-calculator:{ .lg .middle style="color: #10b981;" } **[Documentation Quality Score (DQS)](scoring-system.md)**
 
     ---
 
