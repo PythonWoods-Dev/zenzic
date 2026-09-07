@@ -182,7 +182,12 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
     from zenzic.models.config import ZenzicConfig
 
     old_path = Path(old).resolve()
-    new_path = Path(new).resolve()
+    # The new name may not exist yet, and on a case-insensitive filesystem
+    # `resolve()` of a name that differs from an existing entry only by case
+    # returns that entry's on-disk spelling -- a case-only rename would then
+    # collapse to old == new and rewrite nothing (same fix as the LSP
+    # handler). Resolve the parent, keep the requested name.
+    new_path = Path(new).parent.resolve() / Path(new).name
 
     _search_from = old_path.parent
     repo_root = find_repo_root(search_from=_search_from)
@@ -253,6 +258,8 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
             continue
 
         new_content = serialize(new_ast)
+        if new_content == content:
+            continue  # matched but rewrote nothing: not a fix, not a write
         fixed_count += 1
 
         if dry_run:

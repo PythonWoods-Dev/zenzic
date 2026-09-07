@@ -258,3 +258,38 @@ def test_fix_rename_partial_success_multiple_files_reported_individually(tmp_pat
     assert "c.md" in result.output
     assert "[B](b2.md)" in a_file.read_text()
     assert "[B](b2.md)" in c_file.read_text()
+
+
+def test_fix_rename_case_only_rename_survives_realpath_collapse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parity with the LSP handler: `Path(new).resolve()` on NTFS/APFS returns
+    the on-disk spelling of a name that differs only by case, so a case-only
+    rename collapsed to old == new and rewrote nothing. Emulated here."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CaseLink.md").write_text("# Target\n\nContent.\n")
+    (docs / "linker.md").write_text("# Linker\n\nSee [target](CaseLink.md).\n")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+
+    real_resolve = Path.resolve
+
+    def collapsing_resolve(self: Path, strict: bool = False) -> Path:
+        resolved = real_resolve(self, strict)
+        if not resolved.exists() and resolved.parent.exists():
+            for entry in resolved.parent.iterdir():
+                if entry.name.casefold() == resolved.name.casefold():
+                    return entry
+        return resolved
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "resolve", collapsing_resolve)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseLink.md"), str(docs / "caselink.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](caselink.md)" in (docs / "linker.md").read_text(), (
+        docs / "linker.md"
+    ).read_text()

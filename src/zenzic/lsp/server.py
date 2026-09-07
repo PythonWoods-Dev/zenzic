@@ -1438,6 +1438,14 @@ class LanguageServer:
             # to old == new and rewrite nothing. Resolve the parent, keep the
             # requested name.
             new_abs = str(new_path.parent.resolve() / new_path.name)
+            if old_abs == new_abs:
+                # An identity rename. VS Code on a case-insensitive filesystem
+                # canonicalises a case-only target onto the existing resource
+                # before notifying participants (observed: newUri == oldUri,
+                # file unrenamed), so this pair renames nothing and there is
+                # nothing to repair. Exact comparison on purpose: a genuine
+                # case-only rename arrives with two spellings and must go on.
+                continue
 
             for linking_path in linking_files:
                 if self.exclusion_mgr is not None and self.exclusion_mgr.should_exclude_file(
@@ -1474,6 +1482,10 @@ class LanguageServer:
                     continue
 
                 new_content = serialize(new_ast)
+                if new_content == content:
+                    # The mutation matched but rewrote nothing -- an edit
+                    # here would only leave the linking document dirty.
+                    continue
                 lines = content.splitlines(keepends=True)
                 total_lines = max(0, len(lines) - 1)
                 last_line_len = len(lines[-1]) if lines else 0

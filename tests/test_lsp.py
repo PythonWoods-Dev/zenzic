@@ -3180,3 +3180,27 @@ def test_lsp_will_rename_files_case_only_rename_survives_realpath_collapse(
     assert "[target](caselink.md)" in changes[linker_uri][0]["newText"], changes[linker_uri][0][
         "newText"
     ]
+
+
+def test_lsp_will_rename_files_identity_rename_emits_no_edit(tmp_path: Path) -> None:
+    """VS Code on Windows canonicalises a case-only target onto the existing
+    resource before notifying participants (observed in the extension-host
+    suite: newUri == oldUri, file unrenamed on disk), so the server can be
+    asked to repair a rename that renames nothing. It must answer with no
+    edit -- not an edit that rewrites every href to its own spelling and
+    leaves the linking document dirty for nothing."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "MixedCase.md").write_text("# Target\n\nContent.\n")
+    (docs_dir / "linker.md").write_text("# Linker\n\nSee [mixed](MixedCase.md).\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    same = (docs_dir / "MixedCase.md").as_uri()
+    resp = _send_will_rename_files(server, out_stream, same, same, 413)
+    assert resp["result"] is None, resp["result"]
