@@ -13,6 +13,11 @@ on:
       - 'uv.lock'
       - '.github/workflows/ci.yml'
   pull_request:
+    # `labeled` is included so applying the ci:full-matrix label is itself a
+    # trigger: a maintainer marks a PR as ready to merge with the label and the
+    # full matrix runs on that event, with no extra push required.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,18 +29,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Full matrix restored 2026-09-06 (V031_CI_MATRIX_REACTIVATION_CHECK) as a
-        # one-time pre-merge verification run. It had been narrowed to ubuntu/3.10 in
-        # 10c0177 "to accelerate CI cycle" -- a cost decision, not a broken combination:
-        # the only real Windows issue on record (torture-test timing jitter, PR #193)
-        # was fixed by widening the thresholds, and those guards are still live in
-        # tests/test_rules.py. If this run is clean the matrix stays; if it surfaces
-        # real failures, revert this hunk and log them rather than blocking the release.
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.14"]
-        exclude:
-          - os: windows-latest
-            python-version: "3.14"
+        # Movable full-matrix gate (2026-09-07). The full matrix had been restored
+        # on 2026-09-06 as a one-time pre-merge check and then left running on
+        # every push, which is the cost the earlier narrowing existed to avoid.
+        # Now:
+        #   ordinary PR push            -> ubuntu-latest / 3.14 only
+        #   PR labelled ci:full-matrix  -> full matrix (the pre-merge signal)
+        #   workflow_dispatch           -> full matrix (on demand)
+        #   push to main                -> full matrix (post-merge safety net)
+        # The only Windows issue on record (torture-test timing jitter, PR #193)
+        # was fixed by widening thresholds still live in tests/test_rules.py; if a
+        # full-matrix run surfaces a real failure, log it rather than blocking.
+        include: >-
+          ${{ fromJSON(
+                (github.event_name == 'push'
+                 || github.event_name == 'workflow_dispatch'
+                 || contains(github.event.pull_request.labels.*.name, 'ci:full-matrix'))
+                && '[{"os":"ubuntu-latest","python-version":"3.14"},{"os":"ubuntu-latest","python-version":"3.10"},{"os":"windows-latest","python-version":"3.10"}]'
+                || '[{"os":"ubuntu-latest","python-version":"3.14"}]'
+              ) }}
 
     steps:
       - name: Checkout Repository
