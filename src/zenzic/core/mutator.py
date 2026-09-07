@@ -405,12 +405,20 @@ class RenameLinkMutation:
         repo_root_str: str,
         old_abs: str,
         new_abs: str,
+        match_case_insensitively: bool = False,
     ) -> None:
         self.source_file = source_file
         self.docs_root_str = docs_root_str
         self.repo_root_str = repo_root_str
         self.old_abs = os.path.normpath(old_abs)
         self.new_abs = new_abs
+        # Rename edge case (6): an href that names the renamed file up to
+        # letter case only. The caller decides whether that identity is safe
+        # -- it is when no other route differs from the renamed file's only
+        # by case -- so this class never guesses on its own; default is the
+        # exact comparison it always made.
+        self.match_case_insensitively = match_case_insensitively
+        self._old_abs_folded = self.old_abs.casefold()
         self.matched = False
 
     def apply(self, node: Node) -> bool:
@@ -426,7 +434,9 @@ class RenameLinkMutation:
                 resolved = resolve_href_target(
                     self.source_file, path_part, self.docs_root_str, self.repo_root_str
                 )
-                if resolved == self.old_abs:
+                if resolved == self.old_abs or (
+                    self.match_case_insensitively and resolved.casefold() == self._old_abs_folded
+                ):
                     new_rel = os.path.relpath(self.new_abs, self.source_file.parent)
                     new_href = Path(new_rel).as_posix()
                     if parsed.fragment:

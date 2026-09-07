@@ -1413,9 +1413,31 @@ class LanguageServer:
             if canonical_url is None:
                 continue  # not in the VSM (excluded, or VSM stale) -- skip, don't guess
 
-            linking_files = self.vsm.incoming_links.get(canonical_url, set())
+            # Rename edge case (6): an href may name the renamed file up to
+            # letter case only (`./casetarget.md` -> `CaseTarget.md`). Such a
+            # link indexes under a canonical URL that differs from the file's
+            # own only by case, so the exact lookup misses it. Identity up to
+            # case is accepted only when it is unambiguous: if another route
+            # differs from the renamed file's only by case (possible on a
+            # case-sensitive filesystem), the link belongs to that route and
+            # the exact lookup alone applies. Platform-independent on purpose
+            # (Tier-0 determinism): the same rename yields the same edit on
+            # NTFS and on ext4.
+            folded_url = canonical_url.casefold()
+            case_unique = sum(1 for url in self.vsm if url.casefold() == folded_url) == 1
+            linking_files = set(self.vsm.incoming_links.get(canonical_url, set()))
+            if case_unique:
+                for url, dependents in self.vsm.incoming_links.items():
+                    if url != canonical_url and url.casefold() == folded_url:
+                        linking_files |= dependents
             old_abs = str(old_path.resolve())
-            new_abs = str(new_path.resolve())
+            # The new path does not exist yet. On a case-insensitive
+            # filesystem `resolve()` of a name that differs from an existing
+            # entry only by case returns that entry's on-disk spelling, so a
+            # case-only rename (`CaseLink.md` -> `caselink.md`) would collapse
+            # to old == new and rewrite nothing. Resolve the parent, keep the
+            # requested name.
+            new_abs = str(new_path.parent.resolve() / new_path.name)
 
             for linking_path in linking_files:
                 if self.exclusion_mgr is not None and self.exclusion_mgr.should_exclude_file(
@@ -1440,6 +1462,7 @@ class LanguageServer:
                         repo_root_str=repo_root_str,
                         old_abs=old_abs,
                         new_abs=new_abs,
+                        match_case_insensitively=case_unique,
                     )
                     ast = parse(content)
                     new_ast, changed = Mutator([mutation]).mutate(ast)

@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from zenzic.lsp.documents import DocumentManager
 from zenzic.lsp.server import JsonRpcMessage, LanguageServer
 
@@ -3063,3 +3065,118 @@ def test_is_full_rebuild_never_ghost_clears_a_live_security_only_finding(tmp_pat
     assert leak_uri in server.file_diagnostics, (
         "the finding must still be tracked as active after the rebuild"
     )
+
+
+# ─── Rename edge case (6): case-insensitive identity ─────────────────────────
+# A real Windows run (zenzic-vscode 3d88c04, extension-host suite) showed the
+# defect: the lowercase href `./casetarget.md` indexes under `/casetarget/`,
+# the renamed file's route is `/CaseTarget/`, and the handler's exact-string
+# lookup found no inbound link. The repair must identify the renamed file up
+# to case -- on every platform, deterministically -- and must decline (not
+# guess) when two routes differ only by case.
+
+
+def test_lsp_will_rename_files_repairs_case_mismatched_href(tmp_path: Path) -> None:
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "CaseTarget.md").write_text("# Case target\n\nContent.\n")
+    (docs_dir / "caselink.md").write_text("# Case linker\n\nSee [target](./casetarget.md).\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server,
+        out_stream,
+        (docs_dir / "CaseTarget.md").as_uri(),
+        (docs_dir / "CaseTarget2.md").as_uri(),
+        410,
+    )
+    assert resp["result"] is not None, "no edit: the case-mismatched inbound link was not found"
+    changes = resp["result"]["changes"]
+    linker_uri = (docs_dir / "caselink.md").resolve().as_uri()
+    assert linker_uri in changes
+    assert "[target](CaseTarget2.md)" in changes[linker_uri][0]["newText"]
+
+
+def test_lsp_will_rename_files_case_fallback_declines_when_two_routes_differ_only_by_case(
+    tmp_path: Path,
+) -> None:
+    """On a case-sensitive filesystem `CaseTarget.md` and `casetarget.md` can
+    both exist. Then `./casetarget.md` is an exact link to the second file and
+    renaming the first must leave it alone."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "CaseTarget.md").write_text("# Upper\n\nContent.\n")
+    if (docs_dir / "casetarget.md").exists():
+        pytest.skip("case-insensitive filesystem: the two routes cannot coexist here")
+    (docs_dir / "casetarget.md").write_text("# Lower\n\nContent.\n")
+    (docs_dir / "caselink.md").write_text("# Case linker\n\nSee [target](./casetarget.md).\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    resp = _send_will_rename_files(
+        server,
+        out_stream,
+        (docs_dir / "CaseTarget.md").as_uri(),
+        (docs_dir / "CaseTarget2.md").as_uri(),
+        411,
+    )
+    assert resp["result"] is None, resp["result"]
+
+
+def test_lsp_will_rename_files_case_only_rename_survives_realpath_collapse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rename that changes only letter case. On NTFS/APFS `Path.resolve()`
+    of the not-yet-existing new name returns the on-disk spelling of the old
+    one, so old and new compare equal and nothing is rewritten. Emulated here
+    so the defect is reproducible on Linux."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True)
+    (docs_dir / "CaseLink.md").write_text("# Target\n\nContent.\n")
+    (docs_dir / "linker.md").write_text("# Linker\n\nSee [target](CaseLink.md).\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    server._build_vsm_sync()
+    server.auto_repair_links_on_rename = True
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    real_resolve = Path.resolve
+
+    def collapsing_resolve(self: Path, strict: bool = False) -> Path:
+        # NTFS emulation: a path that does not exist but has a sibling equal
+        # up to case resolves to that sibling's on-disk spelling.
+        resolved = real_resolve(self, strict)
+        if not resolved.exists() and resolved.parent.exists():
+            for entry in resolved.parent.iterdir():
+                if entry.name.casefold() == resolved.name.casefold():
+                    return entry
+        return resolved
+
+    monkeypatch.setattr(Path, "resolve", collapsing_resolve)
+    resp = _send_will_rename_files(
+        server,
+        out_stream,
+        (docs_dir / "CaseLink.md").as_uri(),
+        (docs_dir / "caselink.md").as_uri(),
+        412,
+    )
+    assert resp["result"] is not None, "no edit for a case-only rename"
+    changes = resp["result"]["changes"]
+    linker_uri = real_resolve(docs_dir / "linker.md").as_uri()
+    assert linker_uri in changes
+    assert "[target](caselink.md)" in changes[linker_uri][0]["newText"], changes[linker_uri][0][
+        "newText"
+    ]
