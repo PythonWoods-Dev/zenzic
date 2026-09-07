@@ -78,6 +78,43 @@ test-cov *args:
 mutation:
     {{ runner }} python scripts/mutation_gate.py
 
+# The expanded four-module set (credentials, scanner, validator, exclusion).
+# ~90 minutes, ~4,800 mutants -- deliberately NOT in CI: it ran there once by
+# oversight and cost 2h50m per Linux job before failing, because the 95.7% floor
+# belongs to the one-module set above and means nothing against four.
+#
+# Reports the score; does not gate on it. There is no measured floor for this
+# population yet, and inventing one would repeat the mistake that put this on
+# demand in the first place.
+#
+# mutmut 3 reads `source_paths` from pyproject.toml and has no CLI override, so
+# the list is swapped in for the duration and restored by a trap -- including on
+# Ctrl-C or failure, because leaving the expanded list in place would silently
+# turn the next CI run back into a three-hour job.
+mutation-expanded:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cp pyproject.toml pyproject.toml.mutbak
+    trap 'mv -f pyproject.toml.mutbak pyproject.toml; echo "pyproject.toml restored"' EXIT
+    # mutmut reuses whatever mutant/test mapping `mutants/` already holds. After a
+    # `just mutation` (credentials only) that mapping covers one module, and an
+    # expanded run inherits it: the three added modules come back as 4,380 "no
+    # tests" and the run reports 4822/4822 having measured nothing. The output
+    # looks complete, which is what makes it dangerous. Regenerate from scratch.
+    rm -rf mutants .mutmut-cache
+    python3 - <<'PY'
+    import pathlib, tomllib
+    p = pathlib.Path("pyproject.toml"); t = p.read_text(encoding="utf-8")
+    expanded = tomllib.loads(t)["tool"]["mutmut"]["mutmut_expanded_source_paths"]
+    body = ",\n    ".join(f'"{m}"' for m in expanded)
+    t = t.replace('source_paths = ["src/zenzic/core/credentials.py"]',
+                  f"source_paths = [\n    {body},\n]", 1)
+    p.write_text(t, encoding="utf-8")
+    print(f"expanded set active: {len(expanded)} modules")
+    PY
+    {{ runner }} mutmut run || true
+    {{ runner }} mutmut results
+
 # Full audit: includes slow tests (deadlock guards, 1k-file torture, Hypothesis ci).
 # Run on Ubuntu only; reserved for pre-release validation.
 test-cov-full *args:

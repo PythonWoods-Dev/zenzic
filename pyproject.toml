@@ -226,7 +226,19 @@ exclude_lines = [
 # ─── Mutation testing (Mutation Gate) ────────────────────────────────────────
 
 [tool.mutmut]
-source_paths = [
+# CI TIER -- one module, ~3 minutes, gated at the 95.7% floor measured on
+# exactly this set. Do not add modules here: the floor is a measurement of this
+# population, and widening the population while keeping the number turns the
+# gate into a guaranteed failure that says nothing (run 34064064642 scored 63.4%
+# against it for 2h50m before failing). The expanded four-module set lives in
+# `mutmut_expanded_source_paths` below and runs on demand via
+# `just mutation-expanded`.
+source_paths = ["src/zenzic/core/credentials.py"]
+
+# ON-DEMAND TIER -- read by `just mutation-expanded`, never by CI. ~90 minutes.
+# Not a `[tool.mutmut]` key mutmut itself reads; the recipe swaps it into
+# `source_paths` for the duration of the run and restores it afterwards.
+mutmut_expanded_source_paths = [
     "src/zenzic/core/credentials.py",
     "src/zenzic/core/scanner.py",
     "src/zenzic/core/validator.py",
