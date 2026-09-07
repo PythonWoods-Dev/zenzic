@@ -341,6 +341,23 @@ When working with file paths in any contribution, use `pathlib.Path` throughout 
 
 ---
 
+## Continuous Integration
+
+CI runs on every pull request, but not every push runs the whole matrix.
+
+- **Ordinary pushes** run the test suite on `ubuntu-latest` with Python 3.14 only. That
+  keeps the feedback loop to a few minutes; the full matrix roughly triples the cost and
+  the extra combinations rarely change the result of an in-progress change.
+- **The full matrix** — `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on
+  3.10 — runs on every push to `main`, and on a pull request whenever it carries the
+  **`ci:full-matrix`** label. Apply the label before a pull request is merged; all three
+  jobs must pass. You can also run the full matrix on demand from the Actions tab
+  (**Zenzic Core CI → Run workflow**), which uses the `workflow_dispatch` trigger.
+
+The reduced set deliberately omits the two things most likely to differ from a Linux
+developer machine — Windows path handling and Python 3.10 compatibility — so a green
+reduced run is not a substitute for the labelled run before merge.
+
 ## 📖 Documentation & Support
 
 | Area | URL | Audience |
