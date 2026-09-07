@@ -49,3 +49,26 @@ def test_percent_encoded_space_is_still_decoded_once() -> None:
     """Fixing the colon must not double-decode ordinary escapes."""
     p = uri_to_path("file:///tmp/my%20docs/a%2520b.md")
     assert p.name == "a%20b.md" and "my docs" in p.as_posix()
+
+
+def test_url2pathname_is_called_from_exactly_one_module() -> None:
+    """Structural: three private copies of the conversion once existed and all
+    three carried the same defect. A fourth copy must not be able to appear."""
+    from pathlib import Path as _P
+
+    src = _P(__file__).resolve().parents[1] / "src" / "zenzic"
+    callers = sorted(
+        str(p.relative_to(src))
+        for p in src.rglob("*.py")
+        if "url2pathname(" in p.read_text(encoding="utf-8")
+    )
+    assert callers == ["models/vsm.py"], callers
+
+
+def test_the_engine_and_the_server_use_the_same_conversion() -> None:
+    from zenzic.core import incremental
+    from zenzic.lsp import server
+    from zenzic.models import vsm
+
+    u = "file:///d%3A/a/ws/docs/b.md"
+    assert incremental._uri_to_path(u) == vsm.uri_to_path(u) == server.uri_to_path(u)

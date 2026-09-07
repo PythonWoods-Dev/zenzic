@@ -12,8 +12,6 @@ import time
 import traceback
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
-from urllib.parse import urlsplit
-from urllib.request import url2pathname
 
 from zenzic import __version__
 from zenzic.core import regex as re
@@ -28,7 +26,12 @@ from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ZenzicConfig
 from zenzic.models.diagnostics import (
     ZenzicDiagnostic,
 )
-from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap, build_vsm
+from zenzic.models.vsm import (
+    VirtualBufferOverlay,
+    VirtualSiteMap,
+    build_vsm,
+    uri_to_path as _vsm_uri_to_path,
+)
 
 
 #: The ``source`` value Zenzic stamps on every diagnostic it emits
@@ -38,27 +41,8 @@ _ZENZIC_DIAGNOSTIC_SOURCE = "zenzic"
 
 
 # RE2 has no lookahead: capture the separator and re-emit it instead.
-_ENCODED_DRIVE = re.compile(r"^/([A-Za-z])%3[Aa](/|$)")
-
-
-def uri_to_path(uri: str) -> Path:
-    """Convert a file:// URI to a cross-platform pathlib.Path.
-
-    VS Code spells a Windows drive as ``file:///d%3A/...`` -- lowercase letter,
-    percent-encoded colon. ``url2pathname`` on Windows splits on the colon
-    *before* unquoting, so the encoded form hides the drive and comes back as a
-    bogus rooted path (``\\d:\\a\\...``). Every path derived from ``rootUri``
-    was then wrong on Windows: docs root, site map, diagnostics, rename
-    repairs -- silently, while text-keyed features kept working. Only the
-    drive colon is decoded here; everything else is left for ``url2pathname``
-    so ordinary escapes are not decoded twice.
-    """
-    parsed = urlsplit(uri)
-    path = parsed.path
-    m = _ENCODED_DRIVE.match(path)
-    if m:
-        path = f"/{m.group(1).upper()}:{m.group(2)}{path[m.end() :]}"
-    return Path(url2pathname(path))
+# One implementation for the whole tree; see models.vsm.uri_to_path.
+uri_to_path = _vsm_uri_to_path
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -1077,7 +1061,6 @@ class LanguageServer:
             self.send_response(msg_id, result=[])
             return
 
-        from zenzic.core import regex as re
         from zenzic.core.codes import (
             CODE_DEFINITIONS,
             NON_INLINE_SUPPRESSIBLE_CODES,

@@ -23,15 +23,39 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.discovery import build_content_mounts
 from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
-def _uri_to_path(uri: str) -> Path:
-    """Convert a file:// URI to a cross-platform pathlib.Path."""
-    parsed = urlsplit(uri)
-    return Path(url2pathname(parsed.path))
+_ENCODED_DRIVE = re.compile(r"^/([A-Za-z])%3[Aa](/|$)")
+
+
+def uri_to_path(uri: str) -> Path:
+    """Convert a ``file://`` URI to a cross-platform :class:`Path`.
+
+    The single implementation. Three private copies of this function existed
+    -- here, in ``core.incremental`` and in ``lsp.server`` -- and all three
+    carried the same Windows defect, so fixing one left the engine crashing
+    on the next request. A structural test now asserts ``url2pathname`` is
+    called from exactly one module under ``src/``.
+
+    VS Code spells a Windows drive as ``file:///d%3A/...`` -- lowercase letter,
+    percent-encoded colon. ``url2pathname`` on Windows splits on the colon
+    *before* unquoting, so the encoded form hides the drive and the result is
+    a bogus rooted path (``\\d:\\a\\...``) that ``Path.as_uri()`` later
+    rejects as relative. Only the drive colon is decoded here; everything else
+    is left to ``url2pathname`` so ordinary escapes are not decoded twice.
+    """
+    path = urlsplit(uri).path
+    m = _ENCODED_DRIVE.match(path)
+    if m:
+        path = f"/{m.group(1).upper()}:{m.group(2)}{path[m.end() :]}"
+    return Path(url2pathname(path))
+
+
+_uri_to_path = uri_to_path  # local callers below
 
 
 _log = logging.getLogger(__name__)

@@ -37,7 +37,6 @@ import posixpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
-from urllib.request import url2pathname
 
 from zenzic.core.ast import ExtractedLink
 from zenzic.core.codes import SECURITY_TIER_CODES, code_severity
@@ -64,7 +63,7 @@ from zenzic.models.diagnostics import (
     Severity,
     ZenzicDiagnostic,
 )
-from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm
+from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm, uri_to_path
 
 
 if TYPE_CHECKING:
@@ -72,10 +71,8 @@ if TYPE_CHECKING:
     from zenzic.models.config import ZenzicConfig
 
 
-def _uri_to_path(uri: str) -> Path:
-    """Convert a file:// URI to a cross-platform pathlib.Path."""
-    parsed = urlsplit(uri)
-    return Path(url2pathname(parsed.path))
+# One implementation for the whole tree; see models.vsm.uri_to_path.
+_uri_to_path = uri_to_path
 
 
 class IncrementalAnalysisEngine:
