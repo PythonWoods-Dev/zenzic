@@ -127,7 +127,7 @@ The report includes:
 
 The link validator (`validate_links_async`) operates independently with its own multi-pass structure:
 
-**Pass 1** -- Read all `.md`/`.mdx` files into memory, extract inline links and reference links, compute heading anchor slugs per file. Construct the `InMemoryPathResolver` once from the complete file map.
+**Pass 1** -- Read all `.md`/`.mdx` files into memory (extension matching ignores letter case, so `.MD` and `.MDX` are included), extract inline links and reference links, compute heading anchor slugs per file. Construct the `InMemoryPathResolver` once from the complete file map.
 
 **Pass 1.5** -- Build the link adjacency graph and run iterative DFS cycle detection. The cycle registry is a `frozenset[str]` -- O(1) membership checks in Pass 2. Total complexity: Theta(V+E).
 
