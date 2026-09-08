@@ -1416,7 +1416,7 @@ def generate_virtual_site_map(
     if not docs_root.is_dir():
         return frozenset()
     for md_file in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_manager):
-        if md_file.suffix not in DOC_SUFFIXES or md_file.is_symlink():
+        if md_file.suffix.lower() not in DOC_SUFFIXES or md_file.is_symlink():
             continue
         rel = md_file.relative_to(docs_root)
         stem = rel.with_suffix("")

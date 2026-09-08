@@ -58,3 +58,51 @@ def test_escaping_symlink_skipped_and_logged(
 
     # Assert Z202 warning was logged for escaping symlink
     assert any("Z202 Path Traversal" in record.message for record in caplog.records)
+
+
+# ── Extension case: the CLI and the LSP disagreed, and the security tier was on
+# the wrong side of it (V031_FIX_SUFFIX_CASE_BYPASS, 2026-09-08) ──────────────
+# `discovery.py` compared `path.suffix` verbatim while the LSP, the adapters and
+# the scanner compared `path.suffix.lower()`. A credential in `notes.MD` was
+# therefore analysed by the editor and invisible to `zenzic check all`: exit 1
+# where the Exit Code Contract owes exit 2. `.MD` is an ordinary spelling on a
+# case-insensitive filesystem, so this is not a contrived input.
+
+
+def _case_repo(tmp_path: Path) -> Path:
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Index\n\nSee [notes](notes.MD).\n")
+    (docs / "notes.MD").write_text("# Notes\n\nContent that is long enough to avoid noise.\n")
+    return docs
+
+
+def test_iter_markdown_sources_discovers_uppercase_extension(tmp_path: Path) -> None:
+    from zenzic.cli._shared import _build_exclusion_manager
+    from zenzic.core.discovery import iter_markdown_sources
+    from zenzic.models.config import ZenzicConfig
+
+    docs = _case_repo(tmp_path)
+    config, _ = ZenzicConfig.load(tmp_path)
+    mgr = _build_exclusion_manager(config, tmp_path, docs)
+    found = sorted(p.name for p in iter_markdown_sources(docs, config, mgr))
+    assert "notes.MD" in found, f"uppercase extension not discovered: {found}"
+
+
+def test_credential_in_uppercase_extension_file_is_scanned(tmp_path: Path) -> None:
+    """The security half: exit 2 is owed, and the CLI returned exit 1."""
+    from zenzic.cli._shared import _build_exclusion_manager
+    from zenzic.core.discovery import iter_markdown_sources
+    from zenzic.models.config import ZenzicConfig
+
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    secret = "AKIA" + "IOSFODNN7EXAMPLE"
+    (docs / "leak.MD").write_text(f"# Leak\n\nkey: {secret}\n")
+    config, _ = ZenzicConfig.load(tmp_path)
+    mgr = _build_exclusion_manager(config, tmp_path, docs)
+    assert any(p.name == "leak.MD" for p in iter_markdown_sources(docs, config, mgr)), (
+        "a file the credential scanner never sees cannot produce Z201"
+    )

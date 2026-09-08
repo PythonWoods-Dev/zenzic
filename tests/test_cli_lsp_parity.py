@@ -118,3 +118,22 @@ def test_parity_security_breach_fixture(monkeypatch: pytest.MonkeyPatch) -> None
     """examples/z201-credentials: a real leaked-credential fixture (Z201, Exit 2)."""
     repo_root = _EXAMPLES_ROOT / "z201-credentials"
     _assert_parity(repo_root, repo_root / "docs", monkeypatch)
+
+
+def test_parity_uppercase_extension(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Extension case, the divergence the first three fixtures could not reach.
+
+    `discovery.py` compared `path.suffix` verbatim while the LSP compared
+    `path.suffix.lower()`, so a credential in `notes.MD` was analysed by the
+    editor and invisible to `zenzic check all` -- exit 1 where the Exit Code
+    Contract owes exit 2. Every original fixture used lowercase `.md`, so all
+    three agreed while the class diverged (V031_FIX_SUFFIX_CASE_BYPASS).
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    body = " ".join(["word"] * 55)
+    (docs / "index.md").write_text(f"# Home\n\n[Notes](notes.MD). {body}\n", encoding="utf-8")
+    (docs / "notes.MD").write_text(f"# Notes\n\n[Home](index.md). {body}\n", encoding="utf-8")
+    (tmp_path / ".zenzic.toml").touch()
+
+    _assert_parity(tmp_path, docs, monkeypatch)

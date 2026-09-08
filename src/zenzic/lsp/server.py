@@ -274,7 +274,11 @@ class LanguageServer:
             for file_path in walk_files(
                 docs_root, set(self.config.excluded_dirs), self.exclusion_mgr, self.config
             ):
-                if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
+                if (
+                    file_path.is_dir()
+                    or file_path.is_symlink()
+                    or file_path.suffix.lower() in DOC_SUFFIXES
+                ):
                     continue
                 if self.exclusion_mgr.should_exclude_file(file_path, docs_root):
                     continue

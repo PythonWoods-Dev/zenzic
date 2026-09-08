@@ -270,7 +270,7 @@ class IncrementalAnalysisEngine:
                     if (
                         file_path.is_dir()
                         or file_path.is_symlink()
-                        or file_path.suffix in DOC_SUFFIXES
+                        or file_path.suffix.lower() in DOC_SUFFIXES
                     ):
                         continue
                     if exclusion_manager.should_exclude_file(file_path, self.docs_root):

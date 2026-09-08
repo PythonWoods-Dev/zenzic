@@ -219,7 +219,7 @@ def iter_locale_markdown_sources(
         return
     excluded_dirs = set(config.excluded_dirs)
     for md_file in walk_files(locale_root, excluded_dirs, exclusion_manager, config):
-        if md_file.suffix not in DOC_SUFFIXES:
+        if md_file.suffix.lower() not in DOC_SUFFIXES:
             continue
         if exclusion_manager.should_exclude_file(md_file, locale_root):
             continue
@@ -264,7 +264,7 @@ def iter_extra_content_markdown_sources(
     excluded_dirs = set(config.excluded_dirs)
     prefix_path = Path(url_prefix) if url_prefix else None
     for md_file in walk_files(content_root, excluded_dirs, exclusion_manager, config):
-        if md_file.suffix not in DOC_SUFFIXES:
+        if md_file.suffix.lower() not in DOC_SUFFIXES:
             continue
         if exclusion_manager.should_exclude_file(md_file, content_root):
             continue
@@ -310,7 +310,7 @@ def iter_security_scan_sources(
         if not root.is_dir():
             continue
         for md_file in walk_files(root, set(), view, config):
-            if md_file.suffix not in DOC_SUFFIXES:
+            if md_file.suffix.lower() not in DOC_SUFFIXES:
                 continue
             if view.should_exclude_file(md_file, root):
                 continue
@@ -349,7 +349,7 @@ def iter_markdown_sources(
     """
     excluded_dirs = set(config.excluded_dirs)
     for md_file in walk_files(docs_root, excluded_dirs, exclusion_manager, config):
-        if md_file.suffix not in DOC_SUFFIXES:
+        if md_file.suffix.lower() not in DOC_SUFFIXES:
             continue
         if exclusion_manager.should_exclude_file(md_file, docs_root):
             continue
