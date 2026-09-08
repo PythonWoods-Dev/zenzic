@@ -293,3 +293,86 @@ def test_fix_rename_case_only_rename_survives_realpath_collapse(
     assert "[target](caselink.md)" in (docs / "linker.md").read_text(), (
         docs / "linker.md"
     ).read_text()
+
+
+# ── Case-insensitive identity, CLI predicate (V031_IMPLEMENT_CLI_CASE_PARITY) ──
+# The editor repairs a link that names the renamed file in a different letter
+# case; this command did not, and the two disagreed on the same rename. The
+# predicate here is deliberately NOT the LSP's `== 1`: `willRenameFiles` fires
+# before the rename so the file still exists there, whereas `OLD` need not
+# exist for this command (the `git mv` workflow). The rule is "no OTHER
+# discovered page folds equal to OLD", evaluated over the set this command
+# already enumerates -- never `os.path.normcase`, never the filesystem, so the
+# answer cannot depend on the host (ADR-075).
+
+
+def _case_fixture(tmp_path: Path, *, lowercase_twin: bool, old_still_present: bool) -> Path:
+    docs = _init_repo(tmp_path)
+    if old_still_present:
+        (docs / "CaseTarget.md").write_text("# Upper\nContent.\n")
+    if lowercase_twin:
+        (docs / "casetarget.md").write_text("# Lower\nContent.\n")
+    (docs / "caselink.md").write_text("# Linker\nSee [target](./casetarget.md).\n")
+    return docs
+
+
+def test_fix_rename_repairs_case_mismatched_href_when_unambiguous(tmp_path: Path) -> None:
+    """Ordinary unique page: the href differs from the file only by letter case,
+    nothing else folds equal to it, so it is repaired -- matching the editor."""
+    docs = _case_fixture(tmp_path, lowercase_twin=False, old_still_present=True)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](CaseTarget2.md)" in (docs / "caselink.md").read_text(), (
+        docs / "caselink.md"
+    ).read_text()
+
+
+def test_fix_rename_declines_case_match_when_a_twin_page_exists(tmp_path: Path) -> None:
+    """Both spellings exist (possible on a case-sensitive filesystem): the href
+    is an exact link to the OTHER page, so renaming this one must leave it be."""
+    docs = _case_fixture(tmp_path, lowercase_twin=True, old_still_present=True)
+    if not (docs / "CaseTarget.md").exists() or not (docs / "casetarget.md").exists():
+        pytest.skip("case-insensitive filesystem: the two pages cannot coexist here")
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](./casetarget.md)" in (docs / "caselink.md").read_text()
+
+
+def test_fix_rename_declines_case_match_when_old_is_gone_but_a_twin_remains(
+    tmp_path: Path,
+) -> None:
+    """`OLD` already moved away and a page folding equal to it survives: the
+    link belongs to the survivor, not to the file being renamed."""
+    docs = _case_fixture(tmp_path, lowercase_twin=True, old_still_present=False)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "Elsewhere.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](./casetarget.md)" in (docs / "caselink.md").read_text()
+
+
+def test_fix_rename_repairs_case_mismatched_href_after_git_mv(tmp_path: Path) -> None:
+    """The command's main use case, and the one the LSP's own predicate gets
+    wrong: `OLD` no longer exists (`git mv` already ran) and nothing folds
+    equal to it, so the case-mismatched inbound link is repaired."""
+    docs = _case_fixture(tmp_path, lowercase_twin=False, old_still_present=False)
+    (docs / "CaseTarget2.md").write_text("# Upper, moved\nContent.\n")
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](CaseTarget2.md)" in (docs / "caselink.md").read_text(), (
+        docs / "caselink.md"
+    ).read_text()

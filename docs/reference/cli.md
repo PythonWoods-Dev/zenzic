@@ -1019,12 +1019,19 @@ Docs-root-relative (a leading `/`) and `@site/...` alias links are always left u
 reconstructing the correct alias form is ambiguous. A file with an active inline suppression at
 the affected location is also left untouched rather than overriding it.
 
-Matching is exact. A link written in a different letter case than the file it points at —
-`[target](./casetarget.md)` for `CaseTarget.md` — is not rewritten by this command, even on a
-case-insensitive filesystem where it resolves. The editor's
-[auto-repair-on-rename](../editor/vscode.md#auto-repair-links-on-rename) does handle that case,
-because the Language Server has the Virtual Site Map in memory and can check that no other page
-differs from the renamed one only by case; this command walks the docs tree without that index.
+A link that names the file in a different letter case — `[target](./casetarget.md)` for
+`CaseTarget.md`, which a case-insensitive filesystem resolves — is repaired too, provided no
+other discovered page folds equal to `OLD`. Where such a page does exist (possible on a
+case-sensitive filesystem, or left behind by an earlier move), the link belongs to that page and
+this command leaves it alone rather than guessing. This matches the editor's
+[auto-repair-on-rename](../editor/vscode.md#auto-repair-links-on-rename), so a rename repaired
+one way is repaired the same way the other.
+
+The comparison is Unicode case folding over the pages this command has already discovered — it
+never probes the filesystem — so the same rename produces the same result on Linux, macOS and
+Windows. One consequence follows from that and is worth knowing: a page excluded by
+`.zenzic.toml` is not in the discovered set and therefore cannot be seen as a case-collision.
+The editor's auto-repair has the same boundary, which is why the two agree.
 
 ---
 

@@ -201,6 +201,29 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
     exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
     files = list(iter_markdown_sources(docs_root, config, exclusion_mgr))
 
+    # An href may name the renamed file up to letter case only
+    # (`./casetarget.md` -> `CaseTarget.md`), which a case-insensitive
+    # filesystem resolves and the editor already repairs. Accept that identity
+    # here too, but only when it is unambiguous: if any OTHER discovered page
+    # folds equal to OLD, the link belongs to that page and exact matching
+    # alone applies.
+    #
+    # The predicate is "no *other* page folds equal", not the LSP's "exactly
+    # one page folds equal": `workspace/willRenameFiles` fires before the
+    # rename, so there the file still exists, while OLD need not exist for this
+    # command -- `git mv` first, then `zenzic fix --rename`, is the documented
+    # workflow, and requiring a match would decline every such rename.
+    #
+    # `str.casefold()` over the already-enumerated set, never
+    # `os.path.normcase` and never a filesystem probe: normcase is the identity
+    # on POSIX and lowercases on NTFS, which would make the output depend on
+    # the host and put platform-specific behaviour in the Core (ADR-075).
+    # Costs no I/O -- `files` is already in memory.
+    _old_folded = old_abs.casefold()
+    match_case_insensitively = not any(
+        str(f) != old_abs and str(f).casefold() == _old_folded for f in files
+    )
+
     fixed_count = 0
     skipped_count = 0
     checked_count = 0
@@ -246,6 +269,7 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
                 repo_root_str=repo_root_str,
                 old_abs=old_abs,
                 new_abs=new_abs,
+                match_case_insensitively=match_case_insensitively,
             )
             ast = parse(content)
             new_ast, changed = Mutator([mutation]).mutate(ast)
