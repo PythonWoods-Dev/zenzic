@@ -39,7 +39,7 @@ The adoption blocker usually gets stated as a single, all-or-nothing requirement
 Baseline tracking splits that requirement into two much smaller ones:
 
 1. **Existing findings** are captured once, tagged, and no longer fail the build.
-2. **Any new finding**, or any drop in the overall Document Quality Score (DQS), fails the build immediately.
+2. **Any new finding**, or any drop in the overall Documentation Quality Score (DQS), fails the build immediately.
 
 The repository does not become clean on day one. It becomes *frozen* on day one — nothing gets worse from this point forward, and the team pays down the frozen backlog on its own schedule instead of as a blocking prerequisite.
 

@@ -96,6 +96,20 @@ search = 'placeholder: "{current_version}"'
 replace = 'placeholder: "{new_version}"'
 
 [[tool.bumpversion.files]]
+# The supported-version table on the security page. Registered 2026-09-08 after
+# an audit found it unregistered here and in zenzic-vscode, while zenzic-action
+# had it right: at a tag both would have gone on claiming 0.30.x was current and
+# the new release unsupported -- on the one page a user reads when deciding
+# whether to upgrade after a vulnerability (ADR-092).
+# The table writes `0.30.x`, not the full version, so the search uses the
+# major/minor components; {current_version} would not match anything here.
+filename = "SECURITY.md"
+search = '''| `{current_major}.{current_minor}.x` (current) | ✅ All security fixes |
+| `< {current_major}.{current_minor}` | ❌ Unsupported — upgrade to the current release |'''
+replace = '''| `{new_major}.{new_minor}.x` (current) | ✅ All security fixes |
+| `< {new_major}.{new_minor}` | ❌ Unsupported — upgrade to the current release |'''
+
+[[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/bug_report.yml"
 search = 'placeholder: "{current_version}"'
 replace = 'placeholder: "{new_version}"'
