@@ -171,6 +171,18 @@ Scope and safety behavior:
 - A file excluded via `.zenzic.toml` is never rewritten, even if it links to the renamed file.
 - If repairing several inbound links at once and one linking file cannot be safely updated, the others are still repaired independently — Zenzic never skips a whole rename's worth of fixes because one file failed.
 - Renaming a folder (rather than a single file) is not currently handled by this feature.
+- A link that names the renamed file in a different letter case — `[target](./casetarget.md)`
+  pointing at `CaseTarget.md`, which a case-insensitive filesystem resolves — is repaired too,
+  provided no other page's URL differs from the renamed file's only by case. Where two such
+  pages exist (possible on a case-sensitive filesystem), the link belongs to one of them and
+  Zenzic leaves it alone rather than guessing. The rule is applied identically on every
+  platform, so the same rename produces the same edit on Linux, macOS and Windows.
+- A rename that changes **only** letter case may never reach the extension on a
+  case-insensitive filesystem. Observed on Windows: for a rename requested through the editor's
+  rename API, VS Code resolved the new name to the existing file before notifying participants —
+  the server received the same URI as both old and new name, and nothing was renamed on disk.
+  Zenzic answers that no-op with no edit at all, rather than rewriting every inbound link to the
+  spelling it already has and leaving those files unsaved for nothing.
 
 ---
 

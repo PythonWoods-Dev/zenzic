@@ -1019,6 +1019,13 @@ Docs-root-relative (a leading `/`) and `@site/...` alias links are always left u
 reconstructing the correct alias form is ambiguous. A file with an active inline suppression at
 the affected location is also left untouched rather than overriding it.
 
+Matching is exact. A link written in a different letter case than the file it points at —
+`[target](./casetarget.md)` for `CaseTarget.md` — is not rewritten by this command, even on a
+case-insensitive filesystem where it resolves. The editor's
+[auto-repair-on-rename](../editor/vscode.md#auto-repair-links-on-rename) does handle that case,
+because the Language Server has the Virtual Site Map in memory and can check that no other page
+differs from the renamed one only by case; this command walks the docs tree without that index.
+
 ---
 
 ## Exit codes {#exit-codes}
