@@ -114,3 +114,18 @@ Between baseline tracking and `--only`, a legacy repository has everything it ne
 Snapshot the existing debt with a baseline. Choose the smallest `--only` list that covers what actually can't ship broken. Expand both over time, on the team's own schedule — not as a blocking prerequisite to getting a gate at all.
 
 Full reference for `--only`, including flag behavior for `zenzic check` versus `zenzic fix`, is in the [CLI reference](../../reference/cli.md) and the [technical-debt how-to guide](../../how-to/handle-technical-debt.md#progressive-adoption).
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

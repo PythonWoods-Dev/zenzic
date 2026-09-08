@@ -154,3 +154,18 @@ For a full account of why these three distribution paths are treated as distinct
 Offline-by-default and the Privacy Gate solve two different halves of the same compliance question. The first means a security review doesn't have to ask what a scan sends off-machine, because under default operation, nothing does. The second means that if a confidential term does make it into a document anyway, it's caught with the same zero-tolerance treatment as a leaked credential, using a file that's structurally incapable of being committed alongside the docs it's protecting. Together, they let a regulated team adopt a documentation quality gate as a genuine yes-or-no security question, answered once, rather than a case-by-case exception it has to keep re-justifying.
 
 Full field reference for `forbidden_patterns`, and the complete precedence chain across `.zenzic.toml`, `pyproject.toml [tool.zenzic]`, and `.zenzic.local.toml`, is in the [Configuration Reference](../../reference/configuration-reference.md#local-sanctuary). Step-by-step setup, including the `.gitignore` verification command above, is in [Configure the Privacy Gate](../../how-to/configure-privacy-gate.md).
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

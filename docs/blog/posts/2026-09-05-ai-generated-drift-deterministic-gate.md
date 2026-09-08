@@ -135,3 +135,18 @@ An AI assistant regenerating a table isn't doing anything wrong by producing Mar
 Full field reference for `required_table_columns` and `table_cell_enums`, including scope patterns and matching behavior, is in the [Configuration Reference](../../reference/configuration-reference.md#required-table-columns). Full depth on the rest of the SDD rule suite — `Z523` and `Z412` included — is in [Specification-Driven Development & AI Knowledge Graph Integrity](2026-08-22-zenzic-v0310-specification-driven-development.md).
 
 That's the whole series. If you're arriving here first, the practical starting point is [Snapshot Your Debt: Adopting Quality Gates Without Fixing Everything First](2026-08-30-snapshot-your-debt-baseline-quality-gates.md) — freezing existing debt before adding anything else.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

@@ -165,3 +165,15 @@ The issues described here were not the result of negligence or poor maintenance.
 Validating documentation as structured data rather than plain text provides an additional layer of assurance that becomes increasingly valuable as projects scale.
 
 The findings discussed in this article were discovered while validating Zenzic, an open-source Docs-as-Code analysis tool currently under development.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

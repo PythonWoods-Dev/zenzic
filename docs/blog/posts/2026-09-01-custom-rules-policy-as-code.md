@@ -146,3 +146,18 @@ Whichever path you start from, the rule itself lives in the same `.zenzic.toml` 
 ## Closing
 
 Across all three articles in this sequence, a legacy repository now has a complete on-ramp. Freezing existing debt with a baseline and narrowing which built-in codes are load-bearing on day one with `--only` get a gate running before the documentation is clean. Extending the rule set itself with organization-specific policy, in the same config file, with no second tool to maintain, is this article's contribution. None of it requires the documentation to be clean first, and none of it requires forking the engine to say "this specific thing must never appear in our docs."
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

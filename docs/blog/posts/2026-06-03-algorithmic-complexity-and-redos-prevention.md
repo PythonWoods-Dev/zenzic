@@ -51,3 +51,16 @@ The architectural decisions are summarized below:
 3. **I/O Discovery**: The ingestion phase operates in $O(N)$ complexity relative to the total volume of processed data. To reduce wall-time without altering the fundamental computational complexity, Zenzic can distribute processing via parallel process pools.
 
 This algorithmic separation ensures that Zenzic remains a structurally sound, security-hardened tool capable of operating safely within enterprise CI/CD gates.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

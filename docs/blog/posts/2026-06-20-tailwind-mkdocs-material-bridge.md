@@ -83,3 +83,15 @@ This is not a limitation; it is a clean architectural boundary. The MkDocs Mater
 ## What This Enables
 
 With the bridge in place, the landing page Jinja2 partials can use standard Tailwind utility classes at their designed scale. The 14 ADR ghost entries in the developer nav have been purged in this same commit. The dual-palette configuration now exposes the MkDocs Material theme toggle in the header.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

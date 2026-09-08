@@ -145,3 +145,18 @@ Whichever path you start from, the breakdown output is the same one shown above:
 Four categories get scored, weighted, and capped. One gate sits outside that scoring entirely and can zero it out regardless of how clean the four categories are. That's the whole model this article set out to describe — and, again, "five layers" is this article's framing for it, not a name Zenzic's own documentation uses. What Zenzic's documentation does state, and what this article has tried to cite precisely rather than approximate, is the real weight table, the real Gravity Cap behavior, and the real, unconditional security override. The five adoption articles in this series each build a practical workflow on top of some part of that shape; this one was only ever meant to make the shape itself visible.
 
 Full derivation of the DQS formula — including the flat suppression-debt model and its migration history — is in [The DQS Mathematical Model](2026-05-25-dqs-mathematical-model.md). Full severity taxonomy — Errors, Warnings, Info, and how they map to `--strict` and SARIF — is in [Signal-to-Noise in CI/CD](2026-08-14-signal-to-noise-in-ci-cd-managing-diagnostic-severity.md). The complete category weight table, Gravity Cap mechanics, and worked example this article draws its numbers from are in [Scoring System](../../explanation/scoring-system.md), and the full 5-stage algorithm specification is in the [Scoring Algorithm Reference](../../reference/scoring-algorithm.md).
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*
