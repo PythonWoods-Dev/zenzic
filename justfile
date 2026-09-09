@@ -163,6 +163,18 @@ _local-checks:
         echo "    git config --local --unset zenzic.local-tooling" >&2
         exit 1
     fi
+    if [ -d .claude ] || [ -d .human ]; then
+        echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
+        echo "  '.claude/' and/or '.human/' exist here, so this is a maintainer clone —" >&2
+        echo "  but '.justfile.local' is absent and 'zenzic.local-tooling' is unset, so" >&2
+        echo "  every private gate is being skipped while 'just verify' reports success." >&2
+        echo "  That is the failure this check exists to make visible: a green run that" >&2
+        echo "  verified less than it appeared to." >&2
+        echo "  Fix — restore the private recipes, then opt this clone in:" >&2
+        echo "    git config --local zenzic.local-tooling true" >&2
+        echo "  A genuine contributor fork has neither directory and never reaches this." >&2
+        exit 1
+    fi
     echo "note: '.justfile.local' not present — repository-local checks skipped (expected for a fresh clone)."
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
