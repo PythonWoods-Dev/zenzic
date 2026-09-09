@@ -326,6 +326,25 @@ def _case_fixture(tmp_path: Path, *, lowercase_twin: bool, old_still_present: bo
     docs = _init_repo(tmp_path)
     if old_still_present:
         (docs / "CaseTarget.md").write_text("# Upper\nContent.\n")
+    if lowercase_twin and not old_still_present:
+        # The "old page is gone, a twin survives" case. On a case-insensitive
+        # filesystem this is not merely hard to build -- it is a contradiction.
+        # `CaseTarget.md` was never created, yet it *resolves to* the surviving
+        # `casetarget.md`: the two spellings name one directory entry. Asking to
+        # rename the absent uppercase page therefore is asking to rename the twin,
+        # and `Path.resolve()` returns the on-disk spelling, so "old" and "the
+        # other page" become the same path and there is no second page to decline
+        # against. The probe below is the reader-reproducible form of that: a file
+        # that was never written reports `.exists()`.
+        (docs / "casetarget.md").write_text("# Lower\nContent.\n")
+        if (docs / "CaseTarget.md").exists():
+            pytest.skip(
+                "case-insensitive filesystem: 'CaseTarget.md' resolves to the "
+                "surviving 'casetarget.md', so the absent page and the twin are "
+                "one entry and the decline this test asserts has no second page"
+            )
+        (docs / "caselink.md").write_text("# Linker\nSee [target](./casetarget.md).\n")
+        return docs
     if lowercase_twin:
         if old_still_present and (docs / "casetarget.md").exists():
             pytest.skip(
