@@ -191,6 +191,7 @@ Scope and safety behavior:
 To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
 
 - **File Extensions**: The extension and Language Server exclusively target Markdown (`.md`) and MDX (`.mdx`) files. The comparison ignores letter case, so `NOTES.MD` is analysed exactly as `notes.md` is — the CLI matches this, and did not before v0.31.0. Non-documentation files (e.g. `OWNERS`, `.gitignore`, `config.yaml`) are automatically filtered out.
+- **MDX needs a language extension installed, or nothing happens**: the Language Server analyses `.mdx` exactly as it analyses `.md`, and publishes the same diagnostics at the same positions. VS Code, however, has no built-in `mdx` language. Unless another extension contributes that language identifier, a `.mdx` file opens as **Plain Text**, so neither `onLanguage:markdown` nor `onLanguage:mdx` fires and Zenzic never activates. The symptom is silence rather than an error. Opening any `.md` file in the same window activates it, after which the workspace's `.mdx` files are analysed too.
 - **Configured Domain**: Only files residing within the configured `docs_dir` (default: `docs/`) or `extra_content_roots` are evaluated. Out-of-bounds files in the workspace (such as root `README.md` when `docs_dir = "docs"`) produce zero diagnostics.
 
 > **Having issues?** See the [Troubleshooting Guide](../how-to/troubleshooting.md#editor-integration).

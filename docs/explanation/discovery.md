@@ -72,8 +72,24 @@ If none of these conditions are met, Zenzic rejects the invocation with an expli
 All modules that need to iterate over documentation source files must call `iter_markdown_sources`. Direct calls to `Path.rglob()`, `os.walk()`, or `Path.iterdir()` from scanner, validator, or credential scanner are prohibited by design. This function:
 
 1. Walks the `docs_root` directory using `os.walk()` with **in-place directory pruning** (excluded subtrees are never entered).
-2. Yields only `.md` and `.mdx` files, in deterministic sorted order.
+2. Yields only `.md` and `.mdx` files, in deterministic sorted order. The
+   suffix comparison ignores letter case, so `.MDX` and `.Mdx` are discovered
+   exactly as `.mdx` is.
 3. Delegates all exclusion decisions to the `LayeredExclusionManager`.
+
+An `.mdx` file is parsed as Markdown with raw HTML, not by an MDX parser. Its
+Markdown constructs — links, images, headings, credentials — behave exactly as
+they do in `.md`. Three consequences follow, each verified by execution rather
+than inferred from that description:
+
+- `<a>` and `<img>` participate fully in link, asset and forbidden-scheme
+  checks, in any letter case. A `<Img src="...">` component is checked as well,
+  because its tag name matches `img`.
+- Other JSX components are invisible to the link graph. A broken target in
+  `<Link to="./page.mdx">` is not reported, and a forbidden scheme there is not
+  caught, while the same scheme in `<a href="...">` is.
+- A Markdown link written inside an MDX comment (`{/* ... */}`) or inside a JSX
+  string attribute is still reported, though neither renders as a link.
 
 The benefit is architectural: when a directory is excluded, it is excluded everywhere -- scanner, validator, credential scanner, and orphan-checker all see the exact same file set. There is no risk of one module "forgetting" to apply an exclusion rule.
 
