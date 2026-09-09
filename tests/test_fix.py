@@ -307,11 +307,37 @@ def test_fix_rename_case_only_rename_survives_realpath_collapse(
 
 
 def _case_fixture(tmp_path: Path, *, lowercase_twin: bool, old_still_present: bool) -> Path:
+    """Build the two-spelling fixture, skipping where the filesystem forbids it.
+
+    A test asserting *decline when a twin page exists* needs two directory entries
+    differing only by letter case. NTFS and APFS cannot hold both: the second write
+    overwrites the first. The condition is genuinely unconstructable there, so the
+    assertion has nothing to assert and a skip is the correct treatment -- the same
+    call `tests/test_lsp.py` already makes for its equivalent test.
+
+    **The detection has to happen before the twin is written.** Checking
+    `.exists()` on both spellings *afterwards* returns True on a case-insensitive
+    filesystem, because both names resolve to the one file that survived -- which is
+    exactly why the guard that was written that way passed locally and failed on
+    Windows. Probing the lowercase name while only the uppercase file exists is the
+    observation that actually distinguishes the two platforms, and a reader can
+    reproduce it in one line.
+    """
     docs = _init_repo(tmp_path)
     if old_still_present:
         (docs / "CaseTarget.md").write_text("# Upper\nContent.\n")
     if lowercase_twin:
+        if old_still_present and (docs / "casetarget.md").exists():
+            pytest.skip(
+                "case-insensitive filesystem: 'CaseTarget.md' and 'casetarget.md' "
+                "cannot coexist, so the twin this test declines against cannot be built"
+            )
         (docs / "casetarget.md").write_text("# Lower\nContent.\n")
+        if old_still_present and not (docs / "CaseTarget.md").read_text().startswith("# Upper"):
+            pytest.skip(
+                "case-insensitive filesystem: writing the lowercase twin overwrote "
+                "the uppercase page, so only one entry exists"
+            )
     (docs / "caselink.md").write_text("# Linker\nSee [target](./casetarget.md).\n")
     return docs
 
@@ -335,8 +361,6 @@ def test_fix_rename_declines_case_match_when_a_twin_page_exists(tmp_path: Path) 
     """Both spellings exist (possible on a case-sensitive filesystem): the href
     is an exact link to the OTHER page, so renaming this one must leave it be."""
     docs = _case_fixture(tmp_path, lowercase_twin=True, old_still_present=True)
-    if not (docs / "CaseTarget.md").exists() or not (docs / "casetarget.md").exists():
-        pytest.skip("case-insensitive filesystem: the two pages cannot coexist here")
     result = runner.invoke(
         app,
         ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],

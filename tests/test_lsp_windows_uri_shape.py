@@ -57,8 +57,11 @@ def test_url2pathname_is_called_from_exactly_one_module() -> None:
     from pathlib import Path as _P
 
     src = _P(__file__).resolve().parents[1] / "src" / "zenzic"
+    # `as_posix()`, not `str()`: on Windows the latter yields `models\\vsm.py` and
+    # the comparison fails on the separator rather than on the thing being asserted.
+    # A test written to verify Windows behaviour must not itself assume POSIX paths.
     callers = sorted(
-        str(p.relative_to(src))
+        p.relative_to(src).as_posix()
         for p in src.rglob("*.py")
         if "url2pathname(" in p.read_text(encoding="utf-8")
     )
