@@ -60,14 +60,23 @@ def _auto_consoles() -> tuple[Console, Console]:
         # support — silently collapsing distinct severity colors like WARNING's
         # amber and ERROR's rose to the same ANSI code. Forcing "truecolor"
         # alongside force_terminal is what FORCE_COLOR is actually for.
-        color_system="truecolor" if env_force_color else None,
+        #
+        # The else branch is "auto", NOT None. Rich's own default for this
+        # parameter is the string "auto"; passing None explicitly does not mean
+        # "detect it" — it means "this console has no color system", which
+        # disables color unconditionally. The two are indistinguishable in a
+        # conditional expression and equally invisible to any test whose stdout
+        # is a pipe, because there is no color either way. Under a real terminal
+        # the difference is total: "auto" resolves to 256/truecolor, None emits
+        # no escape sequences at all, so every interactive user saw monochrome.
+        color_system="truecolor" if env_force_color else "auto",
     )
     err = Console(
         stderr=True,
         highlight=False,
         no_color=env_no_color,
         force_terminal=True if env_force_color else None,
-        color_system="truecolor" if env_force_color else None,
+        color_system="truecolor" if env_force_color else "auto",
     )
     return out, err
 
