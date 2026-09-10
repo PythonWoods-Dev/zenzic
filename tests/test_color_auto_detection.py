@@ -16,9 +16,22 @@ regardless. Only a real TTY distinguishes the two.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+
+import pytest
+
+
+# `script` is a util-linux tool: it does not exist on Windows, and there is no
+# drop-in equivalent that gives a child process a real pty from pytest. Skipping
+# is honest here -- the alternative is a test that silently proves nothing on
+# that platform, which is the defect class this file was written to catch.
+pytestmark = pytest.mark.skipif(
+    shutil.which("script") is None,
+    reason="needs `script` for a real pty; absent on Windows",
+)
 
 
 def _in_pty(code: str, **env: str) -> str:
