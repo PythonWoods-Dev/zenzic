@@ -54,7 +54,13 @@ def _in_pty(code: str, **env: str) -> str:
                 "/dev/null",
             ],
             capture_output=True,
+            # encoding/errors are explicit: on Windows `text=True` decodes with the
+            # locale codec (cp1252), which cannot read the CLI's UTF-8 box-drawing
+            # output. The decode fails, stdout comes back None, and every assertion
+            # below dies on a TypeError that names nothing real.
             text=True,
+            encoding="utf-8",
+            errors="replace",
         ).stdout
     finally:
         os.unlink(script_path)
