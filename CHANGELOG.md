@@ -10,6 +10,49 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### ⚠ Upgrade notice — verify before rolling out
+
+Two security-tier changes in this release can make a corpus that passes today fail after
+upgrading, and **the new failures are non-suppressible**. Neither is a regression: both close
+a path by which a Tier-0 code was silenced. Run the check against your repository before you
+roll the new version into a gate.
+
+```bash
+zenzic check all
+```
+
+Both changes surface there with the file, the line and the cause. Exit `2` is a forbidden
+scheme or credential; exit `3` is a path traversal.
+
+**1. The security tier no longer reads the quality tier's masked text.** Comments, inline
+math spans and everything after an unterminated code fence are now in security scope. Text
+that was invisible to `Z202`/`Z203`/`Z205` is now read. Most sharply, this line exited `0`
+and now exits `2`, because two dollar signs on one line masked the span between them:
+
+```text
+Cost is $5 - [c](javascript:alert(1)) - or $10.
+```
+
+A **closed, well-formed code fence stays out of scope by design**, and that is the remedy for a legitimate example: fence it.
+
+**2. A site-absolute link whose first segment names an OS system directory now reaches
+`Z203` unless it is declared.** The fourteen names are `bin`, `boot`, `dev`, `etc`, `proc`,
+`programdata`, `root`, `sbin`, `sys`, `system32`, `usr`, `var`, `windows`, `winnt`. A link
+such as `/etc/install` in a repository that has a real `docs/etc/` section now needs an entry
+in `absolute_path_allowlist`:
+
+```toml
+# root-level keys go above the first table, or the parser swallows them
+absolute_path_allowlist = ["/etc/"]
+```
+
+**The verdict no longer depends on whether the target exists, and that is the point of the
+change rather than a side effect.** The previous behaviour resolved the path and downgraded
+the finding when a file happened to be there — which made a file in the repository a
+suppression mechanism for a code documented as non-suppressible. Relative links are
+unaffected and still need no configuration: they are decided by arithmetic against the
+repository root.
+
 ### Added
 
 - **`--format gitlab-codequality` on `check all` — Native GitLab Code Quality Reports**: `check all` now emits GitLab's Code Quality report schema directly, so a `.gitlab-ci.yml` can declare the artifact under `artifacts.reports.codequality` and have findings appear inline on the merge request. Previously `--format` accepted only `text`/`json`/`sarif`/`github-annotations`, and Zenzic's `--format json` output is a category-keyed object rather than GitLab's required array-of-objects — so `docs/how-to/configure-ci-cd.md` documented uploading a plain artifact as a permanent workaround, which it no longer does. Each violation carries `description`, `check_name` (the finding code), a SHA-256 `fingerprint`, `severity`, and `location.path` + `location.lines.begin`. Zenzic's severities map explicitly onto GitLab's five-value enum (`security_breach`→`blocker`, `security_incident`→`critical`, `error`→`major`, `warning`→`minor`, `info`→`info`); a severity outside Zenzic's own set — reachable from a plugin rule — maps to `minor` rather than being passed through, because an unrecognised value makes the whole report unparseable and takes every other finding with it. The fingerprint deliberately excludes the line number so a violation is not reported as newly introduced when a paragraph is inserted above it; two identical findings in one file are distinguished by their order within it. For a credential finding the matched text contributes to the digest but is never emitted. When `governance.suppression_cap_fail_hard` aborts the run, the report is a single `blocker` violation named `SUPPRESSION_CAP_EXCEEDED` anchored to `.zenzic.toml` — an empty report would be displayed by GitLab as "no code quality issues", showing a clean merge request for a failed pipeline. Available on `check all` only: the per-aspect subcommands each see one slice of the findings, and uploading one of those as the job's report would silently shrink the merge request's view to that slice.

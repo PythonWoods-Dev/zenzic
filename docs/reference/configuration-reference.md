@@ -281,11 +281,20 @@ placeholder_patterns = [
 | **Type** | `list[str]` |
 | **Default** | `[]` |
 
-Absolute path prefixes allowed in links — a match exempts the link from `Z105`. An entry never matched by any scanned link is reported as `Z110` `STALE_ALLOWLIST_ENTRY`.
+Absolute path prefixes allowed in links. A match exempts the link from `Z105`, and — since v0.31.0 — from `Z203` as well. An entry never matched by any scanned link is reported as `Z112` `STALE_ALLOWLIST_ENTRY`.
 
 ```toml
 absolute_path_allowlist = ["/api/"]
 ```
+
+**Required, not merely convenient, for a section named after an OS system directory.** A site-absolute link whose first segment is one of `bin`, `boot`, `dev`, `etc`, `proc`, `programdata`, `root`, `sbin`, `sys`, `system32`, `usr`, `var`, `windows` or `winnt` reaches `Z203` — exit 3, non-suppressible — unless a prefix here declares it. Such a link and a genuine path traversal both resolve inside `docs_dir` by construction, so nothing distinguishes them except this declaration:
+
+```toml
+# root-level keys go above the first table, or the parser swallows them
+absolute_path_allowlist = ["/etc/"]
+```
+
+Before v0.31.0 the engine instead checked whether a file existed at the target and downgraded the finding when one did. That made the verdict depend on repository content — see [`Z203`](../rules/Z203.md) for what changed and why.
 
 ---
 

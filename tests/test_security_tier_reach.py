@@ -338,7 +338,7 @@ class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
 
 
 class TestOSRootNamedDocsSectionsAreNoLongerFalsePositivesAtScale:
-    """All 15 names in ``_SYSTEM_ROOT_DIRS`` (validator.py), not just the one
+    """All 14 names in ``_SYSTEM_ROOT_DIRS`` (validator.py), not just the one
     case (``dev/``) the original report covered. A multi-part guarantee must be
     tested against every part it protects, not just the instance that surfaced
     it, and that coverage is the point of this class.
