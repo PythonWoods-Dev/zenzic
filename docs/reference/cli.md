@@ -930,25 +930,34 @@ the GitHub Actions job summary renders:
 workstation overrides. This file is never intended for commit and is
 automatically protected via `.gitignore` in Git repositories.
 
-```toml
-# --- ZENZIC LOCAL OVERRIDES ---
-# This file is machine-local and must stay in .gitignore.
-# Values declared here override shared config for your workstation only.
+The generated file is heavily commented and is its own reference; this is its shape, with
+the explanatory comments removed. Root-level keys come first, before any section, as the TOML
+parser requires:
 
-[core]
+```toml
+# ===========================================================================
+# ZENZIC LOCAL OVERRIDES (.zenzic.local.toml)
+# ===========================================================================
+
 # docs_dir = "my/custom/path/to/docs"
 
-# Z204 Privacy Gate (local secret terms, literal and case-insensitive).
-# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]
+# forbidden_patterns = ["openai", "Project Titan", "internal-api.corp"]
 forbidden_patterns = []
+
+[build_context]
+# engine = "zensical"
+# base_url = "/"
+# default_locale = "en"
+
+[project_metadata]
+# release_name = "v0.8.0"
 
 [governance]
 # suppression_cap = 100
 # suppression_cap_fail_hard = false
 
 [secrets]
-# Store API tokens here (never in shared .zenzic.toml).
-# github_pat = "YOUR_GITHUB_PAT"
+# github_pat = "<your-token>"
 
 [debug]
 # log_level = "DEBUG"
@@ -956,6 +965,12 @@ forbidden_patterns = []
 [env]
 # ZENZIC_FORCE_COLOR = "true"
 ```
+
+Its header states the merge semantics the overlay follows: `forbidden_patterns`,
+`brand_obsolescence`, `excluded_dirs`, `excluded_file_patterns` and `custom_rules` are
+**additive** — the local list extends the shared one — while `governance` (except
+`brand_obsolescence`), `build_context` and `project_metadata` **replace** the shared section
+outright.
 
 ### Best practice
 
@@ -1276,8 +1291,8 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
             {
               "id": "Z104",
               "name": "FileNotFound",
-              "shortDescription": { "text": "File not found" },
-              "fullDescription": { "text": "File not found" },
+              "shortDescription": { "text": "Link target file missing from the filesystem" },
+              "fullDescription": { "text": "Link target file missing from the filesystem" },
               "defaultConfiguration": { "level": "error" },
               "helpUri": "https://zenzic.dev/reference/finding-codes/#z104",
               "properties": { "category": "structural", "penalty": 8.0, "fixable": false }
@@ -1285,8 +1300,8 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
             {
               "id": "Z201",
               "name": "CredentialSecret",
-              "shortDescription": { "text": "Credential detected" },
-              "fullDescription": { "text": "Credential detected" },
+              "shortDescription": { "text": "Potential credential or secret detected in documentation content" },
+              "fullDescription": { "text": "Potential credential or secret detected in documentation content" },
               "defaultConfiguration": { "level": "error" },
               "helpUri": "https://zenzic.dev/reference/finding-codes/#z201",
               "properties": { "category": "uncategorized", "penalty": 0.0, "fixable": false }
@@ -1397,12 +1412,12 @@ zenzic check all --engine zensical
 zenzic check all --engine standalone    # disable orphan check regardless of config
 ```
 
-If you pass an engine name with no registered adapter, Zenzic lists available adapters and
+If you pass `--engine` a name with no registered adapter, Zenzic lists available adapters and
 exits with code 1:
 
 ```text
 ERROR: Unknown engine adapter 'hugo'.
-Installed adapters: mkdocs, standalone, zensical
+Installed adapters: mkdocs, prebuilt, standalone, vsm, zensical
 ```
 
 Third-party adapters are discovered automatically once installed — no Zenzic update required.

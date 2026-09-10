@@ -74,11 +74,11 @@ severity = "error"
 link     = "https://wiki.example.com/hostname-policy"
 ```
 
-Produces:
+Against a line reading `Visit internal.corp.example.com for details`, this produces:
 
 ```text
-docs/test.md:1:4  ✘  [ZZ-NOINTERNAL]  Internal hostname must not appear in
-public docs. (see https://wiki.example.com/hostname-policy)
+docs/test.md:1:6  ✘  [ZZ-NOINTERNAL]  Internal hostname must not appear in
+public documentation. (see https://wiki.example.com/hostname-policy)
 ```
 
 `link` is entirely optional — a rule with no `link` set produces exactly its configured

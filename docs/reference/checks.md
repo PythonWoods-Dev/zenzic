@@ -144,23 +144,17 @@ Pages with fewer than `placeholder_max_words` words (default: 50) are flagged as
 
 ### Signal 2 — pattern match
 
-Lines containing any string from `placeholder_patterns` (case-insensitive) are flagged as `placeholder-text`. Default patterns include:
+Lines matching any pattern in `placeholder_patterns` are flagged as `placeholder-text`. The
+entries are RE2-compatible **regular expressions**, not literal substrings, compiled once with
+`IGNORECASE`. There are four defaults, each word-anchored so `todos` and `wipe` do not match:
 
-```text
-coming soon
-work in progress
-wip
-todo
-to do
-stub
-placeholder
-fixme
-tbd
-draft
-da completare
-in costruzione
-bozza
-prossimamente
+```toml
+placeholder_patterns = [
+    "\\btodo\\b",
+    "\\bfixme\\b",
+    "\\bwip\\b",
+    "\\btbd\\b",
+]
 ```
 
 Both signals are independent. A page may trigger one, both, or neither.

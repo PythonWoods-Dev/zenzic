@@ -202,8 +202,7 @@ Server's incremental analysis engine (used for live editor diagnostics) is a sep
 and **does** emit a genuine, distinct `Z104` for a missing local asset file.
 
 ```text
-blog/post.md:12: '/blog/zenzic-v070' not found in the site map
-💡 Did you mean: '/blog/zenzic-v070-release/'?
+blog/post.md:12  ✘  [Z104]  '/blog/zenzic-v070' not found in docs
 ```
 
 **Fix:**

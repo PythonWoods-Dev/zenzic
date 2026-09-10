@@ -56,7 +56,7 @@ Zenzic resolves the repository root by walking up from the current working direc
 
 - **Zenzic project:** a `.zenzic.toml` file in the target directory root (created by `zenzic init`).
 - **Git repository:** a `.git/` directory anywhere in the ancestor tree.
-- **Nested invocation:** running from inside an existing project that already contains either marker.
+- **Nested invocation:** running from inside an existing project that already contains any of the four markers.
 
 If none of these conditions are met, Zenzic rejects the invocation with an explicit error.
 

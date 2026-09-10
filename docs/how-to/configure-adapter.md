@@ -44,14 +44,17 @@ zenzic check orphans --engine zensical
 zenzic check all --engine mkdocs
 ```
 
-If you pass an engine name that has no registered adapter, Zenzic lists the available adapters
-and exits with code 1:
+If you pass `--engine` a name that has no registered adapter, Zenzic lists the available
+adapters and exits with code 1:
 
 ```text
 ERROR: Unknown engine adapter 'hugo'.
-Installed adapters: mkdocs, standalone, zensical
-Install a third-party adapter or choose from the list above.
+Installed adapters: mkdocs, prebuilt, standalone, vsm, zensical
 ```
+
+A near miss also gets a suggestion — `--engine mkdoc` adds `Did you mean mkdocs?`. An unknown
+engine written into `.zenzic.toml` instead is rejected earlier, by config validation, which
+reports the same set as a schema error rather than through this message.
 
 ---
 

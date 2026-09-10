@@ -355,10 +355,9 @@ When a link resolves to a dark page (`ORPHAN_BUT_EXISTING` or `IGNORED`) in the 
 Zenzic emits:
 
 ```text
-  [UNREACHABLE_LINK] index.md:22 — 'guide/secret.md' resolves to '/guide/secret/'
-  which exists on disk but is not listed in the site navigation (UNREACHABLE_LINK)
-  — add it to nav in mkdocs.yml or remove the link
-    │ - [Secret page](guide/secret.md)
+docs/index.md:3  ✘  [Z103]  'guide/secret.md' resolves to '/guide/secret/' which
+exists on disk but is not in the site navigation (ORPHAN_LINK /
+UNREACHABLE_LINK). Readers cannot reach this page via the nav tree.
 ```
 
 The Visual Snippet (`│`) shows the exact source line so you can locate and fix the link
@@ -399,10 +398,9 @@ docs/
 ```
 
 ```text
-[UNREACHABLE_LINK] index.md:8 — '_private/notes.md' resolves to '/_private/notes/'
-which exists on disk but is not listed in the site navigation (UNREACHABLE_LINK) —
-add it to nav in mkdocs.yml or remove the link
-  │ - [Private Notes](_private/notes.md)
+docs/index.md:8  ✘  [Z103]  '_private/notes.md' resolves to '/_private/notes/'
+which exists on disk but is not in the site navigation (ORPHAN_LINK /
+UNREACHABLE_LINK). Readers cannot reach this page via the nav tree.
 ```
 
 This rule applies to any path segment starting with `_`:
