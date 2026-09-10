@@ -169,7 +169,65 @@ VALIDATION_PARALLEL_THRESHOLD = 50
 # and Z205 (exit 2) were bypassed by shift-key alone. The `.lower()` applied to
 # the captured tag name downstream was dead code until now -- it documented the
 # intent this pattern did not implement.
-_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?is)<(a|img)\b(?P<attrs>[^>]*?)>")
+#: The attribute region of a tag, aware that a quoted value may contain `>`.
+#: Both HTML and MDX permit an unescaped `>` inside a quoted attribute, so the
+#: bare ``[^>]*?`` this replaced was a precondition asserted over text the
+#: engine does not control: `<a title="a > b" href="javascript:alert(1)">`
+#: stopped matching inside `title`, the href was never parsed, and a
+#: non-suppressible Z205 came out as a suppressible Z121. Alternation and
+#: character classes only -- RE2-safe, still linear.
+#:
+#: Shared with ``rules.py``'s ``_HTML_HREF_RE`` by import rather than by
+#: copy: the two gates already diverged once on tag scope, and a second
+#: hand-kept copy of this fragment would diverge the same way.
+POLY_ATTRS_FRAGMENT = r"""(?:[^>"']|"[^"]*"|'[^']*')*?"""
+
+#: Tag scope, shared by both tiers. `<link>` is here because the quality tier
+#: has always gated on it (`rules.py`'s `_HTML_HREF_RE`) while the security
+#: tier did not, and the asymmetry ran in the dangerous direction: a broken
+#: `<link href="./ghost.md">` exited 1, while `<link href="javascript:...">`
+#: and a `<link>` traversal both exited 0. Widening the security tier is the
+#: safe way to make the two agree -- narrowing the quality tier would delete a
+#: check that works.
+#:
+#: This is the raw HTML `<link>` element, not the capitalised JSX `<Link>`
+#: component, which is deliberately out of scope: recognising framework
+#: components is a separate, open question about under-reporting, and the
+#: pattern is case-insensitive only because HTML tag names are.
+POLY_TAG_NAMES = "a|img|link"
+
+_RE_POLY_TAG: re.RegexPattern = re.compile(
+    rf"(?is)<({POLY_TAG_NAMES})\b(?P<attrs>{POLY_ATTRS_FRAGMENT})>"
+)
+
+#: Fallback for a tag whose quotes are unbalanced, where the quote-aware
+#: pattern above matches nothing at all. A browser reading
+#: `<a title="unclosed href="javascript:alert(1)">` treats `title` as
+#: `unclosed href=` and the anchor ends up with no href, so the legacy
+#: behaviour is the correct one there -- and dropping the tag entirely would
+#: trade a mis-tiered finding for a missing one, which is strictly worse.
+_RE_POLY_TAG_UNBALANCED: re.RegexPattern = re.compile(
+    rf"(?is)<({POLY_TAG_NAMES})\b(?P<attrs>[^>]*?)>"
+)
+
+
+def _iter_poly_tags(masked: str) -> list[re.Match]:
+    """Every `<a>`/`<img>` in *masked*, in document order.
+
+    The quote-aware pattern is authoritative. The legacy pattern contributes
+    only tags the first one did not find -- which is exactly the
+    unbalanced-quote case -- so a malformed tag keeps the behaviour it had
+    rather than disappearing.
+    """
+    primary = list(_RE_POLY_TAG.finditer(masked))
+    covered = [(m.start(), m.end()) for m in primary]
+    extra = [
+        m
+        for m in _RE_POLY_TAG_UNBALANCED.finditer(masked)
+        if not any(start <= m.start() < end for start, end in covered)
+    ]
+    return sorted([*primary, *extra], key=lambda m: m.start())
+
 
 # Stage 2: linear parsing of attribute=value pairs.
 _RE_POLY_ATTR: re.RegexPattern = re.compile(
@@ -365,7 +423,7 @@ class PolyglotExtractor:
                 self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
             )
         nodes: list[HtmlNodeInfo] = []
-        for m in _RE_POLY_TAG.finditer(masked):
+        for m in _iter_poly_tags(masked):
             tag = m.group(1).lower()
             attrs_str = m.group("attrs")
             # Compute line_no from the original (unmasked) text
@@ -965,6 +1023,16 @@ def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
 
     Still pure string work — no filesystem calls, no ``Path`` resolution — so
     the validator hot-path keeps its Zero I/O property.
+
+    That property is a claim about the whole traversal path, not only about
+    this function, and it was once false: both call sites in ``incremental.py``
+    wrapped this classifier in an ``is_file()`` check and downgraded the intent
+    when the target happened to exist. Beyond the I/O, it made the security
+    verdict depend on repository content — creating ``docs/etc/passwd`` turned
+    a non-suppressible ``Z203`` into a ``Z202``. Neither call site consults the
+    filesystem now. A future caller that reaches for one is reintroducing both
+    defects at once, and ``absolute_path_allowlist`` is the declared mechanism
+    it should reach for instead.
     """
     decoded = _decode_percent_encoding(href)
     candidate = decoded.split("?", 1)[0].split("#", 1)[0].replace("\\", "/")

@@ -75,6 +75,7 @@ from zenzic.core import regex as re
 from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.sovereign_context import get_sovereign_context
+from zenzic.core.validator import POLY_ATTRS_FRAGMENT, POLY_TAG_NAMES
 
 
 if TYPE_CHECKING:
@@ -1093,8 +1094,12 @@ class BrandObsolescenceRule(BaseRule):
 # Inline links: [text](url) and images ![alt](url)
 _INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 # HTML href/src attributes: <a href="url"> and <img src="url">
+# The attribute region is quote-aware, sharing one fragment with the
+# security-tier pattern in `validator.py` rather than keeping a second copy:
+# a `>` inside a quoted value is legal in both HTML and MDX, and a bare
+# negated-`>` region stopped the match before `href` was reached.
 _HTML_HREF_RE = re.compile(
-    r"""<(?:a|img|link)\b[^>]*?\b(?:href|src)=["'][^"']*["'][^>]*>""",
+    rf"""<(?:{POLY_TAG_NAMES})\b{POLY_ATTRS_FRAGMENT}\b(?:href|src)=["'][^"']*["']{POLY_ATTRS_FRAGMENT}>""",
     re.IGNORECASE,
 )
 _HTML_HREF_ATTR_RE = re.compile(r"""\b(?:href|src)=["']([^"']+)["']""", re.IGNORECASE)

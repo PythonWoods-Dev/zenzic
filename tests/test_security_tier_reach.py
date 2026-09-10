@@ -318,15 +318,17 @@ class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
     def test_an_unallowlisted_absolute_link_to_a_real_page_no_longer_false_positives(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The remaining false positive this class used to pin as unchanged
-        behaviour is now fixed generally, not via a per-repo allowlist entry
-        (V031_LAST_TWO_BLOCKERS_CLOSURE): the classifier's segment-name match
-        is checked against real filesystem existence before Z203 fires, using
-        the same ``resolve_href_target`` single source of truth this module
-        already uses for Z104 asset resolution. No `absolute_path_allowlist`
-        is configured here at all.
+        """A site-absolute ``/dev/...`` maps inside ``docs_root`` by
+        construction, so nothing separates a real section from a traversal
+        target by arithmetic. The engine once separated them by resolving the
+        path and checking existence; that made the verdict a function of
+        repository content, so the section must now be **declared**.
         """
         root = _project(tmp_path)
+        config = (root / ".zenzic.toml").read_text(encoding="utf-8")
+        (root / ".zenzic.toml").write_text(
+            'absolute_path_allowlist = ["/dev/"]\n' + config, encoding="utf-8"
+        )
         _write(root, "docs/dev/setup.md", "Setup instructions live here.")
         _write(root, "docs/page.md", "[a](/dev/setup.md)")
         assert _run(root, monkeypatch, "check", "all", "--quiet") != 3, (
@@ -336,11 +338,27 @@ class TestTheAbsolutePathAllowlistIsConsultedBeforeTheClassifier:
 
 
 class TestOSRootNamedDocsSectionsAreNoLongerFalsePositivesAtScale:
-    """All 14 names in ``_SYSTEM_ROOT_DIRS`` (validator.py), not just the one
-    case (``dev/``) the original report and the allowlist workaround covered.
-    A multi-part guarantee must be tested against every part it
-    protects, not just the instance that surfaced it. No config workaround —
-    each of these fixtures has no ``absolute_path_allowlist`` entry at all.
+    """All 15 names in ``_SYSTEM_ROOT_DIRS`` (validator.py), not just the one
+    case (``dev/``) the original report covered. A multi-part guarantee must be
+    tested against every part it protects, not just the instance that surfaced
+    it, and that coverage is the point of this class.
+
+    **The contract these fixtures assert changed, and the change is
+    deliberate.** They used to carry no ``absolute_path_allowlist`` entry,
+    because the engine cleared the false positive by resolving the target and
+    downgrading when the file existed. That check answered *"does this path
+    exist"*, and the disk is written by whoever writes the link: creating
+    ``docs/etc/passwd`` with any contents turned every ``/etc/passwd`` link in
+    the corpus from a non-suppressible ``Z203`` into a ``Z202`` that
+    ``--exit-zero`` covers. A file in the repository was a suppression
+    mechanism for a code documented as non-suppressible.
+
+    A site-absolute ``/etc/...`` maps inside ``docs_root`` by construction, so
+    no arithmetic separates a real section from a traversal target here. The
+    engine therefore requires a declaration — ``absolute_path_allowlist`` —
+    which a reviewer sees in a diff, rather than inferring consent from a file
+    appearing on disk. The ergonomic cost is real and accepted: a documentation
+    section named after an OS root now needs one config line.
     """
 
     @pytest.mark.parametrize(
@@ -366,11 +384,31 @@ class TestOSRootNamedDocsSectionsAreNoLongerFalsePositivesAtScale:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: str
     ) -> None:
         root = _project(tmp_path)
+        # Root-level keys precede the first table, or the parser swallows them.
+        config = (root / ".zenzic.toml").read_text(encoding="utf-8")
+        (root / ".zenzic.toml").write_text(
+            f'absolute_path_allowlist = ["/{directory}/"]\n' + config, encoding="utf-8"
+        )
         _write(root, f"docs/{directory}/setup.md", "Setup instructions live here.")
         _write(root, "docs/page.md", f"[a](/{directory}/setup.md)")
         assert _run(root, monkeypatch, "check", "all", "--quiet") != 3, (
-            f"/{directory}/setup.md is a real page in this repo (no allowlist "
-            f"configured) and must not raise a non-suppressible Z203"
+            f"/{directory}/setup.md is a declared documentation section and "
+            f"must not raise a non-suppressible Z203"
+        )
+
+    @pytest.mark.parametrize("directory", ["etc", "dev"])
+    def test_the_same_section_without_a_declaration_is_still_z203(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: str
+    ) -> None:
+        """The other half of the contract, and the reason the class above needs
+        its config line: without a declaration the finding stands, *and it
+        stands whether or not the target exists*. Planting the file is the
+        exact bypass this replaced."""
+        root = _project(tmp_path)
+        _write(root, f"docs/{directory}/setup.md", "Setup instructions live here.")
+        _write(root, "docs/page.md", f"[a](/{directory}/setup.md)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3, (
+            f"a real file at docs/{directory}/setup.md must not downgrade the finding"
         )
 
     def test_a_genuine_traversal_to_a_real_system_path_still_exits_3(
@@ -428,13 +466,32 @@ class TestARelativeHopToARealRepoFileNamedLikeASystemRootIsNotZ203:
             f"expected Z202 (boundary crossing, ordinary exit 1), got exit {exit_code}"
         )
 
-    def test_a_genuine_relative_traversal_to_a_nonexistent_system_path_still_exits_3(
+    def test_the_verdict_is_the_same_whether_or_not_the_target_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Control: the fix must discriminate on real existence, not stop
-        checking. No ``dev/`` folder exists anywhere in this repo."""
-        root = _project(tmp_path)
-        _write(root, "docs/page.md", "[a](../dev/notes.md)")
-        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3, (
-            "a relative hop to a genuinely nonexistent system-root-named path must still raise Z203"
+        """The property that replaced existence-checking: one hop up lands
+        inside the repository either way, so it is a boundary crossing either
+        way. Creating or deleting the target changes nothing."""
+        (tmp_path / "absent").mkdir()
+        (tmp_path / "present").mkdir()
+        absent = _project(tmp_path / "absent")
+        _write(absent, "docs/page.md", "[a](../dev/notes.md)")
+        present = _project(tmp_path / "present")
+        (present / "dev").mkdir()
+        (present / "dev" / "notes.md").write_text("Notes.\n", encoding="utf-8")
+        _write(present, "docs/page.md", "[a](../dev/notes.md)")
+        assert (
+            _run(absent, monkeypatch, "check", "all", "--quiet")
+            == _run(present, monkeypatch, "check", "all", "--quiet")
+            == 1
         )
+
+    def test_control_a_hop_that_leaves_the_repository_still_exits_3(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Control: the discriminator must still separate. Without this, a
+        classifier answering "boundary" unconditionally would pass the case
+        above."""
+        root = _project(tmp_path)
+        _write(root, "docs/sub/page.md", "[a](../../../../etc/passwd)")
+        assert _run(root, monkeypatch, "check", "all", "--quiet") == 3

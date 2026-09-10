@@ -1116,23 +1116,27 @@ class IncrementalAnalysisEngine:
                     norm_target = posixpath.normpath(posixpath.join(base, decoded_path))
                     if norm_target.startswith(".."):
                         _intent = _classify_traversal_intent(url)
-                        # Same real-existence check as the absolute-path branch
-                        # below: a segment name matching _SYSTEM_ROOT_DIRS is
-                        # necessary but not sufficient. A repo-level folder
-                        # legitimately named dev/, usr/, etc. -- outside
-                        # docs_root but still inside the repo, reached by an
-                        # ordinary relative hop -- is a boundary crossing
-                        # (Z202), not an OS-traversal target (Z203). This
-                        # branch had never received the fix Finding A's
-                        # analysis called for; only the absolute-path branch
-                        # had (V031_LAST_TWO_BLOCKERS_CLOSURE).
+                        # `..` means the link leaves docs_root. Whether it also
+                        # leaves the *repository* is what separates a boundary
+                        # crossing from an OS traversal, and it is arithmetic:
+                        # a repo-level `dev/` folder one hop up resolves inside
+                        # repo_root (Z202), while `../../../../etc/passwd`
+                        # resolves outside it (Z203).
+                        #
+                        # This used to be decided by resolving the target and
+                        # asking whether the file existed. That made the
+                        # security verdict a function of repository content --
+                        # the disk is written by whoever writes the link -- so
+                        # it is decided here from the two roots the engine
+                        # itself configures, with no filesystem call.
                         if _intent == "suspicious" and not _allowlisted:
-                            _target = Path(
-                                resolve_href_target(
-                                    path, decoded_path, _docs_root_str, _repo_root_str
-                                )
+                            _abs_target = posixpath.normpath(
+                                posixpath.join(_docs_root_str.replace("\\", "/"), norm_target)
                             )
-                            if _target.is_file():
+                            _repo_prefix = _repo_root_str.replace("\\", "/").rstrip("/")
+                            if _abs_target == _repo_prefix or _abs_target.startswith(
+                                _repo_prefix + "/"
+                            ):
                                 _intent = "boundary"
                         _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
@@ -1156,8 +1160,9 @@ class IncrementalAnalysisEngine:
                     target_path = Path(target_str)
                     if not target_path.is_relative_to(resolved_docs_root):
                         _intent = _classify_traversal_intent(url)
-                        if _intent == "suspicious" and not _allowlisted and target_path.is_file():
-                            _intent = "boundary"
+                        # No is_file() here either: the escape has already been
+                        # decided lexically, by is_relative_to() against the
+                        # resolved docs root, which no file can change.
                         _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
@@ -1175,25 +1180,25 @@ class IncrementalAnalysisEngine:
             # Z105 / Z203
             elif parsed.path.startswith("/") or decoded_path.startswith("/"):
                 _intent = _classify_traversal_intent(url)
-                # A segment name matching _SYSTEM_ROOT_DIRS is necessary but
-                # not sufficient: a documentation section legitimately named
-                # dev/, usr/, var/ etc. matches the same names a real OS
-                # traversal target would. Classification by destination, not
-                # text (the classifier's own stated design), was still
-                # trusting text alone -- it never checked whether the
-                # destination is real. Reusing resolve_href_target (the
-                # single source of truth this module already uses for Z104
-                # asset resolution) and a real filesystem check distinguishes
-                # a same-repo page from an actual system path with the same
-                # first segment, without requiring per-repo allowlist
-                # configuration. Confirmed live across all 14 names in
-                # _SYSTEM_ROOT_DIRS before this fix (V031_LAST_TWO_BLOCKERS_CLOSURE).
-                if _intent == "suspicious" and not _allowlisted:
-                    _target = Path(
-                        resolve_href_target(path, decoded_path, _docs_root_str, _repo_root_str)
-                    )
-                    if _target.is_file():
-                        _intent = "boundary"
+                # A documentation section legitimately named dev/, usr/ or var/
+                # matches the same first segment a real OS traversal target
+                # would, and this branch cannot tell them apart from the URL
+                # alone -- a site-absolute `/etc/...` maps inside docs_root by
+                # construction, so there is no arithmetic that separates them.
+                #
+                # It used to resolve the target and downgrade when the file
+                # existed. That made the security verdict a function of
+                # repository content: creating `docs/etc/passwd` with any
+                # contents turned every `/etc/passwd` link in the corpus from
+                # Z203/exit 3 into Z202/exit 1, which `--exit-zero` then
+                # covered -- a file acting as a suppression mechanism for a
+                # code documented as non-suppressible.
+                #
+                # The supported way to declare such a section legitimate is
+                # `absolute_path_allowlist`, consulted as `_allowlisted` above:
+                # a deliberate declaration by the author, rather than a side
+                # effect of a path existing. A declaration can be reviewed in a
+                # diff; a file appearing on disk cannot.
                 if _intent == "suspicious" and not _allowlisted:
                     findings.append(
                         RuleFinding(
