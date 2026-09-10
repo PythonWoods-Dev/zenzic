@@ -40,7 +40,8 @@ zenzic check links --strict
 Expected output:
 
 ```text
-.zenzic.toml:1:1  x  [Z112]  Stale absolute_path_allowlist entry: '/legacy/path/' is never referenced in links.
+.zenzic.toml:1  ⚠  [Z112]  Stale absolute_path_allowlist entry
+'/legacy/unused/path/': no link matched this prefix across all scanned files
 ```
 
 Exit code: `1` (if run with `--strict` or if `strict = true` is set in config; otherwise exits with `0` as a warning).

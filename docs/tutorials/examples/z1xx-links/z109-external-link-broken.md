@@ -40,33 +40,35 @@ engine = "standalone"
 ```bash
 # Clone the Zenzic repository — no install required
 cd examples/z109-external-link-broken
-uvx zenzic check links
+uvx zenzic check links --strict   # external URLs are only fetched under --strict
 ```
 
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 65 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.2s • 5 files/s
 
-docs/index.md:7:2  x  [Z101]  external link 'https://this-domain-does-not-exist-at-all-xyz.com' is broken
-
-     5  │
-     6  │  Here is a broken external link:
-     7  ❱  - [Broken Link](https://this-domain-does-not-exist-at-all-xyz.com)
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-     8  │
+docs  ✘  [Z101]
+<abs-path>/docs/index.md:7: external link
+'https://this-domain-does-not-exist-at-all-xyz.com' — connection error: [Errno
+-2] Name or service not known
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 errors  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
-'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`
+
+Two details this output makes visible. The finding is reported under `Z101`, not
+`Z109`: external-link failures are consolidated into the broken-link code at
+report time. And the location is written as an absolute path rather than the
+`docs/index.md:7` form used everywhere else, because an external-link error is
+attached to the documentation root rather than to the file — the `<abs-path>`
+placeholder above stands for your own checkout's path.
 
 ---
 

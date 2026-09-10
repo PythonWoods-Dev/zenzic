@@ -45,36 +45,35 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 65 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 30 files/s
 
-docs/index.md:11:2  x  [Z104]  'missing.md' not found in docs
+docs/index.md:11  ✘  [Z101]  'missing.md' resolves to '/missing/' which is not
+in the Virtual Site Map — the target file may not exist
 
      9  │  ## Broken References
     10  │
     11  ❱  - [Getting Started](missing.md) — this file does not exist → **Z101**
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    12  │  - [Setup Guide](guide/setup.md) — this directory does not exist →
-**Z101**
+    12  │  - [Setup Guide](guide/setup.md) — this directory does not exist → **…
     13  │
 
-docs/index.md:12:2  x  [Z104]  'guide/setup.md' not found in docs
+docs/index.md:12  ✘  [Z101]  'guide/setup.md' resolves to '/guide/setup/' which
+is not in the Virtual Site Map — the target file may not exist
 
     10  │
     11  │  - [Getting Started](missing.md) — this file does not exist → **Z101**
-    12  ❱  - [Setup Guide](guide/setup.md) — this directory does not exist →
-**Z101**
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    12  ❱  - [Setup Guide](guide/setup.md) — this directory does not exist → **…
     13  │
     14  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 2 errors  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 2 errors  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+DQS Final Score: 84/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`

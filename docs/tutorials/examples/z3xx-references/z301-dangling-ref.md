@@ -28,29 +28,33 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 65 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 28 files/s
 
-docs/index.md:12  x  [Z301]  Reference '[Click here][missing-ref]' uses
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
+
+docs/index.md:12  ⚠  [Z301]  Reference '[Click here][missing-ref]' uses
 undefined ID 'missing-ref'.
 
     10  │  ## Content With Dangling Reference
     11  │
     12  ❱  To get started, [Click here][missing-ref] for the installation guide.
     13  │
-    14  │  Note: `missing-ref` has no corresponding `[missing-ref]: url`
-definition
+    14  │  Note: `missing-ref` has no corresponding `[missing-ref]: url` defini…
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
-FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 91/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
-Exit code: `1`
+Exit code: `0` — `Z301` is a warning. Run with `--strict` (or set `strict = true`) to have it exit `1`.
 
 ---
 
