@@ -134,6 +134,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Links Inside Comments and JSX Attributes Are No Longer Reported as Broken**:
+  - A Markdown link written inside an HTML comment (`<!-- [x](./y.md) -->`), an MDX comment (`{/* ... */}`), or a JSX string attribute (`<Foo label="[x](./y.md)" />`) was extracted and reported as a broken `Z101`. None of them renders as a link. The HTML-comment case affected plain `.md` as well as `.mdx`, so every commented-out link in any document was a false positive.
+  - `PolyglotExtractor` already masked comments correctly; one code path feeding the `Z101` rule did not use that masking, and its docstring claimed it did. The fix routes that path through the existing mask rather than adding a second implementation of "what is not content", and adds an equally narrow, length-preserving mask for JSX attribute values — so reported line numbers and caret columns are unchanged.
+  - Genuine broken links in the same file are still reported: every case is covered in both directions, because a fix that silenced the false positive and the real finding together would pass a one-directional test.
+  - Not covered, and unchanged: links in JSX *expression* attributes (`to={"./page.mdx"}`).
+
 - **Colour Was Disabled for Every Interactive User**:
   - `zenzic` produced monochrome output in a real terminal unless `--force-color` was passed. The console was constructed with `color_system=None`, and in Rich that parameter's default is the string `"auto"` — passing `None` explicitly means "this console has no colour system", not "detect it", so colour was switched off unconditionally. Terminal detection itself was working: the console correctly reported `is_terminal=True`, and the explicit `None` overrode it.
   - Severity colours, the credential-breach block and every other styled element now render in an interactive terminal with no flag. `NO_COLOR` is still honoured, and piped output is still monochrome.

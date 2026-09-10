@@ -1127,7 +1127,17 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link
     and HTML anchor/image element found in *text*.
 
-    Skips fenced code blocks, inline code spans, and math blocks.  Pure function — no I/O.
+    Skips fenced code blocks, inline code spans, math blocks, HTML and MDX
+    comments, and the string values of JSX attributes.  Pure function — no I/O.
+
+    The comment and JSX masking is delegated to :class:`PolyglotExtractor`,
+    which already implements it length-preservingly, rather than reimplemented
+    here. This function previously masked only math, fences and inline code
+    while its docstring claimed comments too, so a link written inside
+    ``<!-- ... -->`` was extracted and reported as a broken Z101 — in plain
+    Markdown, not only MDX, which made every commented-out link a false
+    positive. Reusing the existing mask is what keeps the two paths from
+    drifting again: there is one implementation of "what is not content".
 
     Args:
         text: Raw Markdown content.
@@ -1135,9 +1145,15 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     Returns:
         List of ``(url, line_number, raw_line)`` in document order.
     """
+    from zenzic.core.validator import PolyglotExtractor
+
     results: list[tuple[str, int, str]] = []
     in_block = False
-    text_masked = _mask_math(text)
+    # _mask_comments blanks HTML and MDX comments with spaces of equal length
+    # and preserves newlines, so line numbers and caret columns below are
+    # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
+    _extractor = PolyglotExtractor()
+    text_masked = _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
     for lineno, line in enumerate(text_masked.splitlines(), start=1):
         stripped = line.strip()
         if not in_block:

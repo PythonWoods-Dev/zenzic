@@ -253,6 +253,16 @@ _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.
 _POLY_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
 _POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL)
 
+# Attribute values inside a tag: captures the opening quote, the value, and the
+# closing quote separately so the value alone can be blanked at equal length.
+# Restricted to a value that actually contains a Markdown link, so ordinary
+# attributes are left untouched and the mask stays as narrow as its purpose.
+# RE2 forbids lookbehind (Tier-0 RE2 Discipline), so the leading whitespace is
+# captured as group 1 and re-emitted rather than asserted.
+_JSX_ATTR_VALUE_RE: re.RegexPattern = re.compile(
+    r'(?s)(\s[A-Za-z_:][\w:.-]*\s*=\s*")([^"]*\[[^"]*\]\([^"]*\)[^"]*)(")'
+)
+
 # Math block patterns for masking (display math $$...$$ and inline math $...$)
 _POLY_DISPLAY_MATH_RE: re.RegexPattern = re.compile(r"\$\$.*?\$\$", re.DOTALL)
 _POLY_INLINE_MATH_RE: re.RegexPattern = re.compile(r"\$[^$\n]+\$")
@@ -527,6 +537,31 @@ class PolyglotExtractor:
         text = _POLY_COMMENT_RE.sub(_repl, text)
         text = _POLY_MDX_COMMENT_RE.sub(_repl, text)
         return text
+
+    def _mask_jsx_attr_values(self, text: str) -> str:
+        """Blank the string values of JSX/HTML attributes, preserving offsets.
+
+        A Markdown link written inside an attribute value -- ``<Foo label="see
+        [x](./y.md)" />`` -- is a string, not a link, but the inline-link regex
+        cannot know that: an attribute value is only a string if something knows
+        it is an attribute. Masking the value before link extraction is what
+        supplies that knowledge, and it is deliberately narrow -- only the text
+        between the quotes of an ``attr="..."`` pair inside a tag.
+
+        Length-preserving like every other mask here, because caret columns and
+        Z108's reported offsets are computed against the masked text.
+
+        Not covered, and left as today's behaviour rather than guessed at: JSX
+        *expression* attributes (``label={"..."}``) and template literals. A
+        missed construct leaves a false positive, which is the failure this
+        already had; over-masking would hide a genuine link, which is worse.
+        """
+        return _JSX_ATTR_VALUE_RE.sub(
+            lambda m: m.group(1)
+            + ("".join("\n" if c == "\n" else " " for c in m.group(2)))
+            + m.group(3),
+            text,
+        )
 
     def _mask_inline_code(self, text: str) -> str:
         """Replace inline code spans with whitespace, preserving offsets."""

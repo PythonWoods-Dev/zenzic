@@ -88,8 +88,12 @@ than inferred from that description:
 - Other JSX components are invisible to the link graph. A broken target in
   `<Link to="./page.mdx">` is not reported, and a forbidden scheme there is not
   caught, while the same scheme in `<a href="...">` is.
-- A Markdown link written inside an MDX comment (`{/* ... */}`) or inside a JSX
-  string attribute is still reported, though neither renders as a link.
+- A Markdown link written inside a comment — MDX (`{/* ... */}`) or HTML
+  (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported. None
+  of them renders as a link, so none is one. The masking that establishes this
+  is length-preserving, so reported line numbers and caret columns are unchanged
+  by it. Links in JSX *expression* attributes (`to={"./page.mdx"}`) are outside
+  that masking and behave as before.
 
 The benefit is architectural: when a directory is excluded, it is excluded everywhere -- scanner, validator, credential scanner, and orphan-checker all see the exact same file set. There is no risk of one module "forgetting" to apply an exclusion rule.
 
