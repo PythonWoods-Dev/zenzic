@@ -1075,7 +1075,7 @@ class BrandObsolescenceRule(BaseRule):
                         line_no=line_no,
                         rule_id=self.rule_id,
                         message=(
-                            f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
+                            f"Obsolete or unauthorized brand term '{m.group(0)}' detected. "
                             "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
                         ),
                         severity=code_severity("Z601"),

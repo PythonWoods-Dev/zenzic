@@ -161,14 +161,14 @@ We therefore report findings with the path, line number, and relevant source con
 
 For example:
 
-```bash
-docs/index.md:3:8 ✘ [Z104] './intro.md' not found in docs
+```text
+docs/index.md:3  ✘  [Z101]  './intro.md' resolves to '/intro/' which is not in
+the Virtual Site Map — the target file may not exist
 
-    1 │ # Welcome
-    2 │
-    3 ❱ See the [intro page](./intro.md) for details.
-       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+    1  │  # Welcome
+    2  │
+    3  ❱  See the [intro page](./intro.md) for details.
+    4  │
 ```
 
 The difference matters operationally.

@@ -107,7 +107,7 @@ which increments an internal counter. If the counter exceeds `max_visits` (defau
 finding, and continues to the next rule. The scan never halts.
 
 ```text
-docs/reference/api.md:0  [Z902]  Rule 'LOCAL-001' exceeded execution limit (10000 visits).
+docs/reference/api.md:0  [Z902]  Rule 'LOCAL-001' exceeded execution limit: <engine limit message>
 ```
 
 Similarly, any unhandled Python exception inside a visitor method is caught and converted to a

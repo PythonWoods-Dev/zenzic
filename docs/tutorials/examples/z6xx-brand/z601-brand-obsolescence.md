@@ -28,9 +28,9 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 2 files (2 docs, 0 assets) - 0.0s - 121 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 58 files/s
 
-docs/index.md:6:33  !  [Z601]  [Z601] Obsolete or unauthorized brand term
+docs/index.md:6:33  ⚠  [Z601]  Obsolete or unauthorized brand term
 'OldPlatform' detected. Use semantic versioning (e.g., 'vX.Y.Z') in active
 prose, or suppress if this is a historical ledger.
 
@@ -41,7 +41,7 @@ prose, or suppress if this is a historical ledger.
     7  │
     8  │  All content has been ported to the new documentation engine.
 
-docs/index.md:9:4  !  [Z601]  [Z601] Obsolete or unauthorized brand term
+docs/index.md:9:4  ⚠  [Z601]  Obsolete or unauthorized brand term
 'OldPlatform' detected. Use semantic versioning (e.g., 'vX.Y.Z') in active
 prose, or suppress if this is a historical ledger.
 
@@ -52,26 +52,28 @@ prose, or suppress if this is a historical ledger.
     10  │
     11  │  ## Getting Started
 
-docs/index.md:17:19  !  [Z601]  [Z601] Obsolete or unauthorized brand term
+docs/index.md:17:19  ⚠  [Z601]  Obsolete or unauthorized brand term
 'OldPlatform' detected. Use semantic versioning (e.g., 'vX.Y.Z') in active
 prose, or suppress if this is a historical ledger.
 
     15  │  ## About the Migration
     16  │
-    17  ❱  The migration from OldPlatform improved build times by 60% and added
+    17  ❱  The migration from OldPlatform improved build times by 60% and a…
         │                     ^^^^^^^^^^^
-    18  │  native i18n support. Contact the platform team for migration
-assistance.
+    18  │  native i18n support. Contact the platform team for migration ass…
 
-────────────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 3 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 3 warnings  💡 2 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+💡 2 info findings hidden — use --show-info to display.
+DQS Final Score: 94/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

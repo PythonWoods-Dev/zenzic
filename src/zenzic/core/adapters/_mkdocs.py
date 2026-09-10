@@ -211,7 +211,7 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
                 (
                     rel,
                     f"{field_key} asset not found on disk: '{rel}' "
-                    f"(declared as {config_key}: '{value}' in mkdocs.yml) [Z404]",
+                    f"(declared as {config_key}: '{value}' in mkdocs.yml)",
                 )
             )
 

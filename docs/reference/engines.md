@@ -242,12 +242,10 @@ The Transparent Proxy is Zensical's signature migration feature: if `zensical.to
 reads the MkDocs configuration as a bridge — no manual configuration required.
 
 This means you can adopt Zenzic with the Zensical engine on **day one of migration**, before
-writing a single line of `zensical.toml`. When the bridge activates, Zenzic banner
-notifies you:
-
-```text
-NOTICE: Zensical engine active via mkdocs.yml compatibility bridge.
-```
+writing a single line of `zensical.toml`. The bridge activates silently — there is no banner
+and no notice, consistent with Zenzic printing nothing on a clean run. To confirm which
+configuration was actually read, run `zenzic config explain`, which reports the active values and
+where each one came from.
 
 **What the bridge reads from `mkdocs.yml`:**
 
