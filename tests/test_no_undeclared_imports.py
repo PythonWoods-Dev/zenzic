@@ -17,9 +17,17 @@ appears where the transitive dependency happens to be absent.
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
 
-import tomllib
+
+# tomllib is stdlib only from 3.11, and this project supports 3.10
+# (requires-python = ">=3.10"). Same guard the CLI modules already use --
+# tomli is declared in pyproject.toml under `python_version < '3.11'`.
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # PEP 680 backport
 
 
 ROOT = Path(__file__).resolve().parents[1]
