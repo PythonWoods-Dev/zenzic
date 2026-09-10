@@ -32,8 +32,18 @@ SUBCOMMANDS = ("lab", "check", "score", "fix", "doctor")
 def _run(*args: str) -> str:
     """Invoke the real console script -- the path a user actually takes."""
     exe = shutil.which("zenzic") or str(Path(sys.executable).parent / "zenzic")
-    proc = subprocess.run([exe, *args], capture_output=True, text=True)
-    return proc.stdout + proc.stderr
+    # encoding/errors are explicit: on Windows `text=True` decodes with the
+    # console codepage (cp1252), which raises on any non-Latin-1 byte and leaves
+    # stdout as None -- the test then fails with a TypeError that says nothing
+    # about the behaviour under test.
+    proc = subprocess.run(
+        [exe, *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return (proc.stdout or "") + (proc.stderr or "")
 
 
 class TestPlacementHint:

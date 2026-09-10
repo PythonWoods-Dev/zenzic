@@ -120,8 +120,8 @@ def _usage_errors_exit_1() -> Iterator[None]:
         hint = _global_option_hint(self, sys.argv)
         if hint:
             _err_console.print(
-                f"[dim]{getattr(self, 'option_name', '')} is a global option — "
-                f"it goes before the subcommand:[/dim]\n    [bold]{hint}[/bold]"
+                f"[dim]{getattr(self, 'option_name', '')} is a global option: "
+                f"it goes before the subcommand.[/dim]\n    [bold]{hint}[/bold]"
             )
 
     _rich_utils.rich_format_error = _format_error_with_placement_hint
