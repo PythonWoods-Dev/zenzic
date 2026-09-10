@@ -11,7 +11,6 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Annotated, Any, cast
 
-import click
 import typer
 from rich.console import Console
 
@@ -141,7 +140,7 @@ def _usage_errors_exit_1() -> Iterator[None]:
 _GLOBAL_OPTIONS = frozenset({"--version", "-V", "--no-color", "--force-color"})
 
 
-def _global_option_hint(exc: click.NoSuchOption, argv: list[str]) -> str | None:
+def _global_option_hint(exc: Any, argv: list[str]) -> str | None:
     """Return a corrected invocation when a *global* option was placed too late.
 
     Returns None for a genuinely unknown option, so the hint stays specific: a
