@@ -14,6 +14,7 @@ from rich.markup import escape as _esc
 from rich.rule import Rule
 from rich.text import Text
 
+from zenzic.core.codes import SECURITY_SUMMARY_TERMS, security_exit_code
 from zenzic.core.ui import ZenzicPalette, emoji
 
 
@@ -618,14 +619,29 @@ class ZenzicReporter:
         Breach findings always produce a one-liner even in quiet mode — silent
         failure on a credential leak is more dangerous than noisy CI output.
         """
-        breaches = [f for f in findings if f.severity == "security_breach"]
         errors = sum(1 for f in findings if f.severity == "error")
         warnings = sum(1 for f in findings if f.severity == "warning")
-        if breaches:
-            self._con.print(
-                f"[bold red]SECURITY CRITICAL:[/] {len(breaches)} secret(s) detected — "
-                f"rotate immediately. Exit 2."
-            )
+
+        # Counted by code, not severity. Severity is stamped by whichever
+        # subsystem built the finding and the producers disagree -- incremental.py
+        # emits Z203 with severity "error" -- so a severity filter here dropped
+        # system-directory traversals out of the security summary entirely, on
+        # runs that exited 3 because of them.
+        counts: dict[str, int] = {}
+        for f in findings:
+            if f.code in SECURITY_SUMMARY_TERMS:
+                counts[f.code] = counts.get(f.code, 0) + 1
+        if counts:
+            for code in sorted(counts):
+                noun, remedy = SECURITY_SUMMARY_TERMS[code]
+                n = counts[code]
+                plural = "" if n == 1 else "s"
+                self._con.print(
+                    f"[bold red]SECURITY CRITICAL:[/] {n} {noun}{plural} detected. {remedy}"
+                )
+            # Derived from the same authority the process exits with, never a
+            # literal: this line used to say "Exit 2." on runs that exited 3.
+            self._con.print(f"Exit {security_exit_code(counts)}.")
         if errors or warnings:
             self._con.print(f"zenzic: {errors} error(s), {warnings} warning(s)")
         return errors, warnings

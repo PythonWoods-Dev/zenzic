@@ -1056,15 +1056,31 @@ The editor's auto-repair has the same boundary, which is why the two agree.
 | :---: | :--- |
 | `0` | All selected checks passed (or `--exit-zero` was set) |
 | `1` | One or more checks reported issues |
-| **`2`** | **SECURITY CRITICAL — credential scanner detected a leaked credential** |
-| **`3`** | **SECURITY INCIDENT — Path Traversal Guard: link targets an OS system directory** |
+| **`2`** | **SECURITY CRITICAL — a leaked credential (`Z201`), a forbidden term (`Z204`), or a forbidden URL scheme (`Z205`)** |
+| **`3`** | **SECURITY INCIDENT — Path Traversal Guard: link targets an OS system directory (`Z203`)** |
 
 !!! danger "Exit code 2 is reserved for security events"
     Exit code 2 is issued by `zenzic check references`, `zenzic check links`, and `zenzic check all`
-    whenever a `security_breach`-severity finding (`Z201` credential/secret, `Z204` forbidden term,
-    `Z205` forbidden URL scheme) is detected, in every output format (text, JSON, SARIF, GitHub
-    annotations). It is never used for ordinary check failures. If you receive exit code 2, treat
-    it as a build-blocking security incident and **rotate the exposed credential immediately**.
+    whenever `Z201`, `Z204`, or `Z205` is detected, in every output format (text, JSON, SARIF,
+    GitHub annotations). It is never used for ordinary check failures. The exit code is decided by
+    the finding's **code**, not by its rendered severity — the two can differ, because severity is
+    set by whichever subsystem produced the finding.
+
+    **The remedy depends on which code fired, and only one of them involves rotation:**
+
+    - `Z201` — a real credential is in the corpus. **Rotate it immediately** and purge it from the
+      repository history.
+    - `Z204` — a forbidden term. Remove it before committing. Nothing needs rotating.
+    - `Z205` — a forbidden URL scheme such as `javascript:`. Replace the link target with an
+      `https:` URL or a relative path. Nothing needs rotating, and the URL is deliberately shown
+      **in full** rather than masked: masking exists to keep a secret out of logs, and a scheme is
+      not a secret — hiding it would hide the thing you have to edit.
+
+!!! danger "Exit code 3 is a separate outcome, not a louder 2"
+    `Z203` — a link escaping to an OS system directory — exits **3**, not 2. Any gate that tests
+    for equality with `2` will read a traversal as a pass. Test for a non-zero exit, or for
+    `2` **or** `3` explicitly. Note that `Z202`, the ordinary docs-root-boundary traversal, is
+    non-suppressible but reports at exit `1`: it is deliberately not escalated.
 
 !!! danger "Exit code 3 — Path Traversal Guard Incident"
     Exit code 3 is issued when the path traversal guard detects a link that resolves to an OS

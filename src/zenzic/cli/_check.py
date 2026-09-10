@@ -20,10 +20,9 @@ from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
 from zenzic.core.codes import (
     CODE_DEFINITIONS,
     NON_SUPPRESSIBLE_CODES,
-    SECURITY_BREACH_CODES,
     SECURITY_FINDING_CODES,
-    SECURITY_INCIDENT_CODES,
     exit_contract_severity,
+    security_exit_code,
 )
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
@@ -1111,17 +1110,20 @@ def _evaluate_security_exit(findings: Iterable[Finding]) -> None:
     the same run said "Critical security finding detected". The code is
     structural and cannot be overwritten downstream, so it is the authority.
 
+    The arithmetic itself lives in ``security_exit_code`` so that anything
+    *describing* the exit shares it. The quiet summary used to end in a literal
+    ``Exit 2.`` and printed that on runs which exited 3; a message that restates
+    a contract instead of reading it is a second copy free to drift.
+
     Every early exit that can run after findings exist must call this first --
     three separate defects (the Z906 "audit skipped" shortcut, the unreadable
     -file clean bill, and the corrupt-baseline handler) were each one branch
     returning ahead of the contract. One choke point is cheaper to keep right
     than N branches that each have to remember.
     """
-    codes = {f.code for f in findings}
-    if codes & SECURITY_INCIDENT_CODES:
-        raise typer.Exit(3)
-    if codes & SECURITY_BREACH_CODES:
-        raise typer.Exit(2)
+    rc = security_exit_code(f.code for f in findings)
+    if rc:
+        raise typer.Exit(rc)
 
 
 #: Severities that force a non-zero exit regardless of anything else on screen.

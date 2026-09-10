@@ -97,6 +97,7 @@ Z9xx — Engine / System
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Final, Literal, NamedTuple, cast
 
 
@@ -204,6 +205,46 @@ SECURITY_TIER_CODES: frozenset[str] = frozenset(
 #: names only Z203 for exit 3 and Z201/Z204/Z205 for exit 2.
 SECURITY_INCIDENT_CODES: frozenset[str] = frozenset({"Z203"})
 SECURITY_BREACH_CODES: frozenset[str] = frozenset({"Z201", "Z204", "Z205"})
+
+#: How each exit-forcing security code is described to a user, and what to do
+#: about it. Split per code rather than per tier because the tiers do not share a
+#: remedy: a credential is rotated, a forbidden scheme is deleted and nothing is
+#: rotated, and a system-directory traversal is neither. The quiet summary said
+#: "secret(s) detected -- rotate immediately" for all of them, which sent a reader
+#: who had written ``javascript:`` into a URL hunting for a credential that did
+#: not exist. A structural test asserts this mapping covers
+#: ``SECURITY_BREACH_CODES | SECURITY_INCIDENT_CODES`` exactly, so a new
+#: exit-forcing code cannot be added without deciding how to describe it.
+SECURITY_SUMMARY_TERMS: dict[str, tuple[str, str]] = {
+    "Z201": ("credential", "Rotate it immediately."),
+    "Z204": ("forbidden term", "Remove it before committing."),
+    "Z205": ("forbidden scheme", "Remove the offending URL. Nothing needs rotating."),
+    "Z203": (
+        "path traversal",
+        "The path targets an OS system directory. Repoint it inside the docs root.",
+    ),
+}
+
+
+def security_exit_code(codes: Iterable[str]) -> int:
+    """Return the exit code a set of finding codes forces: 3, 2, or 0.
+
+    The single arithmetic behind the Exit Code Contract's security half, so the
+    process's exit and any message describing that exit cannot disagree. The
+    quiet summary used to end in a literal ``Exit 2.`` and printed it on runs
+    that exited 3.
+
+    Keyed on the finding's **code**, never its severity, for the reason
+    ``_evaluate_security_exit`` states at length: severity is stamped by
+    whichever subsystem constructed the finding and the producers disagree.
+    """
+    present = set(codes)
+    if present & SECURITY_INCIDENT_CODES:
+        return ZenzicExitCode.PATH_TRAVERSAL_FATAL
+    if present & SECURITY_BREACH_CODES:
+        return ZenzicExitCode.CREDENTIAL_LEAK
+    return ZenzicExitCode.SUCCESS
+
 
 #: Codes no suppression mechanism may silence: the security tier above, plus the
 #: two fatal config-load errors. Composed, never restated, so adding a code to
