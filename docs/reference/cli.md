@@ -804,15 +804,15 @@ stdout is a terminal; they are stripped automatically when piped or redirected �
 
 ```bash
 # Strip color: CI log aggregators, plain-text files
-zenzic check all --no-color
+zenzic --no-color check all
 NO_COLOR=1 zenzic check all
 
 # Force color: CI systems that support ANSI but do not report a TTY
-zenzic check all --force-color
+zenzic --force-color check all
 FORCE_COLOR=1 zenzic check all
 
 # Pair with --format json for fully machine-readable output
-zenzic check all --no-color --format json > report.json
+zenzic --no-color check all --format json > report.json
 ```
 
 ---
@@ -1681,14 +1681,14 @@ rather than relying on a fixed count here.
 | :--- | :--- |
 | `zenzic lab` | Display the gallery menu |
 | `zenzic lab z101` | Run a single Z-code scenario |
-| `zenzic lab all` | Run every gallery scenario in sequence |
+| `zenzic lab --all` | Run every gallery scenario in sequence |
 | `zenzic lab --list` | Print the gallery index without running |
 | `zenzic lab z101 --all` | Show every finding for the scenario, not just its own code — by default, output is filtered to the code the scenario demonstrates |
 
 ### Exit code
 
 `zenzic lab` exits `0` when every requested scenario meets its expectation, and `1` if any
-scenario does not — this makes `zenzic lab all` usable as a regression gate (e.g. in CI),
+scenario does not — this makes `zenzic lab --all` usable as a regression gate (e.g. in CI),
 not only as an interactive demo.
 
 ### Outcome labels
@@ -1714,7 +1714,7 @@ the expectation was met:
 zenzic lab z201
 
 # Run the full gallery
-zenzic lab all
+zenzic lab --all
 
 # Run a single Z-code scenario
 zenzic lab z101

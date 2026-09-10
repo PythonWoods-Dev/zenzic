@@ -7,7 +7,7 @@
 # (Z510) is always active and flags skipped heading levels — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z510 ×1 — skipped heading level)
+#   zenzic check references   → EXIT 0  (Z510 ×1 — skipped heading level)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

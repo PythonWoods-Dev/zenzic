@@ -7,7 +7,7 @@
 # (Z511) is always active and flags overlong sentences — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z511 ×1 — sentence exceeds word limit)
+#   zenzic check references   → EXIT 0  (Z511 ×1 — sentence exceeds word limit)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

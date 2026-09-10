@@ -7,7 +7,7 @@
 # documents with more than one H1 — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z516 ×1 — multiple H1 headings)
+#   zenzic check references   → EXIT 1  (Z516 ×1 — multiple H1 headings)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

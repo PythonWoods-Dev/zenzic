@@ -7,7 +7,7 @@
 # and flags bare URLs — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z515 ×1 — bare URL in prose)
+#   zenzic check references   → EXIT 0  (Z515 ×1 — bare URL in prose)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

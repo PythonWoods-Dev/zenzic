@@ -7,7 +7,7 @@
 # active and flags non-descriptive alt text — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z514 ×1 — generic image alt text)
+#   zenzic check references   → EXIT 0  (Z514 ×1 — generic image alt text)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

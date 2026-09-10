@@ -190,7 +190,7 @@ Full internals — the AST/mutator design, the scoring model, and the adapter co
 ## SARIF Output for CI/CD
 
 ```bash
-zenzic check all --format sarif --output results.sarif
+zenzic check all --format sarif > results.sarif
 ```
 
 Standard SARIF v2.1.0: 1-indexed line/column ranges, a quality category and point penalty on every result, and a `helpUri` linking straight to that finding's [docs page](https://zenzic.dev/reference/finding-codes/). Feeds directly into GitHub Code Scanning, SonarQube, GitLab Security Dashboards, or DefectDojo.

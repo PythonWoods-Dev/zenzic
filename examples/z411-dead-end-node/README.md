@@ -15,7 +15,7 @@ Therefore, it forms a structural dead end in the documentation graph. Visitors r
 ## Run it
 
 ```bash
-zenzic check .
+zenzic check all
 ```
 
 ## Expected output

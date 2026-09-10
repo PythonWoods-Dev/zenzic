@@ -7,7 +7,7 @@
 # heading punctuation (., :, ;) — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z517 ×1 — heading ends with punctuation)
+#   zenzic check references   → EXIT 0  (Z517 ×1 — heading ends with punctuation)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

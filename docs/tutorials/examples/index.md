@@ -18,7 +18,7 @@ No install, no clone. Run the whole gallery, or one scenario:
 ```bash
 uvx zenzic lab           # gallery menu
 uvx zenzic lab z101      # run one scenario
-uvx zenzic lab all       # run all 65 scenarios
+uvx zenzic lab --all       # run all 65 scenarios
 ```
 
 Or run any fixture directly from a clone of the repository, which is what each

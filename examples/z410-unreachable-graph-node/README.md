@@ -14,7 +14,7 @@
 ## Run it
 
 ```bash
-zenzic check .
+zenzic check all
 ```
 
 ## Expected output
