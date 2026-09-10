@@ -79,9 +79,9 @@ Markdown constructs — links, images, headings, credentials — behave exactly 
 they do in `.md`. Three consequences follow, each verified by execution rather
 than inferred from that description:
 
-- `<a>` and `<img>` participate fully in link, asset and forbidden-scheme
-  checks, in any letter case. A `<Img src="...">` component is checked as well,
-  because its tag name matches `img`.
+- `<a>`, `<img>` and `<link>` participate fully in link, asset and
+  forbidden-scheme checks, in any letter case. A `<Img src="...">` component is
+  checked as well, because its tag name matches `img`.
 - Other JSX components are invisible to the link graph. A broken target in
   `<Link to="./page.mdx">` is not reported, and a forbidden scheme there is not
   caught, while the same scheme in `<a href="...">` is.
