@@ -883,11 +883,12 @@ class IncrementalAnalysisEngine:
         # it carries no comparable false-positive risk. Extending to dangerous
         # data: subtypes (data:text/html) needs MIME-subtype discrimination and
         # is tracked separately rather than guessed at inside a Tier-0 gate.
-        _md_links = (
-            extracted_links
-            if extracted_links is not None
-            else PolyglotExtractor().extract_all_links(text)
-        )
+        # Security tier: never inherit the quality tier's mask. A caller-supplied
+        # `extracted_links` came from extract_all_links (comments/math/fences all
+        # blanked), so Z205 must re-extract through the security view rather than
+        # reuse it -- otherwise two `$` on one line silence a non-suppressible
+        # code. See PolyglotExtractor._mask_security_view.
+        _md_links = PolyglotExtractor().extract_security_links(text)
         for link in _md_links:
             if link.is_html:
                 continue  # handled by the HTML loop below; avoids double-reporting
@@ -1021,6 +1022,12 @@ class IncrementalAnalysisEngine:
         if extracted_links is None:
             extracted_links = PolyglotExtractor().extract_all_links(text)
 
+        # Z202/Z203 read from their own security-view extraction for the same
+        # reason as Z205 above: the quality-tier list has comments, math spans
+        # and unterminated-fence tails blanked, and a traversal is no less real
+        # for sitting in one. Quality checks below keep using `extracted_links`.
+        _security_links = PolyglotExtractor().extract_security_links(text)
+
         local_anchors = self.anchors_cache.get(path, set())
         _bypass_schemes = (
             "mailto:",
@@ -1033,7 +1040,22 @@ class IncrementalAnalysisEngine:
             "https://",
         )
 
-        for link in extracted_links:
+        # One loop, two scopes. Z202/Z203 are security-tier and must see links
+        # the quality mask blanked (comments, math spans, unterminated-fence
+        # tails); Z105 is quality-tier and must not, or a path written inside a
+        # comment would be reported as an absolute-path defect. Iterating the
+        # union and tagging each link's origin keeps both correct without
+        # duplicating the ~180-line loop body.
+        _quality_ids = {id(link) for link in extracted_links}
+        _quality_keys = {(q.line_no, q.col_start, q.url) for q in extracted_links}
+        _sec_extra = [
+            link
+            for link in _security_links
+            if (link.line_no, link.col_start, link.url) not in _quality_keys
+        ]
+        for link in [*extracted_links, *_sec_extra]:
+            # True for a link only the security view found.
+            _sec_only = id(link) not in _quality_ids
             # `data-zenzic-ignore` is an inline, document-authored suppression,
             # and the security tier is never inline-suppressible — a page must
             # not be able to silence its own Z202/Z203 by adding an attribute to
@@ -1185,6 +1207,10 @@ class IncrementalAnalysisEngine:
                     )
                 else:
                     allowlist = _abs_allowlist
+                    if _sec_only:
+                        # Quality code: the quality extraction never saw this link
+                        # (it sits in a comment or math span), so Z105 must not fire.
+                        continue
                     # Z105 is not in the security tier, so it keeps honouring
                     # the inline attribute -- the carve-out above is for the
                     # tier only, not a blanket disabling of the mechanism.

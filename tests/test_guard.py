@@ -75,20 +75,47 @@ def test_scan_file_for_secrets_clean_file(tmp_path: Path) -> None:
 
 
 def test_staged_doc_files_oserror(tmp_path: Path) -> None:
-    """OSError in subprocess.run returns empty list."""
+    """OSError in subprocess.run is reported as a failed query, not an empty one.
+
+    These two assertions previously read ``result == []``, which pinned the
+    defect as correct: an unreachable git and a genuinely empty index produced
+    the same value, and the caller exited 0 on both.
+    """
     with patch("zenzic.cli._guard.subprocess.run", side_effect=OSError("no git")):
-        result = _staged_doc_files(tmp_path)
+        result, queried = _staged_doc_files(tmp_path)
     assert result == []
+    assert queried is False
 
 
 def test_staged_doc_files_nonzero_returncode(tmp_path: Path) -> None:
-    """Non-zero returncode from git returns empty list."""
+    """Non-zero returncode from git is reported as a failed query."""
     fake = MagicMock()
     fake.returncode = 1
     fake.stdout = ""
     with patch("zenzic.cli._guard.subprocess.run", return_value=fake):
-        result = _staged_doc_files(tmp_path)
+        result, queried = _staged_doc_files(tmp_path)
     assert result == []
+    assert queried is False
+
+
+def test_staged_failure_is_distinguishable_from_empty_index(tmp_path: Path) -> None:
+    """The whole point: a failed query and a clean index must not look alike."""
+    fake_ok = MagicMock()
+    fake_ok.returncode = 0
+    fake_ok.stdout = ""
+    with patch("zenzic.cli._guard.subprocess.run", return_value=fake_ok):
+        clean_result, clean_queried = _staged_doc_files(tmp_path)
+
+    fake_bad = MagicMock()
+    fake_bad.returncode = 128
+    fake_bad.stdout = ""
+    with patch("zenzic.cli._guard.subprocess.run", return_value=fake_bad):
+        failed_result, failed_queried = _staged_doc_files(tmp_path)
+
+    assert clean_result == failed_result == []
+    assert (clean_queried, failed_queried) != (clean_queried, clean_queried)
+    assert clean_queried is True
+    assert failed_queried is False
 
 
 def test_staged_doc_files_returns_existing_docs(tmp_path: Path) -> None:
@@ -100,10 +127,12 @@ def test_staged_doc_files_returns_existing_docs(tmp_path: Path) -> None:
     fake.returncode = 0
     fake.stdout = "docs/index.md\n"
     with patch("zenzic.cli._guard.subprocess.run", return_value=fake):
-        result = _staged_doc_files(tmp_path)
-    # The staging filter filters by is_file() — because docs/index.md exists relative to cwd,
-    # not tmp_path, the list may be empty; that's acceptable for this unit test.
-    assert isinstance(result, list)
+        result, queried = _staged_doc_files(tmp_path)
+    # Positive control for the two failure tests above: on the success path the
+    # flag is True and the staged file is actually found, so their False is a
+    # real distinction and not an artefact of the function always failing.
+    assert queried is True
+    assert result == [doc.resolve()]
 
 
 # ── _resolve_targets ──────────────────────────────────────────────────────────
@@ -111,8 +140,8 @@ def test_staged_doc_files_returns_existing_docs(tmp_path: Path) -> None:
 
 def test_resolve_targets_staged_delegates(tmp_path: Path) -> None:
     """staged=True delegates to _staged_doc_files."""
-    with patch("zenzic.cli._guard._staged_doc_files", return_value=[]) as mock_staged:
-        result = _resolve_targets(tmp_path, [], staged=True)
+    with patch("zenzic.cli._guard._staged_doc_files", return_value=([], True)) as mock_staged:
+        result, _queried = _resolve_targets(tmp_path, [], staged=True)
     mock_staged.assert_called_once_with(tmp_path)
     assert result == []
 
@@ -121,7 +150,7 @@ def test_resolve_targets_explicit_file(tmp_path: Path) -> None:
     """Explicit .md file path is returned directly."""
     doc = tmp_path / "page.md"
     doc.write_text("# Page\n")
-    result = _resolve_targets(tmp_path, [str(doc)], staged=False)
+    result, _queried = _resolve_targets(tmp_path, [str(doc)], staged=False)
     assert doc.resolve() in result
 
 
@@ -132,7 +161,7 @@ def test_resolve_targets_explicit_directory(tmp_path: Path) -> None:
     (docs / "a.md").write_text("# A\n")
     (docs / "b.mdx").write_text("# B\n")
     (docs / "c.txt").write_text("plain text")
-    result = _resolve_targets(tmp_path, [str(docs)], staged=False)
+    result, _queried = _resolve_targets(tmp_path, [str(docs)], staged=False)
     names = {p.name for p in result}
     assert "a.md" in names
     assert "b.mdx" in names
@@ -142,7 +171,7 @@ def test_resolve_targets_explicit_directory(tmp_path: Path) -> None:
 def test_resolve_targets_default_docs_root_missing(tmp_path: Path) -> None:
     """When docs_root doesn't exist, returns empty list."""
     # No docs/ directory exists, no .zenzic.toml
-    result = _resolve_targets(tmp_path, [], staged=False)
+    result, _queried = _resolve_targets(tmp_path, [], staged=False)
     assert result == []
 
 
@@ -151,7 +180,7 @@ def test_resolve_targets_default_docs_root_scans_dir(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "index.md").write_text("# Index\n")
-    result = _resolve_targets(tmp_path, [], staged=False)
+    result, _queried = _resolve_targets(tmp_path, [], staged=False)
     assert any(p.name == "index.md" for p in result)
 
 
@@ -179,7 +208,7 @@ def test_resolve_targets_default_docs_root_skips_venv(tmp_path: Path) -> None:
 
     config = ZenzicConfig(docs_dir=Path("."), excluded_dirs=[])
     with patch("zenzic.cli._guard.ZenzicConfig.load", return_value=(config, None)):
-        result = _resolve_targets(tmp_path, [], staged=False)
+        result, _queried = _resolve_targets(tmp_path, [], staged=False)
 
     assert readme.resolve() in result
     assert all(".venv" not in p.parts for p in result)
@@ -192,7 +221,7 @@ def test_guard_scan_no_targets_text(tmp_path: Path) -> None:
     """scan with no targets prints informational message and exits 0."""
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
-        patch("zenzic.cli._guard._resolve_targets", return_value=[]),
+        patch("zenzic.cli._guard._resolve_targets", return_value=([], True)),
     ):
         result = runner.invoke(app, ["guard", "scan"])
     assert result.exit_code == 0
@@ -203,7 +232,7 @@ def test_guard_scan_no_targets_json(tmp_path: Path) -> None:
     """scan --format json with no targets prints JSON with empty findings."""
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
-        patch("zenzic.cli._guard._resolve_targets", return_value=[]),
+        patch("zenzic.cli._guard._resolve_targets", return_value=([], True)),
     ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
     assert result.exit_code == 0
@@ -218,7 +247,7 @@ def test_guard_scan_clean_text(tmp_path: Path) -> None:
     doc.write_text("# Clean doc\n")
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
-        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._resolve_targets", return_value=([doc], True)),
         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([], True)),
     ):
         result = runner.invoke(app, ["guard", "scan"])
@@ -240,7 +269,7 @@ def test_guard_scan_with_findings_text_exits_2(tmp_path: Path) -> None:
     )
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
-        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._resolve_targets", return_value=([doc], True)),
         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([finding], True)),
     ):
         result = runner.invoke(app, ["guard", "scan"])
@@ -262,7 +291,7 @@ def test_guard_scan_with_findings_json_exits_2(tmp_path: Path) -> None:
     )
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
-        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._resolve_targets", return_value=([doc], True)),
         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([finding], True)),
     ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
@@ -278,7 +307,7 @@ def test_guard_scan_json_clean_exits_0(tmp_path: Path) -> None:
     doc.write_text("# Clean\n")
     with (
         patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
-        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._resolve_targets", return_value=([doc], True)),
         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=([], True)),
     ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])

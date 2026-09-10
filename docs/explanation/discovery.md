@@ -30,10 +30,6 @@ Four markers are authorised (first match wins):
 | `zensical.toml` | A Zensical project's own configuration file |
 | `mkdocs.yml` | An MkDocs project's own configuration file |
 
-The error message below still names only `.git`/`.zenzic.toml` explicitly — it predates the
-later addition of `zensical.toml`/`mkdocs.yml` as accepted markers and hasn't been updated to
-match; logged separately for a source-level fix, not a documentation defect on its own.
-
 ### Why a Root Marker is Mandatory {#why-mandatory}
 
 Without a root marker (VCS or configuration), Zenzic cannot establish the project's **Sovereignty Perimeter**. This is required for four independent reasons:
@@ -46,8 +42,9 @@ Without a root marker (VCS or configuration), Zenzic cannot establish the projec
 The absence of a root marker produces this error:
 
 ```text
-ERROR: Could not locate repo root: no .git directory or .zenzic.toml found in any
-ancestor of /path/to/target. Run Zenzic from inside the repository.
+ERROR: Could not locate repo root: no .git directory, .zenzic.toml, zensical.toml,
+or mkdocs.yml found in any ancestor of /path/to/target. Run Zenzic from inside the
+repository.
 ```
 
 This is not a configuration error. It is a **safety guarantee**: the Quality Gate halts
@@ -55,7 +52,7 @@ an out-of-bounds scan before it begins.
 
 ### Resolution Options {#root-resolution}
 
-Zenzic resolves the repository root by walking up from the current working directory until it finds a root marker (`.zenzic.toml` or `.git/`). Three conditions satisfy this requirement:
+Zenzic resolves the repository root by walking up from the current working directory until it finds a root marker (`.git/`, `.zenzic.toml`, `zensical.toml`, or `mkdocs.yml`). Three conditions satisfy this requirement:
 
 - **Zenzic project:** a `.zenzic.toml` file in the target directory root (created by `zenzic init`).
 - **Git repository:** a `.git/` directory anywhere in the ancestor tree.
@@ -89,11 +86,58 @@ than inferred from that description:
   `<Link to="./page.mdx">` is not reported, and a forbidden scheme there is not
   caught, while the same scheme in `<a href="...">` is.
 - A Markdown link written inside a comment — MDX (`{/* ... */}`) or HTML
-  (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported. None
-  of them renders as a link, so none is one. The masking that establishes this
-  is length-preserving, so reported line numbers and caret columns are unchanged
-  by it. Links in JSX *expression* attributes (`to={"./page.mdx"}`) are outside
-  that masking and behave as before.
+  (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported as a
+  broken link. None of them renders as a link, so none is one. The masking that
+  establishes this is length-preserving, so reported line numbers and caret
+  columns are unchanged by it. Links in JSX *expression* attributes
+  (`to={"./page.mdx"}`) are outside that masking and behave as before. This
+  applies to the **quality** tier only — a forbidden scheme or a traversal
+  written in a comment *is* reported, for the reasons in
+  [Two Masks, Two Questions](#two-masks) below.
+
+### Two Masks, Two Questions {#two-masks}
+
+Masking is not one mechanism but two, because two different questions are being
+asked of the same document.
+
+The **quality tier** asks *is this text content?* A link inside a comment, a math
+span or a code fence is not a link — it renders as text or not at all — so
+reporting it as broken would be a false positive. That tier masks comments, math
+spans, fences and JSX string attributes before extracting.
+
+The **security tier** asks a different question: *does this document contain a
+forbidden scheme or a traversal?* For that question the whole document is in
+scope, because a payload is no less real for sitting inside a comment. Sharing
+the quality mask here meant the scanner never looked, and *not looking* is a
+stronger suppression than any directive — `Z202`, `Z203` and `Z205` are declared
+non-suppressible precisely so that no document can silence them.
+
+The rule that separates them is **whether the author declared the content an
+exhibit, and whether the payload reaches the rendered page**:
+
+| Construct | Quality tier | Security tier | Why |
+| --- | --- | --- | --- |
+| Closed, well-formed fence | masked | **masked** | An explicit, structural declaration that this is an exhibit. Fenced text renders inert — it never becomes a clickable anchor. |
+| HTML or MDX comment | masked | **not masked** | Declares something about *rendering*, not about content. Unrendered text is still text. |
+| Inline math span (`$…$`) | masked | **not masked** | Declares nothing at all: two `$` on one line, which prose about prices produces by accident. |
+| Unterminated fence | masked (to end of file) | **not masked** | An authoring error, not a declaration — and it would silence every remaining line. |
+
+#### Accepted residual risk {#fence-residual-risk}
+
+A closed fence remains a place where a payload is invisible to the security tier.
+**This is accepted, not overlooked.** Two reasons:
+
+1. **Fenced content is inert by construction.** Markdown and MDX both render it
+   as text, never as an anchor, so a `javascript:` URL inside a fence is not the
+   live vector an unfenced one is.
+2. **Unmasking it would make rule documentation unfixable.** Zenzic's own pages
+   for `Z203` and `Z205` teach those rules by showing the payloads. `Z205` exits
+   `2` and cannot be suppressed, so an unmasked pass would fail those pages with
+   no available remedy short of deleting the examples that make them useful.
+
+The consequence for anyone editing a rule page: **an example payload must stay
+inside a closed fence.** Unfencing one turns the page into an unsuppressible
+build failure.
 
 The benefit is architectural: when a directory is excluded, it is excluded everywhere -- scanner, validator, credential scanner, and orphan-checker all see the exact same file set. There is no risk of one module "forgetting" to apply an exclusion rule.
 

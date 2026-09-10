@@ -69,8 +69,18 @@ def _scan_file_for_secrets(
     return findings, True
 
 
-def _staged_doc_files(repo_root: Path) -> list[Path]:
-    """Return staged Markdown/MDX files from git index (fast pre-commit path)."""
+def _staged_doc_files(repo_root: Path) -> tuple[list[Path], bool]:
+    """Return staged Markdown/MDX files, reporting whether git could be queried.
+
+    Returns ``(files, queried)``, the same shape and for the same reason as
+    :func:`_scan_file_for_secrets` above. An empty list previously meant two
+    different things -- "nothing is staged" and "git could not be asked" -- and
+    the caller could not tell them apart, so a corrupt index, a non-repository
+    working directory, or a git that is not on PATH silently passed a commit
+    carrying live secrets with byte-identical output to a clean one.
+
+    A secret gate must never report a clean bill it did not earn.
+    """
     cmd = [
         "git",
         "diff",
@@ -87,14 +97,14 @@ def _staged_doc_files(repo_root: Path) -> list[Path]:
             check=False,
         )
     except OSError:
-        return []
+        return [], False
 
     if proc.returncode != 0:
-        return []
+        return [], False
 
     candidates = [repo_root / line.strip() for line in proc.stdout.splitlines() if line.strip()]
     docs = [p.resolve() for p in candidates if p.is_file() and _is_doc_source(p)]
-    return sorted(set(docs))
+    return sorted(set(docs)), True
 
 
 def _is_within(path: Path, directory: Path) -> bool:
@@ -105,7 +115,12 @@ def _is_within(path: Path, directory: Path) -> bool:
         return False
 
 
-def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Path]:
+def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> tuple[list[Path], bool]:
+    """Resolve scan targets, carrying whether the staged query actually ran.
+
+    The second element is False only on the ``--staged`` path when git could not
+    be queried; every other path is a real enumeration and reports True.
+    """
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
@@ -129,10 +144,10 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
                     resolved.append(candidate)
             elif candidate.is_dir():
                 resolved.extend(p for p in repo_markdown if _is_within(p, candidate))
-        return sorted(set(resolved))
+        return sorted(set(resolved)), True
 
     if not docs_root.is_dir():
-        return []
+        return [], True
     # The secret gate must reach every tree the quality scan reaches, not just
     # docs_root: an MkDocs monorepo's included sub-project docs and i18n locale
     # trees live outside docs_root, and a credential there must never be scoped
@@ -140,14 +155,17 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Pa
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _content_roots = adapter.get_extra_content_roots(repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
-    return sorted(
-        iter_security_scan_sources(
-            docs_root,
-            config,
-            exclusion_mgr,
-            content_roots=_content_roots or None,
-            locale_roots=_locale_roots or None,
-        )
+    return (
+        sorted(
+            iter_security_scan_sources(
+                docs_root,
+                config,
+                exclusion_mgr,
+                content_roots=_content_roots or None,
+                locale_roots=_locale_roots or None,
+            )
+        ),
+        True,
     )
 
 
@@ -196,7 +214,33 @@ def scan(
     repo_root = find_repo_root(fallback_to_cwd=True)
     config, _ = ZenzicConfig.load(repo_root)
 
-    targets = _resolve_targets(repo_root, paths or [], staged)
+    targets, queried = _resolve_targets(repo_root, paths or [], staged)
+
+    # Fail closed, for the same reason as the unreadable-file path below: git
+    # could not be asked what is staged, so nothing was scanned and the result
+    # is inconclusive rather than clean. Exiting 0 here handed a commit a clean
+    # bill the gate never earned, with output byte-identical to a clean run.
+    if not queried:
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "targets": 0,
+                        "findings": [],
+                        "unreadable": ["<git index>"],
+                        "error": "could not query the git index; nothing was scanned",
+                    },
+                    indent=2,
+                )
+            )
+        elif not quiet:
+            _shared.console.print(
+                f"[bold {ZenzicPalette.ERROR}]Secret Guard could not query the "
+                f"git index[/] — nothing was scanned, so the result is "
+                f"inconclusive rather than clean."
+            )
+        raise typer.Exit(1)
+
     if not targets:
         if output_format == "json":
             print(json.dumps({"targets": 0, "findings": []}, indent=2))

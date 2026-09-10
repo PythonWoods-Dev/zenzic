@@ -528,6 +528,47 @@ class PolyglotExtractor:
         extracted.sort(key=lambda item: (item.line_no, item.col_start))
         return extracted
 
+    def extract_security_links(self, text: str) -> list[ExtractedLink]:
+        """Extract links for the security tier, masking only closed fences.
+
+        Companion to :meth:`extract_all_links`, which masks comments, math and
+        fences for the quality tier. The two answer different questions and must
+        not share a mask -- see :meth:`_mask_security_view` for why, and for the
+        one exception this keeps.
+        """
+        masked_base = self._mask_security_view(text)
+        extracted: list[ExtractedLink] = []
+
+        # Mirrors extract_all_links' three sources, differing only in the mask.
+        for html_node in self.extract(text, _premasked=masked_base):
+            if html_node.href is not None and not html_node.is_missing_href:
+                extracted.append(
+                    ExtractedLink(
+                        url=html_node.href,
+                        line_no=html_node.line_no,
+                        is_html=True,
+                        node_type=f"html_{html_node.tag}",
+                        raw_text=html_node.raw_tag,
+                        col_start=0,
+                        suppressed=html_node.suppressed,
+                        html_node=html_node,
+                    )
+                )
+        for ref_node in self.extract_ref_defs(text, _premasked=masked_base):
+            extracted.append(
+                ExtractedLink(
+                    url=ref_node.dest,
+                    line_no=ref_node.line_no,
+                    is_html=False,
+                    node_type="ref_def",
+                    raw_text=ref_node.raw,
+                    col_start=0,
+                )
+            )
+        extracted.extend(self.extract_inline_links(text, _premasked=masked_base))
+        extracted.sort(key=lambda item: (item.line_no, item.col_start))
+        return extracted
+
     def _mask_comments(self, text: str) -> str:
         """Mask HTML and MDX comments with spaces of equal length, preserving newlines to maintain line offsets."""
 
@@ -602,6 +643,65 @@ class PolyglotExtractor:
                         inside = False
                 result.append(" " * len(line))
         return "\n".join(result)
+
+    def _mask_security_view(self, text: str) -> str:
+        """Mask only what the security tier may ignore: closed, well-formed fences.
+
+        The quality tier masks comments, math spans and fences so that a link
+        written inside them is not reported broken. That answers the question
+        "is this text content?". The security tier asks a different one --
+        "does this document contain a forbidden scheme or a traversal?" -- and
+        for that question the whole document is in scope, because a payload is
+        no less real for sitting inside a comment. Consulting the quality-tier
+        mask here made "the scanner did not look there" a suppression mechanism
+        for codes ``codes.py`` declares non-suppressible.
+
+        A *closed* fence is the one exception, and it is not an exception on
+        convenience grounds: it is the author's explicit, structural declaration
+        that the content is an exhibit rather than a reference, and fenced text
+        renders inert -- it never becomes the clickable anchor that makes an
+        unfenced ``javascript:`` URL a live vector. Zenzic's own ``docs/`` relies
+        on this: the pages documenting Z203 and Z205 teach those rules by showing
+        the payloads, and Z205 is exit 2 with no escape, so an unmasked pass would
+        make its own rule pages unfixable.
+
+        The three cases this deliberately does NOT mask share the property the
+        fence has and they lack -- the author never declared an exhibit:
+
+        * **Comments** declare something about *rendering*, not about content;
+          unrendered text is still text an attacker controls.
+        * **Math spans** declare nothing at all: two ``$`` on one line, which
+          prose about prices produces by accident.
+        * **Unterminated fences** are an authoring error, not a declaration, and
+          they silence every remaining line of the file.
+
+        Residual risk, accepted rather than closed: a closed fence remains a
+        place to hide a payload from the security tier. See ADR/priority-table
+        entry for ``V031_SECURITY_TIER_MASKING_BYPASS``.
+        """
+        lines = text.split("\n")
+        # First pass: find where a fence opens and whether it ever closes.
+        # Only a *closed* region is masked; an unterminated one is left intact.
+        masked: list[str] = list(lines)
+        open_idx: int | None = None
+        open_char = ""
+        open_len = 0
+        for idx, line in enumerate(lines):
+            fm = _POLY_FENCE_RE.match(line)
+            if fm is None:
+                continue
+            fence = fm.group("fence")
+            if open_idx is None:
+                open_idx = idx
+                open_char = fence[0]
+                open_len = len(fence)
+            elif fence[0] == open_char and len(fence) >= open_len and not fm.group("info").strip():
+                for j in range(open_idx, idx + 1):
+                    masked[j] = " " * len(lines[j])
+                open_idx = None
+                open_char = ""
+                open_len = 0
+        return "\n".join(masked)
 
     def _mask_math(self, text: str) -> str:
         """Replace math blocks ($$...$$ and $...$) with whitespace, preserving newline characters."""
