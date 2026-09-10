@@ -134,6 +134,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A Global Option Used After a Subcommand Now Says Where It Belongs**:
+  - `zenzic lab z201 --force-color` failed with `No such option: --force-color` and nothing more. The option exists — it is global, so it precedes the subcommand — and the error gave a user no way to derive that. It now names the working invocation: `zenzic --force-color lab z201`.
+  - Applies to all four global options (`--version`, `--no-color`, `--force-color`, and their short forms) on every subcommand. A genuinely unknown option is unaffected: it still gets the plain error, because a hint that called every typo "a global option" would be worse than no hint.
+
 - **Links Inside Comments and JSX Attributes Are No Longer Reported as Broken**:
   - A Markdown link written inside an HTML comment (`<!-- [x](./y.md) -->`), an MDX comment (`{/* ... */}`), or a JSX string attribute (`<Foo label="[x](./y.md)" />`) was extracted and reported as a broken `Z101`. None of them renders as a link. The HTML-comment case affected plain `.md` as well as `.mdx`, so every commented-out link in any document was a false positive.
   - `PolyglotExtractor` already masked comments correctly; one code path feeding the `Z101` rule did not use that masking, and its docstring claimed it did. The fix routes that path through the existing mask rather than adding a second implementation of "what is not content", and adds an equally narrow, length-preserving mask for JSX attribute values — so reported line numbers and caret columns are unchanged.

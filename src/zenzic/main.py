@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Annotated, Any, cast
 
+import click
 import typer
 from rich.console import Console
 
@@ -100,11 +101,58 @@ def _usage_errors_exit_1() -> Iterator[None]:
     previous = [(module, module.exceptions.UsageError.exit_code) for module in modules]
     for module in modules:
         module.exceptions.UsageError.exit_code = 1
+
+    # The error the user sees is rendered by Typer's rich formatter, not by
+    # Click's own `show` -- patching the latter changes nothing, because Typer
+    # intercepts first. Extending the renderer mirrors the exit_code patch above
+    # rather than adding a second mechanism, and is restored in the same
+    # `finally`. If Typer ever stops exposing this, the hint disappears and the
+    # bare Click message returns: a lost hint, not a broken CLI.
+    import typer.rich_utils as _rich_utils
+
+    _orig_format_error = _rich_utils.rich_format_error
+
+    def _format_error_with_placement_hint(self: Any) -> None:
+        # Parameter named `self`, matching Typer's own signature: it is called
+        # unbound as rich_format_error(exc), so the name is part of the contract
+        # mypy checks against.
+        _orig_format_error(self)
+        hint = _global_option_hint(self, sys.argv)
+        if hint:
+            _err_console.print(
+                f"[dim]{getattr(self, 'option_name', '')} is a global option — "
+                f"it goes before the subcommand:[/dim]\n    [bold]{hint}[/bold]"
+            )
+
+    _rich_utils.rich_format_error = _format_error_with_placement_hint
     try:
         yield
     finally:
+        _rich_utils.rich_format_error = _orig_format_error
         for module, code in previous:
             module.exceptions.UsageError.exit_code = code
+
+
+# The options declared on the root callback. A user reaching for one of these
+# mid-command gets Click's bare "No such option", which is true and useless: the
+# option exists, it is simply global, and nothing in the message says so or shows
+# where it goes. Deriving that from a Typer/Click convention is not something a
+# user can be expected to do.
+_GLOBAL_OPTIONS = frozenset({"--version", "-V", "--no-color", "--force-color"})
+
+
+def _global_option_hint(exc: click.NoSuchOption, argv: list[str]) -> str | None:
+    """Return a corrected invocation when a *global* option was placed too late.
+
+    Returns None for a genuinely unknown option, so the hint stays specific: a
+    message that called every typo "a global option" would be worse than the
+    bare error it replaces.
+    """
+    name = getattr(exc, "option_name", None)
+    if name not in _GLOBAL_OPTIONS:
+        return None
+    rest = [a for a in argv[1:] if a != name]
+    return "zenzic " + " ".join([name, *rest])
 
 
 def _version_callback(value: bool) -> None:
