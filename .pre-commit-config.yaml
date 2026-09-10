@@ -75,14 +75,33 @@ repos:
         pass_filenames: false
 
   # 7. Local Dogfooding: Zenzic Secret Guard on staged Markdown/MDX
+  #
+  #     The guard is deliberately wider than the analysed corpus: it scans every
+  #     staged Markdown/MDX file, including the 203 that live outside docs/ --
+  #     README.md, CONTRIBUTING.md, SECURITY.md, .github/, scripts/, changelogs/.
+  #     That breadth is the point, so it is not narrowed to the corpus.
+  #
+  #     One file is exempted here, and the exemption lives in this file rather
+  #     than in .zenzic.toml or the engine. examples/z201-credentials/ is the
+  #     fixture that demonstrates Z201 firing; its whole purpose is to carry a
+  #     credential the scanner detects, so the scanner detects it and blocks
+  #     every commit that touches it. The engine must not grow a config-named
+  #     exemption to accommodate that -- the security tier is never suppressible
+  #     by any mechanism (discovery.py, iter_security_scan_sources), and a key
+  #     that switches it off for one path is a general bypass with a narrow
+  #     default. Excluding the path at the hook keeps the property intact: the
+  #     fixture is still scanned by `zenzic guard scan` run directly, still
+  #     reported by the tutorial that cites it, and still exits 2. Only the
+  #     commit gate skips it, visibly, in a file every diff shows.
   - repo: local
     hooks:
       - id: zenzic-guard
         name: zenzic guard (Secret Guard)
-        entry: uv run zenzic guard scan --staged --quiet --no-header
+        entry: uv run zenzic guard scan --quiet --no-header
         language: system
         types_or: [markdown, mdx]
-        pass_filenames: false
+        exclude: ^examples/z201-credentials/
+        pass_filenames: true
 
   # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
   #     Not a formatter: it never edits the file, it fails loudly when the file
