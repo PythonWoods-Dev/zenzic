@@ -81,18 +81,22 @@ repos:
   #     README.md, CONTRIBUTING.md, SECURITY.md, .github/, scripts/, changelogs/.
   #     That breadth is the point, so it is not narrowed to the corpus.
   #
-  #     One file is exempted here, and the exemption lives in this file rather
-  #     than in .zenzic.toml or the engine. examples/z201-credentials/ is the
-  #     fixture that demonstrates Z201 firing; its whole purpose is to carry a
-  #     credential the scanner detects, so the scanner detects it and blocks
-  #     every commit that touches it. The engine must not grow a config-named
+  #     Two paths are exempted here, and the exemption lives in this file rather
+  #     than in .zenzic.toml or the engine. Both are fixtures whose whole purpose
+  #     is to carry a credential the scanner detects -- examples/z201-credentials/
+  #     demonstrates Z201 firing for the tutorial, and the hero_specimen sandbox
+  #     backs the test suite -- so the scanner detects them and blocks every
+  #     commit that touches them. These two are the complete set: of the 502
+  #     tracked Markdown/MDX files, the guard flags exactly these and nothing
+  #     else, checked by running it over all of them rather than by assuming.
+  #     The engine must not grow a config-named
   #     exemption to accommodate that -- the security tier is never suppressible
   #     by any mechanism (discovery.py, iter_security_scan_sources), and a key
   #     that switches it off for one path is a general bypass with a narrow
   #     default. Excluding the path at the hook keeps the property intact: the
-  #     fixture is still scanned by `zenzic guard scan` run directly, still
-  #     reported by the tutorial that cites it, and still exits 2. Only the
-  #     commit gate skips it, visibly, in a file every diff shows.
+  #     fixtures are still scanned by `zenzic guard scan` run directly, still
+  #     report their findings, and still exit 2. Only the commit gate skips
+  #     them, visibly, in a file every diff shows.
   - repo: local
     hooks:
       - id: zenzic-guard
@@ -100,7 +104,7 @@ repos:
         entry: uv run zenzic guard scan --quiet --no-header
         language: system
         types_or: [markdown, mdx]
-        exclude: ^examples/z201-credentials/
+        exclude: ^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$)
         pass_filenames: true
 
   # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
