@@ -20,6 +20,7 @@ satisfy a `Z205`-only test.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -40,6 +41,23 @@ PROSE = (
 ZENZIC = __import__("shutil").which("zenzic")
 
 
+def _env() -> dict[str, str]:
+    """Inherit the real environment, overriding only what these assertions need.
+
+    Passing a hand-built ``env`` of just ``PATH`` looks tidier and breaks Python
+    on Windows: without ``SystemRoot`` the interpreter cannot reach the CryptoAPI
+    and dies at start-up with ``_Py_HashRandomization_Init: failed to get random
+    numbers``. Every assertion here then compares its expected substring against
+    that fatal message and reports something false but plausible -- "the scheme
+    finding did not fire at all", "the credential label was lost" -- so the
+    failure names the wrong defect. Inherit and override instead of enumerating.
+    """
+    env = os.environ.copy()
+    env["NO_COLOR"] = "1"
+    env["COLUMNS"] = "200"
+    return env
+
+
 def _run(tmp_path: Path, body: str) -> str:
     (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".zenzic.toml").write_text(CONFIG, encoding="utf-8")
@@ -51,7 +69,7 @@ def _run(tmp_path: Path, body: str) -> str:
         capture_output=True,
         text=True,
         check=False,
-        env={"PATH": __import__("os").environ["PATH"], "NO_COLOR": "1", "COLUMNS": "200"},
+        env=_env(),
     )
     return proc.stdout + proc.stderr
 
