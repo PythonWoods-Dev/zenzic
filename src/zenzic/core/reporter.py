@@ -330,6 +330,33 @@ class ZenzicReporter:
                             "[bold].zenzic.local.toml[/]."
                         )
                     )
+                elif bf.code == "Z205":
+                    # A forbidden scheme is not a credential. It shares this
+                    # block with Z201 because both are Tier-0 breaches, and it
+                    # used to inherit Z201's label and remedy with it: a
+                    # `javascript:` link was printed under `Credential:` and the
+                    # reader was told to rotate it and purge it from history.
+                    # There is no credential, nothing to rotate and no history
+                    # to purge -- the fix is to change the link.
+                    #
+                    # The URL is shown in full rather than obfuscated for the
+                    # same reason: masking exists to keep a secret out of logs,
+                    # and this is not a secret. Hiding it hides the thing the
+                    # reader has to find and edit.
+                    self._con.print(
+                        Text.from_markup(
+                            f"  {emoji('cross')} [bold]Link:[/]       "
+                            f"[bold reverse] {_esc(bf.match_text or '[unknown]')} [/]"
+                        )
+                    )
+                    self._con.print(Text())
+                    self._con.print(
+                        Text.from_markup(
+                            "  [bold]Action:[/] Replace the forbidden scheme with an "
+                            "[bold]https:[/] URL or a relative link, or remove the link. "
+                            "Nothing needs rotating."
+                        )
+                    )
                 else:
                     obfuscated = _obfuscate_secret(bf.match_text) if bf.match_text else "[redacted]"
                     self._con.print(
