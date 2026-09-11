@@ -68,17 +68,12 @@ Capabilities judged legitimate but not committed. They carry no version delibera
 unassigned entry is more honest than a date nobody chose. Each records what would change the
 assessment, so revisiting it is a decision rather than a rediscovery.
 
-- **User-declared link components.** A configurable list of tag names that count as links, so
-  an author whose site uses `<Link to="...">` or `<Anchor href="...">` can opt those into the
-  link graph and the forbidden-scheme check.
-  *Why not now:* the engine does not learn what a framework's components are — that is the
-  adapter boundary — so the only compatible shape is a user-declared list, and that needs a
-  configuration surface, a default and documentation. Today the failure is **under-reporting**:
-  a broken `<Link>` target is not reported, which is the safer direction to be wrong in, and
-  cheaper than the machinery to fix it. `<a href>` remains the portable spelling and is fully
-  analysed.
-  *What would change the assessment:* a user asking for it, or evidence that broken component
-  links are reaching published sites unreported.
+*Nothing is currently listed here.* The first entry — a user-declared list of link components —
+was **implemented instead**, in `v0.31`, and by a different design: the engine recognises any
+capitalised tag carrying `to`, `href` or `src`, which is the JSX convention rather than a
+configurable list, so nothing has to be declared and a component nobody has invented is covered.
+The entry lived here for less than a day, which is itself the argument for keeping this section
+honest: a consideration that becomes work should leave, not linger as a plan nobody is following.
 
 ---
 
