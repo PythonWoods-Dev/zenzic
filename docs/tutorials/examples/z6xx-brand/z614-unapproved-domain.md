@@ -53,20 +53,30 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 20 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:3  ✘  [Z614]  Link to 'https://unapproved.example.org/spec'
 references external domain 'unapproved.example.org' which is not in
 [policies].allowed_external_domains whitelist. Replace or add to whitelist.
+
     1  │  # Welcome
     2  │
     3  ❱  Check out [unvetted domain](https://unapproved.example.org/spec).
+    4  │
+    5  │  Maintaining an explicit allowed-domains whitelist stops documentation…
+
+────────────────────────────────────────────────────────────────────────────────
 
 Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
 FAILED: Hard errors detected. Exit code 1 is mandatory.
 DQS Final Score: 90/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 The `Z411` warning above the `Z614` error is incidental: this one-page fixture

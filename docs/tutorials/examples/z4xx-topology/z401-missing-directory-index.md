@@ -52,17 +52,18 @@ uvx zenzic check all --show-info
 Expected output:
 
 ```text
-zensical · 1 file (1 docs, 0 assets) · 0.0s · 68 files/s
-
-docs/guide  i  [Z401]  Directory contains Markdown files but has no index page
-— the directory URL may return a 404.
+zensical • 1 file (1 pages, 0 assets) • 0.0s
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 0 warnings  i 1 info  · 1 file with findings
-
-Analysis complete: All statically-detectable links, credentials, and references
+✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
+
+💡 2 info findings suppressed — use --show-info for details.
+DQS Final Score: 100/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

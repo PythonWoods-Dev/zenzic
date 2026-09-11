@@ -40,11 +40,26 @@ zenzic check links --strict
 Expected output:
 
 ```text
+standalone • 2 files (2 pages, 0 assets) • 0.0s
+
 .zenzic.toml:1  ⚠  [Z112]  Stale absolute_path_allowlist entry
 '/legacy/unused/path/': no link matched this prefix across all scanned files
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 2 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+💡 2 info findings hidden — use --show-info to display.
+DQS Final Score: 99/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
-Exit code: `1` (if run with `--strict` or if `strict = true` is set in config; otherwise exits with `0` as a warning).
+Exit code: `0` (if run with `--strict` or if `strict = true` is set in config; otherwise exits with `0` as a warning).
 
 ---
 

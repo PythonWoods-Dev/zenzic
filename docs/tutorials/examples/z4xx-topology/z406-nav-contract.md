@@ -52,21 +52,28 @@ uvx zenzic check all
 Expected output:
 
 ```text
-mkdocs · 2 files (2 docs, 0 assets) · 0.0s · 109 files/s
+mkdocs • 2 files (1 pages, 1 config, 0 assets) • 0.0s
 
-docs/(nav)  x  [Z406]  mkdocs.yml extra.alternate[it]: link '/it/' does not
+(nav)  ⚠  [Z406]  mkdocs.yml extra.alternate[it]: link '/it/' does not
 correspond to any URL the build engine will generate. The Virtual Site Map
 contains no entry for '/it/'. Use a path that maps to an existing source file
 (e.g. '/index.it/' for the it home page).
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  · 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 1 info  • 1 file with findings
 
-FAILED: Hard errors detected. Exit code 1 is mandatory.
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+💡 1 info finding hidden — use --show-info to display.
+DQS Final Score: 98/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
-Exit code: `1`
+Exit code: `0`
 
 ---
 

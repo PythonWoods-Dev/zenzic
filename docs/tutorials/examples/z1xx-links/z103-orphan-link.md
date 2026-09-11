@@ -50,31 +50,32 @@ uvx zenzic check links
 Expected output:
 
 ```text
-zensical - 2 files (2 docs, 0 assets) - 0.0s - 101 files/s
+zensical • 2 files (2 pages, 0 assets) • 0.0s
 
-docs/guide.md  !  [Z402]  Physical file not listed in navigation.
+docs/guide.md  ⚠  [Z402]  Physical file not listed in navigation.
 
-docs/index.md:16:2  x  [Z101]  'guide.md' resolves to '/guide/' which exists on
-disk but is not listed in the site navigation (UNREACHABLE_LINK) — add it to nav
-in mkdocs.yml or remove the link
+docs/guide.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/guide/'
 
-    14  │  The following link points to a page that exists on disk but has no
-nav entry:
+docs/index.md:16  ✘  [Z103]  'guide.md' resolves to '/guide/' which exists on
+disk but is not in the site navigation (ORPHAN_LINK / UNREACHABLE_LINK). Readers
+cannot reach this page via the nav tree.
+
+    14  │  The following link points to a page that exists on disk but has no n…
     15  │
-    16  ❱  - [Guide](guide.md) — `guide.md` exists on disk, but it is **not in
-the nav** → **Z103**
-        │    ^^^^^^^^^^^^^^^^^
+    16  ❱  - [Guide](guide.md) — `guide.md` exists on disk, but it is **not in …
     17  │
     18  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 1 warning  i 0 info  - 2 files with findings
+Summary:  ✘ 1 error  ⚠ 2 warnings  💡 0 info  • 2 files with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+DQS Final Score: 89/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`

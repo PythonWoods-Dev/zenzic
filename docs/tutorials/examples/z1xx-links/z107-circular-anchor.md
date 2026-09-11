@@ -45,9 +45,9 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone · 1 file (1 docs, 0 assets) · 0.0s · 64 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s
 
-docs/guide.md:14:51  !  [Z107]  Self-referential anchor link: '[Setup](#setup)'
+docs/guide.md:14:51  ✘  [Z107]  Self-referential anchor link: '[Setup](#setup)'
 slugifies to its own fragment. Replace with a meaningful target or remove the
 link.
 
@@ -60,10 +60,15 @@ link.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  · 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 2 info  • 1 file with findings
 
-Analysis complete: All statically-detectable links, credentials, and references
-verified.
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+
+💡 2 info findings hidden — use --show-info to display.
+DQS Final Score: 99/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`

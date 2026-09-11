@@ -45,14 +45,28 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 2 files (1 pages, 1 assets) • 0.1s • 35 files/s
+standalone • 2 files (1 pages, 1 assets) • 0.0s
 
 docs/index.md:3  ⚠  [Z514]  Image 'assets/logo.png' uses generic alt text
 'image'. Provide descriptive alt text for accessibility.
+
     1  │  # Generic Alt Text Example
     2  │
     3  ❱  ![image](assets/logo.png)
        │  ^^^^^
+    4  │
+    5  │  This page triggers Z514 due to generic alt text. Descriptive alt text…
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 98/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 The caret underlines the alt text itself, not the whole image syntax.

@@ -44,17 +44,23 @@ uvx zenzic check references
 Expected output (simplified):
 
 ```text
-docs/tutorials/examples/z6xx-brand/z603-dead-suppression.md:22  !  [Z603]
-Inline suppression directive does not suppress any active finding.
-Remove the dead comment.
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-    20  │  The link is valid, so no Z101 finding is produced — the directive
-         is never consumed.
-    21  │
-    22  ❱  [Zenzic Docs](./z601-brand-obsolescence.md) <!-- zenzic:ignore:
-         Z101 - this link is fine, suppression is dead -->
-       │                                               ^^^^^^^^^^^^^^^^^^^^
-    23  │
+docs/index.md:1  ⚠  [Z502]  Page has only 9 words (minimum 50).
+
+docs/index.md:3  ⚠  [Z603]  Inline suppression directive does not suppress any
+active finding. Remove the dead comment.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 97/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 1/30 (inline: 1, per-file: 0) [MANAGED DEBT]
 ```
 
 Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)

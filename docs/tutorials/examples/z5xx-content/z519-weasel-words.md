@@ -47,15 +47,49 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.1s • 15 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:3  ⚠  [Z519]  Weasel word 'Clearly' detected. Consider using
 direct, precise language instead.
+
     1  │  # Weasel Words Example
     2  │
-    3  ❱  Clearly, you simply configure the gateway. Vague qualifiers like these
+    3  ❱  Clearly, you simply configure the gateway. Vague qualifiers like thes…
+       │  ^^^^^^^
+    4  │  no verifiable information and often mask a step the writer never actu…
+    5  │  tested. That is why technical style guides discourage them in favor of
+
+docs/index.md:3  ⚠  [Z519]  Weasel word 'simply' detected. Consider using
+direct, precise language instead.
+
+    1  │  # Weasel Words Example
+    2  │
+    3  ❱  Clearly, you simply configure the gateway. Vague qualifiers like thes…
+       │  ^^^^^^
+    4  │  no verifiable information and often mask a step the writer never actu…
+    5  │  tested. That is why technical style guides discourage them in favor of
+
+docs/index.md:7  ⚠  [Z519]  Weasel word 'simply' detected. Consider using
+direct, precise language instead.
+
+    5  │  tested. That is why technical style guides discourage them in favor of
+    6  │  precise, checkable instructions a reader can follow exactly, without
+    7  ❱  guessing what "simply" was supposed to mean in context.
+       │  ^^^^^^
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 4 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 92/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Matching is case-insensitive — the list holds `clearly`, the prose has

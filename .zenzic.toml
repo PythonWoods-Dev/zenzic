@@ -86,3 +86,13 @@ excluded_file_patterns = []
 # heading the author never wrote. Suppressed for this one page: fixing it would
 # mean repairing the delimiter, which would delete the demonstration.
 "docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z512"]
+# These two pages quote the real CLI output for the rule they document, and that
+# output necessarily contains the payload the rule detects: z501's capture shows
+# the placeholder words it found, z403's shows the image tag missing its alt.
+# The previous sanitised transcriptions avoided this by accident rather than by
+# design -- they were also wrong about the glyphs, the severities and the counts.
+# Same shape as Z205's rule page, which teaches a forbidden scheme by showing
+# one: the demonstration is the content, and deleting it to satisfy the gate
+# would delete the page's reason to exist.
+"docs/tutorials/examples/z5xx-content/z501-placeholder.md" = ["Z501"]
+"docs/tutorials/examples/z4xx-topology/z403-missing-alt.md" = ["Z403"]

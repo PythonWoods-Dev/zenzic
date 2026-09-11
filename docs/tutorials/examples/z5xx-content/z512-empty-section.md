@@ -52,13 +52,25 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.1s • 19 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z502]  Page has only 17 words (minimum 50).
+
 docs/index.md:3  ⚠  [Z512]  Heading section 'Empty Section' contains no body
 content before next section or EOF.
 
+────────────────────────────────────────────────────────────────────────────────
+
 Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 1 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+💡 1 info finding hidden — use --show-info to display.
+DQS Final Score: 98/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 ---

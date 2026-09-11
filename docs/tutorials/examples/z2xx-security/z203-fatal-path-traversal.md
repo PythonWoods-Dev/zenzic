@@ -51,7 +51,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 35 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
@@ -62,6 +62,8 @@ directory
     10  │  ## Fatal Traversal Link
     11  │
     12  ❱  - [Passwd](../../../../etc/passwd) — this link escapes `docs/` and t…
+    13  │    `/etc/`, an OS system directory → **Z203**, not Z202.
+    14  │
 
 docs/index.md:17  ✘  [Z203]  '..%2f..%2f..%2f..%2fetc%2fpasswd' resolves outside
 the docs directory
@@ -69,12 +71,20 @@ the docs directory
     15  │  ## The Same Target, Percent-Encoded
     16  │
     17  ❱  - [Encoded](..%2f..%2f..%2f..%2fetc%2fpasswd) — `%2f` is a slash to …
+    18  │    that resolves the link, so this reaches the same file → **Z203** a…
+    19  │
+
+────────────────────────────────────────────────────────────────────────────────
 
 Summary:  ✘ 2 security incidents  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file
 with findings
+
 FAILED: Security incidents detected. Exit code 3 is mandatory.
 DQS Final Score: 0/100 (Security Override — 2 non-suppressible findings
 detected)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Read the summary line carefully: **0 errors**, and two *security incidents* —

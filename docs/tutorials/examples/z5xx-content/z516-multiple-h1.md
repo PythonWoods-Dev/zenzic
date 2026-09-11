@@ -51,18 +51,30 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.1s • 19 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:5  ✘  [Z516]  Multiple H1 headings detected in document ('Second
 Title'). Documents must have exactly one H1 title.
+
     3  │  Introduction content.
     4  │
     5  ❱  # Second Title
        │  ^^^^^^^^^^^^
+    6  │
+    7  │  This page triggers Z516 because it contains more than one H1 heading.…
+
+────────────────────────────────────────────────────────────────────────────────
 
 Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 90/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 The finding points at line 5 — the *second* H1, not the first. The first one is

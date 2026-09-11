@@ -28,11 +28,11 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s • 58 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s
 
-docs/index.md:6:33  ⚠  [Z601]  Obsolete or unauthorized brand term
-'OldPlatform' detected. Use semantic versioning (e.g., 'vX.Y.Z') in active
-prose, or suppress if this is a historical ledger.
+docs/index.md:6:33  ⚠  [Z601]  Obsolete or unauthorized brand term 'OldPlatform'
+detected. Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress
+if this is a historical ledger.
 
     4  │  # Welcome to the Documentation Platform
     5  │
@@ -41,9 +41,9 @@ prose, or suppress if this is a historical ledger.
     7  │
     8  │  All content has been ported to the new documentation engine.
 
-docs/index.md:9:4  ⚠  [Z601]  Obsolete or unauthorized brand term
-'OldPlatform' detected. Use semantic versioning (e.g., 'vX.Y.Z') in active
-prose, or suppress if this is a historical ledger.
+docs/index.md:9:4  ⚠  [Z601]  Obsolete or unauthorized brand term 'OldPlatform'
+detected. Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress
+if this is a historical ledger.
 
      7  │
      8  │  All content has been ported to the new documentation engine.
@@ -58,11 +58,11 @@ prose, or suppress if this is a historical ledger.
 
     15  │  ## About the Migration
     16  │
-    17  ❱  The migration from OldPlatform improved build times by 60% and a…
+    17  ❱  The migration from OldPlatform improved build times by 60% and added
         │                     ^^^^^^^^^^^
-    18  │  native i18n support. Contact the platform team for migration ass…
+    18  │  native i18n support. Contact the platform team for migration assista…
 
-────────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────
 
 Summary:  ✘ 0 errors  ⚠ 3 warnings  💡 2 info  • 1 file with findings
 

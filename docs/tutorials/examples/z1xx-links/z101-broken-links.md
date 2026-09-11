@@ -45,7 +45,7 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 30 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:11  ✘  [Z101]  'missing.md' resolves to '/missing/' which is not
 in the Virtual Site Map — the target file may not exist

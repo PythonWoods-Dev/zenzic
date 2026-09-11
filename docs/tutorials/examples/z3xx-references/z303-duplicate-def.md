@@ -28,27 +28,30 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 65 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:15  !  [Z303]  Reference ID '[api]' is defined more than once.
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
+
+docs/index.md:21  ⚠  [Z303]  Reference ID '[api]' is defined more than once.
 First definition wins (CommonMark §4.7).
 
-    13  │  The new [API][api] includes a breaking change in `/v2/auth`.
-    14  │
-    15  ❱  [api]: https://api-v1.example.com
-    16  │  [api]: https://api-v2.example.com
-    17  │  <!-- The `api` reference ID is defined twice above — once for v1,
-once for v2.
+    19  │  for the formal first-wins resolution rule.
+    20  │
+    21  ❱  [api]: https://api-v1.example.com
+    22  │  [api]: https://api-v2.example.com
+    23  │  <!-- The `api` reference ID is defined twice above — once for v1, on…
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 92/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 1/30 (inline: 0, per-file: 1) [MANAGED DEBT]
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

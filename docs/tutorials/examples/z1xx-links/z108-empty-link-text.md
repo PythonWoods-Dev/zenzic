@@ -40,36 +40,28 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone - 2 files (2 docs, 0 assets) - 0.0s - 120 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s
 
-docs/guide.md:4  !  [Z502]  Page has only 25 words (minimum 50).
-
-    2  │  <!-- SPDX-License-Identifier: Apache-2.0 -->
-    3  │
-    4  ❱  # Guide
-    5  │
-    6  │  This guide page exists on disk so that `[](guide.md)` in `index.md`
-does not
-
-docs/index.md:10:2  x  [Z108]  link label is empty or whitespace-only
+docs/index.md:10:2  ✘  [Z108]  Link text is empty or contains only whitespace.
 
      8  │  ## Empty Link
      9  │
-    10  ❱  - [TODO: ADD LABEL](guide.md) — empty label (no visible text for screen readers) →
-**Z108**
-        │
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    10  ❱  - [](guide.md) — empty label (no visible text for screen readers) → …
+        │    ^^
     11  │
     12  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 1 warning  i 0 info  - 2 files with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 2 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+
+💡 2 info findings hidden — use --show-info to display.
+DQS Final Score: 99/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`

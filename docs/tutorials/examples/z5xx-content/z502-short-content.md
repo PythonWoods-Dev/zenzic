@@ -28,26 +28,23 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 78 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:4  !  [Z502]  Page has only 22 words (minimum 50).
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
 
-    2  │  <!-- SPDX-License-Identifier: Apache-2.0 -->
-    3  │
-    4  ❱  # Z502 — Short Content Gallery Example
-    5  │
-    6  │  This page is intentionally sparse to demonstrate **Z502
-SHORT_CONTENT** detection.
+docs/index.md:4  ⚠  [Z502]  Page has only 22 words (minimum 50).
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 94/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

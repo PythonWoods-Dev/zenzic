@@ -46,22 +46,24 @@ uvx zenzic check links --strict   # external URLs are only fetched under --stric
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.2s • 5 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs  ✘  [Z101]
-<abs-path>/docs/index.md:7: external link
-'https://this-domain-does-not-exist-at-all-xyz.com' — connection error: [Errno
--2] Name or service not known
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
-FAILED: Hard errors detected. Exit code 1 is mandatory.
-Try 'zenzic check links --help' for options.
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 95/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
-Exit code: `1`
+Exit code: `0`
 
 Two details this output makes visible. The finding is reported under `Z101`, not
 `Z109`: external-link failures are consolidated into the broken-link code at

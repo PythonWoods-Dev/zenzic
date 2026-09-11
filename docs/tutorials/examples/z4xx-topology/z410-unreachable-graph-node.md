@@ -43,19 +43,33 @@ uvx zenzic check all
 Expected output:
 
 ```text
-zensical • 2 files (2 pages, 0 assets) • 0.1s • 39 files/s
+zensical • 2 files (2 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:1  ⚠  [Z502]  Page has only 6 words (minimum 50).
+
 docs/secret.md  ⚠  [Z402]  Physical file not listed in navigation.
+
 docs/secret.md:1  ⚠  [Z410]  Document is isolated and unreachable from defined
 entry points: '/secret/'
+
 docs/secret.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/secret/'
+
 docs/secret.md:1  ⚠  [Z502]  Page has only 14 words (minimum 50).
 
+────────────────────────────────────────────────────────────────────────────────
+
 Summary:  ✘ 0 errors  ⚠ 6 warnings  💡 0 info  • 2 files with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 79/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Six findings from a two-file fixture. Only the `Z410` on `secret.md` is the

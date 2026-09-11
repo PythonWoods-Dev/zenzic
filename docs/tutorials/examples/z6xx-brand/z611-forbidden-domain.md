@@ -52,16 +52,31 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.1s • 20 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:8  ⚠  [Z611]  Link to 'https://baddomain.com/api' references
 forbidden domain 'baddomain.com'. Remove or replace the link. Declared in
 [policies].forbidden_external_domains.
+
      6  │  This document contains a link to a forbidden external domain.
      7  │
      8  ❱  See the [Bad API](https://baddomain.com/api) for details.
+     9  │
+    10  │  Maintaining a domain denylist protects a documentation set from link…
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 92/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Zenzic never requests the URL. The finding comes from parsing the link, so it

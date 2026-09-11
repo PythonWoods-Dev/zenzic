@@ -47,17 +47,40 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 23 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:5  ✘  [Z516]  Multiple H1 headings detected in document
 ('Overview'). Documents must have exactly one H1 title.
+
+    3  │  API details here.
+    4  │
+    5  ❱  # Overview
+       │  ^^^^^^^^
+    6  │
+    7  │  Overview details here. Enforcing a strict heading order helps generat…
+
 docs/index.md:5  ⚠  [Z523]  Heading 'Overview' matches pattern '^Overview$'
 (order position 1) but appears after heading matching '^API Reference$' (order
 position 2). Headings must appear in strictly ascending sequential order.
 
+    3  │  API details here.
+    4  │
+    5  ❱  # Overview
+    6  │
+    7  │  Overview details here. Enforcing a strict heading order helps generat…
+
+────────────────────────────────────────────────────────────────────────────────
+
 Summary:  ✘ 1 error  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 88/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 **This fixture exits `1`, and not because of `Z523`.** The `Z516` beside it is

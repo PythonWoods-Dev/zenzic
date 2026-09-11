@@ -48,16 +48,31 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.1s • 19 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:5  ⚠  [Z522]  Table cell value 'unknown_status' in column 'Status'
 is not in allowed enum list ['draft', 'review', 'stable'] (declared in
 [policies].table_cell_enums).
+
     3  │  | Feature | Status |
     4  │  | :--- | :--- |
     5  ❱  | Engine | unknown_status |
+    6  │
+    7  │  Constraining a status column to a fixed enumeration keeps documentati…
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 93/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 The message lists the permitted values, so the correction does not require

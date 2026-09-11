@@ -45,15 +45,30 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 20 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:1  ⚠  [Z517]  Heading 'Heading Punctuation Example.' ends with
 invalid trailing punctuation '.'. Headings should not end with periods, colons,
 or semicolons.
+
     1  ❱  # Heading Punctuation Example.
        │  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2  │
+    3  │  This page triggers Z517 because the heading ends with a period. Trail…
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 94/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 ---

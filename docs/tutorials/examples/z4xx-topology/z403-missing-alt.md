@@ -28,35 +28,26 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 2 files (1 docs, 1 assets) - 0.0s - 123 files/s
+standalone • 2 files (1 pages, 1 assets) • 0.0s
 
-docs/index.md:14  !  [Z403]  Image 'diagram.png' has no alt text.
+docs/index.md:14  ⚠  [Z403]  Image 'diagram.png' has no alt text.
 
     12  │  The following diagram shows the system components:
     13  │
-    14  ❱  ![TODO: ADD LABEL](diagram.png)
+    14  ❱  ![](diagram.png)
     15  │
-    16  │  The `![](diagram.png)` syntax above has an empty alt attribute →
-**Z403**.
-
-docs/index.md:16  !  [Z403]  Image 'diagram.png' has no alt text.
-
-    14  │  ![TODO: ADD LABEL](diagram.png)
-    15  │
-    16  ❱  The `![](diagram.png)` syntax above has an empty alt attribute →
-**Z403**.
-    17  │
-    18  │  ## What Zenzic Reports
+    16  │  The `![](diagram.png)` syntax above has an empty alt attribute → **Z…
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 2 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 99/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

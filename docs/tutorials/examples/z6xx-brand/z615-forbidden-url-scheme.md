@@ -53,16 +53,31 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 22 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/'
+
 docs/index.md:3  ⚠  [Z615]  Link to 'http://example.com/docs' uses scheme 'http'
 which is not permitted by [policies].required_url_schemes (['https', 'mailto']).
 Change scheme to an allowed protocol.
+
     1  │  # Welcome
     2  │
     3  ❱  Check out [insecure site](http://example.com/docs).
+    4  │
+    5  │  Restricting links to a set of required URL schemes keeps documentation
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 92/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 The message lists the permitted set inline, so the fix does not require opening

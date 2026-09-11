@@ -54,18 +54,30 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.1s • 38 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s
 
 docs/public/index.md:3  ✘  [Z616]  Internal link '../internal/secret.md' from
 namespace 'docs/public/index.md' targets forbidden namespace
 'docs/internal/secret.md' (forbidden boundary 'docs/internal'). Declared in
 [policies].cross_namespace_restrictions.
+
     1  │  # Public Index
     2  │
     3  ❱  For secret details, see [Internal Secret Spec](../internal/secret.md).
+    4  │
+    5  │  This page belongs to the `docs/public` namespace, which the project p…
+
+────────────────────────────────────────────────────────────────────────────────
 
 Summary:  ✘ 1 error  ⚠ 0 warnings  💡 3 info  • 1 file with findings
+
 FAILED: Hard errors detected. Exit code 1 is mandatory.
+
+💡 3 info findings hidden — use --show-info to display.
+DQS Final Score: 92/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 ---

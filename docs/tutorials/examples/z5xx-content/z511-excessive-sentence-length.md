@@ -40,13 +40,23 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 22 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
 docs/index.md:3  ⚠  [Z511]  Sentence of 45 words exceeds maximum limit of 40
 words.
 
+────────────────────────────────────────────────────────────────────────────────
+
 Summary:  ✘ 0 errors  ⚠ 1 warning  💡 1 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+💡 1 info finding hidden — use --show-info to display.
 DQS Final Score: 99/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Both the measured count and the limit appear, so you can see how far over the

@@ -41,21 +41,26 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone · 1 file (1 docs, 0 assets) · 0.0s · 67 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:11:44  x  [Z101]  'api/reference.md' not found in docs
+docs/index.md:11  ✘  [Z101]  'api/reference.md' resolves to '/api/reference/'
+which is not in the Virtual Site Map — the target file may not exist
 
      9  │  ## API Reference
     10  │
-    11  ❱  For the complete API specification, see the [API Reference](api/refer…
+    11  ❱  For the complete API specification, see the [API Reference](api/refe…
     12  │  The API reference contains all endpoints, request formats, and respo…
     13  │
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  · 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 92/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`
