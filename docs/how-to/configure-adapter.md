@@ -76,25 +76,71 @@ none of it is a broken link.
 npx astro build        # or: npm run build
 ```
 
-**Step 2 — write `.zenzic-vsm.json`** from the build output. The URLs are the directories
-the build emitted; pair each with the source that produced it:
+**Step 2 — write `.zenzic-vsm.json`**. What it must contain is generator-neutral: a map from
+**source path relative to `docs_dir`** to the **URL that source publishes at, written the way
+an author writes it in a link**. That contract does not change between generators. The script
+that produces it does, materially — so pick your generator below rather than adapting the
+other one.
 
 ```json
 {
-  "index.mdx":            { "url": "/",                  "status": "REACHABLE" },
-  "guides/example.md":    { "url": "/guides/example/",   "status": "REACHABLE" },
-  "reference/example.md": { "url": "/reference/example/", "status": "REACHABLE" }
+  "index.mdx":         { "url": "/",                "status": "REACHABLE" },
+  "guides/example.md": { "url": "/guides/example/", "status": "REACHABLE" }
 }
 ```
 
-Keys are relative to `docs_dir`. Nothing ships to generate this file — it is a short script
-over the build output, and writing it is the cost of this approach.
+Nothing ships to generate this file. Writing it is the cost of this approach.
+
+=== "Astro / Starlight"
+
+    The build tree *is* the manifest: every `dist/**/index.html` is a published URL, and the
+    source that produced it has the corresponding path under the content directory.
+
+    ```python
+    urls = {"/" if (r := h.parent.relative_to("dist").as_posix()) == "." else f"/{r}/"
+            for h in Path("dist").rglob("index.html")}
+    ```
+
+    Starlight publishes docs at the site root, so source path and URL correspond directly
+    and there is no prefix to handle.
+
+=== "Docusaurus"
+
+    **Do not derive URLs from filenames** — a page carrying `slug:` publishes somewhere its
+    filename does not predict, and a filename-derived script drops it from the manifest
+    silently. Docusaurus emits the pairing itself: every object under `.docusaurus/**/*.json`
+    carrying both `source` and `permalink` is one route, with `slug` already resolved.
+
+    ```python
+    vsm[d["source"].replace("@site/", "")] = {"url": d["permalink"].rstrip("/") + "/",
+                                              "status": "REACHABLE"}
+    ```
+
+    Two conventions must be handled or the manifest is wrong:
+
+    - **`baseUrl`** — permalinks carry it (`/myproject/docs/intro/`) while authors write
+      links without it (`/docs/intro`). Strip the prefix; otherwise every link fails.
+    - **`routeBasePath`** — docs publish under `/docs/`. Set `docs_dir = "."` and exclude
+      `node_modules`, `build` and `.docusaurus`, so Zenzic's own path mapping agrees with the
+      published prefix. Without this the **absolute** links pass and the **relative** ones
+      fail, because relative targets are mapped without the prefix.
 
 **Step 3 — declare the engine and allow the route prefix**:
 
 ```toml
+# Astro / Starlight
 docs_dir = "src/content/docs"
 absolute_path_allowlist = ["/"]
+
+[build_context]
+engine = "prebuilt"
+```
+
+```toml
+# Docusaurus — docs_dir is the repository root, so path mapping matches routeBasePath
+docs_dir = "."
+absolute_path_allowlist = ["/"]
+excluded_dirs = ["node_modules", "build", ".docusaurus", "src", "static"]
 
 [build_context]
 engine = "prebuilt"
@@ -103,11 +149,20 @@ engine = "prebuilt"
 `absolute_path_allowlist` is what silences `Z105`; without it the absolute paths are still
 reported as a governance finding even once they resolve.
 
-!!! success "Verified on a real Astro Starlight build"
-    A scaffolded Starlight site with two valid absolute links and one broken one reports
-    **four findings** under `standalone` — three `Z105` including both valid links, plus a
-    `Z101`. Under `prebuilt` with the allowlist it reports **one**: the broken link. That is
-    the whole difference between a gate a user can act on and one they will switch off.
+!!! success "Measured on real scaffolded builds of both generators"
+    | Site | `standalone` | `prebuilt` + allowlist |
+    | :--- | ---: | ---: |
+    | Astro Starlight, 2 valid absolute links + 1 broken | 4 errors (3 `Z105` incl. **both valid links**, 1 `Z101`) | **1** — the broken link |
+    | Docusaurus classic, same three links | 8 errors (3 `Z101` incl. both valid, 4 `Z105`) | **1** `Z101` — the broken link (plus one unrelated `Z516` in Docusaurus's own scaffold) |
+
+!!! warning "Not verified: versioned docs and i18n"
+    Docusaurus's **versioned docs** (`versioned_docs/version-1.0/` → `/docs/1.0/`) and
+    **i18n locale prefixes** were not exercised — a scaffolded site contains neither, and
+    testing them needs `docusaurus docs:version` and a configured locale set with a
+    per-locale build. Both emit `permalink` through the same plugin metadata, so the script
+    above is expected to carry them, but that is an expectation and not a measurement. If
+    you use either, check the generated manifest against your build before trusting a green
+    run.
 
 ---
 

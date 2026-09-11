@@ -90,7 +90,15 @@ every rule in the catalogue applies to both.
 
     The fix is [`prebuilt` with a route manifest](../how-to/configure-adapter.md#prebuilt-route-manifest),
     which brings the same corpus down to the links that are genuinely broken. Read that
-    before running Zenzic over a route-linked site, rather than after. Where this page says a construct
+    before running Zenzic over a route-linked site, rather than after.
+
+    **Measured on scaffolded builds of both generators**, not extended by analogy from one:
+    an Astro Starlight site goes from 4 findings to 1, a Docusaurus classic site from 8 to 1,
+    and in each case the survivor is the link that is actually broken. The *recipe* differs
+    between them — Docusaurus needs its own metadata rather than filename-derived URLs, and
+    needs `baseUrl` and `routeBasePath` handled — so follow the per-generator guidance rather
+    than adapting one to the other. Versioned docs and i18n locale prefixes are **not
+    verified**; the how-to says what checking them would take. Where this page says a construct
 behaves "exactly as in `.md`", that was verified by running the engine on both,
 not inferred.
 
