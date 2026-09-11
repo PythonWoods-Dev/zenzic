@@ -190,11 +190,22 @@ POLY_ATTRS_FRAGMENT = r"""(?:[^>"']|"[^"]*"|'[^']*')*?"""
 #: safe way to make the two agree -- narrowing the quality tier would delete a
 #: check that works.
 #:
-#: This is the raw HTML `<link>` element, not the capitalised JSX `<Link>`
-#: component, which is deliberately out of scope: recognising framework
-#: components is a separate, open question about under-reporting, and the
-#: pattern is case-insensitive only because HTML tag names are.
+#: This is the raw HTML `<link>` element. The capitalised JSX `<Link>` component
+#: is matched separately, by `_RE_JSX_COMPONENT` below, because this pattern is
+#: case-insensitive and cannot tell the two apart.
 POLY_TAG_NAMES = "a|img|link"
+
+#: Attributes that carry a URL on a JSX component, in precedence order. `to` is
+#: the router convention (React Router, and every framework built on it), `href`
+#: and `src` the HTML ones a component usually mirrors.
+#:
+#: A fixed set of *prop names*, deliberately, where the tag side is a rule. The
+#: asymmetry is the point: component names are unbounded and inventing one must
+#: not create a blind spot, while attribute names are where false positives live.
+#: A component using a bespoke prop -- `<Card link="...">` -- is not covered, and
+#: treating every string attribute as a candidate URL would resolve
+#: `<Chart title="./x.md">` as a broken link.
+JSX_URL_ATTRS: tuple[str, ...] = ("to", "href", "src")
 
 _RE_POLY_TAG: re.RegexPattern = re.compile(
     rf"(?is)<({POLY_TAG_NAMES})\b(?P<attrs>{POLY_ATTRS_FRAGMENT})>"
@@ -211,6 +222,34 @@ _RE_POLY_TAG_UNBALANCED: re.RegexPattern = re.compile(
 )
 
 
+#: A JSX component: a tag whose name begins with an uppercase letter.
+#:
+#: This is the JSX convention itself rather than a list of known components --
+#: lowercase is an HTML element, capitalised is a component -- so it names no
+#: framework and covers components nobody has invented yet. A list of `Link`,
+#: `Anchor`, `Button` would be incomplete the day someone writes a fourth.
+#:
+#: `(?s)` and NOT `(?is)`: the `i` on the HTML pattern above would make `[A-Z]`
+#: match lowercase too, and this pattern would then swallow every HTML tag in the
+#: document. Verified RE2-compatible rather than assumed -- no lookaround, linear.
+#:
+#: `/?>` accepts the self-closing form, which is the common spelling for a
+#: component with no children.
+_RE_JSX_COMPONENT: re.RegexPattern = re.compile(
+    rf"(?s)<([A-Z][A-Za-z0-9_]*)\b(?P<attrs>{POLY_ATTRS_FRAGMENT})/?>"
+)
+
+#: Unbalanced-quote fallback, for the same reason the HTML pattern has one.
+_RE_JSX_COMPONENT_UNBALANCED: re.RegexPattern = re.compile(
+    r"(?s)<([A-Z][A-Za-z0-9_]*)\b(?P<attrs>[^>]*?)/?>"
+)
+
+
+def _is_jsx_component(tag: str) -> bool:
+    """True when *tag* is a JSX component name rather than an HTML element."""
+    return bool(tag) and tag[0].isupper()
+
+
 def _iter_poly_tags(masked: str) -> list[re.Match]:
     """Every `<a>`/`<img>` in *masked*, in document order.
 
@@ -219,11 +258,25 @@ def _iter_poly_tags(masked: str) -> list[re.Match]:
     unbalanced-quote case -- so a malformed tag keeps the behaviour it had
     rather than disappearing.
     """
-    primary = list(_RE_POLY_TAG.finditer(masked))
+    # `<Link>` matches both patterns: the HTML one lists `link` and carries
+    # `(?is)`, so it is blind to the capital. Deduplicate by start offset and let
+    # the component reading win -- it accepts `to`, `href` and `src` where the
+    # HTML `<link>` reading accepts only `href`, so it is a strict superset and
+    # never loses a link. Without this the node is emitted twice and the finding
+    # is reported twice.
+    by_start: dict[int, re.Match] = {}
+    for m in (*_RE_POLY_TAG.finditer(masked), *_RE_JSX_COMPONENT.finditer(masked)):
+        prior = by_start.get(m.start())
+        if prior is None or _is_jsx_component(m.group(1)):
+            by_start[m.start()] = m
+    primary = list(by_start.values())
     covered = [(m.start(), m.end()) for m in primary]
     extra = [
         m
-        for m in _RE_POLY_TAG_UNBALANCED.finditer(masked)
+        for m in (
+            *_RE_POLY_TAG_UNBALANCED.finditer(masked),
+            *_RE_JSX_COMPONENT_UNBALANCED.finditer(masked),
+        )
         if not any(start <= m.start() < end for start, end in covered)
     ]
     return sorted([*primary, *extra], key=lambda m: m.start())
@@ -427,7 +480,12 @@ class PolyglotExtractor:
             )
         nodes: list[HtmlNodeInfo] = []
         for m in _iter_poly_tags(masked):
-            tag = m.group(1).lower()
+            raw_name = m.group(1)
+            # Case is preserved for a component and folded for an HTML element.
+            # `_is_jsx_component` reads the first character, so lowercasing here
+            # would make every component look like an unknown HTML tag -- and
+            # HTML tag names are case-insensitive, so folding them is correct.
+            tag = raw_name if _is_jsx_component(raw_name) else raw_name.lower()
             attrs_str = m.group("attrs")
             # Compute line_no from the original (unmasked) text
             line_no = text[: m.start()].count("\n") + 1
@@ -815,7 +873,13 @@ class PolyglotExtractor:
         4. Classify each attribute: Safe-Core / Blacklist / Unknown.
         5. Determine Z121/Z122/Z123.
         """
-        href_key = "src" if tag == "img" else "href"
+        # A component may spell its URL `to`, `href` or `src`; an HTML element has
+        # exactly one carrier. Precedence matters only when a component sets more
+        # than one, which is rare and not worth reporting twice.
+        if _is_jsx_component(tag):
+            href_keys: tuple[str, ...] = JSX_URL_ATTRS
+        else:
+            href_keys = ("src",) if tag.lower() == "img" else ("href",)
         href: str | None = None
         suppressed = False
         unknown: list[str] = []
@@ -846,7 +910,7 @@ class PolyglotExtractor:
             val_raw = m.group("val") or ""
             val = val_raw.strip("\"'")
 
-            if key == href_key:
+            if key in href_keys and href is None:
                 href = val.strip() if val.strip() else None
             elif key == "data-zenzic-ignore":
                 suppressed = True
@@ -870,7 +934,21 @@ class PolyglotExtractor:
                     break
 
         # ── Classificazione link ───────────────────────────────────────────────────
-        is_missing_href = href is None
+        if _is_jsx_component(tag):
+            # A component's props are not HTML attributes, so Z120
+            # (UNKNOWN_HTML_ATTRIBUTE) does not apply to them -- `<Chart
+            # title="..." label="..." />` declares no HTML intent to audit. And a
+            # component carrying no URL-bearing prop is simply not a link, so
+            # Z121 (MISSING_OR_EMPTY_HREF, whose own text names `<a>` and
+            # `<img>`) does not apply either.
+            #
+            # Without this, recognising components would have made every JSX tag
+            # with custom props emit two findings it never emitted before --
+            # trading a missing check for a wave of false positives, which is a
+            # worse trade than the one this change was made to fix.
+            unknown = []
+            blacklisted = []
+        is_missing_href = href is None and not _is_jsx_component(tag)
         is_jump_link = href == "#"
         info_scheme: str | None = None
         if clean_href and not is_jump_link and z205_scheme is None:

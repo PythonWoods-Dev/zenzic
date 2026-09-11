@@ -82,9 +82,18 @@ than inferred from that description:
 - `<a>`, `<img>` and `<link>` participate fully in link, asset and
   forbidden-scheme checks, in any letter case. A `<Img src="...">` component is
   checked as well, because its tag name matches `img`.
-- Other JSX components are invisible to the link graph. A broken target in
-  `<Link to="./page.mdx">` is not reported, and a forbidden scheme there is not
-  caught, while the same scheme in `<a href="...">` is.
+- JSX components participate as well. A capitalised tag carrying `to`, `href` or
+  `src` is analysed exactly as `<a href>` is: a broken target is reported, and a
+  forbidden scheme in it exits 2. The recognition rule is the JSX convention
+  itself — lowercase is an HTML element, capitalised is a component — rather than
+  a list of names, so `<Link>`, `<Anchor>` and a component nobody has written yet
+  are all covered without the engine knowing what a framework is.
+- The attribute side is a fixed set (`to`, `href`, `src`) where the tag side is a
+  rule, and the asymmetry is deliberate: component names are unbounded, so a list
+  of them creates a blind spot the day someone invents a fourth, while attribute
+  names are where false positives live. A component carrying none of those three
+  props is not a link and reports nothing, and its other props are not audited as
+  HTML attributes. A bespoke prop — `<Card link="...">` — is not covered.
 - A Markdown link written inside a comment — MDX (`{/* ... */}`) or HTML
   (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported as a
   broken link. None of them renders as a link, so none is one. The masking that

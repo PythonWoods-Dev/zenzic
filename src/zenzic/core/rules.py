@@ -75,7 +75,7 @@ from zenzic.core import regex as re
 from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.sovereign_context import get_sovereign_context
-from zenzic.core.validator import POLY_ATTRS_FRAGMENT, POLY_TAG_NAMES
+from zenzic.core.validator import JSX_URL_ATTRS, POLY_ATTRS_FRAGMENT, POLY_TAG_NAMES
 
 
 if TYPE_CHECKING:
@@ -1103,6 +1103,21 @@ _HTML_HREF_RE = re.compile(
     re.IGNORECASE,
 )
 _HTML_HREF_ATTR_RE = re.compile(r"""\b(?:href|src)=["']([^"']+)["']""", re.IGNORECASE)
+
+# A JSX component: a capitalised tag carrying a URL-bearing prop. Case-SENSITIVE
+# and therefore a separate pattern -- `_HTML_HREF_RE` above is IGNORECASE, and an
+# uppercase class under that flag matches every lowercase HTML tag as well.
+#
+# The tag side is a rule, not a list: lowercase is an HTML element, capitalised is
+# a component, which is the JSX convention itself. That names no framework and
+# covers components nobody has invented. The attribute side is a fixed set,
+# because that is where false positives live -- treating every string prop as a
+# URL would resolve `<Chart title="./x.md">` as a broken link.
+_JSX_URL_ATTR_ALT = "|".join(JSX_URL_ATTRS)
+_JSX_COMPONENT_HREF_RE = re.compile(
+    rf"""<[A-Z][A-Za-z0-9_]*\b{POLY_ATTRS_FRAGMENT}\b(?:{_JSX_URL_ATTR_ALT})=["'][^"']*["']{POLY_ATTRS_FRAGMENT}/?>"""
+)
+_JSX_URL_ATTR_RE = re.compile(rf"""\b(?:{_JSX_URL_ATTR_ALT})=["']([^"']+)["']""")
 # Reference link definition: [id]: url
 _REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
 
@@ -1186,11 +1201,27 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
 
         # HTML href/src attributes (<a href>, <img src>)
         if "<" in clean:
+            html_spans: list[tuple[int, int]] = []
             for tag_m in _HTML_HREF_RE.finditer(clean):
+                html_spans.append((tag_m.start(), tag_m.end()))
                 for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
                     url = attr_m.group(1).strip()
                     if url:
                         results.append((url, lineno, line.strip()))
+
+            # JSX components (<Link to>, <Anchor href>, <Thumb src>).
+            # `<Link href=...>` matches the HTML pattern too, because `link` is an
+            # HTML element name and that pattern is case-insensitive. Skipping a
+            # component whose tag starts where an HTML match already started stops
+            # the same URL being reported twice.
+            for comp_m in _JSX_COMPONENT_HREF_RE.finditer(clean):
+                if any(start == comp_m.start() for start, _ in html_spans):
+                    continue
+                for attr_m in _JSX_URL_ATTR_RE.finditer(comp_m.group()):
+                    url = attr_m.group(1).strip()
+                    if url:
+                        results.append((url, lineno, line.strip()))
+                        break  # one URL per component; `to` wins over a stray `src`
 
         # Markdown reference definitions: [id]: url
         if "]:" in line:
