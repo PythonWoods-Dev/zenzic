@@ -72,9 +72,18 @@ CHANGELOG = "CHANGELOG.md"
 #: reporting the same "fine" as one that measured and found nothing.
 _GIT = shutil.which("git")
 
-#: The word the CHANGELOG entry itself must carry (contract requirement 2).
-#: Counted case-sensitively: "breaking" in ordinary prose is not a marker.
-_MARKER = re.compile(r"BREAKING")
+#: A CHANGELOG entry *marked* BREAKING, which is not the same as a line that
+#: happens to contain the word. Requirement 2 puts the marker in the entry's bold
+#: title -- `- **BREAKING - ...**`, `- **... - BREAKING**`,
+#: `- **... (BREAKING for ...)**` -- so the pattern anchors to a list item and
+#: stops at the closing `**`.
+#:
+#: Counting bare occurrences instead was wrong, and it was wrong in a way worth
+#: recording: the commit that documented this very check tripped it, because the
+#: CHANGELOG entry *describing* the marker says the word BREAKING twice in its
+#: body. A check whose own documentation it blocks has miscounted, not caught
+#: something. Case-sensitive, because "breaking change" in prose is not a marker.
+_MARKER = re.compile(r"^[ \t]*[-*][ \t]+\*\*[^*]*BREAKING", re.M)
 
 #: A Conventional Commits subject. The `!` sits after the optional scope and
 #: before the colon: `fix(cli)!: ...`. Anything before the first newline is the
@@ -218,6 +227,25 @@ def self_test() -> int:
             print(f"self-test: has_marker({subject!r}) != {expected}", file=sys.stderr)
             failures += 1
 
+    # The marker pattern, against lines taken from this repository's real
+    # CHANGELOG plus the false positive that caught this check on its own
+    # documenting commit.
+    marker_cases: list[tuple[str, int]] = [
+        ("- **BREAKING - A File Could Downgrade a Finding**: body.", 1),
+        ("- **`Z000` (`UNSUPPORTED_ENGINE`) Removed - BREAKING**:", 1),
+        ("- **Z110 Code-Identity Collision (BREAKING for existing baselines)**:", 1),
+        # The regression case: the word appears in the body, not the bold title.
+        ("- **Mechanical Enforcement for the Marker**: refuses a new `BREAKING` entry.", 0),
+        ("Some prose about a BREAKING change, not a list item at all.", 0),
+        ("- an unbolded bullet mentioning BREAKING", 0),
+        ("", 0),
+    ]
+    for text, expected in marker_cases:
+        got = len(_MARKER.findall(text))
+        if got != expected:
+            print(f"self-test: marker count {got} != {expected} for {text!r}", file=sys.stderr)
+            failures += 1
+
     msg = "# a comment git added\n\nfix(cli)!: real subject\n\nbody\n"
     if subject_of(msg) != "fix(cli)!: real subject":
         print(f"self-test: subject_of picked {subject_of(msg)!r}", file=sys.stderr)
@@ -225,7 +253,7 @@ def self_test() -> int:
 
     if failures:
         return 1
-    print(f"self-test passed: {len(cases) + 1} case(s)")
+    print(f"self-test passed: {len(cases) + len(marker_cases) + 1} case(s)")
     return 0
 
 

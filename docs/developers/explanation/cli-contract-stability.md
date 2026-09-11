@@ -82,6 +82,42 @@ For an **exit-code** change specifically, one more requirement: state in the CHA
 entry what a consumer should key on instead. An exit code is not something a user can
 adapt to by reading the code; they need the replacement spelled out.
 
+### Requirement 1 is now checked mechanically
+
+`scripts/check_breaking_change_marker.py` runs at pre-commit's `commit-msg` stage and
+refuses a commit that adds a new BREAKING entry without a `!` in its subject.
+
+It was written because requirement 1 was enforced by reading this page, and reading it is
+how two v0.31.0 commits shipped without the marker. Both are pushed; this project does not
+rewrite published history, so neither can be repaired.
+
+**What it keys on, and why not the obvious thing.** Requiring `!` whenever a commit adds
+lines under `### Changed` or `### Removed` would fire on an ordinary reorganisation —
+moving an existing entry between those sections adds lines without introducing any
+breaking change — and on every non-breaking behaviour change, since neither section is
+reserved for breaking ones. What discriminates is the **count of entries whose bold
+title carries the marker**: compare `HEAD:CHANGELOG.md` against the staged file and require
+`!` only when the count *increases*. A move leaves it unchanged; a genuinely new breaking
+entry cannot avoid raising it, because requirement 2 obliges the entry to carry the word.
+
+Counting bare occurrences of `BREAKING` was the first attempt, and the commit that added
+this section tripped it — the entry *describing* the marker names it in prose. A check whose
+own documentation it blocks has miscounted rather than caught something. The pattern now
+anchors to a list item's bold title, and that false positive is pinned in the script's
+self-test.
+
+**Three things it does not do**, stated here and in the script rather than left to be
+discovered:
+
+- It cannot repair a pushed commit. It runs before the commit object exists; afterwards the
+  only remedies are a force-push or a written record.
+- It only runs if the hook is installed. `pre-commit install` writes the `pre-commit` stage
+  only; this needs `pre-commit install --hook-type commit-msg`. A declared-but-uninstalled
+  hook is silent, and its silence is indistinguishable from a clean run — so `just verify`'s
+  git-hook check now requires `commit-msg` alongside `pre-commit` and `pre-push`.
+- `--no-verify` bypasses it, as it bypasses every hook. It is a guardrail against
+  forgetting, not a defence against someone who has decided to.
+
 ## Versioning
 
 Zenzic is pre-1.0 (`0.x.y`). Under SemVer, breaking changes are permitted in a minor
