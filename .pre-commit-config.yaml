@@ -107,6 +107,20 @@ repos:
         exclude: ^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$)
         pass_filenames: true
 
+  # 7a. Breaking-change marker (commit-msg stage -- the pre-commit stage never
+  #     sees the message). Requires a `!` in the subject only when the count of
+  #     BREAKING entries in CHANGELOG.md actually increases, so moving an entry
+  #     between sections does not false-positive. Limits are stated in the
+  #     script's own docstring rather than left to be discovered.
+  - repo: local
+    hooks:
+      - id: breaking-change-marker
+        name: Breaking-change marker (!) in the commit subject
+        entry: python3 scripts/check_breaking_change_marker.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
   # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
   #     Not a formatter: it never edits the file, it fails loudly when the file
   #     changes shape. Added after commit 36c5f70 silently gained 18 blank lines

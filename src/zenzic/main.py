@@ -315,9 +315,15 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
     # The message body repeats the path, so normalising only the `file` field
     # above left the absolute path in the payload anyway -- which is how the first
     # version of this fix passed its own markup test and failed its path test.
-    _cwd = _Path.cwd().as_posix()
-    for _form in (_cwd + "/", _cwd):
-        message = message.replace(_form, "")
+    # Both separator forms: the message was built from a Path, so on Windows it
+    # carries `C:\\dir\\file` while `as_posix()` yields `C:/dir/file`. Stripping only
+    # the POSIX form would leave the absolute path in the payload on exactly the
+    # platform nobody checks by hand.
+    _cwd_posix = _Path.cwd().as_posix()
+    _cwd_native = str(_Path.cwd())
+    for _form in (_cwd_posix + "/", _cwd_posix, _cwd_native + os.sep, _cwd_native):
+        if _form:
+            message = message.replace(_form, "")
 
     line = exc.context.get("line", exc.context.get("line_no", 1))
     code = getattr(exc, "code", "Z001") or "Z001"

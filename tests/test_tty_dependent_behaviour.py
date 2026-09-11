@@ -26,22 +26,25 @@ stream a message landed on.
 
 from __future__ import annotations
 
-import fcntl
 import os
-import pty
 import re
 import struct
 import subprocess
 import sys
 import tempfile
-import termios
 
 import pytest
 
 
-pytestmark = pytest.mark.skipif(
-    not hasattr(os, "openpty"), reason="needs a real pty; unavailable on Windows"
-)
+# fcntl, pty and termios are POSIX-only. They must be acquired with
+# importorskip rather than imported at module level: a plain import raises
+# ModuleNotFoundError during *collection* on Windows, which pytest reports as a
+# collection error and which no test-level skipif can prevent -- the skip marker
+# is evaluated after the module has already been imported. That is exactly how
+# this file broke the Windows matrix on the commit that introduced it.
+fcntl = pytest.importorskip("fcntl", reason="POSIX-only; Windows has no pty")
+pty = pytest.importorskip("pty", reason="POSIX-only; Windows has no pty")
+termios = pytest.importorskip("termios", reason="POSIX-only; Windows has no pty")
 
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")

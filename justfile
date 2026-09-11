@@ -246,7 +246,12 @@ _check-hooks:
         exit 0
     fi
     _missing=0
-    for _h in pre-commit pre-push; do
+    # commit-msg is listed because a hook declared in .pre-commit-config.yaml is
+    # not an installed hook: `pre-commit install` writes pre-commit only, and the
+    # commit-msg stage needs `-t commit-msg`. Without this line the
+    # breaking-change marker check would be declared, uninstalled, and silent --
+    # indistinguishable from a clean run.
+    for _h in pre-commit pre-push commit-msg; do
         if [ ! -f ".git/hooks/${_h}" ] || ! grep -qi "pre-commit" ".git/hooks/${_h}"; then
             echo -e "\033[31mBLOCKED: the ${_h} hook is not installed (or is not pre-commit's).\033[0m"
             echo "  Without it the ${_h} gate does not run, and defects reach the remote."
@@ -259,7 +264,7 @@ _check-hooks:
         echo "Refusing to continue with an uninstalled git hook."
         exit 1
     fi
-    echo "git hooks installed (pre-commit, pre-push)"
+    echo "git hooks installed (pre-commit, pre-push, commit-msg)"
 
 release-contracts:
     #!/usr/bin/env bash
