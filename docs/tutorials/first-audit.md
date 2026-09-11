@@ -134,8 +134,8 @@ Open it, uncomment what you need, leave the rest.
 zenzic check all
 ```
 
-Zenzic scans every Markdown and MDX file — `.md` and `.mdx` alike, in any letter case,
-with nothing to configure — validates internal links against the Virtual Site Map,
+Zenzic scans every Markdown and MDX file: `.md` and `.mdx` alike, in any letter case,
+with nothing to configure. It validates internal links against the Virtual Site Map,
 checks anchors, scans for credentials, and runs your custom rules — then prints a structured
 report and exits with a machine-readable code. For details on exit code definitions and security tiers, see the [Exit Code Contract](../reference/finding-codes#exit-code-contract).
 
