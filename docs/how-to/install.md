@@ -55,6 +55,14 @@ pre-commit install
 pre-commit install --hook-type pre-push
 ```
 
+With the hook installed, a staged credential stops the commit rather than being
+reported after it:
+
+![Terminal session. A Markdown file holding an AWS access key is staged with git add. git commit runs the Zenzic pre-commit hook. The Secret Guard prints a table naming the file, the line and the credential type, with the key masked to AKIA...MPLE. The commit is refused, and git log shows the branch still has no commits.](../assets/demo/precommit-refusal.gif)
+
+The key is masked in the report. Zenzic never writes a detected credential to its
+own output, because that output lands in CI logs.
+
 ---
 
 ### Track 2: Project Dependency (Docs-as-Code) {#track-2-project-dependency}
