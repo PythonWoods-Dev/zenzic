@@ -250,7 +250,10 @@ def _apply_engine_override(config: ZenzicConfig, engine: str | None) -> ZenzicCo
         suggestions = difflib.get_close_matches(engine, known, n=1, cutoff=0.5)
         if suggestions:
             hint = f"\n\n  Did you mean [bold cyan]{suggestions[0]}[/]?"
-        console.print(
+        # stderr, not stdout: this is a diagnosis, and a caller redirecting
+        # stderr to a log -- which is what CI does -- was keeping `ERROR: 1`
+        # and discarding the half that says what actually went wrong.
+        stderr_console.print(
             f"[red]ERROR:[/] Unknown engine adapter [bold]{engine!r}[/].\n"
             f"Installed adapters: {engines_fmt}{hint}"
         )

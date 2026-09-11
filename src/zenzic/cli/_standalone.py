@@ -1718,7 +1718,7 @@ def _scaffold_plugin(repo_root: Path, plugin_name: str, force: bool) -> None:
     """Create a ready-to-edit plugin package scaffold."""
     raw = plugin_name.strip()
     if not raw:
-        _shared.console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
+        _shared.stderr_console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
         raise typer.Exit(1)
 
     project_slug = _SLUG_NONWORD_RE.sub("-", raw.lower()).strip("-")
