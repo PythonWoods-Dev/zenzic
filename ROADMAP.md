@@ -62,6 +62,26 @@ Before advancing the core feature set, the following infrastructural and validat
 
 ---
 
+## Considered, Not Scheduled
+
+Capabilities judged legitimate but not committed. They carry no version deliberately: an
+unassigned entry is more honest than a date nobody chose. Each records what would change the
+assessment, so revisiting it is a decision rather than a rediscovery.
+
+- **User-declared link components.** A configurable list of tag names that count as links, so
+  an author whose site uses `<Link to="...">` or `<Anchor href="...">` can opt those into the
+  link graph and the forbidden-scheme check.
+  *Why not now:* the engine does not learn what a framework's components are — that is the
+  adapter boundary — so the only compatible shape is a user-declared list, and that needs a
+  configuration surface, a default and documentation. Today the failure is **under-reporting**:
+  a broken `<Link>` target is not reported, which is the safer direction to be wrong in, and
+  cheaper than the machinery to fix it. `<a href>` remains the portable spelling and is fully
+  analysed.
+  *What would change the assessment:* a user asking for it, or evidence that broken component
+  links are reaching published sites unreported.
+
+---
+
 ## Architectural Invariants (All Milestones)
 
 These constraints apply across every future release. No feature may violate them.
