@@ -81,6 +81,8 @@ repos:
       - id: zenzic-verify  # full documentation integrity gate
 ```
 
+![A terminal session: a Markdown file containing an AWS access key is staged with git add, git commit runs the Zenzic pre-commit hook, the Secret Guard prints a table naming the file, the line number and the credential type with the key itself masked to AKIA...MPLE, and the commit is refused — a following git log shows the branch still has no commits](https://github.com/PythonWoods-Dev/zenzic/raw/HEAD/docs/assets/demo/precommit-refusal.gif)
+
 **Project dependency** — pin it like any other dev dependency:
 
 ```toml
