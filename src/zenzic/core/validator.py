@@ -251,7 +251,11 @@ def _is_jsx_component(tag: str) -> bool:
 
 
 def _iter_poly_tags(masked: str) -> list[re.Match]:
-    """Every `<a>`/`<img>` in *masked*, in document order.
+    """Every participating tag in *masked*, in document order.
+
+    The set is `<a>`, `<img>`, `<link>` and any JSX component -- a tag whose name
+    begins with an uppercase letter. It was `<a>`/`<img>` when this docstring was
+    written and has grown twice since.
 
     The quote-aware pattern is authoritative. The legacy pattern contributes
     only tags the first one did not find -- which is exactly the
@@ -387,14 +391,18 @@ _POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
 
 @dataclass(frozen=True, slots=True)
 class HtmlNodeInfo:
-    """HTML node extracted by the PolyglotExtractor (``<a>`` or ``<img>`` tag).
+    """A tag extracted by the PolyglotExtractor.
+
+    ``<a>``, ``<img>``, ``<link>``, or a JSX component (a capitalised tag name).
 
     Carries every datum needed to emit Z120–Z124 and Z205 without any
     further access to the source text.
 
     Attributes:
         tag:               ``"a"`` or ``"img"``.
-        href:              Value of ``href`` (for ``<a>``) or ``src`` (for ``<img>``).
+        href:              The URL the tag carries: ``href`` for ``<a>``/``<link>``,
+                           ``src`` for ``<img>``, and the first of ``to``/``href``/``src``
+                           present on a JSX component.
                            ``None`` when the attribute is absent.
         line_no:           1-based line number in the original source.
         suppressed:        ``True`` when ``data-zenzic-ignore`` is present on the tag.
@@ -456,7 +464,8 @@ class PolyglotExtractor:
     * O(N) complexity: RE2/DFA-pure, no backtracking, no subprocess.
     * Z205 (FORBIDDEN_SCHEME) is checked **before** ``data-zenzic-ignore``
       (security takes absolute precedence over suppression).
-    * Supports ``<a>`` and ``<img>`` tags and Markdown reference definitions (CommonMark §4.7).
+    * Supports ``<a>``, ``<img>`` and ``<link>`` tags, JSX components carrying a
+      URL-bearing attribute, and Markdown reference definitions (CommonMark §4.7).
     * Mandatory fence-skipping: ``code``/``pre`` blocks are masked before
       extraction to avoid false positives in code examples.
     """
@@ -469,7 +478,7 @@ class PolyglotExtractor:
             _premasked: Optional pre-computed buffer with comments, fences, and math masked.
 
         Returns:
-            List of :class:`HtmlNodeInfo`, one per ``<a>``/``<img>`` tag
+            List of :class:`HtmlNodeInfo`, one per participating tag
             found outside code blocks.
         """
         if _premasked is not None:
@@ -598,7 +607,7 @@ class PolyglotExtractor:
         """Single source of truth for extracting all link candidate nodes from Markdown & HTML.
 
         Aggregates:
-        1. HTML tag href/src attributes (<a>, <img>) from `extract(...)`
+        1. Tag URL attributes (<a>, <img>, <link>, and JSX components) from `extract(...)`
         2. Reference link definitions ([label]: dest) from `extract_ref_defs(...)`
         3. Inline Markdown links ([text](url), ![alt](url)) from `extract_inline_links(...)`
 

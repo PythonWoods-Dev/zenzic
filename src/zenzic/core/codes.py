@@ -311,7 +311,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z112": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY
     "Z620": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
     # ── Z12x — HTML Integrity (Polyglot Extractor — v0.17.0) ──────────────────
-    # Emitted by PolyglotExtractor for raw HTML <a>/<img> tags in Markdown.
+    # Emitted by PolyglotExtractor for raw HTML <a>/<img>/<link> tags and JSX
+    # components in Markdown and MDX.
     # Z120/Z122 are warnings; Z121/Z124 are errors (exit 1); Z123 is informational.
     # All Z12x codes are suppressible via data-zenzic-ignore (-1.0 pts DQS each).
     "Z120": CodeDefinition("warning", 1.0, "content"),  # UNKNOWN_HTML_ATTRIBUTE

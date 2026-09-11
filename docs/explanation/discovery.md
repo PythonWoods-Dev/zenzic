@@ -74,10 +74,18 @@ All modules that need to iterate over documentation source files must call `iter
    exactly as `.mdx` is.
 3. Delegates all exclusion decisions to the `LayeredExclusionManager`.
 
+### MDX Support {#mdx}
+
+MDX is a supported format, not a qualified exception. `.md` and `.mdx` are
+discovered by the same walk, in any letter case, with nothing to configure — and
+every rule in the catalogue applies to both. Where this page says a construct
+behaves "exactly as in `.md`", that was verified by running the engine on both,
+not inferred.
+
 An `.mdx` file is parsed as Markdown with raw HTML, not by an MDX parser. Its
 Markdown constructs — links, images, headings, credentials — behave exactly as
-they do in `.md`. Three consequences follow, each verified by execution rather
-than inferred from that description:
+they do in `.md`. What follows is what that buys, each point verified by
+execution:
 
 - `<a>`, `<img>` and `<link>` participate fully in link, asset and
   forbidden-scheme checks, in any letter case. A `<Img src="...">` component is
@@ -94,6 +102,11 @@ than inferred from that description:
   names are where false positives live. A component carrying none of those three
   props is not a link and reports nothing, and its other props are not audited as
   HTML attributes. A bespoke prop — `<Card link="...">` — is not covered.
+- Inline suppression accepts the JSX comment form. `{/* zenzic:ignore: Z515 */}`
+  does in an `.mdx` file exactly what `<!-- zenzic:ignore: Z515 -->` does in a
+  `.md` one — same placement, same effect, same debt point. Both belong **at the
+  end of the line the finding is on**; on the line above, neither suppresses
+  anything and the directive is itself reported as `Z603 DEAD_SUPPRESSION`.
 - A Markdown link written inside a comment — MDX (`{/* ... */}`) or HTML
   (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported as a
   broken link. None of them renders as a link, so none is one. The masking that

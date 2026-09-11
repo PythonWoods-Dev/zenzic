@@ -38,6 +38,12 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# BEHAVIOR:\n"
     '#   - If omitted, Zenzic uses "docs" as the default directory.\n'
     '#   - Set to "." to scan the entire repository (L1 system exclusions apply).\n'
+    "#   - Both .md and .mdx are scanned, in any letter case. MDX is a first-class\n"
+    "#     format: JSX components carrying a URL participate in the link graph, and\n"
+    # Braces doubled: this template is passed through str.format, which reads a
+    # single brace as a field and raised KeyError: '/* zenzic' on the first run.
+    "#     {{/* zenzic:ignore: Zxxx */}} works wherever the HTML comment form does.\n"
+    "#     Other extensions (.markdown, .txt) are not scanned.\n"
     "#\n"
     '# DEFAULT: "docs"\n'
     "#\n"

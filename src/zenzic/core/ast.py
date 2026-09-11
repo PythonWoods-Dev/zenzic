@@ -118,7 +118,8 @@ class TableNode(BlockNode):
 class ExtractedLink:
     """Unified node representing any link candidate extracted from Markdown or HTML content.
 
-    Captures Markdown inline links, Markdown reference links/definitions, and HTML href/src attributes.
+    Captures Markdown inline links, Markdown reference links/definitions, HTML
+    href/src attributes, and the URL-bearing attributes of JSX components.
     """
 
     url: str
