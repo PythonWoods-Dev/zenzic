@@ -49,6 +49,7 @@ from zenzic.core.rules import (
 from zenzic.core.suppressions import SuppressionTracker
 from zenzic.core.validator import (
     _POLY_CLEAN_URL_RE,
+    JSX_URL_ATTRS,
     HtmlNodeInfo,
     PolyglotExtractor,
     _classify_traversal_intent,
@@ -932,7 +933,13 @@ class IncrementalAnalysisEngine:
                     return _node.attr_cols[attr], attr
                 return _node.col_start, _node.raw_tag
 
-            href_attr = "src" if node.tag == "img" else "href"
+            # Whichever attribute actually carried the URL. A component may spell
+            # it `to`, so keying on the HTML pair alone pointed the caret at an
+            # attribute the tag does not have.
+            href_attr = next(
+                (a for a in ("href", "src", *JSX_URL_ATTRS) if a in node.attr_cols),
+                "src" if node.tag == "img" else "href",
+            )
             if node.z205_scheme:
                 findings.append(
                     RuleFinding(
@@ -943,7 +950,11 @@ class IncrementalAnalysisEngine:
                         severity=code_severity("Z205"),
                         matched_line=ctx,
                         col_start=_span(href_attr)[0],
-                        match_text=_span(href_attr)[1],
+                        # The URL, not the attribute's name. `_span` returns the
+                        # name, which made the breach block read `Link:  href` --
+                        # a row whose value was the label of where it came from.
+                        # The reader needs the thing to edit.
+                        match_text=node.href or _span(href_attr)[1],
                     )
                 )
             for attr in node.blacklisted_attrs:

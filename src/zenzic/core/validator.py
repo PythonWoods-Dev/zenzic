@@ -725,9 +725,9 @@ class PolyglotExtractor:
         already had; over-masking would hide a genuine link, which is worse.
         """
         return _JSX_ATTR_VALUE_RE.sub(
-            lambda m: m.group(1)
-            + ("".join("\n" if c == "\n" else " " for c in m.group(2)))
-            + m.group(3),
+            lambda m: (
+                m.group(1) + ("".join("\n" if c == "\n" else " " for c in m.group(2))) + m.group(3)
+            ),
             text,
         )
 
