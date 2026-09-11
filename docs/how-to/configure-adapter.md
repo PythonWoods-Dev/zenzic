@@ -155,14 +155,36 @@ reported as a governance finding even once they resolve.
     | Astro Starlight, 2 valid absolute links + 1 broken | 4 errors (3 `Z105` incl. **both valid links**, 1 `Z101`) | **1** — the broken link |
     | Docusaurus classic, same three links | 8 errors (3 `Z101` incl. both valid, 4 `Z105`) | **1** `Z101` — the broken link (plus one unrelated `Z516` in Docusaurus's own scaffold) |
 
-!!! warning "Not verified: versioned docs and i18n"
-    Docusaurus's **versioned docs** (`versioned_docs/version-1.0/` → `/docs/1.0/`) and
-    **i18n locale prefixes** were not exercised — a scaffolded site contains neither, and
-    testing them needs `docusaurus docs:version` and a configured locale set with a
-    per-locale build. Both emit `permalink` through the same plugin metadata, so the script
-    above is expected to carry them, but that is an expectation and not a measurement. If
-    you use either, check the generated manifest against your build before trusting a green
-    run.
+!!! danger "The Docusaurus recipe holds for a single-locale, unversioned site — and not beyond it"
+    Both conventions were tested, and **both break it**. This replaces an earlier note that
+    expected them to work; the expectation was wrong.
+
+    **i18n breaks it silently, and this is the serious one.** `.docusaurus/` is regenerated
+    per locale build, so after `npm run build` on a two-locale site the metadata describes
+    only the **last locale built**. Measured: **19 of 24 manifest entries claimed a `/fr/`
+    URL**, including pages that publish at `/docs/…` in English, and Zenzic then reported
+    **6 `Z101` on links that are perfectly valid**. The manifest looks complete, which is
+    what makes it dangerous.
+
+    **Versioning inverts the mapping.** After `docusaurus docs:version 1.0`,
+    `versioned_docs/version-1.0/intro.mdx` publishes at `/docs/intro/` while the working
+    `docs/intro.mdx` moves to `/docs/next/intro/`. A source path no longer predicts its URL,
+    and `docs_dir = "."` — the alignment the recipe depends on — now points at the wrong
+    version.
+
+    **And the metadata is an undocumented internal.** The `source`/`permalink` pairs come
+    from `createData` plugin storage, in a directory whose own marker file is named
+    `DONT-EDIT-THIS-FOLDER`, under hash-suffixed filenames. Docusaurus documents
+    [`setGlobalData`/`useGlobalData`](https://docusaurus.io/docs/api/plugin-methods/lifecycle-apis)
+    as a public plugin API; it does not document these files, and nothing obliges them to
+    keep their shape.
+
+    **If your site uses either**, the documented route is a small inline plugin using the
+    [`postBuild`](https://docusaurus.io/docs/api/plugin-methods/lifecycle-apis) lifecycle,
+    which receives `routesPaths` and `outDir` on **each** locale build and can accumulate
+    across them. That uses public API rather than internals — and it is more work than the
+    script above, which is why it is named rather than presented as equivalent. **Zenzic has
+    not verified that approach**, and this page will not claim it works until it has.
 
 ---
 

@@ -97,8 +97,14 @@ every rule in the catalogue applies to both.
     and in each case the survivor is the link that is actually broken. The *recipe* differs
     between them — Docusaurus needs its own metadata rather than filename-derived URLs, and
     needs `baseUrl` and `routeBasePath` handled — so follow the per-generator guidance rather
-    than adapting one to the other. Versioned docs and i18n locale prefixes are **not
-    verified**; the how-to says what checking them would take. Where this page says a construct
+    than adapting one to the other.
+
+    **The Docusaurus recipe holds for a single-locale, unversioned site and not beyond it.**
+    Both conventions were then tested and both break it: i18n silently, because `.docusaurus/`
+    is rewritten per locale build and the manifest ends up describing the last one — 19 of 24
+    entries claimed the wrong locale and 6 valid links were reported broken. Versioning
+    inverts the mapping, moving the working copy to `/docs/next/`. The how-to states both
+    failures and what the documented alternative would be. Where this page says a construct
 behaves "exactly as in `.md`", that was verified by running the engine on both,
 not inferred.
 
