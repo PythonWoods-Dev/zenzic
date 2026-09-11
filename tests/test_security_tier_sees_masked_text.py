@@ -115,3 +115,45 @@ def test_a_real_payload_still_reaches_the_security_tier(text: str, needle: str) 
     """
     urls = [link.url for link in PolyglotExtractor().extract_security_links(text)]
     assert any(needle in u for u in urls), f"lost a real payload: {text!r} -> {urls}"
+
+
+# ── A spaced MDX comment is still an MDX comment ──────────────────────────────
+#
+# `{ /* … */ }` is legal MDX -- the braces are an expression container and the
+# whitespace is free -- and Prettier emits exactly that form. All three copies
+# of the pattern required the braces adjacent to the comment markers, so a
+# formatted file's comments were not recognised as comments: a commented-out
+# link was reported broken, and the line-oriented scanner missed the opener of
+# a multi-line one.
+
+MDX_COMMENT_SPELLINGS = [
+    pytest.param("{/* %s */}", id="unspaced"),
+    pytest.param("{ /* %s */ }", id="spaced"),
+    pytest.param("{\n  /* %s */\n}", id="multiline-spaced"),
+]
+
+
+@pytest.mark.parametrize("shape", MDX_COMMENT_SPELLINGS)
+def test_a_commented_out_link_is_not_extracted(shape: str) -> None:
+    """Quality tier: every legal spelling hides the link equally."""
+    text = shape % "[dead](./gone.md)"
+    urls = [link.url for link in PolyglotExtractor().extract_all_links(text)]
+    assert "./gone.md" not in urls, f"spelling not recognised as a comment: {text!r}"
+
+
+def test_an_uncommented_link_is_still_extracted() -> None:
+    """Positive control: without it, the test above passes if extraction breaks."""
+    urls = [link.url for link in PolyglotExtractor().extract_all_links("[dead](./gone.md)")]
+    assert "./gone.md" in urls
+
+
+@pytest.mark.parametrize("shape", MDX_COMMENT_SPELLINGS)
+def test_the_security_tier_still_reads_inside_a_comment(shape: str) -> None:
+    """The other direction: widening the mask must not blind the security tier.
+
+    A comment declares something about rendering, not about content -- so a
+    forbidden scheme written in one is still reachable and still reported.
+    """
+    text = shape % f"[c]({JS})"
+    urls = [link.url for link in PolyglotExtractor().extract_security_links(text)]
+    assert any(u.startswith("javascript:") for u in urls), text

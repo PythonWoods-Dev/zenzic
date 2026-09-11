@@ -309,7 +309,10 @@ _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.
 
 # HTML and MDX Comment Regex Patterns for masking
 _POLY_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
-_POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL)
+# MDX allows whitespace inside the expression container -- `{ /* … */ }` is
+# what Prettier emits -- so requiring the braces adjacent meant a formatted
+# file's comments were not recognised as comments at all.
+_POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\s*\/\*.*?\*\/\s*\}", re.DOTALL)
 
 # Attribute values inside a tag: captures the opening quote, the value, and the
 # closing quote separately so the value alone can be blanked at equal length.

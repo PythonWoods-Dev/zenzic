@@ -60,7 +60,10 @@ _CONCAT_OP_RE = re.compile(r"[`'\"\s]+\+[`'\"\s]+")
 _TABLE_PIPE_RE = re.compile(r"\|")
 # ZRT-007: strip HTML comments <!-- ... --> and MDX comments {/* ... */}
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
-_MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
+# MDX allows whitespace inside the expression container -- `{ /* … */ }` is
+# what Prettier emits -- so requiring the braces adjacent meant a formatted
+# file's comments were not recognised as comments at all.
+_MDX_COMMENT_RE = re.compile(r"\{\s*/\*.*?\*/\s*\}", re.DOTALL)
 
 
 _QUICK_SUBSTRINGS: tuple[str, ...] = (
@@ -124,7 +127,7 @@ def _normalize_line_for_scan(line: str) -> str:
     # e.g. ghp_ABC{/* comment */}DEF or ghp_ABC<!-- comment -->DEF
     if "<!--" in normalized:
         normalized = _HTML_COMMENT_RE.sub("", normalized)
-    if "{/*" in normalized:
+    if "/*" in normalized:
         normalized = _MDX_COMMENT_RE.sub("", normalized)
     if "`" in normalized:
         normalized = _BACKTICK_INLINE_RE.sub(r"\1", normalized)  # unwrap `...` spans

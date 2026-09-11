@@ -264,7 +264,10 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
 # Strips YAML frontmatter (leading ---...--- block).
 _FRONTMATTER_RE: re.RegexPattern = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
 # Strips MDX comments {/* ... */} — invisible in the rendered page.
-_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
+# MDX allows whitespace inside the expression container -- `{ /* … */ }` is
+# what Prettier emits -- so requiring the braces adjacent meant a formatted
+# file's comments were not recognised as comments at all.
+_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\s*/\*.*?\*/\s*\}", re.DOTALL)
 # Strips HTML comments <!-- ... --> — also invisible.
 _HTML_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
 
@@ -307,7 +310,8 @@ def _first_content_line(text: str) -> int:
                 in_html = True
             i += 1
             continue
-        if stripped.startswith("{/*"):
+        # `{ /*` with whitespace is the same opener -- see _MDX_COMMENT_RE above.
+        if stripped.startswith("{") and stripped[1:].lstrip().startswith("/*"):
             if "*/" not in lines[i]:
                 in_mdx = True
             i += 1
