@@ -290,14 +290,34 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
     Otherwise, return False.
     """
     import json
+    from pathlib import Path as _Path
+
+    from rich.text import Text as _Text
 
     from zenzic.core.codes import CODE_DEFINITIONS
+    from zenzic.core.validator import repo_relative_label
 
     filename = exc.context.get(
         "file", exc.context.get("file_path", exc.context.get("config_path", ".zenzic.toml"))
     )
-    if not isinstance(filename, str):
-        filename = str(filename)
+    # Relative and POSIX, for the same reason every finding is: an absolute path
+    # publishes the runner's directory layout to whoever reads the SARIF, and makes
+    # two machines checking one commit produce payloads that do not compare equal.
+    # The text panel deliberately keeps the absolute path -- config discovery walks
+    # upward, so for a fatal startup diagnostic the full path is the answer a human
+    # needs. Only the machine-readable forms are normalised here.
+    filename = repo_relative_label(_Path(str(filename)), _Path.cwd())
+
+    # The message was composed for a terminal. Serialising it unchanged handed
+    # `[bold red]`, `[#64748b]` and `[/]` to every JSON and SARIF consumer, and a
+    # code-scanning service renders those literally.
+    message = _Text.from_markup(exc.message).plain
+    # The message body repeats the path, so normalising only the `file` field
+    # above left the absolute path in the payload anyway -- which is how the first
+    # version of this fix passed its own markup test and failed its path test.
+    _cwd = _Path.cwd().as_posix()
+    for _form in (_cwd + "/", _cwd):
+        message = message.replace(_form, "")
 
     line = exc.context.get("line", exc.context.get("line_no", 1))
     code = getattr(exc, "code", "Z001") or "Z001"
@@ -339,7 +359,7 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
             "code": code,
             "tier": tier,
             "severity": severity,
-            "message": exc.message,
+            "message": message,
         }
         print(json.dumps(report, indent=2))
         return True
@@ -373,7 +393,7 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
                                 {
                                     "descriptor": {"id": code},
                                     "level": sarif_level,
-                                    "message": {"text": exc.message},
+                                    "message": {"text": message},
                                 }
                             ],
                         }

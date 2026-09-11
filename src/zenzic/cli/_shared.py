@@ -31,6 +31,7 @@ from zenzic.core.codes import (
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, FooterNotice
 from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.config import ZenzicConfig
 
 from ._metadata import COMMAND_BY_NAME
@@ -311,10 +312,10 @@ def _output_check_all_json_findings(
     """Format and print the checkAllReport JSON payload."""
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        # Delegates rather than repeating the four lines: this function and
+        # `repo_relative_label` were character-for-character identical, which is
+        # two copies that agree today and drift the day one grows a case.
+        return repo_relative_label(path, repo_root)
 
     allowed_keys = {(f.rel_path, f.line_no, f.code) for f in all_findings}
 
@@ -352,7 +353,11 @@ def _output_check_all_json_findings(
         ],
         "orphans": [str(p) for p in results.orphans if _is_allowed(_rel(docs_root / p), 0, "Z402")],
         "snippets": [
-            {"file": str(e.file_path), "line": e.line_no, "message": e.message}
+            # `_rel` and not `str`: the very next line already computes the
+            # relative form to decide suppression, then this one emitted the
+            # absolute path as the value -- so `references[]` in the same payload
+            # was relative while `snippets[].file` was not.
+            {"file": _rel(e.file_path), "line": e.line_no, "message": e.message}
             for e in results.snippet_errors
             if _is_allowed(_rel(e.file_path), e.line_no, "Z503")
         ],

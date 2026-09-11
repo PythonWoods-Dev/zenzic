@@ -46,31 +46,32 @@ uvx zenzic check links --strict   # external URLs are only fetched under --stric
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
+standalone • 1 file (1 pages, 0 assets) • 0.1s • 7 files/s
 
-docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/'
+docs  ✘  [Z101]  docs/index.md:7: external link
+'https://this-domain-does-not-exist-at-all-xyz.com' — connection error: [Errno
+-2] Name or service not known
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
-✨ Analysis complete: Links, credentials, semantic structure, and policies
-verified.
-DQS Final Score: 95/100 (Gate Passed)
-Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
-'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+Try 'zenzic check links --help' for options.
 ```
 
-Exit code: `0`
+Exit code: `1`
+
+The wording after `connection error:` comes from your resolver, not from Zenzic,
+so it varies between machines and platforms. Everything before it does not.
 
 Two details this output makes visible. The finding is reported under `Z101`, not
 `Z109`: external-link failures are consolidated into the broken-link code at
-report time. And the location is written as an absolute path rather than the
-`docs/index.md:7` form used everywhere else, because an external-link error is
-attached to the documentation root rather than to the file — the `<abs-path>`
-placeholder above stands for your own checkout's path.
+report time. And the location reads `docs/index.md:7`, the same repository-relative
+form every other finding uses. It did not always: this output was the one place
+Zenzic printed the absolute path of the machine that ran the check, which leaked
+the local directory layout into CI logs and made two runs of the same commit
+incomparable. Fixed in v0.31.0.
 
 ---
 

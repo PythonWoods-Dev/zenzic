@@ -1514,6 +1514,25 @@ def _url_matches_excluded_prefix(url: str, prefix: str) -> bool:
     return url.startswith(prefix)
 
 
+def repo_relative_label(path: Path, repo_root: Path) -> str:
+    """Render *path* the way every finding renders a file: relative and POSIX.
+
+    Two properties matter and neither is cosmetic. An absolute path leaks the
+    checking machine's directory layout into CI logs, SARIF output and anything a
+    user pastes into an issue; and it makes the same finding on the same commit
+    compare unequal between two machines, so no tool can diff two runs.
+
+    ``Path.relative_to`` raises rather than returning its input, so the fallback
+    is explicit: a corpus may legitimately reach outside the repository root --
+    an MkDocs monorepo's included sub-project docs, or an i18n locale tree -- and
+    a finding there must still be reported rather than crashing the run.
+    """
+    try:
+        return path.relative_to(repo_root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 async def _check_external_links(
     entries: list[tuple[str, str, int]],
     config: ZenzicConfig,
@@ -2109,7 +2128,7 @@ class LinkValidator:
             return []
 
         entries: list[tuple[str, str, int]] = [
-            (url, str(occurrences[0][0]), occurrences[0][1])
+            (url, repo_relative_label(occurrences[0][0], self._repo_root), occurrences[0][1])
             for url, occurrences in self._registrations.items()
         ]
         return await _check_external_links(
