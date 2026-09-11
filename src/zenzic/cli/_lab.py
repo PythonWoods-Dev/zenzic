@@ -153,6 +153,18 @@ _GALLERY: dict[str, _Act] = {
         expected_pass=False,
         emitted_code="Z101",
     ),
+    "mdx": _Act(
+        code="mdx",
+        title="MDX & JSX Links",
+        description=(
+            "Z101 in an .mdx file via a JSX component link, beside two constructs "
+            "that are deliberately NOT reported: a component link that resolves, "
+            "and a Markdown link inside a JSX string attribute"
+        ),
+        example_dir="mdx-jsx-links",
+        expected_pass=False,
+        emitted_code="Z101",
+    ),
     "z201": _Act(
         code="z201",
         title="Credential Scanner",

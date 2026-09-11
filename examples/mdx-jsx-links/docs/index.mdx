@@ -1,0 +1,27 @@
+---
+title: MDX and JSX Links
+---
+
+# MDX and JSX Links
+
+This fixture demonstrates what Zenzic does with JSX, which is the part of MDX a
+Markdown fixture cannot show. One construct below is reported and two are
+deliberately not, because a checker that cannot stay silent is as unusable as one
+that cannot speak.
+
+A component link that resolves. The tag name is not one Zenzic knows — the rule
+is that a capitalised tag carrying `to`, `href` or `src` is a link — and it is
+reported as nothing:
+
+<Link to="./guide.mdx">The guide</Link>
+
+A component link whose target does not exist, reported as `Z101` exactly as a
+Markdown link with the same target would be:
+
+<Link to="./nowhere.mdx">A page that was never written</Link>
+
+A Markdown link written inside a JSX string attribute. It renders as text, not as
+a link, so reporting it would be a false positive — and a fixture proving an
+absence is the only way to see that the tool tells the two apart:
+
+<Callout title="See [the guide](./nowhere.mdx) for details">Not a link.</Callout>
