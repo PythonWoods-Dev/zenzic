@@ -547,7 +547,15 @@ class PolyglotExtractor:
         Returns:
             Flat, ordered list of :class:`ExtractedLink` objects sorted by line_no and col_start.
         """
-        masked_base = self._mask_math(self._mask_fences(self._mask_comments(text)))
+        # `_mask_jsx_attr_values` belongs in every chain that answers "is this a
+        # link?", and this was the third of three paths -- `rules.py`'s Z101
+        # helper had it, the security view now has it, and this one did not, so
+        # a Markdown link inside a prop string still reached the traversal check
+        # through here and raised Z203. It renders as literal text; it is not a
+        # link on any tier.
+        masked_base = self._mask_math(
+            self._mask_fences(self._mask_jsx_attr_values(self._mask_comments(text)))
+        )
         extracted: list[ExtractedLink] = []
 
         # 1. HTML nodes
@@ -737,6 +745,19 @@ class PolyglotExtractor:
         place to hide a payload from the security tier. See ADR/priority-table
         entry for ``V031_SECURITY_TIER_MASKING_BYPASS``.
         """
+        # A Markdown link inside a JSX string attribute is masked here too, and
+        # it is the one thing besides a closed fence that this view hides. The
+        # reason is the same test the fence passes: it does not render. MDX does
+        # not parse `[x](y)` inside a prop string -- it reaches the page as
+        # literal text, producing no anchor and no href -- so there is no payload
+        # to report, and reporting one cost exit 3 on a non-suppressible code.
+        #
+        # This is safe because of what `_JSX_ATTR_VALUE_RE` does *not* match: it
+        # blanks only an attribute value containing `[...](...)`. A plain URL in
+        # a prop -- `<Callout to="javascript:alert(1)" />`, the case a component
+        # genuinely could render as an anchor -- is left untouched.
+        text = self._mask_jsx_attr_values(text)
+
         lines = text.split("\n")
         # First pass: find where a fence opens and whether it ever closes.
         # Only a *closed* region is masked; an unterminated one is left intact.
