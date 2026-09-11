@@ -58,6 +58,59 @@ reports the same set as a schema error rather than through this message.
 
 ---
 
+## A framework Zenzic has no adapter for (Astro, Docusaurus, Next.js) {#prebuilt-route-manifest}
+
+Zenzic ships adapters for MkDocs and Zensical. For any other generator the default
+`standalone` adapter has no way to know the site's URL convention, so an **absolute** link
+like `/guides/example/` cannot be resolved: `Z101` reports it as absent from the Virtual
+Site Map, and `Z105` reports the absolute path itself. On a site that links by route —
+which is the idiom in Astro, Docusaurus and Next.js — that is the dominant finding, and
+none of it is a broken link.
+
+`prebuilt` closes this without Zenzic learning anything about your generator. It reads
+`.zenzic-vsm.json` from the repository root: a map of source path to published URL.
+
+**Step 1 — build the site**, so the generator states its own routes:
+
+```bash
+npx astro build        # or: npm run build
+```
+
+**Step 2 — write `.zenzic-vsm.json`** from the build output. The URLs are the directories
+the build emitted; pair each with the source that produced it:
+
+```json
+{
+  "index.mdx":            { "url": "/",                  "status": "REACHABLE" },
+  "guides/example.md":    { "url": "/guides/example/",   "status": "REACHABLE" },
+  "reference/example.md": { "url": "/reference/example/", "status": "REACHABLE" }
+}
+```
+
+Keys are relative to `docs_dir`. Nothing ships to generate this file — it is a short script
+over the build output, and writing it is the cost of this approach.
+
+**Step 3 — declare the engine and allow the route prefix**:
+
+```toml
+docs_dir = "src/content/docs"
+absolute_path_allowlist = ["/"]
+
+[build_context]
+engine = "prebuilt"
+```
+
+`absolute_path_allowlist` is what silences `Z105`; without it the absolute paths are still
+reported as a governance finding even once they resolve.
+
+!!! success "Verified on a real Astro Starlight build"
+    A scaffolded Starlight site with two valid absolute links and one broken one reports
+    **four findings** under `standalone` — three `Z105` including both valid links, plus a
+    `Z101`. Under `prebuilt` with the allowlist it reports **one**: the broken link. That is
+    the whole difference between a gate a user can act on and one they will switch off.
+
+---
+
 ## Engine coexistence (`mkdocs.yml` + `zensical.toml` in the same repo)
 
 Some repositories carry both `mkdocs.yml` and `zensical.toml` during a transition — one

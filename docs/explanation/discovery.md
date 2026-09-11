@@ -78,7 +78,19 @@ All modules that need to iterate over documentation source files must call `iter
 
 MDX is a supported format, not a qualified exception. `.md` and `.mdx` are
 discovered by the same walk, in any letter case, with nothing to configure — and
-every rule in the catalogue applies to both. Where this page says a construct
+every rule in the catalogue applies to both.
+
+!!! warning "If your site links by route, configure an adapter first"
+    This is about the **site**, not about MDX, and it applies to a Markdown site the same
+    way — but MDX sites hit it hardest because linking by absolute route is the idiom in
+    Astro, Docusaurus and Next.js. With the default `standalone` adapter Zenzic has no way
+    to know your URL convention, so `/guides/example/` cannot be resolved: it is reported
+    as `Z101`, and the absolute path is reported again as `Z105`. Measured on Astro's own
+    documentation, that is **2,214 of 2,215 `Z101` findings — none of them a broken link**.
+
+    The fix is [`prebuilt` with a route manifest](../how-to/configure-adapter.md#prebuilt-route-manifest),
+    which brings the same corpus down to the links that are genuinely broken. Read that
+    before running Zenzic over a route-linked site, rather than after. Where this page says a construct
 behaves "exactly as in `.md`", that was verified by running the engine on both,
 not inferred.
 

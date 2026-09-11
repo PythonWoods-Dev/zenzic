@@ -64,6 +64,14 @@ actual parse error or a false positive traceable to a schema change.
 
 The `[build_context]` section in `.zenzic.toml` tells Zenzic which engine your project uses:
 
+!!! tip "Building on a generator Zenzic has no adapter for?"
+    `prebuilt` is the answer, and it is the one to reach for on an Astro, Docusaurus or
+    Next.js site. It reads a route manifest you generate from your own build output, so
+    Zenzic resolves absolute links like `/guides/example/` without knowing anything about
+    which generator produced them. Without it, a site that links by route reports every
+    such link as `Z101` plus `Z105`, none of which is a broken link. See
+    [Configure an adapter](../how-to/configure-adapter.md#prebuilt-route-manifest).
+
 ```toml
 # .zenzic.toml
 [build_context]
