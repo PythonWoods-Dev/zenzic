@@ -82,6 +82,22 @@ For an **exit-code** change specifically, one more requirement: state in the CHA
 entry what a consumer should key on instead. An exit code is not something a user can
 adapt to by reading the code; they need the replacement spelled out.
 
+### Requirements 2, 3 and 4 are not checked, and cannot be
+
+Stated here rather than left for someone to assume otherwise, because a requirement
+believed enforced is worse than one known not to be.
+
+A gate can see that a commit adds a `BREAKING` line and demand a `!` — that comparison is
+mechanical, which is why requirement 1 has a check. The other three all depend on knowing
+whether a change *is* breaking, and nothing in this repository can decide that: the same
+diff may be a contract break or an improvement to detection depending on what a consumer
+relied on. So no check can insist that a CHANGELOG entry names the consumer that breaks,
+that the reference page changed in the same commit, or that a test pins the new behaviour.
+
+What exists instead is the report checklist, which forces an explicit statement per
+category, so an omission appears as a visible blank rather than as silence. That is a
+weaker instrument than a gate and it is the strongest one available here.
+
 ### Requirement 1 is now checked mechanically
 
 `scripts/check_breaking_change_marker.py` runs at pre-commit's `commit-msg` stage and
