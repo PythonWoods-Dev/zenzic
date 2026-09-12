@@ -122,7 +122,7 @@ To optimize resources and ensure contributions align with the architectural goal
 
 To optimize resources, Zenzic's GitHub Actions trigger ONLY on pushes to `main` and on Pull Requests. Pushes to isolated development branches do not trigger CI. If you want continuous feedback from CI during development, open a Draft PR immediately.
 
-Not every push runs the whole CI matrix. Ordinary pushes run a reduced set for speed; the full matrix — including Windows and the oldest supported Python — runs on `main` and on a pull request labelled `ci:full-matrix`, which must pass before merging. The details, including how to request it, are in [`CONTRIBUTING.md` → Continuous Integration](https://github.com/PythonWoods-Dev/zenzic/blob/main/CONTRIBUTING.md#continuous-integration) — the single source for this; it is not repeated here.
+Every pull request runs the whole CI matrix — `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on 3.10 — and all three jobs must pass before merging. There is nothing to opt into; the `ci:full-matrix` label this once required no longer exists. The details, including the measured cost and why Windows is not optional, are in [`CONTRIBUTING.md` → Continuous Integration](https://github.com/PythonWoods-Dev/zenzic/blob/main/CONTRIBUTING.md#continuous-integration) — the single source for this; it is not repeated here.
 
 ### Local Hooks
 

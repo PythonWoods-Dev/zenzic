@@ -343,20 +343,28 @@ When working with file paths in any contribution, use `pathlib.Path` throughout 
 
 ## Continuous Integration
 
-CI runs on every pull request, but not every push runs the whole matrix.
+CI runs the **whole matrix on every pull request**, with nothing to opt into.
 
-- **Ordinary pushes** run the test suite on `ubuntu-latest` with Python 3.14 only. That
-  keeps the feedback loop to a few minutes; the full matrix roughly triples the cost and
-  the extra combinations rarely change the result of an in-progress change.
-- **The full matrix** — `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on
-  3.10 — runs on every push to `main`, and on a pull request whenever it carries the
-  **`ci:full-matrix`** label. Apply the label before a pull request is merged; all three
-  jobs must pass. You can also run the full matrix on demand from the Actions tab
+- **The matrix** is `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on 3.10.
+  Three jobs; all three must pass. You can also run it on demand from the Actions tab
   (**Zenzic Core CI → Run workflow**), which uses the `workflow_dispatch` trigger.
+- **`fail-fast` is off deliberately**, so a failure on one platform does not hide the
+  result on another — a cross-platform problem should be diagnosable from one run.
 
-The reduced set deliberately omits the two things most likely to differ from a Linux
-developer machine — Windows path handling and Python 3.10 compatibility — so a green
-reduced run is not a substitute for the labelled run before merge.
+It used to be narrower: ordinary pushes ran Python 3.14 on Linux only, and the full matrix
+needed a `ci:full-matrix` label. That label no longer exists. Branch protection required
+contexts only the wide matrix emits, so a pull request without the label could never
+satisfy them — six green checks, mergeable, and permanently blocked on a check nothing
+would ever report. A switch that has to be flipped every time is not a switch.
+
+Windows stays in on evidence rather than symmetry: two failures in the v0.31.0 cycle were
+Windows-only and invisible on Linux — a hand-built subprocess environment that dropped
+`SystemRoot`, and `text=True` with no explicit codec failing to decode cp1252. Both were in
+test scaffolding, so both would have merged under a Linux-only gate.
+
+The cost, measured rather than estimated: the three jobs take 124 s, 171 s and 214 s and
+run in parallel, so waiting goes from 124 s to 214 s — **90 seconds** — for coverage that is
+no longer anybody's job to remember.
 
 ## 📖 Documentation & Support
 
