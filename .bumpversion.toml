@@ -73,22 +73,12 @@ filename = "RELEASE.md"
 search = "- [ ] `pyproject.toml` version matches the tag (`{current_version}`)"
 replace = "- [ ] `pyproject.toml` version matches the tag (`{new_version}`)"
 
-[[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = 'git tag -s -m "Release v{current_version}" v{current_version}'
-replace = 'git tag -s -m "Release v{new_version}" v{new_version}'
-
 
 [[tool.bumpversion.files]]
 filename = "RELEASE.md"
 search = '(?m)^(\| Date\s+\|\s+)\d{{4}}-\d{{2}}-\d{{2}}(\s*\|)$'
 replace = '| Date     | {now:%Y-%m-%d} |'
 regex = true
-
-[[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = "- [ ] Create GitHub Release from the tag, using the `## [{current_version}]` CHANGELOG section as the release body."
-replace = "- [ ] Create GitHub Release from the tag, using the `## [{new_version}]` CHANGELOG section as the release body."
 
 [[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
@@ -172,11 +162,6 @@ replace = "rev: v{new_version}"
 filename = "docs/how-to/configure-ci-cd.md"
 search = "uvx zenzic@{current_version} check all --ci"
 replace = "uvx zenzic@{new_version} check all --ci"
-
-[[tool.bumpversion.files]]
-filename = "docs/how-to/configure-ci-cd.md"
-search = "uvx zenzic@{current_version} check all --ci --format json"
-replace = "uvx zenzic@{new_version} check all --ci --format json"
 
 [[tool.bumpversion.files]]
 filename = "docs/how-to/install.md"

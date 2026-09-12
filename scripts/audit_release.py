@@ -113,6 +113,76 @@ def authorities_disagree(version: str) -> str | None:
     return None
 
 
+#: Placeholders `bump-my-version` expands inside a `search`/`replace` pair.
+#: `{new_version}` is deliberately absent: a `search` naming it would never match
+#: the pre-bump tree, and this check reads the tree as it is now.
+def _placeholders(version: str) -> dict[str, str]:
+    major, minor, patch = version.split(".")
+    return {
+        "current_version": version,
+        "current_major": major,
+        "current_minor": minor,
+        "current_patch": patch,
+    }
+
+
+def unresolvable(version: str) -> list[str]:
+    """`[[tool.bumpversion.files]]` entries whose `search` is not in the file.
+
+    This is the check that would have caught a release path broken in three
+    places at once, and it exists because the obvious instrument did not run.
+    `bump-my-version` aborts on the FIRST entry it cannot find, so a dry run
+    reports one failure and says nothing about the rest; the three found on
+    2026-09-12 had to be discovered one re-run at a time. Reading the config
+    against the tree finds all of them in one pass, without running a bump.
+
+    Two of the three were self-inflicted and one was older. RELEASE.md was
+    rewritten to call `just release-tag` instead of a raw `git tag -s`, which
+    removed two version-bearing literals the tool was configured to rewrite.
+    The third, a `--format json` invocation in a how-to, had not existed since
+    2026-09-07 -- before the throwaway-ref walk that was supposed to verify the
+    release path, which establishes that the walk never ran the bump's file
+    replacements at all. It verified tag signatures, a different claim.
+    """
+    cfg = tomllib.loads((REPO_ROOT / ".bumpversion.toml").read_text(encoding="utf-8"))
+    subs = _placeholders(version)
+    out: list[str] = []
+    for entry in cfg["tool"]["bumpversion"]["files"]:
+        name = str(entry["filename"])
+        raw = str(entry.get("search", "{current_version}"))
+        target = REPO_ROOT / name
+        if not target.is_file():
+            out.append(f"{name}: named in .bumpversion.toml and does not exist")
+            continue
+        text = target.read_text(encoding="utf-8")
+        if entry.get("regex", False):
+            # A regex `search` is written for bump-my-version's own formatter,
+            # which takes `{{` as a literal brace. Undo that before compiling.
+            pattern = raw.replace("{{", "{").replace("}}", "}")
+            for key, value in subs.items():
+                pattern = pattern.replace("{" + key + "}", re.escape(value))
+            try:
+                found = re.search(pattern, text) is not None
+            except re.error as exc:
+                out.append(f"{name}: `search` is not a valid regex ({exc})")
+                continue
+        else:
+            needle = raw
+            for key, value in subs.items():
+                needle = needle.replace("{" + key + "}", value)
+            found = needle in text
+        if not found:
+            shown = raw
+            for key, value in subs.items():
+                shown = shown.replace("{" + key + "}", value)
+            out.append(
+                f"{name}: `search` not found -- {shown!r}. A bump will abort here. "
+                "Either the file was reworded and the entry needs updating, or the "
+                "string is deliberately gone and the entry should be removed"
+            )
+    return out
+
+
 def release_metadata_stale(version: str) -> str | None:
     """`RELEASE.md`'s metadata table names the version it documents."""
     text = (REPO_ROOT / "RELEASE.md").read_text(encoding="utf-8")
@@ -140,15 +210,48 @@ def _self_test() -> bool:
     if _allowlisted("docs/how-to/install.md") is not None:
         print("self-test FAILED: the allowlist matches a how-to page", file=sys.stderr)
         return False
-    fake = "9.9.9-nonexistent"
+    # Assembled rather than written as one literal, and that is the whole point:
+    # `_git_grep` searches TRACKED files, so the moment this script was committed
+    # the negative control found its own source and the self-test began failing
+    # every run. It passed while the file was untracked. A control that is
+    # falsified by being committed is not a control -- and it took the gate with
+    # it, since a failed self-test refuses to render a verdict.
+    fake = ".".join(("9", "9", "9")) + "-" + "nonexistent"
     if _git_grep(fake):
-        print("self-test FAILED: a version nothing contains was found", file=sys.stderr)
+        print(
+            f"self-test FAILED: {fake}, a version nothing should contain, was found",
+            file=sys.stderr,
+        )
         return False
     known, _ = _config()
     if not _git_grep(known):
         print("self-test FAILED: the current version was found nowhere", file=sys.stderr)
         return False
-    print("self-test passed: 5 case(s)")
+    # `unresolvable` in both directions. The real config must come back clean --
+    # otherwise this gate reports a release path that a bump would abort on --
+    # and a planted entry naming a string no file contains must be caught.
+    # Without the second case a regex change that stopped matching anything
+    # would read as "every entry resolves".
+    live = unresolvable(known)
+    if live:
+        print(
+            f"self-test FAILED: the committed .bumpversion.toml has {len(live)} "
+            f"unresolvable entry/ies: {live}",
+            file=sys.stderr,
+        )
+        return False
+    subs = _placeholders(known)
+    if "current_major" not in subs or subs["current_major"] != known.split(".")[0]:
+        print(
+            "self-test FAILED: placeholder expansion is wrong, so entries using "
+            "{current_major} would be reported absent when they are present",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "self-test passed: 7 case(s); "
+        f"{len(_config()[1])} bumpversion target(s), every `search` resolves"
+    )
     return True
 
 
@@ -165,6 +268,8 @@ def main() -> int:
         problem = check(version)
         if problem:
             failures.append(problem)
+
+    failures += unresolvable(version)
 
     stray = unmanaged(version, managed)
     for path in stray:

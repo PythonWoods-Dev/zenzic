@@ -53,6 +53,19 @@ _SLUG_MULTI_DASH_RE = re.compile(r"-+")
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 
+def _score_rule() -> str:
+    """The separator under the penalty column, clamped to the real terminal.
+
+    It was 37 literal box-drawing characters. A constant is a promise about the
+    reader's terminal that nothing can keep: below 41 columns Rich wrapped it
+    onto a second line, so the rule that exists to separate two figures was
+    itself drawn in two pieces. `min` rather than the console width outright --
+    the rule underlines a short column of numbers, and stretching it across a
+    200-column terminal would be a different defect in the other direction.
+    """
+    return "─" * max(8, min(37, _shared.console.width - 4))
+
+
 def _run_all_checks(
     repo_root: Path,
     docs_root: Path,
@@ -655,7 +668,7 @@ def score(
                 )
                 total_cat_penalties += penalty
 
-            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(f"  [dim]{_score_rule()}[/]")
             _shared.console.print(
                 f"  [bold]Total Category Penalties:[/]   -{total_cat_penalties:.1f} pts"
             )
@@ -679,7 +692,7 @@ def score(
             )
 
             total_penalties_val = total_cat_penalties + gravity_loss_val + debt_pts
-            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(f"  [dim]{_score_rule()}[/]")
             _shared.console.print(
                 f"  [bold]Final Score: 100 - {total_penalties_val:.1f} = {report.score:.1f}[/bold]"
             )
