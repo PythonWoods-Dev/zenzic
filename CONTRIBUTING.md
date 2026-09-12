@@ -187,10 +187,11 @@ For extended developer guides, see [Writing Custom Rules](docs/developers/how-to
 To maintain security, architectural integrity, and legal compliance, all contributions must adhere to these guidelines:
 
 1. **Issue-First Policy**: No Pull Request will be reviewed or merged unless it is preceded by an Issue formally discussed and approved by maintainers. Link the approved Issue in your PR description.
-2. **Mandatory Cryptographic Commit Signatures**: Every commit must be cryptographically signed using GPG, SSH, or S/MIME keypairs (appearing as **Verified** on GitHub). Unsigned commits will be rejected by branch rulesets.
-3. **No AI Slop Clause**: We enforce a strict policy against unverified AI-generated code. Contributors must fully understand, explain, and architecturally justify every single line of code proposed in a PR. Proposing code that you cannot explain will lead to immediate rejection.
-4. **Developer Certificate of Origin (DCO)**: All commits must include a `Signed-off-by:` line (using `git commit -s`) certifying compliance with the DCO.
-5. **Conventional Commits**: Commit messages must strictly follow the Conventional Commits specification (e.g., `feat(core): add block anchor support (#123)`).
+2. **Mandatory Cryptographic Commit Signatures**: Every commit must be cryptographically signed using GPG, SSH, or S/MIME keypairs (appearing as **Verified** on GitHub). Unsigned commits will be rejected by branch rulesets. An official tool can remove this property while reporting success — GitHub's own `gh pr update-branch --rebase` re-creates commits server-side and the result verifies as `unsigned`, so re-do such an update locally with signing configured.
+3. **Linear History — No Merge Commits**: the default branch ruleset enforces a linear history, so a merge commit on a branch targeting it is **rejected at push time** with `GH013: ... This branch must not contain merge commits`. Bring a branch up to date with `git rebase origin/main`, never `git merge origin/main`; if you have already made the merge, reset to the commit before it and rebase instead. This is stated here because the rule is enforced by the platform and was, until 2026-09-12, documented nowhere — a contributor met it only by being refused. Every requirement in this list is imposed by this repository's **ruleset**. The older per-branch protection API declares nothing here and is not used anywhere in this ecosystem. To see exactly which rules apply to you, run `gh api repos/PythonWoods-Dev/zenzic/rules/branches/main`.
+4. **No AI Slop Clause**: We enforce a strict policy against unverified AI-generated code. Contributors must fully understand, explain, and architecturally justify every single line of code proposed in a PR. Proposing code that you cannot explain will lead to immediate rejection.
+5. **Developer Certificate of Origin (DCO)**: All commits must include a `Signed-off-by:` line (using `git commit -s`) certifying compliance with the DCO.
+6. **Conventional Commits**: Commit messages must strictly follow the Conventional Commits specification (e.g., `feat(core): add block anchor support (#123)`).
 
 ---
 

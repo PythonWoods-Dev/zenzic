@@ -355,6 +355,11 @@ release-tag *args:
         echo "Not pushed. Review, then: git push origin ${tag}"
     fi
 
+# Release-consistency audit: every version string is bumped or frozen on purpose.
+# The satellites carry one of these; the core did not, which ran the wrong way round.
+audit-release:
+    @{{ runner }} python scripts/audit_release.py
+
 # Show the current project version
 version:
     @uv run --active bump-my-version show current_version
