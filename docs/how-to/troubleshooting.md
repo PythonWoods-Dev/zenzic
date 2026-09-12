@@ -167,7 +167,7 @@ cache_ttl_hours = 0
 
 Links pointing to files generated *during* the site build can trigger `Z104 (File Not Found)`, because Zenzic scans the source, not the build output.
 
-Whether they do depends on the extension. `Z104` covers a fixed asset list — `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.ico`, `.pdf`, `.zip`, `.tar.gz`, `.html` — so a generated `sitemap.html` or diagram is reported, while a generated `rss.xml` is not reported by anything: `.xml` is on no list, in either link syntax. Measured, not assumed, because this page previously used `rss.xml` as its example of a link that *does* trigger `Z104`.
+Whether they do depends on the extension. `Z104` covers a fixed asset list — `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.ico`, `.pdf`, `.zip`, `.tar.gz`, `.html` — so a generated `sitemap.html` or diagram is reported, while a generated `rss.xml` is not reported by anything: `.xml` is on no list, in either link syntax.
 
 Do not use absolute production URLs (e.g., `https://domain.com/sitemap.html`) to bypass a finding that does fire, as it breaks air-gapped portability. Use a relative link in a raw HTML tag and suppress that node with the parameterless `data-zenzic-ignore` attribute:
 

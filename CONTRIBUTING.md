@@ -238,18 +238,33 @@ Run the full verification gate before pushing:
 just verify
 ```
 
-`just verify` is the canonical entry point: pre-commit on all files → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`.
+`just verify` is the canonical entry point, and the table below lists what it runs. `zenzic score --check-stamp` is **not** part of it — that is `just check-badges`, a separate recipe for pipelines that must not write the badge.
 
 ---
 
 ## The 4-Lifecycle-Gates Model
 
-| Stage | Trigger | What runs | Speed |
+| Stage | Trigger | What runs | Scope |
 |:---|:---|:---|:---|
-| **TDD inner loop** | `just test` | `pytest -n auto` (parallel, no coverage) | ⚡ instant |
-| **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
-| **Final Guard** | `just verify` (manual/CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp` | < 60 s |
-| **CI** | GitHub Actions | `just verify` (identical) | matches local |
+| **TDD inner loop** | `just test` | `pytest -n auto` (parallel, no coverage) | the whole suite, fastest path |
+| **Commit** | `git commit` | Light hooks on **staged files only** (ruff, format, file hygiene, type check, secret guard) | what you are about to commit |
+| **Final Guard** | `just verify` | git-hook & release-contract checks → docs build → `pre-commit --all-files` → `pip-audit` → `pytest` with coverage → `zenzic check all --strict` → `zenzic score --stamp` | the whole tree |
+| **Pre-push** | `git push` | `just verify` | the whole tree, before anything leaves the machine |
+| **CI** | GitHub Actions | the test matrix on three platform/interpreter pairs, plus CodeQL, secret scanning, compliance and a mutation gate | things a single machine cannot check |
+
+The stages are ordered by breadth, not by speed: each one sees more than the last.
+`just test` is the fastest because it skips coverage and checks nothing outside the
+suite; `just verify` is the slowest because it is the only stage that reads the
+whole tree. **CI is not "the same as local"** — it runs the matrix and the mutation
+gate, neither of which `just verify` does, and its runners are slower than a
+developer machine: the one-module mutation gate measured 137 s locally against
+262 s in CI, on identical inputs.
+
+Times are deliberately absent from the table. They depend on your machine, your
+cache state and your core count, so a number here is true for whoever wrote it and
+misleading for everyone else — and a contributor who sees 17 s where a document
+promises "instant" goes looking for a defect that does not exist. Where this
+project states a duration it states the conditions with it, as in `RELEASE.md`.
 
 ---
 
@@ -357,8 +372,8 @@ Windows-only and invisible on Linux — a hand-built subprocess environment that
 test scaffolding, so both would have merged under a Linux-only gate.
 
 The cost, measured rather than estimated: the three jobs take 124 s, 171 s and 214 s and
-run in parallel, so waiting goes from 124 s to 214 s — **90 seconds** — for coverage that is
-no longer anybody's job to remember.
+run in parallel, so waiting goes from 124 s to 214 s — **90 seconds** — measured on
+GitHub's `ubuntu-latest` and `windows-latest` runners in September 2026.
 
 ## 📖 Documentation & Support
 
