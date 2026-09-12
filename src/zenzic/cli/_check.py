@@ -609,10 +609,10 @@ def check_references(
         show_default=False,
     ),
 ) -> None:
-    """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan.
+    r"""Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan.
 
-    Pass 1 — Harvest: extract [id]: url definitions, detect secrets (credential scanner).
-    Pass 2 — Cross-Check: resolve [text][id] links against the ReferenceMap.
+    Pass 1 — Harvest: extract \[id]: url definitions, detect secrets (credential scanner).
+    Pass 2 — Cross-Check: resolve \[text]\[id] links against the ReferenceMap.
     Pass 3 — Report: compute Reference Integrity score, flag Dead Definitions and Dangling References.
 
     With --links: validate all external URLs via deduplicated async HEAD requests

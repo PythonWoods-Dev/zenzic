@@ -1361,7 +1361,7 @@ def init(
     pyproject: bool = typer.Option(
         False,
         "--pyproject",
-        help="Write configuration into pyproject.toml [tool.zenzic] instead of .zenzic.toml.",
+        help=r"Write configuration into pyproject.toml \[tool.zenzic] instead of .zenzic.toml.",
     ),
     local: bool = typer.Option(
         False,

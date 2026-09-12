@@ -12,6 +12,9 @@
     },
     {
       "$ref": "#/$defs/capExceededReport"
+    },
+    {
+      "$ref": "#/$defs/perCheckReport"
     }
   ],
   "$defs": {
@@ -63,7 +66,9 @@
             "required": [
               "file",
               "line",
-              "message"
+              "message",
+              "code",
+              "severity"
             ],
             "properties": {
               "file": {
@@ -75,12 +80,25 @@
               },
               "message": {
                 "type": "string"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^Z[0-9]{3}$",
+                "description": "Always `Z503`. Added in v0.31.0 alongside the existing fields, which kept their names and meanings, so a consumer reading `file`/`line`/`message` is unaffected. It is stated rather than implied because a consumer had to know the array's identity to know the code."
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning",
+                  "info"
+                ]
               }
             },
             "additionalProperties": false
           },
           "deprecated": true,
-          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in the one canonical shape. Unlike the other grouped arrays this one is an object rather than pre-formatted prose, so it was completed in place with `code` and `severity` instead of being left unresolvable."
         },
         "unused_assets": {
           "type": "array",
@@ -458,6 +476,62 @@
         },
         "fixable": {
           "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "perCheckReport": {
+      "type": "object",
+      "description": "What every `zenzic check <subcommand>` emits with `--format json`: the six subcommands (links, orphans, snippets, references, assets, placeholders) all produce this one shape. Declared in v0.31.0 -- it was emitted by every one of them and matched no branch of this schema's `oneOf`, so a consumer validating against the published contract would have rejected the tool's own output. Unlike `checkAllReport` it carries no grouped legacy arrays: the per-check commands were built after `findings[]` existed and never had them.",
+      "required": [
+        "findings",
+        "summary"
+      ],
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "errors",
+            "warnings",
+            "info",
+            "security_incidents",
+            "security_breaches",
+            "elapsed_seconds"
+          ],
+          "properties": {
+            "errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warnings": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "info": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security_incidents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security_breaches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "elapsed_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Wall-clock seconds for this check. Informational: it varies per run and per machine, so nothing should gate on it."
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

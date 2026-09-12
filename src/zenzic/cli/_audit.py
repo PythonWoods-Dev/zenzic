@@ -316,7 +316,7 @@ def audit(
     )
     console.print(
         _shared._ui.make_panel(
-            policies_text, title="Governance Policies ([policies])", border_style="magenta"
+            policies_text, title=r"Governance Policies (\[policies])", border_style="magenta"
         )
     )
 

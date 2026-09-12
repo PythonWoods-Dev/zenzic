@@ -1064,9 +1064,16 @@ class ZenzicConfig(BaseModel):
             if isinstance(raw_legacy, list):
                 legacy_obsolete = [name for name in raw_legacy if isinstance(name, str)]
         if legacy_obsolete:
+            # The brackets are escaped for Rich, and that is not cosmetic: this
+            # logger is handled by RichHandler, which reads `[project_metadata]`
+            # as a markup tag and renders nothing for it. The warning therefore
+            # reached users as "The '.obsolete_names' field is deprecated. Please
+            # move it to '.brand_obsolescence'." -- naming neither section, in
+            # the one message whose whole purpose is to say where to move a
+            # field. Found by running it; the source line reads correctly.
             _cfg_log.warning(
-                "Deprecated in v0.8: The '[project_metadata].obsolete_names' field is "
-                "deprecated. Please move it to '[governance].brand_obsolescence'."
+                r"Deprecated in v0.8: The '\[project_metadata].obsolete_names' field "
+                r"is deprecated. Please move it to '\[governance].brand_obsolescence'."
             )
             governance_cfg = filtered_data.get("governance", GovernanceConfig())
             if not governance_cfg.brand_obsolescence:

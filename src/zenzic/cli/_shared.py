@@ -391,7 +391,24 @@ def _output_check_all_json_findings(
             # relative form to decide suppression, then this one emitted the
             # absolute path as the value -- so `references[]` in the same payload
             # was relative while `snippets[].file` was not.
-            {"file": _rel(e.file_path), "line": e.line_no, "message": e.message}
+            #
+            # `code` and `severity` are ADDED, not substituted: `file`, `line`
+            # and `message` keep their names and meanings, so a consumer reading
+            # this array today is unaffected. It is the only one of the six
+            # grouped arrays that can be completed this way, because it is
+            # already an object -- `orphans[]` and `unused_assets[]` are bare
+            # strings, and giving them a code would mean changing their type,
+            # which is a break rather than an addition. Those two resolve through
+            # `findings[]`, which carries every finding in the payload; the
+            # parity test asserts that, so the two cannot drift before the
+            # grouped arrays are removed in v0.32.0.
+            {
+                "file": _rel(e.file_path),
+                "line": e.line_no,
+                "message": e.message,
+                "code": "Z503",
+                "severity": "error",
+            }
             for e in results.snippet_errors
             if _is_allowed(_rel(e.file_path), e.line_no, "Z503")
         ],
