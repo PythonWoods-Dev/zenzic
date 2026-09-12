@@ -297,3 +297,34 @@ def test_text_json_and_sarif_report_the_same_findings(
         f"  text: {sorted(c for _, _, c in text)}\n"
         f"  json: {sorted(c for _, _, c in js)}"
     )
+
+
+def test_sarif_results_carry_a_line_fingerprint_and_omit_it_when_unknown(
+    corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GitHub tracks an alert across commits by `primaryLocationLineHash`.
+
+    Absent, it infers identity, and an alert can be closed and reopened as a
+    duplicate when unrelated lines shift above it. The omission case is the half
+    worth pinning: a fingerprint over an empty source line would give every
+    location-less finding the same identity, so GitHub would merge unrelated
+    alerts — worse than tracking none.
+    """
+    monkeypatch.chdir(corpus)
+    result = runner.invoke(app, ["check", "all", "--format", "sarif"], catch_exceptions=False)
+    results = json.loads(result.stdout)["runs"][0]["results"]
+    assert results, "the corpus produced no SARIF results, so this proves nothing"
+
+    fingerprinted = [r for r in results if "partialFingerprints" in r]
+    assert fingerprinted, "no result carried a fingerprint at all"
+    for r in fingerprinted:
+        digest = r["partialFingerprints"]["primaryLocationLineHash"]
+        assert len(digest) == 64 and all(c in "0123456789abcdef" for c in digest), r
+
+    # A file-level finding (line 1, no excerpt) must carry none rather than a hash
+    # of nothing. `Z502` is reported against the page, not against a line of it.
+    bare = [r for r in results if "partialFingerprints" not in r]
+    assert bare, (
+        "every result carried a fingerprint, so the omission branch never ran — "
+        "the corpus needs a finding with no source line"
+    )

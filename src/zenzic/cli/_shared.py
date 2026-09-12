@@ -574,6 +574,24 @@ def _output_sarif_findings(
                 }
             ],
         }
+        # How GitHub Code Scanning decides whether two results are the same alert
+        # across commits. Absent, it computes its own identity, and an alert can be
+        # closed and reopened as a duplicate when unrelated lines shift above it --
+        # so a finding nobody touched loses its history and its triage.
+        #
+        # `primaryLocationLineHash` is GitHub's own documented key, and it hashes
+        # the *line*, not the position, which is exactly why it survives a line
+        # moving. Omitted rather than faked when the source line is unknown: a
+        # fingerprint over an empty string would give every such finding the same
+        # identity, which is worse than having none -- GitHub would merge unrelated
+        # alerts instead of failing to track one.
+        if f.source_line:
+            result["partialFingerprints"] = {
+                "primaryLocationLineHash": hashlib.sha256(
+                    f.source_line.strip().encode("utf-8")
+                ).hexdigest()
+            }
+
         properties: dict[str, object] = {}
         if f.severity in _SARIF_SECURITY_SEVERITY:
             properties["security-severity"] = _SARIF_SECURITY_SEVERITY[f.severity]

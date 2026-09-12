@@ -44,13 +44,17 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "orphans": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "snippets": {
           "type": "array",
@@ -74,25 +78,33 @@
               }
             },
             "additionalProperties": false
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "unused_assets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "nav_contract": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "references": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "security_breaches": {
           "type": "integer",
