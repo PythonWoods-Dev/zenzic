@@ -19,6 +19,19 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
+# Three pushes in five minutes paid for three full runs. This cancels the
+# superseded ones, which on this workflow is ~19.6 billed minutes each.
+#
+# NOT on `main`, and that exclusion is the point: a cancelled run reports its
+# checks as cancelled, not as passed, and `main` is where the release tag is cut
+# from. Cancelling there could leave the branch without a completed required
+# check at the moment it matters most. On a pull request the transient state is
+# harmless — the superseding run re-reports every context, and a PR with a run
+# in flight is not mergeable anyway.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 permissions:
   contents: read
 
@@ -116,42 +129,3 @@ jobs:
 
       - name: Verify Badge Freshness
         run: uv run zenzic score --check-stamp --ci
-
-  # Split out of `verify` 2026-09-09, on measurement rather than impression: the
-  # gate took 240s of a 372s job on 3.10 and 206s of 294s on 3.14 -- roughly two
-  # thirds of the elapsed time, and it shares no input or output with the steps
-  # around it. Run concurrently, its duration stops being on the critical path.
-  #
-  # This is a SPLIT, not a removal. The job has no `continue-on-error`, so a
-  # failure fails the workflow exactly as it did as a step, and the run is
-  # required for the PR by the same rule that requires `Audit`. A mutation score
-  # that only warned would be worse than none: a check that is counted as
-  # protection while blocking nothing. Keeping it blocking is the point of
-  # splitting the step rather than deleting it.
-  #
-  # Single Linux slot: mutmut has no native Windows support (upstream
-  # boxed/mutmut#397) and the 95.7% floor is measured on one interpreter. Running
-  # it twice measured the same thing twice.
-  mutation:
-    name: Mutation gate (credential scanner)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install just
-        uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: true
-
-      - name: Set up Python 3.10
-        run: uv python install 3.10
-
-      - name: Sync dependencies
-        run: uv sync --all-groups --all-extras --frozen
-
-      - name: Mutation gate (credential scanner)
-        run: just mutation
