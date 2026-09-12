@@ -308,3 +308,30 @@ def test_the_homepage_code_panel_labels_describe_their_code() -> None:
         "panel label(s) share no word with their code's canonical name:\n  "
         + "\n  ".join(unrelated)
     )
+
+
+def test_no_generated_block_embeds_an_absolute_path() -> None:
+    """A block must not carry the filesystem of the machine that made it.
+
+    `lab-z0xx.txt` did. `zenzic lab z001` demonstrates a config parse failure and
+    pydantic reports the offending file by absolute path, so the block contained
+    a home directory. It passed locally — where the path matched — and failed on
+    CI, which is the parity test working, but it worked one push too late and
+    after the path had been committed.
+
+    This catches the same shape at the moment a block is generated, and it is
+    cheaper than the comparison above: a path is machine-dependent by
+    inspection, with no command to run.
+    """
+    offenders: list[str] = []
+    for block in sorted(SNIPPET_DIR.glob("lab-*.txt")) if SNIPPET_DIR.is_dir() else []:
+        for n, line in enumerate(block.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"(?:^|[=\s'\"])(?:/home/|/Users/|/root/|[A-Za-z]:\\\\)", line):
+                offenders.append(f"{block.name}:{n}: {line.strip()[:70]}")
+    assert not offenders, (
+        "generated block(s) embed an absolute path, which is the filesystem of "
+        "whoever ran the generator and cannot match another machine:\n  "
+        + "\n  ".join(offenders)
+        + "\nEither the command's output is not publishable, or it needs a fixture "
+        "that produces a relative path."
+    )

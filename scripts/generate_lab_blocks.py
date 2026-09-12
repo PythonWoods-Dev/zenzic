@@ -46,7 +46,6 @@ SNIPPET_DIR = REPO_ROOT / "snippets"
 #: files on disk IN BOTH DIRECTIONS, so a block with no entry fails the suite
 #: rather than shipping unverified, and an entry with no block fails too.
 BLOCKS: dict[str, tuple[str, ...]] = {
-    "lab-z0xx.txt": ("lab", "z001"),
     "lab-z1xx.txt": ("lab", "z101"),
     "lab-z2xx.txt": ("lab", "z201"),
     "lab-z4xx.txt": ("lab", "z405"),
@@ -54,10 +53,22 @@ BLOCKS: dict[str, tuple[str, ...]] = {
     "lab-z6xx.txt": ("lab", "z601"),
 }
 
-#: `z3xx-references` names no lab command, so it gets no block. Recorded here
-#: rather than left as a silent absence: six blocks for seven families is a
-#: number someone will otherwise have to re-derive.
-NO_COMMAND = ("z3xx-references",)
+#: Families that get no block, each with its reason. Recorded here rather than
+#: left as a silent absence: five blocks for seven families is a number someone
+#: would otherwise have to re-derive.
+#:
+#: `z3xx-references` names no lab command at all.
+#:
+#: `z0xx-core` names one, and its output cannot be published. `zenzic lab z001`
+#: demonstrates a config parse failure, and pydantic reports the offending file
+#: by ABSOLUTE path -- so the block embedded the home directory of whatever
+#: machine generated it. It passed locally and failed on CI for exactly that
+#: reason, which is the correct outcome: the parity test compared a depicted
+#: line against real output and the paths differed. Marking the line volatile
+#: would have hidden the machine path in the published block rather than
+#: removing it, and rewriting the path would put a line in the file that no
+#: command printed -- the transcription this whole mechanism exists to avoid.
+NO_COMMAND = ("z3xx-references", "z0xx-core")
 
 
 def _zenzic() -> Path:
