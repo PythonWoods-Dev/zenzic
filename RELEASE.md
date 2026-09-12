@@ -57,33 +57,47 @@ Before tagging, every item must be green:
 ## The Sequence
 
 Six steps, in this order. Steps 3 and 4 exist because `main` cannot be pushed to
-directly — measured, not assumed: its ruleset carries a `pull_request` rule with
-**zero bypass actors**, and GitHub's "rules that apply to you" endpoint lists it
-for the maintainer account. So the bump commit reaches `main` the same way every
-other commit does.
+directly: the bump commit reaches it through a pull request, like every other
+commit.
 
 ```bash
-# 1. Merge the feature pull request(s) into main.
+# 1. Merge the feature pull request(s) into main. SQUASH — see below.
 #    Nothing to label; the full CI matrix runs on every pull request.
 
 # 2. Cut a bump branch from main. The bump cannot be made on main itself.
 git switch main && git pull origin main
-git switch -c chore/bump-v0.31.0
+git switch -c chore/bump-vX.Y.Z     # X.Y.Z = the version being cut
 
 # 3. Bump. Edits the version files and commits, signed. Creates no tag.
+just release-dry minor      # same thing, writes nothing — run this first
 just release minor          # patch | minor | major
 
 # 4. Open the bump pull request, wait for CI, merge it.
-git push -u origin chore/bump-v0.31.0
+git push -u origin chore/bump-vX.Y.Z
 gh pr create --fill --base main
 #    ...CI green, then merge. main now carries the bump commit.
 
 # 5. Tag main. Never `git tag` on its own — see below.
 git switch main && git pull origin main
 just release-tag            # verifies annotated + signed, does not push
-git push origin v0.31.0     # this is what starts the release workflow
+git push origin vX.Y.Z      # this is what starts the release workflow
 
 # 6. Create the GitHub Release from the tag, using the CHANGELOG section as body.
+```
+
+### Where the pre-squash commits go
+
+Pull requests are merged with **squash**: it is the only one of GitHub's merge
+methods this repository's rules allow. A merge commit is rejected, and a rebase
+merge is refused with `Base branch requires signed commits. Rebase merges
+cannot be automatically signed by GitHub`.
+
+The individual commits of a pull request remain available afterwards, including
+once its branch has been deleted:
+
+```bash
+git fetch origin refs/pull/233/head:refs/heads/pr-233-history
+git log pr-233-history
 ```
 
 ### Why the tag has a recipe
@@ -92,11 +106,10 @@ git push origin v0.31.0     # this is what starts the release workflow
 tag, the branch the bump was made on is behind `main`, so tagging there would tag
 the wrong commit.
 
-And the wrong tag form is accepted by everything. A lightweight `git tag v0.31.0`
-produces an object GitHub reports as type `commit`, with no signature of its own —
-and no repository here has a ruleset targeting `refs/tags/*`, so nothing rejects
-it, while it still triggers the release workflow. `just release-tag` always uses
-`-s` and verifies its own output — annotated, signed — before anything is pushed.
+A lightweight `git tag vX.Y.Z` produces an object GitHub reports as type
+`commit`, with no signature of its own, and it still triggers the release
+workflow. `just release-tag` always uses `-s` and verifies its own output —
+annotated, signed — before anything is pushed.
 `release.yml` re-checks the same three properties (annotated, signed, verified by
 GitHub against a registered key) before it builds anything, so a bad tag fails
 before it can publish.
@@ -128,11 +141,9 @@ Distribution target: **PyPI** — `pip install zenzic` / `uvx zenzic`.
 ### `zenzic-mcp` is deliberately different
 
 It has no `RELEASE.md` and no `CONTRIBUTING.md`, because it has never been
-released. It also has **no ruleset and an unprotected default branch**, so unlike
-every sibling a direct push to its `main` would succeed. Two of those three are
-gaps rather than differences: the missing contributor document and the missing
-ruleset. The missing release document is genuinely premature and becomes required
-the first time a version of it ships.
+released. The missing contributor document is a gap; the missing release document
+is genuinely premature and becomes required the first time a version of it
+ships.
 
 ## Changelog Reference
 

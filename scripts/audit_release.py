@@ -194,6 +194,45 @@ def release_metadata_stale(version: str) -> str | None:
     return None
 
 
+def stale_version_literals(version: str) -> list[str]:
+    """Version literals in `RELEASE.md` that are not the current version.
+
+    This closes the blind spot documented as limitation 1 below, which was not
+    hypothetical: `RELEASE.md`'s own sequence carried FOUR hardcoded literals of
+    the NEXT version while the project was still a minor behind it — a bump
+    branch name, two pushes and a `git tag` example, all illustrative. (Written
+    without the numbers on purpose: a literal in this file would make the file
+    itself unmanaged, which `unmanaged()` reported the moment it was added.)
+
+    Nothing could see them. `bump-my-version` has no entry for them, because a
+    `search` naming the new version cannot match the pre-bump tree. And
+    `unmanaged()` greps the CURRENT version, so a literal that is any *other*
+    version is invisible to it by construction. They would have read correctly
+    for exactly one release and gone stale at the following one.
+
+    The fix in the document was to use `vX.Y.Z` placeholders rather than to add
+    entries; this function is the tripwire that keeps a literal from creeping
+    back. Occurrences of the current version are fine -- those are what
+    `unmanaged()` governs -- and so is the changelog-style heading, which is a
+    record of a release rather than an instruction.
+    """
+    text = (REPO_ROOT / "RELEASE.md").read_text(encoding="utf-8")
+    out: list[str] = []
+    for n, line in enumerate(text.splitlines(), 1):
+        for found in set(re.findall(r"\b\d+\.\d+\.\d+\b", line)):
+            if found == version:
+                continue
+            # An "Epic Summary" style heading records a shipped release.
+            if line.lstrip().startswith("#"):
+                continue
+            out.append(
+                f"RELEASE.md:{n} names version {found!r}, which is not the current "
+                f"{version!r}. A literal here is managed by nothing and detected by "
+                f"nothing else -- use a vX.Y.Z placeholder: {line.strip()[:60]!r}"
+            )
+    return out
+
+
 def _self_test() -> bool:
     """Each assertion must be shown to fire, and the allowlist must not be vacuous.
 
@@ -232,6 +271,23 @@ def _self_test() -> bool:
     # and a planted entry naming a string no file contains must be caught.
     # Without the second case a regex change that stopped matching anything
     # would read as "every entry resolves".
+    # Both directions on the literal tripwire. The committed RELEASE.md must be
+    # clean, and a planted foreign version must be caught -- without the second
+    # case a regex that stopped matching would read as "no stale literals".
+    if stale_version_literals(known):
+        print(
+            f"self-test FAILED: RELEASE.md carries stale version literal(s): "
+            f"{stale_version_literals(known)}",
+            file=sys.stderr,
+        )
+        return False
+    if not stale_version_literals("0.0.1-not-the-current-version"):
+        print(
+            "self-test FAILED: with a bogus 'current' version every literal in "
+            "RELEASE.md should look stale, and none did -- the scan found nothing",
+            file=sys.stderr,
+        )
+        return False
     live = unresolvable(known)
     if live:
         print(
@@ -249,7 +305,7 @@ def _self_test() -> bool:
         )
         return False
     print(
-        "self-test passed: 7 case(s); "
+        "self-test passed: 9 case(s); "
         f"{len(_config()[1])} bumpversion target(s), every `search` resolves"
     )
     return True
@@ -270,6 +326,7 @@ def main() -> int:
             failures.append(problem)
 
     failures += unresolvable(version)
+    failures += stale_version_literals(version)
 
     stray = unmanaged(version, managed)
     for path in stray:

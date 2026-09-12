@@ -328,10 +328,10 @@ release-tag *args:
     fi
 
     # -s, always. A lightweight `git tag ${tag}` produces an object GitHub reports
-    # as type `commit` with no signature of its own, no ruleset rejects it (no
-    # repository here has a ruleset targeting tags), and it still starts
-    # release.yml. The wrong form is accepted everywhere, so it must not be
-    # reachable from here.
+    # as type `commit` with no signature of its own, and it still starts
+    # release.yml. So the wrong form must not be reachable from here: this recipe
+    # is the only tagging path, and it verifies its own output before anything
+    # is pushed.
     git tag -s "${tag}" -m "${tag}"
 
     # Verified before anything is pushed, because the whole point of putting this
