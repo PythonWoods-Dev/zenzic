@@ -9,12 +9,16 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from zenzic.core.mutator import EmptyLinkTextMutation, Mutator
 from zenzic.core.parser import parse, serialize
+
+
+if TYPE_CHECKING:
+    from zenzic.models.config import ZenzicConfig
 
 
 def _atomic_write(file_path: Path, content: str) -> None:
@@ -36,6 +40,69 @@ def _atomic_write(file_path: Path, content: str) -> None:
                 os.unlink(temp_path)
             except OSError:
                 pass
+
+
+#: Sentinel for "the scan failed, so treat every file as carrying a live
+#: suppression". A membership test against it is always true, which is the
+#: fail-safe direction for a gate that exists to decline a mutation.
+class _AllFilesSuppressed(frozenset):  # type: ignore[type-arg]
+    def __contains__(self, item: object) -> bool:
+        return True
+
+
+_ALL_FILES_SUPPRESSED: set[Path] = _AllFilesSuppressed()  # type: ignore[assignment]
+
+
+def _project_suppression_state(
+    config: ZenzicConfig, repo_root: Path, docs_root: Path
+) -> tuple[dict[Path, set[int]], set[Path]]:
+    """One project-wide scan, returning what the auto-fixer needs to be safe.
+
+    Two facts, and neither is a per-file fact:
+
+    * ``dead_lines`` — the lines carrying a suppression that silences nothing,
+      keyed by file. A directive naming ``Z101`` is dead only if the link beside
+      it resolves, and that is decided against the whole Virtual Site Map.
+    * ``files_with_live_suppressions`` — files where at least one directive did
+      silence something, which is the rename gate's fail-safe.
+
+    Both used to be read from ``_scan_single_file(md_file, config)``, called with
+    no rule engine — so it built no suppression tracker at all. The dead-line set
+    was therefore empty on every input, and ``Z603`` is published as
+    Auto-Fixable with this command as its remediation; and the rename gate's
+    "has an active inline suppression" test was ``any()`` over an empty list, so
+    the gate it documents never once engaged.
+
+    Failures are swallowed deliberately: this is a safety input to a mutation, and
+    an empty answer removes nothing and guards nothing new, which is the correct
+    direction to fail for the first and the wrong one for the second — so a scan
+    that cannot run reports every file as suppressed rather than none.
+    """
+    from zenzic.cli._shared import _build_exclusion_manager
+    from zenzic.core.scanner import scan_docs_references
+
+    dead_lines: dict[Path, set[int]] = {}
+    live: set[Path] = set()
+    try:
+        exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
+        reports, _ = scan_docs_references(
+            docs_root,
+            exclusion_mgr,
+            repo_root=repo_root,
+            config=config,
+            validate_links=False,
+        )
+    except Exception:
+        return {}, _ALL_FILES_SUPPRESSED
+    for report in reports:
+        key = report.file_path.resolve()
+        for finding in report.rule_findings:
+            if finding.rule_id == "Z603":
+                dead_lines.setdefault(key, set()).add(finding.line_no)
+        tracker = report.suppression_tracker
+        if tracker is not None and any(d.consumed for d in tracker.directives):
+            live.add(key)
+    return dead_lines, live
 
 
 def fix(
@@ -100,7 +167,8 @@ def fix(
         MalformedListMutation,
         UntaggedCodeBlockMutation,
     )
-    from zenzic.core.scanner import _scan_single_file
+
+    dead_by_file, _ = _project_suppression_state(config, repo_root, docs_root)
 
     modified_count = 0
 
@@ -111,8 +179,7 @@ def fix(
             typer.echo(f"Error reading {md_file}: {exc}", err=True)
             continue
 
-        report, _ = _scan_single_file(md_file, config)
-        dead_lines = {f.line_no for f in report.rule_findings if f.rule_id == "Z603"}
+        dead_lines = dead_by_file.get(md_file.resolve(), set())
 
         mutator = Mutator(
             [
@@ -178,7 +245,7 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
     from zenzic.cli._shared import _build_exclusion_manager
     from zenzic.core.discovery import iter_markdown_sources
     from zenzic.core.mutator import Mutator, RenameLinkMutation
-    from zenzic.core.scanner import _scan_single_file, find_repo_root
+    from zenzic.core.scanner import find_repo_root
     from zenzic.models.config import ZenzicConfig
 
     old_path = Path(old).resolve()
@@ -224,6 +291,8 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
         str(f) != old_abs and str(f).casefold() == _old_folded for f in files
     )
 
+    _, files_with_live_suppressions = _project_suppression_state(config, repo_root, docs_root)
+
     fixed_count = 0
     skipped_count = 0
     checked_count = 0
@@ -248,16 +317,7 @@ def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
         # file's location is inline-suppressed, skip it -- same fail-safe
         # choice as the LSP version (no per-occurrence location scoping
         # exists to respect partial suppression surgically).
-        try:
-            report, _ = _scan_single_file(md_file, config, text=content)
-        except Exception:
-            report = None
-        suppressed = bool(
-            report
-            and report.suppression_tracker
-            and any(d.consumed for d in report.suppression_tracker.directives)
-        )
-        if suppressed:
+        if md_file.resolve() in files_with_live_suppressions:
             typer.echo(f"Skipped {rel_path}: has an active inline suppression, not overriding it")
             skipped_count += 1
             continue

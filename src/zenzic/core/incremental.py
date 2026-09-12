@@ -46,7 +46,7 @@ from zenzic.core.rules import (
     ResolutionContext,
     RuleFinding,
 )
-from zenzic.core.suppressions import SuppressionTracker
+from zenzic.core.suppressions import DATA_ATTR_DIRECTIVE, SuppressionTracker
 from zenzic.core.validator import (
     _POLY_CLEAN_URL_RE,
     JSX_URL_ATTRS,
@@ -651,10 +651,17 @@ class IncrementalAnalysisEngine:
             use_directory_urls=self._use_directory_urls,
         )
         if self.rule_engine is not None:
+            # Through the tracker, exactly as scanner.py's cross-file pass does.
+            # These were appended raw, so an inline suppression of a cross-file
+            # code was inert in the editor -- the finding stayed on screen and
+            # the directive that should have removed it was then reported dead
+            # beneath it. The CLI and the LSP disagreed about the same file.
             findings.extend(
-                self.rule_engine.run_vsm(
+                f
+                for f in self.rule_engine.run_vsm(
                     path, text, vsm, self.anchors_cache, context, extracted_links=extracted_links
                 )
+                if not tracker.is_suppressed(f.line_no, f.rule_id)
             )
 
         # Snippet Checks
@@ -669,14 +676,27 @@ class IncrementalAnalysisEngine:
                 )
             )
 
-        # URP Checks
+        # URP Checks. The hygiene tier is filtered inside _run_urp_checks (one
+        # attribute covers a whole tag, so the decision has to be made where the
+        # tag is still in hand); the link tier it produces is filtered here, the
+        # same way the CLI's cross-file pass filters it.
         findings.extend(
-            self._run_urp_checks(vsm, path, text, tracker=tracker, extracted_links=extracted_links)
+            f
+            for f in self._run_urp_checks(
+                vsm, path, text, tracker=tracker, extracted_links=extracted_links
+            )
+            if not tracker.is_suppressed(f.line_no, f.rule_id)
         )
 
         # Topological Rules (Z410, Z411)
         canonical_url = self._resolve_canonical_url(vsm, path)
-        if canonical_url in getattr(self, "_orphaned_urls", set()):
+        # ADR-093 makes Z410/Z411 non-inline-suppressible, so the tracker will
+        # refuse an inline directive and leave it unconsumed for Z603 -- but a
+        # directory policy still governs them, and the CLI consults the tracker
+        # here while this path did not.
+        if canonical_url in getattr(self, "_orphaned_urls", set()) and not tracker.is_suppressed(
+            1, "Z410"
+        ):
             findings.append(
                 RuleFinding(
                     path,
@@ -687,7 +707,9 @@ class IncrementalAnalysisEngine:
                     matched_line="",
                 )
             )
-        if canonical_url in getattr(self, "_dead_end_urls", set()):
+        if canonical_url in getattr(self, "_dead_end_urls", set()) and not tracker.is_suppressed(
+            1, "Z411"
+        ):
             findings.append(
                 RuleFinding(
                     path,
@@ -913,6 +935,14 @@ class IncrementalAnalysisEngine:
         # Polyglot Extractor
         for node in PolyglotExtractor().extract(text):
             ctx = _source_line(node.line_no)
+            # Where this node's findings start, so the `data-zenzic-ignore`
+            # decision below can act on what the node actually produced. It used
+            # to mark the attribute consumed after this block regardless -- so the
+            # attribute could neither suppress the hygiene finding it documents
+            # (the finding was already appended, and the filter downstream then
+            # found the directive spent) nor ever be reported dead. One line
+            # broke the mechanism in both directions at once.
+            _node_findings_start = len(findings)
 
             def _span(attr: str | None, _node: HtmlNodeInfo = node) -> tuple[int, str]:
                 """Where the caret goes, and how wide.
@@ -1024,10 +1054,39 @@ class IncrementalAnalysisEngine:
                 )
 
             if node.suppressed and tracker is not None:
-                for d in tracker.directives:
-                    if d.line_no == node.line_no and d.code == "DATA-ZENZIC-IGNORE":
-                        d.consumed = True
-                        break
+                # Ask the tracker which of this node's findings the attribute is
+                # allowed to silence, drop exactly those, and spend the directive
+                # only if it silenced something. Handling the node as a unit
+                # matters: one attribute covers a whole tag, so two unknown
+                # attributes on one tag are two findings against one directive,
+                # and a per-finding filter downstream would consume it on the
+                # first and report the second.
+                _produced = findings[_node_findings_start:]
+                _silenced = [
+                    f
+                    for f in _produced
+                    if tracker.explain_suppression(node.line_no, f.rule_id).source == "inline"
+                ]
+                if _silenced:
+                    _silenced_ids = {id(f) for f in _silenced}
+                    del findings[_node_findings_start:]
+                    findings.extend(f for f in _produced if id(f) not in _silenced_ids)
+                    for d in tracker.directives:
+                        if (
+                            d.line_no == node.line_no
+                            and d.code == DATA_ATTR_DIRECTIVE
+                            and not d.consumed
+                        ):
+                            d.consumed = True
+                            break
+                    # Known limit, stated rather than left to be discovered: the
+                    # directive is single-use, so a tag that produces both a
+                    # hygiene finding and a link finding spends it here and its
+                    # link finding is still reported. The alternative -- a
+                    # reusable, line-keyed directive -- would let one suppressed
+                    # tag silence an unsuppressed sibling tag on the same line,
+                    # and a visible extra finding is the better failure of the
+                    # two. Tracked in the priority table.
 
         # Extracted Link Candidates (Markdown, HTML href/src, Ref Defs)
         if extracted_links is None:
@@ -1227,15 +1286,18 @@ class IncrementalAnalysisEngine:
                         # Quality code: the quality extraction never saw this link
                         # (it sits in a comment or math span), so Z105 must not fire.
                         continue
-                    # Z105 is not in the security tier, so it keeps honouring
-                    # the inline attribute -- the carve-out above is for the
-                    # tier only, not a blanket disabling of the mechanism.
+                    # Z105 is not in the security tier, so the inline attribute
+                    # still applies to it -- the carve-out above is for the tier
+                    # only, not a blanket disabling of the mechanism. It is no
+                    # longer honoured by skipping the check, though: a skip is
+                    # invisible to the suppression ledger, so an attribute that
+                    # silenced a Z105 this way was still reported Z603. The
+                    # finding is produced and the tracker decides, like every
+                    # other suppressible code.
                     # The allowlist is matched against both spellings: a link
                     # that only *decodes* to an absolute path reaches this
                     # branch, and an allowlisted prefix must still exempt it.
-                    if not link.suppressed and not is_allowlisted_absolute(
-                        url, decoded_url, allowlist
-                    ):
+                    if not is_allowlisted_absolute(url, decoded_url, allowlist):
                         findings.append(
                             RuleFinding(
                                 path,
@@ -1248,10 +1310,14 @@ class IncrementalAnalysisEngine:
                         )
                 continue
 
-            # Past the security tier: from here down every code is
-            # inline-suppressible, so the document's own directive applies.
-            if link.suppressed:
-                continue
+            # Past the security tier, every code is inline-suppressible, so the
+            # document's own directive applies -- but it is applied by the
+            # tracker, not by skipping the work. `continue` here silenced Z102
+            # and Z104 without anyone recording that the attribute had done so,
+            # which is why a tag using `data-zenzic-ignore` for exactly the
+            # reason the troubleshooting guide recommends was then told the
+            # attribute was dead. Suppression happens where consumption can be
+            # recorded, or the ledger is a record of the wrong events.
 
             # Non-markdown asset validation (Z104)
             url_clean = url.split("?")[0].split("#")[0].lower()

@@ -1318,12 +1318,14 @@ def _collect_all_results(
                 ),
             )
 
-        for r in ref_reports:
-            if r.suppression_tracker is not None:
-                dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
-                r.rule_findings = [
-                    f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
-                ]
+        # A Z603 re-derivation used to sit here, re-reading the tracker after the
+        # link pass to drop findings the scanner had emitted too early. It is gone
+        # because the scanner no longer emits them too early: Z603 is produced at
+        # the end of the VSM/URP pass, where the ledger is complete. Keeping the
+        # patch made this the only command that answered correctly -- `check
+        # references` read the same reports and reported working suppressions as
+        # dead -- and it corrected by line number, so a line whose directive had
+        # been consumed for an unrelated reason lost its genuine Z603 too.
 
         if progress is not None:
             task_orphans = progress.add_task(

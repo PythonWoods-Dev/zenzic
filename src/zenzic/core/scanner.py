@@ -1091,6 +1091,11 @@ def _scan_single_file(
         # Pre-compute global suppression codes for this specific file
         # to prevent consuming redundant inline directives.
         globally_suppressed_codes: dict[str, list[str]] = {}
+        # Kept apart from the merged lookup above so Z620 can credit the right
+        # table: suppression does not care which one a glob came from, the
+        # stale-configuration report does.
+        _per_file_patterns: set[str] = set()
+        _dir_policy_patterns: set[str] = set()
         if getattr(config, "governance", None):
             repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
             try:
@@ -1103,6 +1108,7 @@ def _scan_single_file(
 
                 for pattern, codes in config.governance.per_file_ignores.items():
                     if fnmatch.fnmatch(rel_path, pattern):
+                        _per_file_patterns.add(pattern)
                         for c in codes:
                             globally_suppressed_codes.setdefault(str(c).strip().upper(), []).append(
                                 pattern
@@ -1125,6 +1131,7 @@ def _scan_single_file(
                 for _pat, compiled, codes in _cached:
                     with contextlib.suppress(Exception):
                         if compiled.fullmatch(rel_path):
+                            _dir_policy_patterns.add(_pat)
                             for c in codes:
                                 globally_suppressed_codes.setdefault(
                                     str(c).strip().upper(), []
@@ -1135,6 +1142,8 @@ def _scan_single_file(
             text,
             globally_suppressed_codes=globally_suppressed_codes,
             global_tracker=getattr(config, "_global_tracker", None),
+            per_file_ignore_patterns=frozenset(_per_file_patterns),
+            directory_policy_patterns=frozenset(_dir_policy_patterns),
         )
         report.suppression_tracker = tracker
 
@@ -1185,8 +1194,15 @@ def _scan_single_file(
             if not tracker.is_suppressed(pf.line_no, pf.rule_id):
                 report.rule_findings.append(pf)
 
-        # Z603 DEAD_SUPPRESSION — emit for every directive never consumed above.
-        report.rule_findings += tracker.get_dead_suppressions()
+        # Z603 DEAD_SUPPRESSION is deliberately NOT emitted here. Consumption is
+        # not finished at this point: Z101 and the rest of the VSM tier, the URP
+        # checks, the topology codes and the VSM-stage policy codes are all
+        # decided later, in _run_vsm_and_urp_pass(), and each of them consumes
+        # directives through this same tracker. Reading the ledger here reported
+        # every working suppression of a cross-file code as dead -- and it did so
+        # in the same run that silenced the finding, because the silencing had
+        # simply not happened yet. Emission lives at the end of that pass instead,
+        # which is the first point at which "never consumed" is a true statement.
 
     # Return scanner only when the file is secure — callers must not register
     # URLs from files that failed the credential scanner (they may embed leaked credentials).
@@ -1474,6 +1490,15 @@ def _run_vsm_and_urp_pass(
                                             match_text=link.match_text,
                                         )
                                     )
+
+    # Z603 DEAD_SUPPRESSION — now, and only now, is the ledger complete. Every
+    # pass that consumes a directive has run: the per-file rule engine (before
+    # this function), and above, the VSM tier, the URP checks, the policy engine
+    # and the topology codes. A directive still unconsumed here genuinely
+    # suppresses nothing.
+    for r in reports:
+        if r.suppression_tracker is not None:
+            r.rule_findings += r.suppression_tracker.get_dead_suppressions()
 
     if config.absolute_path_allowlist:
         used_allowlist: set[str] = set()
@@ -2114,10 +2139,17 @@ def scan_docs_references(
             if getattr(config, "_global_tracker", None):
                 for _r in reports:
                     if _r.suppression_tracker is not None:
+                        # Rebind first: the worker's tracker carries a detached
+                        # GlobalUsageTracker (or none), and _mark_global_pattern_used
+                        # writes to whatever it holds. Replaying through the tracker
+                        # rather than calling mark_directory_policy_used() directly is
+                        # what keeps per_file_ignores credited to the per-file ledger
+                        # in parallel mode as well as sequential.
+                        _r.suppression_tracker.global_tracker = config._global_tracker
                         for pattern, code in getattr(
                             _r.suppression_tracker, "consumed_global_patterns", ()
                         ):
-                            config._global_tracker.mark_directory_policy_used(pattern, code)
+                            _r.suppression_tracker._mark_global_pattern_used(pattern, code)
 
             elapsed = time.monotonic() - _t0
 

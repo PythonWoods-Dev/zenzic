@@ -133,6 +133,12 @@ execution:
   `.md` one — same placement, same effect, same debt point. Both belong **at the
   end of the line the finding is on**; on the line above, neither suppresses
   anything and the directive is itself reported as `Z603 DEAD_SUPPRESSION`.
+- Whether a directive is dead is decided **after the whole scan**, not when the
+  file is parsed. A directive naming `Z101` is dead only if the link beside it
+  resolves, which is a fact about the Virtual Site Map rather than about the line,
+  so `Z603` is emitted once every pass that could consume a directive has run.
+  Reading the ledger earlier reported every working suppression of a cross-file
+  code as dead, in the same run that silenced the finding.
 - A Markdown link written inside a comment — MDX (`{/* ... */}`) or HTML
   (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported as a
   broken link. None of them renders as a link, so none is one. The masking that

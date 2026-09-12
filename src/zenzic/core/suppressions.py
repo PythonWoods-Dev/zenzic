@@ -36,6 +36,34 @@ _INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 #: Topological findings are governed as a paired policy family.
 _TOPOLOGY_POLICY_CODES: frozenset[str] = frozenset({"Z410", "Z411"})
 
+#: Sentinel code for a ``data-zenzic-ignore`` attribute, which names no code of
+#: its own -- it covers whatever its tag can produce.
+DATA_ATTR_DIRECTIVE = "DATA-ZENZIC-IGNORE"
+
+#: What ``data-zenzic-ignore`` is documented to suppress, stated once so the
+#: lookup and the rule cards cannot drift apart.
+#:
+#: The HTML hygiene tier (``Z120``-``Z124``) is the half every rule card names.
+#: The three link codes are the half that was only ever documented in prose --
+#: ``docs/how-to/troubleshooting.md`` tells readers to silence a ``Z104`` on a
+#: generated feed with this attribute, and v0.20.0's release notes record the
+#: URP leak that made it necessary -- and they belong here because the pipeline
+#: used to honour them by skipping the check outright, which no ledger can see.
+#: The security tier is absent on purpose: ``Z202``/``Z203``/``Z205`` are
+#: non-suppressible, and a page must not silence its own by editing its own tag.
+DATA_ATTR_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
+    {
+        "Z120",  # UNKNOWN_HTML_ATTRIBUTE
+        "Z121",  # MISSING_OR_EMPTY_HREF
+        "Z122",  # JUMP_LINK_DETECTED
+        "Z123",  # NON_HTTP_SCHEME
+        "Z124",  # OPAQUE_HTML_CONTEXT
+        "Z102",  # BROKEN_RELATIVE_LINK
+        "Z104",  # MISSING_ASSET
+        "Z105",  # ABSOLUTE_PATH_USED
+    }
+)
+
 
 @dataclass
 class SuppressionDirective:
@@ -96,12 +124,24 @@ class SuppressionTracker:
         text: str,
         globally_suppressed_codes: dict[str, list[str]] | None = None,
         global_tracker: "GlobalUsageTracker | None" = None,
+        per_file_ignore_patterns: frozenset[str] = frozenset(),
+        directory_policy_patterns: frozenset[str] = frozenset(),
     ):
         self.file_path = file_path
         self.directives: list[SuppressionDirective] = []
         self.globally_suppressed_codes = globally_suppressed_codes or {}
         self.consumed_global_patterns: set[tuple[str, str]] = set()
         self.global_tracker = global_tracker
+        # Which table each glob in globally_suppressed_codes came from. The two
+        # are merged into one lookup because suppression does not care, but
+        # Z620 does: usage was recorded against the directory-policy ledger for
+        # both kinds, so the per-file ledger was never cleared and every
+        # per_file_ignores entry was reported "never used" -- including the ones
+        # actively suppressing findings. Callers that build a tracker without
+        # provenance (a unit test, a caller with only directory policies) leave
+        # both empty and keep the old single-ledger behaviour.
+        self.per_file_ignore_patterns = per_file_ignore_patterns
+        self.directory_policy_patterns = directory_policy_patterns
         self._parse(text)
 
     def _parse(self, text: str) -> None:
@@ -146,7 +186,7 @@ class SuppressionTracker:
                     if node.suppressed:
                         self.directives.append(
                             SuppressionDirective(
-                                code="DATA-ZENZIC-IGNORE",
+                                code=DATA_ATTR_DIRECTIVE,
                                 line_no=node.line_no,
                                 consumed=False,
                             )
@@ -159,7 +199,9 @@ class SuppressionTracker:
         """
         for d in self.directives:
             if d.line_no == line_no and not d.consumed:
-                if d.code == code or (d.code == "DATA-ZENZIC-IGNORE" and code.startswith("Z12")):
+                if d.code == code or (
+                    d.code == DATA_ATTR_DIRECTIVE and code in DATA_ATTR_SUPPRESSIBLE_CODES
+                ):
                     return d
         return None
 
@@ -226,13 +268,31 @@ class SuppressionTracker:
             for pattern in self.globally_suppressed_codes[upper]:
                 self.consumed_global_patterns.add((pattern, upper))
                 if self.global_tracker:
-                    self.global_tracker.mark_directory_policy_used(pattern, upper)
+                    self._mark_global_pattern_used(pattern, upper)
         elif verdict.source == "inline":
             directive = self._matching_directive(line_no, code.upper())
             if directive is not None:
                 directive.consumed = True
 
         return verdict.suppressed
+
+    def _mark_global_pattern_used(self, pattern: str, code: str) -> None:
+        """Record usage of *pattern* against the table it was declared in.
+
+        With no provenance (both sets empty) this falls back to the
+        directory-policy ledger, which is what every caller did before the two
+        were told apart.
+        """
+        tracker = self.global_tracker
+        if tracker is None:
+            return
+        if not self.per_file_ignore_patterns and not self.directory_policy_patterns:
+            tracker.mark_directory_policy_used(pattern, code)
+            return
+        if pattern in self.per_file_ignore_patterns:
+            tracker.mark_per_file_ignore_used(pattern, code)
+        if pattern in self.directory_policy_patterns:
+            tracker.mark_directory_policy_used(pattern, code)
 
     def get_dead_suppressions(self) -> list["RuleFinding"]:
         """Yield Z603 findings for all directives that were never consumed."""
@@ -241,7 +301,7 @@ class SuppressionTracker:
         findings = []
         for d in self.directives:
             if not d.consumed:
-                if d.code == "DATA-ZENZIC-IGNORE":
+                if d.code == DATA_ATTR_DIRECTIVE:
                     msg = "data-zenzic-ignore attribute does not suppress any active html hygiene finding. Remove the dead attribute."
                 elif d.code in NON_INLINE_SUPPRESSIBLE_CODES:
                     msg = (
