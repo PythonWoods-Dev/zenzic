@@ -248,3 +248,63 @@ def test_a_generated_block_is_not_empty() -> None:
             f"{name} carries {len(real_lines)} comparable line(s) — too few to be "
             "a depiction of anything"
         )
+
+
+# ─── The code panel beside the terminal ───────────────────────────────────────
+
+
+def _panel_entries() -> list[tuple[str, str, str]]:
+    """(anchor, code, label) for every entry in the homepage's code panel."""
+    html = PARTIAL.read_text(encoding="utf-8")
+    return re.findall(
+        r'#(z\d{3})"[^>]*>.*?>(Z\d{3})</span><div class="diagnostic-item"><span>([^<]+)</span>',
+        html,
+    )
+
+
+def test_the_homepage_code_panel_names_real_codes() -> None:
+    """Every code the panel advertises must exist, with a matching anchor.
+
+    The panel sits beside the terminal block and was covered by no parity at
+    all, on the first page a visitor sees, through a cycle that changed
+    severities, added codes and corrected messages.
+    """
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    entries = _panel_entries()
+    assert len(entries) >= 12, f"only {len(entries)} panel entries parsed — the markup changed"
+    problems = [
+        f"{code}: {'absent from CODE_DEFINITIONS' if code not in CODE_DEFINITIONS else f'anchor #{anchor} does not match'}"
+        for anchor, code, _label in entries
+        if code not in CODE_DEFINITIONS or anchor.upper() != code
+    ]
+    assert not problems, problems
+
+
+def test_the_homepage_code_panel_labels_describe_their_code() -> None:
+    """A panel label must share a word with the code's canonical name.
+
+    Deliberately weak on purpose: the label is prose for a landing page and must
+    not be forced to equal `CODE_NAMES`. What it cannot be is about something
+    else entirely, and that is what this catches. Two labels were:
+
+      Z105 read "Malformed URI" and the code is ABSOLUTE_PATH
+      Z505 read "Invalid frontmatter" and the code is UNTAGGED_CODE_BLOCK
+
+    Neither shared a single token with its code. `Z501` read "Empty content"
+    against PLACEHOLDER, which is close enough to pass this check and was
+    corrected anyway — a page with `TODO` on it is not empty.
+    """
+    from zenzic.core.codes import CODE_NAMES
+
+    stop = {"a", "the", "of", "in", "is", "not"}
+    unrelated = []
+    for _anchor, code, label in _panel_entries():
+        name_tokens = {t for t in CODE_NAMES.get(code, "").lower().split("_") if t not in stop}
+        label_tokens = {t.strip(".,").lower() for t in label.split() if t.lower() not in stop}
+        if not (name_tokens & label_tokens):
+            unrelated.append(f"{code}: panel says {label!r}, the code is {CODE_NAMES.get(code)}")
+    assert not unrelated, (
+        "panel label(s) share no word with their code's canonical name:\n  "
+        + "\n  ".join(unrelated)
+    )
