@@ -6,7 +6,7 @@ description: How Zenzic discovers documentation files and the 4-level Layered Ex
 
 # Discovery & Exclusion
 
-Every Zenzic check -- links, orphans, snippets, placeholders, assets, references -- operates on the same set of files. This guarantee is enforced by a **single entry point** for file discovery and a **4-level exclusion hierarchy** that determines which files and directories are included or excluded from scanning.
+Every Zenzic check -- links, orphans, snippets, unused assets, nav contract, directory indices, config assets, and the reference/content/security pipeline (which also covers placeholders, brand rules, and credential scanning) -- operates on the same set of files. This guarantee is enforced by a **single entry point** for file discovery and a **4-level exclusion hierarchy** that determines which files and directories are included or excluded from scanning.
 
 ---
 
@@ -21,16 +21,14 @@ from the target path, searching for a recognised root marker.
 
 ### Root Markers {#root-markers}
 
-Two markers are authorised (first match wins):
+Four markers are authorised (first match wins):
 
 | Marker | Description |
 | :--- | :--- |
 | `.git/` | Universal VCS marker — present in any Git-tracked repository |
 | `.zenzic.toml` | Zenzic's own configuration file — the explicit governance contract |
-
-Both are intentionally engine-neutral: `mkdocs.yml`, `zensical.toml`, and similar
-build-engine files are not root markers. The Core must remain independent of any specific
-documentation framework.
+| `zensical.toml` | A Zensical project's own configuration file |
+| `mkdocs.yml` | An MkDocs project's own configuration file |
 
 ### Why a Root Marker is Mandatory {#why-mandatory}
 
@@ -44,8 +42,9 @@ Without a root marker (VCS or configuration), Zenzic cannot establish the projec
 The absence of a root marker produces this error:
 
 ```text
-ERROR: Could not locate repo root: no .git directory or .zenzic.toml found in any
-ancestor of /path/to/target. Run Zenzic from inside the repository.
+ERROR: Could not locate repo root: no .git directory, .zenzic.toml, zensical.toml,
+or mkdocs.yml found in any ancestor of /path/to/target. Run Zenzic from inside the
+repository.
 ```
 
 This is not a configuration error. It is a **safety guarantee**: the Quality Gate halts
@@ -53,11 +52,11 @@ an out-of-bounds scan before it begins.
 
 ### Resolution Options {#root-resolution}
 
-Zenzic resolves the repository root by walking up from the current working directory until it finds a root marker (`.zenzic.toml` or `.git/`). Three conditions satisfy this requirement:
+Zenzic resolves the repository root by walking up from the current working directory until it finds a root marker (`.git/`, `.zenzic.toml`, `zensical.toml`, or `mkdocs.yml`). Three conditions satisfy this requirement:
 
 - **Zenzic project:** a `.zenzic.toml` file in the target directory root (created by `zenzic init`).
 - **Git repository:** a `.git/` directory anywhere in the ancestor tree.
-- **Nested invocation:** running from inside an existing project that already contains either marker.
+- **Nested invocation:** running from inside an existing project that already contains any of the four markers.
 
 If none of these conditions are met, Zenzic rejects the invocation with an explicit error.
 
@@ -70,9 +69,134 @@ If none of these conditions are met, Zenzic rejects the invocation with an expli
 All modules that need to iterate over documentation source files must call `iter_markdown_sources`. Direct calls to `Path.rglob()`, `os.walk()`, or `Path.iterdir()` from scanner, validator, or credential scanner are prohibited by design. This function:
 
 1. Walks the `docs_root` directory using `os.walk()` with **in-place directory pruning** (excluded subtrees are never entered).
-2. Yields only `.md` and `.md` files, in deterministic sorted order.
-3. Skips symbolic links.
-4. Delegates all exclusion decisions to the `LayeredExclusionManager`.
+2. Yields only `.md` and `.mdx` files, in deterministic sorted order. The
+   suffix comparison ignores letter case, so `.MDX` and `.Mdx` are discovered
+   exactly as `.mdx` is.
+3. Delegates all exclusion decisions to the `LayeredExclusionManager`.
+
+### MDX Support {#mdx}
+
+MDX is a supported format, not a qualified exception. `.md` and `.mdx` are
+discovered by the same walk, in any letter case, with nothing to configure — and
+every rule in the catalogue applies to both.
+
+!!! warning "If your site links by route, configure an adapter first"
+    This is about the **site**, not about MDX, and it applies to a Markdown site the same
+    way — but MDX sites hit it hardest because linking by absolute route is the idiom in
+    Astro, Docusaurus and Next.js. With the default `standalone` adapter Zenzic has no way
+    to know your URL convention, so `/guides/example/` cannot be resolved: it is reported
+    as `Z101`, and the absolute path is reported again as `Z105`. Measured on Astro's own
+    documentation, that is **2,214 of 2,215 `Z101` findings — none of them a broken link**.
+
+    The fix is [`prebuilt` with a route manifest](../how-to/configure-adapter.md#prebuilt-route-manifest),
+    which brings the same corpus down to the links that are genuinely broken. Read that
+    before running Zenzic over a route-linked site, rather than after.
+
+    **Measured on scaffolded builds of both generators**, not extended by analogy from one:
+    an Astro Starlight site goes from 4 findings to 1, a Docusaurus classic site from 8 to 1,
+    and in each case the survivor is the link that is actually broken. The *recipe* differs
+    between them — Docusaurus needs its own metadata rather than filename-derived URLs, and
+    needs `baseUrl` and `routeBasePath` handled — so follow the per-generator guidance rather
+    than adapting one to the other.
+
+    **The Docusaurus recipe holds for a single-locale, unversioned site and not beyond it.**
+    Both conventions were then tested and both break it: i18n silently, because `.docusaurus/`
+    is rewritten per locale build and the manifest ends up describing the last one — 19 of 24
+    entries claimed the wrong locale and 6 valid links were reported broken. Versioning
+    inverts the mapping, moving the working copy to `/docs/next/`. The how-to states both
+    failures and what the documented alternative would be. Where this page says a construct
+behaves "exactly as in `.md`", that was verified by running the engine on both,
+not inferred.
+
+An `.mdx` file is parsed as Markdown with raw HTML, not by an MDX parser. Its
+Markdown constructs — links, images, headings, credentials — behave exactly as
+they do in `.md`. What follows is what that buys, each point verified by
+execution:
+
+- `<a>`, `<img>` and `<link>` participate fully in link, asset and
+  forbidden-scheme checks, in any letter case. A `<Img src="...">` component is
+  checked as well, because its tag name matches `img`.
+- JSX components participate as well. A capitalised tag carrying `to`, `href` or
+  `src` is analysed exactly as `<a href>` is: a broken target is reported, and a
+  forbidden scheme in it exits 2. The recognition rule is the JSX convention
+  itself — lowercase is an HTML element, capitalised is a component — rather than
+  a list of names, so `<Link>`, `<Anchor>` and a component nobody has written yet
+  are all covered without the engine knowing what a framework is.
+- The attribute side is a fixed set (`to`, `href`, `src`) where the tag side is a
+  rule, and the asymmetry is deliberate: component names are unbounded, so a list
+  of them creates a blind spot the day someone invents a fourth, while attribute
+  names are where false positives live. A component carrying none of those three
+  props is not a link and reports nothing, and its other props are not audited as
+  HTML attributes. A bespoke prop — `<Card link="...">` — is not covered.
+- Inline suppression accepts the JSX comment form. `{/* zenzic:ignore: Z515 */}`
+  does in an `.mdx` file exactly what `<!-- zenzic:ignore: Z515 -->` does in a
+  `.md` one — same placement, same effect, same debt point. Both belong **at the
+  end of the line the finding is on**; on the line above, neither suppresses
+  anything and the directive is itself reported as `Z603 DEAD_SUPPRESSION`.
+- All of this is executable: `examples/mdx-jsx-links/` is the fixture, and
+  [MDX & JSX Links](../tutorials/examples/z1xx-links/mdx-jsx-links.md) walks
+  through it — a component link that resolves, one that does not, and a Markdown
+  link inside a JSX attribute that is text rather than a link. `zenzic lab mdx`
+  asserts the expectation rather than printing it.
+- Whether a directive is dead is decided **after the whole scan**, not when the
+  file is parsed. A directive naming `Z101` is dead only if the link beside it
+  resolves, which is a fact about the Virtual Site Map rather than about the line,
+  so `Z603` is emitted once every pass that could consume a directive has run.
+  Reading the ledger earlier reported every working suppression of a cross-file
+  code as dead, in the same run that silenced the finding.
+- A Markdown link written inside a comment — MDX (`{/* ... */}`) or HTML
+  (`<!-- ... -->`) — or inside a JSX string attribute is **not** reported as a
+  broken link. None of them renders as a link, so none is one. The masking that
+  establishes this is length-preserving, so reported line numbers and caret
+  columns are unchanged by it. Links in JSX *expression* attributes
+  (`to={"./page.mdx"}`) are outside that masking and behave as before. This
+  applies to the **quality** tier only — a forbidden scheme or a traversal
+  written in a comment *is* reported, for the reasons in
+  [Two Masks, Two Questions](#two-masks) below.
+
+### Two Masks, Two Questions {#two-masks}
+
+Masking is not one mechanism but two, because two different questions are being
+asked of the same document.
+
+The **quality tier** asks *is this text content?* A link inside a comment, a math
+span or a code fence is not a link — it renders as text or not at all — so
+reporting it as broken would be a false positive. That tier masks comments, math
+spans, fences and JSX string attributes before extracting.
+
+The **security tier** asks a different question: *does this document contain a
+forbidden scheme or a traversal?* For that question the whole document is in
+scope, because a payload is no less real for sitting inside a comment. Sharing
+the quality mask here meant the scanner never looked, and *not looking* is a
+stronger suppression than any directive — `Z202`, `Z203` and `Z205` are declared
+non-suppressible precisely so that no document can silence them.
+
+The rule that separates them is **whether the author declared the content an
+exhibit, and whether the payload reaches the rendered page**:
+
+| Construct | Quality tier | Security tier | Why |
+| --- | --- | --- | --- |
+| Closed, well-formed fence | masked | **masked** | An explicit, structural declaration that this is an exhibit. Fenced text renders inert — it never becomes a clickable anchor. |
+| HTML or MDX comment | masked | **not masked** | Declares something about *rendering*, not about content. Unrendered text is still text. |
+| Inline math span (`$…$`) | masked | **not masked** | Declares nothing at all: two `$` on one line, which prose about prices produces by accident. |
+| Unterminated fence | masked (to end of file) | **not masked** | An authoring error, not a declaration — and it would silence every remaining line. |
+
+#### Accepted residual risk {#fence-residual-risk}
+
+A closed fence remains a place where a payload is invisible to the security tier.
+**This is accepted, not overlooked.** Two reasons:
+
+1. **Fenced content is inert by construction.** Markdown and MDX both render it
+   as text, never as an anchor, so a `javascript:` URL inside a fence is not the
+   live vector an unfenced one is.
+2. **Unmasking it would make rule documentation unfixable.** Zenzic's own pages
+   for `Z203` and `Z205` teach those rules by showing the payloads. `Z205` exits
+   `2` and cannot be suppressed, so an unmasked pass would fail those pages with
+   no available remedy short of deleting the examples that make them useful.
+
+The consequence for anyone editing a rule page: **an example payload must stay
+inside a closed fence.** Unfencing one turns the page into an unsuppressible
+build failure.
 
 The benefit is architectural: when a directory is excluded, it is excluded everywhere -- scanner, validator, credential scanner, and orphan-checker all see the exact same file set. There is no risk of one module "forgetting" to apply an exclusion rule.
 
@@ -86,7 +210,13 @@ The function takes three arguments:
 
 ## Layered Exclusion Hierarchy {#layered-exclusion}
 
-Zenzic uses a 4-level exclusion model. Each level has a distinct role and a defined precedence. The hierarchy is evaluated top-to-bottom; the **first matching rule wins**.
+Zenzic uses a 4-level exclusion model, named L1-L4. Each level's *name* reflects its role, not
+its evaluation position — the real evaluation order (per `src/zenzic/core/exclusion.py`'s own
+module docstring) is L1, L2 (Forced Inclusions), **L4 (CLI Overrides)**, L2-VCS, L3 (Config
+Exclusions), Default. CLI overrides are checked before VCS-ignore and config exclusions, not
+after — so `--include-dir` can currently override both `.gitignore` and `.zenzic.toml`
+`excluded_dirs`. The hierarchy is evaluated top-to-bottom in that real order; the **first
+matching rule wins**.
 
 ### The Four Levels {#four-levels}
 
@@ -96,14 +226,14 @@ flowchart TD
     L1 -->|".git, .venv, node_modules..."| EXCLUDED_L1[EXCLUDED - Immutable]
     L1 -->|Not in guardrails| L2{L2: Forced Inclusions}
     L2 -->|"included_dirs / included_file_patterns"| INCLUDED_L2[INCLUDED - Forced]
-    L2 -->|Not force-included| L2VCS{L2-VCS: .gitignore}
+    L2 -->|Not force-included| L4{L4: CLI Overrides}
+    L4 -->|"--exclude-dir"| EXCLUDED_L4[EXCLUDED - CLI]
+    L4 -->|"--include-dir"| INCLUDED_L4[INCLUDED - CLI]
+    L4 -->|No CLI override| L2VCS{L2-VCS: .gitignore}
     L2VCS -->|"respect_vcs_ignore=true & match"| EXCLUDED_VCS[EXCLUDED - VCS]
     L2VCS -->|No VCS match| L3{L3: Config Exclusions}
     L3 -->|"excluded_dirs / excluded_file_patterns"| EXCLUDED_L3[EXCLUDED - Config]
-    L3 -->|Not config-excluded| L4{L4: CLI Overrides}
-    L4 -->|"--exclude-dir"| EXCLUDED_L4[EXCLUDED - CLI]
-    L4 -->|"--include-dir"| INCLUDED_L4[INCLUDED - CLI]
-    L4 -->|No CLI override| INCLUDED[INCLUDED - Default]
+    L3 -->|Not config-excluded| INCLUDED[INCLUDED - Default]
 
     style EXCLUDED_L1 fill:#ef4444,color:#fff
     style EXCLUDED_VCS fill:#f59e0b,color:#fff
@@ -126,10 +256,11 @@ flowchart TD
 System Guardrails are **immutable**. They are always excluded regardless of any configuration, CLI flag, or forced inclusion. They protect Zenzic from scanning directories that should never contain documentation source files:
 
 ```text
-.git          .github       .venv         node_modules
-.nox          .tox          .pytest_cache .mypy_cache
-.ruff_cache   __pycache__   .cache
-.hypothesis   .temp
+.git          .github       _zenzic_core  .zenzic_cache
+.venv         node_modules  .nox          .tox
+.pytest_cache .mypy_cache   .ruff_cache   .hypothesis
+build         dist          temp          .temp
+tmp           mutants       out           .vscode-test
 ```
 
 System Guardrails cannot be removed or overridden. They are merged into `excluded_dirs` unconditionally during config initialization. Even `included_dirs` cannot override them -- this is the sole exception to the forced-inclusion rule.
@@ -161,7 +292,7 @@ Per-run overrides via `--exclude-dir` and `--include-dir` flags extend or narrow
 
 ## `respect_vcs_ignore` — VCS Exclusion Semantics {#respect-vcs-ignore}
 
-`respect_vcs_ignore` controls whether Zenzic applies `.gitignore` patterns as an additional exclusion layer. Its default is `false`, implementing the **Zero-Config surprise principle**: the scan perimeter is exactly the filesystem as visible to the developer, with no implicit hidden exclusions.
+`respect_vcs_ignore` controls whether Zenzic applies `.gitignore` patterns as an additional exclusion layer. Its default is `true` — the scan perimeter follows the same VCS-ignore boundary the rest of the toolchain already respects. See [Exclusion Design](./exclusion-design.md) for the rationale and the tradeoffs of disabling it, and [Configuration Reference](../reference/configuration-reference.md#respect-vcs-ignore) for the field-level specification.
 
 When enabled, Zenzic loads `.gitignore` patterns from two locations: the repository root and the docs directory (if a separate `.gitignore` exists there). The VCS ignore parser implements the full gitignore specification, including negation (`!`), path anchoring, and glob wildcards.
 
@@ -189,8 +320,8 @@ The Privacy Gate (Exclusion Zone) defines a strict boundary where Zenzic's scann
 
 - **Directory pruning** is applied during `os.walk()`, not after. Excluded subtrees (e.g. `node_modules/` with thousands of files) are never entered.
 - For non-Markdown files, `walk_files()` uses the same `os.walk()` engine with in-place pruning. Unlike `Path.rglob("*")`, it never enters excluded trees.
-- File patterns are **pre-compiled** to `re.Pattern` at `LayeredExclusionManager` construction time using `fnmatch.translate()`.
-- VCS patterns with no negation rules use a **combined regex** fast path -- all positive rules are merged into a single compiled regex for O(1) matching per path.
+- File patterns are **pre-compiled** to RE2 patterns at `LayeredExclusionManager` construction time using `translate_glob_to_re2()` — a purpose-built translator, not `fnmatch.translate()`, since RE2 doesn't support every construct `fnmatch.translate()` can emit.
+- VCS patterns are delegated to the third-party `pathspec.PathSpec.from_lines()` (`GitWildMatchPattern`), not a Zenzic-authored combined-regex fast path.
 - The `LayeredExclusionManager` is constructed **once** per CLI invocation and passed by reference through the entire pipeline.
 - A separate hard-prune set is used by `find_unused_assets` for `excluded_asset_dirs`.
 
@@ -223,15 +354,23 @@ The invariant guarantees that every engine-generated URL traces back to at least
 
 | Engine          | Implements `get_extra_content_roots` | Status                                                                |
 |-----------------|--------------------------------------|------------------------------------------------------------------------|
-| MkDocs (Material) | No                                  | Opt-in deferred until `material/blog` plugin becomes available.   |
+| MkDocs (Material) | Yes                                 | Discovers monorepo docs roots via `_discover_monorepo_docs_roots()`.  |
 | Zensical        | No                                   | Architecture is identical -- enabled when an out-of-tree plugin ships. |
 | Standalone      | No                                   | No plugins; `docs_root` is the entire content surface.                 |
 
+Monorepo sub-projects are found from the `mkdocs-monorepo-plugin` configuration and
+from `nav`. Every documented `!include` spelling is recognised: a bare list entry
+(`- '!include ./sub'`), an entry keyed on the directive, and the plugin's own titled
+form (`- Sub: '!include ./sub/mkdocs.yml'`). The `nav` tree is walked recursively, so
+an include nested inside a section is found too. This matters beyond navigation: the
+roots discovered here are what the credential scan walks, so a sub-project Zenzic
+cannot reach is a sub-project it cannot scan.
+
 ### `inspect routes` — Site Map Export {#inspect-routes}
 
-The `inspect routes` command exposes the VSM to external consumers as a deterministic JSON structure. Each record carries four fields: `url`, `kind` (`physical` or `virtual`), `source_files` (a sorted array of repo-relative paths that cause the URL to exist), and a `digest` — a SHA-256 fingerprint derived from the URL and its source files.
+The `inspect routes` command exposes the VSM to external consumers as a deterministic JSON structure. Each record carries four fields: `url`, `kind` (one of `physical`, `tag`, `tag_index`, `pagination`, `author`, or `author_index`), `source_files` (a sorted array of repo-relative paths that cause the URL to exist), and a `digest` — a SHA-256 fingerprint derived from the URL and its source files.
 
-The `--kind` flag narrows output to `physical`, `virtual`, or `all` (default). JSON is written exclusively to `stdout`; diagnostics go to `stderr`.
+The `--kind` flag narrows output to `physical`, `virtual`, or `all` (default) — a coarser filter than the record's own `kind` field, where `virtual` matches every non-`physical` value above.
 
 This design makes the VSM composable: external tools, CI/CD dashboards, or specialized tooling can consume the site map without running the full scanner.
 

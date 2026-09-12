@@ -540,7 +540,7 @@ def test_i18n_languages_is_null(tmp_path: Path) -> None:
               languages: null
 
     Zenzic must return set() and find_orphans must not crash.
-    This is the exact YAML pattern the Tech Lead flagged.
+    This is the exact YAML pattern flagged during internal review.
     """
     repo = tmp_path / "repo"
     docs = repo / "docs"

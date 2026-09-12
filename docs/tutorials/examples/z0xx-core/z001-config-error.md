@@ -8,8 +8,6 @@ description: "Analysis of the z001-config-error scenario: how syntax errors or u
 
 **Z-Code:** `Z001 CORE_CONFIG_STRUCTURE` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z001ConfigError />
-
 ---
 
 ## Overview

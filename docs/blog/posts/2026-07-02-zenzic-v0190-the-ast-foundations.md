@@ -20,8 +20,6 @@ This release represents a fundamental shift in how Zenzic understands and intera
 
 <!-- more -->
 
-![Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix](../../assets/images/blog/zenzic-v0190-the-ast-foundations.webp)
-
 ---
 
 ## The Shift from Regex to a Lossless AST
@@ -63,3 +61,16 @@ Zenzic's philosophy of **"Hostile Precision"** remains central to the new mutati
 By default, `zenzic fix` operates as a dry-run, outputting a clear, unified diff of the proposed changes. To commit changes to disk, the user must explicitly provide the `--apply` flag. Furthermore, when Zenzic auto-fixes an empty link (Z108), it injects a deterministic `[MISSING LINK LABEL]` marker. It does not attempt to scrape URLs or guess appropriate labels. It reliably converts a structural accessibility error into a visible, trackable content debt (Z501) that the author must deliberately resolve.
 
 Zenzic v0.19.0 proves that extreme performance and uncompromising safety can coexist in a mutation engine. Welcome to the era of the AST.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

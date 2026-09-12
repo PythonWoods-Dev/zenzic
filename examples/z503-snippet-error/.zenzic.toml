@@ -9,7 +9,7 @@
 # `ast` module and flags syntax errors as Z503 SNIPPET_ERROR — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z503 ×1 — SyntaxError in Python block)
+#   zenzic check snippets   → EXIT 0  (Z503 ×1 — SyntaxError in Python block)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

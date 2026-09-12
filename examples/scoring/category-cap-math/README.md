@@ -89,6 +89,8 @@ positively to the score.
 `docs/orphan.md` documents the three codes (Z103, Z111, Z113) that were
 CI-blocking (`error` SARIF level) yet carried 0 DQS penalty before v0.8.0,
 creating a "gate paradox": a project could score 100/100 while failing CI.
+(Historical snapshot as of v0.8.0 — `Z111` has since been reassigned to a
+different meaning, and `Z113` has been removed entirely.)
 
 ADR-031 introduced `CodeDefinition` as a Single Source of Truth.  Since
 v0.8.0, a single Z103 ORPHAN_LINK occurrence deducts **2.0 pts** (Structural).

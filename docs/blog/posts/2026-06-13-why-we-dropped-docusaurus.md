@@ -108,7 +108,7 @@ Zenzic's architecture is designed exclusively for documentation engines whose an
 In practice, this defines our current support and future roadmap:
 
 - **MkDocs** *(Supported)* — anchors derived from `python-markdown` heading slugification, stable and documented
-- **Zensical** *(Supported)* — Python-native engine; anchor generation is fully controlled within the same deterministic model
+- **Zensical** *(Supported)* — a Rust-core engine with a Python package interface; anchor generation is fully controlled within the same deterministic model, no external runtime execution required
 - **Standalone** *(Supported)* — engine-agnostic static analysis over Markdown source trees without a framework adapter contract
 - **Sphinx** *(Roadmap)* — architecture-compatible candidate via deterministic `docutils`-based anchors, but no native adapter is currently shipped
 - **Hugo** *(Roadmap)* — architecture-compatible candidate via deterministic `goldmark`-based anchors, but no native adapter is currently shipped
@@ -135,3 +135,17 @@ We deleted the Node.js call. We deleted the adapter. We wrote this post.
 *Zenzic is a pure-Python static documentation linter.
 Source: [github.com/pythonwoods/zenzic](https://github.com/pythonwoods/zenzic)*
 {/*truncate*/}
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

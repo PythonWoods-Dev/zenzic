@@ -37,6 +37,7 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from zenzic.core.exceptions import CheckError, ZenzicError
 from zenzic.models.config import BuildContext
 
 from ._base import BaseAdapter
@@ -58,6 +59,39 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 }
 
 
+def _is_zensical_theme(mkdocs_content: str) -> bool:
+    """Inspect mkdocs.yml content for theme: zensical without full YAML parsing.
+
+    Robust against false positives in comments, nav items, or plugins.
+    """
+    lines = mkdocs_content.splitlines()
+    in_theme_block = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if not line.startswith((" ", "\t")):
+            if line.startswith("theme:"):
+                remainder = line[6:].strip()
+                remainder_clean = remainder.split("#", 1)[0].strip().strip("\"'")
+                if remainder_clean == "zensical":
+                    return True
+                in_theme_block = True
+                continue
+            else:
+                in_theme_block = False
+        elif in_theme_block:
+            clean_indented = stripped.split("#", 1)[0].strip()
+            if clean_indented.startswith("name:"):
+                val = clean_indented[5:].strip().strip("\"'")
+                if val == "zensical":
+                    return True
+            elif clean_indented.strip("\"'") == "zensical":
+                return True
+    return False
+
+
 def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical", "standalone"]:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
@@ -65,18 +99,33 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
 
     1. ``.zenzic-vsm.json``   → ``"prebuilt"``
     2. ``zensical.toml``      → ``"zensical"``
-    3. ``mkdocs.yml``         → ``"mkdocs"``
-    4. No marker found        → ``"standalone"`` (universal fallback mode)
+    3. ``mkdocs.yml`` / ``mkdocs.yaml`` with theme: zensical → ``"zensical"`` (compat input)
+    4. ``mkdocs.yml`` / ``mkdocs.yaml`` → ``"mkdocs"``
+    5. No marker found        → ``"standalone"`` (universal fallback mode)
 
-    This function is called when ``BuildContext.engine == "auto"`` (the default),
-    replacing the previous implicit assumption that the engine was MkDocs.
+    This function is called when ``BuildContext.engine == "auto"`` (the default).
     """
     if (repo_root / ".zenzic-vsm.json").is_file():
         return "prebuilt"
     if (repo_root / "zensical.toml").is_file():
         return "zensical"
-    if (repo_root / "mkdocs.yml").is_file():
+
+    mkdocs_file: Path | None = None
+    for name in ("mkdocs.yml", "mkdocs.yaml"):
+        candidate = repo_root / name
+        if candidate.is_file():
+            mkdocs_file = candidate
+            break
+
+    if mkdocs_file is not None:
+        try:
+            content = mkdocs_file.read_text(encoding="utf-8", errors="replace")
+            if _is_zensical_theme(content):
+                return "zensical"
+        except OSError:
+            pass
         return "mkdocs"
+
     return "standalone"
 
 
@@ -96,9 +145,18 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
 
 
 def list_adapter_engines() -> list[str]:
-    """Return sorted list of engine names registered in ``zenzic.adapters``."""
+    """Return every engine name a user can actually select.
+
+    Union of the ``zenzic.adapters`` entry-point group and the built-in
+    registry, matching exactly what :func:`_load_adapter_class` will resolve.
+    Entry points alone under-reported: ``prebuilt`` and ``vsm`` are built-in
+    only, so ``--engine prebuilt`` was rejected as an "Unknown engine adapter"
+    even though the same engine works via ``[build_context] engine`` in config
+    and is chosen automatically by :func:`discover_engine` when
+    ``.zenzic-vsm.json`` is present. The gate, not the adapter, was the gap.
+    """
     eps = entry_points(group="zenzic.adapters")
-    return sorted(ep.name for ep in eps)
+    return sorted({ep.name for ep in eps} | set(_BUILTIN_ADAPTERS))
 
 
 # ── Adapter cache ────────────────────────────────────────────────────────────
@@ -108,8 +166,39 @@ def list_adapter_engines() -> list[str]:
 # execution model uses ProcessPoolExecutor (each worker has its own cache).
 # This eliminates the risk of double-instantiation if a future caller uses
 # ThreadPoolExecutor without requiring a code-level change here.
-_adapter_cache: dict[tuple[str, Path, Path], BaseAdapter] = {}
+#: (filename, mtime_ns, size) per watched config file; -1/-1 when absent.
+_ConfigFingerprint = tuple[tuple[str, int, int], ...]
+
+#: Cached adapter plus the fingerprint of the config files it was built from.
+_adapter_cache: dict[tuple[str, Path, Path], tuple[BaseAdapter, _ConfigFingerprint]] = {}
 _adapter_cache_lock: threading.Lock = threading.Lock()
+
+
+def _config_fingerprint(adapter: BaseAdapter, repo_root: Path) -> _ConfigFingerprint:
+    """Fingerprint the engine config files *adapter* declares it depends on.
+
+    The cache key is ``(engine, docs_root, repo_root)`` — none of which change
+    when the *contents* of ``mkdocs.yml`` change. Without this, staying correct
+    was every consumer's own responsibility: each long-running process had to
+    remember to call :func:`clear_adapter_cache` at the right trigger. The LSP
+    did; ``zenzic-mcp`` did not, and served a stale adapter after a real config
+    edit. Fingerprinting makes the cache safe by construction instead.
+
+    Uses ``(mtime_ns, size)`` rather than hashing file contents: it is two
+    ``stat()`` calls at most, versus reading every config file on every cache
+    hit, and it is what the already-approved design specified. A missing file
+    records a distinct sentinel, so deleting a config invalidates rather than
+    silently reusing the adapter built when it was present.
+    """
+    entries: list[tuple[str, int, int]] = []
+    for name in sorted(adapter.watched_config_files):
+        try:
+            stat = (repo_root / name).stat()
+        except OSError:
+            entries.append((name, -1, -1))
+        else:
+            entries.append((name, stat.st_mtime_ns, stat.st_size))
+    return tuple(entries)
 
 
 def clear_adapter_cache() -> None:
@@ -168,9 +257,15 @@ def get_adapter(
         context.engine = discover_engine(repo_root)
 
     key = (context.engine, docs_root.resolve(), repo_root.resolve())
-    # Fast path: read without lock (dict reads are atomic under the GIL).
-    if key in _adapter_cache:
-        return _adapter_cache[key]
+    # Fast path: read without lock (dict reads are atomic under the GIL), but
+    # only reuse the entry while the config it was built from is unchanged.
+    cached = _adapter_cache.get(key)
+    if cached is not None:
+        cached_adapter, cached_fingerprint = cached
+        if _config_fingerprint(cached_adapter, repo_root.resolve()) == cached_fingerprint:
+            return cached_adapter
+        with _adapter_cache_lock:
+            _adapter_cache.pop(key, None)
 
     adapter_class = _load_adapter_class(context.engine)
 
@@ -189,11 +284,26 @@ def get_adapter(
 
     if adapter_class is None or adapter_class is StandaloneAdapter:
         adapter: BaseAdapter = StandaloneAdapter()
-    elif hasattr(adapter_class, "from_repo"):
-        # Prefer the richer from_repo constructor when available.
-        adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
     else:
-        adapter = cast(Any, adapter_class)(context, docs_root)
+        # A third-party or built-in adapter's constructor/from_repo can raise
+        # anything. A ZenzicError subclass is already well-typed (e.g. the
+        # real ZensicalAdapter raising ConfigurationError when zensical.toml
+        # is absent) and must propagate unchanged. Anything else is an
+        # unexpected adapter bug — wrap it as CheckError so cli_main()'s
+        # top-level handler renders a clean error instead of a raw traceback.
+        try:
+            if hasattr(adapter_class, "from_repo"):
+                # Prefer the richer from_repo constructor when available.
+                adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
+            else:
+                adapter = cast(Any, adapter_class)(context, docs_root)
+        except ZenzicError:
+            raise
+        except Exception as exc:
+            raise CheckError(
+                f"Adapter for engine {context.engine!r} failed to initialize: {exc}",
+                context={"engine": context.engine, "cause": str(exc)},
+            ) from exc
 
     if not isinstance(adapter, BaseAdapter):
         raise TypeError(
@@ -202,7 +312,16 @@ def get_adapter(
 
     # If the adapter found no engine config and no locale information, fall
     # back to StandaloneAdapter so nav-dependent checks are skipped cleanly.
-    if not adapter.has_engine_config():
+    try:
+        has_config = adapter.has_engine_config()
+    except ZenzicError:
+        raise
+    except Exception as exc:
+        raise CheckError(
+            f"Adapter for engine {context.engine!r} failed during has_engine_config(): {exc}",
+            context={"engine": context.engine, "cause": str(exc)},
+        ) from exc
+    if not has_config:
         adapter = StandaloneAdapter()
 
     messages = []
@@ -219,5 +338,5 @@ def get_adapter(
     with _adapter_cache_lock:
         # Re-check after acquiring the lock (double-checked locking pattern).
         if key not in _adapter_cache:
-            _adapter_cache[key] = adapter
-    return _adapter_cache[key]
+            _adapter_cache[key] = (adapter, _config_fingerprint(adapter, repo_root.resolve()))
+    return _adapter_cache[key][0]

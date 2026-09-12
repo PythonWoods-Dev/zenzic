@@ -6,9 +6,9 @@ Zero I/O guarantee: all file membership and anchor lookups are performed
 against pre-built in-memory mappings passed at construction time.
 No ``open()``, no ``Path.exists()``, no ``subprocess``.
 
-The resolver is the engine-agnostic heart of Sprint 3.  It knows nothing
-about MkDocs, Zensical, or any build system — only about paths, anchors,
-and whether a link is resolvable within a given in-memory file tree.
+The resolver is engine-agnostic. It knows nothing about MkDocs, Zensical, or
+any build system — only about paths, anchors, and whether a link is
+resolvable within a given in-memory file tree.
 
 Performance contract: 5 000 ``resolve()`` calls must complete in < 100 ms.
 This is achieved by keeping the hot path free of ``pathlib.Path`` allocations:
@@ -102,6 +102,38 @@ class Resolved(NamedTuple):
 
 # Public union type — callers should pattern-match on the concrete type.
 ResolveOutcome = PathTraversal | FileNotFound | AnchorMissing | Resolved
+
+
+def resolve_href_target(
+    source_file: Path, path_part: str, docs_root_str: str, repo_root_str: str
+) -> str:
+    """Resolve a decoded, backslash-normalised href path to an absolute path string.
+
+    Applies the same alias rules as :meth:`InMemoryPathResolver._build_target`,
+    the single source of truth for these rules: a leading
+    ``/`` resolves against ``docs_root``; ``@site/docs/`` maps to ``docs_root``;
+    ``@site/`` (not followed by ``docs/``) maps to ``repo_root``; anything else
+    resolves relative to ``source_file``'s own directory. Pure string
+    arithmetic (``os.path.normpath``) — no I/O, no ``Path.exists()``.
+
+    ``docs_root_str``/``repo_root_str`` are pre-computed ``str(Path)`` forms,
+    matching this module's hot-path convention of never allocating a new
+    string from a ``Path`` on every call — callers compute them once.
+
+    Used both by :class:`InMemoryPathResolver` (markdown-link resolution
+    against pre-loaded content) and by :mod:`zenzic.core.incremental`'s
+    non-markdown asset existence check, so both consumers agree on what an
+    ``@site/`` alias means instead of one of them re-deriving it independently.
+    """
+    if path_part.startswith("/"):
+        raw = docs_root_str + os.sep + path_part.lstrip("/")
+    elif path_part.startswith("@site/docs/"):
+        raw = docs_root_str + os.sep + path_part[len("@site/docs/") :]
+    elif path_part.startswith("@site/"):
+        raw = repo_root_str + os.sep + path_part[len("@site/") :]
+    else:
+        raw = str(source_file.parent) + os.sep + path_part
+    return os.path.normpath(raw)
 
 
 # ─── InMemoryPathResolver ──────────────────────────────────────────────────────
@@ -350,14 +382,4 @@ class InMemoryPathResolver:
         Returns:
             Normalised absolute path string with all ``.`` and ``..`` resolved.
         """
-        if path_part.startswith("/"):
-            raw = self._root_str + os.sep + path_part.lstrip("/")
-        elif path_part.startswith("@site/docs/"):
-            # Docusaurus alias: @site/docs/ maps to docs_root (root_dir).
-            raw = self._root_str + os.sep + path_part[len("@site/docs/") :]
-        elif path_part.startswith("@site/"):
-            # Docusaurus alias: @site/ maps to repo_root.
-            raw = self._repo_root_str + os.sep + path_part[len("@site/") :]
-        else:
-            raw = str(source_file.parent) + os.sep + path_part
-        return os.path.normpath(raw)
+        return resolve_href_target(source_file, path_part, self._root_str, self._repo_root_str)

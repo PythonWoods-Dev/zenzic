@@ -20,7 +20,8 @@ Zenzic uses a `ProcessPoolExecutor` to scan documentation files in parallel
 when a repository contains 50 or more Markdown files (`ADAPTIVE_PARALLEL_THRESHOLD`
 in `core/scanner.py`). Each worker executes `_scan_single_file()` independently
 and returns an `IntegrityReport` containing any findings, including `SecurityFinding`
-objects emitted by the credential scanner (Z201/Z202/Z203).
+objects emitted by the Credential Scanner (Z201) and the Path Traversal Guard
+(Z202/Z203) — two distinct scanners in the `CORE_SCANNERS` registry, not one.
 
 In the earlier implementation, the coordinator collected results by
 iterating over `futures_map.items()` **in submission order**, calling
@@ -165,3 +166,10 @@ seconds unconditionally triggers the Z902 guard — no additional mechanism need
   is unchanged.
 - The fail-fast applies to parallel mode only. A scan that produces zero
   security findings is unaffected by this change.
+
+!!! note "Historical snapshot"
+    This ADR is dated 2026-05-10, when `ADAPTIVE_PARALLEL_THRESHOLD` was genuinely
+    `50` files. The constant was raised to `1000` files in v0.30.0 (2026-08-18) — the
+    decision and mechanism this ADR documents (fail-fast via `wait(FIRST_COMPLETED)`)
+    are unaffected, but every "50 files" activation-threshold figure on this page
+    (Context above, Consequences above) no longer matches the current value.

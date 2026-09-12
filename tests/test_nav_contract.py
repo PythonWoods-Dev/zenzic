@@ -290,3 +290,100 @@ class TestNavContract:
         errors = check_nav_contract(tmp_path, mgr)
         assert len(errors) == 1
         assert "/it/" in errors[0]
+
+
+# ─── Zensical: [project.extra].alternate ──────────────────────────────────────
+#
+# Zensical's own official documentation (zensical.org/docs/setup/language/)
+# confirms the exact same alternate-links mechanism as mkdocs-material,
+# structurally identical (name/link/lang per entry), just nested under
+# [project.extra] in zensical.toml instead of extra: in mkdocs.yml:
+#
+#   [project.extra]
+#   alternate = [
+#     { name = "English", link = "/en/", lang = "en" },
+#     { name = "Deutsch", link = "/de/", lang = "de" },
+#   ]
+#
+# check_nav_contract() previously hardcoded find_config_file() (mkdocs-only)
+# with no engine parameter at all, so this exact class of misconfiguration
+# was silently unchecked for every Zensical project. Regression coverage
+# for V031_Z406_REOPEN_AS_ADAPTER_GAP.
+
+
+def _write_zensical(repo: Path, extra_toml_body: str) -> None:
+    """Write a minimal zensical.toml. *extra_toml_body* is appended verbatim
+    under ``[project]`` -- callers supply the ``[project.extra]`` block and
+    any other keys directly, since tomllib (stdlib) has no TOML writer."""
+    (repo / "zensical.toml").write_text(
+        f'[project]\nsite_name = "Test"\ndocs_dir = "docs"\n{extra_toml_body}\n',
+        encoding="utf-8",
+    )
+
+
+class TestNavContractZensical:
+    def test_zensical_broken_alternate_is_error(self, tmp_path: Path) -> None:
+        """/it/ is not in the VSM — no file maps to that URL → error."""
+        _make_docs(tmp_path, ["index.md", "index.it.md"])
+        _write_zensical(
+            tmp_path,
+            """
+[project.extra]
+alternate = [
+  { name = "English", link = "/", lang = "en" },
+  { name = "Italiano", link = "/it/", lang = "it" },
+]
+""",
+        )
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr, engine="zensical")
+        assert len(errors) == 1
+        assert "it" in errors[0]
+        assert "/it/" in errors[0]
+
+    def test_zensical_correct_alternate_is_ok(self, tmp_path: Path) -> None:
+        """/index.it/ is in the VSM (suffix mode) → no error."""
+        _make_docs(tmp_path, ["index.md", "index.it.md"])
+        _write_zensical(
+            tmp_path,
+            """
+[project.extra]
+alternate = [
+  { name = "English", link = "/", lang = "en" },
+  { name = "Italiano", link = "/index.it/", lang = "it" },
+]
+""",
+        )
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr, engine="zensical")
+        assert errors == []
+
+    def test_zensical_no_config_file_returns_empty(self, tmp_path: Path) -> None:
+        """No zensical.toml present -> no violations, no crash."""
+        _make_docs(tmp_path, ["index.md"])
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr, engine="zensical")
+        assert errors == []
+
+    def test_default_engine_still_reads_mkdocs(self, tmp_path: Path) -> None:
+        """engine defaults to "mkdocs" -- existing callers/tests are unaffected."""
+        _make_docs(tmp_path, ["index.md", "index.it.md"])
+        _write_mkdocs(
+            tmp_path,
+            {
+                "site_name": "Test",
+                "extra": {
+                    "alternate": [
+                        {"name": "Italiano", "link": "/it/", "lang": "it"},
+                    ]
+                },
+            },
+        )
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
+        assert len(errors) == 1
+        assert "mkdocs.yml" in errors[0]

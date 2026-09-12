@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections import deque
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 
@@ -84,3 +85,58 @@ def detect_dead_ends(vsm: VirtualSiteMap) -> list[str]:
             dead_ends.append(url)
 
     return sorted(dead_ends)
+
+
+def detect_traceability_violations(
+    vsm: VirtualSiteMap,
+    traceability_targets: dict[str, list[str]],
+    docs_root: Path | None = None,
+    repo_root: Path | None = None,
+) -> list[tuple[str, str, str, list[str]]]:
+    """Detect documents matching target globs that lack incoming links from required source globs (Z412).
+
+    Returns a deterministically sorted list of tuples:
+    (canonical_url, rel_source_path, target_glob_pattern, list_of_required_source_globs).
+    """
+    if not traceability_targets:
+        return []
+
+    from fnmatch import fnmatch
+
+    violations: list[tuple[str, str, str, list[str]]] = []
+
+    for url, route in sorted(vsm.items()):
+        if route.status == "IGNORED" or route.source == "<virtual>":
+            continue
+
+        lower_source = route.source.lower()
+        if not (lower_source.endswith(".md") or lower_source.endswith(".mdx")):
+            continue
+
+        rel_source = route.source.replace("\\", "/")
+
+        for target_glob, source_globs in sorted(traceability_targets.items()):
+            if not fnmatch(rel_source, target_glob):
+                continue
+
+            incoming_paths = vsm.incoming_links.get(url, set())
+            has_valid_source = False
+
+            for src_path in incoming_paths:
+                src_str = str(src_path).replace("\\", "/")
+                if docs_root:
+                    try:
+                        src_rel = src_path.relative_to(docs_root).as_posix()
+                    except ValueError:
+                        src_rel = src_str
+                else:
+                    src_rel = src_str
+
+                if any(fnmatch(src_rel, sg) or fnmatch(src_str, sg) for sg in source_globs):
+                    has_valid_source = True
+                    break
+
+            if not has_valid_source:
+                violations.append((url, rel_source, target_glob, source_globs))
+
+    return sorted(violations)

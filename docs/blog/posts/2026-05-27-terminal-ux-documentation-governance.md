@@ -91,6 +91,13 @@ constitute the document graph, how routes are resolved, and which structural
 checks are active. When no recognized configuration file is present, `standalone`
 is the default.
 
+!!! note "Historical snapshot"
+    This post is dated 2026-05-27. `docusaurus` was a real, supported adapter mode
+    at the time of writing; it was removed in v0.14.0 (2026-06-21) — see
+    [Why We Dropped Docusaurus](2026-06-13-why-we-dropped-docusaurus.md). The
+    real current adapter modes are `mkdocs`, `zensical`, `standalone`,
+    `prebuilt`, and `vsm`.
+
 The adapter label carries a constraint that is not stated elsewhere in the
 output. In `standalone` mode, the navigation manifest is absent. Checks that
 require a resolved route graph — orphaned-page detection being the primary
@@ -370,8 +377,6 @@ a scanned path attempted to escape the repository boundary toward system paths.
 Like Exit 2, it precedes all other exit-code evaluation. `--exit-zero` has no
 effect.
 
-<CredentialTerminal />
-
 The evaluation order is fixed: Exit 3 conditions are checked first, Exit 2
 second, Exit 1 third. This order ensures that security contracts are never
 shadowed by governance failures or score thresholds.
@@ -391,3 +396,17 @@ encoding is evaluated on every run. Treating it as display-only discards that
 evaluation. Treating it as a governance interface — machine-readable exit codes,
 auditable debt counters, caret-precise diagnostics — makes it enforceable at
 the pipeline boundary.
+
+---
+
+## Resources
+
+* **Source Code**: <https://github.com/PythonWoods/zenzic>
+* **Documentation**: <https://zenzic.dev>
+* **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+* **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+* **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

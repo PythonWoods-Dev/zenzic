@@ -21,8 +21,6 @@ Here are 10 subtle, frustrating, and downright dangerous documentation bugs that
 !!! abstract "Architectural Update"
     *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
 
-![10 Documentation Bugs Caught by Zenzic](../../assets/images/blog/10-documentation-bugs-caught-by-zenzic.webp)
-
 ---
 
 ## 1. The "Ghost Anchor" (Z102)
@@ -99,3 +97,17 @@ Documentation integrity is an engineering problem. Relying on manual reviews to 
 By integrating Zenzic into your docs-as-code workflow, you shift documentation testing left. Every commit is strictly audited, giving you a quantified **Documentation Quality Score (DQS)** that ensures your docs are as reliable as your code.
 
 Want to stop these bugs in your own repositories? [Get started with Zenzic today.](https://zenzic.dev/how-to/install/)
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

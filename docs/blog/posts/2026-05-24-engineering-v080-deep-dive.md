@@ -152,10 +152,10 @@ The Zenzic solution is an **Anti-Corruption Layer (Facade)** around regex operat
 ```python
 from zenzic.core import regex
 
+
 def contains_secret(line: str) -> bool:
     # contributor-facing API stays stable
     return regex.search(SECRET_PATTERN, line) is not None
-
 ```
 
 This design gives us three guarantees at once:
@@ -327,3 +327,17 @@ The system proves a different path:
 - and sovereign parity from local workstation to remote CI.
 
 That is what a zero-config ecosystem looks like when engineering contracts are treated as public infrastructure, not internal folklore.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

@@ -28,7 +28,11 @@ repos:
     hooks:
       - id: markdownlint
         exclude: ^examples/
-        args: ["--fix"]
+        # Deliberately NOT --fix. `.markdownlint.json` sets `default: true`, so
+        # every rule a future markdownlint release adds is enabled the moment
+        # `rev` is bumped. With --fix that would silently rewrite files across
+        # the corpus on the next run; without it, the same bump surfaces as a
+        # reviewable failure and each new rule gets a deliberate disposition.
 
   # 3. Ruff (linting & formatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -65,19 +69,83 @@ repos:
         # [project.dependencies] including google-re2. No additional_dependencies
         # needed here (that's only for mirrors-mypy repo hooks that run in
         # isolated virtualenvs outside the project's uv-managed environment).
-        entry: uv run mypy src/
+        entry: uv run mypy src/ tests/
         language: system
         types: [python]
         pass_filenames: false
 
   # 7. Local Dogfooding: Zenzic Secret Guard on staged Markdown/MDX
+  #
+  #     The guard is deliberately wider than the analysed corpus: it scans every
+  #     staged Markdown/MDX file, including the 203 that live outside docs/ --
+  #     README.md, CONTRIBUTING.md, SECURITY.md, .github/, scripts/, changelogs/.
+  #     That breadth is the point, so it is not narrowed to the corpus.
+  #
+  #     Two paths are exempted here, and the exemption lives in this file rather
+  #     than in .zenzic.toml or the engine. Both are fixtures whose whole purpose
+  #     is to carry a credential the scanner detects -- examples/z201-credentials/
+  #     demonstrates Z201 firing for the tutorial, and the hero_specimen sandbox
+  #     backs the test suite -- so the scanner detects them and blocks every
+  #     commit that touches them. These two are the complete set: of the 502
+  #     tracked Markdown/MDX files, the guard flags exactly these and nothing
+  #     else, checked by running it over all of them rather than by assuming.
+  #     The engine must not grow a config-named
+  #     exemption to accommodate that -- the security tier is never suppressible
+  #     by any mechanism (discovery.py, iter_security_scan_sources), and a key
+  #     that switches it off for one path is a general bypass with a narrow
+  #     default. Excluding the path at the hook keeps the property intact: the
+  #     fixtures are still scanned by `zenzic guard scan` run directly, still
+  #     report their findings, and still exit 2. Only the commit gate skips
+  #     them, visibly, in a file every diff shows.
   - repo: local
     hooks:
       - id: zenzic-guard
         name: zenzic guard (Secret Guard)
-        entry: uv run zenzic guard scan --staged --quiet --no-header
+        entry: uv run zenzic guard scan --quiet --no-header
         language: system
         types_or: [markdown, mdx]
+        exclude: ^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$)
+        pass_filenames: true
+
+  # 7a. Breaking-change marker (commit-msg stage -- the pre-commit stage never
+  #     sees the message). Requires a `!` in the subject only when the count of
+  #     BREAKING entries in CHANGELOG.md actually increases, so moving an entry
+  #     between sections does not false-positive. Limits are stated in the
+  #     script's own docstring rather than left to be discovered.
+  - repo: local
+    hooks:
+      - id: breaking-change-marker
+        name: Breaking-change marker (!) in the commit subject
+        entry: python3 scripts/check_breaking_change_marker.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+  # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
+  #     Not a formatter: it never edits the file, it fails loudly when the file
+  #     changes shape. Added after commit 36c5f70 silently gained 18 blank lines
+  #     through the comment header with no identifiable vector.
+  - repo: local
+    hooks:
+      - id: redirects-structure
+        name: Redirects structure tripwire
+        entry: python3 scripts/check_redirects_structure.py
+        language: system
+        files: ^docs/_redirects$
+        pass_filenames: false
+
+  # 7c. Blog link schedule — staggered-publication invariant for docs/blog/posts/.
+  #     A live (non-draft) post must never link to a still-draft post: a real
+  #     mkdocs build --strict stays clean either way, since the blog plugin just
+  #     excludes drafts from the build rather than treating a link into one as
+  #     broken. This is the only thing that actually enforces the schedule.
+  - repo: local
+    hooks:
+      - id: blog-link-schedule
+        name: Blog link schedule gate
+        entry: python3 scripts/check_blog_link_schedule.py
+        language: system
+        files: ^docs/blog/posts/.*\.md$
         pass_filenames: false
 
   # 8. Final Guard — score gate + badge freshness + full audit (pre-push only)

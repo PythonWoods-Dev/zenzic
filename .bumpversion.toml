@@ -73,11 +73,6 @@ filename = "RELEASE.md"
 search = "- [ ] `pyproject.toml` version matches the tag (`{current_version}`)"
 replace = "- [ ] `pyproject.toml` version matches the tag (`{new_version}`)"
 
-[[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = 'git tag -s -m "Release v{current_version}" v{current_version}'
-replace = 'git tag -s -m "Release v{new_version}" v{new_version}'
-
 
 [[tool.bumpversion.files]]
 filename = "RELEASE.md"
@@ -86,14 +81,23 @@ replace = '| Date     | {now:%Y-%m-%d} |'
 regex = true
 
 [[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = "- [ ] Create GitHub Release from the tag, using the `## [{current_version}]` CHANGELOG section as the release body."
-replace = "- [ ] Create GitHub Release from the tag, using the `## [{new_version}]` CHANGELOG section as the release body."
-
-[[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
 search = 'placeholder: "{current_version}"'
 replace = 'placeholder: "{new_version}"'
+
+[[tool.bumpversion.files]]
+# The supported-version table on the security page. Registered 2026-09-08 after
+# an audit found it unregistered here and in zenzic-vscode, while zenzic-action
+# had it right: at a tag both would have gone on claiming 0.30.x was current and
+# the new release unsupported -- on the one page a user reads when deciding
+# whether to upgrade after a vulnerability (ADR-092).
+# The table writes `0.30.x`, not the full version, so the search uses the
+# major/minor components; {current_version} would not match anything here.
+filename = "SECURITY.md"
+search = '''| `{current_major}.{current_minor}.x` (current) | ✅ All security fixes |
+| `< {current_major}.{current_minor}` | ❌ Unsupported — upgrade to the current release |'''
+replace = '''| `{new_major}.{new_minor}.x` (current) | ✅ All security fixes |
+| `< {new_major}.{new_minor}` | ❌ Unsupported — upgrade to the current release |'''
 
 [[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/bug_report.yml"
@@ -110,11 +114,6 @@ replace = "rev: v{new_version}"
 
 [[tool.bumpversion.files]]
 filename = "README.md"
-search = '"version": "{current_version}"'
-replace = '"version": "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "README.md"
 search = "uvx zenzic@{current_version} check all"
 replace = "uvx zenzic@{new_version} check all"
 
@@ -122,6 +121,11 @@ replace = "uvx zenzic@{new_version} check all"
 filename = "README.md"
 search = "rev: v{current_version}"
 replace = "rev: v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = 'docs = ["zenzic~={current_version}"]'
+replace = 'docs = ["zenzic~={new_version}"]'
 
 # Manages the "Version baseline" annotation in the CLI reference so it never drifts.
 [[tool.bumpversion.files]]
@@ -153,3 +157,28 @@ replace = 'version: "{new_version}"'
 filename = "docs/how-to/configure-ci-cd.md"
 search = "rev: v{current_version}"
 replace = "rev: v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "docs/how-to/configure-ci-cd.md"
+search = "uvx zenzic@{current_version} check all --ci"
+replace = "uvx zenzic@{new_version} check all --ci"
+
+[[tool.bumpversion.files]]
+filename = "docs/how-to/install.md"
+search = "rev: v{current_version}"
+replace = "rev: v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "docs/how-to/install.md"
+search = '"zenzic~={current_version}"'
+replace = '"zenzic~={new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "docs/how-to/install.md"
+search = "uvx zenzic@{current_version} check all"
+replace = "uvx zenzic@{new_version} check all"
+
+[[tool.bumpversion.files]]
+filename = "src/zenzic/cli/templates.py"
+search = "#     rev: v{current_version}"
+replace = "#     rev: v{new_version}"

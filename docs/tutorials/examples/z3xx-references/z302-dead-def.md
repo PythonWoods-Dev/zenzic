@@ -8,8 +8,6 @@ description: "Analysis of the z302-dead-def fixture."
 
 **Z-Code:** `Z302 DEAD_DEF` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z302DeadDef />
-
 ---
 
 ## The Fixture

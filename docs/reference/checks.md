@@ -47,18 +47,12 @@ Servers returning `401`, `403`, or `429` are treated as reachable — these indi
 
 - Links inside fenced code blocks or inline code spans — the extractor skips them
 - `mailto:`, `data:`, `ftp:`, `tel:` and similar non-HTTP schemes
-- Pure same-page anchors (`#section`) — not validated by default; enable with `validate_same_page_anchors = true`
 
 !!! tip "Same-page anchor validation"
 
-    By default, links like `[text](#section)` that point to a heading within the same file are not validated. To enable:
+    Links like `[text](#section)` that point to a heading within the same file are always validated against `Z102` — there is no configuration flag to disable this check.
 
-    ```toml
-    # .zenzic.toml
-    validate_same_page_anchors = true
-    ```
-
-### Violation codes
+### Finding codes
 
 | Code | Severity | Meaning |
 | :--- | :---: | :--- |
@@ -87,8 +81,6 @@ The path traversal guard treats host-path traversal as a **security event**, not
 
 !!! danger "Exit Code 3 — Path Traversal Guard"
     A `Z203 PATH_TRAVERSAL_FATAL` finding means a documentation source file contains a link whose resolved target points to `/etc/passwd`, `/root/`, or another OS system path. This can indicate a template injection, a compromised documentation toolchain, or an author mistake that reveals internal infrastructure details. Treat it as a build-blocking security incident.
-
-<PathTraversalGuardTerminal />
 
 ---
 
@@ -152,23 +144,17 @@ Pages with fewer than `placeholder_max_words` words (default: 50) are flagged as
 
 ### Signal 2 — pattern match
 
-Lines containing any string from `placeholder_patterns` (case-insensitive) are flagged as `placeholder-text`. Default patterns include:
+Lines matching any pattern in `placeholder_patterns` are flagged as `placeholder-text`. The
+entries are RE2-compatible **regular expressions**, not literal substrings, compiled once with
+`IGNORECASE`. There are four defaults, each word-anchored so `todos` and `wipe` do not match:
 
-```text
-coming soon
-work in progress
-wip
-todo
-to do
-stub
-placeholder
-fixme
-tbd
-draft
-da completare
-in costruzione
-bozza
-prossimamente
+```toml
+placeholder_patterns = [
+    "\\btodo\\b",
+    "\\bfixme\\b",
+    "\\bwip\\b",
+    "\\btbd\\b",
+]
 ```
 
 Both signals are independent. A page may trigger one, both, or neither.
@@ -211,7 +197,7 @@ An asset is considered **used** if it appears as a Markdown image link (`![alt](
 
 The security and link-integrity check for [Markdown reference-style links](https://spec.commonmark.org/current/#link-reference-definitions). Also acts as the primary surface for the **credential scanner**.
 
-### Reference violation codes
+### Reference finding codes
 
 | Code | Severity | Exit code | Meaning |
 | :--- | :---: | :---: | :--- |

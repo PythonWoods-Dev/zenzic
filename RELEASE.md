@@ -42,48 +42,108 @@ This release concludes **Epic 2: Semantic Linting Supremacy**, the second major 
 
 Before tagging, every item must be green:
 
-- [ ] `just verify` — exits 0 (pre-commit hooks → pytest → `zenzic score --stamp` → badge freshness → `zenzic check all --strict`)
-- [ ] `zenzic lab all` — all 20 scenarios exit with expected code
+- [ ] `just verify` — exits 0. It runs, in order: the git-hook and release-contract checks, `docs-build`, the eleven private gates, `pre-commit --all-files`, `pip-audit`, `pytest` with coverage, `zenzic check all --strict`, and `zenzic score --stamp`. Roughly **2m40s** on a warm cache (measured 2:37 on a 2026-era 8-core Linux laptop); budget more on a cold one.
+- [ ] `zenzic lab all` — all gallery scenarios exit with expected code (`zenzic lab all` now exits non-zero if any scenario fails, so this check is enforceable in CI, not just visual — see CHANGELOG.md)
 - [ ] `zenzic score --stamp` committed — badge in README.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
 - [ ] `pyproject.toml` version matches the tag (`0.30.0`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] Update SECURITY.md support table (Add new release, demote previous to Critical/EOL).
-- [ ] `zenzic-doc` and `zenzic-action` RELEASE.md updated to match this version
+- [ ] Satellite release documents updated to match this version: `zenzic-vscode`, `zenzic-action`. **Not** `zenzic-doc` — it is archived and unmaintained, and this checklist named it until 2026-09-12. **Not** `zenzic-mcp` either: it has no release document and no release yet, which is deliberate — see its entry below.
 - [ ] Verification of `zenzic init` atomic protection (`EXIT 1` on existing config)
 - [ ] Verification of `zenzic init` template didactic comments and Z601 empty baseline
 
-## Build & Distribute
+## The Sequence
+
+Six steps, in this order. Steps 3 and 4 exist because `main` cannot be pushed to
+directly: the bump commit reaches it through a pull request, like every other
+commit.
 
 ```bash
-# Bump version
-uv run bump-my-version bump patch
+# 1. Merge the feature pull request(s) into main. SQUASH — see below.
+#    Nothing to label; the full CI matrix runs on every pull request.
 
-# Build wheel + sdist
-python -m build
+# 2. Cut a bump branch from main. The bump cannot be made on main itself.
+git switch main && git pull origin main
+git switch -c chore/bump-vX.Y.Z     # X.Y.Z = the version being cut
 
-# Publish to PyPI
-uv publish
+# 3. Bump. Edits the version files and commits, signed. Creates no tag.
+just release-dry minor      # same thing, writes nothing — run this first
+just release minor          # patch | minor | major
+
+# 4. Open the bump pull request, wait for CI, merge it.
+git push -u origin chore/bump-vX.Y.Z
+gh pr create --fill --base main
+#    ...CI green, then merge. main now carries the bump commit.
+
+# 5. Tag main. Never `git tag` on its own — see below.
+git switch main && git pull origin main
+just release-tag            # verifies annotated + signed, does not push
+git push origin vX.Y.Z      # this is what starts the release workflow
+
+# 6. Create the GitHub Release from the tag, using the CHANGELOG section as body.
 ```
+
+### Where the pre-squash commits go
+
+Pull requests are merged with **squash**: it is the only one of GitHub's merge
+methods this repository's rules allow. A merge commit is rejected, and a rebase
+merge is refused with `Base branch requires signed commits. Rebase merges
+cannot be automatically signed by GitHub`.
+
+The individual commits of a pull request remain available afterwards, including
+once its branch has been deleted:
+
+```bash
+git fetch origin refs/pull/233/head:refs/heads/pr-233-history
+git log pr-233-history
+```
+
+### Why the tag has a recipe
+
+`just release` deliberately creates **no tag**: by the time there is something to
+tag, the branch the bump was made on is behind `main`, so tagging there would tag
+the wrong commit.
+
+A lightweight `git tag vX.Y.Z` produces an object GitHub reports as type
+`commit`, with no signature of its own, and it still triggers the release
+workflow. `just release-tag` always uses `-s` and verifies its own output —
+annotated, signed — before anything is pushed.
+`release.yml` re-checks the same three properties (annotated, signed, verified by
+GitHub against a registered key) before it builds anything, so a bad tag fails
+before it can publish.
+
+### Local prerequisites
+
+Signing is per-machine. Without these, `-s` either fails or produces a signature
+GitHub reports as unverified:
+
+```bash
+git config user.signingkey   # must be set
+git config gpg.format        # ssh (this project signs with SSH keys)
+git config commit.gpgsign    # true
+```
+
+The public half of that key must be registered on the GitHub account as a
+**signing** key. A key registered only for authentication produces a signature
+that verifies locally and reads `unverified` on GitHub.
+
+### Publishing is the workflow's job, not yours
+
+Do not run `uv build` or `uv publish` by hand. Pushing the tag starts
+`Zenzic Core Release`, which builds the wheel and sdist, generates the build
+provenance attestation, and publishes. Running it locally as well produces a
+second artifact for the same version with no attestation.
 
 Distribution target: **PyPI** — `pip install zenzic` / `uvx zenzic`.
 
-## Tag & Push
+### `zenzic-mcp` is deliberately different
 
-```bash
-# 1. Merge the release branch into main via PR first!
-# 2. Switch to main and pull latest
-git checkout main
-git pull origin main
-
-# 3. Tag the main branch and push
-git tag -s -m "Release v0.30.0" v0.30.0
-git push origin main --tags
-
-```
-
-- [ ] Create GitHub Release from the tag, using the `## [0.30.0]` CHANGELOG section as the release body.
+It has no `RELEASE.md` and no `CONTRIBUTING.md`, because it has never been
+released. The missing contributor document is a gap; the missing release document
+is genuinely premature and becomes required the first time a version of it
+ships.
 
 ## Changelog Reference
 

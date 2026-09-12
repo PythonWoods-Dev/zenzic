@@ -22,8 +22,6 @@ Today, we are eliminating the latency between authoring a defect and discovering
 
 <!-- more -->
 
-![Shift-Left to the Keystroke: The Zenzic VS Code Extension](../../assets/images/blog/zenzic-vs-code-extension.webp)
-
 ---
 
 ## The Thin Client Architecture
@@ -75,3 +73,18 @@ The extension is now publicly available on the Visual Studio Marketplace.
    ```
 
 No cloud dependencies. No telemetry. No probabilistic AI guessing. Just deterministic rules enforcing structural integrity.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

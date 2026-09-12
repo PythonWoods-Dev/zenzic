@@ -20,11 +20,11 @@ For day-to-day usage (copy-paste YAML, input reference), see the [CI/CD Integrat
 ```text
 action.yml            ← public contract (inputs, outputs, env injection)
     │
-    ├─▶  uvx zenzic guard scan       ← Defense-in-Depth (when guard-scan: "true")
+    ├─▶  uv tool install --isolated --force --quiet zenzic   ← provisioned once per run
     │
     └─▶  zenzic-action-wrapper.sh   ← enforcement layer (security, exit codes, SARIF)
               │
-              └─▶  uvx zenzic check all   ← Zenzic Core (analysis engine)
+              └─▶  zenzic check all       ← Zenzic Core (analysis engine, invoked from PATH)
 ```
 
 `action.yml` injects caller-supplied values as environment variables. The wrapper validates, sanitises, and orchestrates the execution. It **never trusts raw inputs** — every path is guarded before it reaches the filesystem or the CLI.
@@ -70,7 +70,7 @@ esac
 ```
 
 !!! note "Guard scope"
-    The Config Jailbreak Guard applies **only to explicit overrides** — values supplied via the `config-file` input. Auto-discovered paths (`.zenzic.toml`, `.github/.zenzic.toml`) are hardcoded in the wrapper source and cannot be injected by an attacker. Guarding them would be security theatre, not security.
+    The Config Jailbreak Guard applies **only to explicit overrides** — values supplied via the `config-file` input. When `config-file` is left unset, the wrapper passes no `--config` flag at all, and `zenzic` itself falls back to its own normal discovery chain (`.zenzic.toml` at the repository root, then `pyproject.toml [tool.zenzic]`) — the same chain a local run uses. There is no GitHub-Action-specific auto-discovery path to guard.
 
 ### SARIF Integrity Check
 
@@ -80,6 +80,7 @@ The wrapper validates the SARIF as JSON before handing it to `codeql-action/uplo
 
 ```python
 import json, os
+
 json.load(open(os.environ["ZENZIC_SARIF_FILE"]))
 ```
 
@@ -89,14 +90,9 @@ If the file is not valid JSON, a `::warning` annotation is emitted — the uploa
 
 ## Exit Code Contract {#exit-code-contract}
 
-Zenzic defines four exit codes. The wrapper propagates them **without remapping**:
-
-| Code | Meaning | Suppressible? |
-|:---:|---|:---:|
-| `0` | Clean — all checks passed | — |
-| `1` | Documentation findings (broken links, orphans, dead refs, etc.) | ✅ via `fail-on-error: false` |
-| `2` | **SECURITY** — credential pattern detected (credential scanner / Z201) | ❌ Never |
-| `3` | **SECURITY** — system path traversal (path traversal guard / Z202–Z203) | ❌ Never |
+> Zenzic defines four exit codes, which the wrapper propagates **without remapping**. See
+> [Zenzic GitHub Action Reference — Exit Code Contract](../reference/zenzic-action.md#exit-codes)
+> for the full table.
 
 Exits `2` and `3` terminate the job unconditionally. Neither `fail-on-error: "false"` nor any other input can suppress them. This is enforced in the wrapper's exit logic, not in `action.yml`, so it cannot be circumvented by overriding action inputs.
 
@@ -122,7 +118,7 @@ This ensures downstream steps that read `findings-count` never see `"0 findings,
 
 When `guard-scan: "true"` is set, the action runs `zenzic guard scan` as a standalone composite step **before** the main quality gate. This implements Defense-in-Depth for teams where contributors may bypass pre-commit hooks with `git commit --no-verify`.
 
-The guard scan uses the same `version` pin as the main check. It reads `forbidden_patterns` and built-in credential signatures from the repository's `.zenzic.toml`. If it detects a credential or forbidden term, it exits non-zero and terminates the job immediately — the main `check all` never runs.
+The guard scan uses the same `version` pin as the main check. It loads config the same way `check all` does — `.zenzic.toml`/`pyproject.toml` overlaid with `.zenzic.local.toml` when present — and checks built-in credential signatures plus any configured `forbidden_patterns`. In practice `forbidden_patterns` is typically empty in CI: `.zenzic.local.toml` is git-ignored by design, and `actions/checkout` never restores it. `zenzic-action` has no built-in mechanism to inject it either — the guard scan only picks up `forbidden_patterns` if a workflow explicitly writes `.zenzic.local.toml` from a secret in an earlier step. That's an opt-in pattern documented in [Configure the Privacy Gate](../how-to/configure-privacy-gate.md#ci-integration), not something this action provides automatically. Built-in credential signatures always apply regardless. If it detects a credential or a configured forbidden term, it exits non-zero and terminates the job immediately — the main `check all` never runs.
 
 > For the full `guard-scan` input reference and workflow examples, see [Zenzic GitHub Action Reference — Inputs](../reference/zenzic-action.md#inputs).
 
@@ -148,41 +144,34 @@ The `cap-exceeded` output (`"true"` / `"false"`) is available to downstream step
 
 ---
 
-## Root-First Discovery — Configuration Cascade {#cascade}
+## Explicit Config Override {#config-override}
 
-The wrapper implements a **hierarchical auto-discovery** for the Zenzic configuration file. The search order reflects the conventional placement in real-world repositories:
+The wrapper does not implement any GitHub-Action-specific configuration discovery of its own. There are exactly two states:
 
 ```text
-Priority 1  →  Explicit override   (config-file input is set)
-Priority 2  →  .zenzic.toml         (repository root)
-Priority 3  →  .github/.zenzic.toml (hidden config directory)
-Priority —  →  (no file found)     → Zenzic uses built-in defaults
+config-file unset  →  no --config flag passed; zenzic's own discovery chain applies
+                       (.zenzic.toml at repo root, then pyproject.toml [tool.zenzic])
+config-file set    →  validated (see Config Jailbreak Guard above), then the file
+                       must exist — if it doesn't, the run fails unconditionally
 ```
 
-This order guarantees **parity between local runs and CI**: a developer who runs `zenzic check all` locally picks up `.zenzic.toml` from the root, and so does the action in CI.
+This guarantees **parity between local runs and CI** for the unset case: a developer who runs `zenzic check all` locally picks up `.zenzic.toml` from the root via the exact same discovery logic the action relies on — nothing GitHub-Action-specific is layered on top.
 
-The discovered path is passed to the CLI via `--config` using a Bash array — never a string — so paths containing spaces are handled correctly:
+The path is passed to the CLI via `--config` using a Bash array — never a string — so paths containing spaces are handled correctly:
 
 ```bash
-CONFIG_ARGS=(--config "${CANDIDATE_CONFIG}")
+CONFIG_ARGS=(--config "${ZENZIC_CONFIG_FILE}")
 # ...
 uvx "${PKG}" check all --format sarif "${CONFIG_ARGS[@]}" ...
 ```
 
-### Sovereign Intent Contract {#sovereign-intent}
+### A missing `config-file` is always fatal {#config-file-missing}
 
-When a caller explicitly sets `config-file`, they are expressing **sovereign intent** — a deliberate declaration that this specific file governs the run. If the file does not exist, the wrapper does **not** silently fall through to auto-discovery. Silent fallthrough would be operational deception: the developer believes they are testing with custom rules, but the system is secretly using a different configuration.
+When a caller explicitly sets `config-file`, a missing file **always** terminates the job with `::error` + `exit 1`. There is no `strict`-mode branching here: `strict` governs how the analysis itself treats findings, not how the action treats a missing configuration file, and the wrapper never silently falls back to `zenzic`'s own discovery chain or to built-in defaults once a specific file has been named.
 
-The response depends on `strict` mode:
+This is the safe default. A config file typically carries security-relevant settings — `forbidden_patterns`, `suppression_cap`, policy thresholds — so a silent fallback to weaker settings on a missing or mistyped path would be operational deception, with no visible signal a different config quietly took over. Failing loudly surfaces a misconfigured path immediately, rather than letting a silently-substituted policy run unnoticed indefinitely.
 
-| `strict` | File specified | File exists | Outcome |
-|:---:|:---:|:---:|---|
-| any | no | — | Auto-discovery runs normally |
-| any | yes | yes | `--config <file>` passed to CLI |
-| `false` | yes | **no** | `::warning` emitted; Zenzic uses built-in defaults |
-| `true` | yes | **no** | `::error` + `exit 1` (fatal) |
-
-When the warning path is taken, auto-discovery is **suppressed** — `CONFIG_ARGS` remains empty, and the run continues without any configuration file. This is intentionally more conservative than falling back to a discovered file, because the caller has declared a specific intent that cannot be honoured.
+Silent fallthrough would be operational deception: the developer believes a specific config — with its own `forbidden_patterns`, `suppression_cap`, and policy thresholds — governs the run, while the system quietly falls back to different, possibly much weaker settings with no visible signal anything is wrong. A misconfigured path (a typo, a moved file) is a common, easy mistake. Failing loudly surfaces it immediately at the point of misconfiguration, rather than letting a silently-substituted policy run unnoticed for however long it takes someone to notice the wrong rules are being enforced. This matches the same fail-loud posture as the CLI's own Exit Code Contract — a security-adjacent setup failure warrants a hard stop, not a quiet downgrade.
 
 ---
 

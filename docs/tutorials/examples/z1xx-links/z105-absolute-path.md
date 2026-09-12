@@ -8,8 +8,6 @@ description: "Analysis of the z105-absolute-path fixture: a link using an absolu
 
 **Z-Code:** `Z105 ABSOLUTE_PATH` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z105AbsolutePath />
-
 ---
 
 ## The Fixture
@@ -42,28 +40,34 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 66 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:10:2  x  [Z105]  '/guide' uses an absolute path — use a relative
-path (e.g. '../' or './') instead; absolute paths break portability when the
-site is hosted in a subdirectory
+docs/index.md:10  ✘  [Z101]  '/guide' resolves to '/guide/' which is not in the
+Virtual Site Map — the target file may not exist
 
      8  │  ## Absolute Path Link
      9  │
-    10  ❱  - [Guide](/guide) — uses `/guide` (absolute) instead of `guide.md`
-(relative) → **Z105**
-        │    ^^^^^^^^^^^^^^^
+    10  ❱  - [Guide](/guide) — uses `/guide` (absolute) instead of `guide.md` (…
+    11  │
+    12  │  ## What Zenzic Reports
+
+docs/index.md:10  ✘  [Z105]  absolute path '/guide' found
+
+     8  │  ## Absolute Path Link
+     9  │
+    10  ❱  - [Guide](/guide) — uses `/guide` (absolute) instead of `guide.md` (…
     11  │
     12  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 2 errors  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+DQS Final Score: 90/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`

@@ -13,6 +13,11 @@ on:
       - 'uv.lock'
       - '.github/workflows/ci.yml'
   pull_request:
+    # No label-driven types any more: the matrix below no longer depends on a
+    # label, so `labeled`/`unlabeled` would only start runs that report exactly
+    # what the previous run reported.
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,16 +29,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMPORARY EXCLUSION: Windows and Python 3.14 are temporarily excluded
-        # to accelerate CI cycle and isolate environment-specific runners.
-        # Original configuration:
-        #   os: [ubuntu-latest, windows-latest]
-        #   python-version: ["3.10", "3.14"]
-        #   exclude:
-        #     - os: windows-latest
-        #       python-version: "3.14"
-        os: [ubuntu-latest]
-        python-version: ["3.10"]
+        # The matrix is unconditional, and that is a correctness requirement
+        # rather than a thoroughness preference.
+        #
+        # It briefly widened only on demand, while branch protection required
+        # contexts that only the wide form emits -- so an ordinary pull request
+        # could never satisfy them, and one sat with six green checks, `MERGEABLE`,
+        # and permanently `BLOCKED` on a context nothing would ever report. Either
+        # the required list matches what an ordinary run emits, or the wide run is
+        # not optional. Those are the only two coherent configurations; this is the
+        # second, and it needs nobody to remember anything.
+        #
+        # Windows earns its place on evidence, not symmetry: two failures this
+        # release were Windows-only and invisible on Linux -- a hand-built
+        # subprocess `env` that dropped `SystemRoot` and stopped Python starting,
+        # then `text=True` with no explicit codec failing to decode cp1252. Both
+        # were in test scaffolding, so both would have merged under a
+        # Linux-only gate.
+        #
+        # Measured cost of widening, from the real run at `7664533` rather than an
+        # estimate: ubuntu/3.14 124 s, ubuntu/3.10 171 s, windows/3.10 214 s. The
+        # jobs run in parallel, so the wall-clock a developer waits is 214 s
+        # against 124 s -- **+90 s** -- and the billed cost is ~12 minutes against
+        # ~2, Windows counting double.
+        #
+        # `fail-fast: false` above is kept on a count rather than a preference.
+        # Across 100 runs of this workflow on the v0.31.0 branch, 21 failed, and in
+        # 18 of those exactly one matrix job failed -- 16 of them `windows-latest`
+        # alone. The job that fails most often is also the slowest (214 s against
+        # 171 s and 124 s), so by the time it fails its siblings have finished and
+        # cancelling them would save almost nothing. What it would cost is the
+        # pattern: "only Windows failed" is the diagnosis, and it is legible only
+        # because the other two ran to completion.
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.14"]
+        exclude:
+          # Windows is exercised on the floor version only. The interpreter
+          # difference is what 3.14 tests; the platform difference is what Windows
+          # tests, and the cross product costs a fourth job to test both at once.
+          - os: windows-latest
+            python-version: "3.14"
 
     steps:
       - name: Checkout Repository
@@ -53,14 +88,70 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-groups --all-extras --frozen
 
-      - name: Run unit tests
-        run: just test
+      # pre-commit enforces this too, but only on staged files and only when
+      # it is not bypassed; a formatter check that never runs in CI let six
+      # unformatted files reach main. Authoritative version is pinned in
+      # pyproject.toml to match .pre-commit-config.yaml's ruff-pre-commit rev.
+      - name: Formatting check (ruff format)
+        run: uv run ruff format --check src tests
 
+      - name: Run unit tests (coverage enforced, fail_under=80)
+        run: just test-cov
+
+      # The credential scanner is the one path where a test that stops catching a
+      # regression is a security problem rather than a coverage statistic. The
+      # harness was configured in pyproject.toml but never invoked anywhere, so no
+      # score had ever been produced; this step is what makes it real.
       - name: Run Zenzic Quality Gate
         run: uv run zenzic check all --strict --format github-annotations --ci
 
       - name: Build Docs
         run: uv run mkdocs build --strict
 
+      - name: Redirects structure tripwire
+        run: python3 scripts/check_redirects_structure.py
+
+      - name: Blog link schedule gate
+        run: uv run python scripts/check_blog_link_schedule.py
+
       - name: Verify Badge Freshness
         run: uv run zenzic score --check-stamp --ci
+
+  # Split out of `verify` 2026-09-09, on measurement rather than impression: the
+  # gate took 240s of a 372s job on 3.10 and 206s of 294s on 3.14 -- roughly two
+  # thirds of the elapsed time, and it shares no input or output with the steps
+  # around it. Run concurrently, its duration stops being on the critical path.
+  #
+  # This is a SPLIT, not a removal. The job has no `continue-on-error`, so a
+  # failure fails the workflow exactly as it did as a step, and the run is
+  # required for the PR by the same rule that requires `Audit`. A mutation score
+  # that only warned would be worse than none: a check that is counted as
+  # protection while blocking nothing. Keeping it blocking is the point of
+  # splitting the step rather than deleting it.
+  #
+  # Single Linux slot: mutmut has no native Windows support (upstream
+  # boxed/mutmut#397) and the 95.7% floor is measured on one interpreter. Running
+  # it twice measured the same thing twice.
+  mutation:
+    name: Mutation gate (credential scanner)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install just
+        uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.10
+        run: uv python install 3.10
+
+      - name: Sync dependencies
+        run: uv sync --all-groups --all-extras --frozen
+
+      - name: Mutation gate (credential scanner)
+        run: just mutation

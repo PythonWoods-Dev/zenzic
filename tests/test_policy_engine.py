@@ -431,7 +431,7 @@ def test_zenzic_config_backward_compat_no_policies_key() -> None:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     toml_str = b"strict = true\nfail_under = 98\n"
     data = tomllib.loads(toml_str.decode())
@@ -447,7 +447,7 @@ def test_init_template_includes_policies_section() -> None:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE
 

@@ -463,11 +463,97 @@ class TestShared:
         # Restore to default
         _shared.configure_console()
 
+    def test_configure_console_force_color_distinguishes_severity_colors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``force_color=True`` must produce genuinely distinct ANSI codes for
+        different hex colors, even in an environment with no advertised
+        truecolor support (``TERM``/``COLORTERM`` both unset) — the exact
+        condition under which Zenzic's amber WARNING and rose ERROR severity
+        colors previously collapsed to the identical 16-color ANSI code.
+        """
+        monkeypatch.delenv("TERM", raising=False)
+        monkeypatch.delenv("COLORTERM", raising=False)
+        from zenzic.cli import _shared
+        from zenzic.core.ui import ZenzicPalette
+
+        try:
+            _shared.configure_console(force_color=True)
+            import io
+
+            from rich.text import Text
+
+            # Exercise the real, reconfigured singleton — not a fresh probe —
+            # since that is what every CLI command actually prints through.
+            _shared.console.file = io.StringIO()
+            _shared.console.print(Text("WARN", style=f"bold {ZenzicPalette.WARNING}"), end="")
+            _shared.console.print(Text("ERROR", style=f"bold {ZenzicPalette.ERROR}"), end="")
+            output = _shared.console.file.getvalue()
+            warn_code = output.split("WARN")[0]
+            error_code = output.split("ERROR")[0].rsplit("\x1b[0m", 1)[-1]
+            assert warn_code != error_code, (
+                f"WARNING and ERROR severity colors collapsed to the same ANSI "
+                f"code ({warn_code!r}) — force_color must force truecolor depth, "
+                f"not just force_terminal."
+            )
+        finally:
+            _shared.configure_console()
+
+    def test_configure_console_force_color_no_regression_with_real_truecolor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Forcing ``color_system='truecolor'`` produces the same result as
+        auto-detection in an environment that genuinely advertises truecolor
+        support — no regression, forcing it is a no-op there in effect."""
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setenv("COLORTERM", "truecolor")
+        from zenzic.cli import _shared
+        from zenzic.core.ui import ZenzicPalette
+
+        try:
+            _shared.configure_console(force_color=True)
+            import io
+
+            from rich.text import Text
+
+            _shared.console.file = io.StringIO()
+            _shared.console.print(Text("WARN", style=f"bold {ZenzicPalette.WARNING}"), end="")
+            _shared.console.print(Text("ERROR", style=f"bold {ZenzicPalette.ERROR}"), end="")
+            output = _shared.console.file.getvalue()
+            assert "245;158;11" in output  # WARNING amber, real 24-bit RGB
+            assert "244;63;94" in output  # ERROR rose, real 24-bit RGB
+        finally:
+            _shared.configure_console()
+
     def test_configure_console_default(self) -> None:
         """Cover the ``else`` (auto) branch."""
         from zenzic.cli import _shared
 
         _shared.configure_console(no_color=False, force_color=False)
+
+    def test_configure_console_no_flags_resets_to_auto(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``configure_console()`` with neither flag must reset to auto, not
+        leave a previous call's ``no_color``/``force_color`` state stuck for
+        every later call in the same process — the failure mode that bites
+        ``zenzic-mcp``'s long-running embed, where one consumer's flag
+        changes another consumer's output."""
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.delenv("FORCE_COLOR", raising=False)
+        from zenzic.cli import _shared
+
+        try:
+            _shared.configure_console(no_color=True)
+            assert _shared.console.no_color is True
+
+            _shared.configure_console()
+            assert _shared.console.no_color is False, (
+                "a later call with no flags must reset color state to auto, "
+                "not silently keep the previous call's no_color=True"
+            )
+        finally:
+            _shared.configure_console()
 
     # ── get_ui / get_console ─────────────────────────────────────────────────
 
@@ -646,3 +732,31 @@ class TestShared:
 
         with pytest.raises(typer.Exit):
             _validate_docs_root(repo, outside)
+
+
+class TestFormatElapsedMs:
+    """The single shared progress-line duration formatter (`core.ui`)."""
+
+    def test_converts_seconds_to_milliseconds_with_one_decimal(self) -> None:
+        from zenzic.core.ui import format_elapsed_ms
+
+        assert format_elapsed_ms(0.3312) == "[dim](331.2ms)[/dim]"
+        assert format_elapsed_ms(1.0) == "[dim](1000.0ms)[/dim]"
+        assert format_elapsed_ms(0.0) == "[dim](0.0ms)[/dim]"
+
+    def test_does_not_switch_units_on_long_durations(self) -> None:
+        """Deliberately always ms — the progress lines are compared against each
+        other, so a column that changes unit partway down is harder to scan.
+        """
+        from zenzic.core.ui import format_elapsed_ms
+
+        assert format_elapsed_ms(3.4058) == "[dim](3405.8ms)[/dim]"
+        assert "s)" not in format_elapsed_ms(3.4058).replace("ms)", "")
+
+    def test_output_matches_the_previously_inlined_format_exactly(self) -> None:
+        """Guards the dedup: this is the literal f-string the 10 call sites used."""
+        from zenzic.core.ui import format_elapsed_ms
+
+        for seconds in (0.0, 0.0234, 0.3312, 2.1172, 3.4058, 12.5):
+            legacy = f"[dim]({seconds * 1000:.1f}ms)[/dim]"
+            assert format_elapsed_ms(seconds) == legacy

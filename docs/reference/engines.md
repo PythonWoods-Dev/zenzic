@@ -46,21 +46,31 @@ the `zenzic.adapters` entry-point group is a valid Zenzic adapter — for any SS
 
 ## Supported Engine Versions
 
-Zenzic ships adapters for specific major-version lines. Declaring a different engine is a configuration error: Zenzic will emit `Z000 UNSUPPORTED_ENGINE` and abort.
+Zenzic ships adapters for specific major-version lines. Declaring an `engine` value outside the
+six supported identifiers (`prebuilt`, `vsm`, `mkdocs`, `zensical`, `standalone`, `auto`) is a
+configuration error: Zenzic will emit `Z001 CORE_CONFIG_STRUCTURE` and abort before any file is
+scanned.
 
-| Engine | Supported versions | Notes |
-| :--- | :--- | :--- |
-| MkDocs | `1.x` | Series frozen at `1.6.1`; no `1.7` planned. v2 is a separate project requiring a dedicated adapter |
-| Zensical | `0.0.x` | Pre-release; API is volatile. Adapter is updated in lockstep |
-| Standalone | — | Engine-agnostic; version is irrelevant |
-
-Zenzic does **not** invoke the engine binary — it reads configuration files as plain data. Version constraints apply to the **config-file schema**, not to the installed engine binary. If your project runs a newer engine than listed, the adapter may still work; report an issue only if you observe an actual parse error or a false positive traceable to a schema change.
+For the specific tested version, verification method, and last-verified date per engine, see
+the [Tested Compatibility Matrix](compatibility.md). Zenzic does **not** invoke the engine
+binary — it reads configuration files as plain data. Version constraints apply to the
+**config-file schema**, not to the installed engine binary. If your project runs a newer
+engine than listed there, the adapter may still work; report an issue only if you observe an
+actual parse error or a false positive traceable to a schema change.
 
 ---
 
 ## Choosing an engine
 
 The `[build_context]` section in `.zenzic.toml` tells Zenzic which engine your project uses:
+
+!!! tip "Building on a generator Zenzic has no adapter for?"
+    `prebuilt` is the answer, and it is the one to reach for on an Astro, Docusaurus or
+    Next.js site. It reads a route manifest you generate from your own build output, so
+    Zenzic resolves absolute links like `/guides/example/` without knowing anything about
+    which generator produced them. Without it, a site that links by route reports every
+    such link as `Z101` plus `Z105`, none of which is a broken link. See
+    [Configure an adapter](../how-to/configure-adapter.md#prebuilt-route-manifest).
 
 ```toml
 # .zenzic.toml
@@ -102,10 +112,13 @@ build pipeline. This means:
   interpolation at build time, the nav entries that depend on those values will be absent
   from Zenzic's view.
 
-- **Plugin-generated nav** — plugins that mutate the nav at runtime (e.g. `mkdocs-awesome-pages`,
-  `mkdocs-literate-nav`) produce a navigation tree that Zenzic never sees. Pages included
-  only by these plugins will be reported as orphans.
-  *Technical Note on `mkdocs-awesome-pages`: Zenzic's static adapter does not read `.pages` files. If you use `.pages` files to define navigation, Zenzic will not see those pages as reachable and will flag them as orphans unless they are explicitly linked from other reachable pages.*
+- **Plugin-generated nav** — plugins that mutate the nav at runtime (e.g. `mkdocs-awesome-nav`
+  — renamed from `mkdocs-awesome-pages-plugin` in its v3, which also renamed its config file
+  from `.pages` to `.nav.yml` by default — or `mkdocs-literate-nav`) produce a navigation
+  tree that Zenzic never sees. Pages included only by these plugins will be reported as orphans.
+  *Technical Note: Zenzic's static adapter does not read `.pages` or `.nav.yml` files. If you
+  use either to define navigation, Zenzic will not see those pages as reachable and will flag
+  them as orphans unless they are explicitly linked from other reachable pages.*
 
 - **Macros** — `mkdocs-macros-plugin` (Jinja2 templates in Markdown) is not evaluated.
 
@@ -119,7 +132,7 @@ is available.
 
 When the `blog` (or `material/blog`) plugin is enabled in `mkdocs.yml`, `MkDocsAdapter` automatically inspects `blog_dir` (default: `blog`).
 
-All Markdown files located under `<blog_dir>/posts/` (e.g. `docs/blog/posts/*.md`) are dynamically generated routes at build time (index, pagination, tag archives, RSS). `MkDocsAdapter` marks all files in this subtree as `REACHABLE` automatically, ensuring that blog posts do not require explicit listing in `mkdocs.yml`'s `nav:` section and do not emit false-positive orphan page (`Z103`) findings.
+All Markdown files located under `<blog_dir>/posts/` (e.g. `docs/blog/posts/*.md`) are dynamically generated routes at build time (archive and category indexes, pagination, and — when the separate `mkdocs-rss-plugin` is also installed — RSS/Atom feeds). `MkDocsAdapter` marks all files in this subtree as `REACHABLE` automatically, ensuring that blog posts do not require explicit listing in `mkdocs.yml`'s `nav:` section and do not emit false-positive orphan page (`Z103`) findings.
 
 ### Minimal configuration
 
@@ -135,8 +148,10 @@ locales        = ["it", "fr"]   # non-default locale directory names (folder mod
 
 When `locales` is empty, Zenzic falls back to reading locale information directly from the
 `i18n` plugin block in `mkdocs.yml` — zero configuration required for most
-projects. This covers both the community `mkdocs-static-i18n` package and the
-bundled i18n plugin in `mkdocs-material`, since both declare themselves as `i18n:` in `mkdocs.yml`.
+projects. This is the community `mkdocs-static-i18n` package, which declares itself as
+`i18n:` in `mkdocs.yml`. Material for MkDocs itself ships no separate content-translation
+plugin under that key — its own i18n support only translates the theme's built-in UI
+strings (navigation labels, search text) via `theme.language`, not page content.
 
 ### i18n: Folder Mode
 
@@ -235,12 +250,10 @@ The Transparent Proxy is Zensical's signature migration feature: if `zensical.to
 reads the MkDocs configuration as a bridge — no manual configuration required.
 
 This means you can adopt Zenzic with the Zensical engine on **day one of migration**, before
-writing a single line of `zensical.toml`. When the bridge activates, Zenzic banner
-notifies you:
-
-```text
-NOTICE: Zensical engine active via mkdocs.yml compatibility bridge.
-```
+writing a single line of `zensical.toml`. The bridge activates silently — there is no banner
+and no notice, consistent with Zenzic printing nothing on a clean run. To confirm which
+configuration was actually read, run `zenzic config explain`, which reports the active values and
+where each one came from.
 
 **What the bridge reads from `mkdocs.yml`:**
 

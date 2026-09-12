@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Validation logic: native link checking (internal + external) and snippet checks.
 
-Link validation no longer invokes any external process.  Instead it uses a
-pure-Python two-pass approach:
+Link validation never invokes an external process. It uses a pure-Python
+two-pass approach:
 
 1. Read every ``.md`` file under ``docs/`` into memory, extract all Markdown
    links while skipping fenced code blocks and inline code spans.
@@ -29,10 +29,11 @@ import asyncio
 import contextlib
 import html
 import json
+import posixpath
 import sys
 import textwrap
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 
 
 if sys.version_info >= (3, 11):
@@ -42,6 +43,7 @@ else:
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
+from urllib.parse import unquote, urlsplit
 
 import httpx
 import yaml
@@ -159,11 +161,132 @@ VALIDATION_PARALLEL_THRESHOLD = 50
 
 # ─── PolyglotExtractor — RE2 constants (v0.17.0) ─────────────────────────────
 
-# Stadio 1: cattura atomica <a> e <img> (multilinea, DFA-pure, O(N)).
-# Vincolo: il carattere '>' termina il tag e non è ammesso nei valori degli attributi.
-_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\b(?P<attrs>[^>]*?)>")
+# Stage 1: atomic capture of <a> and <img> (multiline, DFA-pure, O(N)).
+# Constraint: the '>' character terminates the tag and is not allowed in attribute values.
+# Case-insensitive because HTML tag names are, and Markdown passes raw HTML
+# through untouched: without `(?i)` an uppercase `<A HREF=...>` matched nothing
+# at all, so the whole polyglot pipeline skipped the tag and both Z203 (exit 3)
+# and Z205 (exit 2) were bypassed by shift-key alone. The `.lower()` applied to
+# the captured tag name downstream was dead code until now -- it documented the
+# intent this pattern did not implement.
+#: The attribute region of a tag, aware that a quoted value may contain `>`.
+#: Both HTML and MDX permit an unescaped `>` inside a quoted attribute, so the
+#: bare ``[^>]*?`` this replaced was a precondition asserted over text the
+#: engine does not control: `<a title="a > b" href="javascript:alert(1)">`
+#: stopped matching inside `title`, the href was never parsed, and a
+#: non-suppressible Z205 came out as a suppressible Z121. Alternation and
+#: character classes only -- RE2-safe, still linear.
+#:
+#: Shared with ``rules.py``'s ``_HTML_HREF_RE`` by import rather than by
+#: copy: the two gates already diverged once on tag scope, and a second
+#: hand-kept copy of this fragment would diverge the same way.
+POLY_ATTRS_FRAGMENT = r"""(?:[^>"']|"[^"]*"|'[^']*')*?"""
 
-# Stadio 2: parsing lineare coppie attributo=valore.
+#: Tag scope, shared by both tiers. `<link>` is here because the quality tier
+#: has always gated on it (`rules.py`'s `_HTML_HREF_RE`) while the security
+#: tier did not, and the asymmetry ran in the dangerous direction: a broken
+#: `<link href="./ghost.md">` exited 1, while `<link href="javascript:...">`
+#: and a `<link>` traversal both exited 0. Widening the security tier is the
+#: safe way to make the two agree -- narrowing the quality tier would delete a
+#: check that works.
+#:
+#: This is the raw HTML `<link>` element. The capitalised JSX `<Link>` component
+#: is matched separately, by `_RE_JSX_COMPONENT` below, because this pattern is
+#: case-insensitive and cannot tell the two apart.
+POLY_TAG_NAMES = "a|img|link"
+
+#: Attributes that carry a URL on a JSX component, in precedence order. `to` is
+#: the router convention (React Router, and every framework built on it), `href`
+#: and `src` the HTML ones a component usually mirrors.
+#:
+#: A fixed set of *prop names*, deliberately, where the tag side is a rule. The
+#: asymmetry is the point: component names are unbounded and inventing one must
+#: not create a blind spot, while attribute names are where false positives live.
+#: A component using a bespoke prop -- `<Card link="...">` -- is not covered, and
+#: treating every string attribute as a candidate URL would resolve
+#: `<Chart title="./x.md">` as a broken link.
+JSX_URL_ATTRS: tuple[str, ...] = ("to", "href", "src")
+
+_RE_POLY_TAG: re.RegexPattern = re.compile(
+    rf"(?is)<({POLY_TAG_NAMES})\b(?P<attrs>{POLY_ATTRS_FRAGMENT})>"
+)
+
+#: Fallback for a tag whose quotes are unbalanced, where the quote-aware
+#: pattern above matches nothing at all. A browser reading
+#: `<a title="unclosed href="javascript:alert(1)">` treats `title` as
+#: `unclosed href=` and the anchor ends up with no href, so the legacy
+#: behaviour is the correct one there -- and dropping the tag entirely would
+#: trade a mis-tiered finding for a missing one, which is strictly worse.
+_RE_POLY_TAG_UNBALANCED: re.RegexPattern = re.compile(
+    rf"(?is)<({POLY_TAG_NAMES})\b(?P<attrs>[^>]*?)>"
+)
+
+
+#: A JSX component: a tag whose name begins with an uppercase letter.
+#:
+#: This is the JSX convention itself rather than a list of known components --
+#: lowercase is an HTML element, capitalised is a component -- so it names no
+#: framework and covers components nobody has invented yet. A list of `Link`,
+#: `Anchor`, `Button` would be incomplete the day someone writes a fourth.
+#:
+#: `(?s)` and NOT `(?is)`: the `i` on the HTML pattern above would make `[A-Z]`
+#: match lowercase too, and this pattern would then swallow every HTML tag in the
+#: document. Verified RE2-compatible rather than assumed -- no lookaround, linear.
+#:
+#: `/?>` accepts the self-closing form, which is the common spelling for a
+#: component with no children.
+_RE_JSX_COMPONENT: re.RegexPattern = re.compile(
+    rf"(?s)<([A-Z][A-Za-z0-9_]*)\b(?P<attrs>{POLY_ATTRS_FRAGMENT})/?>"
+)
+
+#: Unbalanced-quote fallback, for the same reason the HTML pattern has one.
+_RE_JSX_COMPONENT_UNBALANCED: re.RegexPattern = re.compile(
+    r"(?s)<([A-Z][A-Za-z0-9_]*)\b(?P<attrs>[^>]*?)/?>"
+)
+
+
+def _is_jsx_component(tag: str) -> bool:
+    """True when *tag* is a JSX component name rather than an HTML element."""
+    return bool(tag) and tag[0].isupper()
+
+
+def _iter_poly_tags(masked: str) -> list[re.Match]:
+    """Every participating tag in *masked*, in document order.
+
+    The set is `<a>`, `<img>`, `<link>` and any JSX component -- a tag whose name
+    begins with an uppercase letter. It was `<a>`/`<img>` when this docstring was
+    written and has grown twice since.
+
+    The quote-aware pattern is authoritative. The legacy pattern contributes
+    only tags the first one did not find -- which is exactly the
+    unbalanced-quote case -- so a malformed tag keeps the behaviour it had
+    rather than disappearing.
+    """
+    # `<Link>` matches both patterns: the HTML one lists `link` and carries
+    # `(?is)`, so it is blind to the capital. Deduplicate by start offset and let
+    # the component reading win -- it accepts `to`, `href` and `src` where the
+    # HTML `<link>` reading accepts only `href`, so it is a strict superset and
+    # never loses a link. Without this the node is emitted twice and the finding
+    # is reported twice.
+    by_start: dict[int, re.Match] = {}
+    for m in (*_RE_POLY_TAG.finditer(masked), *_RE_JSX_COMPONENT.finditer(masked)):
+        prior = by_start.get(m.start())
+        if prior is None or _is_jsx_component(m.group(1)):
+            by_start[m.start()] = m
+    primary = list(by_start.values())
+    covered = [(m.start(), m.end()) for m in primary]
+    extra = [
+        m
+        for m in (
+            *_RE_POLY_TAG_UNBALANCED.finditer(masked),
+            *_RE_JSX_COMPONENT_UNBALANCED.finditer(masked),
+        )
+        if not any(start <= m.start() < end for start, end in covered)
+    ]
+    return sorted([*primary, *extra], key=lambda m: m.start())
+
+
+# Stage 2: linear parsing of attribute=value pairs.
 _RE_POLY_ATTR: re.RegexPattern = re.compile(
     r"(?P<key>[\w:@-]+)"
     r"(?:\s*=\s*"
@@ -173,7 +296,7 @@ _RE_POLY_ATTR: re.RegexPattern = re.compile(
     r"))?",
 )
 
-# Attributi Safe-Core: pass senza diagnostica (ADR-075 — nessun parser esterno).
+# Safe-Core attributes: pass with no diagnostic (ADR-075 — no external parser).
 _POLY_SAFE_CORE: frozenset[str] = frozenset(
     {
         "href",
@@ -193,9 +316,9 @@ _POLY_SAFE_CORE: frozenset[str] = frozenset(
         "data-zenzic-ignore",
     }
 )
-_POLY_ARIA_PREFIX = "aria-"  # aria-* è sempre Safe-Core
+_POLY_ARIA_PREFIX = "aria-"  # aria-* is always Safe-Core
 
-# Attributi Blacklist: Z124 OPAQUE_HTML_CONTEXT.
+# Blacklisted attributes: Z124 OPAQUE_HTML_CONTEXT.
 _POLY_BLACKLIST: frozenset[str] = frozenset(
     {
         "data-url",
@@ -206,10 +329,36 @@ _POLY_BLACKLIST: frozenset[str] = frozenset(
 )
 _POLY_ON_PREFIX = "on"  # on* event-handlers → Z124
 
-# Schemi vietati (Security Gate — Z205, non sopprimibile, Exit 2).
+# Forbidden schemes (Security Gate — Z205, non-suppressible, Exit 2).
 _POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
-# Schemi informativi (Z123, nessuna risoluzione path).
+# Informational schemes (Z123, no path resolution).
 _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
+
+#: Codes whose RuleFinding is already surfaced via the LinkError path in
+#: :func:`validate_links_structured` below. Public (not underscore-prefixed)
+#: so other modules — notably ``_check.py``'s rule-finding skip-list — can
+#: derive from this set instead of maintaining an independent copy.
+LINK_CODES: frozenset[str] = frozenset(
+    {
+        "Z101",
+        "Z102",
+        "Z103",
+        "Z104",
+        "Z105",
+        "Z106",
+        "Z108",
+        "Z112",
+        "Z620",
+        "Z120",
+        "Z121",
+        "Z122",
+        "Z123",
+        "Z124",
+        "Z202",
+        "Z203",
+        "Z205",
+    }
+)
 
 # Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
 _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.*)$")
@@ -217,38 +366,65 @@ _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^\s*(?P<fence>[`~]{3,})(?P<info>.
 
 # HTML and MDX Comment Regex Patterns for masking
 _POLY_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
-_POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL)
+# MDX allows whitespace inside the expression container -- `{ /* … */ }` is
+# what Prettier emits -- so requiring the braces adjacent meant a formatted
+# file's comments were not recognised as comments at all.
+_POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\s*\/\*.*?\*\/\s*\}", re.DOTALL)
+
+# Attribute values inside a tag: captures the opening quote, the value, and the
+# closing quote separately so the value alone can be blanked at equal length.
+# Restricted to a value that actually contains a Markdown link, so ordinary
+# attributes are left untouched and the mask stays as narrow as its purpose.
+# RE2 forbids lookbehind (Tier-0 RE2 Discipline), so the leading whitespace is
+# captured as group 1 and re-emitted rather than asserted.
+_JSX_ATTR_VALUE_RE: re.RegexPattern = re.compile(
+    r'(?s)(\s[A-Za-z_:][\w:.-]*\s*=\s*")([^"]*\[[^"]*\]\([^"]*\)[^"]*)(")'
+)
 
 # Math block patterns for masking (display math $$...$$ and inline math $...$)
 _POLY_DISPLAY_MATH_RE: re.RegexPattern = re.compile(r"\$\$.*?\$\$", re.DOTALL)
 _POLY_INLINE_MATH_RE: re.RegexPattern = re.compile(r"\$[^$\n]+\$")
 
-# Strip whitespaces and control characters from URLs prima del check Z205.
+# Strip whitespace and control characters from URLs before the Z205 check.
 _POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
 
 
 @dataclass(frozen=True, slots=True)
 class HtmlNodeInfo:
-    """Nodo HTML estratto dal PolyglotExtractor (tag ``<a>`` o ``<img>``).
+    """A tag extracted by the PolyglotExtractor.
 
-    Contiene tutti i dati necessari all'emissione di Z120–Z124 e Z205
-    senza ulteriori accessi al testo sorgente.
+    ``<a>``, ``<img>``, ``<link>``, or a JSX component (a capitalised tag name).
+
+    Carries every datum needed to emit Z120–Z124 and Z205 without any
+    further access to the source text.
 
     Attributes:
-        tag:               ``"a"`` oppure ``"img"``.
-        href:              Valore di ``href`` (per ``<a>``) o ``src`` (per ``<img>``).
-                           ``None`` se l'attributo è assente.
-        line_no:           Numero di riga 1-based nel sorgente originale.
-        suppressed:        ``True`` se ``data-zenzic-ignore`` è presente sul tag.
-        z205_scheme:       Schema vietato rilevato (``"javascript:"`` / ``"data:"``);
-                           ``None`` se il tag non è un vettore Z205.
-        unknown_attrs:     Attributi non censiti nella Safe-Core list → Z120.
-        blacklisted_attrs: Attributi blacklistati (event-handler, shadow-routing) → Z124.
-        is_missing_href:   ``True`` se ``href``/``src`` è assente o vuoto → Z121.
-        is_jump_link:      ``True`` se ``href="#"`` → Z122.
-        info_scheme:       Schema informativo (``mailto:``, ``tel:``, ``ftp:``)
-                           se rilevato → Z123; ``None`` altrimenti.
-        raw_tag:           Testo originale del tag (per messaggi diagnostici).
+        tag:               ``"a"`` or ``"img"``.
+        href:              The URL the tag carries: ``href`` for ``<a>``/``<link>``,
+                           ``src`` for ``<img>``, and the first of ``to``/``href``/``src``
+                           present on a JSX component.
+                           ``None`` when the attribute is absent.
+        line_no:           1-based line number in the original source.
+        suppressed:        ``True`` when ``data-zenzic-ignore`` is present on the tag.
+        z205_scheme:       Forbidden scheme detected (``"javascript:"`` / ``"data:"``);
+                           ``None`` when the tag is not a Z205 vector.
+        unknown_attrs:     Attributes not in the Safe-Core list → Z120.
+        blacklisted_attrs: Blacklisted attributes (event-handler, shadow-routing) → Z124.
+        is_missing_href:   ``True`` when ``href``/``src`` is absent or empty → Z121.
+        is_jump_link:      ``True`` when ``href="#"`` → Z122.
+        info_scheme:       Informational scheme (``mailto:``, ``tel:``, ``ftp:``)
+                           if detected → Z123; ``None`` otherwise.
+        raw_tag:           Original tag text (for diagnostic messages).
+        col_start:         0-based column of the tag within its own line.
+        attr_cols:         Attribute name → 0-based column of that attribute's
+                           *name* within the line. Reported by the parser
+                           rather than re-derived downstream: a consumer
+                           searching the source line for an attribute cannot
+                           distinguish the same tag appearing twice on one
+                           line, nor an attribute name occurring inside an
+                           earlier attribute's value (``title="onclick demo"``
+                           before a real ``onclick=``). The parser already
+                           knows both, so it says so.
     """
 
     tag: str
@@ -262,11 +438,13 @@ class HtmlNodeInfo:
     is_jump_link: bool
     info_scheme: str | None
     raw_tag: str
+    col_start: int = 0
+    attr_cols: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
 class ReferenceLinkNode:
-    """Nodo estratto dal PolyglotExtractor per una definizione di link di riferimento ([label]: dest)."""
+    """Node extracted by the PolyglotExtractor for a reference link definition ([label]: dest)."""
 
     label: str
     dest: str
@@ -275,32 +453,33 @@ class ReferenceLinkNode:
 
 
 class PolyglotExtractor:
-    """Estrattore a due stadi per tag HTML nativi e definizioni di riferimento Markdown.
+    """Two-stage extractor for native HTML tags and Markdown reference definitions.
 
-    Implementa la **Uniform Resolver Pipeline** (URP) di Zenzic v0.17.0:
-    la forma sintattica (Markdown vs HTML vs Reference Defs) è un dettaglio di trasporto;
-    l'analisi avviene sul valore risolto del puntamento.
+    Implements Zenzic's **Uniform Resolver Pipeline** (URP, v0.17.0):
+    the syntactic form (Markdown vs HTML vs reference defs) is a transport
+    detail; analysis operates on the resolved target value.
 
-    **Invarianti (ADR-075 / ADR-020):**
+    **Invariants (ADR-075 / ADR-020):**
 
-    * Complessità O(N): RE2/DFA-pure, nessun backtracking, nessun subprocess.
-    * Z205 (FORBIDDEN_SCHEME) è verificato **prima** di ``data-zenzic-ignore``
-      (sicurezza ha precedenza assoluta sulla soppressione).
-    * Supporta tag ``<a>``, ``<img>`` e definizioni di riferimento Markdown (CommonMark §4.7).
-    * Fence-skipping obbligatorio: i blocchi ``code``/``pre`` vengono oscurati
-      prima dell'estrazione per evitare falsi positivi in esempi di codice.
+    * O(N) complexity: RE2/DFA-pure, no backtracking, no subprocess.
+    * Z205 (FORBIDDEN_SCHEME) is checked **before** ``data-zenzic-ignore``
+      (security takes absolute precedence over suppression).
+    * Supports ``<a>``, ``<img>`` and ``<link>`` tags, JSX components carrying a
+      URL-bearing attribute, and Markdown reference definitions (CommonMark §4.7).
+    * Mandatory fence-skipping: ``code``/``pre`` blocks are masked before
+      extraction to avoid false positives in code examples.
     """
 
     def extract(self, text: str, *, _premasked: str | None = None) -> list[HtmlNodeInfo]:
-        """Estrae tutti i nodi HTML rilevanti dal testo sorgente.
+        """Extract every relevant HTML node from the source text.
 
         Args:
-            text: Contenuto Markdown grezzo (no I/O).
+            text: Raw Markdown content (no I/O).
             _premasked: Optional pre-computed buffer with comments, fences, and math masked.
 
         Returns:
-            Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
-            trovato fuori dai blocchi di codice.
+            List of :class:`HtmlNodeInfo`, one per participating tag
+            found outside code blocks.
         """
         if _premasked is not None:
             masked = self._mask_inline_code(_premasked)
@@ -309,22 +488,46 @@ class PolyglotExtractor:
                 self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
             )
         nodes: list[HtmlNodeInfo] = []
-        for m in _RE_POLY_TAG.finditer(masked):
-            tag = m.group(1).lower()
+        for m in _iter_poly_tags(masked):
+            raw_name = m.group(1)
+            # Case is preserved for a component and folded for an HTML element.
+            # `_is_jsx_component` reads the first character, so lowercasing here
+            # would make every component look like an unknown HTML tag -- and
+            # HTML tag names are case-insensitive, so folding them is correct.
+            tag = raw_name if _is_jsx_component(raw_name) else raw_name.lower()
             attrs_str = m.group("attrs")
-            # Calcolare line_no dal testo originale (non mascherato)
+            # Compute line_no from the original (unmasked) text
             line_no = text[: m.start()].count("\n") + 1
-            nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
+            # Column within the line, not an offset into the file. Safe to
+            # compute against `text` using an index from `masked`: every
+            # masking pass replaces characters one-for-one and preserves
+            # newlines, an invariant the line_no computation above already
+            # relies on.
+            line_start = text.rfind("\n", 0, m.start()) + 1
+            col_start = m.start() - line_start
+            nodes.append(
+                self._parse_node(
+                    tag,
+                    attrs_str,
+                    line_no,
+                    m.group(0),
+                    col_start=col_start,
+                    # Group 2 is ``attrs``, addressed by index rather than by
+                    # name: RE2's Match.start() accepts only integer group
+                    # numbers, unlike the stdlib's.
+                    attrs_offset=m.start(2) - m.start(),
+                )
+            )
         return nodes
 
     def extract_ref_defs(
         self, text: str, *, _premasked: str | None = None
     ) -> list[ReferenceLinkNode]:
-        """Estrae tutte le definizioni di link di riferimento ([label]: dest) fuori dai blocchi di codice.
+        """Extract every reference link definition ([label]: dest) outside code blocks.
 
         Implementa CommonMark §4.7 Reference Link Definition parsing via PolyglotExtractor.
         Fence-skipping obbligatorio tramite _mask_fences() e _mask_comments().
-        First-definition-wins per la risoluzione dei duplicati.
+        First-definition-wins for duplicate resolution.
         """
         masked = (
             _premasked
@@ -404,7 +607,7 @@ class PolyglotExtractor:
         """Single source of truth for extracting all link candidate nodes from Markdown & HTML.
 
         Aggregates:
-        1. HTML tag href/src attributes (<a>, <img>) from `extract(...)`
+        1. Tag URL attributes (<a>, <img>, <link>, and JSX components) from `extract(...)`
         2. Reference link definitions ([label]: dest) from `extract_ref_defs(...)`
         3. Inline Markdown links ([text](url), ![alt](url)) from `extract_inline_links(...)`
 
@@ -414,7 +617,15 @@ class PolyglotExtractor:
         Returns:
             Flat, ordered list of :class:`ExtractedLink` objects sorted by line_no and col_start.
         """
-        masked_base = self._mask_math(self._mask_fences(self._mask_comments(text)))
+        # `_mask_jsx_attr_values` belongs in every chain that answers "is this a
+        # link?", and this was the third of three paths -- `rules.py`'s Z101
+        # helper had it, the security view now has it, and this one did not, so
+        # a Markdown link inside a prop string still reached the traversal check
+        # through here and raised Z203. It renders as literal text; it is not a
+        # link on any tier.
+        masked_base = self._mask_math(
+            self._mask_fences(self._mask_jsx_attr_values(self._mask_comments(text)))
+        )
         extracted: list[ExtractedLink] = []
 
         # 1. HTML nodes
@@ -453,6 +664,47 @@ class PolyglotExtractor:
         extracted.sort(key=lambda item: (item.line_no, item.col_start))
         return extracted
 
+    def extract_security_links(self, text: str) -> list[ExtractedLink]:
+        """Extract links for the security tier, masking only closed fences.
+
+        Companion to :meth:`extract_all_links`, which masks comments, math and
+        fences for the quality tier. The two answer different questions and must
+        not share a mask -- see :meth:`_mask_security_view` for why, and for the
+        one exception this keeps.
+        """
+        masked_base = self._mask_security_view(text)
+        extracted: list[ExtractedLink] = []
+
+        # Mirrors extract_all_links' three sources, differing only in the mask.
+        for html_node in self.extract(text, _premasked=masked_base):
+            if html_node.href is not None and not html_node.is_missing_href:
+                extracted.append(
+                    ExtractedLink(
+                        url=html_node.href,
+                        line_no=html_node.line_no,
+                        is_html=True,
+                        node_type=f"html_{html_node.tag}",
+                        raw_text=html_node.raw_tag,
+                        col_start=0,
+                        suppressed=html_node.suppressed,
+                        html_node=html_node,
+                    )
+                )
+        for ref_node in self.extract_ref_defs(text, _premasked=masked_base):
+            extracted.append(
+                ExtractedLink(
+                    url=ref_node.dest,
+                    line_no=ref_node.line_no,
+                    is_html=False,
+                    node_type="ref_def",
+                    raw_text=ref_node.raw,
+                    col_start=0,
+                )
+            )
+        extracted.extend(self.extract_inline_links(text, _premasked=masked_base))
+        extracted.sort(key=lambda item: (item.line_no, item.col_start))
+        return extracted
+
     def _mask_comments(self, text: str) -> str:
         """Mask HTML and MDX comments with spaces of equal length, preserving newlines to maintain line offsets."""
 
@@ -463,8 +715,33 @@ class PolyglotExtractor:
         text = _POLY_MDX_COMMENT_RE.sub(_repl, text)
         return text
 
+    def _mask_jsx_attr_values(self, text: str) -> str:
+        """Blank the string values of JSX/HTML attributes, preserving offsets.
+
+        A Markdown link written inside an attribute value -- ``<Foo label="see
+        [x](./y.md)" />`` -- is a string, not a link, but the inline-link regex
+        cannot know that: an attribute value is only a string if something knows
+        it is an attribute. Masking the value before link extraction is what
+        supplies that knowledge, and it is deliberately narrow -- only the text
+        between the quotes of an ``attr="..."`` pair inside a tag.
+
+        Length-preserving like every other mask here, because caret columns and
+        Z108's reported offsets are computed against the masked text.
+
+        Not covered, and left as today's behaviour rather than guessed at: JSX
+        *expression* attributes (``label={"..."}``) and template literals. A
+        missed construct leaves a false positive, which is the failure this
+        already had; over-masking would hide a genuine link, which is worse.
+        """
+        return _JSX_ATTR_VALUE_RE.sub(
+            lambda m: (
+                m.group(1) + ("".join("\n" if c == "\n" else " " for c in m.group(2))) + m.group(3)
+            ),
+            text,
+        )
+
     def _mask_inline_code(self, text: str) -> str:
-        """Sostituisce blocchi inline code con spazi bianchi preservando gli offset."""
+        """Replace inline code spans with whitespace, preserving offsets."""
         from zenzic.core.validator import _INLINE_CODE_RE
 
         return _INLINE_CODE_RE.sub(
@@ -472,11 +749,11 @@ class PolyglotExtractor:
         )
 
     def _mask_fences(self, text: str) -> str:
-        """Sostituisce blocchi code/pre con spazi bianchi preservando gli offset.
+        """Replace code/pre blocks with whitespace, preserving offsets.
 
-        Utilizza la stessa logica di fence-detection di :class:`SuppressionTracker`
-        (tre o più backtick/tilde) per garantire coerenza nel trattamento dei
-        blocchi di codice a livello di codebase.
+        Uses the same fence-detection logic as :class:`SuppressionTracker`
+        (three or more backticks/tildes) so code blocks are treated
+        consistently across the codebase.
         """
         lines = text.split("\n")
         result: list[str] = []
@@ -503,8 +780,80 @@ class PolyglotExtractor:
                 result.append(" " * len(line))
         return "\n".join(result)
 
+    def _mask_security_view(self, text: str) -> str:
+        """Mask only what the security tier may ignore: closed, well-formed fences.
+
+        The quality tier masks comments, math spans and fences so that a link
+        written inside them is not reported broken. That answers the question
+        "is this text content?". The security tier asks a different one --
+        "does this document contain a forbidden scheme or a traversal?" -- and
+        for that question the whole document is in scope, because a payload is
+        no less real for sitting inside a comment. Consulting the quality-tier
+        mask here made "the scanner did not look there" a suppression mechanism
+        for codes ``codes.py`` declares non-suppressible.
+
+        A *closed* fence is the one exception, and it is not an exception on
+        convenience grounds: it is the author's explicit, structural declaration
+        that the content is an exhibit rather than a reference, and fenced text
+        renders inert -- it never becomes the clickable anchor that makes an
+        unfenced ``javascript:`` URL a live vector. Zenzic's own ``docs/`` relies
+        on this: the pages documenting Z203 and Z205 teach those rules by showing
+        the payloads, and Z205 is exit 2 with no escape, so an unmasked pass would
+        make its own rule pages unfixable.
+
+        The three cases this deliberately does NOT mask share the property the
+        fence has and they lack -- the author never declared an exhibit:
+
+        * **Comments** declare something about *rendering*, not about content;
+          unrendered text is still text an attacker controls.
+        * **Math spans** declare nothing at all: two ``$`` on one line, which
+          prose about prices produces by accident.
+        * **Unterminated fences** are an authoring error, not a declaration, and
+          they silence every remaining line of the file.
+
+        Residual risk, accepted rather than closed: a closed fence remains a
+        place to hide a payload from the security tier. See ADR/priority-table
+        entry for ``V031_SECURITY_TIER_MASKING_BYPASS``.
+        """
+        # A Markdown link inside a JSX string attribute is masked here too, and
+        # it is the one thing besides a closed fence that this view hides. The
+        # reason is the same test the fence passes: it does not render. MDX does
+        # not parse `[x](y)` inside a prop string -- it reaches the page as
+        # literal text, producing no anchor and no href -- so there is no payload
+        # to report, and reporting one cost exit 3 on a non-suppressible code.
+        #
+        # This is safe because of what `_JSX_ATTR_VALUE_RE` does *not* match: it
+        # blanks only an attribute value containing `[...](...)`. A plain URL in
+        # a prop -- `<Callout to="javascript:alert(1)" />`, the case a component
+        # genuinely could render as an anchor -- is left untouched.
+        text = self._mask_jsx_attr_values(text)
+
+        lines = text.split("\n")
+        # First pass: find where a fence opens and whether it ever closes.
+        # Only a *closed* region is masked; an unterminated one is left intact.
+        masked: list[str] = list(lines)
+        open_idx: int | None = None
+        open_char = ""
+        open_len = 0
+        for idx, line in enumerate(lines):
+            fm = _POLY_FENCE_RE.match(line)
+            if fm is None:
+                continue
+            fence = fm.group("fence")
+            if open_idx is None:
+                open_idx = idx
+                open_char = fence[0]
+                open_len = len(fence)
+            elif fence[0] == open_char and len(fence) >= open_len and not fm.group("info").strip():
+                for j in range(open_idx, idx + 1):
+                    masked[j] = " " * len(lines[j])
+                open_idx = None
+                open_char = ""
+                open_len = 0
+        return "\n".join(masked)
+
     def _mask_math(self, text: str) -> str:
-        """Sostituisce blocchi matematici ($$...$$ e $...$) con spazi bianchi preservando i caratteri di a capo."""
+        """Replace math blocks ($$...$$ and $...$) with whitespace, preserving newline characters."""
         text = _POLY_DISPLAY_MATH_RE.sub(
             lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
         )
@@ -513,29 +862,56 @@ class PolyglotExtractor:
         )
         return text
 
-    def _parse_node(self, tag: str, attrs_str: str, line_no: int, raw_tag: str) -> HtmlNodeInfo:
-        """Parsing lineare della stringa ``attrs`` e classificazione governance.
+    def _parse_node(
+        self,
+        tag: str,
+        attrs_str: str,
+        line_no: int,
+        raw_tag: str,
+        *,
+        col_start: int = 0,
+        attrs_offset: int = 0,
+    ) -> HtmlNodeInfo:
+        """Linear parsing of the ``attrs`` string and governance classification.
 
-        **Ordine di priorità:**
+        **Priority order:**
 
-        1. Estrae ``href``/``src``.
-        2. **Verifica Z205** (schema vietato) — avviene PRIMA di tutto il resto.
-        3. Rileva ``data-zenzic-ignore``.
-        4. Classifica ogni attributo: Safe-Core / Blacklist / Unknown.
-        5. Determina Z121/Z122/Z123.
+        1. Extract ``href``/``src``.
+        2. **Check Z205** (forbidden scheme) — happens BEFORE everything else.
+        3. Detect ``data-zenzic-ignore``.
+        4. Classify each attribute: Safe-Core / Blacklist / Unknown.
+        5. Determine Z121/Z122/Z123.
         """
-        href_key = "src" if tag == "img" else "href"
+        # A component may spell its URL `to`, `href` or `src`; an HTML element has
+        # exactly one carrier. Precedence matters only when a component sets more
+        # than one, which is rare and not worth reporting twice.
+        if _is_jsx_component(tag):
+            href_keys: tuple[str, ...] = JSX_URL_ATTRS
+        else:
+            href_keys = ("src",) if tag.lower() == "img" else ("href",)
         href: str | None = None
         suppressed = False
         unknown: list[str] = []
         blacklisted: list[str] = []
         seen_attrs: set[str] = set()
+        # name -> 0-based column within the node's line. Built here because
+        # this is the only place that knows where each attribute really is:
+        # `col_start` locates the tag in the line, `attrs_offset` locates the
+        # attribute string inside the tag, and the match locates the name
+        # inside that string. A downstream search over the line cannot
+        # reconstruct this without guessing.
+        attr_cols: dict[str, int] = {}
 
         for m in _RE_POLY_ATTR.finditer(attrs_str):
             key_raw = m.group("key")
             if not key_raw:
                 continue
             key = key_raw.lower()
+            # Group 1 is ``key``; RE2's Match.start() takes only integers.
+            # setdefault, not assignment: a repeated attribute keeps the
+            # position of its first occurrence, which is the one a reader
+            # looking at the line will find.
+            attr_cols.setdefault(key, col_start + attrs_offset + m.start(1))
             if key in seen_attrs:
                 continue
             seen_attrs.add(key)
@@ -543,14 +919,14 @@ class PolyglotExtractor:
             val_raw = m.group("val") or ""
             val = val_raw.strip("\"'")
 
-            if key == href_key:
+            if key in href_keys and href is None:
                 href = val.strip() if val.strip() else None
             elif key == "data-zenzic-ignore":
                 suppressed = True
             elif key.startswith(_POLY_ARIA_PREFIX):
-                pass  # aria-* è sempre Safe-Core
+                pass  # aria-* is always Safe-Core
             elif key in _POLY_SAFE_CORE:
-                pass  # Safe-Core: pass senza diagnostica
+                pass  # Safe-Core: pass with no diagnostic
             elif key in _POLY_BLACKLIST or key.startswith(_POLY_ON_PREFIX):
                 blacklisted.append(key)
             else:
@@ -567,7 +943,21 @@ class PolyglotExtractor:
                     break
 
         # ── Classificazione link ───────────────────────────────────────────────────
-        is_missing_href = href is None
+        if _is_jsx_component(tag):
+            # A component's props are not HTML attributes, so Z120
+            # (UNKNOWN_HTML_ATTRIBUTE) does not apply to them -- `<Chart
+            # title="..." label="..." />` declares no HTML intent to audit. And a
+            # component carrying no URL-bearing prop is simply not a link, so
+            # Z121 (MISSING_OR_EMPTY_HREF, whose own text names `<a>` and
+            # `<img>`) does not apply either.
+            #
+            # Without this, recognising components would have made every JSX tag
+            # with custom props emit two findings it never emitted before --
+            # trading a missing check for a wave of false positives, which is a
+            # worse trade than the one this change was made to fix.
+            unknown = []
+            blacklisted = []
+        is_missing_href = href is None and not _is_jsx_component(tag)
         is_jump_link = href == "#"
         info_scheme: str | None = None
         if clean_href and not is_jump_link and z205_scheme is None:
@@ -588,10 +978,12 @@ class PolyglotExtractor:
             is_jump_link=is_jump_link,
             info_scheme=info_scheme,
             raw_tag=raw_tag,
+            col_start=col_start,
+            attr_cols=attr_cols,
         )
 
 
-# Singleton per l'uso nel pipeline di validazione.
+# Singleton for use in the validation pipeline.
 _POLYGLOT_EXTRACTOR = PolyglotExtractor()
 
 
@@ -646,7 +1038,76 @@ class LinkError:
 # Detects hrefs that, after traversal, would reach an OS system directory.
 # Triggering this classifier upgrades a PATH_TRAVERSAL error to a
 # PATH_TRAVERSAL_SUSPICIOUS security incident (Exit Code 3).
-_RE_SYSTEM_PATH: re.RegexPattern = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
+#: Directory names that mark an OS system location when a traversal *lands* on
+#: one. Compared against the first surviving path segment, never substring-
+#: searched: ``../../guide/usr/manual.md`` contains ``/usr/`` and is ordinary
+#: documentation, while ``../../../../etc/passwd`` arrives at ``etc``.
+_SYSTEM_ROOT_DIRS: frozenset[str] = frozenset(
+    {
+        # POSIX
+        "etc",
+        "root",
+        "var",
+        "proc",
+        "sys",
+        "usr",
+        "boot",
+        "dev",
+        "bin",
+        "sbin",
+        # Windows -- the classifier used to be POSIX-only, so a backslash path
+        # targeting system32 produced no finding at all.
+        "windows",
+        "winnt",
+        "system32",
+        "programdata",
+    }
+)
+
+
+#: Percent-decoding rounds applied before a traversal is classified. One pass
+#: is not enough: ``..%252f`` decodes to ``..%2f``, which still is not ``../``,
+#: so a single ``unquote`` leaves a double-encoded traversal looking like an
+#: ordinary relative filename. The loop is bounded because the input is
+#: untrusted and a fixed point is not guaranteed to arrive quickly.
+_MAX_DECODE_ROUNDS = 5
+
+
+def _decode_percent_encoding(value: str) -> str:
+    """Percent-decode *value* until it stops changing, at most a few rounds.
+
+    The security tier and the link resolver must agree on what a URL says.
+    ``incremental.py`` already resolved links through ``unquote`` while the
+    traversal check read the raw text, so ``..%2f..%2fetc%2fpasswd`` reached
+    ``/etc/passwd`` and produced no finding: the two halves of the same
+    pipeline disagreed about the same string.
+
+    Pure string work, no filesystem access — the Zero I/O property of the
+    validator hot-path is unaffected.
+    """
+    for _ in range(_MAX_DECODE_ROUNDS):
+        decoded = unquote(value)
+        if decoded == value:
+            break
+        value = decoded
+    return value
+
+
+def is_allowlisted_absolute(url: str, decoded_url: str, allowlist: Iterable[str]) -> bool:
+    """Whether *url* is exempted by a configured absolute-path prefix.
+
+    Must be consulted **before** :func:`_classify_traversal_intent`, not after.
+    The classifier reads the first surviving path segment, so a documentation
+    section named ``dev/`` or ``usr/`` makes an ordinary site-absolute link
+    "suspicious" — and the emission sites turned that into a non-suppressible
+    exit 3. The allowlist was read only in the branch that classification had
+    already skipped past, so the escape hatch the configuration documents could
+    never apply to the finding it was meant to clear.
+
+    Both spellings are matched, because a link that only *decodes* to an
+    absolute path reaches the same branch.
+    """
+    return any(url.startswith(p) or decoded_url.startswith(p) for p in allowlist if p)
 
 
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
@@ -656,11 +1117,45 @@ def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
     A traversal to ``../../sibling-repo/README.md`` is a boundary violation
     but has no OS-exploitation intent.  Only the former warrants Exit Code 3.
 
-    This check intentionally remains a fast regex scan over the raw href
-    string — no filesystem calls, no Path resolution — to stay within the
-    Zero I/O constraint of the validator hot-path.
+    Classification is by *destination*, not by text. The previous
+    implementation substring-searched the raw href for ``/etc/``, ``/usr/`` and
+    friends, which is true of a real attack and equally true of
+    ``../../guide/usr/manual.md`` — raising a **non-suppressible exit 3** on
+    legitimate documentation, with no escape hatch, which is the worse
+    direction to be wrong in. It was also case-sensitive and POSIX-only, so
+    ``/ETC/passwd`` silently downgraded to a boundary crossing and a
+    backslash path to ``system32`` produced nothing at all.
+
+    The href is percent-decoded first (repeatedly — see
+    ``_decode_percent_encoding``). ``%2f`` is a slash to everything that
+    resolves the link and was not one to this classifier, so every encoded
+    spelling of a system traversal classified as an ordinary boundary
+    crossing, or was never routed here at all.
+
+    Still pure string work — no filesystem calls, no ``Path`` resolution — so
+    the validator hot-path keeps its Zero I/O property.
+
+    That property is a claim about the whole traversal path, not only about
+    this function, and it was once false: both call sites in ``incremental.py``
+    wrapped this classifier in an ``is_file()`` check and downgraded the intent
+    when the target happened to exist. Beyond the I/O, it made the security
+    verdict depend on repository content — creating ``docs/etc/passwd`` turned
+    a non-suppressible ``Z203`` into a ``Z202``. Neither call site consults the
+    filesystem now. A future caller that reaches for one is reintroducing both
+    defects at once, and ``absolute_path_allowlist`` is the declared mechanism
+    it should reach for instead.
     """
-    return "suspicious" if _RE_SYSTEM_PATH.search(href) else "boundary"
+    decoded = _decode_percent_encoding(href)
+    candidate = decoded.split("?", 1)[0].split("#", 1)[0].replace("\\", "/")
+    # normpath collapses '.' and interior '..' without touching the filesystem.
+    normalized = posixpath.normpath(candidate)
+    segments = [seg for seg in normalized.split("/") if seg not in ("", ".")]
+    # Drop the leading escape hops; what remains is where the link arrives.
+    while segments and segments[0] == "..":
+        segments.pop(0)
+    if segments and segments[0].casefold() in _SYSTEM_ROOT_DIRS:
+        return "suspicious"
+    return "boundary"
 
 
 def _build_link_graph(
@@ -1079,6 +1574,52 @@ async def _ping_url(
         return f"external link '{url}' — connection error: {exc}"
 
 
+def _url_matches_excluded_prefix(url: str, prefix: str) -> bool:
+    """Return True if *url* is excluded by a declared ``excluded_external_urls`` *prefix*.
+
+    Compares the parsed scheme and host of *url* against *prefix* exactly
+    before falling back to a plain string-prefix check on the remainder.
+    A raw ``url.startswith(prefix)`` is vulnerable to host spoofing: a
+    declared prefix of ``"https://trusted.com"`` would also match
+    ``"https://trusted.com.evil.com/..."``, since that string genuinely
+    starts with the declared prefix even though its real host is
+    ``trusted.com.evil.com``, not ``trusted.com`` (CWE-20). Parsing both
+    sides and requiring an exact scheme+host match closes that bypass while
+    still allowing a prefix to scope a specific path under that host (e.g.
+    ``https://github.com/YourOrg/YourRepo``, the documented config example).
+    """
+    parsed_url = urlsplit(url)
+    parsed_prefix = urlsplit(prefix)
+    if not parsed_prefix.hostname:
+        return False
+    if parsed_url.scheme != parsed_prefix.scheme:
+        return False
+    if parsed_url.hostname != parsed_prefix.hostname:
+        return False
+    if parsed_url.port != parsed_prefix.port:
+        return False
+    return url.startswith(prefix)
+
+
+def repo_relative_label(path: Path, repo_root: Path) -> str:
+    """Render *path* the way every finding renders a file: relative and POSIX.
+
+    Two properties matter and neither is cosmetic. An absolute path leaks the
+    checking machine's directory layout into CI logs, SARIF output and anything a
+    user pastes into an issue; and it makes the same finding on the same commit
+    compare unequal between two machines, so no tool can diff two runs.
+
+    ``Path.relative_to`` raises rather than returning its input, so the fallback
+    is explicit: a corpus may legitimately reach outside the repository root --
+    an MkDocs monorepo's included sub-project docs, or an i18n locale tree -- and
+    a finding there must still be reported rather than crashing the run.
+    """
+    try:
+        return path.relative_to(repo_root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 async def _check_external_links(
     entries: list[tuple[str, str, int]],
     config: ZenzicConfig,
@@ -1105,7 +1646,7 @@ async def _check_external_links(
         # Defense-in-depth: skip excluded external URLs even if not pre-filtered by caller
         is_excluded = False
         for prefix in excluded:
-            if url.startswith(prefix):
+            if _url_matches_excluded_prefix(url, prefix):
                 is_excluded = True
                 if global_tracker:
                     global_tracker.mark_excluded_external_url_used(prefix)
@@ -1208,7 +1749,7 @@ def generate_virtual_site_map(
     if not docs_root.is_dir():
         return frozenset()
     for md_file in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_manager):
-        if md_file.suffix not in DOC_SUFFIXES or md_file.is_symlink():
+        if md_file.suffix.lower() not in DOC_SUFFIXES or md_file.is_symlink():
             continue
         rel = md_file.relative_to(docs_root)
         stem = rel.with_suffix("")
@@ -1227,56 +1768,89 @@ def generate_virtual_site_map(
 def check_nav_contract(
     repo_root: Path,
     exclusion_manager: LayeredExclusionManager,
+    engine: str = "mkdocs",
 ) -> list[str]:
-    """Validate ``extra.alternate`` links against the Virtual Site Map.
+    """Validate alternate-language links against the Virtual Site Map.
 
-    Loads ``mkdocs.yml``, projects the full set of URLs the build engine will
-    generate via :func:`generate_virtual_site_map`, then checks that every
-    ``extra.alternate`` link resolves to a URL that exists in that map.
+    Loads the active engine's config -- ``mkdocs.yml``'s ``extra.alternate``
+    for ``engine="mkdocs"``, or ``zensical.toml``'s ``[project.extra].alternate``
+    for ``engine="zensical"`` (structurally identical -- same name/link/lang
+    shape per entry -- see zensical.org/docs/setup/language/) -- projects the
+    full set of URLs the build engine will generate via
+    :func:`generate_virtual_site_map`, then
+    checks that every alternate link resolves to a URL that exists in that
+    map.
 
     No heuristics, no regex on URL patterns.  If a link is not in the VSM,
     it is a 404 — regardless of *why* the author wrote it.
 
     Args:
         repo_root: Repository root directory.
+        engine: Active build engine ("mkdocs" or "zensical"). Determines
+            which config file and alternate-links field are read.
 
     Returns:
         List of human-readable error strings (empty = no violations).
     """
-    from zenzic.core.adapter import find_config_file
-
     errors: list[str] = []
-    config_file = find_config_file(repo_root)
-    if config_file is None:
-        return errors
-    with config_file.open(encoding="utf-8") as f:
-        try:
-            doc_config: dict[str, Any] = (
-                yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
-            )
-        except yaml.YAMLError:
-            return errors
 
-    # ── Extract docs_structure ────────────────────────────────────────────────
-    docs_structure: str = "suffix"  # default assumption
-    plugins = doc_config.get("plugins", [])
-    if isinstance(plugins, list):
-        for plugin in plugins:
-            if not isinstance(plugin, dict):
-                continue
-            i18n = plugin.get("i18n")
-            if not isinstance(i18n, dict):
-                continue
-            docs_structure = i18n.get("docs_structure", "suffix")
-            break
+    if engine == "zensical":
+        from zenzic.core.adapters._zensical import find_zensical_config
+
+        config_file = find_zensical_config(repo_root)
+        if config_file is None:
+            return errors
+        try:
+            with config_file.open("rb") as f:
+                doc_config: dict[str, Any] = tomllib.load(f) or {}
+        except (tomllib.TOMLDecodeError, OSError):
+            return errors
+        project = doc_config.get("project")
+        if not isinstance(project, dict):
+            project = {}
+        docs_dir = project.get("docs_dir", "docs")
+        # Zensical i18n directory-structure ("suffix" vs "folder") detection
+        # is out of this fix's scope -- "suffix" is the same default already
+        # assumed for mkdocs when no i18n plugin config is present.
+        docs_structure = "suffix"
+        extra = project.get("extra") or {}
+        source_label = "zensical.toml [project.extra].alternate"
+    else:
+        from zenzic.core.adapter import find_config_file
+
+        config_file = find_config_file(repo_root)
+        if config_file is None:
+            return errors
+        with config_file.open(encoding="utf-8") as f:
+            try:
+                doc_config = (
+                    yaml.load(f, Loader=_PermissiveSafeLoader) or {}  # noqa: S506  # SafeLoader subclass
+                )
+            except yaml.YAMLError:
+                return errors
+
+        # ── Extract docs_structure ────────────────────────────────────────
+        docs_structure = "suffix"  # default assumption
+        plugins = doc_config.get("plugins", [])
+        if isinstance(plugins, list):
+            for plugin in plugins:
+                if not isinstance(plugin, dict):
+                    continue
+                i18n = plugin.get("i18n")
+                if not isinstance(i18n, dict):
+                    continue
+                docs_structure = i18n.get("docs_structure", "suffix")
+                break
+
+        docs_dir = doc_config.get("docs_dir", "docs")
+        extra = doc_config.get("extra") or {}
+        source_label = "mkdocs.yml extra.alternate"
 
     # ── Build the Virtual Site Map ────────────────────────────────────────────
-    docs_dir = doc_config.get("docs_dir", "docs")
     docs_root_path = repo_root / docs_dir
     vsm = generate_virtual_site_map(docs_root_path, docs_structure, exclusion_manager)
 
-    # ── Validate every extra.alternate link against the VSM ──────────────────
-    extra = doc_config.get("extra") or {}
+    # ── Validate every alternate link against the VSM ─────────────────────────
     alternate = extra.get("alternate", []) if isinstance(extra, dict) else []
     if not isinstance(alternate, list):
         return errors
@@ -1292,7 +1866,7 @@ def check_nav_contract(
         normalised = link if link.endswith("/") else link + "/"
         if normalised not in vsm:
             errors.append(
-                f"mkdocs.yml extra.alternate[{lang}]: link '{link}' does not "
+                f"{source_label}[{lang}]: link '{link}' does not "
                 f"correspond to any URL the build engine will generate. "
                 f"The Virtual Site Map contains no entry for '{normalised}'. "
                 f"Use a path that maps to an existing source file "
@@ -1335,25 +1909,7 @@ def validate_links_structured(
         ext_errors = []
 
     link_errors: list[LinkError] = []
-    link_codes = {
-        "Z101",
-        "Z102",
-        "Z103",
-        "Z104",
-        "Z105",
-        "Z106",
-        "Z108",
-        "Z110",
-        "Z620",
-        "Z120",
-        "Z121",
-        "Z122",
-        "Z123",
-        "Z124",
-        "Z202",
-        "Z203",
-        "Z205",
-    }
+    link_codes = LINK_CODES
 
     for report in reports:
         for rf in report.rule_findings:
@@ -1618,7 +2174,7 @@ class LinkValidator:
         if excluded:
             global_tracker = getattr(self._config, "_global_tracker", None)
             for prefix in excluded:
-                if url.startswith(prefix):
+                if _url_matches_excluded_prefix(url, prefix):
                     if global_tracker:
                         global_tracker.mark_excluded_external_url_used(prefix)
                     return  # do not schedule for HTTP validation
@@ -1659,7 +2215,7 @@ class LinkValidator:
             return []
 
         entries: list[tuple[str, str, int]] = [
-            (url, str(occurrences[0][0]), occurrences[0][1])
+            (url, repo_relative_label(occurrences[0][0], self._repo_root), occurrences[0][1])
             for url, occurrences in self._registrations.items()
         ]
         return await _check_external_links(

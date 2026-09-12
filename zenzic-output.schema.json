@@ -12,6 +12,9 @@
     },
     {
       "$ref": "#/$defs/capExceededReport"
+    },
+    {
+      "$ref": "#/$defs/perCheckReport"
     }
   ],
   "$defs": {
@@ -36,20 +39,25 @@
         "suppression_count",
         "suppression_cap",
         "suppression_debt_pts",
-        "debt_status"
+        "debt_status",
+        "findings"
       ],
       "properties": {
         "links": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "orphans": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "snippets": {
           "type": "array",
@@ -58,7 +66,9 @@
             "required": [
               "file",
               "line",
-              "message"
+              "message",
+              "code",
+              "severity"
             ],
             "properties": {
               "file": {
@@ -70,28 +80,59 @@
               },
               "message": {
                 "type": "string"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^Z[0-9]{3}$",
+                "description": "Always `Z503`. Added in v0.31.0 alongside the existing fields, which kept their names and meanings, so a consumer reading `file`/`line`/`message` is unaffected. It is stated rather than implied because a consumer had to know the array's identity to know the code."
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning",
+                  "info"
+                ]
               }
             },
             "additionalProperties": false
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in the one canonical shape. Unlike the other grouped arrays this one is an object rather than pre-formatted prose, so it was completed in place with `code` and `severity` instead of being left unresolvable."
         },
         "unused_assets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "nav_contract": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
         },
         "references": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "deprecated": true,
+          "description": "DEPRECATED as of v0.31.0 and scheduled for removal in v0.32.0: every finding it carries is also in `findings[]`, in a shape a machine can read. This array is pre-formatted prose and cannot be parsed reliably."
+        },
+        "security_breaches": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run \u2014 never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
+        },
+        "security_incidents": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run \u2014 never suppressible, Exit 3."
         },
         "suppression_count": {
           "type": "integer",
@@ -107,6 +148,13 @@
         },
         "debt_status": {
           "$ref": "#/$defs/debtStatus"
+        },
+        "findings": {
+          "type": "array",
+          "description": "Every finding this run reported, structured. Added alongside the grouped arrays above rather than replacing them: those are the original contract and consumers parse them today, but they are not machine-readable -- references[] carries the location and code inside an English string and links[] carries neither, so a link finding could not be resolved to a file from this payload at all.",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
         }
       },
       "additionalProperties": false
@@ -226,6 +274,51 @@
         },
         "debt_status": {
           "$ref": "#/$defs/debtStatus"
+        },
+        "baseline_status": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "absent"
+          ],
+          "description": "Freshness of the saved score snapshot (.zenzic-score.json) at the time of this run. 'absent' when no snapshot exists yet."
+        },
+        "baseline_age_days": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Age of the saved score snapshot in days, or null when baseline_status is 'absent'."
+        },
+        "score_trend": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Delta against the saved snapshot, or null when no snapshot exists or it cannot be parsed.",
+          "required": [
+            "baseline_score",
+            "current_score",
+            "delta"
+          ],
+          "properties": {
+            "baseline_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "current_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "delta": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -335,6 +428,110 @@
         "playbook": {
           "type": "string",
           "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "finding": {
+      "description": "One finding, in the shape every --format json payload uses. Defined once and referenced, because the aggregate and per-check payloads must resolve the same finding to the same file, line and code.",
+      "type": "object",
+      "required": [
+        "rel_path",
+        "line_no",
+        "code",
+        "severity",
+        "message"
+      ],
+      "properties": {
+        "rel_path": {
+          "type": "string",
+          "description": "Path relative to the repository root."
+        },
+        "line_no": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line; 0 means the finding is about the file itself."
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^Z[0-9]{3}$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "security_breach",
+            "security_incident"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "col_start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based column, matching the engine's own offset and the caret the text output draws. 0 means no column was determined, not column zero. SARIF's startColumn is this value plus one, since SARIF columns are 1-based."
+        },
+        "fixable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "perCheckReport": {
+      "type": "object",
+      "description": "What every `zenzic check <subcommand>` emits with `--format json`: the six subcommands (links, orphans, snippets, references, assets, placeholders) all produce this one shape. Declared in v0.31.0 -- it was emitted by every one of them and matched no branch of this schema's `oneOf`, so a consumer validating against the published contract would have rejected the tool's own output. Unlike `checkAllReport` it carries no grouped legacy arrays: the per-check commands were built after `findings[]` existed and never had them.",
+      "required": [
+        "findings",
+        "summary"
+      ],
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "errors",
+            "warnings",
+            "info",
+            "security_incidents",
+            "security_breaches",
+            "elapsed_seconds"
+          ],
+          "properties": {
+            "errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warnings": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "info": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security_incidents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security_breaches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "elapsed_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Wall-clock seconds for this check. Informational: it varies per run and per machine, so nothing should gate on it."
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

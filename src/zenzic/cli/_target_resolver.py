@@ -86,11 +86,13 @@ def _apply_target(
             new_docs_dir = target
         return config.model_copy(update={"docs_dir": new_docs_dir}), None, target, hint
 
+    # Whether *target* lives inside or outside the configured docs_dir (e.g.
+    # a repo-root file like CHANGELOG.md/README.md), always preserve the full
+    # docs_root/VSM — matching the LSP's _resolve_docs_root(), which always
+    # resolves docs_root once for the whole workspace and never re-scopes it
+    # per requested file — rather than collapsing analysis to just the
+    # target's own parent directory. Callers already apply a post-hoc
+    # single_file filter to narrow *displayed* findings; that filter does the
+    # real narrowing work, not the VSM/docs_dir itself.
     default_docs_root = (repo_root / config.docs_dir).resolve()
-    try:
-        target.relative_to(default_docs_root)
-        return config, target, default_docs_root, hint
-    except ValueError:
-        new_docs_dir = target.parent.relative_to(repo_root)
-        patched = config.model_copy(update={"docs_dir": new_docs_dir})
-        return patched, target, target.parent.resolve(), hint
+    return config, target, default_docs_root, hint

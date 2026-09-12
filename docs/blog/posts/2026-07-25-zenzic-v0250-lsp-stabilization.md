@@ -15,8 +15,6 @@ categories:
 
 Zenzic v0.25.0 stabilizes the Language Server Protocol (LSP) integration, guaranteeing strict diagnostic parity between CLI and editor sessions. This release introduces centralized core governance evaluation, adapter-driven configuration hot-reloading for live VSM updates, and an updated `BaseAdapter` contract.
 
-![Zenzic v0.25.0: LSP Stabilization & Adapter-Driven Hot-Reloading](../../assets/images/blog/launch_v0250.webp)
-
 <!-- more -->
 
 ## Diagnostic Parity and Centralized Governance
@@ -91,3 +89,17 @@ uv tool install --force zenzic
 ```
 
 The Zenzic VS Code extension updates automatically via the Visual Studio Marketplace.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

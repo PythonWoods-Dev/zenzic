@@ -17,18 +17,23 @@ Each file owns one domain of responsibility.
 
 | Module | Responsibility |
 |:-------|:---------------|
-| `_shared.py` | `console` singleton, `_ui` singleton, `configure_console()`, and all cross-command utilities (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, etc.) |
+| `_audit.py` | `audit` command — Governance Audit / Technical Debt Ledger |
 | `_check.py` | `check_app` Typer sub-app + seven `check *` commands; private helpers re-exported from `_governance.py`, `_target_resolver.py`, and `_command_setup.py` |
-| `_command_setup.py` | `setup_command()` factory — consolidates repo-root discovery, config loading, target resolution, and exclusion-manager construction used by all check commands |
 | `_clean.py` | `clean_app` Typer sub-app + `clean assets` command |
+| `_command_setup.py` | `setup_command()` factory — consolidates repo-root discovery, config loading, target resolution, and exclusion-manager construction used by all check commands |
 | `_config_explain.py` | `explain` command + config genealogy / rule introspection surface |
+| `_env.py` | `env` command — environment diagnostics (ADR-075 Radical Unawareness) |
+| `_fix.py` | `fix` command — AST Auto-Fix |
 | `_governance.py` | `config_app` Typer sub-app + governance profile commands + per-file-ignore and directory-policy filter helpers (`_apply_per_file_ignores`, `_apply_directory_policies`) |
 | `_guard.py` | `guard_app` Typer sub-app + `scan` / `init` commands for the fast secret guard |
 | `_inspect.py` | `inspect_app` Typer sub-app + `capabilities`, `codes`, and `routes` commands |
 | `_lab.py` | `lab` command + interactive scenario showcase |
+| `_lsp.py` | `lsp` command — starts the Zenzic Language Server (ZLS) |
 | `_metadata.py` | Single source of truth for root help panels, command grouping, and short help text |
+| `_shared.py` | `console` singleton, `_ui` singleton, `configure_console()`, and all cross-command utilities (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, etc.) |
 | `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
 | `_target_resolver.py` | `_resolve_target()` and `_apply_target()` — path lookup and config-patching helpers shared by check commands and the lab command |
+| `templates.py` | TOML template constants for `zenzic init` — layout/scaffold text kept separate from generator logic (SRP) |
 | `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
 
 `main.py` is the unified Typer registration factory. New top-level commands and sub-apps
@@ -47,14 +52,16 @@ architectural rule in the CLI layer:
 ```python
 # ✅ Correct — in any _check.py / _clean.py / _standalone.py command
 from . import _shared
+
 _shared.get_ui().print_header(__version__)
 _shared.get_console().print("output")
 
 # ❌ FORBIDDEN — never do this in a command module
 from rich.console import Console
 from mypackage.ui import LegacyInterfaceV1
-console = Console(...)          # breaks shared state
-ui = LegacyInterfaceV1(console) # creates an orphaned instance
+
+console = Console(...)  # breaks shared state
+ui = LegacyInterfaceV1(console)  # creates an orphaned instance
 ```
 
 For the design rationale behind UI state sharing, see [ADR 004 — Unified Console State](../explanation/adr-vault/records/adr-decentralized-cli.md#4-unified-console-state-visual-state-manager).

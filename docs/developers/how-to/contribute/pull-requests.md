@@ -39,7 +39,8 @@ For a lower-level setup or if you do not have `nox` installed yet, install with 
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
     ```
 
-    [`uv`](https://docs.astral.sh/uv/) resolves dependencies significantly faster than pip and
+    [`uv`](https://docs.astral.sh/uv/) resolves dependencies 10-100x faster than pip, per its
+    own [published benchmarks](https://github.com/astral-sh/uv/blob/main/BENCHMARKS.md), and
     produces a reproducible environment via `uv.lock`. Preferred for all development work.
 
 === "pip"
@@ -64,16 +65,18 @@ by installing only what each job needs. The groups are:
 | :---- | :------- | :---------- |
 | `test` | `pytest`, `pytest-cov`, `hypothesis`, `mutmut` | Running the test suite |
 | `lint` | `ruff`, `mypy`, `pre-commit`, `reuse` | Linting and type checking |
-| `docs` | MkDocs stack (`mkdocs-material`, etc.) | Building the documentation |
 | `release` | `nox`, `bump-my-version`, `pip-audit` | Releases and audits |
 | `dev` | All of the above (aggregator) | Local development |
+
+The MkDocs stack (`mkdocs-material`, etc.) is a separate PEP 508 extra, not a
+dependency group — install it with `--extra docs`, not `--group`.
 
 Install a single group when you only need a subset:
 
 ```bash
 uv sync --group test      # just pytest
 uv sync --group lint      # just ruff + mypy
-uv sync --group docs      # documentation build dependencies
+uv sync --extra docs      # documentation build dependencies
 uv sync --group dev       # everything (recommended for contributors)
 ```
 
@@ -82,7 +85,7 @@ source you are working on. Validate the repository's own documentation at any
 time:
 
 ```bash
-zenzic check all            # all seven checks
+zenzic check all            # all eight checks
 zenzic check references     # includes custom [[custom_rules]] evaluation
 pytest                      # full test suite (Hypothesis dev profile — 50 examples)
 ```
@@ -118,6 +121,8 @@ To optimize resources and ensure contributions align with the architectural goal
 ## CI/CD & Draft PRs
 
 To optimize resources, Zenzic's GitHub Actions trigger ONLY on pushes to `main` and on Pull Requests. Pushes to isolated development branches do not trigger CI. If you want continuous feedback from CI during development, open a Draft PR immediately.
+
+Every pull request runs the whole CI matrix — `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on 3.10 — and all three jobs must pass before merging. There is nothing to opt into. The details, including the measured cost and why Windows is not optional, are in [`CONTRIBUTING.md` → Continuous Integration](https://github.com/PythonWoods-Dev/zenzic/blob/main/CONTRIBUTING.md#continuous-integration) — the single source for this; it is not repeated here.
 
 ### Local Hooks
 

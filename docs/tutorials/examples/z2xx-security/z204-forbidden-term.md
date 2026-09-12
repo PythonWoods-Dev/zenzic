@@ -8,8 +8,6 @@ description: "Analysis of the z204-forbidden-term fixture."
 
 **Z-Code:** `Z204 FORBIDDEN_TERM` · **Engine:** `standalone` · **Exit:** `2`
 
-<Z204ForbiddenTerm />
-
 ---
 
 ## The Fixture
@@ -31,41 +29,46 @@ Expected output:
 
 ```text
 ✘ POLICY VIOLATION DETECTED
-  x Finding:    Forbidden term detected — remove from documentation: 'ProjectX'
-  x Location:   docs/index.md:11
-  x Term:        ProjectX
+  ✘ Finding:    Forbidden term detected — remove from documentation: 'ProjectX'
+  ✘ Location:   docs/index.md:11
+  ✘ Term:        ProjectX
 
   Action: Remove this term from the documentation or update the
 forbidden_patterns list in .zenzic.local.toml.
 
 ✘ POLICY VIOLATION DETECTED
-  x Finding:    Forbidden term detected — remove from documentation:
+  ✘ Finding:    Forbidden term detected — remove from documentation:
 'staging.internal.corp'
-  x Location:   docs/index.md:15
-  x Term:        staging.internal.corp
+  ✘ Location:   docs/index.md:15
+  ✘ Term:        staging.internal.corp
 
   Action: Remove this term from the documentation or update the
 forbidden_patterns list in .zenzic.local.toml.
 
 ✘ POLICY VIOLATION DETECTED
-  x Finding:    Forbidden term detected — remove from documentation: 'ProjectX'
-  x Location:   docs/index.md:20
-  x Term:        ProjectX
+  ✘ Finding:    Forbidden term detected — remove from documentation: 'ProjectX'
+  ✘ Location:   docs/index.md:20
+  ✘ Term:        ProjectX
 
   Action: Remove this term from the documentation or update the
 forbidden_patterns list in .zenzic.local.toml.
 
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 62 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
+
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 3 policy violations  - 1 file impacted  x 0 errors  ! 0 warnings  i
-0 info  - 0 files with findings
+Summary:  ✘ 3 policy violations  • 1 file impacted  ✘ 0 errors  ⚠ 1 warning  💡
+0 info  • 1 file with findings
 
 FAILED: Policy violations detected. Exit code 2 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+DQS Final Score: 0/100 (Security Override — 3 non-suppressible findings
+detected)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `2`

@@ -8,8 +8,6 @@ description: "Analysis of the z202-path-traversal fixture."
 
 **Z-Code:** `Z202 PATH_TRAVERSAL` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z202PathTraversal />
-
 ---
 
 ## The Fixture
@@ -30,27 +28,29 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 63 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:11:2  x  [Z202]  '../../private/secret.txt' resolves outside the
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
+
+docs/index.md:11  ✘  [Z202]  '../../private/secret.txt' resolves outside the
 docs directory
 
      9  │  ## Traversal Link
     10  │
-    11  ❱  - [Config](../../private/secret.txt) — this link escapes `docs/` via
-`../..` → **Z202**
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    11  ❱  - [Config](../../private/secret.txt) — this link escapes `docs/` via…
     12  │
     13  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`
@@ -65,7 +65,7 @@ This error or warning is raised by Zenzic when a link contains directory travers
 
 - **Scan Type:** `Path Traversal Guard`
 - **Severity:** `Error (Non-suppressible)`
-- **Impact:** Path traversal attempts collapse the DQS score to 0.0 and exit with Exit Code 3, representing a severe security boundary violation.
+- **Impact:** Path traversal attempts collapse the DQS score to 0.0 and exit with Exit Code 1, representing a severe security boundary violation. (The fatal variant, `Z203`, is reserved for traversal targeting OS system directories such as `/etc/` or `/root/` and exits with Exit Code 3 instead.)
 
 ---
 

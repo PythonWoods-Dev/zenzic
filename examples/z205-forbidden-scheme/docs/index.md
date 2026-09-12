@@ -22,3 +22,13 @@ This page demonstrates the **non-suppressible** Z205 security gate.
 ## For reference: img tag with data: src
 
 <img src="data:image/svg+xml,<svg/onload=alert(1)>" alt="SVG injection via data: URI — Z205 trigger">
+
+## Markdown-syntax links — the same vector, different transport
+
+[Inline Markdown link](javascript:alert(document.cookie))
+
+## Reference-style definitions
+
+[Reference link][evil]
+
+[evil]: javascript:void(0)

@@ -10,10 +10,12 @@ construction) that appears at the top of every check command.  Extracted from
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
+from zenzic.core.adapters import get_adapter
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.root_finder import find_repo_root
+from zenzic.core.scanner import find_repo_root
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -23,16 +25,26 @@ from ._target_resolver import _apply_target
 def setup_command(
     path: str | None = None,
     *,
+    config_file: Path | None = None,
+    engine_override: str | None = None,
+    offline: bool = False,
+    exclude_url: Sequence[str] | None = None,
     extra_exclude_dirs: list[str] | None = None,
     extra_include_dirs: list[str] | None = None,
-) -> tuple[ZenzicConfig, Path, Path, LayeredExclusionManager, Path | None, bool]:
+    cli_exclude_dirs: list[str] | None = None,
+    cli_include_dirs: list[str] | None = None,
+    include_adapter_metadata: bool = False,
+) -> tuple[ZenzicConfig, Path, Path, LayeredExclusionManager, Path | None, bool, str | None]:
     """Discover repo root, load config, resolve optional *path* target.
 
-    Returns ``(config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file)``.
+    Returns ``(config, repo_root, docs_root, exclusion_mgr, single_file,
+    loaded_from_file, target_hint)``.
 
     ``single_file`` is ``None`` in directory mode, or the resolved absolute
     ``.md`` / ``.mdx`` path in single-file mode.
     ``loaded_from_file`` reflects whether ``.zenzic.toml`` was present on disk.
+    ``target_hint`` is ``_apply_target``'s short display string (e.g. ``"./content/"``)
+    when *path* was given, ``None`` otherwise -- most callers can ignore it.
     """
     _search_from: Path | None = None
     if path is not None:
@@ -40,11 +52,20 @@ def setup_command(
         _search_from = _pre.parent if _pre.is_file() else _pre
 
     repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    config, loaded_from_file = ZenzicConfig.load(repo_root, config_file=config_file)
+
+    config = _shared._apply_engine_override(config, engine_override)
+    if offline:
+        config.build_context.offline_mode = True
+    if exclude_url:
+        config = config.model_copy(
+            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
+        )
 
     single_file: Path | None = None
+    target_hint: str | None = None
     if path is not None:
-        config, single_file, docs_root, _ = _apply_target(repo_root, config, path)
+        config, single_file, docs_root, target_hint = _apply_target(repo_root, config, path)
         try:
             docs_root.relative_to(repo_root)
         except ValueError:
@@ -52,7 +73,9 @@ def setup_command(
     else:
         docs_root = (repo_root / config.docs_dir).resolve()
 
-    # Apply optional extra exclusion/inclusion overrides (used by check_all).
+    # Apply optional extra exclusion/inclusion overrides (config-layer: these
+    # become part of config.excluded_dirs itself, tracked the same way a
+    # declared .zenzic.toml pattern would be -- e.g. by Z620 STALE_GLOBAL_SUPPRESSION).
     if extra_exclude_dirs:
         config = config.model_copy(
             update={"excluded_dirs": list(config.excluded_dirs) + extra_exclude_dirs}
@@ -65,6 +88,28 @@ def setup_command(
             }
         )
 
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    # CLI-layer excludes/includes (e.g. --exclude-dir/--include-dir) are kept
+    # structurally separate from the config-layer merge above -- they are
+    # tracked as their own LayeredExclusionManager layer (cli_exclude/cli_include),
+    # distinct from config.excluded_dirs, so they must NOT be folded into
+    # config first (that would misattribute a transient CLI flag as a
+    # declared config pattern for governance/audit purposes).
+    adapter_metadata_files: frozenset[str] = frozenset()
+    if include_adapter_metadata:
+        # get_adapter() caches by (engine, docs_root, repo_root), so building
+        # it here and again in the caller (for other adapter methods) is a
+        # cheap cache hit, not redundant work.
+        adapter_metadata_files = get_adapter(
+            config.build_context, docs_root, repo_root
+        ).get_metadata_files()
 
-    return config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        exclude_dirs=cli_exclude_dirs,
+        include_dirs=cli_include_dirs,
+        adapter_metadata_files=adapter_metadata_files,
+    )
+
+    return config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file, target_hint

@@ -4,7 +4,5 @@
 #
 # Expected results:
 #   zenzic lab z122   → EXIT 0  (Z122 ×2 — warnings)
-[zenzic]
+[build_context]
 engine = "standalone"
-[links]
-check_external = false

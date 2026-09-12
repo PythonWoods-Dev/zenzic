@@ -43,18 +43,26 @@ other build toolchain).
 ## Decision
 
 `find_repo_root()` in `src/zenzic/core/scanner.py` walks upward from the
-current working directory, checking each ancestor for one of two **root
+current working directory, checking each ancestor for one of four **root
 markers** (first match wins):
 
 | Marker | Rationale |
 |--------|-----------|
 | `.git/` | Universal VCS signal. If a `.git` directory exists, the user has explicitly defined a repository boundary. Zenzic respects this boundary as the project scan scope. |
 | `.zenzic.toml` | Zenzic's own configuration file. Its presence is an unambiguous declaration that this directory is the analysis root, even in non-VCS environments. |
+| `zensical.toml` | Zensical engine config — a fallback signal for projects with no `.git`/`.zenzic.toml` yet. |
+| `mkdocs.yml` | MkDocs engine config — same fallback role as `zensical.toml`. |
 
-`mkdocs.yml`, `pyproject.toml`, and other engine-specific files are
-deliberately **excluded** from root markers. Including them would couple the
-discovery mechanism to a specific build engine, violating Pillar 1
-(*Lint the Source, not the Build*).
+> **Correction (2026-08-29):** this ADR originally stated that `mkdocs.yml`
+> was "deliberately excluded" from root markers to avoid coupling discovery
+> to a specific build engine. That was never accurate to the shipped
+> implementation, which has always included both `mkdocs.yml` and
+> `zensical.toml` as fallback markers — confirmed directly against
+> `find_repo_root()`'s own docstring. The two are treated symmetrically
+> (neither engine is privileged over the other), which is what actually
+> keeps this mechanism engine-neutral in spirit: it does not couple root
+> discovery to *choosing* MkDocs over Zensical or vice versa, even though it
+> does recognize both engines' own config files as fallback signals.
 
 If no marker is found in any ancestor, `find_repo_root()` raises a
 `RuntimeError` with an actionable message — it never silently defaults to the

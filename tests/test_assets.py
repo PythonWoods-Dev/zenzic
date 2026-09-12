@@ -48,6 +48,31 @@ def test_find_unused_assets(tmp_path: Path) -> None:
     assert unused[0].name == "unused.png"
 
 
+def test_frontmatter_image_reference_not_flagged_unused(tmp_path: Path) -> None:
+    repo = tmp_path / "my_repo"
+    docs = repo / "docs"
+    docs.mkdir(parents=True)
+
+    assets_dir = docs / "assets" / "social"
+    assets_dir.mkdir(parents=True)
+    (assets_dir / "card.png").touch()
+
+    md = docs / "post.md"
+    md.write_text(
+        "---\n"
+        "title: A post\n"
+        "image: assets/social/card.png\n"
+        "---\n\n"
+        "Body text with no markdown link to the card image.\n"
+    )
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
+
+    assert unused == []
+
+
 def test_excluded_assets_not_reported(tmp_path: Path) -> None:
     repo = tmp_path / "my_repo"
     docs = repo / "docs"
@@ -206,3 +231,26 @@ def test_z405_respects_exclusions_and_dotfiles(tmp_path: Path) -> None:
     findings = [data for _, evt, data in scanner.harvest() if evt == "SECRET"]
     assert len(findings) == 1
     assert findings[0].secret_type == "openai-api-key"
+
+
+def test_code_asset_suffixes_exempts_mts_and_cts(tmp_path: Path) -> None:
+    """TypeScript's explicit-module-type extensions (.mts/.cts) are source code,
+    not documentation assets — same exemption class as the already-covered .mjs/.cjs
+    (Discovered via V031_CI_COVERAGE_GATES_IMPLEMENTATION: a real standalone-mode repo's
+    vitest.config.mts was false-flagged as Z405 UNUSED_ASSET before this fix)."""
+    repo = tmp_path / "my_repo"
+    docs = repo / "docs"
+    docs.mkdir(parents=True)
+
+    (docs / "vitest.config.mts").touch()
+    (docs / "build.cts").touch()
+    (docs / "unused.png").touch()
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
+
+    unused_names = {p.name for p in unused}
+    assert "vitest.config.mts" not in unused_names
+    assert "build.cts" not in unused_names
+    assert "unused.png" in unused_names

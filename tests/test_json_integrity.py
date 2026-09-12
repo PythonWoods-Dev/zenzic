@@ -108,3 +108,44 @@ def test_cap_exceeded_json_matches_schema(
     payload = json.loads(result.stdout)
     assert payload["error"] == "SUPPRESSION_CAP_EXCEEDED"
     _schema_validator().validate(payload)
+
+
+def test_check_all_json_exposes_security_breach_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """check all --format json must expose a machine-readable severity marker
+    for security_breach findings, not just plain link-error strings.
+
+    Regression for: the legacy checkAllReport JSON payload (links/orphans/
+    snippets/unused_assets/nav_contract/references — all plain strings) had
+    no field a JSON consumer could use to programmatically detect a Z2xx
+    security breach. A consumer had to either parse link-error message text
+    or rely solely on the process exit code, even though the CLI's process
+    exit code IS already correct (2) for this case — this test targets the
+    JSON payload's own self-description, independent of the exit code.
+    """
+    toml = tmp_path / ".zenzic.toml"
+    toml.write_text(
+        'docs_dir = "docs"\n\n[build_context]\nengine = "standalone"\n',
+        encoding="utf-8",
+    )
+    index = tmp_path / "docs" / "index.md"
+    index.parent.mkdir(parents=True, exist_ok=True)
+    index.write_text(
+        "# Interactive Widget\n\n"
+        "This page embeds a widget link using a scheme that must never be "
+        "permitted in published documentation, regardless of context.\n\n"
+        '<a href="javascript:alert(document.cookie)">Click for details</a>\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["check", "all", "--format", "json"])
+
+    assert result.exit_code == 2, f"Unexpected exit {result.exit_code}:\n{result.stdout}"
+    payload = json.loads(result.stdout)
+    assert payload.get("security_breaches", 0) > 0, (
+        f"Expected a positive security_breaches count in the JSON payload for "
+        f"a Z205 finding, got: {payload}"
+    )
+    _schema_validator().validate(payload)

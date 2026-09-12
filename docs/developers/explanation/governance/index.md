@@ -73,6 +73,4 @@ Zenzic's governance is built on three axes:
 This section is the **governance constitution** — the constraints that protect Zenzic's
 own structure from erosion by convenience, urgency, and well-intentioned shortcuts.
 
-### "Do not trust us. Trust the system we built to protect you."
-
-This section details the specifications and guidelines for "Do not trust us. Trust the system we built to protect you." within the Zenzic ecosystem.
+> *"Do not trust us. Trust the system we built to protect you."*

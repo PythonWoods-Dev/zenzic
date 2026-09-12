@@ -17,7 +17,8 @@ at startup:
 | 3 | Built-in defaults | Used when neither file is present |
 
 The repository root is located by walking upward from the current working directory until a `.git`
-directory, a `.zenzic.toml`, or a `pyproject.toml` is found.
+directory, a `.zenzic.toml`, a `zensical.toml`, or an `mkdocs.yml` is found. `pyproject.toml` is not
+itself a root marker — it is read only once the root is already located by one of these markers.
 
 ---
 

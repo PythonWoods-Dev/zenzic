@@ -10,7 +10,7 @@ body:
     attributes:
       value: |
         Before opening a feature request, please open a discussion on the
-        [issue tracker](https://github.com/PythonWoods/zenzic/issues) so we can agree on
+        [issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues) so we can agree on
         the approach before you invest time implementing it.
 
   - type: dropdown

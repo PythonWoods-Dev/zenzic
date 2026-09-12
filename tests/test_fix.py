@@ -8,11 +8,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from typer.testing import CliRunner
 
 from zenzic.cli._fix import _atomic_write
 from zenzic.core.mutator import EmptyLinkTextMutation, Mutator
 from zenzic.core.parser import parse, serialize
 from zenzic.core.validator import _extract_empty_link_texts
+from zenzic.main import app
+
+
+runner = CliRunner()
 
 
 def test_atomic_write_symlink_preservation(tmp_path: Path) -> None:
@@ -82,6 +87,29 @@ def test_formatted_empty_link_validation_and_mutation() -> None:
         assert serialized == "[TODO](url)", f"Got: {serialized}"
 
 
+def test_empty_link_text_mutation_is_idempotent() -> None:
+    """EmptyLinkTextMutation.apply() must be idempotent: mutate(mutate(ast)) == mutate(ast).
+
+    Holds by construction — apply() only injects "TODO" when the link has no
+    text content, and the injected "TODO" text itself satisfies that
+    precondition on any subsequent pass — but had no dedicated regression
+    test (found via a documentation-hygiene audit). Auto-fix
+    tooling commonly runs to a fixed point (apply repeatedly until no
+    further changes); a mutation that isn't genuinely idempotent would
+    either loop forever or drift the content on repeated runs.
+    """
+    mutator = Mutator([EmptyLinkTextMutation()])
+
+    ast = parse("[](url)")
+    first_ast, first_changed = mutator.mutate(ast)
+    assert first_changed
+    assert serialize(first_ast) == "[TODO](url)"
+
+    second_ast, second_changed = mutator.mutate(first_ast)
+    assert not second_changed
+    assert serialize(second_ast) == "[TODO](url)"
+
+
 def test_polyglot_extractor_comment_masking() -> None:
     """An HTML tag or a Z205 scheme inside an HTML or MDX comment is ignored by PolyglotExtractor."""
     from zenzic.core.validator import PolyglotExtractor
@@ -131,3 +159,263 @@ def test_polyglot_extractor_fence_evasion() -> None:
     assert len(nodes_closed) == 1
     assert nodes_closed[0].href == "safe.md"
     assert nodes_closed[0].line_no == 4
+
+
+# ── zenzic fix --rename (V031_FIXABLE_FIELD_EXPANSION_RULE17_CHECKLIST_AND_CLI_RENAME_FEATURE) ──
+
+
+def _init_repo(tmp_path: Path) -> Path:
+    (tmp_path / ".zenzic.toml").write_text("")
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True)
+    return docs
+
+
+def test_fix_rename_dry_run_default_shows_diff_and_does_not_modify(tmp_path: Path) -> None:
+    """--dry-run is the default (matches the existing `fix` command's own default) --
+    real fixture: A links to B, rename B to B2, confirm the diff is shown but the file
+    on disk is untouched."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    a_file.write_text("# A\nSee [B](./b.md) for details.\n")
+
+    result = runner.invoke(
+        app, ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md")], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+    assert "b2.md" in result.output
+    assert a_file.read_text() == "# A\nSee [B](./b.md) for details.\n", (
+        "dry-run must not modify the file on disk"
+    )
+
+
+def test_fix_rename_apply_rewrites_inbound_link(tmp_path: Path) -> None:
+    """--apply actually rewrites the inbound link on disk."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    a_file.write_text("# A\nSee [B](./b.md) for details.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[B](b2.md)" in a_file.read_text()
+
+
+def test_fix_rename_skips_alias_style_href(tmp_path: Path) -> None:
+    """Same safety gate as the LSP version: a docs-root-relative ('/...') href is
+    left untouched, not guessed at."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    a_file.write_text("# A\nSee [B](/b.md) for details.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert a_file.read_text() == "# A\nSee [B](/b.md) for details.\n"
+
+
+def test_fix_rename_no_op_when_no_inbound_links(tmp_path: Path) -> None:
+    """Clean, honest reporting when nothing needs fixing -- not a silent no-op."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    (docs / "unrelated.md").write_text("# Unrelated\nNo links here.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "No inbound links" in result.output or "0 file" in result.output.lower()
+
+
+def test_fix_rename_partial_success_multiple_files_reported_individually(tmp_path: Path) -> None:
+    """Safety (Phase 3): renaming a heavily-linked page reports each affected file
+    individually -- not a single opaque success/failure for the whole batch."""
+    docs = _init_repo(tmp_path)
+    (docs / "b.md").write_text("# B\nContent.\n")
+    a_file = docs / "a.md"
+    c_file = docs / "c.md"
+    a_file.write_text("# A\nSee [B](./b.md) for details.\n")
+    c_file.write_text("# C\nAlso see [B](./b.md) here.\n")
+
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "b.md"), str(docs / "b2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "a.md" in result.output
+    assert "c.md" in result.output
+    assert "[B](b2.md)" in a_file.read_text()
+    assert "[B](b2.md)" in c_file.read_text()
+
+
+def test_fix_rename_case_only_rename_survives_realpath_collapse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parity with the LSP handler: `Path(new).resolve()` on NTFS/APFS returns
+    the on-disk spelling of a name that differs only by case, so a case-only
+    rename collapsed to old == new and rewrote nothing. Emulated here."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CaseLink.md").write_text("# Target\n\nContent.\n")
+    (docs / "linker.md").write_text("# Linker\n\nSee [target](CaseLink.md).\n")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+
+    real_resolve = Path.resolve
+
+    def collapsing_resolve(self: Path, strict: bool = False) -> Path:
+        resolved = real_resolve(self, strict)
+        if not resolved.exists() and resolved.parent.exists():
+            for entry in resolved.parent.iterdir():
+                if entry.name.casefold() == resolved.name.casefold():
+                    return entry
+        return resolved
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "resolve", collapsing_resolve)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseLink.md"), str(docs / "caselink.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](caselink.md)" in (docs / "linker.md").read_text(), (
+        docs / "linker.md"
+    ).read_text()
+
+
+# ── Case-insensitive identity, CLI predicate (V031_IMPLEMENT_CLI_CASE_PARITY) ──
+# The editor repairs a link that names the renamed file in a different letter
+# case; this command did not, and the two disagreed on the same rename. The
+# predicate here is deliberately NOT the LSP's `== 1`: `willRenameFiles` fires
+# before the rename so the file still exists there, whereas `OLD` need not
+# exist for this command (the `git mv` workflow). The rule is "no OTHER
+# discovered page folds equal to OLD", evaluated over the set this command
+# already enumerates -- never `os.path.normcase`, never the filesystem, so the
+# answer cannot depend on the host (ADR-075).
+
+
+def _case_fixture(tmp_path: Path, *, lowercase_twin: bool, old_still_present: bool) -> Path:
+    """Build the two-spelling fixture, skipping where the filesystem forbids it.
+
+    A test asserting *decline when a twin page exists* needs two directory entries
+    differing only by letter case. NTFS and APFS cannot hold both: the second write
+    overwrites the first. The condition is genuinely unconstructable there, so the
+    assertion has nothing to assert and a skip is the correct treatment -- the same
+    call `tests/test_lsp.py` already makes for its equivalent test.
+
+    **The detection has to happen before the twin is written.** Checking
+    `.exists()` on both spellings *afterwards* returns True on a case-insensitive
+    filesystem, because both names resolve to the one file that survived -- which is
+    exactly why the guard that was written that way passed locally and failed on
+    Windows. Probing the lowercase name while only the uppercase file exists is the
+    observation that actually distinguishes the two platforms, and a reader can
+    reproduce it in one line.
+    """
+    docs = _init_repo(tmp_path)
+    if old_still_present:
+        (docs / "CaseTarget.md").write_text("# Upper\nContent.\n")
+    if lowercase_twin and not old_still_present:
+        # The "old page is gone, a twin survives" case. On a case-insensitive
+        # filesystem this is not merely hard to build -- it is a contradiction.
+        # `CaseTarget.md` was never created, yet it *resolves to* the surviving
+        # `casetarget.md`: the two spellings name one directory entry. Asking to
+        # rename the absent uppercase page therefore is asking to rename the twin,
+        # and `Path.resolve()` returns the on-disk spelling, so "old" and "the
+        # other page" become the same path and there is no second page to decline
+        # against. The probe below is the reader-reproducible form of that: a file
+        # that was never written reports `.exists()`.
+        (docs / "casetarget.md").write_text("# Lower\nContent.\n")
+        if (docs / "CaseTarget.md").exists():
+            pytest.skip(
+                "case-insensitive filesystem: 'CaseTarget.md' resolves to the "
+                "surviving 'casetarget.md', so the absent page and the twin are "
+                "one entry and the decline this test asserts has no second page"
+            )
+        (docs / "caselink.md").write_text("# Linker\nSee [target](./casetarget.md).\n")
+        return docs
+    if lowercase_twin:
+        if old_still_present and (docs / "casetarget.md").exists():
+            pytest.skip(
+                "case-insensitive filesystem: 'CaseTarget.md' and 'casetarget.md' "
+                "cannot coexist, so the twin this test declines against cannot be built"
+            )
+        (docs / "casetarget.md").write_text("# Lower\nContent.\n")
+        if old_still_present and not (docs / "CaseTarget.md").read_text().startswith("# Upper"):
+            pytest.skip(
+                "case-insensitive filesystem: writing the lowercase twin overwrote "
+                "the uppercase page, so only one entry exists"
+            )
+    (docs / "caselink.md").write_text("# Linker\nSee [target](./casetarget.md).\n")
+    return docs
+
+
+def test_fix_rename_repairs_case_mismatched_href_when_unambiguous(tmp_path: Path) -> None:
+    """Ordinary unique page: the href differs from the file only by letter case,
+    nothing else folds equal to it, so it is repaired -- matching the editor."""
+    docs = _case_fixture(tmp_path, lowercase_twin=False, old_still_present=True)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](CaseTarget2.md)" in (docs / "caselink.md").read_text(), (
+        docs / "caselink.md"
+    ).read_text()
+
+
+def test_fix_rename_declines_case_match_when_a_twin_page_exists(tmp_path: Path) -> None:
+    """Both spellings exist (possible on a case-sensitive filesystem): the href
+    is an exact link to the OTHER page, so renaming this one must leave it be."""
+    docs = _case_fixture(tmp_path, lowercase_twin=True, old_still_present=True)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](./casetarget.md)" in (docs / "caselink.md").read_text()
+
+
+def test_fix_rename_declines_case_match_when_old_is_gone_but_a_twin_remains(
+    tmp_path: Path,
+) -> None:
+    """`OLD` already moved away and a page folding equal to it survives: the
+    link belongs to the survivor, not to the file being renamed."""
+    docs = _case_fixture(tmp_path, lowercase_twin=True, old_still_present=False)
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "Elsewhere.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](./casetarget.md)" in (docs / "caselink.md").read_text()
+
+
+def test_fix_rename_repairs_case_mismatched_href_after_git_mv(tmp_path: Path) -> None:
+    """The command's main use case, and the one the LSP's own predicate gets
+    wrong: `OLD` no longer exists (`git mv` already ran) and nothing folds
+    equal to it, so the case-mismatched inbound link is repaired."""
+    docs = _case_fixture(tmp_path, lowercase_twin=False, old_still_present=False)
+    (docs / "CaseTarget2.md").write_text("# Upper, moved\nContent.\n")
+    result = runner.invoke(
+        app,
+        ["fix", "--rename", str(docs / "CaseTarget.md"), str(docs / "CaseTarget2.md"), "--apply"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "[target](CaseTarget2.md)" in (docs / "caselink.md").read_text(), (
+        docs / "caselink.md"
+    ).read_text()

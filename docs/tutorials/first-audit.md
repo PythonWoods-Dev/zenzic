@@ -85,10 +85,12 @@ When you're ready to commit Zenzic to your project, generate a `.zenzic.toml` in
 !!! info "Workspace required"
 
     Zenzic analyses **workspaces, not arbitrary directories**. It performs an upward traversal from the
-    target path to locate a root marker (`.git/` or `.zenzic.toml`). If you see:
+    target path to locate a root marker — `.git/`, `.zenzic.toml`, `zensical.toml` or `mkdocs.yml`. If you see:
 
     ```text
-    ERROR: Could not locate repo root: no .git directory or .zenzic.toml found
+    ERROR: Could not locate repo root: no .git directory, .zenzic.toml, zensical.toml, or
+    mkdocs.yml found in any ancestor of /path/to/your/directory. Run Zenzic from inside the
+    repository.
     ```
 
     Run `zenzic init` in the root directory of your project to establish the workspace boundary.
@@ -99,14 +101,17 @@ cd your-project/
 zenzic init
 ```
 
-Zenzic inspects the directory and pre-configures the engine for you:
+Zenzic inspects the directory and pre-configures the engine for you, reporting the engine it
+detected in its confirmation panel, then scaffolding a machine-local overlay alongside the
+shared config. It closes with:
 
 ```text
-Created .zenzic.toml
-  Engine pre-set to mkdocs (detected from mkdocs.yml).
+✨ Zenzic initialized successfully!
 
-Edit the file to enable rules, adjust directories, or set a quality threshold.
-Run zenzic check all to validate your documentation.
+Next steps:
+  1. Run zenzic check all to see your baseline.
+  2. To automate Zenzic in pre-commit hooks or CI/CD, see:
+     https://zenzic.dev/how-to/configure-ci-cd/
 ```
 
 The generated file is annotated — every option is commented out with a short explanation.
@@ -129,7 +134,8 @@ Open it, uncomment what you need, leave the rest.
 zenzic check all
 ```
 
-Zenzic scans every Markdown file, validates internal links against the Virtual Site Map,
+Zenzic scans every Markdown and MDX file: `.md` and `.mdx` alike, in any letter case,
+with nothing to configure. It validates internal links against the Virtual Site Map,
 checks anchors, scans for credentials, and runs your custom rules — then prints a structured
 report and exits with a machine-readable code. For details on exit code definitions and security tiers, see the [Exit Code Contract](../reference/finding-codes#exit-code-contract).
 
@@ -149,7 +155,8 @@ Exit 0 confirms that every link resolves, every page is reachable, and no creden
     Run `zenzic check all`. The finding is exact:
 
     ```text
-    docs/intro.md:3  Z101  Internal link resolves to no page in the VSM  → ./nonexistent-page.md
+    docs/intro.md:3  ✘  [Z101]  './nonexistent-page.md' resolves to '/nonexistent-page/' which is
+    not in the Virtual Site Map — the target file may not exist
     ```
 
     File path. Line number. Finding code. No finding without a physical origin.

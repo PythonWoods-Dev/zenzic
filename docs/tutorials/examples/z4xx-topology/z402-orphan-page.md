@@ -8,8 +8,6 @@ description: "Analysis of the z402-orphan-page fixture."
 
 **Z-Code:** `Z402 ORPHAN_PAGE` · **Engine:** `zensical` · **Exit:** `0`
 
-<Z402OrphanPage />
-
 ---
 
 ## The Fixture
@@ -30,19 +28,33 @@ uvx zenzic check all
 Expected output:
 
 ```text
-zensical - 3 files (3 docs, 0 assets) - 0.0s - 155 files/s
+zensical • 3 files (3 pages, 0 assets) • 0.0s
 
-docs/secret.md  !  [Z402]  Physical file not listed in navigation.
+docs/guide.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/guide/'
+
+docs/guide.md:4  ⚠  [Z502]  Page has only 19 words (minimum 50).
+
+docs/index.md:4  ⚠  [Z502]  Page has only 45 words (minimum 50).
+
+docs/secret.md  ⚠  [Z402]  Physical file not listed in navigation.
+
+docs/secret.md:1  ⚠  [Z410]  Document is isolated and unreachable from defined
+entry points: '/secret/'
+
+docs/secret.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/secret/'
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 6 warnings  💡 0 info  • 3 files with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 79/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 1/30 (inline: 0, per-file: 1) [MANAGED DEBT]
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

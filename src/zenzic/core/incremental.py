@@ -31,25 +31,32 @@ Architecture invariants
 from __future__ import annotations
 
 import contextlib
+import html
 import os
 import posixpath
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
-from urllib.request import url2pathname
 
 from zenzic.core.ast import ExtractedLink
+from zenzic.core.codes import SECURITY_TIER_CODES, code_severity
+from zenzic.core.resolver import resolve_href_target
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     ResolutionContext,
     RuleFinding,
 )
-from zenzic.core.suppressions import SuppressionTracker
+from zenzic.core.suppressions import DATA_ATTR_DIRECTIVE, SuppressionTracker
 from zenzic.core.validator import (
+    _POLY_CLEAN_URL_RE,
+    JSX_URL_ATTRS,
+    HtmlNodeInfo,
     PolyglotExtractor,
     _classify_traversal_intent,
+    _decode_percent_encoding,
     anchors_in_file,
     check_snippet_content,
+    is_allowlisted_absolute,
 )
 from zenzic.models.diagnostics import (
     DiagnosticPosition,
@@ -57,7 +64,7 @@ from zenzic.models.diagnostics import (
     Severity,
     ZenzicDiagnostic,
 )
-from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm
+from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm, uri_to_path
 
 
 if TYPE_CHECKING:
@@ -65,10 +72,8 @@ if TYPE_CHECKING:
     from zenzic.models.config import ZenzicConfig
 
 
-def _uri_to_path(uri: str) -> Path:
-    """Convert a file:// URI to a cross-platform pathlib.Path."""
-    parsed = urlsplit(uri)
-    return Path(url2pathname(parsed.path))
+# One implementation for the whole tree; see models.vsm.uri_to_path.
+_uri_to_path = uri_to_path
 
 
 class IncrementalAnalysisEngine:
@@ -84,7 +89,8 @@ class IncrementalAnalysisEngine:
 
     Attributes:
         config: Active Zenzic configuration.
-        rule_engine: Adaptive Rule Engine instance.
+        rule_engine: Adaptive Rule Engine instance, or ``None`` for a
+            security-only engine (see ``rule_engine`` in ``__init__``).
         adapter: Build-engine adapter (Standalone, MkDocs, or Zensical).
         docs_root: Resolved absolute path to the documentation directory.
         repo_root: Resolved absolute path to the repository root.
@@ -95,7 +101,7 @@ class IncrementalAnalysisEngine:
     def __init__(
         self,
         config: ZenzicConfig,
-        rule_engine: AdaptiveRuleEngine,
+        rule_engine: AdaptiveRuleEngine | None,
         adapter: BaseAdapter,
         docs_root: Path,
         repo_root: Path,
@@ -104,7 +110,10 @@ class IncrementalAnalysisEngine:
 
         Args:
             config: Active Zenzic configuration.
-            rule_engine: Pre-built Adaptive Rule Engine.
+            rule_engine: Pre-built Adaptive Rule Engine, or ``None`` for a
+                security-only engine — every call site that omits it restricts
+                itself to ``security_only=True`` passes (Z201/Z202/Z203/Z204/
+                Z205), none of which consult it.
             adapter: Build-engine adapter for routing metadata.
             docs_root: Resolved absolute path to the docs directory.
             repo_root: Resolved absolute path to the repository root.
@@ -176,7 +185,12 @@ class IncrementalAnalysisEngine:
         Returns:
             Mapping of file URI to list of ``ZenzicDiagnostic`` instances.
         """
-        from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
+        from zenzic.core.discovery import (
+            DOC_SUFFIXES,
+            iter_markdown_sources,
+            iter_security_scan_sources,
+            walk_files,
+        )
         from zenzic.core.exclusion import LayeredExclusionManager
         from zenzic.models.config import load_config_with_diagnostics
 
@@ -197,8 +211,17 @@ class IncrementalAnalysisEngine:
                     cfg_text = config_file.read_text(encoding="utf-8")
                 except OSError:
                     pass
-            diags = self._findings_to_diagnostics(cfg_text, config_findings)
-            return {config_uri: diags}
+            # Reported alongside everything else, never instead of it. Returning
+            # here replaced the whole result map, so a syntax error in a
+            # pyproject.toml this project neither owns nor writes silenced every
+            # open buffer -- including a live Z201. The module's own rule is that
+            # a buffer the server refuses to look at would be a suppression
+            # mechanism; this refused all of them at once.
+            config_only_diags = {
+                config_uri: self._findings_to_diagnostics(cfg_text, config_findings)
+            }
+        else:
+            config_only_diags = {}
         if new_config:
             self.config = new_config
 
@@ -210,6 +233,13 @@ class IncrementalAnalysisEngine:
         exclusion_manager = LayeredExclusionManager(
             self.config, repo_root=self.repo_root, docs_root=self.docs_root
         )
+        # User scoping never silences the security tier: a buffer excluded by
+        # excluded_dirs/excluded_file_patterns skips quality analysis and the
+        # VSM, but still receives a security-only diagnostic pass (Z201/Z204)
+        # below — the same boundary the CLI's scan_docs_references draws.
+        # System-guardrail and VCS exclusions (the security_view) still apply.
+        security_view = exclusion_manager.security_view()
+        security_only: dict[Path, str] = {}
 
         # 1. Update text and anchors for modified files (or all files on full sync)
         files_to_process: set[Path] = set()
@@ -241,7 +271,7 @@ class IncrementalAnalysisEngine:
                     if (
                         file_path.is_dir()
                         or file_path.is_symlink()
-                        or file_path.suffix in DOC_SUFFIXES
+                        or file_path.suffix.lower() in DOC_SUFFIXES
                     ):
                         continue
                     if exclusion_manager.should_exclude_file(file_path, self.docs_root):
@@ -255,12 +285,42 @@ class IncrementalAnalysisEngine:
                     if buf_path.suffix.lower() not in DOC_SUFFIXES:
                         continue
                     if exclusion_manager.should_exclude_file(buf_path, self.docs_root):
+                        if not security_view.should_exclude_file(buf_path, self.docs_root):
+                            security_only[buf_path] = buf_text
                         continue
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
                         self.anchors_cache[buf_path] = anchors_in_file(buf_text)
                     files_to_process.add(buf_path)
                     valid_paths.add(buf_path)
+
+            # Security-only sweep of on-disk files user scoping removed from
+            # the corpus walk above — the same boundary the CLI's
+            # scan_docs_references draws, so init publishes Z201/Z204 for an
+            # excluded file even before anyone opens it.
+            # Cover content roots (monorepo sub-projects) and locale roots too,
+            # not just docs_root — a user-excluded file in one of those trees
+            # must still get a security-only diagnostic, matching the CLI.
+            _sec_content_roots = self.adapter.get_extra_content_roots(self.repo_root)
+            _sec_locale_roots = self.adapter.get_locale_source_roots(self.repo_root)
+            for sec_file in iter_security_scan_sources(
+                self.docs_root,
+                self.config,
+                exclusion_manager,
+                content_roots=_sec_content_roots or None,
+                locale_roots=_sec_locale_roots or None,
+            ):
+                sec_path = sec_file.resolve()
+                if sec_path in valid_paths or sec_path in security_only:
+                    continue
+                sec_uri = sec_path.as_uri()
+                if sec_uri in overlay.buffers:
+                    security_only[sec_path] = overlay.buffers[sec_uri]
+                else:
+                    try:
+                        security_only[sec_path] = sec_path.read_text(encoding="utf-8")
+                    except OSError:
+                        continue
 
             # Atomic cache pruning (LSP-FIX-017 / Zero-DBT):
             # Remove stale deleted paths from caches so phantom routes are not created.
@@ -277,6 +337,14 @@ class IncrementalAnalysisEngine:
                 if path.suffix.lower() not in DOC_SUFFIXES:
                     continue
                 if exclusion_manager.should_exclude_file(path, self.docs_root):
+                    if not security_view.should_exclude_file(path, self.docs_root):
+                        if uri in overlay.buffers:
+                            security_only[path] = overlay.buffers[uri]
+                        else:
+                            try:
+                                security_only[path] = path.read_text(encoding="utf-8")
+                            except OSError:
+                                pass
                     continue
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
@@ -375,6 +443,11 @@ class IncrementalAnalysisEngine:
 
             results[uri] = typed_diags
 
+        for sec_path, sec_text in security_only.items():
+            results[sec_path.as_uri()] = self._findings_to_diagnostics(
+                sec_text, self._security_rule_findings(sec_path, sec_text)
+            )
+
         # 6. Ghost diagnostic clearing (LSP-FIX-017 — engine side)
         # On a full workspace sync, detect URIs that previously had active
         # diagnostics but whose backing file has since left the VSM (deleted,
@@ -396,6 +469,10 @@ class IncrementalAnalysisEngine:
         # Only URIs with at least one diagnostic are considered "active".
         self._uris_with_active_diagnostics = {uri for uri, diags in results.items() if diags}
 
+        # The config file's own diagnostics ride along with the workspace's,
+        # never in place of them.
+        for _cfg_uri, _cfg_diags in config_only_diags.items():
+            results[_cfg_uri] = _cfg_diags
         return results
 
     # ── Private: VSM patching ─────────────────────────────────────────────────
@@ -541,26 +618,21 @@ class IncrementalAnalysisEngine:
         extracted_links = PolyglotExtractor().extract_all_links(text)
 
         # Atomic Rules
-        findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
+        # Callers legitimately construct the engine with no rule engine -- the
+        # security-only pass does, and so does a config-diagnostic-only run. That
+        # used to be masked by an early return on config errors; now that a config
+        # error no longer replaces the whole result set, this path is reachable and
+        # must not crash on it.
+        if self.rule_engine is not None:
+            findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
 
-        # Credential scan — single-pass; CredentialScannerRule is excluded from
-        # the rule engine to avoid a double-pass in the CLI path (harvest() already
-        # scans there). In the LSP path harvest() is not called, so we scan here.
-        from zenzic.core.credentials import scan_lines_with_lookback
-
-        for _sf in scan_lines_with_lookback(enumerate(text.splitlines(keepends=True), 1), path):
-            findings.append(
-                RuleFinding(
-                    rule_id="Z201",
-                    severity="error",
-                    file_path=_sf.file_path,
-                    line_no=_sf.line_no,
-                    message=f"Credential or secret detected: {_sf.secret_type}",
-                    match_text=_sf.match_text,
-                    matched_line=_sf.url,
-                    col_start=_sf.col_start,
-                )
-            )
+        # Credential and forbidden-term scan. CredentialScannerRule is excluded
+        # from the rule engine to avoid a double-pass in the CLI path, where
+        # harvest() already scans; harvest() is never called here, so this path
+        # scans directly. Both routes go through the same primitive, so which
+        # findings exist is decided once — only the output shape differs, since
+        # this path emits RuleFinding and the CLI emits SecurityFinding events.
+        findings.extend(self._security_rule_findings(path, text))
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
@@ -578,11 +650,19 @@ class IncrementalAnalysisEngine:
             source_file=path,
             use_directory_urls=self._use_directory_urls,
         )
-        findings.extend(
-            self.rule_engine.run_vsm(
-                path, text, vsm, self.anchors_cache, context, extracted_links=extracted_links
+        if self.rule_engine is not None:
+            # Through the tracker, exactly as scanner.py's cross-file pass does.
+            # These were appended raw, so an inline suppression of a cross-file
+            # code was inert in the editor -- the finding stayed on screen and
+            # the directive that should have removed it was then reported dead
+            # beneath it. The CLI and the LSP disagreed about the same file.
+            findings.extend(
+                f
+                for f in self.rule_engine.run_vsm(
+                    path, text, vsm, self.anchors_cache, context, extracted_links=extracted_links
+                )
+                if not tracker.is_suppressed(f.line_no, f.rule_id)
             )
-        )
 
         # Snippet Checks
         for s_err in check_snippet_content(text, path, self.config):
@@ -592,36 +672,51 @@ class IncrementalAnalysisEngine:
                     line_no=s_err.line_no,
                     rule_id=s_err.code,
                     message=s_err.message,
-                    severity="error",
+                    severity=code_severity(s_err.code),
                 )
             )
 
-        # URP Checks
+        # URP Checks. The hygiene tier is filtered inside _run_urp_checks (one
+        # attribute covers a whole tag, so the decision has to be made where the
+        # tag is still in hand); the link tier it produces is filtered here, the
+        # same way the CLI's cross-file pass filters it.
         findings.extend(
-            self._run_urp_checks(vsm, path, text, tracker=tracker, extracted_links=extracted_links)
+            f
+            for f in self._run_urp_checks(
+                vsm, path, text, tracker=tracker, extracted_links=extracted_links
+            )
+            if not tracker.is_suppressed(f.line_no, f.rule_id)
         )
 
         # Topological Rules (Z410, Z411)
         canonical_url = self._resolve_canonical_url(vsm, path)
-        if canonical_url in getattr(self, "_orphaned_urls", set()):
+        # ADR-093 makes Z410/Z411 non-inline-suppressible, so the tracker will
+        # refuse an inline directive and leave it unconsumed for Z603 -- but a
+        # directory policy still governs them, and the CLI consults the tracker
+        # here while this path did not.
+        if canonical_url in getattr(self, "_orphaned_urls", set()) and not tracker.is_suppressed(
+            1, "Z410"
+        ):
             findings.append(
                 RuleFinding(
                     path,
                     1,
                     "Z410",
                     f"Document is isolated and unreachable from the navigation entry points: '{canonical_url}'",
-                    severity="warning",
+                    severity=code_severity("Z410"),
                     matched_line="",
                 )
             )
-        if canonical_url in getattr(self, "_dead_end_urls", set()):
+        if canonical_url in getattr(self, "_dead_end_urls", set()) and not tracker.is_suppressed(
+            1, "Z411"
+        ):
             findings.append(
                 RuleFinding(
                     path,
                     1,
                     "Z411",
                     f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
-                    severity="warning",
+                    severity=code_severity("Z411"),
                     matched_line="",
                 )
             )
@@ -641,6 +736,53 @@ class IncrementalAnalysisEngine:
 
         # Convert findings to strictly typed ZenzicDiagnostic instances
         return self._findings_to_diagnostics(text, findings)
+
+    def _security_rule_findings(self, path: Path, text: str) -> list[RuleFinding]:
+        """Run the shared security primitive and shape its findings for the LSP.
+
+        One conversion for both callers — the full analysis pass and the
+        security-only pass for buffers user configuration scoped out — so the
+        two cannot drift in how a Z201/Z204 is presented.
+        """
+        from zenzic.core.credentials import scan_security_findings
+        from zenzic.models.vsm import VirtualSiteMap
+
+        findings: list[RuleFinding] = []
+        # The link half of the tier (Z202/Z203/Z205). A file the user scoped out
+        # is not in the site map, and none of the security checks consult it, so
+        # an empty one is the honest argument to pass.
+        findings.extend(self._run_urp_checks(VirtualSiteMap(), path, text, security_only=True))
+        for _sf in scan_security_findings(text, path, self.config):
+            if _sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Finding category identifier
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z204",
+                        severity=code_severity("Z204"),
+                        file_path=_sf.file_path,
+                        line_no=_sf.line_no,
+                        message=(
+                            f"Forbidden term detected — remove from documentation: "
+                            f"'{_sf.match_text}'"
+                        ),
+                        match_text=_sf.match_text,
+                        matched_line=_sf.url,
+                        col_start=_sf.col_start,
+                    )
+                )
+            else:
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z201",
+                        severity=code_severity("Z201"),
+                        file_path=_sf.file_path,
+                        line_no=_sf.line_no,
+                        message=f"Credential or secret detected: {_sf.secret_type}",
+                        match_text=_sf.match_text,
+                        matched_line=_sf.url,
+                        col_start=_sf.col_start,
+                    )
+                )
+        return findings
 
     def _findings_to_diagnostics(
         self, text: str, findings: list[RuleFinding]
@@ -717,21 +859,117 @@ class IncrementalAnalysisEngine:
         tracker: SuppressionTracker | None = None,
         extracted_links: list[ExtractedLink] | None = None,
         resolver: Any = None,
+        security_only: bool = False,
     ) -> list[RuleFinding]:
         """Run the Uniform Resolver Pipeline checks on a single file.
 
         Covers: Z120, Z121, Z122, Z123, Z124, Z205, Z102, Z105, Z202, Z203.
+
+        With *security_only*, returns just the security tier (Z202/Z203/Z205).
+        That mode exists because those three codes are produced **here** and
+        nowhere else, while the credential tier has its own primitive: routing
+        the credential scan around user exclusions therefore covered two fifths
+        of a tier documented as indivisible, and `excluded_dirs` went on
+        silencing a `javascript:` link and a `/etc/passwd` traversal. Filtering
+        one shared implementation is deliberate — a second implementation for
+        excluded files is exactly the drift that put `harvest()` and
+        `_analyze_file` out of step on Z204 twice.
+
+        None of the security checks consult *vsm*; callers scanning a file that
+        is not in the site map may pass an empty one.
         """
         findings: list[RuleFinding] = []
         lines = text.splitlines()
+        _docs_root_str = str(self.docs_root)
+        _repo_root_str = str(self.repo_root)
 
         def _source_line(lineno: int) -> str:
             idx = lineno - 1
             return lines[idx].strip() if 0 <= idx < len(lines) else ""
 
+        # Z205 on Markdown-syntax links. The HTML loop below evaluates the
+        # forbidden-scheme gate inside _parse_node(), which only ever sees <a>/
+        # <img> tags — so [x](javascript:...) and reference definitions passed a
+        # Tier-0, non-suppressible gate entirely, while rendering to the exact
+        # same exploitable anchor in the built site. validator.py's own comment
+        # already declares syntactic form "a transport detail"; this
+        # restores that invariant by checking the shared link representation.
+        #
+        # Scope decision: the Markdown path checks javascript: ONLY, not the
+        # full _POLY_FORBIDDEN_SCHEMES set. data: stays flagged in HTML exactly
+        # as before (unchanged), but is deliberately NOT newly flagged here.
+        # Z205 is non-suppressible and exits 2, so a false positive hard-fails a
+        # build with no escape hatch — and data: in Markdown is overwhelmingly
+        # benign (inline base64 images, data:text/plain), which the pre-existing
+        # skip-scheme behaviour in validate_links already encodes as deliberate
+        # intent. javascript: has no legitimate use in a documentation link, so
+        # it carries no comparable false-positive risk. Extending to dangerous
+        # data: subtypes (data:text/html) needs MIME-subtype discrimination and
+        # is tracked separately rather than guessed at inside a Tier-0 gate.
+        # Security tier: never inherit the quality tier's mask. A caller-supplied
+        # `extracted_links` came from extract_all_links (comments/math/fences all
+        # blanked), so Z205 must re-extract through the security view rather than
+        # reuse it -- otherwise two `$` on one line silence a non-suppressible
+        # code. See PolyglotExtractor._mask_security_view.
+        _md_links = PolyglotExtractor().extract_security_links(text)
+        for link in _md_links:
+            if link.is_html:
+                continue  # handled by the HTML loop below; avoids double-reporting
+            clean = _POLY_CLEAN_URL_RE.sub("", html.unescape(link.url)).lower()
+            scheme = "javascript:" if clean.startswith("javascript:") else None
+            if scheme is None:
+                continue
+            findings.append(
+                RuleFinding(
+                    path,
+                    link.line_no,
+                    "Z205",
+                    f"forbidden scheme '{scheme}' detected",
+                    severity=code_severity("Z205"),
+                    matched_line=_source_line(link.line_no),
+                    col_start=0,
+                    match_text=link.raw_text or link.url,
+                )
+            )
+
         # Polyglot Extractor
         for node in PolyglotExtractor().extract(text):
             ctx = _source_line(node.line_no)
+            # Where this node's findings start, so the `data-zenzic-ignore`
+            # decision below can act on what the node actually produced. It used
+            # to mark the attribute consumed after this block regardless -- so the
+            # attribute could neither suppress the hygiene finding it documents
+            # (the finding was already appended, and the filter downstream then
+            # found the directive spent) nor ever be reported dead. One line
+            # broke the mechanism in both directions at once.
+            _node_findings_start = len(findings)
+
+            def _span(attr: str | None, _node: HtmlNodeInfo = node) -> tuple[int, str]:
+                """Where the caret goes, and how wide.
+
+                A finding that names one attribute must mark that attribute:
+                marking the whole opening tag says "everything here", which is
+                the opposite of what the message says. Positions come from the
+                parser (``attr_cols``), which knows where each attribute
+                really is; nothing here searches the line, because a search
+                cannot tell the same tag twice on one line apart, nor an
+                attribute name sitting inside an earlier attribute's value.
+
+                Falls back to the tag's own span when there is no attribute to
+                point at (a missing href has no offending attribute) or when
+                the attribute is somehow absent from the map.
+                """
+                if attr is not None and attr in _node.attr_cols:
+                    return _node.attr_cols[attr], attr
+                return _node.col_start, _node.raw_tag
+
+            # Whichever attribute actually carried the URL. A component may spell
+            # it `to`, so keying on the HTML pair alone pointed the caret at an
+            # attribute the tag does not have.
+            href_attr = next(
+                (a for a in ("href", "src", *JSX_URL_ATTRS) if a in node.attr_cols),
+                "src" if node.tag == "img" else "href",
+            )
             if node.z205_scheme:
                 findings.append(
                     RuleFinding(
@@ -739,10 +977,14 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z205",
                         f"forbidden scheme '{node.z205_scheme}' detected",
-                        severity="error",
+                        severity=code_severity("Z205"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(href_attr)[0],
+                        # The URL, not the attribute's name. `_span` returns the
+                        # name, which made the breach block read `Link:  href` --
+                        # a row whose value was the label of where it came from.
+                        # The reader needs the thing to edit.
+                        match_text=node.href or _span(href_attr)[1],
                     )
                 )
             for attr in node.blacklisted_attrs:
@@ -752,10 +994,10 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z124",
                         f"opaque attribute '{attr}' detected",
-                        severity="error",
+                        severity=code_severity("Z124"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(attr)[0],
+                        match_text=_span(attr)[1],
                     )
                 )
             if node.is_missing_href:
@@ -765,10 +1007,10 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z121",
                         "missing href or src",
-                        severity="error",
+                        severity=code_severity("Z121"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(None)[0],
+                        match_text=_span(None)[1],
                     )
                 )
             if node.is_jump_link:
@@ -778,10 +1020,10 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z122",
                         "href='#' detected",
-                        severity="error",
+                        severity=code_severity("Z122"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(href_attr)[0],
+                        match_text=_span(href_attr)[1],
                     )
                 )
             for attr in node.unknown_attrs:
@@ -791,10 +1033,10 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z120",
                         f"unknown attribute '{attr}'",
-                        severity="error",
+                        severity=code_severity("Z120"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(attr)[0],
+                        match_text=_span(attr)[1],
                     )
                 )
             if node.info_scheme:
@@ -804,22 +1046,57 @@ class IncrementalAnalysisEngine:
                         node.line_no,
                         "Z123",
                         f"non-HTTP scheme '{node.info_scheme}'",
-                        severity="info",
+                        severity=code_severity("Z123"),
                         matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
+                        col_start=_span(href_attr)[0],
+                        match_text=_span(href_attr)[1],
                     )
                 )
 
             if node.suppressed and tracker is not None:
-                for d in tracker.directives:
-                    if d.line_no == node.line_no and d.code == "DATA-ZENZIC-IGNORE":
-                        d.consumed = True
-                        break
+                # Ask the tracker which of this node's findings the attribute is
+                # allowed to silence, drop exactly those, and spend the directive
+                # only if it silenced something. Handling the node as a unit
+                # matters: one attribute covers a whole tag, so two unknown
+                # attributes on one tag are two findings against one directive,
+                # and a per-finding filter downstream would consume it on the
+                # first and report the second.
+                _produced = findings[_node_findings_start:]
+                _silenced = [
+                    f
+                    for f in _produced
+                    if tracker.explain_suppression(node.line_no, f.rule_id).source == "inline"
+                ]
+                if _silenced:
+                    _silenced_ids = {id(f) for f in _silenced}
+                    del findings[_node_findings_start:]
+                    findings.extend(f for f in _produced if id(f) not in _silenced_ids)
+                    for d in tracker.directives:
+                        if (
+                            d.line_no == node.line_no
+                            and d.code == DATA_ATTR_DIRECTIVE
+                            and not d.consumed
+                        ):
+                            d.consumed = True
+                            break
+                    # Known limit, stated rather than left to be discovered: the
+                    # directive is single-use, so a tag that produces both a
+                    # hygiene finding and a link finding spends it here and its
+                    # link finding is still reported. The alternative -- a
+                    # reusable, line-keyed directive -- would let one suppressed
+                    # tag silence an unsuppressed sibling tag on the same line,
+                    # and a visible extra finding is the better failure of the
+                    # two. Tracked in the priority table.
 
         # Extracted Link Candidates (Markdown, HTML href/src, Ref Defs)
         if extracted_links is None:
             extracted_links = PolyglotExtractor().extract_all_links(text)
+
+        # Z202/Z203 read from their own security-view extraction for the same
+        # reason as Z205 above: the quality-tier list has comments, math spans
+        # and unterminated-fence tails blanked, and a traversal is no less real
+        # for sitting in one. Quality checks below keep using `extracted_links`.
+        _security_links = PolyglotExtractor().extract_security_links(text)
 
         local_anchors = self.anchors_cache.get(path, set())
         _bypass_schemes = (
@@ -833,10 +1110,30 @@ class IncrementalAnalysisEngine:
             "https://",
         )
 
-        for link in extracted_links:
-            if link.suppressed:
-                continue
-
+        # One loop, two scopes. Z202/Z203 are security-tier and must see links
+        # the quality mask blanked (comments, math spans, unterminated-fence
+        # tails); Z105 is quality-tier and must not, or a path written inside a
+        # comment would be reported as an absolute-path defect. Iterating the
+        # union and tagging each link's origin keeps both correct without
+        # duplicating the ~180-line loop body.
+        _quality_ids = {id(link) for link in extracted_links}
+        _quality_keys = {(q.line_no, q.col_start, q.url) for q in extracted_links}
+        _sec_extra = [
+            link
+            for link in _security_links
+            if (link.line_no, link.col_start, link.url) not in _quality_keys
+        ]
+        for link in [*extracted_links, *_sec_extra]:
+            # True for a link only the security view found.
+            _sec_only = id(link) not in _quality_ids
+            # `data-zenzic-ignore` is an inline, document-authored suppression,
+            # and the security tier is never inline-suppressible — a page must
+            # not be able to silence its own Z202/Z203 by adding an attribute to
+            # its own anchor. The traversal checks below therefore run for
+            # suppressed and unsuppressed links alike, and the attribute is
+            # honoured further down, once the tier has had its say. This mirrors
+            # the ordering `validator.py` already declares for Z205 ("checked
+            # before data-zenzic-ignore"); Z202/Z203 simply never got it.
             url = link.url
             lineno = link.line_no
             raw_line = link.raw_text
@@ -846,21 +1143,79 @@ class IncrementalAnalysisEngine:
 
             parsed = urlsplit(url)
 
+            # The security tier must read the URL the way whatever resolves it
+            # will. A few lines further down this same loop already resolves
+            # links through `unquote`, while this gate substring-searched the
+            # raw text: `..%2f..%2fetc%2fpasswd` reached /etc/passwd and matched
+            # nothing here, so the non-suppressible tier answered exit 0.
+            # Backslashes are folded for the same reason the classifier folds
+            # them -- `..\..\windows` is the same escape wearing separators
+            # this test did not recognise.
+            decoded_url = _decode_percent_encoding(url).replace("\\", "/")
+            decoded_path = urlsplit(decoded_url).path
+
+            # Consulted BEFORE classification, at every emission site below.
+            # `_classify_traversal_intent` reads the first surviving segment, so
+            # a docs section named dev/ or usr/ makes an ordinary site-absolute
+            # link "suspicious"; the allowlist used to be read only in the arm
+            # that classification had already skipped past, so a configured
+            # exemption could never clear the finding it was written for.
+            _abs_allowlist = tuple(
+                list(self.adapter.get_absolute_url_prefixes())
+                + list(self.config.absolute_path_allowlist)
+            )
+            _allowlisted = is_allowlisted_absolute(url, decoded_url, _abs_allowlist)
+
             # Z202 / Z203 — Path Traversal Detection
-            if "../" in url:
+            #
+            # The two branches below must PARTITION, and once did not. An href
+            # that is absolute *and* contains `../` satisfied the first test,
+            # but its arithmetic then answered "no traversal": posixpath.join
+            # returns an absolute right operand whole, and normpath drops a
+            # leading `..` at the root, so `/../etc/passwd` normalises to
+            # `/etc/passwd` -- which does not start with `..`. No finding, no
+            # `continue`, and the elif that owns absolute paths (the only branch
+            # that can raise Z203) was never evaluated. Two guards deferring to
+            # each other over conditions that overlapped instead of partitioning.
+            # An absolute path is classified as an absolute path, whatever else
+            # it contains.
+            if "../" in decoded_url and not decoded_path.startswith("/"):
                 try:
                     rel_source = path.relative_to(self.docs_root).parent.as_posix()
                     base = "" if rel_source == "." else rel_source
-                    norm_target = posixpath.normpath(posixpath.join(base, parsed.path))
+                    norm_target = posixpath.normpath(posixpath.join(base, decoded_path))
                     if norm_target.startswith(".."):
                         _intent = _classify_traversal_intent(url)
+                        # `..` means the link leaves docs_root. Whether it also
+                        # leaves the *repository* is what separates a boundary
+                        # crossing from an OS traversal, and it is arithmetic:
+                        # a repo-level `dev/` folder one hop up resolves inside
+                        # repo_root (Z202), while `../../../../etc/passwd`
+                        # resolves outside it (Z203).
+                        #
+                        # This used to be decided by resolving the target and
+                        # asking whether the file existed. That made the
+                        # security verdict a function of repository content --
+                        # the disk is written by whoever writes the link -- so
+                        # it is decided here from the two roots the engine
+                        # itself configures, with no filesystem call.
+                        if _intent == "suspicious" and not _allowlisted:
+                            _abs_target = posixpath.normpath(
+                                posixpath.join(_docs_root_str.replace("\\", "/"), norm_target)
+                            )
+                            _repo_prefix = _repo_root_str.replace("\\", "/").rstrip("/")
+                            if _abs_target == _repo_prefix or _abs_target.startswith(
+                                _repo_prefix + "/"
+                            ):
+                                _intent = "boundary"
+                        _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
                                 path,
                                 lineno,
-                                "Z203" if _intent == "suspicious" else "Z202",
+                                _code,
                                 f"'{url}' resolves outside the docs directory",
-                                severity="error",
+                                severity=code_severity(_code),
                                 matched_line=raw_line,
                             )
                         )
@@ -871,17 +1226,21 @@ class IncrementalAnalysisEngine:
                         resolved_docs_root = self.docs_root.resolve()
                         self._resolved_docs_root = resolved_docs_root
                     source_dir = path.parent.resolve()
-                    target_str = os.path.normpath(str(source_dir / parsed.path))
+                    target_str = os.path.normpath(str(source_dir / decoded_path))
                     target_path = Path(target_str)
                     if not target_path.is_relative_to(resolved_docs_root):
                         _intent = _classify_traversal_intent(url)
+                        # No is_file() here either: the escape has already been
+                        # decided lexically, by is_relative_to() against the
+                        # resolved docs root, which no file can change.
+                        _code = "Z203" if _intent == "suspicious" and not _allowlisted else "Z202"
                         findings.append(
                             RuleFinding(
                                 path,
                                 lineno,
-                                "Z203" if _intent == "suspicious" else "Z202",
+                                _code,
                                 f"'{url}' resolves outside the docs directory",
-                                severity="error",
+                                severity=code_severity(_code),
                                 matched_line=raw_line,
                             )
                         )
@@ -889,36 +1248,76 @@ class IncrementalAnalysisEngine:
                     continue
 
             # Z105 / Z203
-            elif parsed.path.startswith("/"):
+            elif parsed.path.startswith("/") or decoded_path.startswith("/"):
                 _intent = _classify_traversal_intent(url)
-                if _intent == "suspicious":
+                # A documentation section legitimately named dev/, usr/ or var/
+                # matches the same first segment a real OS traversal target
+                # would, and this branch cannot tell them apart from the URL
+                # alone -- a site-absolute `/etc/...` maps inside docs_root by
+                # construction, so there is no arithmetic that separates them.
+                #
+                # It used to resolve the target and downgrade when the file
+                # existed. That made the security verdict a function of
+                # repository content: creating `docs/etc/passwd` with any
+                # contents turned every `/etc/passwd` link in the corpus from
+                # Z203/exit 3 into Z202/exit 1, which `--exit-zero` then
+                # covered -- a file acting as a suppression mechanism for a
+                # code documented as non-suppressible.
+                #
+                # The supported way to declare such a section legitimate is
+                # `absolute_path_allowlist`, consulted as `_allowlisted` above:
+                # a deliberate declaration by the author, rather than a side
+                # effect of a path existing. A declaration can be reviewed in a
+                # diff; a file appearing on disk cannot.
+                if _intent == "suspicious" and not _allowlisted:
                     findings.append(
                         RuleFinding(
                             path,
                             lineno,
                             "Z203",
                             f"Path traversal targeting OS system directories: '{url}'",
-                            severity="error",
+                            severity=code_severity("Z203"),
                             matched_line=raw_line,
                         )
                     )
                 else:
-                    allowlist = tuple(
-                        list(self.adapter.get_absolute_url_prefixes())
-                        + list(self.config.absolute_path_allowlist)
-                    )
-                    if not any(url.startswith(p) for p in allowlist if p):
+                    allowlist = _abs_allowlist
+                    if _sec_only:
+                        # Quality code: the quality extraction never saw this link
+                        # (it sits in a comment or math span), so Z105 must not fire.
+                        continue
+                    # Z105 is not in the security tier, so the inline attribute
+                    # still applies to it -- the carve-out above is for the tier
+                    # only, not a blanket disabling of the mechanism. It is no
+                    # longer honoured by skipping the check, though: a skip is
+                    # invisible to the suppression ledger, so an attribute that
+                    # silenced a Z105 this way was still reported Z603. The
+                    # finding is produced and the tracker decides, like every
+                    # other suppressible code.
+                    # The allowlist is matched against both spellings: a link
+                    # that only *decodes* to an absolute path reaches this
+                    # branch, and an allowlisted prefix must still exempt it.
+                    if not is_allowlisted_absolute(url, decoded_url, allowlist):
                         findings.append(
                             RuleFinding(
                                 path,
                                 lineno,
                                 "Z105",
                                 f"absolute path '{url}' found",
-                                severity="error",
+                                severity=code_severity("Z105"),
                                 matched_line=raw_line,
                             )
                         )
                 continue
+
+            # Past the security tier, every code is inline-suppressible, so the
+            # document's own directive applies -- but it is applied by the
+            # tracker, not by skipping the work. `continue` here silenced Z102
+            # and Z104 without anyone recording that the attribute had done so,
+            # which is why a tag using `data-zenzic-ignore` for exactly the
+            # reason the troubleshooting guide recommends was then told the
+            # attribute was dead. Suppression happens where consumption can be
+            # recorded, or the ledger is a record of the wrong events.
 
             # Non-markdown asset validation (Z104)
             url_clean = url.split("?")[0].split("#")[0].lower()
@@ -948,7 +1347,9 @@ class IncrementalAnalysisEngine:
                         continue
 
                 rel_url = unquote(parsed.path)
-                target_path = (path.parent / rel_url).resolve()
+                target_path = Path(
+                    resolve_href_target(path, rel_url, _docs_root_str, _repo_root_str)
+                )
                 if not target_path.is_file():
                     if self.adapter.resolve_asset(target_path, self.docs_root) is None:
                         findings.append(
@@ -957,7 +1358,7 @@ class IncrementalAnalysisEngine:
                                 lineno,
                                 "Z104",
                                 f"'{rel_url}' not found in docs",
-                                severity="error",
+                                severity=code_severity("Z104"),
                                 matched_line=raw_line,
                                 col_start=link.col_start,
                                 match_text=link.raw_text,
@@ -976,7 +1377,7 @@ class IncrementalAnalysisEngine:
                                 lineno,
                                 "Z102",
                                 f"anchor '#{anchor}' not found",
-                                severity="error",
+                                severity=code_severity("Z102"),
                                 matched_line=raw_line,
                             )
                         )
@@ -1003,11 +1404,13 @@ class IncrementalAnalysisEngine:
                                     lineno,
                                     "Z102",
                                     f"anchor '#{anchor}' not found in '{parsed.path}'",
-                                    severity="error",
+                                    severity=code_severity("Z102"),
                                     matched_line=raw_line,
                                 )
                             )
 
+        if security_only:
+            return [f for f in findings if f.rule_id in SECURITY_TIER_CODES]
         return findings
 
 

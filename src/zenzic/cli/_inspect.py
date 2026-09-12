@@ -27,9 +27,12 @@ inspect_app = _shared.create_app(
 def _inspect_capabilities() -> None:
     """Show the full Zenzic scanner arsenal.
 
-    **Section A — Core Scanners (Built-in):** seven scanners compiled into
-    Zenzic itself.  The credential scanner (Z201) and path traversal guard (Z202–203) exit with
-    codes 2 and 3 respectively — neither is suppressible with ``--exit-zero``.
+    **Section A — Core Scanners (Built-in):** 16 scanners compiled into
+    Zenzic itself.  The credential scanner (Z201) exits with code 2; the path
+    traversal guard's fatal check (Z203, OS system directories) exits with code 3.
+    Z202 (ordinary docs-root-boundary traversal) is also non-suppressible but stays
+    at plain Exit 1 — it is deliberately not escalated to Exit 3.
+    None of these four are suppressible with ``--exit-zero``.
 
     **Section B — Extensible Rules (Plugin System):** rules registered via the
     ``zenzic.rules`` entry-point group from any installed third-party package.
@@ -139,25 +142,32 @@ def _inspect_capabilities() -> None:
     bypass_table.add_column("Adapter", style="bold", min_width=20)
     bypass_table.add_column("Bypass Schemes")
 
-    _BYPASS_ROWS = [
-        (
-            "mkdocs",
-            "MkDocsAdapter",
-            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
-        ),
-        (
-            "zensical",
-            "ZensicalAdapter",
-            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
-        ),
-        (
-            "standalone",
-            "StandaloneAdapter",
-            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
-        ),
-    ]
-    for _engine, _adapter, _bypasses in _BYPASS_ROWS:
-        bypass_table.add_row(_engine, _adapter, _bypasses)
+    # Derived from the real adapter registry and each adapter's own
+    # get_link_scheme_bypasses(), not hardcoded. A hardcoded table here listed
+    # only 3 of the 5 registered engines (omitting "prebuilt" and "vsm") and
+    # asserted "(none)" for every bypass column — while this table's own footer
+    # tells the reader those values come from the adapter. Any adapter that
+    # declared a real bypass, or any engine added to the registry, would have
+    # been misreported by a table claiming to reflect exactly that.
+    #
+    # get_link_scheme_bypasses() is an instance method that reads no instance
+    # state in any implementation, so it is invoked on an uninitialised instance
+    # rather than constructing each adapter (whose __init__ signatures differ and
+    # would need real config/paths). If a future adapter breaks that assumption,
+    # the column reports "(unknown)" rather than inventing a value.
+    from zenzic.core.adapters._factory import _BUILTIN_ADAPTERS
+
+    for _engine, _adapter_cls in _BUILTIN_ADAPTERS.items():
+        try:
+            _schemes = object.__new__(_adapter_cls).get_link_scheme_bypasses()
+            _label = ", ".join(sorted(_schemes)) if _schemes else "(none)"
+        except Exception:  # noqa: BLE001 - display-only; never fabricate a value
+            _label = "(unknown)"
+        bypass_table.add_row(
+            _engine,
+            _adapter_cls.__name__,
+            Text.from_markup(f"[{ZenzicPalette.DIM}]{_label}[/{ZenzicPalette.DIM}]"),
+        )
 
     _shared.console.print(bypass_table)
     _shared.console.print()
@@ -225,18 +235,42 @@ def inspect_codes(
             return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
         # Z0xx (config abort) and Z2xx (security codes) collapse the score to 0
         # and halt the pipeline unconditionally — show FATAL, not 0.0.
-        if code.startswith("Z0") or code.startswith("Z2"):
+        # Z110/Z111 are the one prefix exception: genuinely config-abort codes
+        # (same FROZEN_CODES class as Z000/Z001 — construct a fabricated
+        # score=0.0 report and return early, the same practical "nothing else
+        # gets scanned" outcome), just numbered in the "Z1xx" range for
+        # historical reasons. They are LSP-diagnostic-only in practice —
+        # load_config_with_diagnostics() (models/config.py), their sole
+        # construction site, is only reached by incremental.py's LSP flow;
+        # every zenzic check * command pre-loads config and always passes it
+        # non-None into scan_docs_references(), so its config-is-None branch
+        # (the only place Z110/Z111 are ever built) never executes there —
+        # they cannot fire via any CLI command today. Shown as FATAL anyway:
+        # zenzic inspect codes is a general code reference, not scoped to
+        # CLI-reachability, and 0.0 would misleadingly imply harmless.
+        if code.startswith("Z0") or code.startswith("Z2") or code in ("Z110", "Z111"):
             return "[bold red]FATAL[/bold red]"
         # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z504,
-        # Z901, Z902) — show HALT to signal CI exit rather than math cost.
-        if defn.severity == "warning" and defn.penalty == 0.0:
+        # Z902) — show HALT to signal CI exit rather than math cost.
+        # Z901 is the one error-severity exception: it also unconditionally
+        # blocks the pipeline (via the normal error path, not the
+        # governance-gate mechanism warnings need) and also carries a 0.0
+        # penalty (never reaches DQS scoring) — same practical HALT outcome,
+        # reached a different way.
+        if (defn.severity == "warning" and defn.penalty == 0.0) or code == "Z901":
             return "[bold red]HALT[/bold red]"
         # note + 0.0 = genuinely informational; never blocks CI (Fail-Visible rule).
         if defn.penalty == 0.0:
             return f"[{ZenzicPalette.DIM}]0.0[/{ZenzicPalette.DIM}]"
         return f"[bold]-{defn.penalty:.1f}[/bold]"
 
-    rows: dict[str, list[tuple[str, str, str, str]]] = {
+    def _fixable_markup(code: str) -> str:
+        defn = CODE_DEFINITIONS.get(code)
+        if defn is None:
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        return "[green]Yes[/]" if getattr(defn, "fixable", False) else "[yellow]No[/]"
+
+    rows: dict[str, list[tuple[str, str, str, str, str]]] = {
         "core": [],
         "governance": [],
         "plugin": [],
@@ -247,11 +281,23 @@ def inspect_codes(
     for code in sorted(CODE_NAMES.keys(), key=lambda c: int(c[1:])):
         if code.startswith("Z6"):
             rows["governance"].append(
-                (code, CODE_NAMES[code], _severity_markup(code), _penalty_markup(code))
+                (
+                    code,
+                    CODE_NAMES[code],
+                    _severity_markup(code),
+                    _penalty_markup(code),
+                    _fixable_markup(code),
+                )
             )
         else:
             rows["core"].append(
-                (code, CODE_NAMES[code], _severity_markup(code), _penalty_markup(code))
+                (
+                    code,
+                    CODE_NAMES[code],
+                    _severity_markup(code),
+                    _penalty_markup(code),
+                    _fixable_markup(code),
+                )
             )
 
     # Plugin tier (third-party only; core-origin entry points excluded)
@@ -263,10 +309,12 @@ def inspect_codes(
                 info.source,
                 _severity_markup(info.rule_id),
                 _penalty_markup(info.rule_id),
+                _fixable_markup(info.rule_id),
             )
         )
 
-    # Custom tier (local TOML custom rules)
+    # Custom tier (local TOML custom rules) -- never auto-fixable (no
+    # Zenzic-built-in Mutation class covers user-defined rules).
     for cr in config.custom_rules:
         rule_id_str = cr.id or cr.class_name or "ZZ-CUSTOM"
         rows["custom"].append(
@@ -275,6 +323,7 @@ def inspect_codes(
                 "custom rule",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                "[yellow]No[/]",
             )
         )
 
@@ -294,9 +343,10 @@ def inspect_codes(
     )
     table.add_column("Tier", style="bold cyan", min_width=12, no_wrap=True)
     table.add_column("Code", style="bold", min_width=10, no_wrap=True)
-    table.add_column("Name", min_width=20)
+    table.add_column("Name", min_width=16)
     table.add_column("Severity", min_width=9, no_wrap=True)
     table.add_column("Penalty", min_width=7, no_wrap=True, justify="right")
+    table.add_column("Fixable", min_width=5, justify="center")
 
     title_map = {
         "core": "Core",
@@ -313,10 +363,11 @@ def inspect_codes(
                 "No entries",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
             )
         else:
-            for code, name, severity, penalty in tier_rows:
-                table.add_row(title_map[tier_name], code, name, severity, penalty)
+            for code, name, severity, penalty, fixable in tier_rows:
+                table.add_row(title_map[tier_name], code, name, severity, penalty, fixable)
         if idx < len(selected_tiers) - 1:
             table.add_section()
 

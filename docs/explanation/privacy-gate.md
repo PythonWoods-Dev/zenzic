@@ -5,7 +5,7 @@ description: "Design rationale of the Zenzic Privacy Gate — the fail-closed Ze
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Privacy Gate Architecture (Zero-Trust in CI/CD)
+# Privacy Gate Architecture
 
 The Privacy Gate is the security contract that prevents documentation pipelines
 from publishing sensitive material. It is intentionally designed as a
@@ -28,6 +28,34 @@ anchors, structural drift). Privacy risk is different:
 
 The Privacy Gate therefore treats security findings as **operational blockers**,
 not style issues.
+
+### It is not only about attackers
+
+A common objection is that this severity only makes sense for multi-tenant
+production, where an adversary can reach your content. That reads the risk too
+narrowly.
+
+The realistic path to a leaked key in a documentation repository is not an
+attacker. It is a contributor pasting a real value into an example while
+debugging. It is a page copied in from an external source and never re-read, a
+generated fixture that captured a live environment, or a snippet sanitised
+everywhere except one line.
+
+None of these require a hostile party. All of them are invisible in review
+because the surrounding content looks innocuous — a documentation page is the
+last place a reader expects a credential, which is exactly why one survives
+there.
+
+The same holds for a path traversal in a link. It rarely arrives as an attack;
+it arrives as a templating accident, a relative path that was correct before a
+file moved, or a copied snippet from a shell script. The finding is worth an
+exit code either way, because the published site resolves the link identically
+whatever the author intended.
+
+So the gate protects against **inattention and misplaced trust first, and
+deliberate attack second**. That ordering is why the security tier is
+non-suppressible: a mechanism for silencing it would be used, overwhelmingly, on
+the findings that were real and looked like noise.
 
 ---
 
@@ -56,6 +84,7 @@ the Z2xx security domain in the Z-Code Gallery.
 - [Z202 (Path Traversal)](../reference/finding-codes.md#z202)
 - [Z203 (Path Traversal Fatal)](../reference/finding-codes.md#z203)
 - [Z204 (Forbidden Term)](../reference/finding-codes.md#z204)
+- [Z205 (Forbidden Scheme)](../reference/finding-codes.md#z205)
 
 For technical signatures, examples, and remediation playbooks, use the
 [Z2xx Security family in the Finding Codes Gallery](../reference/finding-codes.md#z201).
@@ -71,3 +100,36 @@ The Privacy Gate enforces a strict distinction:
 
 This is the core Zero-Trust posture of Zenzic in CI/CD:
 **documentation is treated as production attack surface**.
+
+---
+
+## Auditability and Compliance
+
+Three properties of the Core, each a real Tier-0 invariant rather than an
+aspirational claim, combine into a specific and checkable compliance argument:
+
+- **Determinism.** Identical input produces identical output; no probabilistic
+  logic, no LLM dependency, no global state. A given commit's Privacy Gate
+  result is reproducible by re-running the same scan — not merely plausible
+  from context, but the same output byte-for-byte.
+- **Zero Subprocess** ([ADR 002](../developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md)).
+  The Core never shells out, invokes `subprocess`, or depends on an external
+  binary. Every finding is produced by Python code in this repository, not by
+  a third-party process whose own behavior would need separate audit.
+- **Exit Code Contract.** Security-class findings (`Z201`–`Z205`) are
+  non-suppressible and produce a stable, documented exit code — `2` for a
+  credential or forbidden term/scheme, `3` for fatal path traversal — under
+  every configuration. There is no flag or policy setting that silences this
+  tier; the CI gate above is what makes that contract operationally load-bearing.
+
+A pipeline that must produce evidence — SOC 2 change-management logs, an
+air-gapped environment with no outbound network dependency during the scan,
+or a regulator asking what a check actually did on a given commit — needs
+exactly these three properties. The same input always produces the same
+output. Nothing left the process boundary to produce it. The security-relevant
+result cannot have been silently narrowed away by configuration.
+
+This is not a claim that Zenzic satisfies any specific compliance framework on
+its own. It is a statement of what is mechanically true about how the Core
+computes its result — verifiable by a compliance reviewer reading the
+invariant and the code, not by trusting a description of it.

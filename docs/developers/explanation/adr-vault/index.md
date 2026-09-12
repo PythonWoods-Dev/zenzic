@@ -51,23 +51,32 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 007](./records/adr-007-sovereign-sandbox.md) | Sovereign Sandbox *(Maintainer Only)* |
 | [ADR 008](./records/adr-bilingual-structural.md) | Bilingual Structural Invariant *(Deprecated)* |
 | [ADR 009](./records/adr-path-sovereignty.md) | Path Sovereignty |
+| [ADR 012](./records/adr-012-finding-taxonomy.md) | Finding Taxonomy |
 | [ADR 013](./records/adr-regex-acl.md) | The Regex Anti-Corruption Layer (ReDoS Protection) |
 | [ADR 015](./records/adr-native-telemetry.md) | Native Telemetry Validation |
 | [ADR 020](./records/adr-020-mirror-law.md) | Mirror Law |
 | [ADR 021](./records/adr-021-parallel-audit.md) | Parallel Audit Completeness vs. Fail-Fast |
 | [ADR 022](./records/adr-022-english-only-governance.md) | English-Only Governance & Deprecation of Bilingual Invariant |
+| [ADR 031](./records/adr-031-ssot-code-definitions-and-gate-paradox.md) | SSoT Code Definitions & the Gate Paradox |
 | [ADR 075](./records/adr-075-radical-unawareness.md) | Radical Unawareness |
+| [ADR 078](./records/adr-078-baseadapter-abstract-runtime-contract.md) | BaseAdapter Abstract Runtime Contract |
+| [ADR 084](./records/adr-084-centralized-core-governance.md) | Centralized Core Governance |
+| [ADR 089](./records/adr-089-ecosystem-wide-immutable-sha-pinning.md) | Ecosystem-Wide Immutable SHA Pinning |
 | [ADR 090](./records/adr-090-silent-on-success-unix-philosophy.md) | Silent-on-Success Unix Philosophy & Pipeline Signal Protocol |
 | [ADR 091](./records/adr-091-single-pass-ast-and-cqs.md) | Single-Pass AST Compilation & Command-Query Segregation (CQS) |
 | [ADR 092](./records/adr-092-comprehensive-bump-coverage.md) | Comprehensive Release Bump Coverage |
+| [ADR 093](./records/adr-093-topological-suppression-non-inline.md) | Topological Suppression Non-Inline Invariant & LSP UX Determinism |
+| [ADR 094](./records/adr-094-control-plane-structure.md) | Control Plane Structure |
 
 ---
 
 ## Documentation Site Decisions
 
 These ADRs document architectural decisions specific to this documentation site
-(`zenzic.dev`) — choices about how the Docusaurus site is built, localized, and
-maintained.
+(`zenzic.dev`). The one ADR currently in this section is historical: it describes
+choices made while `zenzic.dev` was still built with Docusaurus, before that
+adapter was permanently removed in `v0.14.0` (see [ADR 006](./records/adr-unified-perimeter.md)).
+The site is built with MkDocs today.
 
 | ADR | Title |
 |-----|-------|

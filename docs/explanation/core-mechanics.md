@@ -13,60 +13,21 @@ Zenzic's validation engine relies on several fundamental architectures to guaran
 
 ## The Virtual Site Map (VSM) {#vsm}
 
-When Zenzic validates your links, it does not simply check whether a target file exists on disk. Instead, it builds a **Virtual Site Map (VSM)** — a pure in-memory projection of what your build engine will actually serve to readers.
+When Zenzic validates your links, it does not simply check whether a target file exists on disk. Instead, it builds a **Virtual Site Map (VSM)** — a pure in-memory projection of what your build engine will actually serve to readers, mapping every canonical URL to a `Route` entry with a status (`REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, `CONFLICT`).
 
-The VSM maps every canonical URL to a **Route** entry:
+**Why this matters:** A file can exist on your filesystem and still be `IGNORED` in the VSM. A URL can be `REACHABLE` in the VSM without having a corresponding file on disk (for example, locale index routes). The VSM is the authority — Zenzic checks reachability, not just file existence. This means `zenzic check links` catches problems that a naive file-existence check would miss: pages removed from navigation, conflicting routes, and orphaned content that readers cannot discover through normal browsing.
 
-| Field | Meaning |
-| :--- | :--- |
-| `url` | The URL a browser would request, e.g. `/guide/install/` |
-| `source` | The source file that produces this URL, e.g. `guide/install.md` |
-| `status` | Whether the page is reachable, orphaned, ignored, or in conflict |
-| `anchors` | Heading anchors pre-computed from the source file |
-
-Each route carries a status that tells Zenzic how to treat links pointing to it:
-
-| Status | Meaning | Link result |
-| :--- | :--- | :--- |
-| `REACHABLE` | Page is listed in navigation or is a locale route | Valid |
-| `ORPHAN_BUT_EXISTING` | File exists on disk but is not in site navigation | Z103 error |
-| `IGNORED` | Excluded by configuration (e.g. README files, private directories) | Z101 error |
-| `CONFLICT` | Two source files produce the same canonical URL | Z101 error |
-
-**Why this matters:** A file can exist on your filesystem and still be `IGNORED` in the VSM. A URL can be `REACHABLE` in the VSM without having a corresponding file on disk (for example, locale index routes). The VSM is the authority — Zenzic checks reachability, not just file existence.
-
-This design means that `zenzic check links` catches problems that a naive file-existence check would miss: pages removed from navigation, conflicting routes, and orphaned content that readers cannot discover through normal browsing.
+For the full `Route`/`RouteMetadata` field reference and `VSMBuilder` construction detail, see [Core Architecture — Virtual Site Map](./architecture.md#vsm).
 
 ---
 
-## The credential scanner Architecture
+## The Credential Scanner Architecture
 
-The Zenzic credential scanner uses a **dual-stream architecture** to ensure that no part of a file escapes credential scanning.
+The Zenzic credential scanner uses a **dual-stream architecture**: every file produces one stream that sees *all* lines including YAML frontmatter (secrets hiding in metadata are real secrets), and a separate content stream that skips frontmatter and fenced blocks (to avoid parsing metadata like `author: Jane Doe` as a broken reference). The streams never share a data source — merging them would create a blind spot.
 
-When the Reference Scanner processes a file, it creates two independent streams:
+For the normalizer/Polyglot-Extractor mechanics, the `safe_read_line` I/O fence, and the F2-1/F4-1 hardening properties, see [Core Architecture — Credential Scanner](./architecture.md#credential-scanner) and [Enterprise-Grade Security Foundations](./architecture.md#enterprise-security).
 
-```mermaid
-flowchart LR
-    classDef file    fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
-    classDef credentials fill:#0f172a,stroke:#ef4444,stroke-width:2px,color:#e2e8f0
-    classDef content fill:#0f172a,stroke:#7c3aed,stroke-width:2px,color:#e2e8f0
-
-    disk["📄 File on disk"]:::file
-
-    subgraph RS ["Reference Scanner"]
-        CRED["🛡️ CREDENTIAL SCANNER stream\nSees ALL lines\n(incl. YAML frontmatter)"]:::credentials
-        CT["📝 CONTENT stream\nSkips frontmatter + fenced blocks\n(parses references & images)"]:::content
-    end
-
-    disk --> CRED
-    disk --> CT
-```
-
-The two streams have opposite filtering rules by design. The Content stream must skip YAML frontmatter to avoid parsing metadata like `author: Jane Doe` as a broken reference definition. The credential scanner stream must see frontmatter because a key like `aws_key: AKIA...` hiding in YAML metadata is a real secret that must be caught. The streams never share a data source — merging them would create a blind spot.
-
-**Pre-Scan Normalizer and Polyglot Extractor.** Before running detection patterns, the credential scanner normalises each line to defeat obfuscation. Inline code backticks are unwrapped, concatenation operators are removed, and table pipe characters are collapsed. Additionally, the **Polyglot Extractor** deeply parses both Markdown and native HTML (`<a>`, `<img>` tags). This ensures raw HTML links and images undergo the exact same **Uniform Resolver Pipeline (URP)** validations as standard Markdown syntax, closing the "HTML Shadow Zone" and applying strict rules like `Z205 FORBIDDEN_SCHEME` uniformly.
-
-**ReDoS Protection.** Custom regex patterns declared in `[[custom_rules]]` are compiled through RE2 compatibility gates at load time. Unsupported constructs (for example backreferences or lookarounds) are rejected before any scan begins. Separately, the parallel worker watchdog still emits `Z902: RULE_TIMEOUT` if a worker stalls at runtime because of a systemic hang (for example I/O or coordinator starvation) rather than a regex backtracking canary.
+**ReDoS Protection.** Custom regex patterns declared in `[[custom_rules]]` are compiled through RE2 compatibility gates at load time — unsupported constructs (backreferences, lookarounds) are rejected before any scan begins. See [Core Architecture — DFA Guarantee](./architecture.md#dfa-guarantee) for the full RE2 engine detail.
 
 ---
 
@@ -107,9 +68,9 @@ Because the graph is computed entirely in memory during Pass 1.5, topological gr
 
 ## Baseline Engine & Line-Shift Invariant Signatures {#baseline-engine}
 
-Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant SHA-256 signatures:
+Evolutionary quality control requires tracking technical debt across commits without breaking on minor edits. The Zenzic Baseline Engine introduces line-shift invariant signatures, truncated to the first 16 hex characters (64 bits) of a SHA-256 digest:
 
-$$\text{Signature} = \text{SHA256}[\text{RuleCode} + \text{PosixPath} + \text{ContextTarget}]$$
+$$\text{Signature} = \text{SHA256}[\text{RuleCode} : \text{PosixPath} : \text{ContextTarget}]\text{[:16]}$$
 
 By excluding line numbers from the signature computation:
 

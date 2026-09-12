@@ -81,8 +81,8 @@ Tracker       = "https://github.com/PythonWoods/zenzic/issues"
 
 [project.optional-dependencies]
 docs = [
-    "mkdocs-material>=9.0.0",
-    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0,<10",
+    "mkdocs>=1.5.0,<2",
     "mkdocs-rss-plugin>=1.15.0",
     "mkdocs-minify-plugin>=0.8.0",
 ]
@@ -91,8 +91,8 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
     "mypy>=1.10.0",
-    "ruff>=0.4.0",
-    "reuse>=3.0.0",
+    "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)
+    "reuse==6.2.0",  # pinned to .pre-commit-config.yaml's reuse-tool rev (v6.2.0)
     "types-toml",
 ]
 
@@ -117,10 +117,10 @@ test = [
     "mutmut>=3.5.0",
 ]
 lint = [
-    "ruff>=0.3.0",
+    "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)
     "mypy>=1.5.0",
     "pre-commit>=4.5.1",
-    "reuse>=5.0.2",
+    "reuse==6.2.0",  # pinned to .pre-commit-config.yaml's reuse-tool rev (v6.2.0)
     "types-pyyaml>=6.0.12.20260518",
 ]
 release = [
@@ -184,6 +184,14 @@ strict = true
 ignore_missing_imports = true
 warn_unused_configs = false
 
+[[tool.mypy.overrides]]
+# This module deliberately constructs malformed adapters with wrong method
+# signatures to verify the adapter factory's own crash handling -- the
+# signature mismatches are the fixture, not an oversight. "Fixing" them would
+# defeat the test's entire purpose.
+module = "tests.test_adapter_factory_crash_handling"
+disable_error_code = ["override"]
+
 # ─── Pytest ───────────────────────────────────────────────────────────────────
 
 [tool.pytest.ini_options]
@@ -218,14 +226,108 @@ exclude_lines = [
 # ─── Mutation testing (Mutation Gate) ────────────────────────────────────────
 
 [tool.mutmut]
-paths_to_mutate = [
-    "src/zenzic/core/rules.py",
+# CI TIER -- one module, ~3 minutes, gated at the 95.7% floor measured on
+# exactly this set. Do not add modules here: the floor is a measurement of this
+# population, and widening the population while keeping the number turns the
+# gate into a guaranteed failure that says nothing (run 34064064642 scored 63.4%
+# against it for 2h50m before failing). The expanded four-module set lives in
+# `mutmut_expanded_source_paths` below and runs on demand via
+# `just mutation-expanded`.
+source_paths = ["src/zenzic/core/credentials.py"]
+
+# ON-DEMAND TIER -- read by `just mutation-expanded`, never by CI. ~90 minutes.
+# Not a `[tool.mutmut]` key mutmut itself reads; the recipe swaps it into
+# `source_paths` for the duration of the run and restores it afterwards.
+mutmut_expanded_source_paths = [
     "src/zenzic/core/credentials.py",
-    "src/zenzic/core/reporter.py",
+    "src/zenzic/core/scanner.py",
+    "src/zenzic/core/validator.py",
+    "src/zenzic/core/exclusion.py",
 ]
-# pytest_add_cli_args_test_selection specifies which tests to run (replaces tests_dir).
-pytest_add_cli_args_test_selection = ["tests/"]
-also_copy = ["src/"]
+# Every suite that exercises the credential scanner. NOT "tests/": the whole
+# suite cannot run in mutmut's sandbox — tests that read repository artifacts
+# beyond `also_copy` fail there and abort stat collection before a single
+# mutant runs, which is why this harness was configured but never produced a
+# number. Scoped to the kill-tests the Mutation invariant actually names.
+pytest_add_cli_args_test_selection = [
+    "tests/integrity/test_i18n_path_integrity.py",
+    "tests/test_adapter_metadata_not_a_security_bypass.py",
+    "tests/test_assets.py",
+    "tests/test_chaos_i18n.py",
+    "tests/test_check_skip_list_ssot_structural.py",
+    "tests/test_cli.py",
+    "tests/test_cli_lsp_parity.py",
+    "tests/test_cli_lsp_security_parity.py",
+    "tests/test_cli_visual.py",
+    "tests/test_config_validation.py",
+    "tests/test_coverage_boost.py",
+    "tests/test_credential_detector_gaps.py",
+    "tests/test_credential_scanner_mutation_survivors.py",
+    "tests/test_credentials_obfuscation.py",
+    "tests/test_custom_rule_sdk_v3.py",
+    "tests/test_custom_rules.py",
+    "tests/test_discovery.py",
+    "tests/test_dual_mode.py",
+    "tests/test_exclusion.py",
+    "tests/test_external_exclusions_and_baseline_ux.py",
+    "tests/test_fix.py",
+    "tests/test_forbidden_term_span_overlap.py",
+    "tests/test_gitignore_cannot_hide_credentials.py",
+    "tests/test_guard.py",
+    "tests/test_incremental_engine.py",
+    "tests/test_incremental_severity_fix.py",
+    "tests/test_integration_finale.py",
+    "tests/test_lab_exit_code.py",
+    "tests/test_lsp.py",
+    "tests/test_lsp_incremental.py",
+    "tests/test_lsp_protocol_robustness.py",
+    "tests/test_multi_breach_reporting.py",
+    "tests/test_nav_contract.py",
+    "tests/test_parallel.py",
+    "tests/test_placeholder_classification.py",
+    "tests/test_properties.py",
+    "tests/test_protocol_evolution.py",
+    "tests/test_redteam_remediation.py",
+    "tests/test_references.py",
+    "tests/test_remote_context.py",
+    "tests/test_rules.py",
+    "tests/test_scanner.py",
+    "tests/test_scanner_severity_fix.py",
+    "tests/test_scorer.py",
+    "tests/test_security.py",
+    "tests/test_security_exclusion_immunity.py",
+    "tests/test_security_exit_chokepoint.py",
+    "tests/test_security_pipeline.py",
+    "tests/test_security_tier_reach.py",
+    "tests/test_standalone_mode.py",
+    "tests/test_to_findings_caching.py",
+    "tests/test_tower_of_babel.py",
+    "tests/test_traversal_classifier.py",
+    "tests/test_traversal_percent_encoding.py",
+    "tests/test_validator.py",
+    "tests/test_vsm.py",
+    "tests/test_z110_code_collision.py",
+    "tests/test_z205_markdown_scheme_gate.py",
+]
+# Every entry here is required either by the hatchling build backend
+# (README.md for [project].readme; examples/ for
+# [tool.hatch.build.targets.wheel.force-include]) or by tests that read a
+# root-level file directly (zenzic-baseline.schema.json,
+# zenzic-output.schema.json — schema-compliance tests). Enumerated by
+# reading [project]/[build-system]/[tool.hatch.*] directly, not discovered
+# by trial and error — if either section gains a new file reference in the
+# future, add it here too.
+also_copy = [
+    "src/",
+    "README.md",
+    "examples/",
+    # docs/ is required by tests that resolve doctor's default paths (the ADR
+    # vault lives under docs/); without it the sandbox cannot even collect.
+    "docs/",
+    "mkdocs.yml",
+    "zenzic-baseline.schema.json",
+    "zenzic-output.schema.json",
+]
 # Override importlib mode: mutmut v3's import-graph analyser requires classic
 # prepend mode to trace source→test links (our addopts sets importlib mode).
 pytest_add_cli_args = ["--import-mode=prepend"]

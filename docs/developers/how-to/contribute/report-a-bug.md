@@ -53,71 +53,61 @@ them in the bug report.__
 
 ## Issue template
 
-Our issue template consists of the following parts:
+Opening a new issue and selecting __Bug Report__ loads
+[`bug_report.yml`](https://github.com/PythonWoods/zenzic/blob/main/.github/ISSUE_TEMPLATE/bug_report.yml),
+which asks for the following fields:
 
-- Title
-- Context <small>optional</small>
-- Bug description
-- Related links
-- Reproduction
-- Steps to reproduce
-- Checklist
+- Zenzic version <small>required</small>
+- Python version <small>required</small>
+- Operating system <small>required</small>
+- Documentation engine <small>required</small>
+- Command run <small>required</small>
+- Expected behaviour <small>required</small>
+- Actual behaviour <small>required</small>
+- `zenzic.toml` (if any) <small>optional</small>
+- Zenzic alert output (exit codes 2–3), if applicable <small>optional</small>
+- Pre-submission checklist <small>required</small>
 
-### Title
+### Zenzic version, Python version, operating system
 
-A good title is short and descriptive — a one-sentence executive summary of
-the issue.
+Output of `zenzic --version` and `python --version`, and the OS you're running
+on. These narrow down whether a bug is version-specific or platform-specific.
 
-| <!-- * * --> | Example |
-| -------- | ------- |
-| :material-check: __Clear__ | `validate_same_page_anchors` raises false positive on auto-generated headings |
-| :material-close: __Unclear__ | Anchor validation doesn't work |
-| :material-close: __Useless__ | Help |
+### Documentation engine
 
-### Context <small>optional</small> {#context}
+Which adapter was active when the bug occurred — MkDocs, Zensical, Standalone,
+or "not applicable / unsure." Several bugs are engine-specific (`mkdocs.yml`
+nav parsing vs. Zensical's own config format), so this narrows the search
+space immediately.
 
-Provide additional context to help us understand what you were trying to
-achieve. Don't write about the bug here.
+### Command run
 
-### Bug description
+The exact `zenzic` command that triggered the bug (e.g. `zenzic check all
+--strict`). We reproduce from this, so paste the real command rather than a
+paraphrase.
 
-Provide a clear, focused, and concise summary of the bug. Adhere to the
-following principles:
+### Expected behaviour / Actual behaviour
+
+Two short, focused fields: what you expected, and what actually happened.
+Paste the __full terminal output__ into "Actual behaviour" when possible —
+Zenzic's own output (finding codes, exit code, DQS score) is usually enough
+context to reproduce without a separate attachment.
 
 - __Explain the <u>what</u>, not the <u>how</u>__ – focus on the problem
+  and its impact.
+- __One bug at a time__ – open separate issues for unrelated bugs.
 
-    and its impact, not how to reproduce it.
+### `zenzic.toml` and alert output
 
-- __Keep it short and concise__ – one or two sentences is ideal.
+Paste your `.zenzic.toml` (remove any secrets first) if it's relevant to the
+bug. If the bug involves a security exit code (2 for a credential alert, 3
+for path traversal), paste that output too — redact any real secrets or paths
+before posting.
 
-- __One bug at a time__ – create separate issues for unrelated bugs.
+### Pre-submission checklist
 
-### Related links
-
-Share links to all documentation sections relevant to the bug, as well as any
-related issues you found while searching.
-
-### Reproduction
-
-A minimal reproduction is at the heart of every well-written bug report. It
-allows us to instantly recreate the conditions needed to find the root cause.
-
-After creating the reproduction, attach the `.zip` file directly to the issue.
-
-!!! warning "Don't share links to repositories."
-
-    Please attach a `.zip` reproduction rather than linking to a repository.
-
-### Steps to reproduce
-
-List the specific steps we should follow when running your reproduction to
-observe the bug. Keep the steps concise and complete.
-
-### Checklist
-
-Thanks for following the guide and creating a high-quality bug report. The
-checklist ensures that you have read this guide and provided us with everything
-we need to help you.
+Confirms you searched existing issues for a duplicate and reproduced the bug
+against the latest published release before filing.
 
 __We'll take it from here.__
 

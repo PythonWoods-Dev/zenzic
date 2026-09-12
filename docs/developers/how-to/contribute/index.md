@@ -62,7 +62,23 @@ In this section, we guide you through our processes.
 
     :material-arrow-right: [Request a change][request a change]
 
+- :material-shape-outline: &nbsp;
+
+    __Spotted a flaw Zenzic doesn't catch?__
+
+    ---
+
+    Propose a new Z-Code rule, with failing/passing Markdown examples.
+
+    ---
+
+    :material-arrow-right: [Propose a custom rule][propose a custom rule]
+
 </div>
+
+Looking for something easy to start with instead? Browse issues labeled
+[`good first issue`](https://github.com/PythonWoods/zenzic/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+and claim one via the __Good First Issue__ template.
 
 ---
 
@@ -87,6 +103,7 @@ In this section, we guide you through our processes.
   [report a bug]: report-a-bug.md
   [report a docs issue]: report-a-docs-issue.md
   [request a change]: request-a-change.md
+  [propose a custom rule]: propose-a-custom-rule.md
   [make a pull request]: pull-requests.md
 
 ---

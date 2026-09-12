@@ -107,7 +107,7 @@ which increments an internal counter. If the counter exceeds `max_visits` (defau
 finding, and continues to the next rule. The scan never halts.
 
 ```text
-docs/reference/api.md:0  [Z902]  Rule 'LOCAL-001' exceeded execution limit (10000 visits).
+docs/reference/api.md:0  [Z902]  Rule 'LOCAL-001' exceeded execution limit: <engine limit message>
 ```
 
 Similarly, any unhandled Python exception inside a visitor method is caught and converted to a
@@ -208,3 +208,17 @@ To start writing your own custom rules, consult the [Custom Rules API v2 Guide](
 Full release notes: [CHANGELOG.md — v0.20.0](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
 Custom AST Rules guide: [Writing Custom AST Rules (API v2)](../../developers/how-to/write-ast-rule.md)
 Finding codes reference: [Z901 / Z902](../../reference/finding-codes.md)
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

@@ -1,14 +1,12 @@
 ---
-description: "Walk through the z104-file-not-found fixture: a link pointing to api/reference.md which does not exist on disk, triggering Z104 FILE_NOT_FOUND at exit code 1."
+description: "Walk through the z104-file-not-found fixture: a link pointing to api/reference.md which does not exist on disk, consolidated and reported under Z101 LINK_BROKEN by the current engine, exit code 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 # Z104 — File Not Found
 
-**Z-Code:** `Z104 FILE_NOT_FOUND` · **Engine:** `standalone` · **Exit:** `1`
-
-<Z104FileNotFound />
+**Cataloged as:** `Z104 FILE_NOT_FOUND` · **Emitted as:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
 ---
 
@@ -43,21 +41,26 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone · 1 file (1 docs, 0 assets) · 0.0s · 67 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:11:44  x  [Z104]  'api/reference.md' not found in docs
+docs/index.md:11  ✘  [Z101]  'api/reference.md' resolves to '/api/reference/'
+which is not in the Virtual Site Map — the target file may not exist
 
      9  │  ## API Reference
     10  │
-    11  ❱  For the complete API specification, see the [API Reference](api/refer…
+    11  ❱  For the complete API specification, see the [API Reference](api/refe…
     12  │  The API reference contains all endpoints, request formats, and respo…
     13  │
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  · 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 92/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `1`
@@ -66,17 +69,19 @@ Exit code: `1`
 
 ## Interpreting the Output
 
-The `Z104` finding indicates a **FILE_NOT_FOUND** issue.
+The `Z101` finding indicates a **LINK_BROKEN** issue (this scenario is cataloged
+as `Z104 FILE_NOT_FOUND`, but the engine reports it under the consolidated
+`Z101` code — see [Z104 rule specification](../../../rules/Z104.md)).
 
 This error is raised when a relative link in a Markdown page points to a file
-path that does not exist in the `docs_dir` tree. Unlike `Z101 LINK_BROKEN` (which
-covers structural routing issues), Z104 is the precise signal for a missing
-filesystem entry:
+path that does not exist in the `docs_dir` tree. `Z101 LINK_BROKEN` covers
+this and other structural routing issues (broken internal links, missing
+files, broken external links) under one shared code:
 
 - **Scan Type:** `Link Validator`
 - **Severity:** `Error`
 - **Impact:** Missing link targets break navigation and deduct **8.0 DQS points**
-  — the highest penalty in the Z1xx group.
+  (the `Z101` penalty — the highest in the Z1xx group).
 
 ---
 

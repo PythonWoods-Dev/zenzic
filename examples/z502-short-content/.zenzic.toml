@@ -10,7 +10,7 @@
 # but its word count falls under the minimum threshold.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z502 ×1 — word count below threshold)
+#   zenzic check placeholders   → EXIT 0  (Z502 ×1 — word count below threshold)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

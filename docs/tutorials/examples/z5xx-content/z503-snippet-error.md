@@ -6,9 +6,7 @@ description: "Analysis of the z503-snippet-error fixture."
 
 # Z503 — Snippet Error
 
-**Z-Code:** `Z503 SNIPPET_ERROR` · **Engine:** `standalone` · **Exit:** `1`
-
-<Z503SnippetError />
+**Z-Code:** `Z503 SNIPPET_ERROR` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 
@@ -30,22 +28,33 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 60 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s
 
-docs/index.md:14  x  [Z503]  SyntaxError in Python snippet — '(' was never
+docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
+structural dead end: '/'
+
+docs/index.md:14  ⚠  [Z503]  SyntaxError in Python snippet — '(' was never
 closed
+
+    12  │
+    13  │  ```python
+    14  ❱  def compute_total(
+    15  │      items =   # SyntaxError: incomplete expression
+    16  │  ```
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
-FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 85/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
-Exit code: `1`
+Exit code: `0`
 
 ---
 

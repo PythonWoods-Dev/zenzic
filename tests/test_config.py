@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,56 @@ def test_load_config_custom(tmp_path: Path) -> None:
     assert ".venv" in config.excluded_dirs
     assert "node_modules" in config.excluded_dirs
     assert loaded is True
+
+
+def test_load_config_file_override_takes_priority_over_zenzic_toml(tmp_path: Path) -> None:
+    """An explicit config_file override wins over .zenzic.toml at repo_root (priority 0)."""
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "root_docs"\n')
+    override_dir = tmp_path / "configs"
+    override_dir.mkdir()
+    override_path = override_dir / "prod.zenzic.toml"
+    override_path.write_text('docs_dir = "override_docs"\n')
+
+    config, loaded = ZenzicConfig.load(tmp_path, config_file=override_path)
+    assert config.docs_dir == Path("override_docs")
+    assert loaded is True
+    assert config.origin_file == override_path
+
+
+def test_load_config_file_override_used_when_no_repo_root_config_exists(tmp_path: Path) -> None:
+    """An explicit config_file override works even when repo_root has no config at all."""
+    override_path = tmp_path / "custom-name.toml"
+    override_path.write_text('docs_dir = "custom_docs"\n')
+
+    config, loaded = ZenzicConfig.load(tmp_path, config_file=override_path)
+    assert config.docs_dir == Path("custom_docs")
+    assert loaded is True
+
+
+def test_load_config_file_override_missing_file_raises(tmp_path: Path) -> None:
+    """An explicit config_file override pointing at a nonexistent file must raise, not fall back."""
+    missing = tmp_path / "does-not-exist.toml"
+    with pytest.raises(ConfigurationError, match="does not exist|not found"):
+        ZenzicConfig.load(tmp_path, config_file=missing)
+
+
+def test_load_config_file_override_invalid_toml_raises(tmp_path: Path) -> None:
+    """An explicit config_file override with malformed TOML must raise — not silently fall back."""
+    override_path = tmp_path / "broken.toml"
+    override_path.write_text("invalid [ toml")
+    with pytest.raises(ConfigurationError, match="syntax error"):
+        ZenzicConfig.load(tmp_path, config_file=override_path)
+
+
+def test_load_config_file_override_applies_local_toml_overlay(tmp_path: Path) -> None:
+    """An explicit config_file override still layers .zenzic.local.toml on top."""
+    override_path = tmp_path / "shared.zenzic.toml"
+    override_path.write_text('docs_dir = "shared_docs"\nfail_under = 0\n')
+    (tmp_path / ".zenzic.local.toml").write_text("[core]\nfail_under = 80\n")
+
+    config, _ = ZenzicConfig.load(tmp_path, config_file=override_path)
+    assert config.docs_dir == Path("shared_docs")
+    assert config.fail_under == 80
 
 
 def test_excluded_dirs_always_contains_system_guardrails(tmp_path: Path) -> None:
@@ -91,8 +142,33 @@ severity = "warning"
     assert len(config.custom_rules) == 2
     assert config.custom_rules[0].id == "ZZ-NOINTERNAL"
     assert config.custom_rules[0].severity == "error"
+    # No link set: field defaults to None, existing rules keep working unchanged.
+    assert config.custom_rules[0].link is None
     assert config.custom_rules[1].id == "ZZ-NODRAFT"
     assert config.custom_rules[1].severity == "warning"
+
+
+def test_load_config_custom_rules_link_field(tmp_path: Path) -> None:
+    """[[custom_rules]] entries may optionally carry a `link` rationale URL."""
+    toml_content = """
+[[custom_rules]]
+id = "ZZ-NOINTERNAL"
+pattern = "internal\\\\.corp"
+message = "Internal hostname in docs."
+severity = "error"
+link = "https://wiki.example.com/hostname-policy"
+
+[[custom_rules]]
+id = "ZZ-NODRAFT"
+pattern = "(?i)\\\\bDRAFT\\\\b"
+message = "Remove DRAFT marker."
+severity = "warning"
+"""
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.custom_rules[0].link == "https://wiki.example.com/hostname-policy"
+    # A rule with no link declared keeps the field as None, not an empty string.
+    assert config.custom_rules[1].link is None
     assert loaded is True
 
 
@@ -112,6 +188,20 @@ def test_placeholder_patterns_compiled_on_init(tmp_path: Path) -> None:
     assert not config.placeholder_patterns_compiled[0].search("pseudotodo")
     assert config.placeholder_patterns_compiled[1].search("WIP section")
     assert not config.placeholder_patterns_compiled[1].search("wipe the floor")
+
+
+def test_baseline_stale_days_defaults_to_none(tmp_path: Path) -> None:
+    """baseline_stale_days is None when not set — Core's own constant is the fallback."""
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.baseline_stale_days is None
+
+
+def test_baseline_stale_days_loaded_from_zenzic_toml(tmp_path: Path) -> None:
+    """baseline_stale_days overrides the Core default when set in .zenzic.toml."""
+    (tmp_path / ".zenzic.toml").write_text("baseline_stale_days = 14\n")
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.baseline_stale_days == 14
+    assert loaded is True
 
 
 # ─── pyproject.toml support (ISSUE #5) ───────────────────────────────────────
@@ -406,6 +496,32 @@ def test_build_from_data_unknown_scalar_key_warning(
     assert any("unknown key" in r.message for r in caplog.records)
 
 
+def test_validate_same_page_anchors_field_removed_from_model() -> None:
+    """validate_same_page_anchors was a dead, never-read field; removed entirely
+    rather than wired up, since the current (stricter-than-documented) behavior
+    of always validating same-page anchors is the intended permanent behavior.
+    """
+    assert "validate_same_page_anchors" not in ZenzicConfig.model_fields
+
+
+def test_validate_same_page_anchors_key_in_toml_is_ignored_with_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A .zenzic.toml still setting the removed key loads successfully (not a
+    breaking config change) and is reported via the generic unknown-key warning.
+    """
+    import logging
+
+    (tmp_path / ".zenzic.toml").write_text("validate_same_page_anchors = false\n")
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        config, _ = ZenzicConfig.load(tmp_path)
+    assert any(
+        "unknown key" in r.message and "validate_same_page_anchors" in r.message
+        for r in caplog.records
+    )
+    assert not hasattr(config, "validate_same_page_anchors")
+
+
 def test_build_from_data_legacy_obsolete_names_migrated(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -420,6 +536,51 @@ def test_build_from_data_legacy_obsolete_names_migrated(
     assert "OldBrand" in config.governance.brand_obsolescence
     assert "AnotherOld" in config.governance.brand_obsolescence
     assert any("Deprecated" in r.message for r in caplog.records)
+
+
+def test_build_from_data_unknown_section_warning_survives_rich_markup(
+    tmp_path: Path,
+) -> None:
+    """The unknown-section warning must render intact through RichHandler(markup=True).
+
+    Regression for: ``setup_cli_logging()`` attaches a ``RichHandler`` with
+    ``markup=True`` (see ``core/logging.py``). The warning's ``[%s]``
+    interpolation and its literal ``"[section]"`` text are both valid-looking
+    Rich markup tags (e.g. ``[project]``, ``[section]``) — unescaped, Rich
+    silently strips them instead of printing them, so the actual offending
+    section name never reaches the user. ``caplog`` captures the raw log
+    record before Rich rendering and cannot see this; this test renders
+    through a real ``RichHandler`` to catch it.
+    """
+    import logging
+
+    from rich.console import Console
+    from rich.logging import RichHandler
+
+    (tmp_path / ".zenzic.toml").write_text("[project]\nname = 'foo'\n")
+
+    logger = logging.getLogger("zenzic")
+    buf = StringIO()
+    handler = RichHandler(
+        console=Console(file=buf, no_color=True, width=200),
+        show_time=False,
+        show_path=False,
+        markup=True,
+    )
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    try:
+        ZenzicConfig.load(tmp_path)
+    finally:
+        logger.removeHandler(handler)
+
+    rendered = buf.getvalue()
+    assert "[project]" in rendered, (
+        f"Section name 'project' swallowed by Rich markup rendering, got:\n{rendered!r}"
+    )
+    assert "[section]" in rendered, (
+        f"Literal '[section]' text swallowed by Rich markup rendering, got:\n{rendered!r}"
+    )
 
 
 def test_config_rejects_swallowed_root_keys(tmp_path: Path) -> None:

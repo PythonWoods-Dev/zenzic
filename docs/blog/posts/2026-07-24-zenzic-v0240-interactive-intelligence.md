@@ -15,8 +15,6 @@ categories:
 
 Zenzic v0.24.0 marks the transition from passive static validation to interactive, editor-native remediation. This release introduces LSP Code Actions for automated Quick Fixes, real-time Documentation Quality Score (DQS) streaming to the editor status bar, and critical URI normalization bugfixes.
 
-![Zenzic v0.24.0: Interactive Intelligence](../../assets/images/blog/launch_v0240.webp)
-
 <!-- more -->
 
 ## From Passive Validation to Interactive Remediation
@@ -61,8 +59,6 @@ The Zenzic Language Server computes the workspace DQS using a zero-disk-read mod
 
 ## Deterministic Bugfixes and Stability
 
-This section details the specifications and guidelines for Deterministic Bugfixes and Stability within the Zenzic ecosystem.
-
 ### 1. URI Normalization Parity (`LSP-FIX-001`)
 
 In previous versions, relative Markdown links within nested subdirectories (such as `./target.md` in `docs/developers/explanation/adr-vault/records/`) produced false-positive `Z101` (Broken Link) findings in LSP mode.
@@ -87,3 +83,18 @@ uv tool install --force zenzic
 ```
 
 The Zenzic VS Code extension updates automatically via the Visual Studio Marketplace.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

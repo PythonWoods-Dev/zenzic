@@ -14,8 +14,6 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-![Signal to Noise Ratio](../../assets/images/blog/signal_to_noise.webp)
-
 A static analyzer is only as useful as its signal-to-noise ratio.
 
 If a tool floods a CI/CD pipeline with hundreds of low-value notices, developers eventually stop paying attention. The result is predictable: triage becomes slower, dashboards become cluttered, and governance loses credibility.
@@ -280,3 +278,18 @@ uvx zenzic check all
 - **Source Code & Architecture**: <https://github.com/PythonWoods/zenzic>
 - **Official Documentation**: <https://zenzic.dev>
 - **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

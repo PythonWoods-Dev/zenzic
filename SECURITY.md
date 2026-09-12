@@ -16,6 +16,12 @@ report it privately via one of these channels:
 - **GitHub Security Advisories** (preferred): [github.com/PythonWoods/zenzic/security/advisories](https://github.com/PythonWoods/zenzic/security/advisories)
 - **Email**: `dev@pythonwoods.dev` — subject line: `[SECURITY] Zenzic — <brief description>`
 
+For lower-severity, non-exploitable issues (Shield false positives/negatives, incorrect
+exit-code behaviour, or a suspected ReDoS in a specific input) that don't expose secrets or
+enable remote code execution, a public
+[Security Vulnerability issue template](https://github.com/PythonWoods/zenzic/issues/new?template=security_vulnerability.yml)
+is also available — it never asks for real secret values.
+
 Please include a clear description of the vulnerability, steps to reproduce, potential
 impact, and a suggested fix if available.
 
@@ -79,11 +85,13 @@ gh attestation verify ./zenzic-<version>-py3-none-any.whl --repo PythonWoods/zen
 
 ## Supported versions
 
+Zenzic follows a **single-track release model** — there is no maintained backport branch for
+older minor versions. Only the current release on PyPI receives security fixes.
+
 | Version | Support status |
 | :------ | :------------- |
-| `0.7.x` (current) | ✅ All security fixes |
-| `0.6.x` | ⚠️ Critical security fixes only |
-| `< 0.6` | ❌ End of life — no support |
+| `0.30.x` (current) | ✅ All security fixes |
+| `< 0.30` | ❌ Unsupported — upgrade to the current release |
 
 ## Disclosure policy
 

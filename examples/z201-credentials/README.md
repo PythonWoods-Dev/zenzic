@@ -18,7 +18,7 @@ regardless of all other checks.
 ```bash
 zenzic lab z201
 # or directly:
-zenzic check credentials
+zenzic check references
 ```bash
 
 ## Expected output

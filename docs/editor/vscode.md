@@ -120,9 +120,11 @@ If you use a custom virtual environment or isolated installation, configure `zen
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports leading `~/` and `${workspaceFolder}` (intelligently scans across all active workspace folders in multi-root setups). |
+| `zenzic.executablePath` | `string` | `"zenzic"` | Absolute path or binary name for the Zenzic executable. Supports leading `~/` or `~\` and `${workspaceFolder}` (intelligently scans across all active workspace folders in multi-root setups). |
 | `zenzic.autoProvision` | `boolean` | `true` | Automatically install the Zenzic CLI in an isolated environment if not found. Set to `false` to opt out. |
-| `zenzic.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Useful for debugging. |
+| `zenzic.autoFixOnSave` | `boolean` | `false` | Automatically apply Zenzic's deterministic Quick Fixes when a Markdown/MDX file is saved. Off by default — see [Auto-Fix on Save](#auto-fix-on-save) below. |
+| `zenzic.autoRepairLinksOnRename` | `boolean` | `false` | Automatically rewrite inbound relative links when a file is renamed or moved. Off by default — see [Auto-Repair Links on Rename](#auto-repair-links-on-rename) below. |
+| `zenzicLanguageServer.trace.server` | `string` | `"off"` | Trace LSP communication (`off`, `messages`, `verbose`). Set it in `settings.json`: it comes from the language-client library rather than the extension's own contributions, so it is absent from the Settings UI. |
 
 ### Commands
 
@@ -136,6 +138,8 @@ The extension contributes the following commands to the Command Palette (`Ctrl+S
 | **Zenzic: Stop Server** | `zenzic.stopServer` | Stops the Language Server process. |
 | **Zenzic: Show Status / Recovery** | `zenzic.showStatus` | Re-triggers error recovery dialogs or opens the quick action menu. |
 | **Zenzic: Troubleshoot & Repair Setup** | `zenzic.troubleshoot` | Runs automated environment diagnostics and offers 1-click self-healing repairs. |
+| **Zenzic: Show Quality Status Panel** | `zenzic.showQualityPanel` | Opens a panel with the workspace's current quality score and its category breakdown. |
+| **Zenzic: Report Finding as GitHub Issue** | `zenzic.reportFindingAsIssue` | Opens a prefilled GitHub issue for the finding under the cursor (code, file, line, message, versions). No sign-in and no API call: it opens a URL in your browser for you to review before submitting. |
 
 ---
 
@@ -143,9 +147,42 @@ The extension contributes the following commands to the Command Palette (`Ctrl+S
 
 The extension exposes real-time LSP diagnostics directly in the PROBLEMS panel and editor margin.
 
-Zenzic provides automated Quick Fixes for specific structural and content findings (e.g., injecting placeholder text for empty links `Z108`, adding language tags to code blocks `Z505`, and removing dead suppressions `Z603`).
+Zenzic provides automated Quick Fixes for 6 deterministic findings: injecting placeholder text for empty links (`Z108`), adding language tags to code blocks (`Z505`), wrapping bare URLs in angle brackets (`Z515`), stripping trailing heading punctuation (`Z517`), converting malformed pseudo-lists to valid Markdown lists (`Z520`), and removing dead suppressions (`Z603`).
 
 In addition, Zenzic offers automated "Suppress this finding" Code Actions (`<!-- zenzic:ignore:ZXXX -->`) for all suppressible diagnostics. Hovering over a finding allows you to insert an inline suppression directive on the line above with a single click. To enforce security governance, suppression Code Actions are intentionally disabled for Security findings (`Z2xx`), which must be remediated at the source.
+
+---
+
+## Auto-Fix on Save
+
+Set `zenzic.autoFixOnSave` to `true` to automatically apply the same 6 Quick Fixes above whenever a Markdown/MDX file is saved — no manual `Ctrl+.` needed. **Off by default**: silently rewriting file content on every save can surprise a workflow or conflict with another formatter also running on save.
+
+Safety behavior: if any occurrence of a fixable finding is inline-suppressed anywhere in the file, that specific finding code is skipped entirely for that save — a suppressed occurrence is never rewritten, even if a different, un-suppressed occurrence of the same code exists elsewhere in the file. A scan or fix error also skips the save's auto-fix rather than risking a partial or incorrect edit.
+
+---
+
+## Auto-Repair Links on Rename
+
+Set `zenzic.autoRepairLinksOnRename` to `true` to automatically rewrite inbound relative links across the workspace whenever a Markdown/MDX file is renamed or moved. **Off by default**: unlike auto-fix-on-save, this can rewrite files you didn't directly touch — every file that linked to the renamed one.
+
+Scope and safety behavior:
+
+- Only plain relative links (e.g. `[text](./old-name.md)`) are rewritten. Docs-root-relative links (a leading `/`) and `@site/...` alias links are always left untouched, since reconstructing the correct alias form is ambiguous.
+- A file excluded via `.zenzic.toml` is never rewritten, even if it links to the renamed file.
+- If repairing several inbound links at once and one linking file cannot be safely updated, the others are still repaired independently — Zenzic never skips a whole rename's worth of fixes because one file failed.
+- Renaming a folder (rather than a single file) is not currently handled by this feature.
+- A link that names the renamed file in a different letter case — `[target](./casetarget.md)`
+  pointing at `CaseTarget.md`, which a case-insensitive filesystem resolves — is repaired too,
+  provided no other page's URL differs from the renamed file's only by case. Where two such
+  pages exist (possible on a case-sensitive filesystem), the link belongs to one of them and
+  Zenzic leaves it alone rather than guessing. The rule is applied identically on every
+  platform, so the same rename produces the same edit on Linux, macOS and Windows.
+- A rename that changes **only** letter case may never reach the extension on a
+  case-insensitive filesystem. Observed on Windows: for a rename requested through the editor's
+  rename API, VS Code resolved the new name to the existing file before notifying participants —
+  the server received the same URI as both old and new name, and nothing was renamed on disk.
+  Zenzic answers that no-op with no edit at all, rather than rewriting every inbound link to the
+  spelling it already has and leaving those files unsaved for nothing.
 
 ---
 
@@ -153,7 +190,8 @@ In addition, Zenzic offers automated "Suppress this finding" Code Actions (`<!--
 
 To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
 
-- **File Extensions**: The extension and Language Server exclusively target Markdown (`.md`) and MDX (`.mdx`) files. Non-documentation files (e.g. `OWNERS`, `.gitignore`, `config.yaml`) are automatically filtered out.
+- **File Extensions**: The extension and Language Server exclusively target Markdown (`.md`) and MDX (`.mdx`) files. The comparison ignores letter case, so `NOTES.MD` is analysed exactly as `notes.md` is — the CLI matches this, and did not before v0.31.0. Non-documentation files (e.g. `OWNERS`, `.gitignore`, `config.yaml`) are automatically filtered out.
+- **MDX works without any other extension**: the Language Server analyses `.mdx` exactly as it analyses `.md`, and publishes the same diagnostics at the same positions. VS Code has no built-in `mdx` language, so the extension contributes it — opening a `.mdx` file resolves the language and starts Zenzic, and a workspace merely containing `.mdx` files activates it before anything is opened. Before v0.31.0 the language was declared as an activation event but never contributed, so a `.mdx` file opened as Plain Text and nothing started. Installing a dedicated MDX extension alongside is still worthwhile and does not conflict: Zenzic contributes the language identifier but no grammar, so that extension supplies syntax highlighting while Zenzic reports findings.
 - **Configured Domain**: Only files residing within the configured `docs_dir` (default: `docs/`) or `extra_content_roots` are evaluated. Out-of-bounds files in the workspace (such as root `README.md` when `docs_dir = "docs"`) produce zero diagnostics.
 
 > **Having issues?** See the [Troubleshooting Guide](../how-to/troubleshooting.md#editor-integration).

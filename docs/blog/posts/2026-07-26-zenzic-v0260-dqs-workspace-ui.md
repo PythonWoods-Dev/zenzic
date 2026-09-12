@@ -15,8 +15,6 @@ categories:
 
 Zenzic v0.26.0 introduces the **Asynchronous CLI Execution Bridge**, bringing the global Documentation Quality Score (DQS) into the editor authoring environment while enforcing 100% mathematical determinism between terminal runs and VS Code status bar indicators.
 
-![Zenzic v0.26.0: DQS Workspace UI & Asynchronous CLI Bridge](../../assets/images/blog/launch_v0260.webp)
-
 <!-- more -->
 
 ## Reconciling Editor Performance with Global Scoring
@@ -31,8 +29,6 @@ Zenzic v0.26.0 solves this fundamental architectural challenge by establishing a
 ---
 
 ## Architectural Invariants Preserved
-
-This section details the specifications and guidelines for Architectural Invariants Preserved within the Zenzic ecosystem.
 
 ### 1. Absolute Determinism
 
@@ -130,8 +126,6 @@ Zenzic v0.26.0 contributes a new command to VS Code:
 
 ## Upgrade Guide
 
-This section details the specifications and guidelines for Upgrade Guide within the Zenzic ecosystem.
-
 ### Core Engine & CLI
 
 ```bash
@@ -141,3 +135,17 @@ uv tool install --force zenzic
 ### VS Code Extension
 
 Update to version `0.26.0` from the VS Code Marketplace or reload your editor workspace.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
+- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

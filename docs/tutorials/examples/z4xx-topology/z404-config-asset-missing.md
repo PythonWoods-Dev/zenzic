@@ -8,8 +8,6 @@ description: "Walk through the z404-config-asset-missing fixture: mkdocs.yml log
 
 **Z-Code:** `Z404 CONFIG_ASSET_MISSING` · **Engine:** `mkdocs` · **Exit:** `0`
 
-<Z404ConfigAssetMissing />
-
 ---
 
 ## The Fixture
@@ -48,18 +46,23 @@ uvx zenzic check all
 Expected output:
 
 ```text
-mkdocs · 2 files (2 docs, 0 assets) · 0.0s · 116 files/s
+mkdocs • 2 files (1 pages, 1 config, 0 assets) • 0.0s
 
-docs/docs/assets/logo.svg  !  [Z404]  logo asset not found on disk:
+docs/assets/logo.svg  ⚠  [Z404]  logo asset not found on disk:
 'docs/assets/logo.svg' (declared as theme.logo: 'assets/logo.svg' in mkdocs.yml)
-[Z404]
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  · 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 1 info  • 1 file with findings
 
-Analysis complete: All statically-detectable links, credentials, and references
+✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
+
+💡 1 info finding hidden — use --show-info to display.
+DQS Final Score: 97/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```
 
 Exit code: `0`

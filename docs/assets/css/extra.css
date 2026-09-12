@@ -3,7 +3,6 @@
 [data-md-color-scheme="slate"]{--zz-canvas:#09090b;--zz-surface-0:#0d1117;--zz-surface-1:#111827;--zz-surface-2:#1f2937;--zz-surface-3:#374151;--zz-brand:#4f46e5;--zz-brand-light:#818cf8;--zz-brand-muted:#3730a3;--zz-ink-100:#f1f5f9;--zz-ink-200:#e2e8f0;--zz-ink-400:#94a3b8;--zz-ink-600:#64748b;--zz-border:#1e293b;--zz-border-subtle:#30363d;--zz-rule:rgba(255,255,255,0.06);--zz-error:#f43f5e;--zz-fatal:#be123c;--zz-warning:#f59e0b;--zz-success:#10b981;--zz-info:#38bdf8;--zz-hero-gradient-mid:#0f1320;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#818cf8;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-surface-0);--md-primary-fg-color--light:#161b22;--md-primary-fg-color--dark:#010409;--md-primary-bg-color:var(--zz-ink-200);--md-default-bg-color:var(--zz-surface-0);--md-default-bg-color--light:var(--zz-surface-1);--md-default-bg-color--lighter:var(--zz-surface-2);--md-default-bg-color--lightest:var(--zz-surface-3);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(129,140,248,0.1);--md-typeset-a-color:var(--zz-info);--md-code-bg-color:var(--zz-surface-1)}
 [data-md-color-scheme="default"]{--zz-canvas:#f8fafc;--zz-surface-0:#ffffff;--zz-surface-1:#f1f5f9;--zz-surface-2:#e2e8f0;--zz-surface-3:#cbd5e1;--zz-brand:#4f46e5;--zz-brand-light:#6366f1;--zz-brand-muted:#3730a3;--zz-ink-100:#0f172a;--zz-ink-200:#1e293b;--zz-ink-400:#475569;--zz-ink-600:#94a3b8;--zz-border:#e2e8f0;--zz-border-subtle:#e2e8f0;--zz-rule:rgba(0,0,0,0.07);--zz-error:#e11d48;--zz-fatal:#9f1239;--zz-warning:#d97706;--zz-success:#059669;--zz-info:#0284c7;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#6366f1;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-brand);--md-primary-fg-color--light:var(--zz-brand-light);--md-primary-fg-color--dark:var(--zz-brand-muted);--md-primary-bg-color:var(--zz-surface-0);--md-default-bg-color:var(--zz-canvas);--md-default-bg-color--light:var(--zz-surface-0);--md-default-bg-color--lighter:var(--zz-surface-1);--md-default-bg-color--lightest:var(--zz-surface-2);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(99,102,241,0.1);--md-typeset-a-color:var(--zz-brand);--md-code-bg-color:var(--zz-surface-2)}
 
-
 /* ── Breadcrumb (navigation.path) ────────────────────────────────────────── */
 
 /* Ancestor crumbs — interactive, subdued */
@@ -115,8 +114,6 @@
   color: var(--zz-brand);
 }
 
-
-
 /* ── Navigation: hide site title from sidebar ─────────────────────────────── */
 
 /* "Zenzic" heading injected by Material at the top of the sidebar drawer */
@@ -216,39 +213,9 @@
   border-bottom: 1px solid var(--zz-border-subtle);
 }
 
-.zz-hero__logo {
-  max-width: 400px;
-  width: 100%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-}
-
 /* pymdownx wraps the logo img in a <p> — strip its margin */
 .zz-hero p:has(.zz-hero__logo),
 .zz-hero p:first-child {
-  margin: 0;
-}
-
-.zz-hero__tagline {
-  font-size: 0.875rem;
-  line-height: 1.75;
-  color: var(--zz-ink-400);
-  margin: 0;
-  max-width: 520px;
-  font-weight: 400;
-}
-
-[data-md-color-scheme="default"] .zz-hero__tagline {
-  color: var(--zz-ink-600);
-}
-
-.zz-hero__actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: center;
-  /* pymdownx wraps links in a <p> — override paragraph margin */
   margin: 0;
 }
 
@@ -294,45 +261,6 @@
   background-color: rgba(0, 0, 0, 0.03);
 }
 
-/* Inline command box — replaces fenced code block */
-.zz-hero__cmd {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--zz-surface-1);
-  border: 1px solid var(--zz-border-subtle);
-  border-radius: 0.5rem;
-  padding: 0.6rem 1.1rem;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
-
-.zz-hero__cmd code {
-  background: none;
-  color: var(--zz-info);
-  padding: 0;
-  font-size: inherit;
-}
-
-.zz-hero__cmd-comment {
-  color: var(--zz-ink-600);
-  font-size: 0.8rem;
-}
-
-[data-md-color-scheme="default"] .zz-hero__cmd {
-  background: var(--zz-canvas);
-  border-color: var(--zz-border-subtle);
-}
-
-[data-md-color-scheme="default"] .zz-hero__cmd code {
-  color: var(--zz-brand);
-}
-
-[data-md-color-scheme="default"] .zz-hero__cmd-comment {
-  color: var(--zz-ink-600);
-}
-
 @media screen and (max-width: 59.9375em) {
   .zz-hero {
     padding: 2.5rem 1rem 2.5rem;
@@ -351,94 +279,6 @@
   margin: 0;
 }
 
-/* ── Terminal Mockup Component (.zz-terminal) ──────────────────────────────── */
-/* Stays dark in both light and dark modes for authentic terminal aesthetics.  */
-/* Uses --zz-terminal-* tokens defined in both [data-md-color-scheme] blocks.  */
-
-.zz-terminal {
-  background: var(--zz-terminal-bg);
-  border: 1px solid var(--zz-terminal-border);
-  border-radius: 0.5rem;
-  overflow: hidden;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.8125rem;   /* 13px */
-  line-height: 1.6;
-  max-width: 720px;
-  margin: 2rem auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-}
-
-/* Title bar with macOS-style traffic lights */
-.zz-terminal__bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  background: var(--zz-terminal-bar);
-  border-bottom: 1px solid var(--zz-terminal-border);
-}
-
-.zz-terminal__dot {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.zz-terminal__dot--red    { background: var(--zz-dot-red); }
-.zz-terminal__dot--yellow { background: var(--zz-dot-yellow); }
-.zz-terminal__dot--green  { background: var(--zz-dot-green); }
-
-.zz-terminal__title {
-  flex: 1;
-  text-align: center;
-  font-size: 0.7rem;
-  color: var(--zz-terminal-meta);
-  letter-spacing: 0.02em;
-}
-
-/* Output body */
-.zz-terminal__body {
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.zz-terminal__line {
-  display: flex;
-  gap: 0.75rem;
-  color: var(--zz-terminal-cmd);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.zz-terminal__line--error {
-  color: var(--zz-terminal-error);
-}
-
-.zz-terminal__line--fatal {
-  color: var(--zz-terminal-fatal);
-  font-weight: 600;
-  margin-top: 0.25rem;
-}
-
-.zz-terminal__prompt {
-  color: var(--zz-terminal-prompt);
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.zz-terminal__cmd {
-  color: var(--zz-terminal-cmd);
-}
-
-.zz-terminal__code {
-  color: var(--zz-terminal-code);
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
 /* Traffic light dots: force correct colors; not semantic, use raw hex         */
 /* These are literal UI affordances mimicking macOS — not brand palette tokens */
 /* zenzic:ignore:Z601 — intentional non-brand colors for platform affordance   */
@@ -450,15 +290,6 @@
   }
 }
 
-/* ── Feature Row (Zig-Zag Grid) ──────────────────────────────────────────── */
-.zz-feature-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4rem;
-  align-items: center;
-  margin: 5rem 0;
-}
-
 @media screen and (max-width: 768px) {
   .zz-feature-row {
     grid-template-columns: 1fr;
@@ -466,117 +297,10 @@
   }
 }
 
-.zz-feature-text h3 {
-  margin-top: 0;
-  color: var(--zz-ink-100);
-}
-
-.zz-feature-text p,
-.zz-feature-text ul {
-  color: var(--zz-ink-200);
-}
-
-/* ── Showcase Card (Surface Discipline) ──────────────────────────────────── */
-.zz-showcase-card {
-  background-color: var(--zz-surface-1);
-  border: 1px solid var(--zz-border-subtle);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-}
-
-/* Ensure inner code blocks don't bring unwanted Material backgrounds */
-.zz-showcase-card pre,
-.zz-showcase-card code {
-  background: transparent !important;
-  margin: 0;
-}
-
-
-.zz-features {
-  max-width: 960px;
-  margin: 3.5rem auto !important;
-  padding: 0 1.5rem;
-}
-
 /* Feature cards — 2-column grid for better breathing room */
 .zz-features.grid.cards,
 .zz-features .grid.cards {
   grid-template-columns: repeat(2, 1fr) !important;
-}
-
-/* Feature cards — individual card styling */
-.zz-features li {
-  background: var(--md-code-bg-color);
-  border: 1px solid transparent !important;
-  border-radius: 0.5rem;
-  padding: 1.25rem;
-  transition: transform var(--zz-transition-fast), border-color var(--zz-transition-fast), box-shadow var(--zz-transition-fast);
-  min-height: 120px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
-  /* Push code block to bottom via flex */
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-/* Reduce card text size — target p directly to beat Material specificity */
-.zz-features li p {
-  font-size: 0.78rem !important;
-  line-height: 1.6;
-  margin: 0.3rem 0;
-}
-
-/* Card title — subtle indigo tint, no bold */
-.zz-features li p:first-child strong {
-  color: var(--zz-brand-light);
-  font-weight: 500;
-}
-
-[data-md-color-scheme="default"] .zz-features li p:first-child strong {
-  color: var(--zz-brand-light);
-  opacity: 0.85;
-  font-weight: 500;
-}
-
-/* Hover — border appears, lighter lift */
-.zz-features li:hover {
-  transform: translateY(-2px);
-  border-color: var(--zz-brand) !important;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.18);
-}
-
-[data-md-color-scheme="default"] .zz-features li {
-  background: var(--zz-surface-0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-[data-md-color-scheme="default"] .zz-features li:hover {
-  border-color: rgba(79, 70, 229, 0.45) !important;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08);
-}
-
-
-/* Inline command tags within cards */
-.zz-card-cmd {
-  margin-top: 1rem;
-  display: flex;
-}
-
-.zz-card-cmd code {
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  color: var(--zz-info) !important;
-  border-radius: 0.25rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.7rem !important;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-}
-
-[data-md-color-scheme="default"] .zz-card-cmd code {
-  background: rgba(79, 70, 229, 0.05);
-  border-color: rgba(79, 70, 229, 0.12);
-  color: var(--zz-brand) !important;
 }
 
 @media screen and (max-width: 76.1875em) {
@@ -595,60 +319,11 @@
   }
 }
 
-/* Score section — centered, contained width */
-/* Score section — elevated card, generous top spacing */
-.zz-score-section {
-  max-width: 640px;
-  margin: 3.5rem auto !important;
-  padding: 2.5rem 2rem;
-  text-align: center;
-  background: var(--md-code-bg-color);
-  border: 1px solid var(--zz-border-subtle);
-  border-radius: 0.75rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-}
-
-[data-md-color-scheme="default"] .zz-score-section {
-  background: var(--zz-surface-0);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
-}
-
-/* Score section text — reduced to match card scale */
-.zz-score-section p {
-  font-size: 0.78rem !important;
-  line-height: 1.7;
-}
-
-.zz-score-section h2 {
-  margin-top: 0;
-  font-size: 0.95rem !important;
-}
-
 /* Quality Score section — smaller code font to avoid scrollbar */
 .zz-score-section .highlight code,
 .zz-score-section pre code {
   font-size: 0.72rem !important;
   line-height: 1.55;
-}
-
-/* Trust bar — minimal footer note */
-.zz-trust-section {
-  text-align: center;
-  padding: 0.75rem 1rem 1rem;
-  font-size: 0.65rem;
-  color: var(--zz-muted-color);
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.zz-trust-section strong {
-  color: var(--md-default-fg-color);
-  opacity: 0.9;
-}
-
-.zz-trust-section a {
-  color: var(--md-typeset-a-color);
-  text-decoration: none;
 }
 
 /* Primary CTA — dark mode contrast override (outside hero, e.g. docs pages) */
@@ -685,7 +360,6 @@
   color: var(--zz-muted-color-hover);
   border-bottom-color: var(--zz-muted-color);
 }
-
 
 /* ── Footer copyright ─────────────────────────────────────────────────────── */
 
@@ -789,22 +463,6 @@
   background-color: var(--zz-brand-light);
 }
 
-/* Metrics styling */
-.zz-metrics {
-  gap: 1.5rem;
-  margin-top: 2.5rem;
-}
-
-.zz-metric__value {
-  font-size: 2rem !important;
-  font-weight: 700;
-}
-
-.zz-metric__label {
-  font-size: 0.7rem !important;
-  letter-spacing: 0.05em;
-}
-
 /* ── Tailwind/MkDocs Bridge: Rem Scaling Fix ─────────────────────────────── */
 /* MkDocs Material sets html { font-size: 125% } for accessibility.
  * This blows up Tailwind's rem values by 25%.
@@ -832,60 +490,6 @@ html:has(.zz-tailwind-root) .md-header__source {
   /* Force smaller metric labels */
 }
 
-/* === Blog Post Metadata Bar ============================================= */
-/* Pure CSS — zero JavaScript. Rendered by overrides/blog_post.html Jinja2. */
-.zz-post-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0 1.25rem;
-  border-bottom: 1px solid var(--zz-border-subtle);
-  margin-bottom: 1.5rem;
-  font-size: 0.78rem !important;
-  color: var(--zz-muted-color);
-  line-height: 1.4;
-}
-
-.zz-post-meta__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-/* Override global svg rule — post-meta uses filled icons, not stroked */
-.zz-post-meta__item svg {
-  flex-shrink: 0;
-  opacity: 0.75;
-  fill: currentColor !important;
-  stroke: none !important;
-  stroke-width: 0 !important;
-}
-
-.zz-post-meta__tags {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.zz-post-meta__tag {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  background: rgba(79, 70, 229, 0.12);
-  border: 1px solid rgba(79, 70, 229, 0.2);
-  border-radius: 9999px;
-  font-size: 0.7rem !important;
-  color: var(--zz-brand-light);
-  font-family: var(--md-code-font-family, ui-monospace, monospace);
-  letter-spacing: 0.01em;
-}
-
-[data-md-color-scheme="default"] .zz-post-meta__tag {
-  background: rgba(79, 70, 229, 0.07);
-  border-color: rgba(79, 70, 229, 0.15);
-  color: var(--zz-brand);
-}
-
 /* === Breadcrumb: Home icon (navigation.path uses .md-path__item) ======= */
 .md-path__item:first-child a::before {
   content: "";
@@ -903,97 +507,6 @@ html:has(.zz-tailwind-root) .md-header__source {
   mask-size: contain;
 }
 
-/* === Blog post: manual breadcrumb (.zz-post-breadcrumb) ================= */
-.zz-post-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.74rem;
-  color: var(--zz-muted-color);
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-  line-height: 1;
-}
-
-.zz-post-breadcrumb a {
-  color: var(--zz-muted-color);
-  text-decoration: none;
-  transition: color var(--zz-transition-fast);
-}
-
-.zz-post-breadcrumb a:hover {
-  color: var(--md-typeset-a-color);
-}
-
-/* Inline SVG home icon — override global stroke rule */
-.zz-post-breadcrumb__home svg {
-  fill: currentColor !important;
-  stroke: none !important;
-  stroke-width: 0 !important;
-  vertical-align: -0.15em;
-}
-
-.zz-post-breadcrumb__sep {
-  opacity: 0.45;
-  user-select: none;
-}
-
-.zz-post-breadcrumb__current {
-  color: var(--md-accent-fg-color);
-  font-weight: 500;
-}
-
-/* === Blog posts sidebar (.zz-posts-sidebar) ============================= */
-.zz-posts-sidebar {
-  padding: 0.5rem 0;
-}
-
-.zz-posts-sidebar__label {
-  font-size: 0.625rem !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.09em !important;
-  color: var(--zz-muted-color) !important;
-  margin: 0 0 0.5rem 0 !important;
-  padding: 0 0.5rem !important;
-}
-
-.zz-posts-sidebar__list {
-  list-style: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.zz-posts-sidebar__item {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.zz-posts-sidebar__item a {
-  display: block;
-  padding: 0.28rem 0.5rem;
-  font-size: 0.71rem !important;
-  color: var(--zz-muted-color);
-  text-decoration: none;
-  border-radius: 4px;
-  transition: color var(--zz-transition-fast), background var(--zz-transition-fast);
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.zz-posts-sidebar__item a:hover {
-  color: var(--md-typeset-a-color);
-  background: var(--md-default-bg-color--light);
-}
-
-.zz-posts-sidebar__item--active a {
-  color: var(--md-accent-fg-color) !important;
-  font-weight: 600;
-  background: var(--md-accent-fg-color--transparent);
-}
-
 /* ── Footer Social & Badge Overrides ──────────────────────────────────────── */
 
 /* Make footer social links legible by overriding the dark muted color */
@@ -1007,27 +520,6 @@ html:has(.zz-tailwind-root) .md-header__source {
 .md-footer-meta .md-social__link svg {
   fill: currentColor !important;
   stroke: none !important;
-}
-
-/* Professional styling for the DevTool badge */
-.zz-devtool-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  background: var(--md-code-bg-color);
-  border: 1px solid var(--zz-success);
-  color: var(--zz-muted-color-hover);
-  border-radius: 4px;
-  text-decoration: none !important;
-  font-size: 11px;
-  font-weight: 600;
-  transition: all var(--zz-transition-fast);
-  margin-top: 12px;
-}
-.zz-devtool-badge:hover {
-  color: var(--zz-success) !important;
-  border-color: var(--zz-success);
-  background: rgba(16, 185, 129, 0.05);
 }
 
 /* Z-Code Diagnostic Grid Precision (ZEN-20260702-UI-UX-REFACTOR) */
@@ -1204,9 +696,6 @@ html:has(.zz-tailwind-root) .md-header__source {
   }
 }
 
-
-
-
 /* ══════════════════════════════════════════════════════════════════════════════
    PHASE B — Contrast Accessibility Fixes (WCAG 2.1 AA)
    (V030_DOCS_DESIGN_SYSTEM — A11y subsection)
@@ -1281,4 +770,3 @@ html:has(.zz-tailwind-root) .md-header__source {
 .text-amber-500 {
   color: var(--zz-warning) !important;
 }
-
