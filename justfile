@@ -357,6 +357,13 @@ release-tag *args:
 
 # Release-consistency audit: every version string is bumped or frozen on purpose.
 # The satellites carry one of these; the core did not, which ran the wrong way round.
+# Regenerate the terminal blocks the family index pages include. Each is real
+# output of the `zenzic lab` command its page names, captured by running it --
+# never transcribed. `--check` fails if any block differs from what the command
+# prints now, which is what the parity test asserts in CI.
+lab-blocks *args:
+    {{ runner }} python scripts/generate_lab_blocks.py {{ args }}
+
 audit-release:
     @{{ runner }} python scripts/audit_release.py
 

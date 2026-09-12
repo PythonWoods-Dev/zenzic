@@ -13,7 +13,9 @@ Run `zenzic lab z201` to test these scenarios interactively, or return to the [L
 
 The scenario carries its own fixture, so nothing has to be set up first:
 
-![Terminal session. zenzic lab z201 runs the credential scenario. The report reads SECURITY BREACH DETECTED, names the finding as an aws-access-key secret at docs/setup.md line 15, and shows the credential masked to AKIA followed by asterisks and MPLE. It advises rotating the key. The LAB RESULT line reports the expectation met.](../../../assets/demo/lab-z201-detection.gif)
+```text
+--8<-- "snippets/lab-z2xx.txt"
+```
 
 The scenario is designed to fail: the breach block is the expected `Z201`
 detection, not a problem with the install. `zenzic lab` itself exits `0` when a

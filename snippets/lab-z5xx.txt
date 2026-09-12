@@ -1,0 +1,41 @@
+Z501 -- Placeholder Content
+
+Z501 PLACEHOLDER — page contains stub or TODO content patterns
+This scenario is designed to fail — the output below is the expected Z501
+detection, not a problem with your install.
+
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 36 files/s
+
+docs/index.md:10  ⚠  [Z501]  Found placeholder text matching pattern:
+'(?i)\btodo\b'
+
+     8  │  ## Installation
+     9  │
+    10  ❱  TODO: content goes here
+        │  ^^^^
+    11  │
+    12  │  ## Advanced Usage
+
+docs/index.md:14  ⚠  [Z501]  Found placeholder text matching pattern:
+'(?i)\btodo\b'
+
+    12  │  ## Advanced Usage
+    13  │
+    14  ❱  TODO: Add advanced usage examples once the feature is complete.
+        │  ^^^^
+    15  │
+    16  │  Coming soon!
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+✔ LAB RESULT
+
+1 file scanned • 0.03s • 36 files/s
+1 unrelated finding hidden (not Z501) • pass --all to see everything
+
+✔ Z501 — Placeholder Content — expectation met.

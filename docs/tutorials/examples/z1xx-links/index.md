@@ -14,3 +14,9 @@ code: [MDX & JSX Links](mdx-jsx-links.md) demonstrates what Zenzic does with JSX
 component links, including the two constructs it deliberately does **not** report.
 
 Run `zenzic lab z101` to test these scenarios interactively, or return to the [Lab Gallery Overview](../index.md).
+
+The scenario carries its own fixture, so nothing has to be set up first:
+
+```text
+--8<-- "snippets/lab-z1xx.txt"
+```

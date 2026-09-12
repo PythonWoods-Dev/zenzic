@@ -11,6 +11,16 @@ SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+# Generated terminal blocks: real `zenzic lab` output, captured by
+# scripts/generate_lab_blocks.py and included into the family index pages with
+# pymdownx.snippets. Annotated here rather than headed inline, because a header
+# in the file would be a line the parity test compares against real CLI output
+# and no command prints it.
+path = "snippets/lab-*.txt"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = "zenzic.code-workspace"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"

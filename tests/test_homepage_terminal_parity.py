@@ -21,6 +21,7 @@ edit to either side that is not mirrored in the other fails here.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -170,3 +171,80 @@ def test_the_signature_lines_are_actually_present(real_output: str) -> None:
     ):
         assert expected in lines, f"{expected!r} not extracted from the partial: {lines!r}"
         assert expected in real_output, f"{expected!r} not in real CLI output"
+
+
+# ─── Generated family blocks ──────────────────────────────────────────────────
+#
+# The tests above pin ONE hand-built artifact by an absolute path. These glob
+# instead, so a new block gains verification by existing rather than by someone
+# remembering to register it — and the registration check below runs in both
+# directions, so a block with no entry fails the suite instead of shipping as
+# unverified quoted output.
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from generate_lab_blocks import BLOCKS, SNIPPET_DIR, capture  # noqa: E402
+
+
+def test_every_generated_block_is_registered_and_every_registration_has_a_block() -> None:
+    """Both directions, because each fails differently.
+
+    A block on disk with no entry in `BLOCKS` is a file nothing verifies — the
+    exact shape this whole exercise exists to avoid. An entry with no file is a
+    block someone deleted or never generated, and without this the glob below
+    would simply iterate over less and report green.
+    """
+    on_disk = {p.name for p in SNIPPET_DIR.glob("lab-*.txt")} if SNIPPET_DIR.is_dir() else set()
+    registered = set(BLOCKS)
+    assert on_disk == registered, (
+        f"blocks on disk and registrations disagree.\n"
+        f"  unregistered files (verified by nothing): {sorted(on_disk - registered)}\n"
+        f"  registered but absent (never generated):  {sorted(registered - on_disk)}"
+    )
+
+
+@pytest.mark.parametrize("block_name", sorted(BLOCKS))
+def test_every_line_of_a_generated_block_appears_in_real_output(block_name: str) -> None:
+    """Every depicted line must be a line the command actually prints.
+
+    The comparison is the same one the homepage block gets, against output
+    produced at test time by running the command the block is registered
+    against — not against a stored copy, which would only prove the file equals
+    itself.
+    """
+    block = SNIPPET_DIR / block_name
+    assert block.is_file(), f"{block_name} is registered but absent; run `just lab-blocks`"
+    real = re.sub(r"\s+", " ", capture(BLOCKS[block_name]))
+
+    missing: list[str] = []
+    for raw in block.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or _VOLATILE.search(line):
+            continue
+        if re.sub(r"\s+", " ", line) not in real:
+            missing.append(line)
+    assert not missing, (
+        f"{block_name} shows {len(missing)} line(s) the command does not print:\n  "
+        + "\n  ".join(missing[:8])
+        + "\nRegenerate with `just lab-blocks`."
+    )
+
+
+def test_a_generated_block_is_not_empty() -> None:
+    """A block of nothing would satisfy the line check vacuously.
+
+    The per-line test above iterates the file's lines; an empty file has none,
+    so it passes while depicting nothing. This is that test's floor.
+    """
+    for name in sorted(BLOCKS):
+        block = SNIPPET_DIR / name
+        if not block.is_file():
+            continue
+        real_lines = [
+            ln
+            for ln in block.read_text(encoding="utf-8").splitlines()
+            if ln.strip() and not _VOLATILE.search(ln)
+        ]
+        assert len(real_lines) >= 4, (
+            f"{name} carries {len(real_lines)} comparable line(s) — too few to be "
+            "a depiction of anything"
+        )
