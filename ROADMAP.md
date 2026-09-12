@@ -43,6 +43,7 @@ Before advancing the core feature set, the following infrastructural and validat
 
 - **Native Sphinx Parsing:** Parse `conf.py` and `.rst` files natively without invoking the `sphinx-build` subprocess, translating Sphinx cross-references into the standard VSM.
 - **Auto-Fix Audit for Non-Fixable Rules:** Perform a systematic AST audit across all `fixable=False` finding codes to identify viable candidates for atomic auto-remediation expansion in the Mutator engine.
+- **CLI/LSP Finding Parity:** Reconcile the two analysis paths so a finding reported by `check all` is reported by the Language Server and the reverse. They diverge today on codes that depend on whole-project state, which the incremental engine does not hold.
 
 > **Docusaurus and Hugo adapters are deferred indefinitely** and tracked as community-contribution opportunities rather than core-team roadmap items — see [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) (Hugo). Sphinx is the sole adapter actively developed by the core team going forward.
 
