@@ -250,7 +250,7 @@ def inspect_codes(
         # CLI-reachability, and 0.0 would misleadingly imply harmless.
         if code.startswith("Z0") or code.startswith("Z2") or code in ("Z110", "Z111"):
             return "[bold red]FATAL[/bold red]"
-        # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z504,
+        # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z902,
         # Z902) — show HALT to signal CI exit rather than math cost.
         # Z901 is the one error-severity exception: it also unconditionally
         # blocks the pipeline (via the normal error path, not the

@@ -1486,7 +1486,13 @@ def test_diff_z0xx_only_does_not_trigger_fatal(
 
 
 def _halt_report() -> object:
-    """ScoreReport simulating a Z504 Quality Regression gate (HALT, warning+0.0 penalty)."""
+    """ScoreReport simulating a Z902 Rule Timeout gate (HALT, warning+0.0 penalty).
+
+    Z902 rather than Z504: Z504 was removed in v0.31.0 as a registered code the
+    engine could not emit, and Z902 is the remaining member of the HALT class —
+    a warning with a 0.0 penalty that blocks the pipeline anyway. It is also
+    genuinely emitted, so this fixture now stands for something real.
+    """
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     cats = [
@@ -1499,7 +1505,7 @@ def _halt_report() -> object:
         CategoryScore(name="content", weight=0.20, issues=0, category_score=1.0, contribution=0.20),
         CategoryScore(name="brand", weight=0.25, issues=0, category_score=1.0, contribution=0.25),
     ]
-    return ScoreReport(score=100, findings_counts={"Z504": 1}, categories=cats)
+    return ScoreReport(score=100, findings_counts={"Z902": 1}, categories=cats)
 
 
 @patch("zenzic.cli._shared._build_exclusion_manager")
@@ -1553,13 +1559,13 @@ def test_diff_fatal_json_fields(_root, _cfg, mock_run, _excl, tmp_path: Path) ->
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 def test_diff_halt_z504_exits_1(_root, _cfg, mock_run, _excl, tmp_path: Path) -> None:
-    """zenzic diff exits 1 and surfaces HALT when current state has Z504 (pipeline gate)."""
+    """zenzic diff exits 1 and surfaces HALT when current state has Z902 (pipeline gate)."""
     mock_run.return_value = _halt_report()
     baseline = _diff_baseline_json(tmp_path, score=100)
     result = runner.invoke(app, ["diff", "--base", str(baseline)])
     assert result.exit_code == 1
     assert "HALT" in result.stdout
-    assert "Z504" in result.stdout
+    assert "Z902" in result.stdout
 
 
 @patch("zenzic.cli._shared._build_exclusion_manager")

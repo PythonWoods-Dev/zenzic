@@ -12,8 +12,10 @@ Z201-Z205 use a deliberate "security_breach"/"security_incident" severity displa
 distinct from codes.py's raw SARIF-level field, and a "🔒 INVIOLABLE" admonition
 callout instead of a plain Suppressible field — both accepted conventions, not
 drift, so this group is excluded from the severity and suppressibility checks.
-Z504 uses an intentionally minimal format (no Penalty/Exit fields, marked
-"(reserved)") and is excluded from the penalty check.
+No code currently uses the minimal format (no Penalty/Exit fields, marked
+"(reserved)"). ``Z504`` was its only member and was removed in v0.31.0 as a
+registered code the engine could not emit; the exemption set is kept because
+the mechanism is still right if another code ever needs it.
 
 ``test_finding_codes_heading_names_match_registry`` closes a narrower, separate
 gap (implemented against this page rather than its original target,
@@ -40,7 +42,11 @@ FINDING_CODES_PATH = REPO_ROOT / "docs" / "reference" / "finding-codes.md"
 
 SEVERITY_TO_DISPLAY = {"error": "error", "warning": "warning", "note": "info"}
 SPECIAL_SEVERITY_DISPLAYS = frozenset({"security_breach", "security_incident"})
-MINIMAL_FORMAT_CODES = frozenset({"Z504"})
+# Empty since v0.31.0: Z504 was its only member, and it was removed as a
+# registered code the engine could not emit. Kept as a named set rather than
+# deleted, because the exemption mechanism is still the right shape if another
+# code ever needs a minimal entry.
+MINIMAL_FORMAT_CODES: frozenset[str] = frozenset()
 
 HEADING_PATTERN = re.compile(r"^### (Z\d+):.*\{#z\d+\}$")
 SEVERITY_PATTERN = re.compile(r"\*\*Severity:\*\*\s*(?:`(\w+)`)?")

@@ -113,7 +113,6 @@ Examples:
 
 | Code | Name | Why HALT, not a number |
 |---|---|---|
-| Z504 | QUALITY_REGRESSION | Triggers when the current DQS regresses below the saved baseline. Not scored itself (that would be circular). Blocks `zenzic diff` gate. |
 | Z901 | RULE_ENGINE_ERROR | Scanner crash. Partial results may be unreliable; pipeline cannot pass. |
 | Z902 | RULE_TIMEOUT | Worker process stalled past the timeout window. Partial results are untrustworthy. |
 
@@ -1067,16 +1066,6 @@ No `.md` / `.md` files found in the resolved `docs_root` after all exclusion lay
 
 !!! note "Runtime-inactive by contract"
     The codes in this section are defined in the Zenzic registry and reserved for engine implementations. They are **not emitted at runtime** and have **no impact on the Documentation Quality Score**.
-
----
-
-### Z504: QUALITY_REGRESSION {#z504}
-
-**Severity:** `warning` *(reserved)* · [↗ Rule Specification](../rules/Z504.md)
-
-Emitted by `zenzic diff` when the current DQS is lower than the saved baseline (`.zenzic-score.json`). Not itself weighted into the score (that would be circular); it identifies which commit introduced a regression.
-
-**Fix:** Run `zenzic score` to see the breakdown by category, fix the underlying findings that caused the drop, then run `zenzic score --save` on `main` to update the baseline.
 
 ---
 

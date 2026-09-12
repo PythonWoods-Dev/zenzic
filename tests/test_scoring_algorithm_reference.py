@@ -58,10 +58,6 @@ SPECIAL_CATEGORY_LABELS: dict[str, str] = {
     "Z203": "Inviolable Override",
     "Z204": "Inviolable Override",
     "Z205": "Inviolable Override",
-    # Reserved/inactive -- registered in codes.py but never emitted at
-    # runtime (see docs/rules/Z504.md, finding-codes.md's Reserved Codes
-    # section).
-    "Z504": "Baseline Audit",
     # Informational/diagnostic codes with zero DQS penalty and no category
     # bucket at all.
     "Z106": "*(uncategorized)*",

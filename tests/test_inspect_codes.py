@@ -18,7 +18,7 @@ def test_z901_renders_as_halt_not_plain_zero() -> None:
     Z901 is severity="error" + penalty=0.0 — 0.0 because it never reaches
     DQS scoring, not because it's harmless: it unconditionally fails the
     pipeline via the normal error path (no --strict needed), the exact same
-    practical outcome as a warning+0.0 HALT code (Z504, Z902) — just reached
+    practical outcome as a warning+0.0 HALT code (Z902) — just reached
     via severity="error" instead of the governance-gate mechanism warnings
     need. docs/reference/finding-codes.md's HALT examples table already
     listed Z901 as a HALT example; this locks the CLI display to match it.

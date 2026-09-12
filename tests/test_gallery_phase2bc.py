@@ -142,16 +142,25 @@ class TestZ104FileNotFound:
         assert errors == 1
         assert warnings == 0
 
-    def test_z104_finding_code_is_z101(self) -> None:
-        # Per CORE-REFACTOR-005, missing markdown link targets are uniformly Z101
+    def test_z104_finding_code_is_z104(self) -> None:
+        # The fixture used to link to a missing MARKDOWN file, which is Z101 --
+        # missing markdown link targets are uniformly Z101 per CORE-REFACTOR-005,
+        # and that behaviour is unchanged and demonstrated by z101-broken-links.
+        # But a directory named z104-file-not-found that produces Z101 is a
+        # fixture demonstrating the wrong code, which a name comparison cannot
+        # see. Z104 covers missing NON-markdown assets, so the fixture now
+        # references one. Found by tests/test_gallery_code_coverage.py on its
+        # first run.
         findings, _, _ = _run("z104")
         codes = [f.code for f in findings]
-        assert "Z101" in codes
+        assert "Z104" in codes, codes
 
     def test_z104_finding_message_contains_missing_path(self) -> None:
         findings, _, _ = _run("z104")
-        z101_msgs = [f.message for f in findings if f.code == "Z101"]
-        assert any("api/reference.md" in m or "api/reference" in m for m in z101_msgs)
+        z104_msgs = [f.message for f in findings if f.code == "Z104"]
+        assert any("architecture.png" in m or "assets/architecture" in m for m in z104_msgs), (
+            z104_msgs
+        )
 
     def test_z104_expected_pass_false(self) -> None:
         assert _GALLERY["z104"].expected_pass is False

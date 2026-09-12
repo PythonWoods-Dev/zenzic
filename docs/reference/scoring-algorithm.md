@@ -122,7 +122,6 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z501** | PLACEHOLDER | 2.0 pts | Content Excellence | Default |
 | **Z502** | SHORT_CONTENT | 1.0 pt | Content Excellence | Default |
 | **Z503** | SNIPPET_ERROR | 10.0 pts | Content Excellence | Default |
-| **Z504** | QUALITY_REGRESSION | 0.0 pts | Baseline Audit | **Reserved — not emitted at runtime** |
 | **Z505** | UNTAGGED_CODE_BLOCK | 1.0 pt | Content Excellence | Default |
 | **Z506** | MALFORMED_FRONTMATTER | 5.0 pts | Content Excellence | Default |
 | **Z510** | HEADING_HIERARCHY | 1.0 pt | Content Excellence | Default |

@@ -959,7 +959,7 @@ def diff(
 
     _fatal_codes = sorted(c for c in current.findings_counts if c.startswith("Z2"))
     has_fatal = bool(_fatal_codes) or current.security_override
-    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z504).
+    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z902).
     _halt_codes = sorted(
         c
         for c in current.findings_counts

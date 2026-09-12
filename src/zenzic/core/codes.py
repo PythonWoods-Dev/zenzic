@@ -56,7 +56,6 @@ Z5xx — Content Quality & Specification-Driven Development (SDD)
     Z501  PLACEHOLDER          — page contains stub / TODO content
     Z502  SHORT_CONTENT        — page word count below minimum threshold
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
-    Z504  QUALITY_REGRESSION   — quality scorer detected score drop vs saved baseline
     Z505  UNTAGGED_CODE_BLOCK  — fenced code block has no language specifier
     Z506  MALFORMED_FRONTMATTER — frontmatter opening delimiter is malformed (e.g., '--' instead of '---')
     Z510  HEADING_HIERARCHY    — heading hierarchy level skipped
@@ -353,7 +352,6 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z501": CodeDefinition("warning", 2.0, "content"),  # PLACEHOLDER
     "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
     "Z503": CodeDefinition("warning", 10.0, "content"),  # SNIPPET_ERROR
-    "Z504": CodeDefinition("warning", 0.0, None),  # QUALITY_REGRESSION — governance gate
     "Z505": CodeDefinition("warning", 1.0, "content", fixable=True),  # UNTAGGED_CODE_BLOCK
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
     "Z510": CodeDefinition("warning", 1.0, "content"),  # HEADING_HIERARCHY
@@ -511,7 +509,6 @@ CODE_NAMES: Final[dict[str, str]] = {
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
-    "Z504": "QUALITY_REGRESSION",
     "Z505": "UNTAGGED_CODE_BLOCK",
     "Z506": "MALFORMED_FRONTMATTER",
     "Z510": "HEADING_HIERARCHY",
@@ -594,7 +591,6 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z501": "Page contains placeholder or stub content",
     "Z502": "Page word count is below the minimum threshold",
     "Z503": "Fenced code block contains a syntax error",
-    "Z504": "Documentation quality score regressed below the saved baseline",
     "Z505": "Fenced code block has no language specifier",
     "Z506": "Frontmatter boundary is malformed (e.g., opening delimiter is '--' instead of '---')",
     "Z510": "Heading hierarchy level skipped (e.g., H3 follows H1 without an intervening H2)",
