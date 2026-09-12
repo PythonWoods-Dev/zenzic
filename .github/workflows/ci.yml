@@ -13,10 +13,10 @@ on:
       - 'uv.lock'
       - '.github/workflows/ci.yml'
   pull_request:
-    # `labeled` is included so applying the ci:full-matrix label is itself a
-    # trigger: a maintainer marks a PR as ready to merge with the label and the
-    # full matrix runs on that event, with no extra push required.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # No label-driven types any more: the matrix below no longer depends on a
+    # label, so `labeled`/`unlabeled` would only start runs that report exactly
+    # what the previous run reported.
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -29,25 +29,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Movable full-matrix gate (2026-09-07). The full matrix had been restored
-        # on 2026-09-06 as a one-time pre-merge check and then left running on
-        # every push, which is the cost the earlier narrowing existed to avoid.
-        # Now:
-        #   ordinary PR push            -> ubuntu-latest / 3.14 only
-        #   PR labelled ci:full-matrix  -> full matrix (the pre-merge signal)
-        #   workflow_dispatch           -> full matrix (on demand)
-        #   push to main                -> full matrix (post-merge safety net)
-        # The only Windows issue on record (torture-test timing jitter, PR #193)
-        # was fixed by widening thresholds still live in tests/test_rules.py; if a
-        # full-matrix run surfaces a real failure, log it rather than blocking.
-        include: >-
-          ${{ fromJSON(
-                (github.event_name == 'push'
-                 || github.event_name == 'workflow_dispatch'
-                 || contains(github.event.pull_request.labels.*.name, 'ci:full-matrix'))
-                && '[{"os":"ubuntu-latest","python-version":"3.14"},{"os":"ubuntu-latest","python-version":"3.10"},{"os":"windows-latest","python-version":"3.10"}]'
-                || '[{"os":"ubuntu-latest","python-version":"3.14"}]'
-              ) }}
+        # The matrix is unconditional, and that is a correctness requirement
+        # rather than a thoroughness preference.
+        #
+        # It used to widen only when a `ci:full-matrix` label was present, while
+        # branch protection required contexts that only the wide form emits. A
+        # label that is needed for every merge is not a deliberate switch -- it is
+        # an undocumented manual step, and forgetting it produced a pull request
+        # with six green checks, `MERGEABLE`, and permanently `BLOCKED` on a
+        # context nothing would ever report. Either the required list matches what
+        # an unlabelled run emits, or the wide run is not optional. Those are the
+        # only two coherent configurations; this is the second.
+        #
+        # Windows earns its place on evidence, not symmetry: two failures this
+        # release were Windows-only and invisible on Linux -- a hand-built
+        # subprocess `env` that dropped `SystemRoot` and stopped Python starting,
+        # then `text=True` with no explicit codec failing to decode cp1252. Both
+        # were in test scaffolding, so both would have merged under a
+        # Linux-only gate.
+        #
+        # Measured cost of widening, from the real run at `7664533` rather than an
+        # estimate: ubuntu/3.14 124 s, ubuntu/3.10 171 s, windows/3.10 214 s. The
+        # jobs run in parallel, so the wall-clock a developer waits is 214 s
+        # against 124 s -- **+90 s** -- and the billed cost is ~12 minutes against
+        # ~2, Windows counting double. `fail-fast: false` above is deliberate and
+        # kept: a cross-platform failure should be diagnosable from one run.
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.14"]
+        exclude:
+          # Windows is exercised on the floor version only. The interpreter
+          # difference is what 3.14 tests; the platform difference is what Windows
+          # tests, and the cross product costs a fourth job to test both at once.
+          - os: windows-latest
+            python-version: "3.14"
 
     steps:
       - name: Checkout Repository
