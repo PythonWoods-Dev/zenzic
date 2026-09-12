@@ -23,6 +23,42 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Nothing else rejects an unsigned tag. No repository in this ecosystem has
+      # a ruleset targeting `refs/tags/*` (measured 2026-09-12: all four rulesets
+      # target branches), and a lightweight `git tag v1.2.3` is accepted by the
+      # platform, carries no signature of its own, and still triggers this
+      # workflow -- so the only place the tag's form can be enforced is here,
+      # before anything is built or published.
+      #
+      # Three assertions, because each fails differently: the object must be an
+      # annotated tag (a lightweight tag resolves to type `commit`), it must carry
+      # a signature block, and GitHub must actually verify it against a registered
+      # key. The third is the one that catches a signature made with a key nobody
+      # trusts, which is indistinguishable from a good one locally.
+      - name: Verify the release tag is annotated and signed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          kind="$(git cat-file -t "refs/tags/${tag}")"
+          if [ "${kind}" != "tag" ]; then
+            echo "::error::${tag} is a lightweight tag (object type '${kind}'), not an annotated signed tag. Recreate it with 'just release-tag'."
+            exit 1
+          fi
+          if ! git cat-file tag "refs/tags/${tag}" | grep -qE 'BEGIN (SSH|PGP) SIGNATURE'; then
+            echo "::error::${tag} carries no signature. Recreate it with 'just release-tag'."
+            exit 1
+          fi
+          sha="$(git rev-parse "refs/tags/${tag}")"
+          verified="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${sha}" --jq '.verification.verified')"
+          reason="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${sha}" --jq '.verification.reason')"
+          if [ "${verified}" != "true" ]; then
+            echo "::error::${tag}'s signature is not verified by GitHub (reason: ${reason})."
+            exit 1
+          fi
+          echo "${tag}: annotated, signed, verified (${reason})."
+
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
