@@ -53,6 +53,38 @@ _SLUG_MULTI_DASH_RE = re.compile(r"-+")
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 
+#: Below this console width the six-column breakdown table cannot be rendered
+#: without losing content, so a different layout is used instead of a cropped
+#: one. Measured rather than chosen: at 67 columns the table renders whole; at
+#: 66 and 65 the right border stops closing; at 64 and below the `Applied Pts`
+#: column is gone entirely -- and that column is the number the table exists to
+#: show, how many points each category actually cost. Rich crops silently, so
+#: the reader sees a table that looks complete and is not.
+_BREAKDOWN_MIN_WIDTH = 67
+
+
+def _print_narrow_breakdown(
+    rows: list[tuple[str, str, str, str, str, str]], total_display: str
+) -> None:
+    """The breakdown as a list, for terminals too narrow for the table.
+
+    Borders are NOT the problem and removing them is not the fix: dropping
+    `box.ROUNDED` recovers about seven columns, which a six-column numeric table
+    still cannot use at 30. The identity cost would also be real -- that box
+    appears in every screenshot, both demo GIFs, the README and the Marketplace
+    listing. What the content needs is a layout that degrades instead of
+    cropping, and a label-per-line list holds every figure down to roughly 24
+    columns.
+    """
+    labels = ("Issues", "Weight", "Raw Pts", "Applied Pts")
+    _shared.console.print("  [bold]Quality Breakdown[/]")
+    for icon, name, *values in rows:
+        _shared.console.print(f"  {icon} [bold]{name}[/]")
+        for label, value in zip(labels, values, strict=True):
+            _shared.console.print(f"      [dim]{label:<12}[/]{value}")
+    _shared.console.print(f"  [dim]{'Σ Penalties':<14}[/]{total_display}")
+
+
 def _score_rule() -> str:
     """The separator under the penalty column, clamped to the real terminal.
 
@@ -481,6 +513,10 @@ def score(
         table.add_column("Applied Pts", justify="right")
 
         total_category_penalties = 0
+        # Collected rather than added straight to the table, so the narrow
+        # layout below renders the same values from the same place. Building the
+        # numbers twice is how two layouts come to disagree about one score.
+        breakdown_rows: list[tuple[str, str, str, str, str, str]] = []
         for cat in report.categories:
             # Split issues into punitive (penalty > 0) vs. informational (penalty == 0).
             from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY
@@ -515,29 +551,32 @@ def score(
             )
             total_category_penalties += applied_penalty
             capped_suffix = " [yellow](Max limit reached)[/yellow]" if cat.is_capped else ""
-            table.add_row(
-                status_icon,
-                cat.name,
-                issue_display,
-                f"{cat.weight:.0%}",
-                raw_display,
-                f"{applied_display}{capped_suffix}",
+            breakdown_rows.append(
+                (
+                    status_icon,
+                    cat.name,
+                    issue_display,
+                    f"{cat.weight:.0%}",
+                    raw_display,
+                    f"{applied_display}{capped_suffix}",
+                )
             )
 
-        table.add_section()
-        table.add_row(
-            "",
-            "[dim]Σ Category Penalties[/dim]",
-            "",
-            "",
-            "",
+        total_display = (
             f"[bold red]-{total_category_penalties}[/bold red]"
             if total_category_penalties > 0
-            else "[bold]0[/bold]",
+            else "[bold]0[/bold]"
         )
 
         _shared.console.print(score_summary)
-        _shared.console.print(table)
+        if _shared.console.width >= _BREAKDOWN_MIN_WIDTH:
+            for row in breakdown_rows:
+                table.add_row(*row)
+            table.add_section()
+            table.add_row("", "[dim]Σ Category Penalties[/dim]", "", "", "", total_display)
+            _shared.console.print(table)
+        else:
+            _print_narrow_breakdown(breakdown_rows, total_display)
 
         subtotal = sum(round(c.contribution * 100) for c in report.categories)
         gravity_loss = subtotal - (report.score + report.suppression_debt_pts)
