@@ -31,7 +31,21 @@ T = TypeVar("T")
 # ── Frontmatter extraction (re-used from adapters._utils) ────────────────────
 # We re-declare the patterns here rather than importing from adapters._utils
 # to avoid a circular import (adapters import from core).
-_COMMENT_RE = re.compile(r"(?s)<!--.*?-->|(?s)\{/\*.*?\*/\}")
+#: Leading comments to strip before looking for the frontmatter block.
+#:
+#: The MDX branch tolerates whitespace inside the braces (``{ /* … */ }``). They
+#: are an expression container and the whitespace is legal, and Prettier emits
+#: that form -- so requiring adjacency here meant a formatted `.mdx` file's
+#: leading licence header hid the frontmatter beneath it, and the file read as
+#: having **no frontmatter at all**: `Z610` reported a required key absent while
+#: the key sat two lines below, and `Z612`/`Z613` read the same empty dictionary.
+#:
+#: This was the fifth site of the same assumption. The other four were corrected
+#: earlier in this release as *masking* sites; this one stayed wrong because it is
+#: a frontmatter stripper, so a sweep for maskers never reached it. It shared the
+#: belief rather than the construct. `tests/test_mdx_comment_adjacency.py` now
+#: sweeps for the belief.
+_COMMENT_RE = re.compile(r"(?s)<!--.*?-->|(?s)\{\s*/\*.*?\*/\s*\}")
 _FRONTMATTER_BLOCK_RE = re.compile(r"(?s)^\s*---\s*\n(.*?)\n---")
 _FM_KEY_VALUE_RE = re.compile(r"(?m)^([A-Za-z0-9_-]+)\s*:\s*(.*)$")
 

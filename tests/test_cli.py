@@ -348,6 +348,11 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "unused_assets",
         "nav_contract",
         "references",
+        # Added alongside the grouped arrays, not in place of them: those stay
+        # because consumers parse them today, and this one exists because they are
+        # not machine-readable -- `references[]` carries the location and code
+        # inside an English string, `links[]` carries neither.
+        "findings",
         "security_breaches",
         "security_incidents",
         "suppression_count",
@@ -355,6 +360,7 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "suppression_debt_pts",
         "debt_status",
     }
+    assert data["findings"] == []
     assert data["security_breaches"] == 0
     assert data["security_incidents"] == 0
     assert data["suppression_count"] == 0

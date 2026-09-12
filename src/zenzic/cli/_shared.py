@@ -266,22 +266,56 @@ def _apply_engine_override(config: ZenzicConfig, engine: str | None) -> ZenzicCo
 # ── JSON output ───────────────────────────────────────────────────────────────
 
 
+def _finding_dict(f: Finding) -> dict[str, Any]:
+    """One finding, in the shape every ``--format json`` payload uses.
+
+    A helper rather than a literal in each emitter: the aggregate payload and the
+    per-check payloads must resolve the same finding to the same file, line and
+    code, and two hand-written copies of this dictionary agree until one of them
+    gains a field.
+    """
+    return {
+        "rel_path": f.rel_path,
+        "line_no": f.line_no,
+        "code": f.code,
+        "severity": f.severity,
+        "message": f.message,
+        # 0-based, matching the engine's own `col_start` and the caret the text
+        # output draws. Carried because two findings can share a line and differ
+        # only here -- an unknown attribute and a jump link on the same tag -- and
+        # a consumer given only the line cannot tell them apart. 0 means "no
+        # column was determined", not "column zero".
+        "col_start": f.col_start,
+        "fixable": bool(getattr(CODE_DEFINITIONS.get(f.code), "fixable", False)),
+    }
+
+
+def _sarif_region(f: Finding) -> dict[str, int]:
+    """A SARIF ``region`` for *f*, carrying the column when one is known.
+
+    ``startColumn`` is **1-based** in SARIF while the engine's ``col_start`` is
+    0-based, so the conversion is explicit here rather than left to a caller.
+    Omitted entirely when no column was determined: SARIF treats a missing
+    ``startColumn`` as "the whole line", which is the honest answer, whereas
+    emitting 1 would claim the finding starts at the first character.
+
+    This matters more than the JSON equivalent. GitHub Code Scanning renders the
+    region as an underline, so a line-only region shows two findings about two
+    different attributes of the same tag as the same highlight -- a plausible
+    interface rather than a visible failure.
+    """
+    region: dict[str, int] = {"startLine": max(f.line_no, 1)}
+    if f.col_start > 0:
+        region["startColumn"] = f.col_start + 1
+    return region
+
+
 def _output_json_findings(
     findings: list[Finding], elapsed: float, suppression_audit: Any | None = None
 ) -> None:
     """Serialize findings list to JSON and print to stdout."""
     report = {
-        "findings": [
-            {
-                "rel_path": f.rel_path,
-                "line_no": f.line_no,
-                "code": f.code,
-                "severity": f.severity,
-                "message": f.message,
-                "fixable": bool(getattr(CODE_DEFINITIONS.get(f.code), "fixable", False)),
-            }
-            for f in findings
-        ],
+        "findings": [_finding_dict(f) for f in findings],
         "summary": {
             "errors": sum(1 for f in findings if f.severity == "error"),
             "warnings": sum(1 for f in findings if f.severity == "warning"),
@@ -368,6 +402,14 @@ def _output_check_all_json_findings(
             msg for msg in results.nav_contract_errors if _is_allowed("(nav)", 0, "Z406")
         ],
         "references": ref_errors,
+        # Added alongside the grouped arrays above, never in place of them: those
+        # are a published contract and consumers parse them today. They are also
+        # not machine-readable -- `references[]` carries the location and the code
+        # inside an English string, and `links[]` carries neither, so a link
+        # finding could not be resolved to a file at all from the payload a CI is
+        # most likely to consume. This array is the per-check shape, built through
+        # the same helper, so the two cannot disagree about the same finding.
+        "findings": [_finding_dict(f) for f in all_findings],
         "security_breaches": sum(1 for f in all_findings if f.severity == "security_breach"),
         "security_incidents": sum(1 for f in all_findings if f.severity == "security_incident"),
         "suppression_count": suppression_audit.total if suppression_audit else 0,
@@ -527,7 +569,7 @@ def _output_sarif_findings(
                             "uri": f.rel_path.replace("\\", "/"),
                             "uriBaseId": "%SRCROOT%",
                         },
-                        "region": {"startLine": max(f.line_no, 1)},
+                        "region": _sarif_region(f),
                     }
                 }
             ],
@@ -606,6 +648,13 @@ def _output_sarif_findings(
                 "rules": rules,
             }
         },
+        # SARIF's default column unit is UTF-16 code units; Zenzic counts Python
+        # string indices, which are Unicode code points. The two differ on any line
+        # containing a non-BMP character -- an emoji in a heading is enough -- so a
+        # consumer would underline the wrong span without being told. Declared
+        # rather than converted: the engine's own caret uses code points too, and a
+        # single honest declaration keeps every surface consistent.
+        "columnKind": "unicodeCodePoints",
         "results": sarif_results,
     }
 

@@ -36,7 +36,8 @@
         "suppression_count",
         "suppression_cap",
         "suppression_debt_pts",
-        "debt_status"
+        "debt_status",
+        "findings"
       ],
       "properties": {
         "links": {
@@ -96,12 +97,12 @@
         "security_breaches": {
           "type": "integer",
           "minimum": 0,
-          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run — never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
+          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run \u2014 never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
         },
         "security_incidents": {
           "type": "integer",
           "minimum": 0,
-          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run — never suppressible, Exit 3."
+          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run \u2014 never suppressible, Exit 3."
         },
         "suppression_count": {
           "type": "integer",
@@ -117,6 +118,13 @@
         },
         "debt_status": {
           "$ref": "#/$defs/debtStatus"
+        },
+        "findings": {
+          "type": "array",
+          "description": "Every finding this run reported, structured. Added alongside the grouped arrays above rather than replacing them: those are the original contract and consumers parse them today, but they are not machine-readable -- references[] carries the location and code inside an English string and links[] carries neither, so a link finding could not be resolved to a file from this payload at all.",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
         }
       },
       "additionalProperties": false
@@ -390,6 +398,54 @@
         "playbook": {
           "type": "string",
           "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "finding": {
+      "description": "One finding, in the shape every --format json payload uses. Defined once and referenced, because the aggregate and per-check payloads must resolve the same finding to the same file, line and code.",
+      "type": "object",
+      "required": [
+        "rel_path",
+        "line_no",
+        "code",
+        "severity",
+        "message"
+      ],
+      "properties": {
+        "rel_path": {
+          "type": "string",
+          "description": "Path relative to the repository root."
+        },
+        "line_no": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line; 0 means the finding is about the file itself."
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^Z[0-9]{3}$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "security_breach",
+            "security_incident"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "col_start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based column, matching the engine's own offset and the caret the text output draws. 0 means no column was determined, not column zero. SARIF's startColumn is this value plus one, since SARIF columns are 1-based."
+        },
+        "fixable": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
