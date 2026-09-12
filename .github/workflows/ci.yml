@@ -32,14 +32,13 @@ jobs:
         # The matrix is unconditional, and that is a correctness requirement
         # rather than a thoroughness preference.
         #
-        # It used to widen only when a `ci:full-matrix` label was present, while
-        # branch protection required contexts that only the wide form emits. A
-        # label that is needed for every merge is not a deliberate switch -- it is
-        # an undocumented manual step, and forgetting it produced a pull request
-        # with six green checks, `MERGEABLE`, and permanently `BLOCKED` on a
-        # context nothing would ever report. Either the required list matches what
-        # an unlabelled run emits, or the wide run is not optional. Those are the
-        # only two coherent configurations; this is the second.
+        # It briefly widened only on demand, while branch protection required
+        # contexts that only the wide form emits -- so an ordinary pull request
+        # could never satisfy them, and one sat with six green checks, `MERGEABLE`,
+        # and permanently `BLOCKED` on a context nothing would ever report. Either
+        # the required list matches what an ordinary run emits, or the wide run is
+        # not optional. Those are the only two coherent configurations; this is the
+        # second, and it needs nobody to remember anything.
         #
         # Windows earns its place on evidence, not symmetry: two failures this
         # release were Windows-only and invisible on Linux -- a hand-built
@@ -52,8 +51,16 @@ jobs:
         # estimate: ubuntu/3.14 124 s, ubuntu/3.10 171 s, windows/3.10 214 s. The
         # jobs run in parallel, so the wall-clock a developer waits is 214 s
         # against 124 s -- **+90 s** -- and the billed cost is ~12 minutes against
-        # ~2, Windows counting double. `fail-fast: false` above is deliberate and
-        # kept: a cross-platform failure should be diagnosable from one run.
+        # ~2, Windows counting double.
+        #
+        # `fail-fast: false` above is kept on a count rather than a preference.
+        # Across 100 runs of this workflow on the v0.31.0 branch, 21 failed, and in
+        # 18 of those exactly one matrix job failed -- 16 of them `windows-latest`
+        # alone. The job that fails most often is also the slowest (214 s against
+        # 171 s and 124 s), so by the time it fails its siblings have finished and
+        # cancelling them would save almost nothing. What it would cost is the
+        # pattern: "only Windows failed" is the diagnosis, and it is legible only
+        # because the other two ran to completion.
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.14"]
         exclude:

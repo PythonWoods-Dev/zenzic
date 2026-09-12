@@ -351,13 +351,7 @@ CI runs the **whole matrix on every pull request**, with nothing to opt into.
 - **`fail-fast` is off deliberately**, so a failure on one platform does not hide the
   result on another — a cross-platform problem should be diagnosable from one run.
 
-It used to be narrower: ordinary pushes ran Python 3.14 on Linux only, and the full matrix
-needed a `ci:full-matrix` label. That label no longer exists. Branch protection required
-contexts only the wide matrix emits, so a pull request without the label could never
-satisfy them — six green checks, mergeable, and permanently blocked on a check nothing
-would ever report. A switch that has to be flipped every time is not a switch.
-
-Windows stays in on evidence rather than symmetry: two failures in the v0.31.0 cycle were
+Windows is in on evidence rather than symmetry: two failures in the v0.31.0 cycle were
 Windows-only and invisible on Linux — a hand-built subprocess environment that dropped
 `SystemRoot`, and `text=True` with no explicit codec failing to decode cp1252. Both were in
 test scaffolding, so both would have merged under a Linux-only gate.
