@@ -573,6 +573,11 @@ def _output_sarif_findings(
     )
 
     sarif_results: list[dict[str, object]] = []
+    # Occurrence index among identical siblings, computed exactly as the GitLab
+    # emitter computes it, so `zenzicFindingV1` below and `fingerprint` there are
+    # the same value for the same finding. Two formats deriving one identity
+    # separately is how they come to disagree.
+    sarif_seen: dict[tuple[str, str, str, str], int] = {}
     for f in sorted_findings:
         seen_rule_ids.add(f.code)
         result: dict[str, object] = {
@@ -602,12 +607,36 @@ def _output_sarif_findings(
         # fingerprint over an empty string would give every such finding the same
         # identity, which is worse than having none -- GitHub would merge unrelated
         # alerts instead of failing to track one.
+        #
+        # MEASURED, because the paragraph above is only half the story. Executing
+        # it confirmed `primaryLocationLineHash` does survive a line shift: the
+        # same two findings moved from lines 11 and 12 to 14 and 15 and kept
+        # identical hashes. But it hashes the line and *only* the line, so three
+        # genuinely distinct findings -- the same broken-link text twice in one
+        # file and once in another -- all came back with one fingerprint.
+        # Cross-file identity may be rescued by GitHub pairing the hash with the
+        # artifact URI, and that is precisely the kind of platform behaviour this
+        # project has twice concluded wrongly by inference rather than reading.
+        #
+        # So a second key is added rather than the first being changed:
+        # `primaryLocationLineHash` keeps GitHub's documented semantics, and
+        # `zenzicFindingV1` carries an identity that does not depend on any of
+        # it -- relative path, code, message, match text and occurrence index,
+        # with the line number deliberately absent. It reuses the GitLab
+        # emitter's function so the two formats cannot drift.
+        sarif_key = (f.rel_path.replace("\\", "/"), f.code, f.message, f.match_text)
+        occurrence = sarif_seen.get(sarif_key, 0)
+        sarif_seen[sarif_key] = occurrence + 1
+        fingerprints: dict[str, str] = {"zenzicFindingV1": _codequality_fingerprint(f, occurrence)}
+        # Omitted rather than faked when the source line is unknown: a hash over
+        # an empty string would give every such finding the same identity, which
+        # is worse than having none -- GitHub would merge unrelated alerts
+        # instead of failing to track one.
         if f.source_line:
-            result["partialFingerprints"] = {
-                "primaryLocationLineHash": hashlib.sha256(
-                    f.source_line.strip().encode("utf-8")
-                ).hexdigest()
-            }
+            fingerprints["primaryLocationLineHash"] = hashlib.sha256(
+                f.source_line.strip().encode("utf-8")
+            ).hexdigest()
+        result["partialFingerprints"] = fingerprints
 
         properties: dict[str, object] = {}
         if f.severity in _SARIF_SECURITY_SEVERITY:

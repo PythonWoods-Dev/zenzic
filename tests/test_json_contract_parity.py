@@ -315,16 +315,157 @@ def test_sarif_results_carry_a_line_fingerprint_and_omit_it_when_unknown(
     results = json.loads(result.stdout)["runs"][0]["results"]
     assert results, "the corpus produced no SARIF results, so this proves nothing"
 
-    fingerprinted = [r for r in results if "partialFingerprints" in r]
-    assert fingerprinted, "no result carried a fingerprint at all"
-    for r in fingerprinted:
+    # Every result now carries `partialFingerprints`, because `zenzicFindingV1`
+    # is derived from path, code, message, match text and occurrence index and
+    # therefore needs no source line. What stays CONDITIONAL is
+    # `primaryLocationLineHash`, which is a hash of the line and must be absent
+    # when there is no line -- a hash of an empty string would give every
+    # location-less finding one identity, and GitHub would merge unrelated
+    # alerts, which is worse than tracking none. This test previously asserted
+    # that the whole key was omitted; that was the contract before the stable
+    # fingerprint was added, and the omission it pins has moved one level down.
+    assert all("partialFingerprints" in r for r in results), [
+        r for r in results if "partialFingerprints" not in r
+    ]
+    for r in results:
+        stable = r["partialFingerprints"]["zenzicFindingV1"]
+        assert len(stable) == 64 and all(c in "0123456789abcdef" for c in stable), r
+
+    hashed = [r for r in results if "primaryLocationLineHash" in r["partialFingerprints"]]
+    assert hashed, "no result carried a line hash at all"
+    for r in hashed:
         digest = r["partialFingerprints"]["primaryLocationLineHash"]
         assert len(digest) == 64 and all(c in "0123456789abcdef" for c in digest), r
 
-    # A file-level finding (line 1, no excerpt) must carry none rather than a hash
-    # of nothing. `Z502` is reported against the page, not against a line of it.
-    bare = [r for r in results if "partialFingerprints" not in r]
+    # A file-level finding (line 1, no excerpt) must carry no LINE hash rather
+    # than a hash of nothing. `Z502` is reported against the page, not a line.
+    bare = [r for r in results if "primaryLocationLineHash" not in r["partialFingerprints"]]
     assert bare, (
-        "every result carried a fingerprint, so the omission branch never ran — "
+        "every result carried a line hash, so the omission branch never ran — "
         "the corpus needs a finding with no source line"
+    )
+
+
+def _sarif_fingerprints(project: Path) -> list[tuple[str, int, str]]:
+    """(ruleId, startLine, zenzicFindingV1) for every SARIF result.
+
+    Runs in *project* explicitly. `_json` above takes a corpus argument it does
+    not use -- the runner inherits the process cwd -- so a helper that looked
+    like it targeted a directory would silently have scanned another.
+    """
+    import os
+
+    cwd = os.getcwd()
+    os.chdir(project)
+    try:
+        result = runner.invoke(app, ["check", "all", "--format", "sarif"], catch_exceptions=False)
+    finally:
+        os.chdir(cwd)
+    start = result.stdout.find("{")
+    assert start >= 0, f"no SARIF emitted: {result.stdout[:300]!r}"
+    payload: dict[str, Any] = json.loads(result.stdout[start:])
+    out: list[tuple[str, int, str]] = []
+    for result in payload["runs"][0]["results"]:
+        region = result["locations"][0]["physicalLocation"]["region"]
+        out.append(
+            (
+                result["ruleId"],
+                int(region["startLine"]),
+                str(result["partialFingerprints"]["zenzicFindingV1"]),
+            )
+        )
+    return out
+
+
+def test_the_sarif_fingerprint_survives_a_line_shift(tmp_path: Path) -> None:
+    """A finding that moved down the file is the same alert, not a new one.
+
+    This is what a fingerprint is for. Without one GitHub computes identity from
+    what it can see, so inserting a paragraph above a broken link closes the old
+    alert and opens a new one -- and any triage on it, "false positive" or "used
+    in tests", is lost with the alert that carried it.
+
+    `primaryLocationLineHash` already did this, measured before changing
+    anything: two findings moved from lines 11 and 12 to 14 and 15 with
+    identical hashes. What it did NOT do is the sibling test below.
+    """
+    base = tmp_path / "base"
+    shifted = tmp_path / "shifted"
+    for root in (base, shifted):
+        (root / "docs").mkdir(parents=True)
+        (root / ".zenzic.toml").write_text(
+            'docs_dir = "docs"\nfail_under = 0\n\n[build_context]\nengine = "standalone"\n',
+            encoding="utf-8",
+        )
+    body = (
+        "# Index\n\nProse that keeps the word-count rule quiet while the fingerprint is "
+        "what is being measured, with a few more words to be safe.\n\n"
+        "See [guide](nope.md) for details.\n"
+    )
+    (base / "docs" / "index.md").write_text(body, encoding="utf-8")
+    (shifted / "docs" / "index.md").write_text(
+        body.replace(
+            "# Index\n", "# Index\n\nAn inserted paragraph that pushes every\nlater line down.\n", 1
+        ),
+        encoding="utf-8",
+    )
+
+    before = _sarif_fingerprints(base)
+    after = _sarif_fingerprints(shifted)
+    assert before and after, (before, after)
+
+    # Z101 only, and the exclusion is the interesting part. `Z502 SHORT_CONTENT`
+    # states the word count in its own message ("Page has only 35 words"), so
+    # inserting a paragraph changes that message and the finding is genuinely a
+    # different one. Its fingerprint SHOULD change. Comparing every finding
+    # would assert that a changed finding keeps its identity, which is the
+    # opposite of what a fingerprint is for.
+    def z101(rows: list[tuple[str, int, str]]) -> set[str]:
+        return {fp for rule, _line, fp in rows if rule == "Z101"}
+
+    assert z101(before), f"fixture produced no Z101 finding: {before}"
+    assert z101(before) == z101(after), (
+        "the fingerprint changed when lines moved, so GitHub would close every "
+        f"alert and reopen it as new.\n  before: {before}\n  after:  {after}"
+    )
+    lines_before = {line for rule, line, _f in before if rule == "Z101"}
+    lines_after = {line for rule, line, _f in after if rule == "Z101"}
+    assert lines_before != lines_after, (
+        f"the Z101 line did not actually move ({lines_before} -> {lines_after}), "
+        "so this test proved nothing"
+    )
+
+
+def test_the_sarif_fingerprint_distinguishes_identical_lines(tmp_path: Path) -> None:
+    """Three genuinely different findings must not be one alert.
+
+    The other direction, and the one the line hash fails: it hashes the line and
+    only the line, so the same broken-link text twice in one file and once in
+    another produced ONE fingerprint for three findings. A constant would pass
+    the line-shift test above, which is why both directions are asserted.
+    """
+    root = tmp_path / "coll"
+    (root / "docs" / "sub").mkdir(parents=True)
+    (root / ".zenzic.toml").write_text(
+        'docs_dir = "docs"\nfail_under = 0\n\n[build_context]\nengine = "standalone"\n',
+        encoding="utf-8",
+    )
+    filler = (
+        "Prose that keeps the word-count rule quiet while the collision case is "
+        "measured, with a couple more sentences for good measure.\n"
+    )
+    same_line = "See [guide](nope.md) for details.\n"
+    (root / "docs" / "index.md").write_text(
+        f"# Index\n\n{filler}\n{same_line}\n{filler}\n{same_line}", encoding="utf-8"
+    )
+    (root / "docs" / "sub" / "other.md").write_text(
+        f"# Other\n\n{filler}\n{same_line}", encoding="utf-8"
+    )
+
+    z101 = [(r, ln, fp) for r, ln, fp in _sarif_fingerprints(root) if r == "Z101"]
+    assert len(z101) == 3, f"fixture did not produce three Z101 findings: {z101}"
+    distinct = {fp for _r, _ln, fp in z101}
+    assert len(distinct) == 3, (
+        f"three distinct findings share {4 - len(distinct)} fingerprint(s): {z101}. "
+        "GitHub would treat them as one alert and two would vanish."
     )
