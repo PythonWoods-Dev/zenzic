@@ -30,6 +30,7 @@ Covers all three suppression mechanisms:
 
 from __future__ import annotations
 
+import re as _re
 import textwrap
 from pathlib import Path
 
@@ -416,7 +417,7 @@ def test_suppression_audit_counts_declared_directives_against_a_known_corpus(
 def test_fix_declines_the_rename_when_the_suppression_scan_cannot_run(
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A control is not verified until it has been broken (Rule 39's corollary).
+    """A safety gate is not verified until it has been made to fail.
 
     The rename gate's whole purpose is to decline rather than overwrite, so the
     branch that matters is the one where it cannot find out. With the scan
@@ -443,3 +444,235 @@ def test_fix_declines_the_rename_when_the_suppression_scan_cannot_run(
     assert (corpus / "docs/index.md").read_text(encoding="utf-8") == before, (
         "the rename rewrote a file while the suppression scan was unavailable"
     )
+
+
+# ── the three directive spellings ────────────────────────────────────────────
+#
+# The audit above was written entirely against `<!-- ... -->`. These cases exist
+# because "the MDX form is equivalent" was an assumption, and the two forms take
+# different paths: one is matched under the HTML branch of the suppression
+# pattern, the other under the MDX branch — and this same release already found
+# that MDX comment *masking* required the braces adjacent to the comment markers
+# in four separate places, which is precisely the shape a directive parser can
+# get wrong too.
+
+_MDX_CONFIG = """\
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+"""
+
+#: The spelling under test → whether it is the form Prettier emits.
+_SPELLINGS = {
+    "html": "<!-- zenzic:ignore: {code} -->",
+    "mdx-adjacent": "{{/* zenzic:ignore: {code} */}}",
+    # Legal MDX: the braces are an expression container and the whitespace is
+    # free. Prettier emits exactly this, so a formatted file uses it whether the
+    # author typed it or not.
+    "mdx-spaced": "{{ /* zenzic:ignore: {code} */ }}",
+}
+
+
+def _mdx_corpus(tmp_path: Path, directive: str) -> Path:
+    """A project whose suppressions all use one spelling.
+
+    Three specimens: a cross-file code (`Z101`, decided against the site map), a
+    per-file code (`Z515`, decided while parsing), and a directive that genuinely
+    silences nothing.
+    """
+    (tmp_path / ".zenzic.toml").write_text(_MDX_CONFIG, encoding="utf-8")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.mdx").write_text(
+        textwrap.dedent("""\
+            # Index
+
+            An entry page linking to each specimen, so the topology rules stay quiet
+            and the directive spelling is the only thing under measurement.
+
+            - [cross file](./cross-file.mdx)
+            - [per file](./per-file.mdx)
+            - [dead](./dead.mdx)
+            """),
+        encoding="utf-8",
+    )
+    (docs / "cross-file.mdx").write_text(
+        "# Cross-File\n\nThe target is generated at build time, so this directive does real\n"
+        "work on every scan and must never be called dead.\n\n"
+        f"[generated](./generated/api.mdx) {directive.format(code='Z101')}\n",
+        encoding="utf-8",
+    )
+    (docs / "per-file.mdx").write_text(
+        "# Per-File\n\nA bare URL quoted verbatim from a log line, where linkifying it would\n"
+        "change the quotation.\n\n"
+        f"https://example.com/logline {directive.format(code='Z515')}\n",
+        encoding="utf-8",
+    )
+    (docs / "dead.mdx").write_text(
+        "# Dead\n\nThe link below resolves, so this directive silences nothing and must be\n"
+        "reported in every mode.\n\n"
+        f"[index](./index.mdx) {directive.format(code='Z101')}\n",
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+@pytest.mark.parametrize("spelling", sorted(_SPELLINGS))
+@pytest.mark.parametrize("command", [("check", "all"), ("check", "references")])
+def test_every_directive_spelling_suppresses_what_it_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str, command: tuple[str, ...]
+) -> None:
+    """All three spellings must silence both a cross-file and a per-file code.
+
+    `mdx-spaced` was recognised by nothing: the pattern required `{` adjacent to
+    `/*`, so a Prettier-formatted file's directive was not a directive. The
+    finding stayed, and — because an unparsed directive is not an unconsumed one
+    — there was no `Z603` either. No suppression and no explanation for why.
+    """
+    corpus = _mdx_corpus(tmp_path, _SPELLINGS[spelling])
+    monkeypatch.chdir(corpus)
+    out = _run(corpus, *command)
+    assert "[Z101]" not in out, f"{spelling} did not suppress a cross-file code:\n{out}"
+    assert "[Z515]" not in out, f"{spelling} did not suppress a per-file code:\n{out}"
+
+
+@pytest.mark.parametrize("spelling", sorted(_SPELLINGS))
+def test_every_directive_spelling_is_reported_dead_when_it_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str
+) -> None:
+    """And all three must still be reported when they silence nothing."""
+    corpus = _mdx_corpus(tmp_path, _SPELLINGS[spelling])
+    monkeypatch.chdir(corpus)
+    assert ("dead.mdx", 6) in _z603_sites(_run(corpus, "check", "all")), spelling
+
+
+@pytest.mark.parametrize("spelling", sorted(_SPELLINGS))
+def test_every_directive_spelling_counts_toward_the_suppression_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str
+) -> None:
+    """A spelling the counter cannot see understates the published debt figure.
+
+    The corpus declares three directives in every spelling. `mdx-spaced` counted
+    two, because the counter and the parser are the same pattern — so an unparsed
+    directive is also an uncounted one, and the governance number the project
+    publishes about itself was quietly low.
+    """
+    corpus = _mdx_corpus(tmp_path, _SPELLINGS[spelling])
+    monkeypatch.chdir(corpus)
+    audit = next(
+        ln for ln in _run(corpus, "check", "all").splitlines() if "Suppression Audit" in ln
+    )
+    assert "(inline: 3, per-file: 0)" in audit, f"{spelling}: {audit}"
+
+
+@pytest.mark.parametrize("spelling", sorted(_SPELLINGS))
+def test_every_directive_spelling_works_in_the_editor(tmp_path: Path, spelling: str) -> None:
+    """The incremental engine reads the same pattern, so it must agree."""
+    from zenzic.core.adapter import get_adapter
+    from zenzic.core.incremental import IncrementalAnalysisEngine
+    from zenzic.core.scanner import _build_rule_engine
+    from zenzic.core.validator import anchors_in_file
+    from zenzic.models.config import load_config_with_diagnostics
+    from zenzic.models.vsm import VirtualBufferOverlay, build_vsm
+
+    corpus = _mdx_corpus(tmp_path, _SPELLINGS[spelling])
+    config, _ = load_config_with_diagnostics(corpus)
+    assert config is not None
+    docs_root = corpus / str(config.docs_dir)
+    contents = {p: p.read_text(encoding="utf-8") for p in sorted(docs_root.rglob("*.mdx"))}
+    anchors = {p: anchors_in_file(t) for p, t in contents.items()}
+    adapter = get_adapter(config.build_context, docs_root, corpus)
+    vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors, repo_root=corpus)
+    engine = IncrementalAnalysisEngine(
+        config, _build_rule_engine(config), adapter, docs_root, corpus
+    )
+    engine.anchors_cache = anchors
+    for p, t in contents.items():
+        engine.update_file_cache(p, t)
+
+    flat = [
+        (Path(uri).name, d.code)
+        for uri, ds in engine.process_changes(vsm, VirtualBufferOverlay(vsm)).items()
+        for d in ds
+    ]
+    assert ("cross-file.mdx", "Z101") not in flat, spelling
+    assert ("cross-file.mdx", "Z603") not in flat, spelling
+    assert ("dead.mdx", "Z603") in flat, spelling
+
+
+def test_the_directive_pattern_has_exactly_one_definition() -> None:
+    """Two byte-identical copies of it existed, in two modules.
+
+    `rules.py` and `suppressions.py` each defined the protocol, so extending one
+    spelling would have desynchronised the parser from the counter — the parser
+    lives in one and the audit figure is computed through the other. Identity,
+    not equality: a copied pattern that agrees today is the thing that drifts.
+    """
+    from zenzic.core import rules, suppressions
+
+    assert rules._SUPPRESS_RE is suppressions._SUPPRESS_RE
+
+
+# ── the generalised detector ──────────────────────────────────────────────────
+
+
+def _findings_from_text(output: str) -> set[tuple[str, int, str]]:
+    """Every ``(file, line, code)`` a run reported, read from its text output.
+
+    Text, not ``--format json``, and deliberately: the per-check JSON is
+    structured (``rel_path``/``line_no``/``code`` fields) while ``check all``'s is
+    grouped arrays of pre-formatted strings whose ``links[]`` entries carry no
+    location at all. The one output shape every subcommand genuinely shares is
+    the one a human reads.
+    """
+    pattern = _re.compile(r"^(?P<path>\S+?):(?P<line>\d+)(?::\d+)?\s+\S+\s+\[(?P<code>Z\d{3})\]")
+    found: set[tuple[str, int, str]] = set()
+    for raw in output.splitlines():
+        m = pattern.match(raw.strip())
+        if m:
+            found.add((Path(m.group("path")).name, int(m.group("line")), m.group("code")))
+    return found
+
+
+def test_subcommands_agree_on_every_code_they_share(
+    corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Generalises the two-command Z603 check across every shared code.
+
+    The narrow version above pins one code because one code broke. This is the
+    same assertion without the narrowing, and it is here because it was shown to
+    find the defect rather than argued to: run against the commit before the fix,
+    over the same corpora, it reports five disagreements — three false ``Z603``
+    from ``check references`` on this corpus and two more on another — and zero
+    against the fixed engine.
+
+    Scope is derived empirically, from what each command is observed to emit,
+    rather than declared: subcommands legitimately differ in scope (``check
+    links`` reports link integrity and not governance), so only the intersection
+    can be compared, and a hand-written scope table would be one more thing to
+    keep in step with the code.
+    """
+    monkeypatch.chdir(corpus)
+    commands = [("check", "all"), ("check", "references"), ("check", "links")]
+    observed = {cmd: _findings_from_text(_run(corpus, *cmd)) for cmd in commands}
+    emits = {cmd: {code for _, _, code in found} for cmd, found in observed.items()}
+
+    for i, a in enumerate(commands):
+        for b in commands[i + 1 :]:
+            shared = emits[a] & emits[b]
+            if not shared:
+                continue
+            only_a = {f for f in observed[a] if f[2] in shared} - {
+                f for f in observed[b] if f[2] in shared
+            }
+            only_b = {f for f in observed[b] if f[2] in shared} - {
+                f for f in observed[a] if f[2] in shared
+            }
+            assert not (only_a or only_b), (
+                f"'{' '.join(a)}' and '{' '.join(b)}' disagree about codes they both emit "
+                f"({' '.join(sorted(shared))}):\n"
+                f"  only in {' '.join(a)}: {sorted(only_a)}\n"
+                f"  only in {' '.join(b)}: {sorted(only_b)}"
+            )

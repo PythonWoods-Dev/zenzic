@@ -171,6 +171,7 @@ nav:
         - tutorials/examples/z1xx-links/z122-jump-link.md
         - tutorials/examples/z1xx-links/z123-non-http-scheme.md
         - tutorials/examples/z1xx-links/z124-opaque-context.md
+        - tutorials/examples/z1xx-links/mdx-jsx-links.md
         - Z2xx Security: tutorials/examples/z2xx-security/index.md
         - tutorials/examples/z2xx-security/z201-credentials.md
         - tutorials/examples/z2xx-security/z202-path-traversal.md

@@ -721,23 +721,22 @@ _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 #: CEO-138: info string may contain language + metadata (e.g. ``python title="x"``
 #: showLineNumbers). CEO-140: closing fence detection requires empty info string
 #: (CommonMark invariant — a closing fence never has an info string).
-_FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
-
-#: Strict suppression protocol: only exact ``zenzic:ignore:`` directives are valid.
-#: Matches both Markdown HTML comments and MDX/JSX comments.
-#:
-#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore: Z905 - reason -->``
-#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore: Z905 - reason */}``
-_SUPPRESS_RE = re.compile(
-    r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
+# The three patterns that decide what counts as a suppression directive are
+# imported, not redeclared. All three were duplicated here byte-for-byte from
+# `suppressions.py`, which owns the protocol: the fence tracker and the
+# inline-code stripper decide whether a directive is *seen*, and the directive
+# pattern decides what one *is*. Widening the MDX spelling in one copy and not the
+# other would have left `_is_suppressed` accepting a form the audit counter could
+# not count -- the parser and the counter reading different rules about the same
+# text. Re-exported under the same names so this module's callers are unchanged.
+# `as` on each name is the explicit re-export form: this module is the import
+# path three callers already use (`sdk/rules.py` among them), so the names must
+# stay public here while the definitions live in one place.
+from zenzic.core.suppressions import (  # noqa: E402
+    _FENCE_OPEN_RE as _FENCE_OPEN_RE,
+    _INLINE_CODE_STRIP_RE as _INLINE_CODE_STRIP_RE,
+    _SUPPRESS_RE as _SUPPRESS_RE,
 )
-
-#: Strip backtick inline code spans before counting suppressions.
-#: Prevents didactic examples like `<!-- zenzic:ignore: Z601 -->` from
-#: being counted as active suppression directives.
-#: Alternation ``double first | single`` handles RST-style `````.md````` spans
-#: without backreferences (RE2 engine does not support backreferences).
-_INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 
 
 def count_inline_suppressions(text: str) -> int:

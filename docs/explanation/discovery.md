@@ -133,6 +133,11 @@ execution:
   `.md` one — same placement, same effect, same debt point. Both belong **at the
   end of the line the finding is on**; on the line above, neither suppresses
   anything and the directive is itself reported as `Z603 DEAD_SUPPRESSION`.
+- All of this is executable: `examples/mdx-jsx-links/` is the fixture, and
+  [MDX & JSX Links](../tutorials/examples/z1xx-links/mdx-jsx-links.md) walks
+  through it — a component link that resolves, one that does not, and a Markdown
+  link inside a JSX attribute that is text rather than a link. `zenzic lab mdx`
+  asserts the expectation rather than printing it.
 - Whether a directive is dead is decided **after the whole scan**, not when the
   file is parsed. A directive naming `Z101` is dead only if the link beside it
   resolves, which is a fact about the Virtual Site Map rather than about the line,

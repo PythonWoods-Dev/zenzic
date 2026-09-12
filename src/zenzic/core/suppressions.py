@@ -24,8 +24,23 @@ if TYPE_CHECKING:
 _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 
 #: Strict suppression protocol: only exact ``zenzic:ignore:`` directives are valid.
+#: **This is the single definition** — ``rules.py`` imports it rather than keeping
+#: its own copy, because the parser and the audit counter are the same pattern and
+#: a second copy desynchronises them the day one spelling is added.
+#:
+#:   Markdown (.md):  ``<!-- zenzic:ignore: Z905 - reason -->``
+#:   MDX (.mdx):      ``{/* zenzic:ignore: Z905 - reason */}``
+#:
+#: The MDX braces accept surrounding whitespace (``{ /* … */ }``). They are an
+#: expression container and the whitespace is legal, and Prettier emits exactly
+#: that form -- so requiring them adjacent meant a formatted file's directive was
+#: not a directive: the finding stayed, nothing was suppressed, and because an
+#: *unparsed* directive is not an *unconsumed* one there was no ``Z603`` either.
+#: No effect and no explanation. The same adjacency assumption was fixed in four
+#: comment-*masking* sites earlier in this release; this is the fifth, in the
+#: place that decides what a directive is at all.
 _SUPPRESS_RE = re.compile(
-    r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
+    r"(?:<!--|\{\s*/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\s*\})",
 )
 
 #: Strip backtick inline code spans before counting suppressions, so a
