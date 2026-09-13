@@ -381,51 +381,15 @@ def _output_check_all_json_findings(
             if _is_allowed(rel, rf.line_no, rf.rule_id):
                 ref_errors.append(f"{rel_d}:{rf.line_no} [{rf.rule_id}] — {rf.message}")
 
+    # The six grouped arrays -- links[], orphans[], snippets[], unused_assets[],
+    # nav_contract[], references[] -- were removed in v0.31.0. Every finding they
+    # carried is in findings[] in the canonical shape, re-verified per array
+    # across the whole example gallery immediately before removal: 216 items,
+    # 216 covered, 0 missing. They were also not machine-readable -- links[] and
+    # nav_contract[] held pre-formatted prose with no code in it, and orphans[]
+    # and unused_assets[] held bare paths -- so a consumer could not resolve a
+    # finding to a file and a code from them at all.
     report = {
-        "links": [
-            str(e) for e in results.link_errors if _is_allowed(_rel(e.file_path), e.line_no, e.code)
-        ],
-        "orphans": [str(p) for p in results.orphans if _is_allowed(_rel(docs_root / p), 0, "Z402")],
-        "snippets": [
-            # `_rel` and not `str`: the very next line already computes the
-            # relative form to decide suppression, then this one emitted the
-            # absolute path as the value -- so `references[]` in the same payload
-            # was relative while `snippets[].file` was not.
-            #
-            # `code` and `severity` are ADDED, not substituted: `file`, `line`
-            # and `message` keep their names and meanings, so a consumer reading
-            # this array today is unaffected. It is the only one of the six
-            # grouped arrays that can be completed this way, because it is
-            # already an object -- `orphans[]` and `unused_assets[]` are bare
-            # strings, and giving them a code would mean changing their type,
-            # which is a break rather than an addition. Those two resolve through
-            # `findings[]`, which carries every finding in the payload; the
-            # parity test asserts that, so the two cannot drift before the
-            # grouped arrays are removed in v0.32.0.
-            {
-                "file": _rel(e.file_path),
-                "line": e.line_no,
-                "message": e.message,
-                "code": "Z503",
-                "severity": "error",
-            }
-            for e in results.snippet_errors
-            if _is_allowed(_rel(e.file_path), e.line_no, "Z503")
-        ],
-        "unused_assets": [
-            str(p) for p in results.unused_assets if _is_allowed(_rel(docs_root / p), 0, "Z405")
-        ],
-        "nav_contract": [
-            msg for msg in results.nav_contract_errors if _is_allowed("(nav)", 0, "Z406")
-        ],
-        "references": ref_errors,
-        # Added alongside the grouped arrays above, never in place of them: those
-        # are a published contract and consumers parse them today. They are also
-        # not machine-readable -- `references[]` carries the location and the code
-        # inside an English string, and `links[]` carries neither, so a link
-        # finding could not be resolved to a file at all from the payload a CI is
-        # most likely to consume. This array is the per-check shape, built through
-        # the same helper, so the two cannot disagree about the same finding.
         "findings": [_finding_dict(f) for f in all_findings],
         "security_breaches": sum(1 for f in all_findings if f.severity == "security_breach"),
         "security_incidents": sum(1 for f in all_findings if f.severity == "security_incident"),

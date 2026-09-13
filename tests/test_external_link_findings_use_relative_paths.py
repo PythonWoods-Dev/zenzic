@@ -168,14 +168,18 @@ class TestTheSameConstructionElsewhere:
             env=env,
         )
         payload = json.loads(proc.stdout)
-        assert payload["snippets"], (
+        # snippets[] was removed in v0.31.0. The convention it guarded -- one
+        # relativising construction, not two -- now applies to findings[], which
+        # is the only array left and must never leak an absolute path.
+        snippet_findings = [f for f in payload["findings"] if f["code"] == "Z503"]
+        assert snippet_findings, (
             "the fixture produced no snippet finding, so this assertion proves "
             f"nothing: {proc.stdout[:400]!r}"
         )
-        for entry in payload["snippets"]:
-            assert not Path(entry["file"]).is_absolute(), (
-                f"snippets[].file is absolute ({entry['file']!r}) while references[] "
-                "in the same payload is relative -- one document, two conventions"
+        for entry in payload["findings"]:
+            assert not Path(entry["rel_path"]).is_absolute(), (
+                f"findings[].rel_path is absolute ({entry['rel_path']!r}) -- the "
+                "payload must carry one path convention, not two"
             )
         assert str(tmp_path) not in proc.stdout, "the project root leaked into the JSON"
 

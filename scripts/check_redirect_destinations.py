@@ -56,7 +56,13 @@ def page_exists(site: Path, url_path: str) -> bool:
 
 
 def resolve(rules: dict[str, str], dest: str, site: Path) -> tuple[bool, list[str]]:
-    """Follow the ledger from *dest* until something exists, loops, or runs out."""
+    """Follow the ledger from *dest* until a real page, a loop, or exhaustion.
+
+    A server stops at the first destination that is a real page, so the walk stops
+    there too. Without that, a rule whose destination is a live page still matches
+    the slash-normalising rule for the same path and looks like a second hop --
+    which produced six phantom chains on the first measurement of this ledger.
+    """
     chain = [dest]
     cur = dest
     for _ in range(MAX_HOPS):
@@ -81,10 +87,27 @@ def main(argv: list[str]) -> int:
         return 2
     rules = load_rules(LEDGER)
     broken: list[tuple[str, list[str]]] = []
+    chained: list[tuple[str, list[str]]] = []
     for src, dest in sorted(rules.items()):
         ok, chain = resolve(rules, dest, site)
         if not ok:
             broken.append((src, chain))
+        elif len(chain) > 1:
+            # Two correct rules written at different times compose into a chain:
+            # a /docs/ prefix rule and, later, a rule for a page that was removed.
+            # Each is right; together they cost a reader an extra round trip, and
+            # a crawler treats a chain as signal dilution. Point the first rule at
+            # the final destination instead.
+            chained.append((src, chain))
+
+    if chained and not broken:
+        print(
+            f"redirect-destination gate: FAILED — {len(chained)} rule(s) reach their "
+            f"page through another redirect"
+        )
+        for src, chain in chained[:20]:
+            print(f"  {src}\n      → {' → '.join(chain)}  ({len(chain)} hops)")
+        return 1
 
     if broken:
         print(f"redirect-destination gate: FAILED — {len(broken)} rule(s) point at nothing")
@@ -96,7 +119,7 @@ def main(argv: list[str]) -> int:
 
     print(
         f"redirect-destination gate: clean — {len(rules)} rule(s), "
-        f"every destination resolves in {site.name}/"
+        f"every destination resolves in one hop in {site.name}/"
     )
     return 0
 

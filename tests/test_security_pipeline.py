@@ -234,6 +234,8 @@ def test_z204_rule_findings_use_z204_not_z201() -> None:
 
     json_start = json_result.stdout.find("{")
     payload = json.loads(json_result.stdout[json_start:])
-    refs = " ".join(payload.get("references", []))
-    assert "[Z201]" not in refs, f"Z204 finding mislabeled as Z201 in JSON output: {refs!r}"
-    assert "[Z204]" in refs, f"Expected [Z204] in JSON output, got: {refs!r}"
+    # references[] was removed in v0.31.0. The mislabelling this guards against is
+    # now checkable exactly: the code is a field, not a substring of prose.
+    codes = [f["code"] for f in payload["findings"]]
+    assert "Z201" not in codes, f"Z204 finding mislabeled as Z201 in JSON output: {codes!r}"
+    assert "Z204" in codes, f"Expected Z204 in JSON output, got: {codes!r}"

@@ -12,7 +12,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### ⚠ Upgrade notice — verify before rolling out
 
-**Four** changes in this release alter what a corpus reports. Items 1-3 can make a corpus
+**Five** changes in this release alter what a corpus reports or what it emits. Items 1-3 can make a corpus
 that passes today fail after upgrading, and the two security-tier ones are
 **non-suppressible**; none is a regression — each closes a path by which a code was silenced.
 Item 4 goes the other way: `Z106` stops reporting unless you ask for it. Run the check
@@ -92,6 +92,33 @@ project's own documentation it reported **704 findings across 238 of roughly 300
 check that flags 79% of a corpus for correct practice is not noisy, it is mis-specified, and
 the practical response had been to silence it for an entire directory tree — which is worse
 than not running it, because nobody can then tell whether the cycles are harmless or real.
+
+**5. The six grouped JSON arrays are removed from `check all --format json`.**
+
+*What you will see:* `links[]`, `orphans[]`, `snippets[]`, `unused_assets[]`, `references[]`
+and `nav_contract[]` are gone from the payload and from `zenzic-output.schema.json`. Any tool
+reading them gets a `KeyError`.
+
+*What to do:* read **`findings[]`** instead. It carries everything the six did, and carries it
+better — each entry has `rel_path`, `line_no`, `code`, `severity` and `message` as separate
+fields. The six could not offer that: `links[]` and `nav_contract[]` held pre-formatted English
+prose with no code in it at all, and `orphans[]` and `unused_assets[]` held bare paths, so a CI
+could not resolve a finding to a file and a code from them. **The same `findings[]` shape is
+emitted by every command** — `check all`, `check links`, `check orphans`, `check snippets`,
+`check references`, `check assets`, `check placeholders` — so one parser now reads all of them.
+That uniformity is the compensation for the break.
+
+*Why there is no deprecation period:* a `0.x` version promises no stability, so a deprecation
+notice here would declare a commitment stronger than the version number offers. The cost of
+carrying one falls on the project rather than the consumer — the deprecated thing stays in the
+emitter, the schema and the tests, which is precisely the multi-surface divergence this release
+spent its time removing. Measured adoption of the grouped arrays is effectively zero. A notice
+was briefly published and withdrawn in this same release rather than left to contradict the
+removal.
+
+*Verified before removal, not assumed:* every item in all six arrays was checked against
+`findings[]` across the whole example gallery — **216 items, 216 covered, 0 missing** — per
+array, immediately before the change.
 
 ### Added
 

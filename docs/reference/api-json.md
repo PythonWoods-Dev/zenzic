@@ -43,12 +43,6 @@ All contract outputs above include these fields, always:
 
 ```json
 {
-  "links": [],
-  "orphans": [],
-  "snippets": [],
-  "unused_assets": [],
-  "references": [],
-  "nav_contract": [],
   "findings": [
     {
       "rel_path": "docs/index.md",
@@ -69,14 +63,16 @@ All contract outputs above include these fields, always:
 }
 ```
 
-**`findings[]` is the array to read.** It carries every finding the run produced, in one
-shape, with the code and the location as separate fields. The six arrays above it group the
-same findings by subsystem and do not: `links[]` and `nav_contract[]` hold pre-formatted
-prose with no code in it at all, and `orphans[]` and `unused_assets[]` hold bare paths. They
-predate `findings[]` and are kept because consumers parse them today.
+**`findings[]` is the array to read**, and since v0.31.0 it is the only one. It carries every
+finding the run produced, in one shape, with the code and the location as separate fields.
 
-Every finding in those six also appears in `findings[]` — verified by execution across the
-whole example gallery, 256 items matched 256.
+Six grouped arrays — `links[]`, `orphans[]`, `snippets[]`, `unused_assets[]`,
+`references[]` and `nav_contract[]` — were **removed in v0.31.0**. They carried the same
+findings a second time, in shapes a consumer could not use: `links[]` and `nav_contract[]`
+held pre-formatted prose with no code in it at all, and `orphans[]` and `unused_assets[]`
+held bare paths, so a finding could not be resolved to a file and a code from them.
+Everything they carried is in `findings[]`, verified by execution per array across the whole
+example gallery immediately before removal: **216 items, 216 covered, 0 missing**.
 
 `col_start` is 0-based, and `0` means *no column was determined* rather than column zero.
 SARIF's `startColumn` is this value plus one, since SARIF columns are 1-based.

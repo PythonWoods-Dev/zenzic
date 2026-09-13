@@ -596,4 +596,5 @@ def test_check_all_exit_zero_json(
     result = runner.invoke(app, ["check", "all", "--exit-zero", "--format", "json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert len(data["links"]) == 1
+    # links[] was removed in v0.31.0; the same assertion against findings[].
+    assert len([f for f in data["findings"] if f["code"] in {"Z101", "Z104"}]) == 1

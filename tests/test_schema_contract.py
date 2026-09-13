@@ -265,20 +265,18 @@ def test_score_json_validates() -> None:
 def test_every_item_schema_is_actually_exercised_by_the_corpus() -> None:
     """The hole in the original test, asserted rather than hoped for.
 
-    `check all`'s payload has seven arrays and the single example it was
+    `check all`'s payload had seven arrays and the single example it was
     validated against populated three. This requires the corpus as a whole to
     produce at least one item in each, so every `items` schema is reached by a
     real payload.
+
+    Six of the seven -- the grouped arrays -- were removed in v0.31.0, so the
+    payload now has one. The check is kept rather than deleted: it is about the
+    class (an array that is always empty validates against any item schema at
+    all), not about those six, and it is what will catch the next array added
+    without an example that populates it.
     """
-    arrays = (
-        "links",
-        "orphans",
-        "snippets",
-        "unused_assets",
-        "nav_contract",
-        "references",
-        "findings",
-    )
+    arrays = ("findings",)
     populated: dict[str, str] = {}
     for example in CORPUS:
         payload = _emit(example, ("check", "all"))

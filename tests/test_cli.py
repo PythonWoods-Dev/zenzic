@@ -342,16 +342,12 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert set(data) == {
-        "links",
-        "orphans",
-        "snippets",
-        "unused_assets",
-        "nav_contract",
-        "references",
-        # Added alongside the grouped arrays, not in place of them: those stay
-        # because consumers parse them today, and this one exists because they are
-        # not machine-readable -- `references[]` carries the location and code
-        # inside an English string, `links[]` carries neither.
+        # The six grouped arrays were removed in v0.31.0. `findings[]` carries
+        # everything they did, in a shape a consumer can use: each entry has the
+        # path, the line and the code as separate fields, where `links[]` and
+        # `nav_contract[]` held prose with no code in it and `orphans[]` and
+        # `unused_assets[]` held bare paths. The schema sets
+        # additionalProperties: false, so this key set is the contract.
         "findings",
         "security_breaches",
         "security_incidents",
@@ -392,7 +388,10 @@ def test_check_all_json_with_errors(
     result = runner.invoke(app, ["check", "all", "--format", "json"])
     assert result.exit_code == 1
     data = json.loads(result.stdout)
-    assert len(data["links"]) == 1
+    # Was `len(data["links"]) == 1`. The grouped arrays are gone; the same
+    # assertion against findings[] is stronger, because it can name the code.
+    link_findings = [f for f in data["findings"] if f["code"] in {"Z101", "Z104"}]
+    assert len(link_findings) == 1, data["findings"]
 
 
 # ---------------------------------------------------------------------------
@@ -575,10 +574,12 @@ def test_check_all_only_filters_findings(
     result = runner.invoke(app, ["check", "all", "--format", "json", "--only", "Z104"])
     assert result.exit_code == 1
     data = json.loads(result.stdout)
-    assert len(data["links"]) == 1
-    assert "broken link" in data["links"][0]
-    # Orphans (Z402) should be filtered out because only Z104 is allowed
-    assert len(data["orphans"]) == 0
+    # `--only Z104` must keep the Z104 finding and drop everything else. Asserted
+    # against findings[] now the grouped arrays are gone -- and this states the
+    # filter's real contract, which `len(data["links"]) == 1` only implied.
+    codes = [f["code"] for f in data["findings"]]
+    assert codes == ["Z104"], codes
+    assert "Z402" not in codes, "orphans must be filtered out when only Z104 is allowed"
 
 
 # ---------------------------------------------------------------------------

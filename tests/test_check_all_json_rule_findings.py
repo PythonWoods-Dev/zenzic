@@ -70,7 +70,9 @@ def test_json_references_includes_rule_engine_findings(
     result = runner.invoke(app, ["check", "all", "--format", "json"])
 
     payload = json.loads(result.stdout)
-    assert any("Z502" in entry for entry in payload["references"]), (
+    # references[] was removed in v0.31.0; findings[] carries the code as a
+    # field rather than inside an English string, so the check is exact now.
+    assert any(f["code"] == "Z502" for f in payload["findings"]), (
         f"docs/short.md is genuinely short and text-mode output correctly "
         f"reports Z502 for it, but the JSON payload's `references` field "
         f"does not include it — rule-engine findings are being silently "
@@ -122,7 +124,7 @@ def test_json_references_includes_warning_level_reference_findings(
     result = runner.invoke(app, ["check", "all", "--format", "json"])
 
     payload = json.loads(result.stdout)
-    assert any("Z302" in entry for entry in payload["references"]), (
+    assert any(f["code"] == "Z302" for f in payload["findings"]), (
         f"docs/orphan-def.md defines an unused reference and text-mode "
         f"output correctly reports Z302 (a warning) for it, but the JSON "
         f"payload's `references` field does not include it. Full payload: "

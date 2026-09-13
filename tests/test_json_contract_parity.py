@@ -86,19 +86,29 @@ def test_check_all_json_carries_a_structured_findings_array(
         assert f["code"].startswith("Z"), f
 
 
-def test_the_grouped_string_arrays_are_still_present(
-    corpus: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Additive means additive: a consumer parsing the old keys keeps working.
+def test_the_grouped_string_arrays_are_gone(corpus: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The six grouped arrays were removed in v0.31.0 and must not come back.
 
-    These arrays are why the fix is not simply "emit the right shape" — replacing
-    them would break every consumer reading them today.
+    This test previously pinned their *presence*. They carried every finding a
+    second time in a shape a consumer could not use -- ``links[]`` and
+    ``nav_contract[]`` held pre-formatted prose with no code in it, ``orphans[]``
+    and ``unused_assets[]`` held bare paths -- so a CI reading the aggregate
+    payload could not resolve a finding to a file and a code from them at all.
+    ``findings[]`` carries all of it in the canonical shape, re-verified per
+    array across the whole gallery before removal: 216 items, 216 covered.
+
+    Asserting the absence rather than deleting the test is the point: the schema
+    sets ``additionalProperties: false``, so a re-added array fails validation,
+    and this says the same thing at the payload level with the reason attached.
     """
     monkeypatch.chdir(corpus)
     payload = _json(corpus, "check", "all")
-    for key in ("links", "references", "orphans", "snippets", "unused_assets", "nav_contract"):
-        assert key in payload, key
-    assert any(isinstance(x, str) for x in payload["references"]), payload["references"]
+    removed = ["links", "orphans", "snippets", "unused_assets", "nav_contract", "references"]
+    present = [name for name in removed if name in payload]
+    assert not present, (
+        f"the grouped arrays were removed in v0.31.0 but {present} is back in the "
+        f"aggregate payload; findings[] is the canonical array"
+    )
 
 
 def test_aggregate_and_per_check_json_agree_on_shared_codes(

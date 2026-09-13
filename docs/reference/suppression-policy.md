@@ -85,6 +85,21 @@ The hover never changes anything it reports on. It reads the suppression state t
 side-effect-free query, so inspecting a directive cannot consume it or alter the `Z603`
 findings for the file.
 
+!!! warning "Known limitation — `Z603` can report a working directive as dead"
+
+    For **`Z107`**, **`Z505`**, **`Z506`** and **`Z601`**, an inline directive that
+    *does* suppress its finding is still reported as `Z603`. The four rules test the
+    line through a helper that answers the question without telling the suppression
+    ledger it was used, so the ledger never learns the directive was consumed.
+
+    **Do not follow the "remove the comment" advice for these four codes without
+    checking first.** Delete the directive and the suppressed finding comes back.
+    Confirm by removing it temporarily and re-running: if the original finding
+    reappears, the directive was working and the `Z603` is wrong.
+
+    The other codes are unaffected — their suppressions route through the ledger and
+    are recorded correctly.
+
 ---
 
 ## Four Suppression Governance Levels

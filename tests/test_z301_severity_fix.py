@@ -114,4 +114,5 @@ def test_dangling_ref_appears_in_json_references(
     payload = json.loads(result.stdout)
 
     assert payload["security_breaches"] == 0, f"Full payload: {payload}"
-    assert any("Z301" in entry for entry in payload["references"]), f"Full payload: {payload}"
+    # references[] was removed in v0.31.0; findings[] names the code in a field.
+    assert any(f["code"] == "Z301" for f in payload["findings"]), f"Full payload: {payload}"
