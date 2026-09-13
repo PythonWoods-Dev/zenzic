@@ -19,7 +19,7 @@ Coverage matrix:
 from __future__ import annotations
 
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -522,10 +522,34 @@ class TestNormcasePortability:
 
 
 class TestPerformanceBaseline:
-    """5 000 mixed resolutions must complete in under 200 ms.
+    """5 000 mixed resolutions must stay cheap *relative to the machine running them*.
 
     Tests a realistic mix: hits, misses, traversal attempts, and anchor checks.
     All lookups are in-memory; no I/O, no subprocess.
+
+    This used to assert an absolute wall-clock ceiling of 200 ms, and that number was
+    calibrated on one machine and enforced on every other. It failed twice in a row on
+    a Windows CI runner at 219.6 ms and 217.1 ms -- and it was not a regression.
+    Measured against the last commit before the change under suspicion, on one machine
+    and with one script: **22.7 ms median before, 22.8 ms after**, min/max overlapping.
+    What had actually changed was the runner: the same suite took **223 s** on the
+    passing run and **317 s** on the failing one, +42% wall-clock for +5 tests. The
+    assertion had roughly 10% headroom on that hardware, so a uniformly slower runner
+    flipped it while the code was untouched.
+
+    Raising the ceiling would have hidden that rather than fixed it, and the class is
+    one this project has already corrected elsewhere: a timing measured on one machine
+    is not a property of the software. So the assertion is now a **ratio** against a
+    reference loop timed in the same process, on the same inputs, immediately
+    afterwards. A ratio is invariant to a uniformly slower machine -- which is the
+    observed failure mode -- and still catches what this test exists to catch: a rise
+    in per-resolution cost inside ``_lookup`` or ``_build_target``.
+
+    Calibration, measured over 12 trials: the ratio sits at **3.02 median, 2.52-3.40
+    range, stdev 0.203**. The limit is **6.0**, which a doubling of per-resolution cost
+    would breach and machine variance will not. The absolute figure is still reported
+    in the failure message, because it is useful to a human even when it is not the
+    thing being asserted.
     """
 
     _HREFS: list[str] = [
@@ -537,18 +561,44 @@ class TestPerformanceBaseline:
         "guide\\install.md",  # Resolved (backslash)
     ]
 
-    def test_5000_resolutions_under_200ms(self, resolver: InMemoryPathResolver) -> None:
+    #: Ratio ceiling for 5 000 resolutions against the reference loop. See the class
+    #: docstring for the calibration; 6.0 is a doubling of the measured 3.02.
+    _RATIO_LIMIT = 6.0
+
+    def test_5000_resolutions_stay_cheap_relative_to_the_machine(
+        self, resolver: InMemoryPathResolver
+    ) -> None:
         source = ROOT / "index.md"
         hrefs = (self._HREFS * 834)[:5_000]  # exactly 5 000
+
+        # Warm both paths equally: first-call import and cache effects otherwise land
+        # entirely on whichever loop runs first and distort the ratio.
+        sink = ""
+        for href in hrefs[:300]:
+            resolver.resolve(source, href)
+            sink = PurePosixPath(href).name
 
         start = time.perf_counter()
         for href in hrefs:
             resolver.resolve(source, href)
-        elapsed_ms = (time.perf_counter() - start) * 1_000
+        resolve_s = time.perf_counter() - start
 
-        assert elapsed_ms < 200.0, (
-            f"5 000 resolutions took {elapsed_ms:.1f} ms — limit is 200 ms. "
-            "Investigate _lookup or _build_target overhead."
+        # The reference shares the dominant primitive -- parsing a path-shaped string --
+        # so it scales with the same machine characteristics that made the absolute
+        # ceiling unusable, and cancels out of the ratio.
+        start = time.perf_counter()
+        for href in hrefs:
+            sink = PurePosixPath(href).name
+        reference_s = time.perf_counter() - start
+        assert sink, "the reference loop did no work, so the ratio means nothing"
+
+        ratio = resolve_s / reference_s
+        assert ratio < self._RATIO_LIMIT, (
+            f"5 000 resolutions cost {ratio:.2f}x the reference loop "
+            f"({resolve_s * 1000:.1f} ms against {reference_s * 1000:.1f} ms); "
+            f"limit is {self._RATIO_LIMIT}x and the calibrated value is ~3.0. "
+            "Investigate _lookup or _build_target overhead — this is a ratio, so a "
+            "slow machine does not move it."
         )
 
     def test_outcome_distribution_is_correct(self, resolver: InMemoryPathResolver) -> None:
