@@ -106,8 +106,9 @@ def emit(target: Path) -> int:
         f"python {digest['python']} -> {target}"
     )
     if total == 0:
-        # Rule 39: a comparison of two empty digests proves nothing, and a silent
-        # zero here would make the gate permanently green.
+        # A comparison of two empty digests proves nothing, and a silent zero here
+        # would make this gate permanently and meaninglessly green -- a zero result is
+        # evidence only once the instrument has been shown capable of a non-zero one.
         print(
             "FAILED: the digest is empty, so a comparison against it would be vacuous. "
             "Either examples/ carries no fixture with a .zenzic.toml, or the engine "
