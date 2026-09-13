@@ -449,6 +449,18 @@ class PoliciesConfig(BaseModel):
             "Strictly opt-in."
         ),
     )
+    enable_circular_link_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports every page participating in a link cycle "
+            "(Z106 CIRCULAR_LINK). Strictly opt-in, and off by default because a "
+            "cycle is documentation's ordinary shape rather than a defect: an "
+            "index links to its records and each record links back, and two "
+            "articles cross-reference each other. Enable it only for a corpus "
+            "that is meant to be an acyclic hierarchy, such as an ordered "
+            "tutorial sequence."
+        ),
+    )
     required_table_columns: dict[str, list[str]] = Field(
         default_factory=dict,
         description=(

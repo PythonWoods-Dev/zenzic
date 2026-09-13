@@ -45,13 +45,20 @@ excluded_assets = ["favicon.ico"]
 # forbidden_patterns = []
 
 # --- EXCLUSION ZONES (Full bypass — use sparingly) ---
+# The blog feeds are generated at build time and live at the site root, so no
+# relative spelling from a post can name them: the blog plugin serves
+# docs/blog/posts/X.md at /blog/YYYY/MM/DD/slug/, and a correct relative link
+# escapes docs_root under path arithmetic that cannot know the permalink. An
+# absolute path is the canonical reference -- it is what the feed itself emits
+# (mkdocs.yml: stylesheet: /blog/rss.xsl) -- declared here rather than silenced.
+absolute_path_allowlist = ["/blog/rss.xml", "/blog/rss-updated.xml"]
+
 excluded_file_patterns = []
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
 [governance.directory_policies]
 # docs/index.md: routing/SEO-only file, real content lives in
 # overrides/partials/homepage/ — see commit 59bc449.
 "docs/index.md" = ["Z411", "Z502"]
-"docs/**" = ["Z106"]
 "docs/blog/posts/**" = ["Z410", "Z411", "Z513"]
 # Individual ADR records and the internal release runbook are pulled from the
 # public nav (versioned reference material, link-checked normally, but never

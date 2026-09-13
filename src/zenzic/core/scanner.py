@@ -375,6 +375,22 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     extractor = PolyglotExtractor()
     referenced: set[str] = set()
 
+    # ── Deliberate exemption from the directory-URL depth boundary ─────────────
+    # The four `posixpath.join(base, clean_url)` computations below use the
+    # page's *source* directory, and that is correct here -- do not "consolidate"
+    # them onto `resolver.href_resolution_base`.
+    #
+    # Measured against a real `mkdocs build`, not assumed: the generator
+    # REWRITES a relative link whose literal path names a file in the tree, and
+    # an asset path does (`../../assets/pic.png` was emitted as
+    # `../../../assets/pic.png`, depth corrected). The depth boundary exists
+    # only for spellings the generator emits verbatim -- extensionless,
+    # trailing-slash, `.html` -- which asset references are not.
+    #
+    # This pass answers "which files does the corpus reference?" (feeding Z404 /
+    # Z405), against the source tree, where source-tree arithmetic is the
+    # question being asked.
+
     # 0. Frontmatter `image` key (e.g. social card / OG image references —
     #    see docs/how-to/configure-social-metadata.md) — not a markdown-body
     #    link, so invisible to the AST/HTML/inline-link passes below.
@@ -1327,16 +1343,42 @@ def _run_vsm_and_urp_pass(
             if item.node_type != "ref_def" and not item.suppressed
         ]
 
-    resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache, repo_root=repo_root)
+    # The adapter is the only component that actually reads the site generator's
+    # own config; ZenzicConfig carries no such field, so asking it yields the
+    # default whatever mkdocs.yml says (see the use_dir_urls note below).
+    adapter_dir_urls = bool(getattr(adapter, "use_directory_urls", True))
+
+    # Configured locale directory names, so the broken-link rule's locale
+    # fallback fires only for an actual language tree (see ResolutionContext).
+    _locale_names = frozenset(name for _root, name in (locale_roots or []))
+
+    resolver = InMemoryPathResolver(
+        docs_root,
+        md_contents,
+        anchors_cache,
+        repo_root=repo_root,
+        use_directory_urls=adapter_dir_urls,
+    )
 
     link_graph = _build_link_graph(links_cache, resolver, frozenset(md_contents.keys()))
 
-    cycle_nodes = set(_find_cycles_iterative(link_graph))
+    # Z106 is opt-in: a cycle is documentation's ordinary shape, not a defect
+    # signal. Left on by default it reported 704 findings across 238 of ~300
+    # pages of this repository -- index<->record pairs and an interlinked
+    # reference section -- which is why a `"docs/**" = ["Z106"]` policy had been
+    # silencing it corpus-wide. The exemption was the symptom; this is the fix.
+    cycle_nodes: set[str] = set()
+    if getattr(config.policies, "enable_circular_link_check", False):
+        cycle_nodes = set(_find_cycles_iterative(link_graph))
 
     inc_engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_root, repo_root)
     inc_engine.anchors_cache = anchors_cache
 
-    use_dir_urls = getattr(config, "use_directory_urls", True)
+    # Was `getattr(config, "use_directory_urls", True)`, which always returned
+    # True: ZenzicConfig has no such attribute, so a site built with
+    # use_directory_urls: false still got directory-URL canonicalisation.  The
+    # adapter reads the real setting out of mkdocs.yml.
+    use_dir_urls = adapter_dir_urls
     parent_global_tracker = getattr(config, "_global_tracker", None)
 
     from zenzic.core.governance import PolicyEvaluator
@@ -1372,6 +1414,7 @@ def _run_vsm_and_urp_pass(
             use_directory_urls=use_dir_urls,
             config=config,
             adapter=adapter,
+            locale_names=_locale_names,
         )
 
         vsm_findings = rule_engine.run_vsm(

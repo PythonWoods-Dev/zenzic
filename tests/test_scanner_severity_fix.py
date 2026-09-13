@@ -51,6 +51,10 @@ def test_z106_circular_link_severity_matches_codes_py(tmp_path: Path) -> None:
     (docs / "b.md").write_text("[go to a](a.md)\n", encoding="utf-8")
 
     config = ZenzicConfig()
+    # Z106 is opt-in: a cycle is documentation's ordinary shape, so the check is
+    # off unless a project declares it wants an acyclic hierarchy. This test is
+    # about the severity the code surfaces with, so it enables the check.
+    config.policies.enable_circular_link_check = True
     mgr = make_mgr(config, repo_root=tmp_path)
     reports, _ = scan_docs_references(docs, mgr, repo_root=tmp_path, config=config)
 

@@ -384,7 +384,6 @@ def resolve_link_to_canonical(
     extra_mounts: list[tuple[Path, str]],
     adapter: BaseAdapter,
 ) -> str | None:
-    import os
     from urllib.parse import unquote, urlsplit
 
     _bypass_schemes = (
@@ -405,18 +404,21 @@ def resolve_link_to_canonical(
     if not path_part:
         return None
 
-    # Resolve relative to source_file parent or docs_root
-    if path_part.startswith("/"):
-        target_path = docs_root / path_part.lstrip("/")
-    elif path_part.startswith("@site/docs/"):
-        target_path = docs_root / path_part[len("@site/docs/") :]
-    elif path_part.startswith("@site/"):
-        target_path = docs_root.parent / path_part[len("@site/") :]
-    else:
-        target_path = source_file.parent / path_part
+    # The alias rules (`/`, `@site/docs/`, `@site/`, else page-relative) and the
+    # directory-URL depth boundary are defined once in
+    # `zenzic.core.resolver.resolve_href_target`.  This used to be a fourth
+    # independent copy of them, and the copies did not agree.
+    from zenzic.core.resolver import resolve_href_target
 
-    # Clean up target_path (collapse segments)
-    target_path = Path(os.path.normpath(str(target_path)))
+    target_path = Path(
+        resolve_href_target(
+            source_file,
+            path_part,
+            str(docs_root),
+            str(docs_root.parent),
+            use_directory_urls=bool(getattr(adapter, "use_directory_urls", True)),
+        )
+    )
 
     # Determine the relative path used by the adapter
     if target_path.is_relative_to(docs_root):

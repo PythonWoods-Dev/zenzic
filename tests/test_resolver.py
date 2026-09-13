@@ -144,10 +144,29 @@ class TestPathTraversal:
         assert isinstance(outcome, PathTraversal)
 
     def test_backslash_dotdot_mixed(self, resolver: InMemoryPathResolver) -> None:
-        """Windows path with mixed separators: ..\\../etc/passwd."""
+        """Windows separators normalise, and the depth base is the page URL.
+
+        ``..\\../etc/passwd`` is extensionless, so the site generator emits it
+        verbatim and the browser resolves it against the page's URL directory --
+        ``/guide/install/`` -- where two levels up is the site root, i.e.
+        ``docs_root``.  The resolver therefore reports ``FileNotFound`` rather
+        than ``PathTraversal``: on this site the href names ``/etc/passwd``
+        *inside* the site, which does not exist.
+
+        The Tier-0 property is unaffected and that was verified end to end, not
+        assumed: a real ``zenzic check all`` over a fixture containing exactly
+        this href still emits ``Z202`` ("resolves outside the docs") and
+        Exit 1.  The security tier is the control here; this classification is
+        an internal resolution detail.
+
+        The two sibling tests stay ``PathTraversal`` and pin the boundary:
+        ``test_parallel_directory_escape`` uses a ``.md`` href, which the
+        generator rewrites, and ``test_raw_href_preserved_on_traversal``
+        starts from an ``index.md``, whose URL gains no segment.
+        """
         href = "..\\../etc/passwd"
         outcome = resolver.resolve(ROOT / "guide" / "install.md", href)
-        assert isinstance(outcome, PathTraversal)
+        assert isinstance(outcome, FileNotFound)
 
     def test_raw_href_preserved_on_traversal(self, resolver: InMemoryPathResolver) -> None:
         """The exact raw href is preserved for accurate error reporting."""

@@ -419,6 +419,12 @@ class RenameLinkMutation:
         # exact comparison it always made.
         self.match_case_insensitively = match_case_insensitively
         self._old_abs_folded = self.old_abs.casefold()
+        # An extensionless href resolves to a suffix-less string, so comparing
+        # it against `old_abs` -- a real file path, always suffixed -- could
+        # never match, and renaming a page silently left every such link
+        # pointing at the old address with no finding.
+        self._old_abs_stem = os.path.splitext(self.old_abs)[0]
+        self._old_abs_stem_folded = self._old_abs_stem.casefold()
         self.matched = False
 
     def apply(self, node: Node) -> bool:
@@ -431,13 +437,31 @@ class RenameLinkMutation:
             parsed = urlsplit(node.url)
             path_part = unquote(parsed.path.replace("\\", "/"))
             if path_part and not path_part.startswith(("/", "@site/")):
+                from zenzic.core.resolver import href_resolution_base, is_emitted_verbatim
+
+                _verbatim = is_emitted_verbatim(path_part)
                 resolved = resolve_href_target(
                     self.source_file, path_part, self.docs_root_str, self.repo_root_str
                 )
-                if resolved == self.old_abs or (
+                _hit = resolved == self.old_abs or (
                     self.match_case_insensitively and resolved.casefold() == self._old_abs_folded
-                ):
-                    new_rel = os.path.relpath(self.new_abs, self.source_file.parent)
+                )
+                if not _hit and _verbatim:
+                    _hit = resolved == self._old_abs_stem or (
+                        self.match_case_insensitively
+                        and resolved.casefold() == self._old_abs_stem_folded
+                    )
+                if _hit:
+                    # The replacement keeps the author's spelling. A suffixed
+                    # path written in place of an extensionless one would be the
+                    # right file and the wrong link: the generator rewrites the
+                    # first and emits the second verbatim, so they resolve
+                    # against different bases.
+                    _base = href_resolution_base(
+                        self.source_file, path_part, use_directory_urls=True
+                    )
+                    _target = os.path.splitext(self.new_abs)[0] if _verbatim else self.new_abs
+                    new_rel = os.path.relpath(_target, _base)
                     new_href = Path(new_rel).as_posix()
                     if parsed.fragment:
                         new_href = f"{new_href}#{parsed.fragment}"

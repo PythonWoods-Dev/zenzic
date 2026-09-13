@@ -74,6 +74,7 @@ from urllib.parse import unquote, urlsplit
 from zenzic.core import regex as re
 from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
+from zenzic.core.resolver import href_resolution_base, page_url_depth, traversal_intent
 from zenzic.core.sovereign_context import get_sovereign_context
 from zenzic.core.validator import JSX_URL_ATTRS, POLY_ATTRS_FRAGMENT, POLY_TAG_NAMES
 
@@ -115,6 +116,13 @@ class ResolutionContext:
     use_directory_urls: bool = True
     adapter: Any = None
     config: Any = None
+    #: Configured i18n locale directory names (e.g. ``{"it", "en"}``).  The
+    #: locale fallback below is gated on membership: without this, the source
+    #: file's first path segment was treated as a locale unconditionally, so
+    #: ``docs/tutorials/...`` made ``tutorials`` a "locale" and any broken link
+    #: that happened to resolve at the root was silently accepted.  Empty means
+    #: the project has no locales, and the fallback must not fire at all.
+    locale_names: frozenset[str] = frozenset()
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -1123,6 +1131,15 @@ _REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
 
 # Fenced code block fence marker
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
+#: CommonMark fence delimiter, splitting the run from its info string.  A
+#: *closing* fence must use the same character, be at least as long as the
+#: opener, and carry **no** info string.  The old naive toggle -- any
+#: ``_FENCE_RE`` match flips the state -- desynchronised on any page quoting
+#: terminal output that itself contains a fence, after which the extractor
+#: silently returned no links for the rest of the file.  `suppressions.py` and
+#: `mutator.py` already track fences correctly; this is the third copy of the
+#: same rule and the first one that was wrong (see priority table).
+_FENCE_DELIM_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 # Inline code spans — erased before link extraction to avoid false positives
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
 # Math block patterns for masking (display math $$...$$ and inline math $...$)
@@ -1168,6 +1185,8 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
 
     results: list[tuple[str, int, str]] = []
     in_block = False
+    fence_char = ""
+    fence_len = 0
     # _mask_comments blanks HTML and MDX comments with spaces of equal length
     # and preserves newlines, so line numbers and caret columns below are
     # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
@@ -1175,13 +1194,25 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     text_masked = _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
     for lineno, line in enumerate(text_masked.splitlines(), start=1):
         stripped = line.strip()
+        fence_m = _FENCE_DELIM_RE.match(stripped)
         if not in_block:
-            if _FENCE_RE.match(stripped):
+            if fence_m:
                 in_block = True
+                _run = fence_m.group("fence")
+                fence_char = _run[0]
+                fence_len = len(_run)
                 continue
         else:
-            if _FENCE_RE.match(stripped):
-                in_block = False
+            if fence_m:
+                _run = fence_m.group("fence")
+                if (
+                    _run[0] == fence_char
+                    and len(_run) >= fence_len
+                    and not fence_m.group("info").strip()
+                ):
+                    in_block = False
+                    fence_char = ""
+                    fence_len = 0
             continue
 
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
@@ -1698,8 +1729,6 @@ class VSMBrokenLinkRule(BaseRule):
             ):
                 continue
 
-            from zenzic.core.validator import _classify_traversal_intent
-
             # Defer to the security tier only for links it actually claims.
             # `_classify_traversal_intent` answers "aimed where?", not "is this a
             # traversal?": it strips leading `..` hops, of which there may be
@@ -1710,8 +1739,23 @@ class VSMBrokenLinkRule(BaseRule):
             # links under fourteen perfectly normal directory names were never
             # reported at all. Same shape as the codeAction defect: a membership
             # test asked a question it was not built to answer.
-            _is_traversal = url.startswith("/") or ".." in url.replace("\\", "/").split("/")
-            if _is_traversal and _classify_traversal_intent(url) == "suspicious":
+            # This used to guess what the security tier would claim, by asking
+            # the classifier directly. The guess and the tier's real decision
+            # then drifted apart: once the depth base was corrected, an href
+            # could be skipped here *and* declined there, reaching neither
+            # reporter. It now asks the same function the tier asks, so the two
+            # cannot disagree -- one decision, two consumers.
+            _claimed = traversal_intent(
+                url.split("?")[0].split("#")[0].replace("\\", "/"),
+                page_url_depth=page_url_depth(
+                    context.source_file,
+                    context.docs_root,
+                    use_directory_urls=context.use_directory_urls,
+                )
+                if context is not None and context.source_file is not None
+                else 0,
+            )
+            if _claimed == "system":
                 # ...unless the project allowlisted this prefix. The security
                 # tier consults the allowlist before classifying, so deferring
                 # to it here for a link the tier will not claim would drop the
@@ -1733,9 +1777,19 @@ class VSMBrokenLinkRule(BaseRule):
             #   guide/index.md  → /guide/
             #   guide/install.md → /guide/install/
             # Paths without .md suffix (e.g. "guide/install") are also handled.
+            # The boundary is defined once, in resolver.href_resolution_base --
+            # this site reads it rather than computing a base of its own.
+            _source_dir: Path | None = None
+            if context is not None and context.source_file is not None:
+                _source_dir = href_resolution_base(
+                    context.source_file,
+                    url.split("?")[0].split("#")[0].replace("\\", "/"),
+                    use_directory_urls=context.use_directory_urls,
+                )
+
             target_url = self._to_canonical_url(
                 url,
-                source_dir=context.source_file.parent if context else None,
+                source_dir=_source_dir,
                 docs_root=context.docs_root if context else None,
                 use_directory_urls=context.use_directory_urls if context else True,
             )
@@ -1762,7 +1816,19 @@ class VSMBrokenLinkRule(BaseRule):
                     rel = context.source_file.relative_to(context.docs_root)
                     if len(rel.parts) > 1:
                         locale = rel.parts[0]
-                        if target_url.startswith(f"/{locale}/"):
+                        # A directory is not a language.  `adapter.is_locale_dir`
+                        # is the authoritative predicate (it knows the i18n
+                        # plugin's configuration); `locale_names` covers locale
+                        # trees injected by a caller as locale_roots.  Without
+                        # this gate every top-level docs directory acted as a
+                        # locale, so `/tutorials/reference/checks/` fell back to
+                        # `/reference/checks/` and a broken link was accepted.
+                        _is_locale = locale in context.locale_names
+                        if not _is_locale and context.adapter is not None:
+                            _pred = getattr(context.adapter, "is_locale_dir", None)
+                            if callable(_pred):
+                                _is_locale = bool(_pred(locale))
+                        if _is_locale and target_url.startswith(f"/{locale}/"):
                             default_target_url = target_url[len(f"/{locale}") :]
                             fallback_route = vsm.get(default_target_url)
                             if fallback_route is not None:

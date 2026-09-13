@@ -40,7 +40,12 @@ from urllib.parse import unquote, urlsplit
 
 from zenzic.core.ast import ExtractedLink
 from zenzic.core.codes import SECURITY_TIER_CODES, code_severity
-from zenzic.core.resolver import resolve_href_target
+from zenzic.core.resolver import (
+    href_resolution_base,
+    page_url_depth,
+    resolve_href_target,
+    traversal_intent,
+)
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     ResolutionContext,
@@ -649,6 +654,12 @@ class IncrementalAnalysisEngine:
             docs_root=self.docs_root,
             source_file=path,
             use_directory_urls=self._use_directory_urls,
+            # The adapter carries `is_locale_dir`, which the broken-link rule's
+            # locale fallback is gated on.  Without it this path would lose the
+            # i18n fallback entirely, so the editor and the CLI would disagree
+            # about an untranslated link.
+            adapter=self.adapter,
+            config=self.config,
         )
         if self.rule_engine is not None:
             # Through the tracker, exactly as scanner.py's cross-file pass does.
@@ -1177,15 +1188,47 @@ class IncrementalAnalysisEngine:
             # `continue`, and the elif that owns absolute paths (the only branch
             # that can raise Z203) was never evaluated. Two guards deferring to
             # each other over conditions that overlapped instead of partitioning.
+            # ── The traversal decision, made once ─────────────────────────
+            # Evaluated first and unconditionally for every href, and it either
+            # claims the href or it does not.  Previously each branch decided
+            # for itself -- one from source-tree arithmetic, the other from the
+            # classifier -- and once the depth base was corrected an href could
+            # satisfy neither: `rules.py` skipped it as "the security tier's",
+            # the security tier declined because it now landed inside docs_root,
+            # and a link to /etc/passwd produced DQS 96/100 and exit 0.
+            # `traversal_intent` is text-only, so the verdict no longer depends
+            # on the URL depth convention or on repository contents.
+            _url_depth = page_url_depth(
+                path, self.docs_root, use_directory_urls=self._use_directory_urls
+            )
+            _verdict = traversal_intent(decoded_path, page_url_depth=_url_depth)
+
             # An absolute path is classified as an absolute path, whatever else
             # it contains.
             if "../" in decoded_url and not decoded_path.startswith("/"):
                 try:
-                    rel_source = path.relative_to(self.docs_root).parent.as_posix()
+                    # Containment resolves from the same base as everything
+                    # else -- where the link actually points. Tree arithmetic
+                    # here reported 71 Z202 on correctly-written deep links,
+                    # because a link correct in URL space escapes in tree space.
+                    rel_source = (
+                        href_resolution_base(
+                            path, decoded_path, use_directory_urls=self._use_directory_urls
+                        )
+                        .relative_to(self.docs_root)
+                        .as_posix()
+                    )
                     base = "" if rel_source == "." else rel_source
                     norm_target = posixpath.normpath(posixpath.join(base, decoded_path))
-                    if norm_target.startswith(".."):
-                        _intent = _classify_traversal_intent(url)
+                    # The union, and both halves are needed. Containment catches
+                    # an href that escapes the root even where it points;
+                    # `_verdict` catches one that names a system location while
+                    # landing *inside* it -- `..\../etc/passwd` from a two-deep
+                    # page normalises to `etc/passwd`, escapes nothing, and is
+                    # still hostile. Either alone is a Tier-0 false negative, and
+                    # both were observed while arriving here.
+                    if norm_target.startswith("..") or _verdict == "system":
+                        _intent = "suspicious" if _verdict == "system" else "boundary"
                         # `..` means the link leaves docs_root. Whether it also
                         # leaves the *repository* is what separates a boundary
                         # crossing from an OS traversal, and it is arithmetic:
@@ -1249,7 +1292,9 @@ class IncrementalAnalysisEngine:
 
             # Z105 / Z203
             elif parsed.path.startswith("/") or decoded_path.startswith("/"):
-                _intent = _classify_traversal_intent(url)
+                # Same single decision as branch 1 -- this branch keeps its own
+                # message and code, not its own classification.
+                _intent = "suspicious" if _verdict == "system" else "boundary"
                 # A documentation section legitimately named dev/, usr/ or var/
                 # matches the same first segment a real OS traversal target
                 # would, and this branch cannot tell them apart from the URL
@@ -1382,7 +1427,19 @@ class IncrementalAnalysisEngine:
                             )
                         )
                 else:
-                    target_path = (path.parent / unquote(parsed.path)).resolve()
+                    # The editor must read the same boundary as the CLI: this is
+                    # the LSP's own href -> route resolution, and a divergence
+                    # here shows up as the editor and `zenzic check` disagreeing
+                    # about the same link.  Lexical, via the one definition.
+                    target_path = Path(
+                        resolve_href_target(
+                            path,
+                            unquote(parsed.path).replace("\\", "/"),
+                            str(self.docs_root),
+                            str(self.repo_root),
+                            use_directory_urls=self._use_directory_urls,
+                        )
+                    )
                     try:
                         if target_path.is_relative_to(self.docs_root):
                             rel_obj = target_path.relative_to(self.docs_root)

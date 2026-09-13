@@ -1527,7 +1527,10 @@ class TestCircularLinkIntegration:
         docs.mkdir()
         (docs / "a.md").write_text("[go to b](b.md)\n")
         (docs / "b.md").write_text("[go to a](a.md)\n")
+        # Z106 is opt-in (a cycle is documentation's ordinary shape); these
+        # tests exercise the capability, so they enable it explicitly.
         config = ZenzicConfig()
+        config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
@@ -1540,7 +1543,10 @@ class TestCircularLinkIntegration:
         (docs / "a.md").write_text("[go to b](b.md)\n")
         (docs / "b.md").write_text("[go to c](c.md)\n")
         (docs / "c.md").write_text("# Terminus\n")
+        # Z106 is opt-in (a cycle is documentation's ordinary shape); these
+        # tests exercise the capability, so they enable it explicitly.
         config = ZenzicConfig()
+        config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
@@ -1555,7 +1561,10 @@ class TestCircularLinkIntegration:
         it_dir.mkdir()
         (docs / "guide.md").write_text("[Italian version](it/guide.md)\n")
         (it_dir / "guide.md").write_text("[English version](../guide.md)\n")
+        # Z106 is opt-in (a cycle is documentation's ordinary shape); these
+        # tests exercise the capability, so they enable it explicitly.
         config = ZenzicConfig()
+        config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)

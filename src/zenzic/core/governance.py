@@ -829,8 +829,22 @@ class PolicyEvaluator:
                         break
 
             if resolved_target_file is None:
+                # Fallback when the route resolver cannot answer.  Reads the one
+                # boundary definition (resolver.href_resolution_base) instead of
+                # computing a base here, and is lexical -- the previous
+                # `.resolve()` touched the filesystem and followed symlinks
+                # inside a comparison that only needs path arithmetic.
+                from zenzic.core.resolver import resolve_href_target
+
                 try:
-                    resolved_target_file = (file_path.parent / unquote(raw_path)).resolve()
+                    resolved_target_file = Path(
+                        resolve_href_target(
+                            file_path,
+                            unquote(raw_path).replace("\\", "/"),
+                            str(docs_root) if docs_root else str(file_path.parent),
+                            str(repo_root) if repo_root else str(file_path.parent),
+                        )
+                    )
                 except (ValueError, OSError):
                     continue
 

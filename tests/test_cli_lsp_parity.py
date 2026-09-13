@@ -29,7 +29,7 @@ from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
-from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap
+from zenzic.models.vsm import VirtualBufferOverlay, build_vsm
 
 
 runner = CliRunner()
@@ -47,6 +47,41 @@ _EXAMPLES_ROOT = Path(__file__).resolve().parents[1] / "examples"
 #: comparison; unifying topology detection is the row's own longer-term
 #: architectural recommendation, not something this guard should mask or
 #: silently paper over by pretending these codes already agree.
+#:
+#: Re-measured 2026-09-13, because the exclusion had never been checked against
+#: what it actually hides. Two separate things were behind it:
+#:
+#: 1. **An artifact of this harness.** It built a bare ``VirtualSiteMap()``,
+#:    which has no routes and no entry points, so topology detection saw every
+#:    page as unreachable or dead-ended -- **157 Z410/Z411 on this repository's
+#:    own corpus that the language server never emits** (server.py:288 builds
+#:    the VSM properly; with a built VSM the same run yields **0**). Fixed here:
+#:    the harness now builds the VSM the way the server does. Driving the LSP
+#:    along a path no server takes is part of why three divergences got through.
+#:
+#: 2. **One real, user-visible divergence, which this exclusion does hide.**
+#:    With a correctly built VSM the remaining difference is ``Z106``: the CLI
+#:    reports a circular link, the editor reports nothing, because cycle
+#:    detection runs only in ``scanner.py``'s ``_find_cycles_iterative`` and the
+#:    incremental engine has no equivalent pass.
+#:
+#:    **This is a missing capability on one side, not two implementations
+#:    disagreeing** -- the distinction matters to whoever acts on it. The editor
+#:    does not detect cycles at all; it does not compute a different answer. No
+#:    user of *this* repository meets it either way: ``.zenzic.toml`` exempts
+#:    ``Z106`` for ``docs/**``, so the CLI reports none here (it would otherwise
+#:    find 72 nodes in cycles). A user whose own docs contain a cycle and who
+#:    has not exempted the code sees it in CI and not in the editor.
+#:
+#:    Costed 2026-09-13, and the algorithm is not the expense: the DFS runs in
+#:    **0.47 ms median** over this corpus, and the VSM already maintains an
+#:    adjacency map (``outgoing_links``), so no new structure is needed. The
+#:    work is that **the two graphs are not the same graph** -- the CLI's is
+#:    keyed by ``Path`` with Ghost Routes and non-source targets excluded
+#:    (300 nodes, 668 edges), the VSM's is keyed by canonical URL (300 nodes,
+#:    **794** edges). Running the existing DFS over the VSM graph would produce
+#:    different cycles and create a divergence rather than close one. Deferred
+#:    to v0.31.1 for that reason, not for the cost.
 _TOPOLOGY_FAMILY_CODES = frozenset({"Z106", "Z402", "Z403", "Z410", "Z411", "Z412"})
 
 
@@ -72,7 +107,25 @@ def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
     rule_engine = _build_rule_engine(config)
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    vsm = VirtualSiteMap()
+    # Build the VSM the way the language server does (server.py:288). A bare
+    # `VirtualSiteMap()` has no routes and no entry points, so topology
+    # detection sees every page as unreachable or dead-ended: on this
+    # repository's own corpus that produced 157 Z410/Z411 the server never
+    # emits, and it is the reason the topology family had to be excluded below.
+    # Driving the LSP along a path no server takes is what let three
+    # divergences through, so the harness now takes the real one.
+    md_contents = {
+        p: p.read_text(encoding="utf-8", errors="replace") for p in docs_root.rglob("*.md")
+    }
+    vsm = build_vsm(
+        adapter,
+        docs_root,
+        md_contents,
+        anchors_cache={p: set() for p in md_contents},
+        extra_content_roots=[],
+        repo_root=repo_root,
+        static_assets=set(),
+    )
     overlay = VirtualBufferOverlay(vsm)
     engine = IncrementalAnalysisEngine(
         config=config,
