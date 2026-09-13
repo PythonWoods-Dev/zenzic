@@ -550,6 +550,32 @@ class TestPerformanceBaseline:
     would breach and machine variance will not. The absolute figure is still reported
     in the failure message, because it is useful to a human even when it is not the
     thing being asserted.
+
+    **The ratio alone was not enough, and the second failure said why.** On the Windows
+    runner it read **6.08** -- `217.3 ms against 35.7 ms` -- where this machine reads
+    3.02. A ratio cancels a uniformly slower machine, but coverage is not uniform: it
+    instruments `resolver.resolve`, which is under `--source=src/zenzic`, and does not
+    instrument `PurePosixPath`, which is stdlib. So the overhead lands entirely on the
+    numerator. Reproduced locally by forcing coverage's tracer core, since Python 3.14
+    on Linux uses `sys.monitoring` and pays almost nothing:
+
+        COVERAGE_CORE=sysmon    resolve  37.0 ms   ref 14.7 ms   ratio 2.52
+        COVERAGE_CORE=ctrace    resolve 168.5 ms   ref 30.5 ms   ratio 5.52
+        COVERAGE_CORE=pytrace   resolve 458.0 ms   ref 67.1 ms   ratio 6.83
+
+    CI's 6.08 sits between the last two, so that runner is not using `sys.monitoring`.
+
+    Hence `@pytest.mark.no_cover`: a performance test run under a profiler measures the
+    profiler. Disabling instrumentation for this one test is not a convenience, it is
+    the only way the measurement means what its name says. Coverage for every other
+    test, on every platform, is untouched -- and the `resolver.py` lines this test
+    would have covered are covered by the ~40 other tests in this file.
+
+    **Why it passed until now, measured rather than guessed.** Under `ctrace`, the last
+    commit that passed CI reads **5.52** and HEAD reads **5.60** -- 1.4% apart, so the
+    normalisation added nothing. The corpus is a fixed constant in this file and did not
+    grow. The test was simply sitting at ~92% of its limit under instrumentation on both
+    commits, which is why two consecutive runs failed rather than one unlucky one.
     """
 
     _HREFS: list[str] = [
@@ -565,6 +591,7 @@ class TestPerformanceBaseline:
     #: docstring for the calibration; 6.0 is a doubling of the measured 3.02.
     _RATIO_LIMIT = 6.0
 
+    @pytest.mark.no_cover
     def test_5000_resolutions_stay_cheap_relative_to_the_machine(
         self, resolver: InMemoryPathResolver
     ) -> None:
