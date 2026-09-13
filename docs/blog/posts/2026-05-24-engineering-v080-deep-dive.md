@@ -332,9 +332,9 @@ That is what a zero-config ecosystem looks like when engineering contracts are t
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 - **License**: Apache-2.0
 

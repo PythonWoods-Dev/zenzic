@@ -407,7 +407,7 @@ External URLs (or URL prefixes) excluded from the broken-link check in `--strict
 ```toml
 excluded_external_urls = [
   "https://internal.example.com",
-  "https://github.com/PythonWoods/unreleased-repo",
+  "https://github.com/PythonWoods-Dev/unreleased-repo",
 ]
 ```
 

@@ -19,7 +19,7 @@ effort and ensure the integrity of the codebase.
 Clone the repository and set up the full development environment in one step:
 
 ```bash
-git clone https://github.com/PythonWoods/zenzic.git
+git clone https://github.com/PythonWoods-Dev/zenzic.git
 cd zenzic
 nox -s dev
 ```
@@ -33,7 +33,7 @@ For a lower-level setup or if you do not have `nox` installed yet, install with 
 === "uv (recommended)"
 
     ```bash
-    git clone https://github.com/PythonWoods/zenzic.git
+    git clone https://github.com/PythonWoods-Dev/zenzic.git
     cd zenzic
     uv sync --group dev
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -46,7 +46,7 @@ For a lower-level setup or if you do not have `nox` installed yet, install with 
 === "pip"
 
     ```bash
-    git clone https://github.com/PythonWoods/zenzic.git
+    git clone https://github.com/PythonWoods-Dev/zenzic.git
     cd zenzic
     python -m venv .venv
     source .venv/bin/activate   # Windows: .venv\Scripts\activate

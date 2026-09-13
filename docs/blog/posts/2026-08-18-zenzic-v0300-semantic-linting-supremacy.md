@@ -160,7 +160,7 @@ The Thin Client Architecture (ADR-075) was always designed to keep the extension
 For teams enforcing documentation quality in GitHub Actions, Zenzic's SARIF integration turns findings into native GitHub PR annotations:
 
 ```yaml
-- uses: PythonWoods/zenzic-action@v2
+- uses: PythonWoods-Dev/zenzic-action@v2
   with:
     format: sarif
     upload-sarif: "true"
@@ -203,10 +203,10 @@ Explore the complete [Finding Codes Reference](../../reference/finding-codes.md)
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
 - **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 - **License**: Apache-2.0
 

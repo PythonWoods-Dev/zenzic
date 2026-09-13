@@ -177,7 +177,7 @@ invocation only.
 
     ```yaml title=".pre-commit-config.yaml"
     repos:
-      - repo: https://github.com/PythonWoods/zenzic
+      - repo: https://github.com/PythonWoods-Dev/zenzic
         rev: v0.30.0  # Pinned version for deterministic local verification
         hooks:
           # Fast staged-file credential & forbidden pattern scanner (<50ms per commit)
@@ -199,7 +199,7 @@ invocation only.
 
 === "GitHub Action Wrapper (Automated CI & SARIF Annotations)"
 
-    The official [`PythonWoods/zenzic-action`](https://github.com/PythonWoods/zenzic-action) serves as the CI-side counterpart to local pre-commit hooks, providing zero-config pull request enforcement and automatic SARIF upload:
+    The official [`PythonWoods-Dev/zenzic-action`](https://github.com/PythonWoods-Dev/zenzic-action) serves as the CI-side counterpart to local pre-commit hooks, providing zero-config pull request enforcement and automatic SARIF upload:
 
     ```yaml title=".github/workflows/zenzic.yml"
     name: Zenzic Documentation Quality Gate
@@ -220,7 +220,7 @@ invocation only.
           - uses: actions/checkout@v4
 
           - name: Execute Zenzic Quality Gate
-            uses: PythonWoods/zenzic-action@v2
+            uses: PythonWoods-Dev/zenzic-action@v2
             with:
               version: "0.30.0"
               format: sarif

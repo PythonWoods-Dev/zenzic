@@ -94,10 +94,10 @@ The Zenzic VS Code extension updates automatically via the Visual Studio Marketp
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
 - **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **License**: Apache-2.0
 
 ## Trademark & Legal Disclaimer

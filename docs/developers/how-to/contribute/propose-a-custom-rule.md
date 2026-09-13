@@ -22,7 +22,7 @@ should flag this pattern," not a broader feature or CLI change.
 ## Issue template
 
 Opening a new issue and selecting __Custom Rule Proposal__ loads
-[`custom_rule_proposal.yml`](https://github.com/PythonWoods/zenzic/blob/main/.github/ISSUE_TEMPLATE/custom_rule_proposal.yml),
+[`custom_rule_proposal.yml`](https://github.com/PythonWoods-Dev/zenzic/blob/main/.github/ISSUE_TEMPLATE/custom_rule_proposal.yml),
 which asks for the following fields:
 
 - What documentation flaw do you want to catch? <small>required</small>

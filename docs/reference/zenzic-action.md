@@ -7,9 +7,9 @@ description: "Complete reference for the Zenzic GitHub Action — inputs, output
 
 # Zenzic GitHub Action Reference
 
-The `PythonWoods/zenzic-action` action is the official CI enforcement point for the Zenzic documentation quality system. In non-audit mode it executes a three-stage validation pipeline: `zenzic check all` (structural findings), `zenzic score` (DQS governance: `fail_under` + `suppression_cap`), and `zenzic score --check-stamp` (badge freshness, enabled by default). Findings are surfaced in GitHub Code Scanning, and quality regression gating is handled via `zenzic diff` when a baseline is configured.
+The `PythonWoods-Dev/zenzic-action` action is the official CI enforcement point for the Zenzic documentation quality system. In non-audit mode it executes a three-stage validation pipeline: `zenzic check all` (structural findings), `zenzic score` (DQS governance: `fail_under` + `suppression_cap`), and `zenzic score --check-stamp` (badge freshness, enabled by default). Findings are surfaced in GitHub Code Scanning, and quality regression gating is handled via `zenzic diff` when a baseline is configured.
 
-Source: [github.com/PythonWoods/zenzic-action](https://github.com/PythonWoods/zenzic-action)
+Source: [github.com/PythonWoods-Dev/zenzic-action](https://github.com/PythonWoods-Dev/zenzic-action)
 
 ---
 
@@ -143,7 +143,7 @@ Minimum permissions required for the most common configurations:
 The `ZENZIC_EXTRA_ARGS` environment variable passes additional flags directly to the Zenzic CLI without modifying action inputs:
 
 ```yaml
-- uses: PythonWoods/zenzic-action@<version>
+- uses: PythonWoods-Dev/zenzic-action@<version>
   with:
     version: "<version>"
   env:

@@ -39,11 +39,11 @@ def test_link_validator_register_filters_excluded_urls(tmp_path: Path):
     """Ensure LinkValidator.register drops excluded URLs before internal registration."""
     config = ZenzicConfig.model_validate({"excluded_external_urls": ["https://github.com"]})
     validator = LinkValidator(config, tmp_path)
-    validator.register("https://github.com/PythonWoods/zenzic", tmp_path / "test.md", 1)
+    validator.register("https://github.com/PythonWoods-Dev/zenzic", tmp_path / "test.md", 1)
     validator.register("https://zenzic.dev/guide", tmp_path / "test.md", 2)
 
     assert validator.unique_url_count == 1
-    assert "https://github.com/PythonWoods/zenzic" not in validator._registrations
+    assert "https://github.com/PythonWoods-Dev/zenzic" not in validator._registrations
     assert "https://zenzic.dev/guide" in validator._registrations
 
 

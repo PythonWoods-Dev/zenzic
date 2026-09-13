@@ -275,7 +275,7 @@ Test the engine against your current repository without installing dependencies:
 uvx zenzic check all
 ```
 
-- **Source Code & Architecture**: <https://github.com/PythonWoods/zenzic>
+- **Source Code & Architecture**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Official Documentation**: <https://zenzic.dev>
 - **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
 
@@ -283,10 +283,10 @@ uvx zenzic check all
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
 - **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 - **License**: Apache-2.0
 

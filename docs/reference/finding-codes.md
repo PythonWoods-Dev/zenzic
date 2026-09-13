@@ -1029,7 +1029,7 @@ System-level diagnostic findings and worker watchdog execution alerts.
 
 An unhandled exception in a core rule or plugin. Zenzic's fail-visible principle converts silent crashes into explicit Z901 findings so the partial result is auditable.
 
-**Fix:** Check the CLI output for a Python traceback. Report the issue at `https://github.com/PythonWoods/zenzic/issues`.
+**Fix:** Check the CLI output for a Python traceback. Report the issue at `https://github.com/PythonWoods-Dev/zenzic/issues`.
 
 ---
 

@@ -36,7 +36,7 @@ Add Zenzic to your `.pre-commit-config.yaml`:
 
 ```yaml title=".pre-commit-config.yaml"
 repos:
-  - repo: https://github.com/PythonWoods/zenzic
+  - repo: https://github.com/PythonWoods-Dev/zenzic
     rev: v0.30.0  # Pinned release tag for reproducible local audits
     hooks:
       # Fast staged-file credential & forbidden pattern scanner (<50ms per commit)
@@ -238,7 +238,7 @@ If you need to remove Zenzic from your project, the decommission process takes l
 Delete the Zenzic block from your workflow files (e.g., `.github/workflows/docs.yml`):
 
 ```yaml
-- uses: PythonWoods/zenzic-action@<version>
+- uses: PythonWoods-Dev/zenzic-action@<version>
   with:
     version: "<version>"
     format: sarif

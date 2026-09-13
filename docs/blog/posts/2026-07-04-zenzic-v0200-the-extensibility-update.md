@@ -201,11 +201,11 @@ v0.20.0 did not bend any of the engine's core constraints:
 
 ## What's Next
 
-To start writing your own custom rules, consult the [Custom Rules API v2 Guide](../../developers/how-to/write-ast-rule.md). For a complete list of changes, see the [v0.20.0 Release Notes](https://github.com/PythonWoods/zenzic/releases/tag/v0.20.0).
+To start writing your own custom rules, consult the [Custom Rules API v2 Guide](../../developers/how-to/write-ast-rule.md). For a complete list of changes, see the [v0.20.0 Release Notes](https://github.com/PythonWoods-Dev/zenzic/releases/tag/v0.20.0).
 
 ---
 
-Full release notes: [CHANGELOG.md — v0.20.0](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
+Full release notes: [CHANGELOG.md — v0.20.0](https://github.com/PythonWoods-Dev/zenzic/blob/main/CHANGELOG.md)
 Custom AST Rules guide: [Writing Custom AST Rules (API v2)](../../developers/how-to/write-ast-rule.md)
 Finding codes reference: [Z901 / Z902](../../reference/finding-codes.md)
 
@@ -213,9 +213,9 @@ Finding codes reference: [Z901 / Z902](../../reference/finding-codes.md)
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 - **License**: Apache-2.0
 

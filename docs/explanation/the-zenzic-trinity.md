@@ -15,7 +15,7 @@ concerns that form a closed feedback loop, each reinforcing the others.
 
 The Trinity divides **concerns**, not repositories. Logic and intent — the engine, and the
 documentation that defines why the engine behaves as it does — live together in the
-[`zenzic`](https://github.com/PythonWoods/zenzic) repository. Enforcement is deliberately
+[`zenzic`](https://github.com/PythonWoods-Dev/zenzic) repository. Enforcement is deliberately
 not a single place at all: the same rules are applied in CI, in the editor, and to any
 system that consumes them, each through its own thin surface over the identical engine.
 A reader looking for a repository map will not find one here; this page is about which
@@ -25,7 +25,7 @@ guarantees hold and why, not about where files are stored.
 
 ## 1. Logic — The Body {#core-the-body}
 
-The [`zenzic`](https://github.com/PythonWoods/zenzic) repository is the **tactical execution
+The [`zenzic`](https://github.com/PythonWoods-Dev/zenzic) repository is the **tactical execution
 layer**. It contains every line of analysis logic that enforces the Three Pillars, and — in
 the same repository, reviewed in the same commits — the Constitutional Layer that decides
 what those rules should be.
@@ -87,8 +87,8 @@ changes.
 
 | Surface | Where it applies the rules | Status |
 | :--- | :--- | :--- |
-| [`zenzic-action`](https://github.com/PythonWoods/zenzic-action) | In CI, as a merge gate on the pull request | Released |
-| [`zenzic-vscode`](https://github.com/PythonWoods/zenzic-vscode) | In the editor, at the keystroke, before a commit exists | Released |
+| [`zenzic-action`](https://github.com/PythonWoods-Dev/zenzic-action) | In CI, as a merge gate on the pull request | Released |
+| [`zenzic-vscode`](https://github.com/PythonWoods-Dev/zenzic-vscode) | In the editor, at the keystroke, before a commit exists | Released |
 | [`zenzic-mcp`](https://github.com/PythonWoods-Dev/zenzic-mcp) | To AI systems consuming the analysis directly | In development, not yet released |
 
 Each is a thin client, which is what keeps the promise honest: none of them re-implements a
@@ -101,7 +101,7 @@ The CI surface is the one with a formal contract worth stating here:
 
 ```yaml title=".github/workflows/zenzic.yml"
 
-- uses: PythonWoods/zenzic-action@<version>
+- uses: PythonWoods-Dev/zenzic-action@<version>
 
   with:
     version: "<version>"

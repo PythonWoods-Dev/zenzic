@@ -15,7 +15,7 @@ description: "How to report bugs effectively with reproduction steps."
 Zenzic is an actively maintained project that we constantly strive to improve.
 With a project of this size and complexity, bugs may occur. If you think you
 have discovered a bug, you can help us by submitting an issue in our public
-[issue tracker](https://github.com/PythonWoods/zenzic/issues), following this guide.
+[issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues), following this guide.
 
 ---
 
@@ -28,7 +28,7 @@ Before submitting a new issue, please complete the following steps.
 
 Chances are that the bug you discovered was already fixed in a subsequent
 version. Before reporting an issue, ensure that you're running the
-[latest version](https://github.com/PythonWoods/zenzic/releases) of Zenzic.
+[latest version](https://github.com/PythonWoods-Dev/zenzic/releases) of Zenzic.
 
 !!! warning "Bug fixes are not backported"
 
@@ -42,7 +42,7 @@ Before creating a bug report, do some research:
 
    related to your problem.
 
-2. [Search our issue tracker](https://github.com/PythonWoods/zenzic/issues), as another user might already
+2. [Search our issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues), as another user might already
 
    have reported the same problem.
 
@@ -54,7 +54,7 @@ them in the bug report.__
 ## Issue template
 
 Opening a new issue and selecting __Bug Report__ loads
-[`bug_report.yml`](https://github.com/PythonWoods/zenzic/blob/main/.github/ISSUE_TEMPLATE/bug_report.yml),
+[`bug_report.yml`](https://github.com/PythonWoods-Dev/zenzic/blob/main/.github/ISSUE_TEMPLATE/bug_report.yml),
 which asks for the following fields:
 
 - Zenzic version <small>required</small>

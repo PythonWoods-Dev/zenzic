@@ -135,9 +135,9 @@ nothing.
 ## Contributing
 
 Full contribution guidelines, code conventions, Core Laws, and the pre-PR checklist
-are in [`CONTRIBUTING.md`](https://github.com/PythonWoods/zenzic/blob/main/CONTRIBUTING.md)
+are in [`CONTRIBUTING.md`](https://github.com/PythonWoods-Dev/zenzic/blob/main/CONTRIBUTING.md)
 on GitHub.
 
 When you open a pull request, GitHub automatically loads the
-[PR checklist](https://github.com/PythonWoods/zenzic/blob/main/.github/PULL_REQUEST_TEMPLATE.md)
+[PR checklist](https://github.com/PythonWoods-Dev/zenzic/blob/main/.github/PULL_REQUEST_TEMPLATE.md)
 — verify all items before requesting a review.

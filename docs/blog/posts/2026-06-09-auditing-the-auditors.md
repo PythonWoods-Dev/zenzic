@@ -170,7 +170,7 @@ The findings discussed in this article were discovered while validating Zenzic, 
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
 - **License**: Apache-2.0
 

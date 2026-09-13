@@ -80,7 +80,7 @@ The pre-commit hook remains the recommended way to try this — no global instal
 
 ```yaml title=".pre-commit-config.yaml"
 repos:
-  - repo: https://github.com/PythonWoods/zenzic
+  - repo: https://github.com/PythonWoods-Dev/zenzic
     rev: v0.30.0
     hooks:
       - id: zenzic-guard
@@ -119,10 +119,10 @@ Full reference for `--only`, including flag behavior for `zenzic check` versus `
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
 - **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 - **License**: Apache-2.0
 

@@ -88,7 +88,7 @@ With the bridge in place, the landing page Jinja2 partials can use standard Tail
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
 - **License**: Apache-2.0
 

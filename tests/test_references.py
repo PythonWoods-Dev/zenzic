@@ -856,7 +856,7 @@ class TestLinkValidator:
     def test_global_deduplication_same_url_multiple_files(self, tmp_path: Path) -> None:
         """50 registrations of the same URL → unique_url_count == 1."""
         validator = LinkValidator(ZenzicConfig(), tmp_path)
-        shared_url = "https://github.com/PythonWoods/zenzic"
+        shared_url = "https://github.com/PythonWoods-Dev/zenzic"
         for i in range(50):
             validator.register(shared_url, tmp_path / f"doc{i}.md", i + 1)
         assert validator.unique_url_count == 1

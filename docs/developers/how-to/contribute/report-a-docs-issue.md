@@ -16,14 +16,14 @@ Our documentation includes extensive information on features, configurations,
 and much more. If you have found an inconsistency or see room for improvement,
 please follow this guide to submit an issue on our [issue tracker].
 
-  [issue tracker]: https://github.com/PythonWoods/zenzic/issues
+  [issue tracker]: https://github.com/PythonWoods-Dev/zenzic/issues
 
 ---
 
 ## Issue template
 
 There is no dedicated GitHub issue template for documentation problems yet —
-open a [blank issue](https://github.com/PythonWoods/zenzic/issues/new) rather
+open a [blank issue](https://github.com/PythonWoods-Dev/zenzic/issues/new) rather
 than picking one of the structured templates (those are for bug reports,
 feature requests, and similar categories that don't fit a docs correction).
 Reporting a documentation issue is usually less involved than reporting a

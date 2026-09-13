@@ -19,7 +19,7 @@ report it privately via one of these channels:
 For lower-severity, non-exploitable issues (Shield false positives/negatives, incorrect
 exit-code behaviour, or a suspected ReDoS in a specific input) that don't expose secrets or
 enable remote code execution, a public
-[Security Vulnerability issue template](https://github.com/PythonWoods/zenzic/issues/new?template=security_vulnerability.yml)
+[Security Vulnerability issue template](https://github.com/PythonWoods-Dev/zenzic/issues/new?template=security_vulnerability.yml)
 is also available — it never asks for real secret values.
 
 Please include a clear description of the vulnerability, steps to reproduce, potential
@@ -78,7 +78,7 @@ Artifact Attestations.
 1. Verify the attestation against the repository:
 
 ```bash
-gh attestation verify ./zenzic-<version>-py3-none-any.whl --repo PythonWoods/zenzic
+gh attestation verify ./zenzic-<version>-py3-none-any.whl --repo PythonWoods-Dev/zenzic
 ```
 
 1. Accept the artifact only when attestation verification succeeds.

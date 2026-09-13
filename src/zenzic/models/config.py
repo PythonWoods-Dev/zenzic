@@ -813,7 +813,7 @@ class ZenzicConfig(BaseModel):
             "A URL is skipped when it starts with any entry in this list. "
             "Use this for URLs that are valid but not yet publicly reachable at lint time "
             "(e.g. a GitHub repo not yet created, an internal service behind a firewall). "
-            'Example: ["https://github.com/PythonWoods/zenzic"]'
+            'Example: ["https://github.com/PythonWoods-Dev/zenzic"]'
         ),
     )
     absolute_path_allowlist: list[str] = Field(

@@ -51,7 +51,7 @@ This is not a warning. It is a critical, **non-suppressible** violation. If Zenz
 
 The v0.17.0 release extends Zenzic's validation coverage to raw HTML embedded in Markdown documents. As we move towards v0.18.0, our focus will shift from CI/CD execution into the editor through the upcoming Zenzic Language Server (ZLS).
 
-Check out the [Changelog](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md) for the full list of updates and bug fixes in this release.
+Check out the [Changelog](https://github.com/PythonWoods-Dev/zenzic/blob/main/CHANGELOG.md) for the full list of updates and bug fixes in this release.
 
 Happy writing.
 
@@ -59,10 +59,10 @@ Happy writing.
 
 ## Resources
 
-* **Source Code**: <https://github.com/PythonWoods/zenzic>
+* **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 * **Documentation**: <https://zenzic.dev>
 * **VS Code Extension**: <https://marketplace.visualstudio.com/items?itemName=PythonWoods.zenzic-vscode>
-* **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+* **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 * **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 * **License**: Apache-2.0
 

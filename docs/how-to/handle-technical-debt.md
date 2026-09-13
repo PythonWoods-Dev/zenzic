@@ -217,4 +217,4 @@ Zenzic does not require either choice.
 - [Scoring Algorithm](../reference/scoring-algorithm.md) — How debt interacts with the Gravity Cap and category weights.
 - [`zenzic explain`](../reference/cli.md) — Inspect any rule's cost and suppression status.
 - [`zenzic score --trend`](../reference/cli.md) — Full option reference for the recorded score series.
-- [Example: Suppression Mechanics](https://github.com/PythonWoods/zenzic/tree/main/examples/scoring) — Runnable demo with 7 active suppressions.
+- [Example: Suppression Mechanics](https://github.com/PythonWoods-Dev/zenzic/tree/main/examples/scoring) — Runnable demo with 7 active suppressions.

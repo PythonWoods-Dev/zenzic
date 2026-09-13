@@ -55,15 +55,15 @@ Zenzic v0.10.0 ships with a new **Async Network Engine** built on `asyncio` and 
 
 Furthermore, the engine now features an **Anti-Overfetching Smart Fallback**. When external servers arbitrarily block `HEAD` requests (e.g., returning 403 or 405), Zenzic immediately falls back to a streaming `GET` request, safely aborting the connection before downloading the actual payload. Zero false positives. Zero network non-determinism.
 
-Hostile precision, zero fluff. Upgrade to v0.10.0 via the official `PythonWoods/zenzic-action` composite action or locally via `uv tool upgrade zenzic`.
+Hostile precision, zero fluff. Upgrade to v0.10.0 via the official `PythonWoods-Dev/zenzic-action` composite action or locally via `uv tool upgrade zenzic`.
 
 ---
 
 ## Resources
 
-- **Source Code**: <https://github.com/PythonWoods/zenzic>
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
 - **Documentation**: <https://zenzic.dev>
-- **GitHub Action**: <https://github.com/PythonWoods/zenzic-action>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
 - **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
 - **License**: Apache-2.0
 

@@ -20,7 +20,7 @@ our software meets the needs of our community.
 
     We highly value every idea or contribution from our community, and we
     kindly ask you to take the time to read the following guidelines before
-    submitting your change request in our public [issue tracker](https://github.com/PythonWoods/zenzic/issues). Before
+    submitting your change request in our public [issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues). Before
     submitting a new idea, please take a moment to read
     the section on how we manage change requests below.
 
@@ -52,7 +52,7 @@ them in the change request.**
 ## Issue template
 
 Opening a new issue and selecting **Feature Request** loads
-[`feature_request.yml`](https://github.com/PythonWoods/zenzic/blob/main/.github/ISSUE_TEMPLATE/feature_request.yml),
+[`feature_request.yml`](https://github.com/PythonWoods-Dev/zenzic/blob/main/.github/ISSUE_TEMPLATE/feature_request.yml),
 which asks for the following fields:
 
 - Feature category <small>required</small>
@@ -113,7 +113,7 @@ documentation needs updating alongside the feature.
 
 ## How we manage change requests
 
-Change requests are submitted as issues on our public [issue tracker](https://github.com/PythonWoods/zenzic/issues). Here's
+Change requests are submitted as issues on our public [issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues). Here's
 how we handle them:
 
 1. We read and review the request to understand the idea.

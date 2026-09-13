@@ -9,7 +9,7 @@ description: "Community resources, contribution guides, and project governance."
 
 Zenzic is a Deterministic Document Integrity Engine for Markdown/MDX graphs.
 
-Built by [PythonWoods](https://github.com/PythonWoods/zenzic), it is designed to run in CI/CD pipelines and catch documentation issues before they reach users.
+Built by [PythonWoods](https://github.com/PythonWoods-Dev/zenzic), it is designed to run in CI/CD pipelines and catch documentation issues before they reach users.
 
 Attribution: Zenzic is a PythonWoods project. Zensical, MkDocs, and other
 ecosystem tools referenced in this documentation are third-party projects.
@@ -40,7 +40,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     Source code, issues, and releases on GitHub.
 
-    [:material-arrow-right: Open](https://github.com/PythonWoods/zenzic)
+    [:material-arrow-right: Open](https://github.com/PythonWoods-Dev/zenzic)
 
 - :material-history: &nbsp; __Changelog__
 
@@ -48,7 +48,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     Full release history with version-by-version notes.
 
-    [:material-arrow-right: Read](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
+    [:material-arrow-right: Read](https://github.com/PythonWoods-Dev/zenzic/blob/main/CHANGELOG.md)
 
 </div>
 

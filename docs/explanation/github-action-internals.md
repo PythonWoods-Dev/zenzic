@@ -9,7 +9,7 @@ description: "How zenzic-action enforces security: Path Traversal Guard protocol
 
 This page is for **engineers who need to understand what `zenzic-action` does under the hood** — security reviewers, platform teams integrating Zenzic into shared infrastructure, and contributors to the action itself.
 
-For day-to-day usage (copy-paste YAML, input reference), see the [CI/CD Integration guide](../../how-to/configure-ci-cd/) and the [action README](https://github.com/PythonWoods/zenzic-action).
+For day-to-day usage (copy-paste YAML, input reference), see the [CI/CD Integration guide](../../how-to/configure-ci-cd/) and the [action README](https://github.com/PythonWoods-Dev/zenzic-action).
 
 ---
 
@@ -195,7 +195,7 @@ set +f                         # restore glob expansion
 
 | Resource | Description |
 |---|---|
-| [action README](https://github.com/PythonWoods/zenzic-action) | Quick Start, inputs/outputs reference, Sovereign Override usage |
+| [action README](https://github.com/PythonWoods-Dev/zenzic-action) | Quick Start, inputs/outputs reference, Sovereign Override usage |
 | [CI/CD Integration](../../how-to/configure-ci-cd/) | Workflow recipes, SARIF badge, score badge |
 | [Architecture](../architecture/) | Zenzic Core two-pass pipeline, credential scanner middleware, adapter protocol |
 | [Architectural Decisions](https://zenzic.dev/developers/explanation/adr-vault) | Architectural decisions behind the exit code contract and path traversal guard |
