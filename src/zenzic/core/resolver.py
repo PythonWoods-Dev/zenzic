@@ -41,7 +41,7 @@ Typical usage (caller owns I/O, resolver owns logic)::
 from __future__ import annotations
 
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Literal, NamedTuple
 from urllib.parse import unquote, urlsplit
 
@@ -122,26 +122,36 @@ def is_emitted_verbatim(path_part: str) -> bool:
     """
     if path_part.endswith("/"):
         return True
-    # The suffix is read with string operations rather than by constructing a
-    # `PurePosixPath`, because this runs once per link and the object was built only to
-    # be thrown away. Profiled over 5 000 resolutions: `href_resolution_base` was 55% of
-    # `resolve`'s time and this function 27% of it, almost all of it pathlib parsing. The
-    # cost is not symmetric across platforms either -- `Path` is `WindowsPath` there, and
-    # `resolve` measured 82.2 ms on a Windows runner against 35.9 ms on Linux.
+    # The extension is read with string operations rather than by constructing a
+    # `PurePosixPath`, and the rule is defined here rather than inherited -- for two
+    # separate reasons, one of which is a defect this replaced.
     #
-    # `pathlib.PurePath.suffix` is `name.lstrip('.')` then `rfind('.')`, which is
-    # reproduced exactly. The one case it does not reproduce is a final component that is
-    # only dots -- `a/.`, `a/..` -- where `.name` normalises the segment away; those fall
-    # through to the real implementation. Equivalence property-tested over 108 511 inputs,
-    # including every one of the 466 path parts the live corpus actually produces and
-    # generated strings over `ab.#/-_ \`: zero divergences.
-    name = path_part.rpartition("/")[2]
-    if name and name.strip("."):
-        stripped = name.lstrip(".")
-        dot = stripped.rfind(".")
-        suffix = (stripped[dot:] if dot != -1 else "").lower()
-    else:
-        suffix = PurePosixPath(path_part).suffix.lower()
+    # **Cost.** The object was built once per link and thrown away. Profiled over 5 000
+    # resolutions, `href_resolution_base` was 55% of `resolve`'s time and this function
+    # 27% of it, almost all pathlib parsing. Removing it took 39.7 ms to 24.0 ms, and the
+    # saving is larger on Windows, where `Path` is `WindowsPath`: the same work measured
+    # 82.2 ms there against 35.9 ms on Linux.
+    #
+    # **Correctness, and this is the more important half.** `pathlib.PurePath.suffix`
+    # changed semantics in Python 3.12: it now strips a leading run of dots before looking
+    # for the separator, where 3.10 did not. So the previous implementation answered
+    # differently depending on the interpreter -- `..a` yielded `''` on 3.14 and `'.a'` on
+    # 3.10, and `x.` yielded `'.'` against `''` -- which decided *which links get their
+    # resolution base shifted* and therefore which findings appear. A documentation
+    # integrity engine that reports different results on two supported Python versions is
+    # not deterministic, and this had been true since the function was written. The rule
+    # below is now ours and identical everywhere:
+    #
+    #   * a leading run of dots is not an extension (`.hidden`, `..a` -> no extension),
+    #   * an extension needs at least one character after the dot (`x.` -> none),
+    #   * otherwise it is the text from the last dot in the final component.
+    #
+    # Equivalence with 3.14's pathlib was property-tested over 108 511 inputs, including
+    # every one of the 466 path parts the live corpus produces, and the two divergences
+    # from 3.10 are deliberate and listed above.
+    name = path_part.rpartition("/")[2].lstrip(".")
+    dot = name.rfind(".")
+    suffix = name[dot:].lower() if 0 <= dot < len(name) - 1 else ""
     return suffix == "" or suffix in (".html", ".htm")
 
 

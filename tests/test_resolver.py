@@ -19,7 +19,7 @@ Coverage matrix:
 from __future__ import annotations
 
 import time
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import pytest
 
@@ -676,92 +676,111 @@ class TestPerformanceBaseline:
         assert outcomes == {Resolved, AnchorMissing, FileNotFound, PathTraversal}
 
 
-class TestSuffixFastPathMatchesPathlib:
-    """`is_emitted_verbatim` reads the suffix with string operations, not `PurePosixPath`.
+class TestExtensionRuleIsPinnedAndVersionIndependent:
+    """`is_emitted_verbatim` defines its own extension rule instead of inheriting one.
 
-    The object was being constructed once per link and thrown away, and it was 27% of
-    `resolve`'s profiled time -- disproportionately so on Windows, where `Path` is
-    `WindowsPath` and normalises separators on every operation. Removing it cut
-    resolution cost on this machine from 39.7 ms to 24.0 ms per 5 000 resolutions.
+    It used to read `PurePosixPath(path_part).suffix`, and **that was not deterministic
+    across supported Python versions.** `pathlib.PurePath.suffix` gained a
+    `name.lstrip('.')` step in 3.12, so on 3.10 the same href produced a different
+    answer: `..a` yielded `'.a'` there and `''` on 3.14, and `x.` yielded `''` against
+    `'.'`. This function decides which links have their resolution base shifted one
+    segment, so the divergence decided *which findings appear* — on a tool whose first
+    Tier-0 invariant is determinism. CI is what surfaced it: the equivalence test written
+    for the optimisation passed on 3.14 and failed on 3.10 with exactly those cases.
 
-    A hand-written suffix extraction is exactly the kind of thing that is subtly wrong
-    for months, and getting it wrong changes *which links get corrected* rather than
-    crashing. `pathlib.PurePath.suffix` is `name.lstrip('.')` followed by `rfind('.')`,
-    which the fast path reproduces; a final component that is only dots (`a/.`, `a/..`)
-    is normalised away by `.name` and falls through to the real implementation instead.
+    So the rule is pinned here rather than delegated:
 
-    This test is the equivalence guard. It runs the pathological forms explicitly and
-    the whole live corpus, so an edit that diverges from `pathlib` fails here rather
-    than silently changing link resolution.
+    * a leading run of dots is not an extension — `.hidden`, `..a`;
+    * an extension needs at least one character after the dot — `x.` has none;
+    * otherwise it is the text from the last dot of the final component.
+
+    The table below is the specification. It is written as literal expectations rather
+    than compared against `PurePosixPath`, because comparing against the standard library
+    is what made the behaviour move under the project in the first place.
     """
 
-    _PATHOLOGICAL = [
-        "",
-        ".",
-        "..",
-        "...",
-        "....",
-        "a",
-        "a.md",
-        "a.MD",
-        "a.b.c",
-        ".hidden",
-        ".hidden.md",
-        "x.",
-        "x..",
-        "a.html",
-        "a.htm",
-        "a.HTML",
-        "a.Htm",
-        "index",
-        "a/b/c.md",
-        "/abs/x.png",
-        "a/.hidden",
-        "a/x.",
-        "./c",
-        "a b.md",
-        "no-ext",
-        "weird..md",
-        "-.md",
-        "a/../b.md",
-        "a/..",
-        "a/.",
-        "a.b/.",
-        "..a",
-        "..-",
-        "//x.md",
-        "guide/install.md",
-        "/reference/api.md",
+    #: (path_part, emitted_verbatim). `True` means the site generator passes the href
+    #: through unchanged, so the browser resolves it against the page URL.
+    _SPEC = [
+        ("", True),
+        (".", True),
+        ("..", True),
+        ("...", True),
+        ("a", True),
+        ("index", True),
+        ("no-ext", True),
+        ("a.md", False),
+        ("a.MD", False),
+        ("a.b.c", False),
+        ("a/b/c.md", False),
+        ("/abs/x.png", False),
+        ("weird..md", False),
+        ("-.md", False),
+        ("a.html", True),
+        ("a.htm", True),
+        ("a.HTML", True),
+        ("a.Htm", True),
+        (".hidden", True),
+        (".hidden.md", False),
+        ("a/.hidden", True),
+        ("x.", True),
+        ("x..", True),
+        ("a/x.", True),
+        ("..a", True),
+        ("..-", True),
+        ("a/.", True),
+        ("a.b/.", True),
+        ("a/..", True),
+        ("page/", True),
+        ("trail/dir/", True),
+        ("guide/install.md", False),
+        ("/reference/api.md", False),
     ]
 
-    @staticmethod
-    def _reference_suffix(path_part: str) -> str:
-        """What `PurePosixPath(path_part).suffix.lower()` returns — the thing replaced."""
-        return PurePosixPath(path_part).suffix.lower()
-
-    def _agrees(self, path_part: str) -> bool:
-        """`is_emitted_verbatim`, recomputed through pathlib, must give the same verdict."""
-        if path_part.endswith("/"):
-            return True
-        suffix = self._reference_suffix(path_part)
-        return suffix == "" or suffix in (".html", ".htm")
-
-    @pytest.mark.parametrize("path_part", _PATHOLOGICAL)
-    def test_pathological_forms_agree(self, path_part: str) -> None:
-        assert is_emitted_verbatim(path_part) == self._agrees(path_part), (
-            f"the string fast path and pathlib disagree on {path_part!r}: "
-            f"fast={is_emitted_verbatim(path_part)} pathlib={self._agrees(path_part)}"
+    @pytest.mark.parametrize(("path_part", "expected"), _SPEC)
+    def test_the_rule(self, path_part: str, expected: bool) -> None:
+        assert is_emitted_verbatim(path_part) is expected, (
+            f"{path_part!r}: rule says {is_emitted_verbatim(path_part)}, spec says {expected}"
         )
 
-    def test_every_path_part_the_live_corpus_produces_agrees(self) -> None:
-        """The generated cases above are not the population that matters; this is.
+    def test_the_rule_does_not_depend_on_the_interpreter(self) -> None:
+        """The two cases where `pathlib` moved between 3.10 and 3.12, pinned explicitly.
 
-        A `PurePosixPath` over an already-normalised string behaves differently from one
-        over a raw href, so the corpus is read through the same decoding `resolve` uses.
+        On 3.10 `PurePosixPath('..a').suffix` is `'.a'` and on 3.12+ it is `''`; for
+        `'x.'` it is `''` against `'.'`. Whichever interpreter runs this, the answers
+        below must not change, which is the whole point of not calling `.suffix`.
+        """
+        assert is_emitted_verbatim("..a") is True
+        assert is_emitted_verbatim("x.") is True
+        assert is_emitted_verbatim("a/x.") is True
+
+    def test_every_path_part_the_live_corpus_produces_is_classified_the_same_way(
+        self,
+    ) -> None:
+        """The generated cases are not the population that matters; this is.
+
+        Read through the same decoding `resolve` applies, because a `PurePosixPath` over
+        an already-normalised string behaves differently from one over a raw href. The
+        assertion is that the fast path agrees with the pinned rule recomputed
+        independently — a second implementation of the specification, not a second call
+        to the same code.
         """
         from urllib.parse import unquote, urlsplit
 
         from zenzic.core.validator import PolyglotExtractor
+
+        def independent(path_part: str) -> bool:
+            if path_part.endswith("/"):
+                return True
+            final = path_part.split("/")[-1]
+            while final.startswith("."):
+                final = final[1:]
+            if "." not in final:
+                return True
+            ext = final[final.rindex(".") :].lower()
+            if ext == ".":
+                return True
+            return ext in (".html", ".htm")
 
         docs = Path(__file__).resolve().parents[1] / "docs"
         if not docs.is_dir():  # pragma: no cover - a consumer checkout may ship no docs
@@ -775,8 +794,8 @@ class TestSuffixFastPathMatchesPathlib:
                 if url and not url.startswith(("http://", "https://", "mailto:", "#")):
                     parts.add(unquote(urlsplit(url).path.replace("\\", "/")))
         assert parts, "extracted no path parts; the instrument found nothing"
-        disagreements = [p for p in parts if is_emitted_verbatim(p) != self._agrees(p)]
+        disagreements = [p for p in sorted(parts) if is_emitted_verbatim(p) != independent(p)]
         assert not disagreements, (
-            f"{len(disagreements)} of {len(parts)} real path parts disagree with pathlib: "
-            f"{sorted(disagreements)[:5]}"
+            f"{len(disagreements)} of {len(parts)} real path parts are classified "
+            f"differently by the two implementations: {disagreements[:5]}"
         )
