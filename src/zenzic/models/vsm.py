@@ -410,13 +410,14 @@ def resolve_link_to_canonical(
     # independent copy of them, and the copies did not agree.
     from zenzic.core.resolver import resolve_href_target
 
+    use_dir_urls = bool(getattr(adapter, "use_directory_urls", True))
     target_path = Path(
         resolve_href_target(
             source_file,
             path_part,
             str(docs_root),
             str(docs_root.parent),
-            use_directory_urls=bool(getattr(adapter, "use_directory_urls", True)),
+            use_directory_urls=use_dir_urls,
         )
     )
 
@@ -434,6 +435,28 @@ def resolve_link_to_canonical(
         root, prefix = matched_root
         inner = target_path.relative_to(root)
         rel = (Path(prefix) / inner) if prefix else inner
+
+    # `rel` is a resolved *href target*, and that is not always a source file.
+    # A link written in the form the site serves -- `./page/`, `../section/` --
+    # resolves to a URL-shaped path carrying no document suffix, and
+    # `get_route_info` is specified over source files: its adapters correctly read
+    # a suffix-less path as a static asset and return it verbatim, giving
+    # `/section/page` where the route table keys the page at `/section/page/`. The
+    # VSM then failed to find a page it was itself routing and dropped the edge --
+    # 235 occurrences on this project's own corpus, and 234 of 797 reverse-index
+    # entries pointing at a target that was not a route key.
+    #
+    # So the URL for a URL-shaped target is formed here rather than by asking the
+    # source-file mapper a question it is not defined for. This is deliberately the
+    # only place it happens: the adapters' contract is left intact, and a target
+    # that *does* carry a suffix -- `feed.xml`, `rss.xsl`, an image -- still goes
+    # through the adapter and still resolves to no route, which is correct because
+    # it is not a page.
+    if use_dir_urls and not rel.suffix:
+        slug = rel.as_posix().strip("/")
+        if slug in ("", "."):
+            return "/"
+        return f"/{slug}/"
 
     meta = adapter.get_route_info(rel)
     return meta.canonical_url

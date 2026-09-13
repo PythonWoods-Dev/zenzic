@@ -1049,6 +1049,40 @@ class ReferenceScanner:
 # ─── I/O wrapper: scan all docs ───────────────────────────────────────────────
 
 
+def _graph_link_infos(md_contents: dict[Path, str]) -> dict[Path, list[Any]]:
+    """Link list for the reachability graph: every internal link, including ref_defs.
+
+    Separate from the per-finding `links_cache`, which filters
+    ``node_type == "ref_def"`` so that a reference definition is not reported as its
+    own broken link alongside the ``[text][label]`` that consumes it. That filter is
+    right for findings and wrong for the graph: ``[label]: target.md`` is the other
+    spelling of an inline link, and the rendered page carries a real ``href`` for it.
+
+    Measured before changing it: on `docs/developers/how-to/contribute/index.md` --
+    ten reference definitions, two inline links -- the built page carries 3, 4, 3, 3
+    and 2 hrefs to the five sibling pages whose links are all reference definitions.
+    Excluding them left the CLI graph six edges short of the VSM's reverse index,
+    which was the entire residual divergence between the two once canonical URLs
+    were normalised. Suppressed links stay excluded here, as they are everywhere.
+    """
+    from zenzic.core.validator import LinkInfo, PolyglotExtractor
+
+    extractor = PolyglotExtractor()
+    out: dict[Path, list[Any]] = {}
+    for path, text in md_contents.items():
+        out[path] = [
+            LinkInfo(
+                url=item.url,
+                lineno=item.line_no,
+                col_start=item.col_start,
+                match_text=item.raw_text,
+            )
+            for item in extractor.extract_all_links(text)
+            if not item.suppressed
+        ]
+    return out
+
+
 def _scan_single_file(
     md_file: Path,
     config: ZenzicConfig,
@@ -1360,7 +1394,15 @@ def _run_vsm_and_urp_pass(
         use_directory_urls=adapter_dir_urls,
     )
 
-    link_graph = _build_link_graph(links_cache, resolver, frozenset(md_contents.keys()))
+    # The graph is built from its own link list, not from `links_cache`. The two
+    # answer different questions: `links_cache` drives per-link findings, where a
+    # reference definition must not be reported separately from the `[text][label]`
+    # that uses it, while the graph asks which pages a reader can reach from here --
+    # and a reference definition is a navigable edge, confirmed against the built
+    # HTML rather than the parser (see `_graph_link_infos`).
+    link_graph = _build_link_graph(
+        _graph_link_infos(md_contents), resolver, frozenset(md_contents.keys())
+    )
 
     # Z106 is opt-in: a cycle is documentation's ordinary shape, not a defect
     # signal. Left on by default it reported 704 findings across 238 of ~300
