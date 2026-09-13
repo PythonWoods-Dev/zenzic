@@ -559,9 +559,19 @@ class TestPerformanceBaseline:
     numerator carried a penalty the denominator did not: with instrumentation the ratio
     read **6.08** (217.3 ms against 35.7 ms) and without it **6.69** (82.2 ms against
     12.3 ms), where this machine reads ~3.0 either way. The reference is now the join and
-    normalise the resolver itself performs, measured at **1.210 median, 1.064-1.352,
-    stdev 0.061** over 14 trials, so any platform path-handling penalty lands on both
-    sides and cancels.
+    normalise the resolver itself performs, so any platform path-handling penalty lands
+    on both sides and cancels.
+
+    **The calibration moved once the optimisation landed, and the reported figure is the
+    current one.** The reference was calibrated at 1.210 while `resolve` still built a
+    `PurePosixPath` per link; removing that made `resolve` *cheaper than a single path
+    join*, and the ratio is now **0.77 on this machine** — 22.9 ms of resolution against
+    29.9 ms of reference. The limit of 3.0 therefore carries a **3.9x margin** here and
+    would only catch a regression of roughly that size. That is loose on purpose for now:
+    the ratio is known to differ by platform, the Windows figure is reported by CI rather
+    than deduced, and tightening it before that number exists would be calibrating on one
+    machine again. The measurement is emitted as a warning on **every** run, on every
+    platform, so the margin is observable instead of inferred from a silent pass.
 
     **The ratio alone was not enough, and the second failure said why.** On the Windows
     runner it read **6.08** -- `217.3 ms against 35.7 ms` -- where this machine reads
@@ -600,7 +610,8 @@ class TestPerformanceBaseline:
     ]
 
     #: Ratio ceiling for 5 000 resolutions against the reference loop. See the class
-    #: docstring for the calibration: the measured value is ~1.21, and 3.0 is chosen for
+    #: docstring for the calibration: the measured value is ~0.77 since the resolver was
+    #: optimised (1.21 before), and 3.0 is chosen for
     #: robustness over sensitivity -- it catches a 2.5x rise in per-resolution cost and
     #: will not be moved by a platform or a loaded runner. A tighter limit would be more
     #: sensitive and this assertion's history is three CI failures caused by the
@@ -660,10 +671,28 @@ class TestPerformanceBaseline:
         )
 
         ratio = resolve_s / reference_s
+
+        # Report the measurement on success too, as a warning rather than a print:
+        # pytest captures stdout and stderr at file-descriptor level, so a write is
+        # invisible without `-s`, while the warnings summary is shown even under `-q`. A passing assertion otherwise emits nothing, and the
+        # margin is the question people actually ask: this test failed three times for
+        # three environmental causes, and each diagnosis needed the numbers from the one
+        # platform that was not reporting them. Deducing a platform's figure from another
+        # platform is what produced two of those wrong diagnoses.
+        import warnings
+
+        warnings.warn(
+            f"[perf] resolve x5000={resolve_s * 1000:.1f}ms "
+            f"reference={reference_s * 1000:.1f}ms ratio={ratio:.2f} "
+            f"limit={self._RATIO_LIMIT} margin={self._RATIO_LIMIT / ratio:.2f}x "
+            f"({environment})",
+            stacklevel=1,
+        )
+
         assert ratio < self._RATIO_LIMIT, (
             f"5 000 resolutions cost {ratio:.2f}x the reference loop "
             f"({resolve_s * 1000:.1f} ms against {reference_s * 1000:.1f} ms); "
-            f"limit is {self._RATIO_LIMIT}x and the calibrated value is ~1.2. "
+            f"limit is {self._RATIO_LIMIT}x and the calibrated value is ~0.8. "
             "Investigate _lookup or _build_target overhead -- this is a ratio against the "
             "resolver's own dominant primitive, so neither a slow machine nor an "
             f"instrumented one moves it. Environment: {environment}."
