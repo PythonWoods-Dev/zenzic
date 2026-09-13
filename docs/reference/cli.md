@@ -890,14 +890,15 @@ brand_obsolescence = ["OldProduct", "LegacyTerm"]
 # Governance Playbook:
 # /developers/how-to/release-governance-protocol
 
-# --- I18N PARITY (Optional) ---
-# [i18n]
-# enabled = true
-# base_lang = "en"
-# base_source = "docs"
-# strict_parity = true
-# [i18n.targets]
-# it = "docs-it"
+# --- LOCALES ---
+# There is no [i18n] section. This block previously showed one as an optional
+# setting; no such section exists in the configuration model, and one written
+# into .zenzic.toml is discarded (as of v0.31.0, now with a warning naming it).
+# The real settings are default_locale and locales, and they live in
+# [build_context]:
+# [build_context]
+# default_locale = "en"
+# locales = ["en", "it"]
 
 # --- GATE 4: CI/CD (GitHub Actions, Optional) ---
 # Add this workflow snippet to .github/workflows/zenzic.yml

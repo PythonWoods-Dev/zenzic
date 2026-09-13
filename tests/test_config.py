@@ -702,3 +702,82 @@ def test_config_raises_zenzic_config_error_on_local_strict_keys(tmp_path: Path) 
 
     assert exc_info.value.code == "Z001"
     assert "[LOCAL-TOML-STRICT]" in str(exc_info.value)
+
+
+def test_unknown_key_inside_a_declared_section_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A misspelled key inside `[governance]` must be reported, not silently dropped.
+
+    The unknown-key warning iterated root-level keys only. Every declared section was
+    then filtered against its model's `model_fields` with no diagnostic, so
+    `brand_obsolescnce` under `[governance]` loaded cleanly and did nothing -- the same
+    observable behaviour as a correctly-spelled key naming a field that no longer
+    exists. A user had no way to tell a typo from a working configuration.
+    """
+    import logging
+
+    (tmp_path / ".zenzic.toml").write_text(
+        "[governance]\nbrand_obsolescnce = ['OldBrand']\n", encoding="utf-8"
+    )
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        config, _ = ZenzicConfig.load(tmp_path)
+    assert any(
+        "brand_obsolescnce" in r.message and "governance" in r.message for r in caplog.records
+    ), (
+        "a misspelled key inside [governance] produced no warning naming it: "
+        f"{[r.message for r in caplog.records]}"
+    )
+    # The key is still discarded -- this is a diagnostic, not a behaviour change.
+    assert config.governance.brand_obsolescence == []
+
+
+def test_unknown_key_warning_covers_every_declared_section(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Each handled section gets the same treatment, so none is silently exempt.
+
+    Written per-section rather than for one section, because the defect was precisely
+    that a check existed and was pointed at one population only.
+    """
+    import logging
+
+    sections = {
+        "project_metadata": "release_nmae",
+        "governance": "brand_obsolescnce",
+        "policies": "enable_circular_link_chekc",
+        "build_context": "engien",
+        "network": "offline_mdoe",
+    }
+    body = "".join(f"[{section}]\n{key} = 1\n\n" for section, key in sections.items())
+    (tmp_path / ".zenzic.toml").write_text(body, encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        ZenzicConfig.load(tmp_path)
+    messages = " ".join(r.message for r in caplog.records)
+    missing = [f"[{s}].{k}" for s, k in sections.items() if k not in messages]
+    assert not missing, f"no warning named these misspelled keys: {missing}"
+
+
+def test_the_phantom_i18n_section_is_reported_as_unknown(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`[i18n]` is documented in two incompatible shapes and supported in neither.
+
+    There is no `i18n` field on `ZenzicConfig` and no code that reads one, so the
+    section was always discarded in full. It was nonetheless listed among the sections
+    exempt from the unknown-section warning, which is what kept it quiet: the one
+    diagnostic that would have revealed the section does nothing was switched off for
+    it specifically. The exemption is removed, so a configuration carrying `[i18n]` now
+    hears about it.
+    """
+    import logging
+
+    assert "i18n" not in ZenzicConfig.model_fields
+    (tmp_path / ".zenzic.toml").write_text(
+        '[i18n]\nenabled = true\ndefault_locale = "en"\n', encoding="utf-8"
+    )
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        ZenzicConfig.load(tmp_path)
+    assert any("i18n" in r.message for r in caplog.records), (
+        f"[i18n] was discarded silently: {[r.message for r in caplog.records]}"
+    )

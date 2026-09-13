@@ -997,17 +997,48 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
+        # Sections promoted into sub-models below. `i18n` was in this set until
+        # v0.31.0 and is deliberately not any more: there is no `i18n` field on
+        # this model and no code that reads one, so listing it here exempted a
+        # section that does nothing from the very warning that would have said so.
         _HANDLED_SECTIONS = frozenset(
             {
                 "build_context",
                 "custom_rules",
                 "project_metadata",
                 "governance",
-                "i18n",
                 "network",
                 "policies",
             }
         )
+        #: Each promoted section and the model that defines its legal keys. Used to
+        #: warn about a key *inside* a section -- the root-level loop below cannot
+        #: see those, which is how a misspelling in `[governance]` loaded cleanly
+        #: and did nothing for two minor versions.
+        _SECTION_MODELS: dict[str, type[BaseModel]] = {
+            "build_context": BuildContext,
+            "project_metadata": ProjectMetadata,
+            "governance": GovernanceConfig,
+            "policies": PoliciesConfig,
+            "network": NetworkConfig,
+        }
+
+        def _warn_unknown_section_keys(section: str, table: dict[str, Any]) -> None:
+            """Report keys in ``[section]`` that its model does not define."""
+            model = _SECTION_MODELS.get(section)
+            if model is None:
+                return
+            for key in table:
+                if key not in model.model_fields:
+                    _cfg_log.warning(
+                        ".zenzic.toml: unknown key '%s' in section \\[%s] will be "
+                        "ignored. Check the spelling against the configuration "
+                        "reference -- a key this section does not define is discarded, "
+                        "so the setting has no effect.",
+                        _md_escape(str(key)),
+                        _md_escape(section),
+                    )
+
         from rich.markup import escape as _md_escape
 
         for key in data:
@@ -1025,6 +1056,20 @@ class ZenzicConfig(BaseModel):
                         ".zenzic.toml: unknown key '%s' will be ignored.",
                         _md_escape(str(key)),
                     )
+        for _section in _SECTION_MODELS:
+            _table = data.get(_section)
+            if isinstance(_table, dict):
+                _warn_unknown_section_keys(_section, _table)
+        if isinstance(data.get("custom_rules"), list):
+            for _rule in data["custom_rules"]:
+                if isinstance(_rule, dict):
+                    for _key in _rule:
+                        if _key not in CustomRuleConfig.model_fields:
+                            _cfg_log.warning(
+                                ".zenzic.toml: unknown key '%s' in a "
+                                "\\[[custom_rules]] entry will be ignored.",
+                                _md_escape(str(_key)),
+                            )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
         if "build_context" in data and isinstance(data["build_context"], dict):
             filtered_data["build_context"] = BuildContext(
