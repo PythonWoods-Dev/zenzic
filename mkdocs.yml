@@ -79,152 +79,167 @@ nav:
       - Finding Codes Index: reference/finding-codes.md
       - Core Rule Checks: reference/checks.md
       - Rule Cards:
-        - rules/Z001.md
-        - rules/Z101.md
-        - rules/Z102.md
-        - rules/Z103.md
-        - rules/Z104.md
-        - rules/Z105.md
-        - rules/Z106.md
-        - rules/Z107.md
-        - rules/Z108.md
-        - rules/Z109.md
-        - rules/Z110.md
-        - rules/Z111.md
-        - rules/Z112.md
-        - rules/Z620.md
-        - rules/Z120.md
-        - rules/Z121.md
-        - rules/Z122.md
-        - rules/Z123.md
-        - rules/Z124.md
-        - rules/Z201.md
-        - rules/Z202.md
-        - rules/Z203.md
-        - rules/Z204.md
-        - rules/Z205.md
-        - rules/Z301.md
-        - rules/Z302.md
-        - rules/Z303.md
-        - rules/Z401.md
-        - rules/Z402.md
-        - rules/Z403.md
-        - rules/Z404.md
-        - rules/Z405.md
-        - rules/Z406.md
-        - rules/Z410.md
-        - rules/Z411.md
-        - rules/Z412.md
-        - rules/Z501.md
-        - rules/Z502.md
-        - rules/Z503.md
-        - rules/Z505.md
-        - rules/Z506.md
-        - rules/Z510.md
-        - rules/Z511.md
-        - rules/Z512.md
-        - rules/Z513.md
-        - rules/Z514.md
-        - rules/Z515.md
-        - rules/Z516.md
-        - rules/Z517.md
-        - rules/Z518.md
-        - rules/Z519.md
-        - rules/Z520.md
-        - rules/Z521.md
-        - rules/Z522.md
-        - rules/Z523.md
-        - rules/Z601.md
-        - rules/Z603.md
-        - rules/Z610.md
-        - rules/Z611.md
-        - rules/Z612.md
-        - rules/Z613.md
-        - rules/Z614.md
-        - rules/Z615.md
-        - rules/Z616.md
-        - rules/Z617.md
-        - rules/Z618.md
-        - rules/Z619.md
-        - rules/Z901.md
-        - rules/Z902.md
-        - rules/Z906.md
+        - Z0xx Core:
+          - rules/Z001.md
+        - Z1xx Links:
+          - rules/Z101.md
+          - rules/Z102.md
+          - rules/Z103.md
+          - rules/Z104.md
+          - rules/Z105.md
+          - rules/Z106.md
+          - rules/Z107.md
+          - rules/Z108.md
+          - rules/Z109.md
+          - rules/Z110.md
+          - rules/Z111.md
+          - rules/Z112.md
+          - rules/Z120.md
+          - rules/Z121.md
+          - rules/Z122.md
+          - rules/Z123.md
+          - rules/Z124.md
+        - Z2xx Security:
+          - rules/Z201.md
+          - rules/Z202.md
+          - rules/Z203.md
+          - rules/Z204.md
+          - rules/Z205.md
+        - Z3xx References:
+          - rules/Z301.md
+          - rules/Z302.md
+          - rules/Z303.md
+        - Z4xx Topology:
+          - rules/Z401.md
+          - rules/Z402.md
+          - rules/Z403.md
+          - rules/Z404.md
+          - rules/Z405.md
+          - rules/Z406.md
+          - rules/Z410.md
+          - rules/Z411.md
+          - rules/Z412.md
+        - Z5xx Content:
+          - rules/Z501.md
+          - rules/Z502.md
+          - rules/Z503.md
+          - rules/Z505.md
+          - rules/Z506.md
+          - rules/Z510.md
+          - rules/Z511.md
+          - rules/Z512.md
+          - rules/Z513.md
+          - rules/Z514.md
+          - rules/Z515.md
+          - rules/Z516.md
+          - rules/Z517.md
+          - rules/Z518.md
+          - rules/Z519.md
+          - rules/Z520.md
+          - rules/Z521.md
+          - rules/Z522.md
+          - rules/Z523.md
+        - Z6xx Brand:
+          - rules/Z601.md
+          - rules/Z603.md
+          - rules/Z610.md
+          - rules/Z611.md
+          - rules/Z612.md
+          - rules/Z613.md
+          - rules/Z614.md
+          - rules/Z615.md
+          - rules/Z616.md
+          - rules/Z617.md
+          - rules/Z618.md
+          - rules/Z619.md
+          - rules/Z620.md
+        - Z9xx Engine:
+          - rules/Z901.md
+          - rules/Z902.md
+          - rules/Z906.md
       - Rule Examples:
         - tutorials/examples/index.md
-        - Z0xx Core: tutorials/examples/z0xx-core/index.md
-        - tutorials/examples/z0xx-core/z001-config-error.md
-        - tutorials/examples/z0xx-core/z110-config-syntax-error.md
-        - tutorials/examples/z0xx-core/z111-config-schema-error.md
-        - Z1xx Links: tutorials/examples/z1xx-links/index.md
-        - tutorials/examples/z1xx-links/z101-broken-links.md
-        - tutorials/examples/z1xx-links/z102-anchor-missing.md
-        - tutorials/examples/z1xx-links/z103-orphan-link.md
-        - tutorials/examples/z1xx-links/z104-file-not-found.md
-        - tutorials/examples/z1xx-links/z105-absolute-path.md
-        - tutorials/examples/z1xx-links/z107-circular-anchor.md
-        - tutorials/examples/z1xx-links/z108-empty-link-text.md
-        - tutorials/examples/z1xx-links/z109-external-link-broken.md
-        - tutorials/examples/z1xx-links/z112-stale-allowlist.md
-        - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
-        - tutorials/examples/z1xx-links/z121-missing-href.md
-        - tutorials/examples/z1xx-links/z122-jump-link.md
-        - tutorials/examples/z1xx-links/z123-non-http-scheme.md
-        - tutorials/examples/z1xx-links/z124-opaque-context.md
-        - tutorials/examples/z1xx-links/mdx-jsx-links.md
-        - Z2xx Security: tutorials/examples/z2xx-security/index.md
-        - tutorials/examples/z2xx-security/z201-credentials.md
-        - tutorials/examples/z2xx-security/z202-path-traversal.md
-        - tutorials/examples/z2xx-security/z203-fatal-path-traversal.md
-        - tutorials/examples/z2xx-security/z204-forbidden-term.md
-        - tutorials/examples/z2xx-security/z205-forbidden-scheme.md
-        - Z3xx References: tutorials/examples/z3xx-references/index.md
-        - tutorials/examples/z3xx-references/z301-dangling-ref.md
-        - tutorials/examples/z3xx-references/z302-dead-def.md
-        - tutorials/examples/z3xx-references/z303-duplicate-def.md
-        - Z4xx Topology: tutorials/examples/z4xx-topology/index.md
-        - tutorials/examples/z4xx-topology/z401-missing-directory-index.md
-        - tutorials/examples/z4xx-topology/z402-orphan-page.md
-        - tutorials/examples/z4xx-topology/z403-missing-alt.md
-        - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
-        - tutorials/examples/z4xx-topology/z405-unused-assets.md
-        - tutorials/examples/z4xx-topology/z406-nav-contract.md
-        - tutorials/examples/z4xx-topology/z410-unreachable-graph-node.md
-        - tutorials/examples/z4xx-topology/z411-dead-end-node.md
-        - tutorials/examples/z4xx-topology/z412-traceability-broken.md
-        - Z5xx Content: tutorials/examples/z5xx-content/index.md
-        - tutorials/examples/z5xx-content/z501-placeholder.md
-        - tutorials/examples/z5xx-content/z502-short-content.md
-        - tutorials/examples/z5xx-content/z503-snippet-error.md
-        - tutorials/examples/z5xx-content/z505-untagged-code-block.md
-        - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
-        - tutorials/examples/z5xx-content/z516-multiple-h1.md
-        - tutorials/examples/z5xx-content/z510-heading-hierarchy.md
-        - tutorials/examples/z5xx-content/z511-excessive-sentence-length.md
-        - tutorials/examples/z5xx-content/z512-empty-section.md
-        - tutorials/examples/z5xx-content/z513-duplicate-heading.md
-        - tutorials/examples/z5xx-content/z514-generic-image-alt.md
-        - tutorials/examples/z5xx-content/z515-bare-url.md
-        - tutorials/examples/z5xx-content/z517-heading-punctuation.md
-        - tutorials/examples/z5xx-content/z518-passive-voice.md
-        - tutorials/examples/z5xx-content/z519-weasel-words.md
-        - tutorials/examples/z5xx-content/z520-malformed-list.md
-        - tutorials/examples/z5xx-content/z521-required-table-column.md
-        - tutorials/examples/z5xx-content/z522-table-cell-enum.md
-        - tutorials/examples/z5xx-content/z523-heading-order.md
-        - Z6xx Brand: tutorials/examples/z6xx-brand/index.md
-        - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
-        - tutorials/examples/z6xx-brand/z603-dead-suppression.md
-        - tutorials/examples/z6xx-brand/z613-frontmatter-schema-mismatch.md
-        - tutorials/examples/z6xx-brand/z614-unapproved-domain.md
-        - tutorials/examples/z6xx-brand/z616-cross-namespace-link.md
-        - tutorials/examples/z6xx-brand/z617-forbidden-content.md
-        - tutorials/examples/z6xx-brand/z610-required-frontmatter.md
-        - tutorials/examples/z6xx-brand/z611-forbidden-domain.md
-        - tutorials/examples/z6xx-brand/z612-forbidden-frontmatter-key.md
-        - tutorials/examples/z6xx-brand/z615-forbidden-url-scheme.md
-        - tutorials/examples/z6xx-brand/z618-required-heading.md
-        - tutorials/examples/z6xx-brand/z619-max-complexity.md
-        - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
+        - Z0xx Core:
+          - tutorials/examples/z0xx-core/index.md
+          - tutorials/examples/z0xx-core/z001-config-error.md
+          - tutorials/examples/z0xx-core/z110-config-syntax-error.md
+          - tutorials/examples/z0xx-core/z111-config-schema-error.md
+        - Z1xx Links:
+          - tutorials/examples/z1xx-links/index.md
+          - tutorials/examples/z1xx-links/z101-broken-links.md
+          - tutorials/examples/z1xx-links/z102-anchor-missing.md
+          - tutorials/examples/z1xx-links/z103-orphan-link.md
+          - tutorials/examples/z1xx-links/z104-file-not-found.md
+          - tutorials/examples/z1xx-links/z105-absolute-path.md
+          - tutorials/examples/z1xx-links/z107-circular-anchor.md
+          - tutorials/examples/z1xx-links/z108-empty-link-text.md
+          - tutorials/examples/z1xx-links/z109-external-link-broken.md
+          - tutorials/examples/z1xx-links/z112-stale-allowlist.md
+          - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
+          - tutorials/examples/z1xx-links/z121-missing-href.md
+          - tutorials/examples/z1xx-links/z122-jump-link.md
+          - tutorials/examples/z1xx-links/z123-non-http-scheme.md
+          - tutorials/examples/z1xx-links/z124-opaque-context.md
+          - tutorials/examples/z1xx-links/mdx-jsx-links.md
+        - Z2xx Security:
+          - tutorials/examples/z2xx-security/index.md
+          - tutorials/examples/z2xx-security/z201-credentials.md
+          - tutorials/examples/z2xx-security/z202-path-traversal.md
+          - tutorials/examples/z2xx-security/z203-fatal-path-traversal.md
+          - tutorials/examples/z2xx-security/z204-forbidden-term.md
+          - tutorials/examples/z2xx-security/z205-forbidden-scheme.md
+        - Z3xx References:
+          - tutorials/examples/z3xx-references/index.md
+          - tutorials/examples/z3xx-references/z301-dangling-ref.md
+          - tutorials/examples/z3xx-references/z302-dead-def.md
+          - tutorials/examples/z3xx-references/z303-duplicate-def.md
+        - Z4xx Topology:
+          - tutorials/examples/z4xx-topology/index.md
+          - tutorials/examples/z4xx-topology/z401-missing-directory-index.md
+          - tutorials/examples/z4xx-topology/z402-orphan-page.md
+          - tutorials/examples/z4xx-topology/z403-missing-alt.md
+          - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
+          - tutorials/examples/z4xx-topology/z405-unused-assets.md
+          - tutorials/examples/z4xx-topology/z406-nav-contract.md
+          - tutorials/examples/z4xx-topology/z410-unreachable-graph-node.md
+          - tutorials/examples/z4xx-topology/z411-dead-end-node.md
+          - tutorials/examples/z4xx-topology/z412-traceability-broken.md
+        - Z5xx Content:
+          - tutorials/examples/z5xx-content/index.md
+          - tutorials/examples/z5xx-content/z501-placeholder.md
+          - tutorials/examples/z5xx-content/z502-short-content.md
+          - tutorials/examples/z5xx-content/z503-snippet-error.md
+          - tutorials/examples/z5xx-content/z505-untagged-code-block.md
+          - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
+          - tutorials/examples/z5xx-content/z510-heading-hierarchy.md
+          - tutorials/examples/z5xx-content/z511-excessive-sentence-length.md
+          - tutorials/examples/z5xx-content/z512-empty-section.md
+          - tutorials/examples/z5xx-content/z513-duplicate-heading.md
+          - tutorials/examples/z5xx-content/z514-generic-image-alt.md
+          - tutorials/examples/z5xx-content/z515-bare-url.md
+          - tutorials/examples/z5xx-content/z516-multiple-h1.md
+          - tutorials/examples/z5xx-content/z517-heading-punctuation.md
+          - tutorials/examples/z5xx-content/z518-passive-voice.md
+          - tutorials/examples/z5xx-content/z519-weasel-words.md
+          - tutorials/examples/z5xx-content/z520-malformed-list.md
+          - tutorials/examples/z5xx-content/z521-required-table-column.md
+          - tutorials/examples/z5xx-content/z522-table-cell-enum.md
+          - tutorials/examples/z5xx-content/z523-heading-order.md
+        - Z6xx Brand:
+          - tutorials/examples/z6xx-brand/index.md
+          - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
+          - tutorials/examples/z6xx-brand/z603-dead-suppression.md
+          - tutorials/examples/z6xx-brand/z610-required-frontmatter.md
+          - tutorials/examples/z6xx-brand/z611-forbidden-domain.md
+          - tutorials/examples/z6xx-brand/z612-forbidden-frontmatter-key.md
+          - tutorials/examples/z6xx-brand/z613-frontmatter-schema-mismatch.md
+          - tutorials/examples/z6xx-brand/z614-unapproved-domain.md
+          - tutorials/examples/z6xx-brand/z615-forbidden-url-scheme.md
+          - tutorials/examples/z6xx-brand/z616-cross-namespace-link.md
+          - tutorials/examples/z6xx-brand/z617-forbidden-content.md
+          - tutorials/examples/z6xx-brand/z618-required-heading.md
+          - tutorials/examples/z6xx-brand/z619-max-complexity.md
+          - tutorials/examples/z6xx-brand/z620-stale-global-suppression.md
     - Reference:
       - CLI Specification: reference/cli.md
       - Configuration Schema: reference/configuration-reference.md
@@ -329,6 +344,10 @@ theme:
     - navigation.tabs.sticky
     - navigation.breadcrumbs
     - navigation.path
+    # A section's own index.md becomes the clickable section header instead of
+    # sitting among its children as an indistinguishable sibling. Built into
+    # Material; needs no custom partial and changes no URL.
+    - navigation.indexes
     - navigation.top
     - toc.follow
     - content.action.edit

@@ -770,3 +770,20 @@ html:has(.zz-tailwind-root) .md-header__source {
 .text-amber-500 {
   color: var(--zz-warning) !important;
 }
+
+/* Failing/Passing pattern pairs stack instead of sitting side by side.
+ *
+ * Material's `grid cards` lays out `auto-fill, minmax(16rem, 1fr)`, so on a
+ * normal content width the pair renders as two columns and each card gets
+ * roughly half of it. The cards hold fenced code, and a code block does not
+ * reflow — it scrolls. So the reader saw a truncated line in both boxes and had
+ * to scroll each one horizontally to read either.
+ *
+ * Scoped to `.zz-pattern-pair` rather than to `.grid.cards`, because every rule
+ * card carries a SECOND grid — the severity/remediation header — which is short
+ * text and is correct in two columns. A blanket rule would have stacked the one
+ * that was already fine.
+ */
+.md-typeset .grid.cards.zz-pattern-pair {
+  grid-template-columns: 1fr;
+}

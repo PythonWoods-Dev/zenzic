@@ -49,6 +49,17 @@ All contract outputs above include these fields, always:
   "unused_assets": [],
   "references": [],
   "nav_contract": [],
+  "findings": [
+    {
+      "rel_path": "docs/index.md",
+      "line_no": 11,
+      "code": "Z101",
+      "severity": "error",
+      "message": "'missing.md' resolves to '/missing/' which is not in the Virtual Site Map",
+      "col_start": 0,
+      "fixable": false
+    }
+  ],
   "security_breaches": 0,
   "security_incidents": 0,
   "suppression_count": 0,
@@ -58,6 +69,18 @@ All contract outputs above include these fields, always:
 }
 ```
 
+**`findings[]` is the array to read.** It carries every finding the run produced, in one
+shape, with the code and the location as separate fields. The six arrays above it group the
+same findings by subsystem and do not: `links[]` and `nav_contract[]` hold pre-formatted
+prose with no code in it at all, and `orphans[]` and `unused_assets[]` hold bare paths. They
+predate `findings[]` and are kept because consumers parse them today.
+
+Every finding in those six also appears in `findings[]` — verified by execution across the
+whole example gallery, 256 items matched 256.
+
+`col_start` is 0-based, and `0` means *no column was determined* rather than column zero.
+SARIF's `startColumn` is this value plus one, since SARIF columns are 1-based.
+
 `security_breaches` counts `Z201`/`Z204`/`Z205`-severity findings; `security_incidents` counts
 `Z203`-severity findings. `Z202` (ordinary path traversal, plain Exit 1) is excluded from both.
 These fields let a JSON consumer detect a security breach or fatal path-traversal incident
@@ -66,6 +89,47 @@ without parsing issue message text or relying solely on the process exit code.
 In this shape, `suppression_debt_pts` is a **flat count** — every active suppression costs 1 point
 regardless of `suppression_cap` (ADR-061: the cap is a hard-fail threshold, not a free allowance).
 This differs from the CAP Fail-Hard shape below.
+
+---
+
+## Shape: check &lt;subcommand&gt; JSON
+
+`zenzic check links`, `orphans`, `snippets`, `references`, `assets` and `placeholders` all
+emit one shape with `--format json`, and it is not the `check all` shape above — it carries
+no grouped arrays, because these commands were built after `findings[]` existed.
+
+```json
+{
+  "findings": [
+    {
+      "rel_path": "docs/index.md",
+      "line_no": 11,
+      "code": "Z101",
+      "severity": "error",
+      "message": "'missing.md' resolves to '/missing/' which is not in the Virtual Site Map",
+      "col_start": 0,
+      "fixable": false
+    }
+  ],
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "info": 0,
+    "security_incidents": 0,
+    "security_breaches": 0,
+    "elapsed_seconds": 0.026
+  }
+}
+```
+
+A finding here is byte-identical in shape to one in `check all`'s `findings[]` — both are
+built by the same helper, so the two commands cannot disagree about the same finding.
+
+`elapsed_seconds` is informational: it varies per run and per machine, so nothing should
+gate on it.
+
+Under Silent-on-Success a subcommand with nothing to report prints nothing at all, so a
+consumer must treat empty output as "no findings" rather than as a parse failure.
 
 ---
 
