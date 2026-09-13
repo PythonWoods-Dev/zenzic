@@ -1075,6 +1075,36 @@ When `true`, enables heuristic passive-voice detection in prose. Detected senten
 enable_passive_voice_check = true
 ```
 
+### `enable_circular_link_check` {#enable_circular_link_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z106 `CIRCULAR_LINK` |
+| **Opt-in** | **Yes** |
+
+When `true`, every page participating in a link cycle is reported as an
+informational Z106 finding. Off by default, because a cycle is documentation's
+ordinary shape rather than a defect: an index links to each of its records and
+every record links back, and two articles cross-reference each other.
+
+Measured against this project's own documentation with the check on, it reported
+**704 findings across 238 of roughly 300 pages** — for the index-and-record
+pattern every documentation set has by construction.
+
+Enable it for a corpus meant to be an acyclic hierarchy — an ordered tutorial
+sequence, a linear handbook — where a cycle means a reader can be sent in a loop.
+
+```toml
+[policies]
+enable_circular_link_check = true
+```
+
+Z106 is `info` severity and carries no DQS penalty, so it is hidden unless you
+pass `--show-info`.
+
 ### `required_table_columns` {#required-table-columns}
 
 | | |

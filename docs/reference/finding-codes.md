@@ -82,7 +82,7 @@ Every finding code carries a **severity** that determines its DQS math contribut
 
 **`warning`** findings subtract their penalty points. They are invisible to the CI gate in default mode. With `--strict`, warnings are promoted to errors and become gate-blocking.
 
-**`note` / 0.0** findings are purely informational telemetry. They never subtract points, never fail the gate, and are hidden by default (`--show-info` is required to display them). Z106 (CIRCULAR_LINK) is an example.
+**`note` / 0.0** findings are purely informational telemetry. They never subtract points, never fail the gate, and are hidden by default (`--show-info` is required to display them). Z106 (CIRCULAR_LINK) is an example — and is additionally **opt-in**, so it does not run at all unless `[policies] enable_circular_link_check` is set.
 
 ### Override Penalties: FATAL and HALT
 
@@ -228,7 +228,7 @@ An absolute filesystem path (e.g. `C:\Docs\page.md` or `/home/user/docs/page.md`
 
 ### Z106: CIRCULAR_LINK {#z106}
 
-**Severity:** `info` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes (informational only, `--show-info`) · [↗ Rule Specification](../rules/Z106.md)
+**Severity:** `info` · **Penalty:** 0.0 pts · **Exit:** 0 · **Suppressible:** Yes (informational only, `--show-info`) · **Opt-in:** Yes — set `[policies] enable_circular_link_check = true` · [↗ Rule Specification](../rules/Z106.md)
 
 A set of links forms a directed cycle (A → B → A). This is a structural telemetry signal — it does not block the Quality Gate or reduce the DQS.
 

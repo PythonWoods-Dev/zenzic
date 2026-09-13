@@ -3,6 +3,12 @@
 
 # Z106 CIRCULAR_LINK — Gallery Example
 
+> **`Z106` is opt-in.** A link cycle is documentation's ordinary shape — an index
+> links to each record and every record links back — so the check does not run
+> unless a project asks for it. This fixture's `.zenzic.toml` declares
+> `[policies] enable_circular_link_check = true`; without that line it would
+> demonstrate nothing.
+
 **Category:** Z1xx Link Integrity
 **Expected exit:** 0 (informational)
 

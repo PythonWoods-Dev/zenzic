@@ -1540,7 +1540,9 @@ zenzic score                   # show score for visibility
 
 ### Detailed score breakdown (`--breakdown`)
 
-Use the `--breakdown` flag to output a detailed category breakdown of occurred Z-Codes (including informational or zero-point codes like `Z106` or `Z401`) and the transparent DQS mathematical formula calculations:
+Use the `--breakdown` flag to output a detailed category breakdown of occurred Z-Codes (including informational or zero-point codes like `Z106` or `Z401`) and the transparent DQS mathematical formula calculations.
+
+The example below shows `Z106` rows; `Z106` is **opt-in** and produces nothing unless `[policies] enable_circular_link_check = true` is set, so a default project sees this category without them:
 
 ```bash
 zenzic score --breakdown

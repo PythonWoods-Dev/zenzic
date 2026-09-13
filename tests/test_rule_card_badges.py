@@ -91,6 +91,11 @@ def test_rule_card_badge_matches_codes_py(path: Path) -> None:
 # future docstring edit reintroduces a gap).
 _OPT_IN_CODES: frozenset[str] = frozenset(
     {
+        # scanner.py: gated behind config.policies.enable_circular_link_check.
+        # Off by default because a link cycle is documentation's ordinary shape:
+        # left on, it reported 704 findings across 238 of ~300 pages of this
+        # repository, for the index<->record pattern every documentation set has.
+        "Z106",
         "Z412",  # scanner.py: gated behind config.policies.traceability_targets
         "Z518",  # scanner.py: gated behind config.policies.enable_passive_voice_check
         "Z519",  # scanner.py: gated behind config.policies.weasel_words

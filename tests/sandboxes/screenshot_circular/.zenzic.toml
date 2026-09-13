@@ -5,3 +5,11 @@ docs_dir = "docs"
 
 [build_context]
 engine = "mkdocs"
+
+# Z106 is opt-in (a link cycle is documentation's ordinary shape), so this
+# sandbox must declare it: `just screenshot-circular` is documented in
+# CONTRIBUTING.md as demonstrating Z106, and without the flag it demonstrates
+# nothing. A documented command that no longer produces what the page promises
+# is exactly the defect the documented-command gate exists to catch.
+[policies]
+enable_circular_link_check = true

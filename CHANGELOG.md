@@ -12,10 +12,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### ⚠ Upgrade notice — verify before rolling out
 
-Two security-tier changes in this release can make a corpus that passes today fail after
-upgrading, and **the new failures are non-suppressible**. Neither is a regression: both close
-a path by which a Tier-0 code was silenced. Run the check against your repository before you
-roll the new version into a gate.
+**Four** changes in this release alter what a corpus reports. Items 1-3 can make a corpus
+that passes today fail after upgrading, and the two security-tier ones are
+**non-suppressible**; none is a regression — each closes a path by which a code was silenced.
+Item 4 goes the other way: `Z106` stops reporting unless you ask for it. Run the check
+against your repository before you roll the new version into a gate.
+
+The count previously read "Two" while three items were listed; corrected here.
 
 ```bash
 zenzic check all
@@ -66,11 +69,37 @@ had never worked before this release).
 a count that may drop: a working suppression of a cross-file code such as `Z101` was reported
 dead by `zenzic check references`, and no longer is.
 
+**4. `Z106` (`CIRCULAR_LINK`) is now opt-in and reports nothing by default.**
+
+*What you will see:* if your baseline contains `Z106` findings, they disappear. If you relied
+on the check, it stops running. Nothing else changes — `Z106` is `info` severity with a 0.0
+penalty, so no score and no exit code moves.
+
+*What to do:* to keep the check, declare it:
+
+```toml
+[policies]
+enable_circular_link_check = true
+```
+
+If you had silenced `Z106` with a `[governance.directory_policies]` entry or a per-file
+ignore, that entry is now dead weight and can be removed.
+
+*Why:* the rule flagged every page participating in a link cycle, which in documentation is
+the ordinary shape rather than a defect — an index links to each of its records and every
+record links back, and two articles cross-reference each other. Measured against this
+project's own documentation it reported **704 findings across 238 of roughly 300 pages**. A
+check that flags 79% of a corpus for correct practice is not noisy, it is mis-specified, and
+the practical response had been to silence it for an entire directory tree — which is worse
+than not running it, because nobody can then tell whether the cycles are harmless or real.
+
 ### Added
 
 - **SARIF Results Carry `partialFingerprints`, So an Alert Keeps Its History**: GitHub Code Scanning decides whether two results are the same alert across commits from this field. With it absent, GitHub inferred identity, and an alert could be closed and reopened as a duplicate when unrelated lines shifted above it — a finding nobody touched losing its triage. Each result now carries `primaryLocationLineHash`, GitHub's own documented key, as a SHA-256 of the stripped source line: it hashes the *line* rather than the position, which is what lets it survive that line moving. **Deliberately omitted rather than faked** when the source line is unknown — a file-level finding such as `Z502` has no excerpt, and a fingerprint over an empty string would give every such finding the same identity, so GitHub would merge unrelated alerts instead of failing to track one. Measured on a probe corpus: 6 of 7 results fingerprinted, the seventh correctly bare.
 
 ### Added
+
+- **Two Link Gates That Check the Built Site Rather Than the Source Tree**: `scripts/check_built_site_links.py` resolves every internal link the way a browser does, by parsing the rendered HTML; `scripts/check_redirect_destinations.py` resolves every `docs/_redirects` destination transitively against the build, so a rule pointing at a page a release deletes fails before it ships. Both run from `just docs-build`, and therefore from `verify` and CI. The link checker parses rather than pattern-matches because `minify_html` strips attribute quotes — a regex requiring them finds nothing and reports a clean sweep. Stated limit: MkDocs does not render `.mdx`, so no built-site checker can cover those links; the engine is the only instrument there.
 
 - **JSX Link Components Are Now Analysed**: a capitalised tag carrying `to`, `href` or `src` — `<Link to="./page.mdx">`, `<Anchor href="...">`, `<Thumb src="...">` — participates in the link graph and the forbidden-scheme check exactly as `<a href>` does. Previously only lowercase `a`/`img`/`link` were recognised, so a broken target inside a component was silently unreported while the product advertised MDX support: the promise exceeded the delivery, which is the defect this closes. **The recognition rule is the JSX convention, not a list of names** — lowercase is an HTML element, capitalised is a component — so `<Link>`, `<Anchor>` and a component nobody has invented yet are all covered, and no framework is named anywhere in the engine. The attribute side is deliberately a fixed set (`to`, `href`, `src`): component names are unbounded and inventing one must not create a blind spot, while attribute names are where false positives live — treating every string prop as a URL would resolve `<Chart title="./x.md">` as a broken link. **A component carrying none of those three props reports nothing**, and its other props are no longer audited as HTML attributes: `Z120` (UNKNOWN_HTML_ATTRIBUTE) and `Z121` (MISSING_OR_EMPTY_HREF, whose own text names `<a>` and `<img>`) are not applicable to a component and would otherwise have fired on every JSX tag with custom props. Not covered, and unchanged: bespoke prop names (`<Card link="...">`) and expression attributes (`to={"./x"}`).
 
@@ -204,6 +233,19 @@ dead by `zenzic check references`, and no longer is.
   - Both pages read in full and classified as internal design-system/marketing material (a CSS-token consumption contract for the site's own components, an "A/B Palette Profile" cosmetic toggle, a lexicon/posture style guide, logo-symbolism prose, a palette-design-rationale essay) — zero operational content a third-party user or contributor would actually need. Real external comparables fetched before deciding: `eslint.org/branding/` and HashiCorp's product-logo brand page are both pure trademark/logo-usage references (naming convention, logo sizing, reference-only hex values) — no posture narrative, no symbolic-meaning essay, no design-token consumption guide; Prometheus, ruff, and ffmpeg have no dedicated brand page at all. Both pages deleted; `mkdocs.yml` nav entries removed; `how-to/index.md`'s "Brand Governance System" card removed (its own description — "Configure brand term dictionaries and eradicate obsolete product naming conventions" — didn't even match the real page content, a further confirmation the card had drifted from reality); `community-index.md`'s "Philosophy" card retargeted from `brand-philosophy.md` to `explanation/why-zenzic.md`, a real page that actually covers Zenzic's design philosophy and direction. `docs/_redirects`: 4 existing historical-variant lines for `use-brand-system` retargeted to `/how-to/add-badges/` — the real, already-existing, complete "add a build/score badge to your README" page, since `use-brand-system.md` never contained any badge-related content to begin with; 4 existing historical-variant lines for `brand-philosophy` retargeted to `/explanation/why-zenzic/`; 2 new bare-canonical-URL lines added for each deleted page. **Second-order consequence found and fixed in the same pass**: `use-brand-system.md`'s own text described its font/logo/favicon link list as existing specifically to keep those real, CSS/template-consumed theme assets out of `Z405` (`UNUSED_ASSET`) — deleting the page surfaced exactly the 30 `Z405` findings its own text predicted, live-confirmed via `zenzic check all --show-info` before the fix. Added `excluded_asset_dirs = ["overrides", "brand", "fonts"]` (preserving the pre-existing `"overrides"` default, which a bare list reassignment would otherwise have silently dropped) and `excluded_assets = ["favicon.ico"]` to the root `.zenzic.toml`, replacing the deleted page's incidental markdown-link-anchoring with the same real exclusion mechanism `configure-social-metadata.md` already documents for the same class of problem. `just check` (98/100, 0 new) and `mkdocs build --strict` both clean after the fix. Full `pytest tests/` suite unaffected (2118 passed).
 
 ### Fixed
+
+- **Internal Links Resolved Against the Source Tree Instead of the Served URL**:
+  - `zenzic check links` reported clean while **161 internal links across 66 pages returned 404** on the live site. With `use_directory_urls` a non-index page is served one segment deeper than its source directory, and the site generator rewrites only links whose literal path names a file — so an extensionless, trailing-slash or `.html` link is emitted verbatim and resolved by the browser against the page URL. `resolver.py` additionally registered a suffix-stripped alias, which made the verdicts **inverted**: the spelling that 404s resolved cleanly, and the spelling that works raised `Z202`. **If your documentation uses extensionless internal links, upgrading will surface real broken links that were previously invisible** — they were always broken; only the reporting changed.
+  - Five further defects were found behind it, each masked by the one before: `scanner.py`'s `getattr(config, "use_directory_urls", True)` always returned `True` because `ZenzicConfig` has no such attribute, so a flat-URL site got directory-URL canonicalisation regardless; `Z101` is emitted from `rules.py`, which computed its own base, so fixing the resolver alone changed nothing; the link extractor's fence tracking used a naive toggle, so a page quoting terminal output containing a fence desynchronised it and **no links at all were extracted from the rest of that file**; and the broken-link rule's locale fallback stripped the source file's first path segment as an i18n locale without checking it was one, so any broken link that happened to resolve at the site root was accepted.
+  - `href_resolution_base` is now the single definition of the boundary, read by `resolve_href_target`, `_to_canonical_url`, `vsm.py` and `governance.py` — four independent copies of the alias rules collapsed to one.
+
+- **`Z202`/`Z203` Conflated Two Different Questions, and Could Miss a Traversal Entirely**:
+  - Containment — does this href leave `docs_root` — and intent — does it name an OS system location — were decided from one arithmetic. Correcting the resolution base for directory URLs made a link to `/etc/passwd` normalise **inside** the docs root, and it then reported nothing at all: DQS 96/100, gate passed, exit 0. Correcting it the other way made **71 correctly-written deep links** raise `Z202`, a non-suppressible finding with a Security Override. The trigger is now the union of the two: containment catches an href that escapes; a new text-only `traversal_intent` catches one that names a system location while landing inside.
+  - `rules.py` previously *guessed* what the security tier would claim in order to skip it. The guess and the tier's real decision drifted apart, so an href could be skipped by the broken-link path **and** declined by the security tier, reaching neither reporter. Both now consult the same function.
+
+- **`zenzic fix --rename` Silently Skipped Extensionless Links**: the mutator compared each resolved href against the renamed file's path, which always carries a suffix, so an extensionless href could never match. Moving a page left every such link pointing at the old address **with no finding**. The rewrite also preserves the author's spelling and depth rather than writing a suffixed path.
+
+- **Redirect Rules Pointing at Deleted Pages, and a 404ing Feed Stylesheet**: six `docs/_redirects` rules named pages that no longer exist — they returned 200 from the deployed site and 404 from the next build, a regression a release *introduces*. `/blog/rss.xsl` redirected to `/rss.xsl`, which has never existed, while `docs/blog/rss.xsl` is a real file and the feed's own stylesheet.
 
 - **`check all --format json` Was Not Machine-Readable, Which Is the Payload a CI Consumes**: the aggregate emitted `references[]` as pre-formatted English (`"index.md:8 [Z101] — …"`, location and code recoverable only by regex over prose) and `links[]` as the message alone — **no file, no line, no code** — while every per-check command already emitted `{rel_path, line_no, code, severity, message}`. A consumer using `check all --format json` to annotate a pull request could not locate a single link finding. Fixed **additively**: a `findings[]` array now sits alongside the existing keys, which are unchanged because consumers parse them today. Both emitters build each entry through one `_finding_dict` helper, so the aggregate and the per-check payloads cannot disagree about the same finding — asserted by a test that compares them on every code they both report. **What deliberately stays inconsistent**: `snippets[]` keeps its own `{file, line, message}` shape and `orphans[]`/`unused_assets[]` remain bare paths. Removing or reshaping them is a breaking change with a deprecation path, tracked separately.
 
