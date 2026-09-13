@@ -33,7 +33,7 @@ import posixpath
 import sys
 import textwrap
 import time
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Hashable, Iterable, Iterator, Mapping
 
 
 if sys.version_info >= (3, 11):
@@ -42,7 +42,7 @@ else:
     import tomli as tomllib  # PEP 680 backport
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeVar
 from urllib.parse import unquote, urlsplit
 
 import httpx
@@ -1191,22 +1191,35 @@ def _build_link_graph(
     return adj
 
 
-def _find_cycles_iterative(adj: dict[Path, set[Path]]) -> frozenset[str]:
-    """Return canonical Path strings of all nodes that participate in at least one cycle.
+#: Node type for the cycle finder: a source ``Path`` on the CLI path, a canonical
+#: URL string on the Virtual Site Map path. One algorithm, two keyings.
+_Node = TypeVar("_Node", bound=Hashable)
+
+
+def _find_cycles_iterative(adj: Mapping[_Node, Iterable[_Node]]) -> frozenset[_Node]:
+    """Return every node that participates in at least one cycle, as given.
 
     Iterative DFS with WHITE/GREY/BLACK colouring — avoids RecursionError on
     large documentation graphs (Pillar 2: Zero Subprocess / total portability).
+
+    Generic over the node type, and deliberately so: the CLI's graph is keyed by
+    source ``Path`` and the Virtual Site Map's reverse index is keyed by canonical
+    URL, and cycle detection must give the same answer over both or the editor and
+    CI hold different models of the site. Keeping one algorithm is what makes that
+    checkable; the previous signature returned ``p.as_posix()`` strings, which bound
+    it to one keying and is why the editor had no cycle pass at all. Callers
+    stringify at their own boundary.
     """
     WHITE, GREY, BLACK = 0, 1, 2
-    color: dict[Path, int] = dict.fromkeys(adj, WHITE)
-    in_cycle: set[str] = set()
+    color: dict[_Node, int] = dict.fromkeys(adj, WHITE)
+    in_cycle: set[_Node] = set()
 
     for start in list(adj):
         if color[start] != WHITE:
             continue
-        stack: list[tuple[Path, Iterator[Path]]] = [(start, iter(adj[start]))]
-        path: list[Path] = [start]
-        path_set: set[Path] = {start}
+        stack: list[tuple[_Node, Iterator[_Node]]] = [(start, iter(adj[start]))]
+        path: list[_Node] = [start]
+        path_set: set[_Node] = {start}
         color[start] = GREY
 
         while stack:
@@ -1215,14 +1228,13 @@ def _find_cycles_iterative(adj: dict[Path, set[Path]]) -> frozenset[str]:
                 nbr = next(nbrs)
                 if nbr not in color:
                     color[nbr] = WHITE
-                    adj.setdefault(nbr, set())
                 if color[nbr] == GREY:  # back edge → cycle
                     idx = path.index(nbr)
-                    in_cycle.update(p.as_posix() for p in path[idx:])
-                    in_cycle.add(nbr.as_posix())
+                    in_cycle.update(path[idx:])
+                    in_cycle.add(nbr)
                 elif color[nbr] == WHITE:
                     color[nbr] = GREY
-                    stack.append((nbr, iter(adj.get(nbr, set()))))
+                    stack.append((nbr, iter(adj.get(nbr, ()))))
                     path.append(nbr)
                     path_set.add(nbr)
             except StopIteration:

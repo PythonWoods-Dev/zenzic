@@ -393,6 +393,20 @@ class IncrementalAnalysisEngine:
             self._orphaned_urls = set()
             self._dead_end_urls = set()
 
+        # Z106 on the editor path. Cycle detection used to run only in the CLI, so a
+        # project that opted into the code saw circular links in CI and nothing in the
+        # editor -- a capability missing on one side rather than two implementations
+        # disagreeing. It runs here over the VSM's own reverse index using the same
+        # generic DFS the CLI uses; the graphs agree to one edge out of ~790, which is
+        # what makes sharing the algorithm honest rather than merely convenient. Gated
+        # on the same opt-in flag, so a project that has not asked for cycle detection
+        # pays neither the findings nor the pass.
+        self._cycle_urls: set[str] = set()
+        if getattr(self.config.policies, "enable_circular_link_check", False):
+            from zenzic.core.validator import _find_cycles_iterative
+
+            self._cycle_urls = set(_find_cycles_iterative(getattr(vsm, "outgoing_links", {})))
+
         if changed_uris is not None:
             topo_delta_urls = (old_orphans ^ self._orphaned_urls) | (
                 old_dead_ends ^ self._dead_end_urls
@@ -731,6 +745,38 @@ class IncrementalAnalysisEngine:
                     matched_line="",
                 )
             )
+
+        # Z106 CIRCULAR_LINK — per link, matching the CLI's granularity exactly: one
+        # finding at the line of each link whose target sits in a cycle, not one per
+        # page. A different granularity here would be a new divergence dressed as a
+        # fix. `resolve_link_to_canonical` maps the href to the same canonical URL the
+        # reverse index is keyed by, so the membership test is the CLI's test in URL
+        # space.
+        if getattr(self, "_cycle_urls", None):
+            from zenzic.models.vsm import resolve_link_to_canonical
+
+            _mounts = list(getattr(vsm, "extra_mounts", []) or [])
+            for _link in extracted_links:
+                if _link.url.startswith(("http://", "https://", "mailto:", "#")):
+                    continue
+                _canonical = resolve_link_to_canonical(
+                    path, _link.url, self.docs_root, _mounts, self.adapter
+                )
+                if _canonical in self._cycle_urls and not tracker.is_suppressed(
+                    _link.line_no, "Z106"
+                ):
+                    findings.append(
+                        RuleFinding(
+                            path,
+                            _link.line_no,
+                            "Z106",
+                            f"'{_link.url}' is part of a circular link cycle",
+                            severity=code_severity("Z106"),
+                            matched_line="",
+                            col_start=_link.col_start,
+                            match_text=_link.raw_text,
+                        )
+                    )
 
         # Dead suppression detection
         findings.extend(tracker.get_dead_suppressions())

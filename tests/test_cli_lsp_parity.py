@@ -25,6 +25,7 @@ import pytest
 from typer.testing import CliRunner
 
 from zenzic.core.adapters import get_adapter
+from zenzic.core.codes import CODE_DEFINITIONS, code_severity
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.main import app
@@ -100,7 +101,49 @@ _EXAMPLES_ROOT = Path(__file__).resolve().parents[1] / "examples"
 #:    graphs one node identity -- routing through the adapter rather than the file
 #:    path -- which is not a filter change. Deferred to v0.31.1 on that, not on
 #:    cost: the DFS itself is 0.47 ms.
-_TOPOLOGY_FAMILY_CODES = frozenset({"Z106", "Z402", "Z403", "Z410", "Z411", "Z412"})
+#: **`Z106` was removed from this set on 2026-09-13** and is now compared like any
+#: other code. The reason it was excluded -- that the CLI's graph and the VSM's were
+#: too different to share the cycle algorithm -- was measured and found to be an
+#: artefact: the 576-edge symmetric difference came from an empty anchor cache, which
+#: makes every fragment look missing so `_build_link_graph` discards the edge. With
+#: real anchors the difference was 236 link occurrences, 235 of them one
+#: trailing-slash defect in `resolve_link_to_canonical` and the rest reference
+#: definitions missing from the CLI's graph input. Both fixed; the graphs now differ
+#: by **one** edge out of ~790, a query-only `?q=` link the CLI mis-resolves to the
+#: parent index where a browser stays on the current page.
+#:
+#: **What actually keeps `Z106` off the editor surface is not the graph.** Implementing
+#: the cycle pass on the incremental path proved it: the finding is produced there
+#: correctly and then dropped at the transport boundary, because
+#: `_findings_to_diagnostics` discards every `info`-severity finding by design
+#: (LSP-FIX-014 -- an editor PROBLEMS panel is reserved for what a reader must act on,
+#: and the CLI report is the authoritative record of the rest). `Z106` is `note` in
+#: `CODE_DEFINITIONS`, which `code_severity` reports as `info`.
+#:
+#: So the exclusion is a **severity floor**, not a list of names, and it is measured:
+#: exactly **four** codes are `note`/`info` -- `Z106`, `Z123`, `Z401`, `Z906` -- and all
+#: four are unreachable on the LSP surface for the same stated reason. Naming `Z106`
+#: specifically hid that, which is how it was read for a year as a graph problem.
+#:
+#: What remains excluded, and why -- each measured rather than inherited:
+#:
+#: * **`Z402`/`Z403`** (CLI, nav-membership) against **`Z410`/`Z411`/`Z412`** (LSP,
+#:   VSM-graph reachability). Two different questions, not two answers: "is this page
+#:   in the nav?" and "can this page be reached by following links?" A page can
+#:   legitimately be one and not the other. Unifying them is an architectural
+#:   decision with its own tracked row, not something this guard should pre-empt by
+#:   pretending the codes already correspond.
+#: * **Every `info`-severity code**, for the transport reason above. This is a
+#:   deliberate asymmetry between two surfaces, not a disagreement about a fact: both
+#:   paths compute the same finding and only one is allowed to show it.
+_TOPOLOGY_FAMILY_CODES = frozenset({"Z402", "Z403", "Z410", "Z411", "Z412"})
+
+#: Codes the LSP transport drops by design, so the CLI side must drop them too before
+#: any comparison. Derived from the registry rather than hardcoded, so a code whose
+#: severity changes cannot silently start or stop being compared.
+_LSP_UNTRANSPORTED_CODES = frozenset(
+    code for code in CODE_DEFINITIONS if code_severity(code) == "info"
+)
 
 
 def _cli_sarif_rule_ids(repo_root: Path) -> list[str]:
@@ -115,7 +158,7 @@ def _cli_sarif_rule_ids(repo_root: Path) -> list[str]:
     return sorted(
         r["ruleId"]
         for r in sarif["runs"][0]["results"]
-        if r["ruleId"] not in _TOPOLOGY_FAMILY_CODES
+        if r["ruleId"] not in _TOPOLOGY_FAMILY_CODES and r["ruleId"] not in _LSP_UNTRANSPORTED_CODES
     )
 
 
@@ -154,7 +197,11 @@ def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
     )
     results = engine.process_changes(vsm, overlay)
     all_diags = [d for diags in results.values() for d in diags]
-    return sorted(d.code for d in all_diags if d.code not in _TOPOLOGY_FAMILY_CODES)
+    return sorted(
+        d.code
+        for d in all_diags
+        if d.code not in _TOPOLOGY_FAMILY_CODES and d.code not in _LSP_UNTRANSPORTED_CODES
+    )
 
 
 def _assert_parity(repo_root: Path, docs_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -207,4 +254,75 @@ def test_parity_uppercase_extension(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     (docs / "notes.MD").write_text(f"# Notes\n\n[Home](index.md). {body}\n", encoding="utf-8")
     (tmp_path / ".zenzic.toml").touch()
 
+    _assert_parity(tmp_path, docs, monkeypatch)
+
+
+def test_both_paths_detect_the_same_cycle_even_though_only_one_may_show_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `Z106` opted in, the editor must compute the cycle the CLI reports.
+
+    This is the divergence the topology exclusion was hiding, and it had two layers.
+    The first was real and is fixed: cycle detection lived only in `scanner.py`, so
+    the editor had no cycle pass at all -- a capability missing on one side, not two
+    implementations disagreeing. It runs on the incremental path now, over the VSM's
+    own reverse index, using the same generic DFS.
+
+    The second layer only became visible once the first was fixed: the finding is
+    produced on the editor path and then dropped at the transport boundary, because
+    `Z106` is `note`/`info` severity and `_findings_to_diagnostics` discards every
+    info finding by design. So the editor will still not *display* it, for a stated
+    reason that has nothing to do with graphs -- which is why the exclusion is now a
+    severity floor rather than this code's name.
+
+    The deferral rested on the belief that the graphs were too different to share the
+    algorithm (a symmetric difference of 576 edges, "reasons no filter explains").
+    That was an artefact of an empty anchor cache; the real difference was one
+    trailing-slash defect plus reference definitions, and with both fixed the graphs
+    differ by one edge out of ~790.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    body = " ".join(["word"] * 55)
+    (docs / "index.md").write_text(f"# Home\n\n[Other](other.md). {body}\n", encoding="utf-8")
+    (docs / "other.md").write_text(f"# Other\n\n[Home](index.md). {body}\n", encoding="utf-8")
+    (tmp_path / ".zenzic.toml").write_text(
+        "[policies]\nenable_circular_link_check = true\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    # The CLI finds the cycle. Read raw SARIF, without the transport floor applied,
+    # or this precondition would filter out the very code it is asserting.
+    import json
+
+    result = runner.invoke(app, ["check", "all", "--format", "sarif"])
+    raw_ids = sorted(r["ruleId"] for r in json.loads(result.stdout)["runs"][0]["results"])
+    assert "Z106" in raw_ids, f"the fixture produces no Z106 on the CLI path: {raw_ids}"
+
+    # The editor computes the same cycle. Asserted on the engine's own cycle set,
+    # because the diagnostics it returns have already had the info floor applied.
+    config, _ = ZenzicConfig.load(tmp_path)
+    adapter = get_adapter(config.build_context, docs, tmp_path)
+    md_contents = {p: p.read_text(encoding="utf-8") for p in docs.rglob("*.md")}
+    vsm = build_vsm(
+        adapter,
+        docs,
+        md_contents,
+        anchors_cache={p: set() for p in md_contents},
+        repo_root=tmp_path,
+    )
+    engine = IncrementalAnalysisEngine(
+        config=config,
+        rule_engine=_build_rule_engine(config),
+        adapter=adapter,
+        docs_root=docs,
+        repo_root=tmp_path,
+    )
+    engine.process_changes(vsm, VirtualBufferOverlay(vsm))
+    assert getattr(engine, "_cycle_urls", set()) == {"/", "/other/"}, (
+        "the editor path did not detect the cycle the CLI reports: "
+        f"{getattr(engine, '_cycle_urls', None)}"
+    )
+
+    # And the transported surfaces still agree, which is what the guard is for.
     _assert_parity(tmp_path, docs, monkeypatch)

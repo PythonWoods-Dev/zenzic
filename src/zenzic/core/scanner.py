@@ -1411,7 +1411,11 @@ def _run_vsm_and_urp_pass(
     # silencing it corpus-wide. The exemption was the symptom; this is the fix.
     cycle_nodes: set[str] = set()
     if getattr(config.policies, "enable_circular_link_check", False):
-        cycle_nodes = set(_find_cycles_iterative(link_graph))
+        # `_find_cycles_iterative` is generic over the node type and returns the
+        # keys it was given, so the Path->posix conversion belongs here rather than
+        # inside it -- the same pass runs over the VSM's URL-keyed reverse index on
+        # the incremental path, and one of the two had to stop being privileged.
+        cycle_nodes = {node.as_posix() for node in _find_cycles_iterative(link_graph)}
 
     inc_engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_root, repo_root)
     inc_engine.anchors_cache = anchors_cache

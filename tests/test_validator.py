@@ -1470,15 +1470,22 @@ key: value
 
 
 class TestFindCyclesIterative:
-    """Unit tests for _find_cycles_iterative (pure function, no I/O)."""
+    """Unit tests for _find_cycles_iterative (pure function, no I/O).
+
+    The function returns the nodes it was given, not stringified copies of them.
+    That is a deliberate contract change: it used to return ``p.as_posix()``, which
+    bound it to ``Path`` keys, and cycle detection therefore existed only on the CLI
+    path while the Virtual Site Map's URL-keyed graph had no equivalent pass. It is
+    now generic over the node type and each caller converts at its own boundary.
+    """
 
     def test_simple_cycle_ab(self) -> None:
         a = Path("/docs/a.md")
         b = Path("/docs/b.md")
         adj: dict[Path, set[Path]] = {a: {b}, b: {a}}
         result = _find_cycles_iterative(adj)
-        assert a.as_posix() in result
-        assert b.as_posix() in result
+        assert a in result
+        assert b in result
 
     def test_linear_chain_no_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1492,7 +1499,7 @@ class TestFindCyclesIterative:
         a = Path("/docs/a.md")
         adj: dict[Path, set[Path]] = {a: {a}}
         result = _find_cycles_iterative(adj)
-        assert a.as_posix() in result
+        assert a in result
 
     def test_three_node_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1500,9 +1507,27 @@ class TestFindCyclesIterative:
         c = Path("/docs/c.md")
         adj: dict[Path, set[Path]] = {a: {b}, b: {c}, c: {a}}
         result = _find_cycles_iterative(adj)
-        assert a.as_posix() in result
-        assert b.as_posix() in result
-        assert c.as_posix() in result
+        assert a in result
+        assert b in result
+        assert c in result
+
+    def test_the_same_graph_gives_the_same_answer_under_either_keying(self) -> None:
+        """One algorithm over ``Path`` keys and over canonical-URL keys.
+
+        This is what makes it legitimate for the CLI and the editor to share it: the
+        CLI's graph is keyed by source path, the Virtual Site Map's reverse index by
+        canonical URL, and a cycle must be a cycle in both. When the function returned
+        posix strings it could only be used for one of them, which is the whole reason
+        the editor had no cycle pass.
+        """
+        paths: dict[Path, set[Path]] = {
+            Path("/docs/a.md"): {Path("/docs/b.md")},
+            Path("/docs/b.md"): {Path("/docs/a.md")},
+            Path("/docs/c.md"): set(),
+        }
+        urls: dict[str, set[str]] = {"/a/": {"/b/"}, "/b/": {"/a/"}, "/c/": set()}
+        assert {p.stem for p in _find_cycles_iterative(paths)} == {"a", "b"}
+        assert _find_cycles_iterative(urls) == frozenset({"/a/", "/b/"})
 
     def test_isolated_nodes_no_cycle(self) -> None:
         a = Path("/docs/a.md")
