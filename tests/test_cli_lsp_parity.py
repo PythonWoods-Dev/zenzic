@@ -80,8 +80,26 @@ _EXAMPLES_ROOT = Path(__file__).resolve().parents[1] / "examples"
 #:    keyed by ``Path`` with Ghost Routes and non-source targets excluded
 #:    (300 nodes, 668 edges), the VSM's is keyed by canonical URL (300 nodes,
 #:    **794** edges). Running the existing DFS over the VSM graph would produce
-#:    different cycles and create a divergence rather than close one. Deferred
-#:    to v0.31.1 for that reason, not for the cost.
+#:    different cycles and create a divergence rather than close one.
+#:
+#:    **Re-measured after a proposal to close it now**, which held the difference
+#:    was one nameable class -- edges named ``alias_to_canonical``, added for URL
+#:    resolution rather than navigation -- and that filtering them would leave the
+#:    graphs identical at 668 edges. **That symbol does not exist anywhere in
+#:    src/**, and the measurement does not support the shape: CLI 668 edges, VSM
+#:    796, **VSM-only 352 and CLI-only 224** -- a symmetric difference of 576,
+#:    not a net of 126. Filtering the one class that *is* nameable -- non-page
+#:    targets, which this graph excludes by design, being Markdown-to-Markdown
+#:    only -- removes 234 and leaves **118 VSM-only, 224 CLI-only**, four of them
+#:    blog-related. Edges such as ``/developers/explanation/`` ->
+#:    ``/developers/how-to/write-a-check/`` are in one graph and not the other for
+#:    reasons no examined filter explains.
+#:
+#:    So the deferral rests on two measurements, the second having tested the
+#:    first's premise rather than inheriting it. Closing this means giving both
+#:    graphs one node identity -- routing through the adapter rather than the file
+#:    path -- which is not a filter change. Deferred to v0.31.1 on that, not on
+#:    cost: the DFS itself is 0.47 ms.
 _TOPOLOGY_FAMILY_CODES = frozenset({"Z106", "Z402", "Z403", "Z410", "Z411", "Z412"})
 
 
