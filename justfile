@@ -398,6 +398,17 @@ docs-serve +args="":
 
 docs-build:
 	uv run --extra docs mkdocs build --strict
+	# Every docs/_redirects destination must resolve in the site just built.
+	# A rule pointing at a deleted page keeps working against the *deployed*
+	# site and starts 404ing the moment this build ships -- a regression the
+	# release introduces rather than inherits. Six were found this way.
+	uv run python3 scripts/check_redirect_destinations.py site
+	# Every internal link must resolve the way a browser resolves it. The
+	# engine answers a different question -- against the source tree -- which
+	# is how 161 broken links passed `zenzic check links`. Public gate, not a
+	# governance one, so it lives here rather than in .justfile.local: CI runs
+	# `just verify`, and this ships to users.
+	uv run python3 scripts/check_built_site_links.py site
 
 # Report which staggered-publication blog links are ready to paste back in
 # (target now live) vs still pending (target still draft). Always exits 0 --

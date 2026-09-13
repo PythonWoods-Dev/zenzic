@@ -509,8 +509,7 @@
 /blog/log-v080-historical-note/                                             /blog/ 301
 /it/blog/log-v080-historical-note                                           /blog/ 301
 /it/blog/log-v080-historical-note/                                          /blog/ 301
-/blog/rss.xsl                                                               /rss.xsl 301
-/blog/atom.xsl                                                              /rss.xsl 301
+/blog/atom.xsl                                                              /blog/rss.xsl 301
 /it/blog/atom.xml                                                           /blog/rss-updated.xml 301
 /blog/atom.xml                                                              /blog/rss-updated.xml 301
 /it/blog/rss.xml                                                            /blog/rss.xml 301
@@ -1856,6 +1855,27 @@
 /rules/Z602/                                                                /rules/ 301
 /docs/rules/Z602                                                            /rules/ 301
 /docs/rules/Z602/                                                           /rules/ 301
+
+# Pages deleted without a redirect: five in fa8204d (docs pruning) and Z504 in
+# c8076dc. Each returned 200 from the live deploy and 404 from the next one --
+# the ledger carried the /docs/ spelling only, which the edge never consults.
+/rules/Z504                                                                 /rules/ 301
+/rules/Z504/                                                                /rules/ 301
+/developers/explanation/governance/lpgp                                     /developers/explanation/governance/ 301
+/developers/explanation/governance/lpgp/                                    /developers/explanation/governance/ 301
+/developers/explanation/governance/technical-debt                           /developers/explanation/governance/ 301
+/developers/explanation/governance/technical-debt/                          /developers/explanation/governance/ 301
+/developers/explanation/tailwind-mkdocs-bridge                              /developers/explanation/ 301
+/developers/explanation/tailwind-mkdocs-bridge/                             /developers/explanation/ 301
+/reference/brand-kit                                                        /reference/ 301
+/reference/brand-kit/                                                       /reference/ 301
+/reference/brand-system                                                     /reference/ 301
+/reference/brand-system/                                                    /reference/ 301
+
+# The only crawled /docs/* URL that the edge Page Rule rescues and the ledger
+# does not: without this rule, removing that Page Rule would regress it.
+/docs/architecture                                                          /architecture/ 301
+/docs/architecture/                                                         /architecture/ 301
 
 # === LAYER 8: STATIC ASSETS & BRAND CONSOLIDATIONS ========================
 /assets/brand/zenzic-brand-system.html                                      /reference/ 301

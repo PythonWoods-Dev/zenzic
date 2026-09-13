@@ -34,7 +34,13 @@ REDIRECTS = Path(__file__).resolve().parent.parent / "docs" / "_redirects"
 # been stable across every commit in the file's history except the one anomaly
 # above. If a deliberate edit changes it, update this number in the same commit —
 # that is the point: the change becomes visible and intentional.
-EXPECTED_BLANK_LINES = 8
+#
+# 8 -> 10 on 2026-09-13: two explanatory blocks were added to Layer 7, each
+# preceded by a blank line — the rules for six pages deleted without a redirect
+# (five in fa8204d's docs pruning, one when Z504 was removed), and the explicit
+# /docs/architecture rule. The tripwire did exactly what it is for: it stopped a
+# commit until the change was declared.
+EXPECTED_BLANK_LINES = 10
 
 
 def main() -> int:
