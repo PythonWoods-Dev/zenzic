@@ -125,7 +125,13 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _HTML_ID_RE = re.compile(r"""<[^>]*\bid\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE)
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
-_REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
+# A leading caret marks a *footnote* definition (`[^1]: prose`), which the footnotes
+# extension defines and Material for MkDocs uses heavily. It is not a link
+# reference definition, and accepting it made the first word of the footnote text
+# into a URL: on `zensical/docs` that produced 17 phantom Z101 findings reading
+# "'The' resolves to '/browser-support/The/'". This repository's own documentation
+# contains no footnotes, which is why nothing here ever asked the question.
+_REF_DEF_RE = re.compile(r"^ {0,3}\[([^^\]][^\]]*)\]:\s+(\S+)")
 
 # Reference link: [text][id] or [text][] (collapsed reference)
 _REF_LINK_RE = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")

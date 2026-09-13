@@ -413,7 +413,12 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
 _AUTOLINK_RE = re.compile(r"<https?://[^>]+>")
 _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\([^)]+\)")
-_MARKDOWN_REF_DEF_RE = re.compile(r"^\s*\[[^\]]+\]:\s*\S+")
+# A leading caret marks a footnote definition (`[^1]: prose`), not a link
+# reference. Accepting it turned the first word of the footnote text into a URL:
+# 17 phantom Z101 on `zensical/docs`. This is the fourth copy of one decision --
+# validator.py, rules.py, scanner.py and content.py each carry the pattern, and
+# only validator.py had the guard. Consolidation is tracked; the guard is here now.
+_MARKDOWN_REF_DEF_RE = re.compile(r"^\s*\[[^^\]][^\]]*\]:\s*\S+")
 
 
 def _is_generic_alt(alt: str) -> bool:

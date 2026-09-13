@@ -115,7 +115,12 @@ CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
 # Optional title on the same line is ignored (we only need the URL for credential scan).
-_RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
+# A leading caret marks a footnote definition (`[^1]: prose`), not a link
+# reference. Accepting it turned the first word of the footnote text into a URL:
+# 17 phantom Z101 on `zensical/docs`. This is the fourth copy of one decision --
+# validator.py, rules.py, scanner.py and content.py each carry the pattern, and
+# only validator.py had the guard. Consolidation is tracked; the guard is here now.
+_RE_REF_DEF = re.compile(r"^ {0,3}\[([^^\]][^\]]*)\]:\s+(\S+)")
 
 # Reference link usage: [text][id] or [text][] (collapsed reference).
 _RE_REF_LINK = re.compile(r"(\[([^\]]*)\]\[([^\]]*)\])")

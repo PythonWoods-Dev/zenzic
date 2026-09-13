@@ -1894,3 +1894,78 @@ Line 10 text
     link = extracted[0]
     assert link.url == "https://example.com/real"
     assert link.line_no == 11
+
+
+class TestFootnoteDefinitionsAreNotLinkReferences:
+    """`[^1]: text` is a footnote definition, not a link reference definition.
+
+    `_REF_DEF_RE` accepted any label, so `[^1]: The data was collected from …` parsed as
+    a reference definition whose destination was the first word of the prose. Measured on
+    the official `zensical/docs` corpus at commit `6346cfd`: **17 of its 20 link-family
+    findings came from this**, reading `'The' resolves to '/browser-support/The/'` and
+    `'Zensical' resolves to '/create-your-site/Zensical/'`.
+
+    Footnotes are a standard Python-Markdown extension and a Material for MkDocs staple.
+    **Zenzic's own documentation contains zero footnote definitions**, which is the whole
+    reason nothing exposed this: the corpus that validates the engine does not use the
+    construct, so the engine was never asked the question.
+    """
+
+    _FOOTNOTES = [
+        "[^1]: The data was collected in January 2022 and is primarily based on support.",
+        "[^2]: Zensical Studio will be supported in more editors in the future.",
+        "[^note]: A named footnote label, which the extension also allows.",
+        "[^1]: [`site_name`][site_name] is currently required because MkDocs requires it.",
+    ]
+
+    @pytest.mark.parametrize("line", _FOOTNOTES)
+    def test_a_footnote_definition_yields_no_reference(self, line: str) -> None:
+        extractor = PolyglotExtractor()
+        text = f"# Page\n\nSome prose with a marker.[^1]\n\n{line}\n"
+        refs = [n for n in extractor.extract_all_links(text) if n.node_type == "ref_def"]
+        assert not refs, (
+            f"a footnote definition was parsed as a link reference: "
+            f"{[(r.url, r.line_no) for r in refs]}"
+        )
+
+    def test_a_real_reference_definition_still_parses(self) -> None:
+        """The control: narrowing the pattern must not stop it finding what it is for."""
+        extractor = PolyglotExtractor()
+        text = "# Page\n\nSee [the guide][guide].\n\n[guide]: ./guide.md\n"
+        refs = [n for n in extractor.extract_all_links(text) if n.node_type == "ref_def"]
+        assert [r.url for r in refs] == ["./guide.md"], (
+            f"the ordinary reference definition was lost: {[(r.url) for r in refs]}"
+        )
+
+    def test_a_caret_inside_a_label_is_still_a_reference(self) -> None:
+        """Only a *leading* caret marks a footnote; one elsewhere is an ordinary label."""
+        extractor = PolyglotExtractor()
+        text = "# Page\n\nSee [it][a^b].\n\n[a^b]: ./target.md\n"
+        refs = [n for n in extractor.extract_all_links(text) if n.node_type == "ref_def"]
+        assert [r.url for r in refs] == ["./target.md"]
+
+
+class TestFootnotesThroughTheRulesPath:
+    """The footnote guard must hold on the path that actually emitted the findings.
+
+    `extract_all_links` and `validator.build_ref_map` already skipped `[^label]:`. The
+    findings came from three *other* copies of the same pattern -- `rules.py`,
+    `scanner.py` and `content.py` -- because the reference-definition decision exists in
+    four places and only one carried the guard. That is the same shape as the resolution
+    base (four copies) and the fence machine (two), and it is why this test drives the
+    engine rather than the extractor: a unit test on the extractor passed throughout.
+    """
+
+    def test_footnotes_produce_no_link_or_reference_findings(self, tmp_path: Path) -> None:
+        from zenzic.core.rules import _REF_DEF_RE as RULES_RE
+        from zenzic.core.scanner import _RE_REF_DEF as SCANNER_RE
+
+        # The guard, asserted on each copy directly: a footnote must not match, an
+        # ordinary definition must.
+        assert RULES_RE.match("[^1]: The data was collected in January 2022.") is None
+        assert SCANNER_RE.match("[^1]: The data was collected in January 2022.") is None
+        assert RULES_RE.match("[guide]: ./guide.md") is not None
+        assert SCANNER_RE.match("[guide]: ./guide.md") is not None
+        # And a caret elsewhere in the label is still an ordinary definition.
+        assert RULES_RE.match("[a^b]: ./target.md") is not None
+        assert SCANNER_RE.match("[a^b]: ./target.md") is not None
