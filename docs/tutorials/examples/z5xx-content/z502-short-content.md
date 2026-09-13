@@ -71,4 +71,4 @@ Exit code 1. Write comprehensive technical documentation to meet the minimum wor
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

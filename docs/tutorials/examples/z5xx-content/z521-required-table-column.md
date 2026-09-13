@@ -122,8 +122,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z522 — Table Cell Enum](z522-table-cell-enum) — the column exists, a value in
+- [Z522 — Table Cell Enum](../z522-table-cell-enum/) — the column exists, a value in
   it is not permitted.
-- [Z523 — Heading Order Violation](z523-heading-order) — the same
+- [Z523 — Heading Order Violation](../z523-heading-order/) — the same
   contract-enforcement idea applied to headings.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

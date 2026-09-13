@@ -106,8 +106,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z502 — Short Content](z502-short-content) — a page with body content, just
+- [Z502 — Short Content](../z502-short-content/) — a page with body content, just
   very little of it.
-- [Z510 — Heading Hierarchy](z510-heading-hierarchy) — heading levels that skip
+- [Z510 — Heading Hierarchy](../z510-heading-hierarchy/) — heading levels that skip
   a rank.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

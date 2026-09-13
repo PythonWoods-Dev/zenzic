@@ -115,8 +115,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z503 — Snippet Error](z503-snippet-error) — another content-category error
+- [Z503 — Snippet Error](../z503-snippet-error/) — another content-category error
   that a syntax linter also passes over.
-- [Rule card: Z516](../../../rules/Z516) — the code's full specification.
-- [Checks Reference](../../../reference/checks) — where Z516 sits among the
+- [Rule card: Z516](../../../../rules/Z516/) — the code's full specification.
+- [Checks Reference](../../../../reference/checks/) — where Z516 sits among the
   structural checks.

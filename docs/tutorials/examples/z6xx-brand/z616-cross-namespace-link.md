@@ -116,6 +116,6 @@ Re-run `zenzic check all` after any of the three; the finding clears.
 
 ## See Also
 
-- [Z614 — Unapproved Domain](z614-unapproved-domain) — the same Zero-Trust
+- [Z614 — Unapproved Domain](../z614-unapproved-domain/) — the same Zero-Trust
   posture applied to external domains rather than internal namespaces.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

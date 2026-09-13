@@ -153,4 +153,4 @@ Exit code 1. Complete the placeholder section with concrete technical content an
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

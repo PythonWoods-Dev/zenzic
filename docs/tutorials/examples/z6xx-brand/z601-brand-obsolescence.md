@@ -100,4 +100,4 @@ Exit code 1. Replace the obsolete brand terms in your text with the current prod
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -107,7 +107,7 @@ Exit code 1 is triggered. To fix this, register the target page in the `nav` sec
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the target file does not exist on disk.
-- [z102 — Anchor Missing](z102-anchor-missing) — the target file exists but the heading anchor does not.
-- [z402 — Orphan Page](../../examples/z4xx-topology/z402-orphan-page) — the inverse: a page that is not in the nav and has no link pointing to it at all.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the target file does not exist on disk.
+- [z102 — Anchor Missing](../z102-anchor-missing/) — the target file exists but the heading anchor does not.
+- [z402 — Orphan Page](../../../examples/z4xx-topology/z402-orphan-page/) — the inverse: a page that is not in the nav and has no link pointing to it at all.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

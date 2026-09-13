@@ -17,7 +17,7 @@ Every other scenario here demonstrates one code. This one demonstrates a
 fixture cannot show. The `Z101` is one of three constructs under test, and the
 other two produce **no finding at all** — which is the harder half to believe
 without seeing it, and the reason this has its own page rather than a paragraph
-on [z101 — Broken Links](z101-broken-links).
+on [z101 — Broken Links](../z101-broken-links/).
 
 A rule card shows you the syntax. A fixture shows you the behaviour, including
 the behaviour of staying silent.
@@ -120,9 +120,9 @@ suppression mechanics and the codes each mechanism covers.
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the same code in plain Markdown.
+- [z101 — Broken Links](../z101-broken-links/) — the same code in plain Markdown.
 - [MDX Support](../../../explanation/discovery.md#mdx) — which MDX constructs are
   understood, and which are deliberately out of scope.
-- [z120 — Unknown HTML Attribute](z120-unknown-html-attr) — the HTML tag tier,
+- [z120 — Unknown HTML Attribute](../z120-unknown-html-attr/) — the HTML tag tier,
   which JSX components are exempt from.
 - [Checks Reference](../../../reference/checks.md) — full rule specification.

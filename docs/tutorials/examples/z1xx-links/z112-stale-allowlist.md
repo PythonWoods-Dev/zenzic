@@ -83,5 +83,5 @@ The `Z112` finding indicates a **STALE_ALLOWLIST_ENTRY** issue.
 
 ## See Also
 
-- [z105 — Absolute Path](z105-absolute-path) — the link rule bypassed by this allowlist.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z105 — Absolute Path](../z105-absolute-path/) — the link rule bypassed by this allowlist.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -94,7 +94,7 @@ When you're ready to commit Zenzic to your project, generate a `.zenzic.toml` in
     ```
 
     Run `zenzic init` in the root directory of your project to establish the workspace boundary.
-    See [Discovery & Exclusion — The Authority of Root](../explanation/discovery#root-authority) for the full rationale.
+    See [Discovery & Exclusion — The Authority of Root](../../explanation/discovery/#root-authority) for the full rationale.
 
 ```bash
 cd your-project/
@@ -137,7 +137,7 @@ zenzic check all
 Zenzic scans every Markdown and MDX file: `.md` and `.mdx` alike, in any letter case,
 with nothing to configure. It validates internal links against the Virtual Site Map,
 checks anchors, scans for credentials, and runs your custom rules — then prints a structured
-report and exits with a machine-readable code. For details on exit code definitions and security tiers, see the [Exit Code Contract](../reference/finding-codes#exit-code-contract).
+report and exits with a machine-readable code. For details on exit code definitions and security tiers, see the [Exit Code Contract](../../reference/finding-codes/#exit-code-contract).
 
 A clean run looks like this — the **Zenzic Audit Badge**:
 
@@ -186,10 +186,10 @@ zenzic check all --baseline .zenzic-baseline.json
 
 ## What's next? {#next}
 
-- **Baseline & Anti-Regression** — see [Baseline Tracking](../explanation/baseline-tracking) for CI/CD debt management
+- **Baseline & Anti-Regression** — see [Baseline Tracking](../../explanation/baseline-tracking/) for CI/CD debt management
 - **Measure your score** — run `uvx zenzic score` to get a precise 0–100 DQS for your repo
-- **Add a CI gate** — see [CI/CD Integration](../how-to/configure-ci-cd) for automated quality enforcement
+- **Add a CI gate** — see [CI/CD Integration](../../how-to/configure-ci-cd/) for automated quality enforcement
 - **SARIF export** — `zenzic check all --format sarif` for GitHub Code Scanning inline annotations
 - **Strict mode** — add `--strict` to also validate external URLs
 - **Custom rules** — add `[[custom_rules]]` entries to `.zenzic.toml` to enforce your own patterns
-- **Finding codes** — see the [Finding Codes reference](../reference/finding-codes) for the full `Zxxx` diagnostic catalogue
+- **Finding codes** — see the [Finding Codes reference](../../reference/finding-codes/) for the full `Zxxx` diagnostic catalogue

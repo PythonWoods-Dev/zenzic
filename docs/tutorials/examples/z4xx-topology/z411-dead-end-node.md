@@ -132,8 +132,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z410 — Unreachable Graph Node](z410-unreachable-graph-node) — the inbound
+- [Z410 — Unreachable Graph Node](../z410-unreachable-graph-node/) — the inbound
   half of the same topology check.
-- [Z103 — Orphan Link](../z1xx-links/z103-orphan-link) — the error this fixture
+- [Z103 — Orphan Link](../../z1xx-links/z103-orphan-link/) — the error this fixture
   also raises, and why it exits 1.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -95,5 +95,5 @@ Correct the external link target to a valid URL, or remove the link if the resou
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the internal-link variant of link integrity.
-- [Checks Reference — Z109](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the internal-link variant of link integrity.
+- [Checks Reference — Z109](../../../../reference/checks/) — full rule specification.

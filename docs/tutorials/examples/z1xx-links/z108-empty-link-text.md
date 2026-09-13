@@ -88,7 +88,7 @@ Exit code 1. Add descriptive, accessible label text inside the Markdown link bra
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the target file does not exist on disk.
-- [z105 — Absolute Path](z105-absolute-path) — the link uses a non-portable absolute path.
-- [z403 — Missing Alt Text](../../examples/z4xx-topology/z403-missing-alt) — the same accessibility principle applied to images.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the target file does not exist on disk.
+- [z105 — Absolute Path](../z105-absolute-path/) — the link uses a non-portable absolute path.
+- [z403 — Missing Alt Text](../../../examples/z4xx-topology/z403-missing-alt/) — the same accessibility principle applied to images.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

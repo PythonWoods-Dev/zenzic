@@ -93,7 +93,7 @@ character at fault.
 
 Patterns are compiled with RE2, so a pathological pattern cannot hang the scan.
 That also means lookahead and backreferences are unavailable — see the
-[Custom Rules guide](../../../how-to/add-custom-rules) for what RE2 accepts.
+[Custom Rules guide](../../../../how-to/add-custom-rules/) for what RE2 accepts.
 
 ---
 
@@ -119,6 +119,6 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z614 — Unapproved Domain](z614-unapproved-domain) — another `[policies]`
+- [Z614 — Unapproved Domain](../z614-unapproved-domain/) — another `[policies]`
   governance check in the same brand category.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

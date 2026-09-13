@@ -100,8 +100,8 @@ Exit code 1 is triggered in CI pipeline gates when broken links are detected to 
 
 ## See Also
 
-- [z102 — Anchor Missing](z102-anchor-missing) — the fragment-level variant of link integrity:
+- [z102 — Anchor Missing](../z102-anchor-missing/) — the fragment-level variant of link integrity:
   the target file exists, but the heading anchor does not.
-- [z103 — Orphan Link](z103-orphan-link) — link targets that exist on disk but are absent from
+- [z103 — Orphan Link](../z103-orphan-link/) — link targets that exist on disk but are absent from
   the site navigation (zensical engine required).
-- [Checks Reference — Z101](../../../reference/checks) — full rule specification.
+- [Checks Reference — Z101](../../../../reference/checks/) — full rule specification.

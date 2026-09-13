@@ -103,6 +103,6 @@ Zenzic natively supports explicit block-level anchors (such as `{#id}`) and hand
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the file-level variant: the target file itself does not exist.
-- [z103 — Orphan Link](z103-orphan-link) — link targets that exist on disk but are absent from the site navigation.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the file-level variant: the target file itself does not exist.
+- [z103 — Orphan Link](../z103-orphan-link/) — link targets that exist on disk but are absent from the site navigation.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

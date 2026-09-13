@@ -36,9 +36,9 @@ hold, the Privacy Gate holds.
 
 | Document | Purpose |
 | :--- | :--- |
-| [The Sovereignty Oath](./exit_strategy) | Proof that Zenzic is a tool, not a master. Zero Residue. Reversible in 30 seconds. |
-| [Evolution Policy](./evolution_policy) | The formal process for evolving — or protecting — the Three Pillars. |
-| [License Compliance](./licensing) | Apache-2.0 + REUSE 3.3. Every file carries the cryptographic signature of its license. |
+| [The Sovereignty Oath](./exit_strategy/) | Proof that Zenzic is a tool, not a master. Zero Residue. Reversible in 30 seconds. |
+| [Evolution Policy](./evolution_policy/) | The formal process for evolving — or protecting — the Three Pillars. |
+| [License Compliance](./licensing/) | Apache-2.0 + REUSE 3.3. Every file carries the cryptographic signature of its license. |
 
 ---
 
@@ -67,8 +67,8 @@ Zenzic's governance is built on three axes:
 
 | Axis | Document | Guarantee |
 | :--- | :--- | :--- |
-| **Liberty** | [The Sovereignty Oath](./exit_strategy) | Removed in 30 seconds. Zero residue. Core is read-only. |
-| **Duration** | [Evolution Policy](./evolution_policy) | No Pillar changes without a public constitutional process. |
+| **Liberty** | [The Sovereignty Oath](./exit_strategy/) | Removed in 30 seconds. Zero residue. Core is read-only. |
+| **Duration** | [Evolution Policy](./evolution_policy/) | No Pillar changes without a public constitutional process. |
 
 This section is the **governance constitution** — the constraints that protect Zenzic's
 own structure from erosion by convenience, urgency, and well-intentioned shortcuts.

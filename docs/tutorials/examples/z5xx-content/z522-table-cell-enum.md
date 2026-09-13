@@ -117,8 +117,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z521 — Required Table Column](z521-required-table-column) — the column
+- [Z521 — Required Table Column](../z521-required-table-column/) — the column
   missing entirely.
-- [Z613 — Frontmatter Schema Mismatch](../z6xx-brand/z613-frontmatter-schema-mismatch)
+- [Z613 — Frontmatter Schema Mismatch](../../z6xx-brand/z613-frontmatter-schema-mismatch/)
   — the same value-shape enforcement applied to frontmatter.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -94,7 +94,7 @@ Exit code 1. Replace the root-relative path link with a document-relative path l
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the target file does not exist on disk.
-- [z108 — Empty Link Text](z108-empty-link-text) — the link label is empty, breaking screen reader accessibility.
-- [z202 — Path Traversal](../../examples/z2xx-security/z202-path-traversal) — a link that escapes the `docs/` directory boundary.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the target file does not exist on disk.
+- [z108 — Empty Link Text](../z108-empty-link-text/) — the link label is empty, breaking screen reader accessibility.
+- [z202 — Path Traversal](../../../examples/z2xx-security/z202-path-traversal/) — a link that escapes the `docs/` directory boundary.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

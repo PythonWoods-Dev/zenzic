@@ -6,7 +6,7 @@ description: Technical deep dive into Zenzic's Three-Phase Pipeline, credential 
 
 # Architecture
 
-This page describes the internal design of Zenzic for contributors and advanced users who need to understand how the tool works under the hood. For configuration and usage, see the [Configuration Reference](../reference/configuration-reference) and [Checks Reference](../reference/checks).
+This page describes the internal design of Zenzic for contributors and advanced users who need to understand how the tool works under the hood. For configuration and usage, see the [Configuration Reference](../../reference/configuration-reference/) and [Checks Reference](../../reference/checks/).
 
 ---
 
@@ -611,7 +611,7 @@ Gates 3 and 4 execute the **same command** (`just verify`) — local and remote 
 allowed to drift. This is the Sovereign Parity principle (ZRT-010).
 
 > For operational setup (installing hooks, workflow YAML), see the
-> [CI/CD Integration guide](../how-to/configure-ci-cd#doc-code-parity).
+> [CI/CD Integration guide](../../how-to/configure-ci-cd/#doc-code-parity).
 
 ---
 

@@ -109,8 +109,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z614 — Unapproved Domain](z614-unapproved-domain) — the allowlist half of
+- [Z614 — Unapproved Domain](../z614-unapproved-domain/) — the allowlist half of
   external-domain governance.
-- [Z615 — Forbidden URL Scheme](z615-forbidden-url-scheme) — the same idea
+- [Z615 — Forbidden URL Scheme](../z615-forbidden-url-scheme/) — the same idea
   applied to the protocol rather than the host.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -84,4 +84,4 @@ The YAML validator used by Zenzic's Snippet Guard natively registers and support
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

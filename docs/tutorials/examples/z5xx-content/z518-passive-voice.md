@@ -113,7 +113,7 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z519 — Weasel Words](z519-weasel-words) — the other opt-in prose heuristic.
-- [Z511 — Excessive Sentence Length](z511-excessive-sentence-length) — sentence
+- [Z519 — Weasel Words](../z519-weasel-words/) — the other opt-in prose heuristic.
+- [Z511 — Excessive Sentence Length](../z511-excessive-sentence-length/) — sentence
   length rather than construction.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

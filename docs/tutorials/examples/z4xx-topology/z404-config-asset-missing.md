@@ -112,6 +112,6 @@ theme:
 
 ## See Also
 
-- [Z405 — Unused Assets](z405-unused-assets) — the inverse: a file exists but is never referenced.
-- [Z402 — Orphan Page](z402-orphan-page) — page exists but is absent from navigation.
-- [Checks Reference — Z404](../../../reference/checks) — full rule specification.
+- [Z405 — Unused Assets](../z405-unused-assets/) — the inverse: a file exists but is never referenced.
+- [Z402 — Orphan Page](../z402-orphan-page/) — page exists but is absent from navigation.
+- [Checks Reference — Z404](../../../../reference/checks/) — full rule specification.

@@ -105,6 +105,6 @@ mv docs/guide/page.md docs/guide/index.md
 
 ## See Also
 
-- [Z402 — Orphan Page](z402-orphan-page) — page exists but is not in navigation.
-- [Z403 — Missing Alt](z403-missing-alt) — image lacks accessibility alt text.
-- [Checks Reference — Z401](../../../reference/checks) — full rule specification.
+- [Z402 — Orphan Page](../z402-orphan-page/) — page exists but is not in navigation.
+- [Z403 — Missing Alt](../z403-missing-alt/) — image lacks accessibility alt text.
+- [Checks Reference — Z401](../../../../reference/checks/) — full rule specification.

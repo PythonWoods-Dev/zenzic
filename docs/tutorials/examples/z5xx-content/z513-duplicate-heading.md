@@ -106,8 +106,8 @@ After renaming, check for inbound links to the old anchor —
 
 ## See Also
 
-- [Z102 — Anchor Missing](../z1xx-links/z102-anchor-missing) — links to an
+- [Z102 — Anchor Missing](../../z1xx-links/z102-anchor-missing/) — links to an
   anchor that does not exist, which is what a rename can cause.
-- [Z516 — Multiple H1 Headings](z516-multiple-h1) — duplicate headings at the
+- [Z516 — Multiple H1 Headings](../z516-multiple-h1/) — duplicate headings at the
   title level.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

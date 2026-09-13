@@ -82,6 +82,31 @@ Content-Type: application/vscode-jsonrpc; charset=utf-8
 
 ---
 
+## After Upgrading Zenzic, Restart the Language Server
+
+The editor integrations are **thin clients**: the VS Code extension spawns
+`zenzic lsp` as a subprocess, and the language server imports the engine into
+that process once, at startup. Upgrading the `zenzic` package therefore does
+**not** change what an already-running server reports — it keeps analysing with
+the code it loaded when it started, and nothing in the editor says so.
+
+The symptom is diagnostics that disagree with the command line: `zenzic check
+all` is clean while the Problems panel still lists findings, or the reverse.
+
+**The fix is a server restart, not a reinstall.** No extension rebuild is needed
+— the `.vsix` contains no engine code:
+
+- **VS Code**: run **Zenzic: Restart Server** (`zenzic.restartServer`) from the
+  Command Palette, or reload the window.
+- **Neovim / other LSP clients**: restart the client, or the editor.
+
+If the two still disagree after a restart, that is a real divergence and worth
+reporting. One exception is known and tracked: the **topology family** (`Z106`,
+`Z402`, `Z403`, `Z410`, `Z411`, `Z412`) is computed differently by the two
+paths. The editor can legitimately show topology findings the CLI does not.
+The CLI is authoritative for a gate; the editor is authoritative for what is
+on screen.
+
 ## Explain a Suppression Without Editing the File
 
 Hovering a `<!-- zenzic:ignore: CODE -->` comment reports what that directive is actually
@@ -114,6 +139,6 @@ review the prefilled form and press **Submit**.
 
 ## Related Documents
 
-* [CLI Reference](../reference/cli.md) — Reference documentation for `zenzic lsp` and `zenzic env`.
-* [Finding Codes Index](../reference/finding-codes.md) — Index of all Z-Codes reported in editor diagnostics.
-* [Suppression Policy Reference](../reference/suppression-policy.md) — What each hover response about a suppression means.
+- [CLI Reference](../reference/cli.md) — Reference documentation for `zenzic lsp` and `zenzic env`.
+- [Finding Codes Index](../reference/finding-codes.md) — Index of all Z-Codes reported in editor diagnostics.
+- [Suppression Policy Reference](../reference/suppression-policy.md) — What each hover response about a suppression means.

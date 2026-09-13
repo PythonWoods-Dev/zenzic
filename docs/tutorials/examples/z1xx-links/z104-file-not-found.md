@@ -105,7 +105,7 @@ Footnote definitions (such as `[^1]: footnote text`) are parsed and recognized c
 
 ## See Also
 
-- [Z101 — Broken Links](z101-broken-links) — routing-level link integrity.
-- [Z102 — Anchor Missing](z102-anchor-missing) — fragment-level link integrity
+- [Z101 — Broken Links](../z101-broken-links/) — routing-level link integrity.
+- [Z102 — Anchor Missing](../z102-anchor-missing/) — fragment-level link integrity
   (file exists, heading anchor absent).
-- [Checks Reference — Z104](../../../reference/checks) — full rule specification.
+- [Checks Reference — Z104](../../../../reference/checks/) — full rule specification.

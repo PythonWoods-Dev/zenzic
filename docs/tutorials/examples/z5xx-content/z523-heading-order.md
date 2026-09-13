@@ -129,8 +129,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z618 — Required Heading Pattern](../z6xx-brand/z618-required-heading) —
+- [Z618 — Required Heading Pattern](../../z6xx-brand/z618-required-heading/) —
   whether a required heading exists at all.
-- [Z516 — Multiple H1 Headings](z516-multiple-h1) — the error this fixture also
+- [Z516 — Multiple H1 Headings](../z516-multiple-h1/) — the error this fixture also
   raises, and why it exits 1.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

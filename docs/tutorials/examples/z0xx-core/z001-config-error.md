@@ -72,4 +72,4 @@ The `Z001` finding indicates a **CORE_CONFIG_STRUCTURE** issue.
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

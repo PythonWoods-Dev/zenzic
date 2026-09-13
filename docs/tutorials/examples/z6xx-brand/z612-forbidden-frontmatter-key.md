@@ -116,8 +116,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z610 — Required Frontmatter Missing](z610-required-frontmatter) — the
+- [Z610 — Required Frontmatter Missing](../z610-required-frontmatter/) — the
   inverse: a key that must be present.
-- [Z613 — Frontmatter Schema Mismatch](z613-frontmatter-schema-mismatch) — the
+- [Z613 — Frontmatter Schema Mismatch](../z613-frontmatter-schema-mismatch/) — the
   key is allowed, its value is not.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

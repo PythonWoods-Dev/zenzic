@@ -129,7 +129,7 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z518 — Passive Voice](z518-passive-voice) — the other opt-in prose heuristic.
-- [Z617 — Forbidden Content Pattern](../z6xx-brand/z617-forbidden-content) — the
+- [Z518 — Passive Voice](../z518-passive-voice/) — the other opt-in prose heuristic.
+- [Z617 — Forbidden Content Pattern](../../z6xx-brand/z617-forbidden-content/) — the
   same idea with arbitrary RE2 patterns instead of a word list.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

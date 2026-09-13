@@ -77,4 +77,4 @@ Exit code 2 triggers a critical build failure. Immediately rotate the exposed cr
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -93,4 +93,4 @@ an explicit architecture decision:
 | `3` | SECURITY — system-path traversal detected |
 
 `PLUGIN_FORBIDDEN_EXITS` enforces that third-party adapters cannot emit exit codes outside
-this set. See the [Adapter API reference](./adapter-api) for the full contract.
+this set. See the [Adapter API reference](../adapter-api/) for the full contract.

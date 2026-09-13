@@ -78,4 +78,4 @@ Exit code 1. Consolidate the duplicate definitions by removing the redundant ref
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

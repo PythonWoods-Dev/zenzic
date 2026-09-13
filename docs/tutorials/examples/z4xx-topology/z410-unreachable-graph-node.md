@@ -118,8 +118,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z411 — Dead End Node](z411-dead-end-node) — the same graph, examined in the
+- [Z411 — Dead End Node](../z411-dead-end-node/) — the same graph, examined in the
   opposite direction.
-- [Z402 — Orphan Page](z402-orphan-page) — the navigation-side view of the same
+- [Z402 — Orphan Page](../z402-orphan-page/) — the navigation-side view of the same
   condition.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

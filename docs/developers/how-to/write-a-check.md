@@ -19,7 +19,7 @@ in the `cli/` package (`src/zenzic/cli/`).
 1. **Implement** the logic in the appropriate core module (`zenzic.core.scanner` or `zenzic.core.validator`).
 2. **Delegate resolution** to `InMemoryPathResolver` — never call `os.path.exists()`, `Path.is_file()`, or any other filesystem probe inside a per-link loop. The resolver is instantiated once before the loop; re-instantiation per file defeats the pre-computed `_lookup_map` and drops throughput from 430 000+ to below 30 000 resolutions/s.
 3. **Test i18n** — if the check involves file paths, test it in all three i18n configurations (none, folder mode, suffix mode).
-4. **Wire the CLI** — add a corresponding command or sub-command in the `cli/` package. See the [CLI Architecture reference](../reference/cli-architecture). If your command accepts a `PATH` argument, you must call `find_repo_root(search_from=resolved_path)` and invoke `_apply_target()` to respect Path Sovereignty.
+4. **Wire the CLI** — add a corresponding command or sub-command in the `cli/` package. See the [CLI Architecture reference](../../reference/cli-architecture/). If your command accepts a `PATH` argument, you must call `find_repo_root(search_from=resolved_path)` and invoke `_apply_target()` to respect Path Sovereignty.
 5. **Write tests** in `tests/` covering both passing and failing cases, including a performance baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
 6. **Update examples** in `examples/` to exercise the new check — Zenzic validates its own examples on every commit.
 
@@ -62,7 +62,7 @@ No changes to `__init__.py`, `main.py`, or `_metadata.py` are required.
 ## Credential Scanner Obligations
 
 If your check touches the credential scanner or `harvest()`, see the dedicated
-[Credential Scanner Obligations](../reference/credential-scanner-obligations) reference.
+[Credential Scanner Obligations](../../reference/credential-scanner-obligations/) reference.
 The four obligations are Worker Timeout, Regex-Canary, the Dual-Stream Invariant, and the
 mutation score. All four are enforced on every PR touching `src/zenzic/core/`: the credential
 scanner measures **95.7%** against a target of **≥ 90%**, met, and gated as a no-regression

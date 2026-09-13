@@ -90,9 +90,9 @@ normally.
 
 ## See Also
 
-- [Z111 — Config Schema Error](z111-config-schema-error) — the config parses as
+- [Z111 — Config Schema Error](../z111-config-schema-error/) — the config parses as
   TOML but a value has the wrong type.
-- [Z001 — Config Error](z001-config-error) — the broader configuration failure
+- [Z001 — Config Error](../z001-config-error/) — the broader configuration failure
   class.
-- [Configuration Reference](../../../reference/configuration-reference) — every
+- [Configuration Reference](../../../../reference/configuration-reference/) — every
   key and its accepted type.

@@ -117,7 +117,7 @@ genuinely uses semicolons across several lines would be reshaped, and
 
 ## See Also
 
-- [Z515 — Bare URL Used](z515-bare-url) — another auto-fixable content code.
-- [Z517 — Heading Punctuation](z517-heading-punctuation) — the third in this
+- [Z515 — Bare URL Used](../z515-bare-url/) — another auto-fixable content code.
+- [Z517 — Heading Punctuation](../z517-heading-punctuation/) — the third in this
   batch.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -108,7 +108,7 @@ Replace the circular link with either a meaningful external target or remove it:
 
 ## See Also
 
-- [Z101 — Broken Links](z101-broken-links) — file-level link integrity.
-- [Z102 — Anchor Missing](z102-anchor-missing) — the target fragment does not
+- [Z101 — Broken Links](../z101-broken-links/) — file-level link integrity.
+- [Z102 — Anchor Missing](../z102-anchor-missing/) — the target fragment does not
   exist on the destination page.
-- [Checks Reference — Z107](../../../reference/checks) — full rule specification.
+- [Checks Reference — Z107](../../../../reference/checks/) — full rule specification.

@@ -121,6 +121,6 @@ extra:
 
   files between locales.
 
-- [Z404 — Config Asset Missing](z404-config-asset-missing) — infrastructure
+- [Z404 — Config Asset Missing](../z404-config-asset-missing/) — infrastructure
   asset referenced in config not found.
-- [Checks Reference — Z406](../../../reference/checks) — full rule specification.
+- [Checks Reference — Z406](../../../../reference/checks/) — full rule specification.

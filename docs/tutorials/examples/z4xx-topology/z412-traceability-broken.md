@@ -109,8 +109,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z616 — Cross-Namespace Link Forbidden](../z6xx-brand/z616-cross-namespace-link)
+- [Z616 — Cross-Namespace Link Forbidden](../../z6xx-brand/z616-cross-namespace-link/)
   — the mirror image: a link between namespaces that must *not* exist.
-- [Z410 — Unreachable Graph Node](z410-unreachable-graph-node) — reachability
+- [Z410 — Unreachable Graph Node](../z410-unreachable-graph-node/) — reachability
   from navigation rather than from a required namespace.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -113,8 +113,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z611 — Forbidden Domain Reference](z611-forbidden-domain) — the same posture
+- [Z611 — Forbidden Domain Reference](../z611-forbidden-domain/) — the same posture
   applied to the host rather than the protocol.
-- [Z123 — Non-HTTP Scheme](../z1xx-links/z123-non-http-scheme) — schemes outside
+- [Z123 — Non-HTTP Scheme](../../z1xx-links/z123-non-http-scheme/) — schemes outside
   the web entirely.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

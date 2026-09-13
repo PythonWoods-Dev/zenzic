@@ -89,9 +89,9 @@ Re-run `zenzic check all`. The configuration validates and the scan proceeds.
 
 ## See Also
 
-- [Z110 — Config Syntax Error](z110-config-syntax-error) — the file is not
+- [Z110 — Config Syntax Error](../z110-config-syntax-error/) — the file is not
   parseable TOML at all.
-- [Z001 — Config Error](z001-config-error) — the broader configuration failure
+- [Z001 — Config Error](../z001-config-error/) — the broader configuration failure
   class.
-- [Configuration Reference](../../../reference/configuration-reference) — every
+- [Configuration Reference](../../../../reference/configuration-reference/) — every
   key and its accepted type.

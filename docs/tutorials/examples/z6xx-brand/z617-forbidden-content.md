@@ -112,8 +112,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z519 — Weasel Words](../z5xx-content/z519-weasel-words) — the word-list form
+- [Z519 — Weasel Words](../../z5xx-content/z519-weasel-words/) — the word-list form
   of the same idea.
-- [Z201 — Credentials](../z2xx-security/z201-credentials) — actual secret
+- [Z201 — Credentials](../../z2xx-security/z201-credentials/) — actual secret
   detection, non-suppressible and exit 2.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

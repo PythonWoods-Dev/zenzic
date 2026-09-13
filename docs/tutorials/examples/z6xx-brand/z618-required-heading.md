@@ -110,6 +110,6 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z619 — Max Document Complexity](z619-max-complexity) — the other structural
+- [Z619 — Max Document Complexity](../z619-max-complexity/) — the other structural
   policy in this family, bounding size rather than requiring a section.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

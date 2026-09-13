@@ -95,4 +95,4 @@ Exit code 2 triggers a policy breach. Remove the blacklisted term from the markd
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

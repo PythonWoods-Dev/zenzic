@@ -78,4 +78,4 @@ Exit code 1. Define the missing reference block at the bottom of the document (e
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

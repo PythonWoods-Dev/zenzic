@@ -103,8 +103,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z612 — Forbidden Frontmatter Key](z612-forbidden-frontmatter-key) — the
+- [Z612 — Forbidden Frontmatter Key](../z612-forbidden-frontmatter-key/) — the
   inverse: a key that must *not* be present.
-- [Z613 — Frontmatter Schema Mismatch](z613-frontmatter-schema-mismatch) — the
+- [Z613 — Frontmatter Schema Mismatch](../z613-frontmatter-schema-mismatch/) — the
   key is present but its value does not match the required pattern.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

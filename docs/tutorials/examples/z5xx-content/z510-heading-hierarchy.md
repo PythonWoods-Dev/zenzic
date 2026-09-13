@@ -109,8 +109,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z516 — Multiple H1 Headings](z516-multiple-h1) — the other half of document
+- [Z516 — Multiple H1 Headings](../z516-multiple-h1/) — the other half of document
   outline structure.
-- [Z523 — Heading Order Violation](z523-heading-order) — required headings in
+- [Z523 — Heading Order Violation](../z523-heading-order/) — required headings in
   the wrong sequence.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

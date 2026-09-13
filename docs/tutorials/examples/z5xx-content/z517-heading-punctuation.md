@@ -101,6 +101,6 @@ catch any inbound link that pointed at the old anchor (`Z102`).
 
 ## See Also
 
-- [Z515 — Bare URL Used](z515-bare-url) — another auto-fixable content code.
-- [Z520 — Malformed List](z520-malformed-list) — the third in this batch.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Z515 — Bare URL Used](../z515-bare-url/) — another auto-fixable content code.
+- [Z520 — Malformed List](../z520-malformed-list/) — the third in this batch.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

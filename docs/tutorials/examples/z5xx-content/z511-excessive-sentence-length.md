@@ -96,7 +96,7 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z518 — Passive Voice](z518-passive-voice) — another prose
+- [Z518 — Passive Voice](../z518-passive-voice/) — another prose
   heuristic in the same family.
-- [Z519 — Weasel Words](z519-weasel-words) — vague qualifiers.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Z519 — Weasel Words](../z519-weasel-words/) — vague qualifiers.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

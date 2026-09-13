@@ -113,7 +113,7 @@ Both clear the finding. The AST mutation is lossless and idempotent: running
 
 ## See Also
 
-- [Z517 — Heading Punctuation](z517-heading-punctuation) — another auto-fixable
+- [Z517 — Heading Punctuation](../z517-heading-punctuation/) — another auto-fixable
   content code.
-- [Z520 — Malformed List](z520-malformed-list) — the third in this batch.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Z520 — Malformed List](../z520-malformed-list/) — the third in this batch.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

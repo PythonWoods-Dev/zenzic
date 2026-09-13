@@ -130,6 +130,6 @@ suppression and still reports no `Z603` against this page.
 
 ## See Also
 
-- [Z603 Finding Code Reference](../../../reference/finding-codes#z603)
+- [Z603 Finding Code Reference](../../../../reference/finding-codes/#z603)
 - [Suppression Policy](../../../reference/suppression-policy.md)
 - [Z601 Brand Obsolescence Example](./z601-brand-obsolescence.md)

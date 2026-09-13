@@ -103,8 +103,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z104 — File Not Found](../z1xx-links/z104-file-not-found) — the image
+- [Z104 — File Not Found](../../z1xx-links/z104-file-not-found/) — the image
   reference itself pointing nowhere.
-- [Z405 — Unused Assets](../z4xx-topology/z405-unused-assets) — assets no page
+- [Z405 — Unused Assets](../../z4xx-topology/z405-unused-assets/) — assets no page
   references.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

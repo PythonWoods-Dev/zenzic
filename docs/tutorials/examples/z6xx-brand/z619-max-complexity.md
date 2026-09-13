@@ -103,8 +103,8 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z618 — Required Heading Pattern](z618-required-heading) — the other
+- [Z618 — Required Heading Pattern](../z618-required-heading/) — the other
   structural policy in this family.
-- [Z502 — Short Content](../z5xx-content/z502-short-content) — the opposite
+- [Z502 — Short Content](../../z5xx-content/z502-short-content/) — the opposite
   bound: a page with too little.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

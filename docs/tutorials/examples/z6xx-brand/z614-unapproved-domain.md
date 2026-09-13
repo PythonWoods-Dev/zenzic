@@ -117,6 +117,6 @@ Re-run `zenzic check all`; the finding clears.
 
 ## See Also
 
-- [Z616 — Cross-Namespace Link Forbidden](z616-cross-namespace-link) — the same
+- [Z616 — Cross-Namespace Link Forbidden](../z616-cross-namespace-link/) — the same
   Zero-Trust posture applied to internal namespace boundaries.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

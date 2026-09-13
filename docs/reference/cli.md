@@ -1089,7 +1089,7 @@ The editor's auto-repair has the same boundary, which is why the two agree.
     `system32`, `programdata`). Unlike exit
     code 1, this is a security incident and takes priority over all other exit codes. It is
     never suppressed by `--exit-zero`. See
-    [Checks: Path Traversal Guard](./checks#path-traversal-guard) for details.
+    [Checks: Path Traversal Guard](../checks/#path-traversal-guard) for details.
 
 Each exit code has a distinct visual signature in the Zenzic Report:
 
@@ -1202,7 +1202,7 @@ consumer can detect a `Z2xx` security breach or `Z203` path-traversal incident w
 issue message text or relying solely on the process exit code.
 
 For the authoritative machine contract (including `score --format json` and CAP fail-hard payloads),
-see [API JSON Contract](./api-json).
+see [API JSON Contract](../api-json/).
 
 ### Individual commands
 
@@ -1349,7 +1349,7 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
 ```
 
 For automated upload to GitHub Code Scanning, use the
-[Zenzic GitHub Action](../how-to/configure-ci-cd#github-actions-zenzic-credential-gate) —
+[Zenzic GitHub Action](../../how-to/configure-ci-cd/#github-actions-zenzic-credential-gate) —
 it validates SARIF integrity before upload (truncation guard) and surfaces findings as
 inline PR annotations.
 

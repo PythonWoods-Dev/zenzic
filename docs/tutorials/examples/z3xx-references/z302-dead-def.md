@@ -63,4 +63,4 @@ Exit code 1. Delete the unused reference definition block from the document, or 
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -124,7 +124,7 @@ run exits 0 or 1 on its remaining findings.
 
 ## See Also
 
-- [Z202 — Path Traversal](z202-path-traversal) — traversal that escapes `docs/`
+- [Z202 — Path Traversal](../z202-path-traversal/) — traversal that escapes `docs/`
   without reaching a system directory; exit 2, also non-suppressible.
-- [Z201 — Credentials](z201-credentials) — the other exit-code-2 security class.
-- [Exit Codes](../../../reference/cli) — the full 0/1/2/3 contract.
+- [Z201 — Credentials](../z201-credentials/) — the other exit-code-2 security class.
+- [Exit Codes](../../../../reference/cli/) — the full 0/1/2/3 contract.
