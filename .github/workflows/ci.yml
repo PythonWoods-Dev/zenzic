@@ -127,5 +127,58 @@ jobs:
       - name: Blog link schedule gate
         run: uv run python scripts/check_blog_link_schedule.py
 
+      # Determinism across interpreters is a Tier-0 invariant and nothing was
+      # checking it. `pathlib.PurePath.suffix` changed semantics in 3.12 and the
+      # engine inherited the change, so the same corpus could yield different
+      # findings on 3.10 and 3.14 -- for two years, with both legs green, because
+      # each was only ever compared against itself. This emits one digest per
+      # Ubuntu leg; the `determinism` job below diffs them. Ubuntu only: the
+      # comparison is about the interpreter, and adding Windows would conflate
+      # platform with version, which is precisely the confound that produced two
+      # wrong diagnoses while this was being found.
+      - name: Emit interpreter-determinism digest
+        if: runner.os == 'Linux'
+        run: uv run python scripts/check_interpreter_determinism.py --emit findings-py${{ matrix.python-version }}.json
+
+      - name: Upload interpreter-determinism digest
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: determinism-py${{ matrix.python-version }}
+          path: findings-py${{ matrix.python-version }}.json
+          retention-days: 7
+
       - name: Verify Badge Freshness
         run: uv run zenzic score --check-stamp --ci
+
+  # ── Interpreter determinism ────────────────────────────────────────────────
+  # The same corpus must produce the same findings on every supported Python.
+  # This costs a download and a diff, not a test run: both digests come from the
+  # matrix legs that already ran.
+  #
+  # Its limit is written into the script and repeated here because a green run
+  # here is not proof of determinism: it compares findings over the fixtures in
+  # `examples/`, so a divergence in an input shape no fixture contains is
+  # invisible to it. The defect that motivated it lived exactly there -- of the 35
+  # inputs where 3.10 and 3.14 disagreed, zero appear in this repository. This
+  # catches the next one, if that one touches a shape a fixture exercises.
+  determinism:
+    name: Interpreter Determinism
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download 3.10 digest
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: determinism-py3.10
+
+      - name: Download 3.14 digest
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: determinism-py3.14
+
+      - name: Compare findings across interpreters
+        run: python3 scripts/check_interpreter_determinism.py --compare findings-py3.10.json findings-py3.14.json

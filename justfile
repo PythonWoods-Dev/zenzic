@@ -436,3 +436,20 @@ screenshot-hero:
 # CIRCULAR_LINK detection — output is meant to be captured manually
 screenshot-circular:
     cd tests/sandboxes/screenshot_circular && {{runner}} zenzic check all --show-info
+
+# Compare the findings Zenzic produces on two Python interpreters. Determinism is a
+# Tier-0 invariant and nothing checked it across versions until 2026-09-13, when
+# `pathlib.PurePath.suffix`'s 3.12 semantics change was found to have been changing
+# results for two years with both CI legs green. Its limit is real and documented in
+# the script: it compares findings over `examples/`, so a divergence in a shape no
+# fixture contains is invisible to it.
+determinism py_a="3.10" py_b="3.14":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    uv run --python {{ py_a }} --extra dev python scripts/check_interpreter_determinism.py --emit "$tmp/a.json"
+    uv run --python {{ py_b }} --extra dev python scripts/check_interpreter_determinism.py --emit "$tmp/b.json"
+    uv venv --python {{ py_b }} --allow-existing >/dev/null 2>&1
+    uv sync --extra dev --extra docs >/dev/null 2>&1
+    uv run python scripts/check_interpreter_determinism.py --compare "$tmp/a.json" "$tmp/b.json"
