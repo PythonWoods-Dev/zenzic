@@ -122,7 +122,26 @@ def is_emitted_verbatim(path_part: str) -> bool:
     """
     if path_part.endswith("/"):
         return True
-    suffix = PurePosixPath(path_part).suffix.lower()
+    # The suffix is read with string operations rather than by constructing a
+    # `PurePosixPath`, because this runs once per link and the object was built only to
+    # be thrown away. Profiled over 5 000 resolutions: `href_resolution_base` was 55% of
+    # `resolve`'s time and this function 27% of it, almost all of it pathlib parsing. The
+    # cost is not symmetric across platforms either -- `Path` is `WindowsPath` there, and
+    # `resolve` measured 82.2 ms on a Windows runner against 35.9 ms on Linux.
+    #
+    # `pathlib.PurePath.suffix` is `name.lstrip('.')` then `rfind('.')`, which is
+    # reproduced exactly. The one case it does not reproduce is a final component that is
+    # only dots -- `a/.`, `a/..` -- where `.name` normalises the segment away; those fall
+    # through to the real implementation. Equivalence property-tested over 108 511 inputs,
+    # including every one of the 466 path parts the live corpus actually produces and
+    # generated strings over `ab.#/-_ \`: zero divergences.
+    name = path_part.rpartition("/")[2]
+    if name and name.strip("."):
+        stripped = name.lstrip(".")
+        dot = stripped.rfind(".")
+        suffix = (stripped[dot:] if dot != -1 else "").lower()
+    else:
+        suffix = PurePosixPath(path_part).suffix.lower()
     return suffix == "" or suffix in (".html", ".htm")
 
 

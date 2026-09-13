@@ -29,6 +29,7 @@ from zenzic.core.resolver import (
     InMemoryPathResolver,
     PathTraversal,
     Resolved,
+    is_emitted_verbatim,
 )
 
 
@@ -551,6 +552,17 @@ class TestPerformanceBaseline:
     in the failure message, because it is useful to a human even when it is not the
     thing being asserted.
 
+    **The reference has to be the subject's own dominant primitive.** Two earlier
+    attempts failed because it was not. A `PurePosixPath(href).name` reference is always
+    the posix flavour and always cheap, while `resolver.resolve` uses the native `Path`
+    -- `WindowsPath` on Windows, whose parsing costs materially more. So on Windows the
+    numerator carried a penalty the denominator did not: with instrumentation the ratio
+    read **6.08** (217.3 ms against 35.7 ms) and without it **6.69** (82.2 ms against
+    12.3 ms), where this machine reads ~3.0 either way. The reference is now the join and
+    normalise the resolver itself performs, measured at **1.210 median, 1.064-1.352,
+    stdev 0.061** over 14 trials, so any platform path-handling penalty lands on both
+    sides and cancels.
+
     **The ratio alone was not enough, and the second failure said why.** On the Windows
     runner it read **6.08** -- `217.3 ms against 35.7 ms` -- where this machine reads
     3.02. A ratio cancels a uniformly slower machine, but coverage is not uniform: it
@@ -588,8 +600,13 @@ class TestPerformanceBaseline:
     ]
 
     #: Ratio ceiling for 5 000 resolutions against the reference loop. See the class
-    #: docstring for the calibration; 6.0 is a doubling of the measured 3.02.
-    _RATIO_LIMIT = 6.0
+    #: docstring for the calibration: the measured value is ~1.21, and 3.0 is chosen for
+    #: robustness over sensitivity -- it catches a 2.5x rise in per-resolution cost and
+    #: will not be moved by a platform or a loaded runner. A tighter limit would be more
+    #: sensitive and this assertion's history is three CI failures caused by the
+    #: environment and none by the code, so a coarse guard that holds is worth more than
+    #: a fine one that cries.
+    _RATIO_LIMIT = 3.0
 
     @pytest.mark.no_cover
     def test_5000_resolutions_stay_cheap_relative_to_the_machine(
@@ -603,29 +620,53 @@ class TestPerformanceBaseline:
         sink = ""
         for href in hrefs[:300]:
             resolver.resolve(source, href)
-            sink = PurePosixPath(href).name
+            sink = (source.parent / href).as_posix()
 
         start = time.perf_counter()
         for href in hrefs:
             resolver.resolve(source, href)
         resolve_s = time.perf_counter() - start
 
-        # The reference shares the dominant primitive -- parsing a path-shaped string --
-        # so it scales with the same machine characteristics that made the absolute
-        # ceiling unusable, and cancels out of the ratio.
+        # The reference is the resolver's own dominant primitive: joining the href onto
+        # the source directory and normalising it. Anything cheaper does not track the
+        # subject across platforms -- which is exactly how the previous reference failed.
         start = time.perf_counter()
         for href in hrefs:
-            sink = PurePosixPath(href).name
+            sink = (source.parent / href).as_posix()
         reference_s = time.perf_counter() - start
         assert sink, "the reference loop did no work, so the ratio means nothing"
+
+        # Diagnostics in the message, so a failure says *why* without another CI round.
+        # This assertion has now failed three times for three environmental reasons, and
+        # each time the first question was whether instrumentation was still on. The
+        # answer belongs in the output: the tracing core, whether a global trace function
+        # is installed, and whether coverage reports itself active.
+        import os
+        import sys
+
+        core = os.environ.get("COVERAGE_CORE", "(unset -> sysmon on 3.12+)")
+        tracer = sys.gettrace()
+        try:  # pragma: no cover - diagnostic only
+            import coverage
+
+            current = getattr(coverage.Coverage, "current", lambda: None)()
+            cov_state = "no Coverage object" if current is None else "Coverage object present"
+        except Exception:  # pragma: no cover - diagnostic only
+            cov_state = "coverage not importable"
+        environment = (
+            f"platform={sys.platform} python={sys.version_info.major}."
+            f"{sys.version_info.minor} COVERAGE_CORE={core} "
+            f"sys.gettrace={'installed' if tracer else 'None'} {cov_state}"
+        )
 
         ratio = resolve_s / reference_s
         assert ratio < self._RATIO_LIMIT, (
             f"5 000 resolutions cost {ratio:.2f}x the reference loop "
             f"({resolve_s * 1000:.1f} ms against {reference_s * 1000:.1f} ms); "
-            f"limit is {self._RATIO_LIMIT}x and the calibrated value is ~3.0. "
-            "Investigate _lookup or _build_target overhead — this is a ratio, so a "
-            "slow machine does not move it."
+            f"limit is {self._RATIO_LIMIT}x and the calibrated value is ~1.2. "
+            "Investigate _lookup or _build_target overhead -- this is a ratio against the "
+            "resolver's own dominant primitive, so neither a slow machine nor an "
+            f"instrumented one moves it. Environment: {environment}."
         )
 
     def test_outcome_distribution_is_correct(self, resolver: InMemoryPathResolver) -> None:
@@ -633,3 +674,109 @@ class TestPerformanceBaseline:
         source = ROOT / "index.md"
         outcomes = {type(resolver.resolve(source, h)) for h in self._HREFS}
         assert outcomes == {Resolved, AnchorMissing, FileNotFound, PathTraversal}
+
+
+class TestSuffixFastPathMatchesPathlib:
+    """`is_emitted_verbatim` reads the suffix with string operations, not `PurePosixPath`.
+
+    The object was being constructed once per link and thrown away, and it was 27% of
+    `resolve`'s profiled time -- disproportionately so on Windows, where `Path` is
+    `WindowsPath` and normalises separators on every operation. Removing it cut
+    resolution cost on this machine from 39.7 ms to 24.0 ms per 5 000 resolutions.
+
+    A hand-written suffix extraction is exactly the kind of thing that is subtly wrong
+    for months, and getting it wrong changes *which links get corrected* rather than
+    crashing. `pathlib.PurePath.suffix` is `name.lstrip('.')` followed by `rfind('.')`,
+    which the fast path reproduces; a final component that is only dots (`a/.`, `a/..`)
+    is normalised away by `.name` and falls through to the real implementation instead.
+
+    This test is the equivalence guard. It runs the pathological forms explicitly and
+    the whole live corpus, so an edit that diverges from `pathlib` fails here rather
+    than silently changing link resolution.
+    """
+
+    _PATHOLOGICAL = [
+        "",
+        ".",
+        "..",
+        "...",
+        "....",
+        "a",
+        "a.md",
+        "a.MD",
+        "a.b.c",
+        ".hidden",
+        ".hidden.md",
+        "x.",
+        "x..",
+        "a.html",
+        "a.htm",
+        "a.HTML",
+        "a.Htm",
+        "index",
+        "a/b/c.md",
+        "/abs/x.png",
+        "a/.hidden",
+        "a/x.",
+        "./c",
+        "a b.md",
+        "no-ext",
+        "weird..md",
+        "-.md",
+        "a/../b.md",
+        "a/..",
+        "a/.",
+        "a.b/.",
+        "..a",
+        "..-",
+        "//x.md",
+        "guide/install.md",
+        "/reference/api.md",
+    ]
+
+    @staticmethod
+    def _reference_suffix(path_part: str) -> str:
+        """What `PurePosixPath(path_part).suffix.lower()` returns — the thing replaced."""
+        return PurePosixPath(path_part).suffix.lower()
+
+    def _agrees(self, path_part: str) -> bool:
+        """`is_emitted_verbatim`, recomputed through pathlib, must give the same verdict."""
+        if path_part.endswith("/"):
+            return True
+        suffix = self._reference_suffix(path_part)
+        return suffix == "" or suffix in (".html", ".htm")
+
+    @pytest.mark.parametrize("path_part", _PATHOLOGICAL)
+    def test_pathological_forms_agree(self, path_part: str) -> None:
+        assert is_emitted_verbatim(path_part) == self._agrees(path_part), (
+            f"the string fast path and pathlib disagree on {path_part!r}: "
+            f"fast={is_emitted_verbatim(path_part)} pathlib={self._agrees(path_part)}"
+        )
+
+    def test_every_path_part_the_live_corpus_produces_agrees(self) -> None:
+        """The generated cases above are not the population that matters; this is.
+
+        A `PurePosixPath` over an already-normalised string behaves differently from one
+        over a raw href, so the corpus is read through the same decoding `resolve` uses.
+        """
+        from urllib.parse import unquote, urlsplit
+
+        from zenzic.core.validator import PolyglotExtractor
+
+        docs = Path(__file__).resolve().parents[1] / "docs"
+        if not docs.is_dir():  # pragma: no cover - a consumer checkout may ship no docs
+            pytest.skip("no docs/ tree in this checkout")
+        extractor = PolyglotExtractor()
+        parts: set[str] = set()
+        for page in docs.rglob("*.md"):
+            text = page.read_text(encoding="utf-8", errors="replace")
+            for item in extractor.extract_all_links(text):
+                url = item.url
+                if url and not url.startswith(("http://", "https://", "mailto:", "#")):
+                    parts.add(unquote(urlsplit(url).path.replace("\\", "/")))
+        assert parts, "extracted no path parts; the instrument found nothing"
+        disagreements = [p for p in parts if is_emitted_verbatim(p) != self._agrees(p)]
+        assert not disagreements, (
+            f"{len(disagreements)} of {len(parts)} real path parts disagree with pathlib: "
+            f"{sorted(disagreements)[:5]}"
+        )
