@@ -331,49 +331,52 @@ def test_no_declared_field_goes_unemitted() -> None:
     )
 
 
-def test_the_legacy_field_warning_names_both_sections_as_rendered(tmp_path: Path) -> None:
-    """The deprecation warning must reach the user with its section names intact.
+def test_the_removed_legacy_field_contributes_nothing_end_to_end(tmp_path: Path) -> None:
+    """`[project_metadata].obsolete_names` no longer drives Z601, through the real CLI.
 
-    It did not. `config.py` emits `'[project_metadata].obsolete_names'` and
-    `'[governance].brand_obsolescence'`, through a logger handled by Rich, which
-    reads a bracketed word as a markup tag and renders nothing for it. Users saw
-    `The '.obsolete_names' field is deprecated. Please move it to
-    '.brand_obsolescence'.` -- naming neither section, in the one message whose
-    entire purpose is to say where to move a field.
+    This test previously asserted that the field's deprecation warning reached the
+    user with `[project_metadata]` and `[governance]` intact -- Rich had been reading
+    both as markup tags and rendering neither, in the one message whose purpose was
+    to say where to move a field. v0.31.0 removed the field, the alias copy and that
+    notice together, so the question the test asks changes: not "is the notice
+    legible" but "is the field inert". Kept as a subprocess test because the previous
+    defect was invisible in the source and only appeared in rendered output.
 
-    Asserted against RENDERED output rather than the source string, because the
-    source string was always correct. That is the whole defect: reading the code
-    confirms nothing here.
+    Migration is `[governance].brand_obsolescence`, asserted here in the same run so
+    that an inert legacy key cannot be confused with a Z601 rule that stopped firing.
     """
-    project = tmp_path / "legacy"
-    (project / "docs").mkdir(parents=True)
-    (project / ".zenzic.toml").write_text(
-        'docs_dir = "docs"\nfail_under = 0\n\n'
-        '[build_context]\nengine = "standalone"\n\n'
-        '[project_metadata]\nobsolete_names = ["OldBrandName"]\n',
-        encoding="utf-8",
-    )
-    (project / "docs" / "index.md").write_text(
-        "# Page\n\nThis page mentions OldBrandName in prose, and carries enough words "
-        "that the short-content rule stays quiet while the warning is what is being "
-        "measured here.\n",
-        encoding="utf-8",
-    )
-    proc = subprocess.run(  # noqa: S603
-        [str(ZENZIC_BIN), "check", "all", ".", "--format", "json"],
-        cwd=project,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        env={**os.environ, "NO_COLOR": "1", "COLUMNS": "200"},
-    )
-    rendered = proc.stdout + proc.stderr
-    assert "deprecated" in rendered.lower(), (
-        f"the legacy field produced no deprecation warning at all: {rendered[:300]!r}"
-    )
-    for section in ("[project_metadata]", "[governance]"):
-        assert section in rendered, (
-            f"the warning reached the user without {section}. Rich swallowed it as a "
-            f"markup tag: escape the opening bracket. Rendered: {rendered[:400]!r}"
+
+    def _run(name: str, config_body: str) -> str:
+        project = tmp_path / name
+        (project / "docs").mkdir(parents=True)
+        (project / ".zenzic.toml").write_text(
+            'docs_dir = "docs"\nfail_under = 0\n\n'
+            '[build_context]\nengine = "standalone"\n\n' + config_body,
+            encoding="utf-8",
         )
+        (project / "docs" / "index.md").write_text(
+            "# Page\n\nThis page mentions OldBrandName in prose, and carries enough words "
+            "that the short-content rule stays quiet while Z601 is what is being "
+            "measured here.\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(  # noqa: S603
+            [str(ZENZIC_BIN), "check", "all", ".", "--format", "json"],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "NO_COLOR": "1", "COLUMNS": "200"},
+        )
+        return proc.stdout + proc.stderr
+
+    legacy = _run("legacy", '[project_metadata]\nobsolete_names = ["OldBrandName"]\n')
+    assert "Z601" not in legacy, (
+        f"the removed field still drives Z601 -- the removal is incomplete: {legacy[:400]!r}"
+    )
+    replacement = _run("replacement", '[governance]\nbrand_obsolescence = ["OldBrandName"]\n')
+    assert "Z601" in replacement, (
+        "the replacement field does not drive Z601 either, so the assertion above "
+        f"proves nothing about the removal: {replacement[:400]!r}"
+    )

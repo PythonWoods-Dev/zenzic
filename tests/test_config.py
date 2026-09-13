@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from zenzic.core.exceptions import ConfigurationError
-from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ZenzicConfig
+from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ProjectMetadata, ZenzicConfig
 
 
 def test_load_config_default(tmp_path: Path) -> None:
@@ -522,20 +522,32 @@ def test_validate_same_page_anchors_key_in_toml_is_ignored_with_warning(
     assert not hasattr(config, "validate_same_page_anchors")
 
 
-def test_build_from_data_legacy_obsolete_names_migrated(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """[project_metadata].obsolete_names is migrated to [governance].brand_obsolescence."""
-    import logging
+def test_legacy_obsolete_names_field_removed_from_model(tmp_path: Path) -> None:
+    """`[project_metadata].obsolete_names` was removed in v0.31.0.
 
+    It had spent two minor versions as a deprecated alias that the loader copied
+    into `[governance].brand_obsolescence`. A version below 1.0 promises no
+    stability, so an alias there declares a commitment stronger than the version
+    number offers while costing the project a dual read across four surfaces:
+    removed and documented instead, with `CHANGELOG.md` carrying the migration
+    instruction.
+
+    A `.zenzic.toml` still setting it loads successfully -- a removed config key is
+    not a parse error -- and contributes nothing. It also produces no warning,
+    because the unknown-key check iterates root-level keys only and never descends
+    into a handled section such as `[project_metadata]`; a plain typo inside that
+    section is equally silent. That gap is general rather than specific to this
+    field, and is tracked in the project's internal backlog. This test
+    deliberately asserts only the removal, so that closing the gap does not have to
+    fight an assertion that silence is correct.
+    """
+    assert "obsolete_names" not in ProjectMetadata.model_fields
     (tmp_path / ".zenzic.toml").write_text(
         "[project_metadata]\nobsolete_names = ['OldBrand', 'AnotherOld']\n"
     )
-    with caplog.at_level(logging.WARNING, logger="zenzic"):
-        config, _ = ZenzicConfig.load(tmp_path)
-    assert "OldBrand" in config.governance.brand_obsolescence
-    assert "AnotherOld" in config.governance.brand_obsolescence
-    assert any("Deprecated" in r.message for r in caplog.records)
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.governance.brand_obsolescence == []
+    assert not hasattr(config.project_metadata, "obsolete_names")
 
 
 def test_build_from_data_unknown_section_warning_survives_rich_markup(

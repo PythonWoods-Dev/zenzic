@@ -1873,29 +1873,28 @@ class TestUntaggedCodeBlockRule:
 
 
 def _meta(
-    obsolete: list[str] | None = None,
     release: str = "NextRelease",
     exclude: list[str] | None = None,
 ) -> ProjectMetadata:
-    kwargs: dict = {"release_name": release, "obsolete_names": obsolete or []}  # type: ignore[type-arg]
+    kwargs: dict = {"release_name": release}  # type: ignore[type-arg]
     if exclude is not None:
         kwargs["obsolete_names_exclude_patterns"] = exclude
     return ProjectMetadata(**kwargs)
 
 
 class TestBrandObsolescenceRule:
-    def _rule(self, meta: ProjectMetadata) -> BrandObsolescenceRule:
-        return BrandObsolescenceRule(meta)
+    def _rule(self, meta: ProjectMetadata, obsolete: list[str]) -> BrandObsolescenceRule:
+        return BrandObsolescenceRule(meta, obsolete)
 
     def test_z601_empty_obsolete_no_findings(self) -> None:
         """When obsolete_names is empty, rule always returns []."""
-        rule = self._rule(_meta(obsolete=[]))
+        rule = self._rule(_meta(), [])
         findings = rule.check(_ANCHOR_FILE, "OldBrand was the old name.\n")
         assert findings == []
 
     def test_z601_match_emits_warning(self) -> None:
         """Obsolete term found → one Z601 warning with remediation hint."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         findings = rule.check(_ANCHOR_FILE, "OldBrand is documented here.\n")
         assert len(findings) == 1
         assert findings[0].rule_id == "Z601"
@@ -1905,14 +1904,14 @@ class TestBrandObsolescenceRule:
 
     def test_z601_suppress_md_html_comment(self) -> None:
         """CEO-143: HTML comment suppression (Markdown .md syntax)."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. <!-- zenzic:ignore: Z601 -->\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert findings == []
 
     def test_z601_suppress_mdx_jsx_comment(self) -> None:
         """CEO-143: JSX comment suppression (MDX .mdx syntax)."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         mdx_file = Path("docs/guide/history.mdx")
         text = "The OldBrand era defined our foundations. {/* zenzic:ignore: Z601 */}\n"
         findings = rule.check(mdx_file, text)
@@ -1920,7 +1919,7 @@ class TestBrandObsolescenceRule:
 
     def test_z601_suppress_only_correct_code(self) -> None:
         """CEO-143: A suppression comment for a different code does NOT suppress Z601."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. <!-- zenzic:ignore: Z107 -->\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert len(findings) == 1
@@ -1928,7 +1927,7 @@ class TestBrandObsolescenceRule:
 
     def test_z601_historical_tag_no_longer_suppresses(self) -> None:
         """CEO-143: The deprecated [HISTORICAL] token is no longer a suppression mechanism."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. [HISTORICAL]\n"
         findings = rule.check(_ANCHOR_FILE, text)
         # [HISTORICAL] is plain text — does not suppress Z601
@@ -1937,21 +1936,21 @@ class TestBrandObsolescenceRule:
 
     def test_z601_path_in_exclude_patterns_skipped(self) -> None:
         """File matching an exclusion glob is skipped entirely."""
-        rule = self._rule(_meta(obsolete=["OldBrand"], exclude=["CHANGELOG*.md"]))
+        rule = self._rule(_meta(exclude=["CHANGELOG*.md"]), ["OldBrand"])
         cl_file = Path("CHANGELOG.md")
         findings = rule.check(cl_file, "OldBrand was the old name.\n")
         assert findings == []
 
     def test_z601_case_insensitive(self) -> None:
         """Z601 is case-insensitive: 'oldbrand' also triggers when lowercased."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         findings = rule.check(_ANCHOR_FILE, "oldbrand is no longer used.\n")
         assert len(findings) == 1
         assert findings[0].match_text.lower() == "oldbrand"
 
     def test_z601_multiple_names_multiple_findings(self) -> None:
         """Each unique obsolete term on a line → its own finding."""
-        rule = self._rule(_meta(obsolete=["OldBrand", "LegacyTerm"]))
+        rule = self._rule(_meta(), ["OldBrand", "LegacyTerm"])
         text = "OldBrand and LegacyTerm are both deprecated.\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert len(findings) == 2

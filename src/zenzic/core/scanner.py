@@ -1580,7 +1580,8 @@ def _build_rule_engine(
     Load order is deterministic:
 
     1. Built-in always-active rules (Z107, Z505, Z506).
-    2. Z601 BRAND_OBSOLESCENCE — activated only when ``obsolete_names`` is set.
+    2. Z601 BRAND_OBSOLESCENCE — activated only when ``[governance]
+       brand_obsolescence`` is set.
     3. Core rules registered via the ``zenzic.rules`` entry-point group.
     4. Regex rules from ``[[custom_rules]]``.
     5. External plugin rules explicitly listed in ``plugins = [...]``.
@@ -1635,8 +1636,10 @@ def _build_rule_engine(
         built_in.append(PassiveVoiceRule())
     if config.policies.weasel_words:
         built_in.append(WeaselWordsRule(config.policies.weasel_words))
-    if config.project_metadata.obsolete_names:
-        built_in.append(BrandObsolescenceRule(config.project_metadata))
+    if config.governance.brand_obsolescence:
+        built_in.append(
+            BrandObsolescenceRule(config.project_metadata, config.governance.brand_obsolescence)
+        )
 
     from zenzic.core.rules import BaseRule, RuleFinding
 

@@ -1003,7 +1003,7 @@ if TYPE_CHECKING:
 class BrandObsolescenceRule(BaseRule):
     """Z601 — Detect deprecated brand terms in documentation source.
 
-    Activated only when ``[project_metadata] obsolete_names`` is non-empty in
+    Activated only when ``[governance] brand_obsolescence`` is non-empty in
     ``.zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
@@ -1023,9 +1023,14 @@ class BrandObsolescenceRule(BaseRule):
     ``CHANGELOG*.archive.md``.
     """
 
-    def __init__(self, project_metadata: ProjectMetadata) -> None:
+    def __init__(self, project_metadata: ProjectMetadata, obsolete_names: list[str]) -> None:
+        # The terms arrive as an argument rather than being read off
+        # ProjectMetadata. `[project_metadata].obsolete_names` was removed in
+        # v0.31.0 after twenty-three minor versions of deprecation warning, and
+        # `[governance].brand_obsolescence` is now the only source. The caller
+        # passes it, so this rule has no opinion about which section it came from.
         self._release_name = project_metadata.release_name
-        valid_names = [name for name in project_metadata.obsolete_names if name.strip()]
+        valid_names = [name for name in obsolete_names if name.strip()]
         # Pre-compile a single RE2 union regex — O(1) per line regardless of how
         # many obsolete names are configured.  Named groups (g0, g1, …) are used
         # to recover which term matched (required for the finding message).

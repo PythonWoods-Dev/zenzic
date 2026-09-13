@@ -98,7 +98,7 @@ class CustomRuleConfig(BaseModel):
 class ProjectMetadata(BaseModel):
     """Optional brand-integrity metadata declared in ``[project_metadata]``.
 
-    When ``obsolete_names`` is non-empty, Zenzic activates the Z601
+    When ``[governance] brand_obsolescence`` is non-empty, Zenzic activates the Z601
     BRAND_OBSOLESCENCE rule, which warns on every occurrence of a deprecated
     brand term found in documentation source files.  Lines carrying a
     ``zenzic:ignore`` comment are silently skipped so intentional historical
@@ -111,7 +111,7 @@ class ProjectMetadata(BaseModel):
 
         [project_metadata]
         release_name = "MyRelease"
-        obsolete_names = ["PreviousRelease"]
+        # brand terms live in [governance].brand_obsolescence
         # ADR files contain intentional historical references
         obsolete_names_exclude_patterns = [
             "CHANGELOG*.md",
@@ -122,12 +122,6 @@ class ProjectMetadata(BaseModel):
     release_name: str = Field(
         default="",
         description="Current canonical brand/release name shown in Z601 remediation hints.",
-    )
-    # Deprecated in v0.8: canonical source moved to [governance].brand_obsolescence.
-    # Kept for runtime compatibility while scanner migration is completed.
-    obsolete_names: list[str] = Field(
-        default=[],
-        description="Deprecated legacy field; populated from [governance].brand_obsolescence.",
     )
     obsolete_names_exclude_patterns: list[str] = Field(
         default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
@@ -896,8 +890,8 @@ class ZenzicConfig(BaseModel):
     governance: GovernanceConfig = Field(
         default_factory=GovernanceConfig,
         description=(
-            "Governance toggles for ADR-012 checks. Prefer this section over "
-            "legacy [project_metadata].obsolete_names."
+            "Governance toggles for ADR-012 checks. brand_obsolescence lives here; "
+            "the legacy [project_metadata].obsolete_names was removed in v0.31.0."
         ),
     )
     policies: PoliciesConfig = Field(
@@ -1049,7 +1043,7 @@ class ZenzicConfig(BaseModel):
                 **{
                     k: v
                     for k, v in data["project_metadata"].items()
-                    if k in ProjectMetadata.model_fields and k != "obsolete_names"
+                    if k in ProjectMetadata.model_fields
                 }
             )
         if "governance" in data and isinstance(data["governance"], dict):
@@ -1069,36 +1063,15 @@ class ZenzicConfig(BaseModel):
                 **{k: v for k, v in data["network"].items() if k in NetworkConfig.model_fields}
             )
 
-        # Legacy migration path (v0.8): [project_metadata].obsolete_names ->
-        # [governance].brand_obsolescence.
-        legacy_obsolete: list[str] = []
-        if "project_metadata" in data and isinstance(data["project_metadata"], dict):
-            raw_legacy = data["project_metadata"].get("obsolete_names", [])
-            if isinstance(raw_legacy, list):
-                legacy_obsolete = [name for name in raw_legacy if isinstance(name, str)]
-        if legacy_obsolete:
-            # The brackets are escaped for Rich, and that is not cosmetic: this
-            # logger is handled by RichHandler, which reads `[project_metadata]`
-            # as a markup tag and renders nothing for it. The warning therefore
-            # reached users as "The '.obsolete_names' field is deprecated. Please
-            # move it to '.brand_obsolescence'." -- naming neither section, in
-            # the one message whose whole purpose is to say where to move a
-            # field. Found by running it; the source line reads correctly.
-            _cfg_log.warning(
-                r"Deprecated in v0.8: The '\[project_metadata].obsolete_names' field "
-                r"is deprecated. Please move it to '\[governance].brand_obsolescence'."
-            )
-            governance_cfg = filtered_data.get("governance", GovernanceConfig())
-            if not governance_cfg.brand_obsolescence:
-                governance_cfg.brand_obsolescence = legacy_obsolete
-            filtered_data["governance"] = governance_cfg
-
-        # Runtime compatibility bridge for current scanner wiring.
-        governance_cfg = filtered_data.get("governance")
-        if governance_cfg is not None and governance_cfg.brand_obsolescence:
-            metadata_cfg = filtered_data.get("project_metadata", ProjectMetadata())
-            metadata_cfg.obsolete_names = list(governance_cfg.brand_obsolescence)
-            filtered_data["project_metadata"] = metadata_cfg
+        # `[project_metadata].obsolete_names` was removed in v0.31.0, and with it
+        # both halves of its plumbing: the v0.8 migration that copied it into
+        # `[governance].brand_obsolescence`, and the compatibility bridge that
+        # copied the result back again so the scanner could read the legacy name.
+        # That dual read spread one decision across four surfaces -- model,
+        # loader, rule constructor and tests -- which is the cost a deprecated
+        # alias imposes on the project rather than on its users, and the reason
+        # a pre-1.0 alias is removed instead of carried. `brand_obsolescence` is
+        # now the only source and the scanner reads it directly.
         return cls(**filtered_data)
 
     @staticmethod

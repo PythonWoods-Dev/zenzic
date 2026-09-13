@@ -1340,13 +1340,32 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
                 "region": { "startLine": 42 }
               }
             }
-          ]
+          ],
+          "partialFingerprints": {
+            "zenzicFindingV1": "9c5823ba6f738113c039e3f1c714fa01bd3012b51b583d7f098d8a20bcb3936c",
+            "primaryLocationLineHash": "5d11cd16693fcee53745413004a6968e653b674db57a468fd923892ce40df72f"
+          }
         }
       ]
     }
   ]
 }
 ```
+
+### `partialFingerprints` — how an alert keeps its history {#sarif-partial-fingerprints}
+
+GitHub Code Scanning decides whether two results across commits are the *same* alert
+from this object. Zenzic emits two keys:
+
+| Key | Present on | Built from |
+| --- | --- | --- |
+| `zenzicFindingV1` | **every** result | Relative path, code, message, match text and occurrence index — the line number deliberately absent, so the identity survives the finding moving. Byte-identical to the `fingerprint` field in `--format gitlab-codequality`. |
+| `primaryLocationLineHash` | results that have a source line | SHA-256 of the stripped source line. GitHub's own documented key. |
+
+`primaryLocationLineHash` is **omitted, not emitted empty**, for a file-level finding
+with no excerpt (`Z502` `SHORT_CONTENT`, `Z411` `DEAD_END_NODE`). A hash over an empty
+string would give every such finding one identity, and GitHub would merge unrelated
+alerts rather than simply fail to track one.
 
 For automated upload to GitHub Code Scanning, use the
 [Zenzic GitHub Action](../../how-to/configure-ci-cd/#github-actions-zenzic-credential-gate) —
