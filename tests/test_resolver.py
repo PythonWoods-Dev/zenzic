@@ -554,9 +554,8 @@ class TestPerformanceBaseline:
 
     **The reference has to be the subject's own dominant primitive.** Two earlier
     attempts failed because it was not. A `PurePosixPath(href).name` reference is always
-    the posix flavour and always cheap, while `resolver.resolve` uses the native `Path`
-    -- `WindowsPath` on Windows, whose parsing costs materially more. So on Windows the
-    numerator carried a penalty the denominator did not: with instrumentation the ratio
+    cheap and stable, while `resolver.resolve` does far more path work, so the numerator
+    carried a cost the denominator did not: with instrumentation the ratio
     read **6.08** (217.3 ms against 35.7 ms) and without it **6.69** (82.2 ms against
     12.3 ms), where this machine reads ~3.0 either way. The reference is now the join and
     normalise the resolver itself performs, so any platform path-handling penalty lands
@@ -586,6 +585,15 @@ class TestPerformanceBaseline:
         COVERAGE_CORE=pytrace   resolve 458.0 ms   ref 67.1 ms   ratio 6.83
 
     CI's 6.08 sits between the last two, so that runner is not using `sys.monitoring`.
+
+    **And the asymmetry was the interpreter, not the platform** -- recorded because the
+    first explanation was `WindowsPath` and it was wrong. Measured on all three CI legs
+    once this test began reporting on success: `resolve` costs 48.1 ms on ubuntu/3.10 and
+    46.4 ms on windows/3.10 against 17.5 ms on ubuntu/3.14. Windows is marginally the
+    faster of the two 3.10 legs. So the reference cancels **platform** variation, which is
+    what it was chosen for, and does **not** cancel interpreter variation: the ratio reads
+    0.83 on 3.14 and 2.18 on 3.10, and the tightest margin against the 3.0 limit is
+    **1.38x**, not the 3.9x this machine shows. That is the number to watch.
 
     Hence `@pytest.mark.no_cover`: a performance test run under a profiler measures the
     profiler. Disabling instrumentation for this one test is not a convenience, it is
