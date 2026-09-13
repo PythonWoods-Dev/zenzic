@@ -13,7 +13,7 @@ If you discover a security vulnerability in Zenzic — including issues with the
 scanner, the path traversal protection, or any other part of the Core —
 report it privately via one of these channels:
 
-- **GitHub Security Advisories** (preferred): [github.com/PythonWoods/zenzic/security/advisories](https://github.com/PythonWoods/zenzic/security/advisories)
+- **GitHub Security Advisories** (preferred): [github.com/PythonWoods-Dev/zenzic/security/advisories](https://github.com/PythonWoods-Dev/zenzic/security/advisories)
 - **Email**: `dev@pythonwoods.dev` — subject line: `[SECURITY] Zenzic — <brief description>`
 
 For lower-severity, non-exploitable issues (Shield false positives/negatives, incorrect
