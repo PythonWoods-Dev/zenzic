@@ -98,13 +98,14 @@ class CustomRuleConfig(BaseModel):
 class ProjectMetadata(BaseModel):
     """Optional brand-integrity metadata declared in ``[project_metadata]``.
 
-    When ``obsolete_names`` is non-empty, Zenzic activates the Z905
+    When ``obsolete_names`` is non-empty, Zenzic activates the Z601
     BRAND_OBSOLESCENCE rule, which warns on every occurrence of a deprecated
     brand term found in documentation source files.  Lines carrying a
     ``zenzic:ignore`` comment are silently skipped so intentional historical
     references (e.g. in CHANGELOG files or ADR entries) are not flagged.
-    Use ``<!-- zenzic:ignore: Z905 -->`` in ``.md`` files and
-    ``{/* zenzic:ignore: Z905 */}`` in ``.mdx`` files.
+    Use ``<!-- zenzic:ignore: Z601 -->`` in ``.md`` files and
+    ``{/* zenzic:ignore: Z601 */}`` in ``.mdx`` files.  The comment must sit on
+    the **same line** as the flagged term; this rule checks the line it is on.
 
     TOML example::
 
@@ -120,7 +121,7 @@ class ProjectMetadata(BaseModel):
 
     release_name: str = Field(
         default="",
-        description="Current canonical brand/release name shown in Z905 remediation hints.",
+        description="Current canonical brand/release name shown in Z601 remediation hints.",
     )
     # Deprecated in v0.8: canonical source moved to [governance].brand_obsolescence.
     # Kept for runtime compatibility while scanner migration is completed.

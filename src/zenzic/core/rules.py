@@ -1053,7 +1053,7 @@ class BrandObsolescenceRule(BaseRule):
 
         findings: list[RuleFinding] = []
         # Fence-tracking state — body lines inside code blocks are not brand
-        # claims and must not trigger Z905 (CEO-152).
+        # claims and must not trigger Z601 (CEO-152).
         inside_fence: bool = False
         open_char: str = ""
         open_count: int = 0

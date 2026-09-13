@@ -28,8 +28,8 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 #: its own copy, because the parser and the audit counter are the same pattern and
 #: a second copy desynchronises them the day one spelling is added.
 #:
-#:   Markdown (.md):  ``<!-- zenzic:ignore: Z905 - reason -->``
-#:   MDX (.mdx):      ``{/* zenzic:ignore: Z905 - reason */}``
+#:   Markdown (.md):  ``<!-- zenzic:ignore: Z601 - reason -->``
+#:   MDX (.mdx):      ``{/* zenzic:ignore: Z601 - reason */}``
 #:
 #: The MDX braces accept surrounding whitespace (``{ /* … */ }``). They are an
 #: expression container and the whitespace is legal, and Prettier emits exactly
