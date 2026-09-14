@@ -2184,6 +2184,57 @@ def test_score_breakdown(_run: object, _cfg: object, _root: object) -> None:
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
+def test_breakdown_groups_by_registry_not_by_code_prefix(
+    _run: object, _cfg: object, _root: object
+) -> None:
+    """A code the scorer does not weight must not be printed under a weighted bucket.
+
+    The grouping used to read the code's first digit, so `Z106` -- a Z1xx code with
+    `category=None` -- was listed under STRUCTURAL while the same run's SARIF called
+    it uncategorized. The previous test asserted `"STRUCTURAL CATEGORY"` and
+    `"Z106 (CIRCULAR_LINK)"` as independent substrings and so passed either way;
+    this asserts the association, which is the thing that was wrong.
+    """
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("structural", 0.30, 0, 1.0, 0.30, raw_penalty=0.0, is_capped=False),
+            CategoryScore("navigation", 0.25, 0, 1.0, 0.25, raw_penalty=0.0, is_capped=False),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20, raw_penalty=0.0, is_capped=False),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25, raw_penalty=0.0, is_capped=False),
+        ],
+        findings_counts={"Z106": 2},
+        suppression_count=0,
+        suppression_cap=30,
+        debt_status="MANAGED",
+        suppression_debt_pts=0,
+    )
+    result = runner.invoke(app, ["score", "--breakdown"])
+    assert result.exit_code == 0
+
+    out = result.stdout
+    assert "UNCATEGORIZED FINDINGS" in out, (
+        "Z106 has no scoring category, so the breakdown must render the uncategorized "
+        f"section for it. Output:\n{out}"
+    )
+    uncategorized_at = out.index("UNCATEGORIZED FINDINGS")
+    z106_at = out.index("Z106 (CIRCULAR_LINK)")
+    assert z106_at > uncategorized_at, (
+        "Z106 was printed before the UNCATEGORIZED section, which means it was grouped "
+        "into one of the weighted buckets by its numeric prefix -- the defect this "
+        f"guards. Output:\n{out}"
+    )
+    structural_at = out.index("STRUCTURAL CATEGORY")
+    assert not (structural_at < z106_at < uncategorized_at), (
+        "Z106 appears inside the STRUCTURAL section."
+    )
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
 def test_score_breakdown_gravity_cap_triggered(_run: object, _cfg: object, _root: object) -> None:
     """When the brand bucket is genuinely zeroed, the Gravity Cap Loss line must
     say so — the counterpart to test_score_breakdown's not-triggered case.

@@ -1562,7 +1562,7 @@ zenzic score                   # show score for visibility
 
 Use the `--breakdown` flag to output a detailed category breakdown of occurred Z-Codes (including informational or zero-point codes like `Z106` or `Z401`) and the transparent DQS mathematical formula calculations.
 
-The example below shows `Z106` rows; `Z106` is **opt-in** and produces nothing unless `[policies] enable_circular_link_check = true` is set, so a default project sees this category without them:
+The example below shows a `Z106` row. `Z106` is **opt-in** and produces nothing unless `[policies] enable_circular_link_check = true` is set, so a default project sees none. It appears under **UNCATEGORIZED FINDINGS** rather than under a weighted category: `Z106` carries no DQS penalty and belongs to no scoring bucket, so no bucket's arithmetic accounts for it. A code is grouped by the category the registry gives it, never by its numeric band — `Z106` is a `Z1xx` code that `Structural` does not score.
 
 ```bash
 zenzic score --breakdown
@@ -1573,8 +1573,9 @@ Example output:
 ```text
 DETAILED CATEGORY BREAKDOWN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 STRUCTURAL CATEGORY (Weight: 30%, Max: 30.0 pts)
-  ✗ Z106 (CIRCULAR_LINK): 24 occurrence(s) x -0.0 pts = -0.0 pts
+  ✓ No issues detected
   Category Raw Penalty:  0.0 pts
   Category Net Score:    30.0 / 30.0 pts
 
@@ -1592,6 +1593,10 @@ BRAND CATEGORY (Weight: 25%, Max: 25.0 pts)
   ✓ No issues detected
   Category Raw Penalty:  0.0 pts
   Category Net Score:    25.0 / 25.0 pts
+
+UNCATEGORIZED FINDINGS
+  ! Z106 (CIRCULAR_LINK): 2 occurrence(s) (no DQS penalty)
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DQS MATHEMATICAL TRANSPARENCY
   Base Score:                100.0 pts
@@ -1601,11 +1606,10 @@ DQS MATHEMATICAL TRANSPARENCY
   - Brand Penalty:        -0.0 pts
   ─────────────────────────────────────
   Total Category Penalties:   -0.0 pts
-  - Gravity Cap Loss:           -0.0 pts (Brand bucket zeroed cap)
+  - Gravity Cap Loss:           -0.0 pts (not triggered)
   - Technical Debt Penalty:     -0.0 pts (0 suppression(s) x -1.0 pt)
   ─────────────────────────────────────
   Final Score: 100 - 0.0 = 100.0
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---

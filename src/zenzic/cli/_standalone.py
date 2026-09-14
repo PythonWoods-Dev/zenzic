@@ -605,24 +605,12 @@ def score(
             _shared.console.print("[bold cyan]DETAILED CATEGORY BREAKDOWN[/]")
             _shared.console.print(f"[dim]{'━' * 50}[/]")
 
-            # Helper to map codes to display categories
-            def get_display_category(c: str) -> str:
-                from zenzic.core.scorer import _CODE_CATEGORY
-
-                cat = _CODE_CATEGORY.get(c)
-                if cat is not None:
-                    return cat
-                if c.startswith("Z1"):
-                    return "structural"
-                if c.startswith("Z3"):
-                    return "navigation"
-                if c.startswith("Z5"):
-                    return "content"
-                if c.startswith("Z6"):
-                    return "brand"
-                if c.startswith("Z2"):
-                    return "security"
-                return "other"
+            # Which bucket a finding is grouped under comes from the registry, not
+            # from its numeric prefix. The prefix cascade this replaced answered for
+            # any code the scorer did not categorise by reading its first digit, so
+            # `Z106` and `Z123` -- Z1xx codes that no bucket scores -- were printed
+            # under STRUCTURAL while the same run's SARIF reported them uncategorized.
+            from zenzic.core.codes import category_bucket_key as get_display_category
 
             # Group findings by display category
             grouped_findings: dict[str, list[tuple[str, int]]] = {

@@ -726,6 +726,76 @@ CODE_DESCRIPTIONS: dict[str, str] = {
 CODE_SARIF_LEVELS: dict[str, str] = {code: defn.severity for code, defn in CODE_DEFINITIONS.items()}
 
 
+#: Display label for each scoring bucket, keyed by ``CodeDefinition.category``.
+#: The registry key is the identifier; these are the words a document uses for it.
+#: Four surfaces rendered these by hand before this existed, and a fifth --
+#: ``zenzic score --breakdown`` -- guessed from the code's numeric prefix instead,
+#: which is how ``Z106`` came to be printed under STRUCTURAL while the same run's
+#: SARIF called it uncategorized.
+CATEGORY_DISPLAY_NAMES: Final[dict[str, str]] = {
+    "structural": "Structural Integrity",
+    "navigation": "Navigation Graph",
+    "content": "Content Excellence",
+    "brand": "Governance & Brand",
+}
+
+#: Codes with no scoring category that are nonetheless not "uncategorized": the
+#: pre-scan configuration guards (``Z001``, ``Z110``, ``Z111``) and the runtime
+#: HALT gate (``Z901``), grouped together because they share the same semantics --
+#: 0.0 points, never scored, the pipeline stops.
+#:
+#: **Declared, not derived, and the distinction is deliberate.** Every member is
+#: ``severity="error"`` while the remaining ``category=None`` codes are ``warning``
+#: or ``note``, so a severity test reproduces this set exactly on today's registry.
+#: It is written out anyway: that agreement is a property of the current codes, not
+#: a rule anyone stated, and a future ``category=None`` error code would be swept in
+#: silently. The test below asserts the agreement, so if it ever breaks the
+#: enumeration is what survives and the drift is reported rather than absorbed.
+CONFIGURATION_GUARD_CODES: Final[frozenset[str]] = frozenset({"Z001", "Z110", "Z111", "Z901"})
+
+#: Label used where a code has no scoring bucket at all.
+UNCATEGORIZED_DISPLAY_NAME: Final[str] = "*(uncategorized)*"
+
+
+def category_display_name(code: str) -> str:
+    """Return the document label for *code*'s scoring bucket.
+
+    Four answers, in the order a reader needs them: a security code is pre-empted
+    by the Security Override before the penalty table is consulted, a configuration
+    guard aborts before scoring, a categorised code names its bucket, and anything
+    else is genuinely uncategorised.
+
+    This is the reference-document vocabulary (``"Structural Integrity"``). The CLI
+    renders the registry key itself (``"structural"``); :func:`category_bucket_key`
+    is the function for that surface.
+    """
+    if code in SECURITY_TIER_CODES:
+        return "Inviolable Override"
+    if code in CONFIGURATION_GUARD_CODES:
+        return "Configuration Guard"
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is None or defn.category is None:
+        return UNCATEGORIZED_DISPLAY_NAME
+    return CATEGORY_DISPLAY_NAMES[defn.category]
+
+
+def category_bucket_key(code: str) -> str:
+    """Return the bucket key a report groups *code* under.
+
+    The four weighted keys, plus ``"security"`` for the Z2xx tier and ``"other"``
+    for everything the scorer does not weight. Consumers that group findings by
+    bucket must use this rather than testing the code's numeric prefix: a prefix
+    says which band a code was allocated from, never which bucket scores it, and
+    ``Z106``/``Z123`` are Z1xx codes that no bucket scores.
+    """
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is not None and defn.category is not None:
+        return defn.category
+    if code in SECURITY_TIER_CODES:
+        return "security"
+    return "other"
+
+
 def get_sarif_name(code: str) -> str:
     """Convert a Zxxx code to its SARIF-canonical CamelCase rule name.
 
