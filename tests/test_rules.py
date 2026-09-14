@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import warnings
 from pathlib import Path
 from unittest.mock import patch
 
@@ -630,40 +631,160 @@ class TestAdaptiveRuleEngineTortureTest:
                 lines.append(f"[Page {i}](missing-{i}.md)")
         return "\n".join(lines)
 
+    #: Ceiling for `check_vsm` measured against its own per-link primitive. The
+    #: calibration, ten readings across both configurations: without coverage the
+    #: ratio sits at 1.27-1.45 (all-valid) and 1.56-1.74 (all-missing); under
+    #: coverage at 1.77-1.86 and 1.72-2.25. Worst observed is 2.25, so 4.0 leaves
+    #: 1.8x of headroom and still catches a real regression -- an O(N^2) collapse
+    #: on 10 000 links is ~100x, not 2x. Chosen coarse deliberately: this
+    #: assertion's history is one CI-blocking failure caused by the environment
+    #: and none by the code.
+    _RATIO_LIMIT = 4.0
+
+    def _reference_cost(self, text: str, vsm: dict[str, Route]) -> tuple[float, int]:
+        """Time the per-link work `check_vsm` does, minus the rule dispatch itself.
+
+        The reference has to track the subject or the ratio means nothing. This
+        mirrors the real loop: extract the inline links, apply the scheme skip,
+        normalise the URL, apply the extension skip, and do the VSM dict lookup.
+        A cheaper reference -- a bare dict lookup, say -- would not move with the
+        subject across platforms or interpreters, which is exactly how the
+        equivalent test in `test_resolver.py` failed before it was rewritten.
+        """
+        skip = VSMBrokenLinkRule._SKIP_SCHEMES
+        exts = (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".webp",
+            ".svg",
+            ".ico",
+            ".pdf",
+            ".zip",
+            ".tar.gz",
+            ".xml",
+            ".css",
+            ".json",
+        )
+        start = time.perf_counter()
+        sink = 0
+        for url, _lineno, _raw in _extract_inline_links_with_lines(text):
+            if url == "#" or any(url.startswith(s) for s in skip):
+                continue
+            clean = url.split("?")[0].split("#")[0].lower()
+            if any(clean.endswith(ext) for ext in exts):
+                continue
+            sink += 1 if vsm.get("/" + clean.removesuffix(".md") + "/") is not None else 0
+        return time.perf_counter() - start, sink
+
+    @staticmethod
+    def _environment() -> str:
+        """What a failure needs to know before anyone re-runs anything."""
+        core = os.environ.get("COVERAGE_CORE", "(unset -> sysmon on 3.12+)")
+        tracer = sys.gettrace()
+        try:  # pragma: no cover - diagnostic only
+            import coverage
+
+            current = getattr(coverage.Coverage, "current", lambda: None)()
+            cov_state = "no Coverage object" if current is None else "Coverage object present"
+        except Exception:  # pragma: no cover - diagnostic only
+            cov_state = "coverage not importable"
+        return (
+            f"platform={sys.platform} python={sys.version_info.major}."
+            f"{sys.version_info.minor} COVERAGE_CORE={core} "
+            f"sys.gettrace={'installed' if tracer else 'None'} {cov_state}"
+        )
+
+    def _assert_linear(self, *, all_valid: bool) -> None:
+        """Shared body: subject against reference, reported on success as well.
+
+        **Why a ratio and not a wall-clock limit.** This assertion used to read
+        `elapsed < 1.5`, widened for Windows and for CI but *not* for coverage --
+        and `just verify` runs pytest with `--cov`, so the strictest threshold
+        applied in the slowest configuration. The same code path measured 0.62 s
+        standalone, 2.65-3.31 s isolated under coverage, and 2.171 s inside the
+        full suite, where it failed and blocked a push. Five readings spanning
+        5.3x, none of them about the algorithm. The failure is **not reliably
+        reproducible**: a later full-suite run under the same flags passed. That
+        is the point rather than a caveat -- an assertion whose verdict depends
+        on contention it cannot see is not measuring the code. The ratio spans 1.27-2.25 over
+        the same period: it cancels the machine, the interpreter and the
+        instrumentation, which is all this test was ever trying to hold constant.
+        """
+        rule = VSMBrokenLinkRule()
+        vsm = self._make_large_vsm()
+        text = self._make_text_with_links(self._N, all_valid=all_valid)
+
+        # Warm both paths equally: first-call import and cache effects otherwise
+        # land entirely on whichever loop runs first and distort the ratio.
+        warm = self._make_text_with_links(200, all_valid=all_valid)
+        rule.check_vsm(_FILE, warm, vsm, {})
+        self._reference_cost(warm, vsm)
+
+        start = time.perf_counter()
+        violations = rule.check_vsm(_FILE, text, vsm, {})
+        subject_s = time.perf_counter() - start
+
+        reference_s, sink = self._reference_cost(text, vsm)
+        assert reference_s > 0.0, "the reference loop was not timed, so the ratio means nothing"
+        assert sink == (self._N if all_valid else 0), (
+            f"the reference loop did not do the subject's work: sink={sink}"
+        )
+
+        if all_valid:
+            assert violations == [], f"Expected 0 violations, got {len(violations)}"
+        else:
+            assert len(violations) == self._N, (
+                f"Expected {self._N} violations, got {len(violations)}"
+            )
+
+        ratio = subject_s / reference_s
+        environment = self._environment()
+        # Reported on success too: pytest swallows stdout without `-s`, while the
+        # warnings summary shows even under `-q`. A passing assertion otherwise
+        # emits nothing, and the margin is the question anyone actually asks.
+        warnings.warn(
+            f"[perf] check_vsm all_valid={all_valid} "
+            f"subject={subject_s * 1000:.1f}ms reference={reference_s * 1000:.1f}ms "
+            f"ratio={ratio:.2f} limit={self._RATIO_LIMIT} "
+            f"margin={self._RATIO_LIMIT / ratio:.2f}x ({environment})",
+            stacklevel=2,
+        )
+        assert ratio < self._RATIO_LIMIT, (
+            f"check_vsm cost {ratio:.2f}x its own per-link primitive "
+            f"({subject_s * 1000:.1f} ms against {reference_s * 1000:.1f} ms) for "
+            f"{self._N} links; limit is {self._RATIO_LIMIT}x and the calibrated range is "
+            "1.27-2.25. This is a ratio against the work the rule itself does per link, "
+            "so neither a slow machine nor an instrumented one moves it -- an O(N^2) "
+            f"regression would read ~100x. Environment: {environment}."
+        )
+
+    @pytest.mark.no_cover
     def test_check_vsm_scales_linearly_all_valid(self) -> None:
-        """10 000 REACHABLE links must resolve in < 1.5 s (O(N) dict lookups)."""
-        rule = VSMBrokenLinkRule()
-        vsm = self._make_large_vsm()
-        text = self._make_text_with_links(self._N, all_valid=True)
+        """10 000 REACHABLE links stay linear in the rule's own per-link cost."""
+        self._assert_linear(all_valid=True)
 
-        start = time.monotonic()
-        violations = rule.check_vsm(_FILE, text, vsm, {})
-        elapsed = time.monotonic() - start
-
-        max_elapsed = 3.0 if sys.platform == "win32" or os.environ.get("CI") else 1.5
-        assert violations == [], f"Expected 0 violations, got {len(violations)}"
-        assert elapsed < max_elapsed, (
-            f"check_vsm took {elapsed:.3f}s for {self._N} valid links — possible O(N²) regression"
-        )
-
+    @pytest.mark.no_cover
     def test_check_vsm_scales_linearly_all_missing(self) -> None:
-        """10 000 missing links (worst-case violation path) must complete < 1.5 s."""
-        rule = VSMBrokenLinkRule()
-        vsm = self._make_large_vsm()
-        text = self._make_text_with_links(self._N, all_valid=False)
-
-        start = time.monotonic()
-        violations = rule.check_vsm(_FILE, text, vsm, {})
-        elapsed = time.monotonic() - start
-
-        max_elapsed = 3.0 if sys.platform == "win32" or os.environ.get("CI") else 1.5
-        assert len(violations) == self._N, f"Expected {self._N} violations, got {len(violations)}"
-        assert elapsed < max_elapsed, (
-            f"check_vsm took {elapsed:.3f}s for {self._N} missing links — possible O(N²) regression"
-        )
+        """10 000 missing links (worst-case violation path) stay linear."""
+        self._assert_linear(all_valid=False)
 
     def test_run_vsm_engine_scales_with_large_vsm(self) -> None:
-        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 0.5 s."""
+        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 0.5 s.
+
+        **Deliberately still a wall-clock limit, unlike its two siblings above.**
+        They were converted to ratios because they failed: the same code path
+        spanned 0.62-3.31 s depending on instrumentation and load, against a
+        1.5 s threshold. This one does not have that problem and converting it
+        would add noise rather than remove it. Measured: 1.88-2.07 ms
+        uninstrumented and 5.04-6.17 ms under coverage, against a 500 ms limit --
+        a margin of ~250x and ~81x respectively. Its input is 100 links, not
+        10 000, so the subject is dominated by dispatch over a tiny workload, and
+        a ratio between two sub-10 ms numbers is less stable than the absolute
+        figure it would replace. Recorded here so the asymmetry reads as a
+        decision rather than an omission.
+        """
         engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
         vsm = self._make_large_vsm()
         # Small file — only the VSM lookup overhead is being measured here
