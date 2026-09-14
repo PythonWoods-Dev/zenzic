@@ -647,6 +647,7 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
 
 1. Correct the syntax within the code block.
 2. For intentionally broken examples, use `` ```text `` to bypass validation.
+3. Some illustrative snippets are recognised and skipped, and some deliberately are not. The rule card states which, with the limits: [Z503 — Snippet Error](../rules/Z503.md).
 
 !!! tip "Documenting type signatures and incomplete snippets"
     If you are documenting a **function signature**, a **type stub**, or any fragment

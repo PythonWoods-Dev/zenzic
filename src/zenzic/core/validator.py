@@ -156,6 +156,25 @@ _HIGHLIGHT_COMMENT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A documentation convention, not a generator's construct: a snippet that teaches
+# a format by naming its slots. `<type> = "<icon>"` is a TOML *key* that is a
+# placeholder, which no TOML parser can accept -- a bare key may not contain `<`.
+#
+# Deliberately anchored on the KEY, not on the presence of a placeholder anywhere.
+# Measured on `zensical/docs` @ 6346cfd: 12 validatable blocks contain an angle
+# bracket placeholder and only 4 fail to parse -- all 4 with a placeholder key.
+# The other 8 are values (`link = "mailto:<email-address>"`) or YAML (`<type>:
+# <icon>`, which is valid YAML), and they parse today. A rule keyed on "contains a
+# placeholder" would silence all 12, removing coverage from 8 snippets that were
+# never failing.
+#
+# What it does not cover, stated rather than discovered later: a placeholder in a
+# *table header* (`[<section>]`) fails with a different parser message and is NOT
+# recognised here -- there are 0 such blocks in either corpus, so the case is
+# recorded rather than handled. A quoted placeholder key (`"<tag>" = 1`) is valid
+# TOML, parses, and is still validated.
+_PLACEHOLDER_KEY_RE = re.compile(r"^\s*<[A-Za-z_][A-Za-z0-9_-]*>\s*[=:]")
+
 # Maximum number of simultaneous outbound HTTP connections during external link checks.
 # Prevents exhausting OS file descriptors and avoids triggering rate-limits on target servers.
 _MAX_CONCURRENT_REQUESTS = 20
@@ -2038,8 +2057,24 @@ def check_snippet_content(
 
     for lang, snippet, fence_line in _extract_code_blocks(text):
         lines = snippet.splitlines()
-        cleaned_lines = ["" if _HIGHLIGHT_COMMENT_RE.match(line) else line for line in lines]
+        cleaned_lines = [
+            "" if (_HIGHLIGHT_COMMENT_RE.match(line) or _PLACEHOLDER_KEY_RE.match(line)) else line
+            for line in lines
+        ]
         snippet = "\n".join(cleaned_lines)
+
+        # A snippet whose body opens a fence is showing what a code block looks
+        # like, not declaring data. Documenting a format by displaying it is the
+        # same didactic pattern as the placeholder above, and parsing the display
+        # as data reports a syntax error against prose. Measured: 3 such blocks on
+        # `zensical/docs` @ 6346cfd (all ```` yaml wrappers around ``` fences), 0 in
+        # this repository. What it misses: a body that legitimately *is* valid YAML
+        # and happens to begin with a fence is no longer validated -- accepted,
+        # because a fence opener is not valid YAML, JSON, TOML or Python in the
+        # first place, so nothing that could have parsed is skipped.
+        _body = snippet.strip()
+        if _body.startswith(("```", "~~~")):
+            continue
 
         if len(snippet.strip().splitlines()) < config.snippet_min_lines:
             continue
