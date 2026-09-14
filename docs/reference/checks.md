@@ -46,6 +46,7 @@ Servers returning `401`, `403`, or `429` are treated as reachable — these indi
 ### What is never validated
 
 - Links inside fenced code blocks or inline code spans — the extractor skips them
+  (see [How Zenzic recognises a fenced block](#fence-recognition) for where a block starts and ends)
 - `mailto:`, `data:`, `ftp:`, `tel:` and similar non-HTTP schemes
 
 !!! tip "Same-page anchor validation"
@@ -113,6 +114,39 @@ Code examples in documentation are tested less rigorously than production code. 
 | `toml` | `tomllib.loads()` | TOML syntax |
 
 Blocks tagged with any other language (`bash`, `javascript`, `mermaid`, etc.) are treated as plain text and are not syntax-checked. However, **every fenced block is still scanned by the Zenzic credential scanner** for credential patterns.
+
+### How Zenzic recognises a fenced block {#fence-recognition}
+
+Zenzic follows [CommonMark 0.31.2 §4.5](https://spec.commonmark.org/0.31.2/#fenced-code-blocks)
+for deciding where a fence starts and ends:
+
+- A fence opens on **three or more** backticks or tildes. Backticks and tildes are distinct —
+  one never closes the other.
+- A closing fence must be **at least as long** as the one that opened the block, must use the
+  **same character**, and must carry **no info string**. So a ``` line does not close a ````
+  block, which is what lets you show a code block inside a code block.
+- If no closing fence appears, the block runs to the end of the document.
+
+!!! info "One deliberate difference from the specification: indentation"
+
+    CommonMark allows an opening fence "preceded by up to three spaces of indentation" — but
+    that is measured relative to the **containing block**, not to the left margin. A fence
+    inside an admonition or a list continuation begins four or more columns in and is still
+    conformant, because its container begins there.
+
+    Zenzic reads Markdown line by line and has no container context, so applying the
+    three-space limit literally would not be stricter — it would measure from a reference the
+    specification does not use, and would stop recognising fences that are perfectly valid.
+    **Zenzic therefore accepts a fence at any indentation.**
+
+    This is not a theoretical case. Measured on 2026-09-14: **942 of 1,308** fenced blocks in
+    the [Zensical documentation](https://github.com/zensical/docs) and **196** in Zenzic's own
+    sit four or more columns from the margin, because they are written inside admonitions and
+    list items.
+
+    The practical consequence: a fence indented inside an admonition **is** recognised, so its
+    contents are excluded from link and heading checks and its language tag is honoured — and
+    an untagged one **will** be reported as [`Z505`](../rules/Z505.md).
 
 ### What it catches
 
