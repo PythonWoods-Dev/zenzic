@@ -106,9 +106,14 @@ from typing import Final, Literal, NamedTuple, cast
 class CodeDefinition(NamedTuple):
     """Per-code scoring and CI gate metadata — Single Source of Truth (ADR-031).
 
-    All three attributes are defined **once** here; ``scorer.py`` derives its
+    Every attribute is defined **once** here; ``scorer.py`` derives its
     penalty/category tables and ``_check.py`` derives finding severity from this
     structure.  No catch-all ``else 'error'`` logic is permitted elsewhere.
+
+    (The count in this sentence read "All three attributes" while four were
+    documented and five existed — ``fixable`` was added in v0.20.0 without the
+    prose following. Stated as a number, it went stale the first time the class
+    grew; stated as "every", it cannot.)
 
     Attributes:
         severity: SARIF ``defaultConfiguration.level`` — ``"error"``,
@@ -123,6 +128,28 @@ class CodeDefinition(NamedTuple):
             for codes whose scanner logic has been deferred or removed.
             Inactive codes remain in the namespace for config compatibility
             but are never emitted by the engine.
+        fixable:  Whether ``zenzic fix`` and the editor's Quick Fix carry a
+            ``Mutation`` for this code.
+        activation: What makes the code produce a finding at all. Distinct from
+            ``status``, which is lifecycle: a ``"data"`` code is fully active and
+            still reports nothing.
+
+            * ``"default"`` — runs unless suppressed.
+            * ``"flag"`` — runs only when ``activation_key`` is set to true.
+            * ``"data"`` — always runs, and finds nothing until the user declares
+              the ``[policies]`` collection named by ``activation_key``. **Not
+              off**: on and inert, which a user cannot tell from "no violations"
+              by reading output alone.
+
+            Added because activation had no source. Four surfaces carried it by
+            hand — the generated config, the rule cards, ``finding-codes.md``,
+            and a frozenset in ``tests/test_rule_card_badges.py`` whose own
+            comment said it deliberately avoided deriving from this module,
+            because there was nothing here to derive from. Reconciling those four
+            was provisional; without a field they diverge again and nothing
+            notices.
+        activation_key: The ``[policies]`` key that governs a ``"flag"`` or
+            ``"data"`` code; ``None`` when ``activation`` is ``"default"``.
     """
 
     severity: str
@@ -130,6 +157,8 @@ class CodeDefinition(NamedTuple):
     category: str | None
     status: str = "active"
     fixable: bool = False
+    activation: str = "default"
+    activation_key: str | None = None
 
 
 # ── Exit Code Contract ────────────────────────────────────────────────────────
@@ -301,7 +330,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     ),  # ORPHAN_LINK      — ADR-031 paradox resolved
     "Z104": CodeDefinition("error", 8.0, "structural"),  # FILE_NOT_FOUND
     "Z105": CodeDefinition("error", 2.0, "structural"),  # ABSOLUTE_PATH
-    "Z106": CodeDefinition("note", 0.0, None),  # CIRCULAR_LINK    — informational
+    "Z106": CodeDefinition(
+        "note", 0.0, None, activation="flag", activation_key="enable_circular_link_check"
+    ),  # CIRCULAR_LINK    — informational
     "Z107": CodeDefinition("error", 1.0, "structural"),  # CIRCULAR_ANCHOR
     "Z108": CodeDefinition("error", 1.0, "structural", fixable=True),  # EMPTY_LINK_TEXT
     "Z109": CodeDefinition("error", 3.0, "structural"),  # EXTERNAL_LINK_BROKEN
@@ -336,7 +367,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z303": CodeDefinition("warning", 3.0, "navigation"),  # DUPLICATE_DEF
     # ── Z4xx — Structure ──────────────────────────────────────────────────────
     "Z401": CodeDefinition(
-        "note", 0.0, "navigation"
+        "note", 0.0, "navigation", activation="flag", activation_key="enable_directory_index_check"
     ),  # MISSING_DIRECTORY_INDEX — info only, no DQS penalty
     "Z402": CodeDefinition("warning", 4.0, "navigation"),  # ORPHAN_PAGE
     "Z403": CodeDefinition("warning", 1.0, "content"),  # MISSING_ALT
@@ -344,51 +375,114 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z405": CodeDefinition("warning", 3.0, "brand"),  # UNUSED_ASSET
     "Z406": CodeDefinition("warning", 2.0, "brand"),  # NAV_CONTRACT
     "Z410": CodeDefinition("warning", 5.0, "structural"),  # UNREACHABLE_GRAPH_NODE
-    "Z411": CodeDefinition("warning", 5.0, "structural"),  # DEAD_END_NODE
+    "Z411": CodeDefinition(
+        "warning", 5.0, "structural", activation="flag", activation_key="enable_dead_end_check"
+    ),  # DEAD_END_NODE
     "Z412": CodeDefinition(
-        "warning", 4.0, "navigation", fixable=False
+        "warning",
+        4.0,
+        "navigation",
+        fixable=False,
+        activation="data",
+        activation_key="traceability_targets",
     ),  # TRACEABILITY_BROKEN (v0.31.0) — graph topology, suppressed via directory_policies
     # ── Z5xx — Content Quality ────────────────────────────────────────────────
     "Z501": CodeDefinition("warning", 2.0, "content"),  # PLACEHOLDER
-    "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
+    "Z502": CodeDefinition(
+        "warning", 1.0, "content", activation="flag", activation_key="enable_short_content_check"
+    ),  # SHORT_CONTENT
     "Z503": CodeDefinition("warning", 10.0, "content"),  # SNIPPET_ERROR
     "Z505": CodeDefinition("warning", 1.0, "content", fixable=True),  # UNTAGGED_CODE_BLOCK
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
     "Z510": CodeDefinition("warning", 1.0, "content"),  # HEADING_HIERARCHY
-    "Z511": CodeDefinition("warning", 1.0, "content"),  # EXCESSIVE_SENTENCE_LENGTH
+    "Z511": CodeDefinition(
+        "warning", 1.0, "content", activation="flag", activation_key="enable_sentence_length_check"
+    ),  # EXCESSIVE_SENTENCE_LENGTH
     "Z512": CodeDefinition("warning", 1.0, "content"),  # EMPTY_SECTION
-    "Z513": CodeDefinition("warning", 2.0, "content"),  # DUPLICATE_HEADING
+    "Z513": CodeDefinition(
+        "warning",
+        2.0,
+        "content",
+        activation="flag",
+        activation_key="enable_duplicate_heading_check",
+    ),  # DUPLICATE_HEADING
     "Z514": CodeDefinition("warning", 2.0, "content"),  # GENERIC_IMAGE_ALT_TEXT
     "Z515": CodeDefinition("warning", 1.0, "content", fixable=True),  # BARE_URL_USED
     "Z516": CodeDefinition("error", 5.0, "content"),  # MULTIPLE_H1_HEADINGS
-    "Z517": CodeDefinition("warning", 1.0, "content", fixable=True),  # HEADING_PUNCTUATION
-    "Z518": CodeDefinition("warning", 1.0, "content"),  # PASSIVE_VOICE_DETECTED (opt-in)
-    "Z519": CodeDefinition("warning", 1.0, "content"),  # WEASEL_WORDS (opt-in)
+    "Z517": CodeDefinition(
+        "warning",
+        1.0,
+        "content",
+        fixable=True,
+        activation="flag",
+        activation_key="enable_heading_punctuation_check",
+    ),  # HEADING_PUNCTUATION
+    "Z518": CodeDefinition(
+        "warning", 1.0, "content", activation="flag", activation_key="enable_passive_voice_check"
+    ),  # PASSIVE_VOICE_DETECTED (opt-in)
+    "Z519": CodeDefinition(
+        "warning", 1.0, "content", activation="data", activation_key="weasel_words"
+    ),  # WEASEL_WORDS (opt-in)
     "Z520": CodeDefinition(
         "warning", 2.0, "content", fixable=True
     ),  # MALFORMED_LIST_DETECTED (v0.30.0)
     "Z521": CodeDefinition(
-        "warning", 2.0, "content", fixable=False
+        "warning",
+        2.0,
+        "content",
+        fixable=False,
+        activation="data",
+        activation_key="required_table_columns",
     ),  # REQUIRED_TABLE_COLUMN (v0.31.0, opt-in) — non-fixable (requires semantic data)
     "Z522": CodeDefinition(
-        "warning", 2.0, "content", fixable=False
+        "warning",
+        2.0,
+        "content",
+        fixable=False,
+        activation="data",
+        activation_key="table_cell_enums",
     ),  # TABLE_CELL_ENUM (v0.31.0, opt-in) — non-fixable (requires human enum selection)
     "Z523": CodeDefinition(
-        "warning", 2.0, "content", fixable=False
+        "warning",
+        2.0,
+        "content",
+        fixable=False,
+        activation="data",
+        activation_key="required_heading_order",
     ),  # HEADING_ORDER_VIOLATION (v0.31.0, opt-in) — non-fixable (requires section restructuring)
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
     "Z603": CodeDefinition("warning", 1.0, "brand", fixable=True),  # DEAD_SUPPRESSION
-    "Z610": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
-    "Z611": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
-    "Z612": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_FRONTMATTER_KEY (v0.29.0)
-    "Z613": CodeDefinition("error", 5.0, "brand"),  # FRONTMATTER_SCHEMA_MISMATCH (v0.29.0)
-    "Z614": CodeDefinition("error", 5.0, "brand"),  # UNAPPROVED_DOMAIN_REFERENCE (v0.29.0)
-    "Z615": CodeDefinition("warning", 3.0, "brand"),  # FORBIDDEN_URL_SCHEME (v0.29.0)
-    "Z616": CodeDefinition("error", 8.0, "brand"),  # CROSS_NAMESPACE_LINK_FORBIDDEN (v0.29.0)
-    "Z617": CodeDefinition("warning", 2.0, "brand"),  # FORBIDDEN_CONTENT_PATTERN (v0.30.0)
-    "Z618": CodeDefinition("warning", 3.0, "brand"),  # REQUIRED_HEADING_PATTERN (v0.30.0)
-    "Z619": CodeDefinition("warning", 3.0, "brand"),  # MAX_DOCUMENT_COMPLEXITY (v0.30.0)
+    "Z610": CodeDefinition(
+        "warning", 3.0, "brand", activation="data", activation_key="required_frontmatter_keys"
+    ),  # REQUIRED_FRONTMATTER_MISSING (v0.28.0)
+    "Z611": CodeDefinition(
+        "warning", 3.0, "brand", activation="data", activation_key="forbidden_external_domains"
+    ),  # FORBIDDEN_DOMAIN_REFERENCE (v0.28.0)
+    "Z612": CodeDefinition(
+        "warning", 3.0, "brand", activation="data", activation_key="forbidden_frontmatter_keys"
+    ),  # FORBIDDEN_FRONTMATTER_KEY (v0.29.0)
+    "Z613": CodeDefinition(
+        "error", 5.0, "brand", activation="data", activation_key="frontmatter_schema_match"
+    ),  # FRONTMATTER_SCHEMA_MISMATCH (v0.29.0)
+    "Z614": CodeDefinition(
+        "error", 5.0, "brand", activation="data", activation_key="allowed_external_domains"
+    ),  # UNAPPROVED_DOMAIN_REFERENCE (v0.29.0)
+    "Z615": CodeDefinition(
+        "warning", 3.0, "brand", activation="data", activation_key="required_url_schemes"
+    ),  # FORBIDDEN_URL_SCHEME (v0.29.0)
+    "Z616": CodeDefinition(
+        "error", 8.0, "brand", activation="data", activation_key="cross_namespace_restrictions"
+    ),  # CROSS_NAMESPACE_LINK_FORBIDDEN (v0.29.0)
+    "Z617": CodeDefinition(
+        "warning", 2.0, "brand", activation="data", activation_key="forbidden_content_patterns"
+    ),  # FORBIDDEN_CONTENT_PATTERN (v0.30.0)
+    "Z618": CodeDefinition(
+        "warning", 3.0, "brand", activation="data", activation_key="required_heading_patterns"
+    ),  # REQUIRED_HEADING_PATTERN (v0.30.0)
+    "Z619": CodeDefinition(
+        "warning", 3.0, "brand", activation="data", activation_key="max_document_complexity"
+    ),  # MAX_DOCUMENT_COMPLEXITY (v0.30.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("error", 0.0, None),  # RULE_ENGINE_ERROR — HALT gate
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT

@@ -197,7 +197,14 @@ def inspect_codes(
         show_default=True,
     ),
 ) -> None:
-    """Show code registry grouped by tier with activation status from config."""
+    """Show the code registry grouped by tier.
+
+    Activation state lives in ``zenzic explain <code>``, not here: seven
+    columns cannot render untruncated at Rich's 80-column default, and the
+    attempt silently dropped the Name and Fixable headers rather than
+    wrapping. This docstring previously claimed activation the table never
+    showed.
+    """
     from zenzic.core.rules import list_plugin_rules
 
     tier_normalized = tier.strip().lower()
@@ -361,7 +368,6 @@ def inspect_codes(
                 title_map[tier_name],
                 "—",
                 "No entries",
-                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
                 f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
             )

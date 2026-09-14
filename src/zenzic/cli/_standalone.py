@@ -1206,6 +1206,25 @@ def explain(
     meta_table.add_row(
         "Fixable", "[green]Yes[/]" if getattr(_defn, "fixable", False) else "[yellow]No[/]"
     )
+    # Activation lives here rather than in `zenzic inspect codes`: this panel is
+    # vertical, so a long key costs no width, while a seventh column in that
+    # table truncated at Rich's 80-column default. Derived from the registry,
+    # which has been activation's single source since it gained the field.
+    _act = getattr(_defn, "activation", "default")
+    _act_key = getattr(_defn, "activation_key", None)
+    if _act == "flag":
+        meta_table.add_row(
+            "Activation",
+            f"[yellow]opt-in[/] — set [bold]\\[policies] {_act_key} = true[/]",
+        )
+    elif _act == "data":
+        meta_table.add_row(
+            "Activation",
+            f"[cyan]inert[/] — runs, but finds nothing until "
+            f"[bold]\\[policies] {_act_key}[/] is declared",
+        )
+    else:
+        meta_table.add_row("Activation", "[green]on by default[/]")
     _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
     _is_halt = (
         _defn is not None and _defn.severity == "warning" and _defn.penalty == 0.0 and not _is_fatal

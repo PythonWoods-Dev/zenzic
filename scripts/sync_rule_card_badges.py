@@ -41,6 +41,14 @@ SEVERITY_DISPLAY: dict[str, tuple[str, str, str]] = {
     "note": ("Info", "material-information-outline", "#3b82f6"),
 }
 
+#: The Auto-Fixable | Opt-In line. `fixable` has been in the registry since
+#: v0.20.0 and this script still did not write it, so all 70 cards carried it by
+#: hand; `activation` now makes the Opt-In half derivable too.
+FIXABLE_OPT_IN_PATTERN = re.compile(
+    r"Auto-Fixable: \*\*(?:Yes|No)\*\* \| Opt-In: \*\*(?:Yes|No)\*\*"
+)
+
+
 BADGE_PATTERN = re.compile(
     r"- :(?P<icon>material-[a-z-]+):\{ \.lg \.middle style=\"color: (?P<color>#[0-9a-f]{6});\" \} "
     r"\*\*Severity: (?P<severity>\w+)\*\*\s*"
@@ -65,6 +73,15 @@ def _expected_badge(code: str) -> str | None:
     )
 
 
+def _expected_fixable_optin(code: str) -> str | None:
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is None:
+        return None
+    fixable = "Yes" if defn.fixable else "No"
+    optin = "Yes" if defn.activation != "default" else "No"
+    return f"Auto-Fixable: **{fixable}** | Opt-In: **{optin}**"
+
+
 def main() -> None:
     changed: list[str] = []
     skipped: list[str] = []
@@ -82,6 +99,10 @@ def main() -> None:
             skipped.append(f"{code}: no CODE_DEFINITIONS entry")
             continue
         new_text = text[: match.start()] + expected + text[match.end() :]
+        fo_match = FIXABLE_OPT_IN_PATTERN.search(new_text)
+        fo_expected = _expected_fixable_optin(code)
+        if fo_match is not None and fo_expected is not None:
+            new_text = new_text[: fo_match.start()] + fo_expected + new_text[fo_match.end() :]
         if new_text != text:
             path.write_text(new_text, encoding="utf-8")
             changed.append(code)
