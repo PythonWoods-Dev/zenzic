@@ -10,6 +10,7 @@ wording changes can be made without touching CLI wiring code.
 # license declaration for this source file.
 _SPDX = "SPDX-License-Identifier"
 
+
 # ===========================================================================
 # GLOBAL_TOML_TEMPLATE
 # ===========================================================================
@@ -17,6 +18,52 @@ _SPDX = "SPDX-License-Identifier"
 # Dynamic placeholders: {engine}, {hint_name}  (call .format() before write).
 # All literal curly braces in the TOML content must be doubled: {{ }}.
 # ===========================================================================
+def _activation_block() -> str:
+    """Render the opt-in section of ``[policies]`` from the code registry.
+
+    Hand-written until now, and it had already diverged: ``enable_circular_link_check``
+    was absent entirely, so ``Z106`` was documented in the configuration reference
+    and invisible in the file the tool writes. Same shape as ``fixable`` -- a fact
+    the registry holds, maintained by hand, drifting the moment the set grows.
+
+    Grouped by code rather than by kind, so a reader sees one code's flag, its
+    data requirement and its identity together instead of scattered across the
+    file.
+    """
+    from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS, CODE_NAMES
+
+    flag = [(c, d) for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "flag"]
+    data = [(c, d) for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "data"]
+
+    out = [
+        "# --- ACTIVATION: WHAT MAKES A CHECK REPORT ---\n",
+        "# Three behaviours, and the difference matters when output is empty.\n",
+        "#\n",
+        "#   on by default  runs unless you suppress it. Most codes.\n",
+        "#   opt-in         off until you set its flag to true, below.\n",
+        "#   inert          runs already, and finds nothing until you declare the\n",
+        "#                  data it works on. NOT the same as off: an empty list\n",
+        "#                  below means the check is looking and has nothing to\n",
+        "#                  look for, which reads identically to 'no violations'.\n",
+        "#\n",
+        "# Generated from the code registry (src/zenzic/core/codes.py). Adding a\n",
+        "# gated code there changes this block; it is not maintained by hand.\n",
+        "\n",
+        "# -- opt-in: set to true to enable --\n",
+    ]
+    for code, defn in flag:
+        desc = CODE_DESCRIPTIONS.get(code, CODE_NAMES.get(code, code))
+        out.append(f"# {code} {CODE_NAMES.get(code, '')} - {desc}\n")
+        out.append(f"{defn.activation_key} = false\n")
+
+    out.append("\n# -- inert until declared: the check runs, the data is yours --\n")
+    for code, defn in data:
+        desc = CODE_DESCRIPTIONS.get(code, CODE_NAMES.get(code, code))
+        out.append(f"# {code} {CODE_NAMES.get(code, '')} - {desc}\n")
+        out.append(f"#   declare [policies] {defn.activation_key}\n")
+    return "".join(out)
+
+
 GLOBAL_TOML_TEMPLATE: str = (
     "# SPDX-FileCopyrightText: 2026 [Your Name] <[Your Email]>\n"
     "# " + _SPDX + ": Apache-2.0\n"
@@ -194,28 +241,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "forbidden_content_patterns = []\n"
     "required_heading_patterns = []\n"
     "max_document_complexity = 0\n"
-    "weasel_words = []\n"
-    "enable_passive_voice_check = false\n"
-    "# --- EDITORIAL POLICY OPT-INS ---\n"
-    "# These checks are OFF by default. Each identifies something that differs\n"
-    "# from a preference rather than something wrong, so the threshold that suits one\n"
-    "# project fires on another. Set a flag to true to enable that check.\n"
-    "#\n"
-    "# enable_sentence_length_check: sentences longer than max_sentence_length (Z511).\n"
-    "# enable_short_content_check: pages under placeholder_max_words words (Z502).\n"
-    "# enable_heading_punctuation_check: headings ending in . : or ; (Z517).\n"
-    "# enable_duplicate_heading_check: two headings resolving to the same text (Z513).\n"
-    "# enable_dead_end_check: pages with no outgoing links (Z411).\n"
-    "# enable_directory_index_check: directories with docs but no index page (Z401).\n"
-    "# enable_circular_link_check: pages participating in a link cycle (Z106).\n"
-    "enable_sentence_length_check = false\n"
-    "enable_short_content_check = false\n"
-    "enable_heading_punctuation_check = false\n"
-    "enable_duplicate_heading_check = false\n"
-    "enable_dead_end_check = false\n"
-    "enable_directory_index_check = false\n"
-    "enable_circular_link_check = false\n"
-    "required_heading_order = []\n"
+    "weasel_words = []\n" + _activation_block() + "required_heading_order = []\n"
     "# [policies.frontmatter_schema_match]\n"
     '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
     "# [policies.cross_namespace_restrictions]\n"
@@ -506,27 +532,12 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "required_heading_patterns = []\n"
     "max_document_complexity = 0\n"
     "weasel_words = []\n"
-    "enable_passive_voice_check = false\n"
-    "# --- EDITORIAL POLICY OPT-INS ---\n"
-    "# These checks are OFF by default. Each identifies something that differs\n"
-    "# from a preference rather than something wrong, so the threshold that suits one\n"
-    "# project fires on another. Set a flag to true to enable that check.\n"
-    "#\n"
-    "# enable_sentence_length_check: sentences longer than max_sentence_length (Z511).\n"
-    "# enable_short_content_check: pages under placeholder_max_words words (Z502).\n"
-    "# enable_heading_punctuation_check: headings ending in . : or ; (Z517).\n"
-    "# enable_duplicate_heading_check: two headings resolving to the same text (Z513).\n"
-    "# enable_dead_end_check: pages with no outgoing links (Z411).\n"
-    "# enable_directory_index_check: directories with docs but no index page (Z401).\n"
-    "# enable_circular_link_check: pages participating in a link cycle (Z106).\n"
-    "enable_sentence_length_check = false\n"
-    "enable_short_content_check = false\n"
-    "enable_heading_punctuation_check = false\n"
-    "enable_duplicate_heading_check = false\n"
-    "enable_dead_end_check = false\n"
-    "enable_directory_index_check = false\n"
-    "enable_circular_link_check = false\n"
     "required_heading_order = []\n"
+    "\n"
+    "# Which checks run, which are opt-in, and which stay inert until you\n"
+    "# declare their data: see\n"
+    "# https://zenzic.dev/reference/configuration-reference/\n"
+    "# or run `zenzic init` in a scratch directory to read the annotated form.\n"
     "# [tool.zenzic.policies.frontmatter_schema_match]\n"
     '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
     "# [tool.zenzic.policies.cross_namespace_restrictions]\n"
