@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
 import zenzic.core.regex as re
+from zenzic.core.ast import FenceTracker
 from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, code_severity
 from zenzic.core.exclusion import translate_glob_to_re2
 from zenzic.models.config import ZenzicConfig
@@ -364,7 +365,7 @@ class PolicyEvaluator:
 
         findings: list[RuleFinding] = []
         lines = content.splitlines()
-        in_code_block = False
+        _fence = FenceTracker()
         in_frontmatter = False
 
         compiled_patterns = []
@@ -385,11 +386,10 @@ class PolicyEvaluator:
                     in_frontmatter = False
                 continue
 
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_code_block = not in_code_block
+            if _fence.feed(line):
                 continue
 
-            if in_code_block:
+            if _fence.inside:
                 continue
 
             for raw_pat, compiled in compiled_patterns:
@@ -421,7 +421,7 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        in_code_block = False
+        _fence = FenceTracker()
         in_frontmatter = False
         heading_titles: list[str] = []
 
@@ -435,11 +435,10 @@ class PolicyEvaluator:
                     in_frontmatter = False
                 continue
 
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_code_block = not in_code_block
+            if _fence.feed(line):
                 continue
 
-            if in_code_block:
+            if _fence.inside:
                 continue
 
             if stripped.startswith("#"):
@@ -481,7 +480,7 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        in_code_block = False
+        _fence = FenceTracker()
         in_frontmatter = False
         word_count = 0
         heading_count = 0
@@ -498,11 +497,10 @@ class PolicyEvaluator:
                     in_frontmatter = False
                 continue
 
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_code_block = not in_code_block
+            if _fence.feed(line):
                 continue
 
-            if in_code_block:
+            if _fence.inside:
                 continue
 
             if stripped.startswith("#"):

@@ -49,7 +49,7 @@ import httpx
 import yaml
 
 from zenzic.core import regex as re
-from zenzic.core.ast import ExtractedLink
+from zenzic.core.ast import ExtractedLink, FenceTracker
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
     iter_markdown_sources,
@@ -1334,17 +1334,10 @@ def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
     whitespace-only. Images are intentionally excluded from this rule.
     """
     results: list[tuple[int, int, str]] = []
-    in_block = False
+    _fence = FenceTracker()
 
     for lineno, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
+        if _fence.feed(line):
             continue
 
         if "[" not in line:
@@ -1423,29 +1416,23 @@ def anchors_in_file(content: str) -> set[str]:
         anchors.add(slug_heading(m.group(1)))
 
     # 2. Extract block-level explicit anchors & footnote anchors (skipping code blocks)
-    in_block = False
+    _fence = FenceTracker()
     for line in content.splitlines():
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-            # Remove inline code spans to avoid false positives inside backticks
-            clean_line = _INLINE_CODE_RE.sub("", line)
-            # Search for explicit inline/block anchors { #id }
-            for m in _EXPLICIT_ANCHOR_RE.finditer(clean_line):
-                anchors.add(m.group(1).lower())
-            # Search for footnote definitions [^label]:
-            fn_match = _FN_DEF_RE.match(clean_line)
-            if fn_match:
-                label = fn_match.group(1).strip()
-                anchors.add(f"fn:{label}")
-            # Search for HTML inline anchors: id="..." inside tags
-            for m in _HTML_ID_RE.finditer(clean_line):
-                anchors.add(m.group(1).lower())
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
+        if _fence.feed(line):
+            continue
+        # Remove inline code spans to avoid false positives inside backticks
+        clean_line = _INLINE_CODE_RE.sub("", line)
+        # Search for explicit inline/block anchors { #id }
+        for m in _EXPLICIT_ANCHOR_RE.finditer(clean_line):
+            anchors.add(m.group(1).lower())
+        # Search for footnote definitions [^label]:
+        fn_match = _FN_DEF_RE.match(clean_line)
+        if fn_match:
+            label = fn_match.group(1).strip()
+            anchors.add(f"fn:{label}")
+        # Search for HTML inline anchors: id="..." inside tags
+        for m in _HTML_ID_RE.finditer(clean_line):
+            anchors.add(m.group(1).lower())
     return anchors
 
 
@@ -1466,24 +1453,18 @@ def _build_ref_map(text: str) -> dict[str, str]:
         Mapping of lowercase-normalised reference IDs to their URL targets.
     """
     ref_map: dict[str, str] = {}
-    in_block = False
+    _fence = FenceTracker()
     for line in text.splitlines():
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
+        if _fence.feed(line):
+            continue
+        m = _REF_DEF_RE.match(line)
+        if m:
+            label = m.group(1)
+            if label.startswith("^"):
                 continue
-            m = _REF_DEF_RE.match(line)
-            if m:
-                label = m.group(1)
-                if label.startswith("^"):
-                    continue
-                norm_id = label.lower().strip()
-                if norm_id not in ref_map:  # first-definition-wins
-                    ref_map[norm_id] = m.group(2)
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
+            norm_id = label.lower().strip()
+            if norm_id not in ref_map:  # first-definition-wins
+                ref_map[norm_id] = m.group(2)
     return ref_map
 
 
@@ -1505,16 +1486,9 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
         List of :class:`LinkInfo` with resolved URLs and source positions.
     """
     results: list[LinkInfo] = []
-    in_block = False
+    _fence = FenceTracker()
     for lineno, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
+        if _fence.feed(line):
             continue
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for m in _REF_LINK_RE.finditer(clean):
@@ -2005,25 +1979,31 @@ def _extract_code_blocks(text: str) -> list[tuple[str, str, int]]:
     block_lines: list[str] = []
     fence_line_no = 0
 
+    _fence = FenceTracker()
     for lineno, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```"):
-                info = stripped[3:].strip()
-                lang = info.split()[0].lower() if info else ""
-                if lang in _VALIDATABLE_LANGS:
-                    in_block = True
-                    current_lang = lang
-                    block_lines = []
-                    fence_line_no = lineno
-        else:
-            # Closing fence: line is only backtick characters (at least 3)
-            if stripped.startswith("```") and not stripped.lstrip("`"):
+        # `opens()` answers only from outside a fence, so the inner delimiters of
+        # a nested block never restart collection -- which is what let a ````
+        # wrapper's inner ``` be treated as a new snippet to validate.
+        opened = _fence.opens(line)
+        was_inside = _fence.inside
+        _fence.feed(line)
+        if opened is not None:
+            info = opened[1].strip()
+            lang = info.split()[0].lower() if info else ""
+            if lang in _VALIDATABLE_LANGS:
+                in_block = True
+                current_lang = lang
+                block_lines = []
+                fence_line_no = lineno
+            continue
+        if was_inside and not _fence.inside:
+            if in_block:
                 blocks.append((current_lang, "\n".join(block_lines), fence_line_no))
                 in_block = False
                 block_lines = []
-            else:
-                block_lines.append(line)
+            continue
+        if in_block:
+            block_lines.append(line)
 
     return blocks
 

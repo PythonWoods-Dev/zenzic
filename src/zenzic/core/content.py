@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import zenzic.core.regex as re
+from zenzic.core.ast import FenceTracker
 from zenzic.core.codes import code_severity
 
 
@@ -77,16 +78,15 @@ def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     prev_level = 0
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)
@@ -210,7 +210,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
     findings: list[RuleFinding] = []
     text_masked = _mask_html_blocks(text)
     lines = text_masked.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     current_sentence_parts: list[str] = []
@@ -253,12 +253,11 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
             continue
 
         # Handle code blocks
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             _flush_and_check(current_sentence_parts, current_start_line)
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         # Skip headings, blockquotes, tables, HTML comments
@@ -297,7 +296,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     current_heading: str | None = None
@@ -316,13 +315,12 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             if current_heading is not None:
                 has_body_content = True
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)
@@ -443,7 +441,7 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
     seen_headings: dict[str, int] = {}
 
@@ -457,11 +455,10 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)
@@ -498,7 +495,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -511,11 +508,10 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         if "![" not in line and "<img" not in line and "<IMG" not in line:
@@ -575,7 +571,7 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -588,11 +584,10 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         if "http://" not in line and "https://" not in line:
@@ -637,7 +632,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
     h1_count = 0
 
@@ -651,11 +646,10 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)
@@ -709,7 +703,7 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -722,11 +716,10 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)
@@ -781,7 +774,7 @@ def check_all_heading_rules(
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
     prev_level = 0
     seen_headings: dict[str, int] = {}
@@ -798,10 +791,9 @@ def check_all_heading_rules(
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)
@@ -936,7 +928,7 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -949,11 +941,10 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         # Mask inline code, HTML tags/comments, and link targets
@@ -1001,7 +992,7 @@ def check_weasel_words(
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -1014,11 +1005,10 @@ def check_weasel_words(
                 in_frontmatter = False
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
 
-        if in_code_block:
+        if _fence.inside:
             continue
 
         masked = _INLINE_CODE_SPAN_RE.sub(" ", line)
@@ -1056,7 +1046,7 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    in_code_block = False
+    _fence = FenceTracker()
     in_frontmatter = False
     in_html_script = False
     in_html_style = False
@@ -1077,12 +1067,11 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
             i += 1
             continue
 
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             i += 1
             continue
 
-        if in_code_block or not stripped:
+        if _fence.inside or not stripped:
             i += 1
             continue
 
@@ -1313,14 +1302,13 @@ def check_heading_order(
 
     max_idx_seen = -1
     last_matched_pat = ""
-    in_code_block = False
+    _fence = FenceTracker()
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            in_code_block = not in_code_block
+        if _fence.feed(line):
             continue
-        if in_code_block:
+        if _fence.inside:
             continue
 
         m = _ATX_HEADING_RE.match(stripped)

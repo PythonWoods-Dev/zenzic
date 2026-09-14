@@ -72,6 +72,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.ast import FenceTracker
 from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.resolver import href_resolution_base, page_url_depth, traversal_intent
@@ -755,29 +756,12 @@ def count_inline_suppressions(text: str) -> int:
     suppression regex is applied on each prose line.
     """
     total = 0
-    inside_fence = False
-    open_char = ""
-    open_count = 0
+    fence = FenceTracker()
     for line in text.splitlines():
-        fm = _FENCE_OPEN_RE.match(line)
-        if not inside_fence:
-            if fm:
-                fence = fm.group("fence")
-                inside_fence = True
-                open_char = fence[0]
-                open_count = len(fence)
-            else:
-                stripped = _INLINE_CODE_STRIP_RE.sub("", line)
-                total += sum(1 for _ in _SUPPRESS_RE.finditer(stripped))
-        else:
-            if fm:
-                fence = fm.group("fence")
-                info = fm.group("info").strip()
-                if fence[0] == open_char and len(fence) >= open_count and not info:
-                    inside_fence = False
-                    open_char = ""
-                    open_count = 0
-            # Inside fence: skip the line entirely (no counting)
+        if fence.feed(line):
+            continue
+        stripped = _INLINE_CODE_STRIP_RE.sub("", line)
+        total += sum(1 for _ in _SUPPRESS_RE.finditer(stripped))
     return total
 
 
@@ -898,51 +882,38 @@ class UntaggedCodeBlockRule(BaseRule):
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
-        inside: bool = False
-        open_char: str = ""
-        open_count: int = 0
+        _fence = FenceTracker()
 
         for line_no, line in enumerate(text.splitlines(), start=1):
-            m = _FENCE_OPEN_RE.match(line)
-            if not inside:
-                if m:
-                    fence = m.group("fence")
-                    info = m.group("info").strip()
-                    # CEO-138: tag present iff info string has any non-whitespace
-                    # char. Supports Docusaurus metadata:
-                    # ```python title="x" showLineNumbers
-                    has_tag = bool(info)
-                    inside = True
-                    open_char = fence[0]
-                    open_count = len(fence)
-                    if not has_tag and not _is_suppressed(line, self.rule_id):
-                        findings.append(
-                            RuleFinding(
-                                file_path=file_path,
-                                line_no=line_no,
-                                rule_id=self.rule_id,
-                                message=(
-                                    "Fenced code block has no language specifier. "
-                                    "Add a language tag (e.g. ```python, ```bash, ```toml) "
-                                    "to enable syntax highlighting and snippet validation."
-                                ),
-                                severity=code_severity("Z505"),
-                                matched_line=line,
-                                col_start=0,
-                                match_text=line.rstrip(),
-                            )
+            # `opens()` answers only from the outside -- it returns None while the
+            # tracker is inside a fence -- so an inner delimiter of a nested block
+            # and a closing delimiter both fall through to `feed()` below. Asking
+            # after `feed()`, or treating any match as an opener, reported one
+            # finding per delimiter instead of one per block.
+            opened = _fence.opens(line)
+            _fence.feed(line)
+            if opened is not None:
+                # CEO-138: tag present iff info string has any non-whitespace
+                # char. Supports Docusaurus metadata:
+                # ```python title="x" showLineNumbers
+                has_tag = bool(opened[1].strip())
+                if not has_tag and not _is_suppressed(line, self.rule_id):
+                    findings.append(
+                        RuleFinding(
+                            file_path=file_path,
+                            line_no=line_no,
+                            rule_id=self.rule_id,
+                            message=(
+                                "Fenced code block has no language specifier. "
+                                "Add a language tag (e.g. ```python, ```bash, ```toml) "
+                                "to enable syntax highlighting and snippet validation."
+                            ),
+                            severity=code_severity("Z505"),
+                            matched_line=line,
+                            col_start=0,
+                            match_text=line.rstrip(),
                         )
-            else:
-                if m:
-                    fence = m.group("fence")
-                    info = m.group("info").strip()
-                    # CEO-139/140: closing fence must use same char, equal or more
-                    # length, and have NO info string (CommonMark spec invariant —
-                    # a fence with an info string is always an opening fence).
-                    if fence[0] == open_char and len(fence) >= open_count and not info:
-                        inside = False
-                        open_char = ""
-                        open_count = 0
+                    )
         return findings
 
 
@@ -1059,26 +1030,10 @@ class BrandObsolescenceRule(BaseRule):
         findings: list[RuleFinding] = []
         # Fence-tracking state — body lines inside code blocks are not brand
         # claims and must not trigger Z601 (CEO-152).
-        inside_fence: bool = False
-        open_char: str = ""
-        open_count: int = 0
+        _fence = FenceTracker()
         for line_no, line in enumerate(text.splitlines(), start=1):
-            fm = _FENCE_OPEN_RE.match(line)
-            if not inside_fence:
-                if fm:
-                    fence = fm.group("fence")
-                    inside_fence = True
-                    open_char = fence[0]
-                    open_count = len(fence)
-            else:
-                if fm:
-                    fence = fm.group("fence")
-                    info = fm.group("info").strip()
-                    if fence[0] == open_char and len(fence) >= open_count and not info:
-                        inside_fence = False
-                        open_char = ""
-                        open_count = 0
-                continue  # skip all body lines inside the fence block
+            if _fence.feed(line):
+                continue
             if _is_suppressed(line, "Z601"):
                 continue
             for m in self._union_pattern.finditer(line):
@@ -1194,35 +1149,14 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     from zenzic.core.validator import PolyglotExtractor
 
     results: list[tuple[str, int, str]] = []
-    in_block = False
-    fence_char = ""
-    fence_len = 0
+    _fence = FenceTracker()
     # _mask_comments blanks HTML and MDX comments with spaces of equal length
     # and preserves newlines, so line numbers and caret columns below are
     # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
     _extractor = PolyglotExtractor()
     text_masked = _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
     for lineno, line in enumerate(text_masked.splitlines(), start=1):
-        stripped = line.strip()
-        fence_m = _FENCE_DELIM_RE.match(stripped)
-        if not in_block:
-            if fence_m:
-                in_block = True
-                _run = fence_m.group("fence")
-                fence_char = _run[0]
-                fence_len = len(_run)
-                continue
-        else:
-            if fence_m:
-                _run = fence_m.group("fence")
-                if (
-                    _run[0] == fence_char
-                    and len(_run) >= fence_len
-                    and not fence_m.group("info").strip()
-                ):
-                    in_block = False
-                    fence_char = ""
-                    fence_len = 0
+        if _fence.feed(line):
             continue
 
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
@@ -1429,16 +1363,9 @@ class PlaceholderRule(BaseRule):
         if not self.patterns or not self._combined_re:
             return []
         findings = []
-        in_block = False
+        _fence = FenceTracker()
         for i, line in enumerate(text.splitlines(), start=1):
-            stripped = line.strip()
-            if not in_block:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = True
-                    continue
-            else:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = False
+            if _fence.feed(line):
                 continue
 
             if not self._combined_re.search(line):

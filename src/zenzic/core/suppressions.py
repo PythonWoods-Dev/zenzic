@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from zenzic.core import regex as re
+from zenzic.core.ast import FenceTracker
 from zenzic.core.codes import (
     NON_INLINE_SUPPRESSIBLE_CODES,
     NON_SUPPRESSIBLE_CODES,
@@ -160,35 +161,19 @@ class SuppressionTracker:
         self._parse(text)
 
     def _parse(self, text: str) -> None:
-        inside_fence = False
-        open_char = ""
-        open_count = 0
+        fence = FenceTracker()
         for i, line in enumerate(text.splitlines(), start=1):
-            fm = _FENCE_OPEN_RE.match(line)
-            if not inside_fence:
-                if fm:
-                    fence = fm.group("fence")
-                    inside_fence = True
-                    open_char = fence[0]
-                    open_count = len(fence)
-                else:
-                    stripped = _INLINE_CODE_STRIP_RE.sub("", line)
-                    for m in _SUPPRESS_RE.finditer(stripped):
-                        self.directives.append(
-                            SuppressionDirective(
-                                code=m.group("code").upper(),
-                                line_no=i,
-                                consumed=False,
-                            )
-                        )
-            else:
-                if fm:
-                    fence = fm.group("fence")
-                    info = fm.group("info").strip()
-                    if fence[0] == open_char and len(fence) >= open_count and not info:
-                        inside_fence = False
-                        open_char = ""
-                        open_count = 0
+            if fence.feed(line):
+                continue
+            stripped = _INLINE_CODE_STRIP_RE.sub("", line)
+            for m in _SUPPRESS_RE.finditer(stripped):
+                self.directives.append(
+                    SuppressionDirective(
+                        code=m.group("code").upper(),
+                        line_no=i,
+                        consumed=False,
+                    )
+                )
 
         # Parse html data-zenzic-ignore tags
         if "data-zenzic-ignore" in text:

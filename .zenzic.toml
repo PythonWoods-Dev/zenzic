@@ -93,6 +93,12 @@ excluded_file_patterns = []
 # heading the author never wrote. Suppressed for this one page: fixing it would
 # mean repairing the delimiter, which would delete the demonstration.
 "docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z512"]
+# z403's page still trips its own rule -- the image with no alt text IS the
+# fixture -- so this stays. z501's twin entry was removed once the fence tracker
+# began closing nested fences correctly: the placeholder words it suppressed are
+# inside a fenced CLI transcript, which is no longer scanned as prose, so the
+# suppression became dead configuration (Z620) rather than a needed exemption.
+"docs/tutorials/examples/z4xx-topology/z403-missing-alt.md" = ["Z403"]
 # These two pages quote the real CLI output for the rule they document, and that
 # output necessarily contains the payload the rule detects: z501's capture shows
 # the placeholder words it found, z403's shows the image tag missing its alt.
@@ -101,5 +107,3 @@ excluded_file_patterns = []
 # Same shape as Z205's rule page, which teaches a forbidden scheme by showing
 # one: the demonstration is the content, and deleting it to satisfy the gate
 # would delete the page's reason to exist.
-"docs/tutorials/examples/z5xx-content/z501-placeholder.md" = ["Z501"]
-"docs/tutorials/examples/z4xx-topology/z403-missing-alt.md" = ["Z403"]

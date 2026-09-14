@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from zenzic.core import regex
-from zenzic.core.ast import CodeSpanNode, LinkNode, Node, TextNode
+from zenzic.core.ast import CodeSpanNode, FenceTracker, LinkNode, Node, TextNode
 
 
 _FENCE_OPEN_RE = regex.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
@@ -73,33 +73,18 @@ class UntaggedCodeBlockMutation:
             lines = text.splitlines(keepends=True)
             new_lines = []
             mutated = False
-            inside = False
-            open_char = ""
-            open_count = 0
+            _fence = FenceTracker()
 
             for line in lines:
                 line_clean = line.rstrip("\r\n")
-                m = _FENCE_OPEN_RE.match(line_clean)
-                if not inside:
-                    if m:
-                        fence = m.group("fence")
-                        info = m.group("info").strip()
-                        has_tag = bool(info)
-                        inside = True
-                        open_char = fence[0]
-                        open_count = len(fence)
-                        if not has_tag:
-                            rest = line[len(fence) :].lstrip(" \t")
-                            line = f"{fence}text{rest}"
-                            mutated = True
-                else:
-                    if m:
-                        fence = m.group("fence")
-                        info = m.group("info").strip()
-                        if fence[0] == open_char and len(fence) >= open_count and not info:
-                            inside = False
-                            open_char = ""
-                            open_count = 0
+                opened = _fence.opens(line_clean)
+                _fence.feed(line_clean)
+                if opened is not None:
+                    fence, raw_info = opened
+                    if not raw_info.strip():
+                        rest = line[len(fence) :].lstrip(" \t")
+                        line = f"{fence}text{rest}"
+                        mutated = True
 
                 new_lines.append(line)
 

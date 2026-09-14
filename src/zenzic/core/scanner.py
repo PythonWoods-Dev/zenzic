@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.ast import FenceTracker
 from zenzic.core.codes import code_severity, exit_contract_severity
 from zenzic.core.credentials import (
     SecurityFinding,
@@ -807,21 +808,15 @@ def _iter_content_lines(
     Yields:
         ``(1-based line number, raw line string)`` for every content line.
     """
-    in_block = False
+    fence = FenceTracker()
 
     with file_path.open(encoding="utf-8") as fh:
         for lineno, line in _skip_frontmatter(fh):
-            stripped = line.strip()
-
-            # ── Fenced code block skip ────────────────────────────────────
-            if not in_block:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = True
-                    continue
-            else:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = False
-                continue  # always skip lines inside fenced block
+            # One fence implementation for the whole core (core/ast.py). This
+            # loop decides which lines reach the credential scanner, so a fence
+            # that closes wrongly here changes what Z201/Z204 look at.
+            if fence.feed(line):
+                continue
 
             yield lineno, line
 
@@ -830,16 +825,9 @@ def _iter_content_lines_text(
     text: str,
 ) -> Generator[tuple[int, str], None, None]:
     """In-memory variant of :func:`_iter_content_lines` — no file I/O."""
-    in_block = False
+    fence = FenceTracker()
     for lineno, line in _skip_frontmatter(text.splitlines(keepends=True)):
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
+        if fence.feed(line):
             continue
         yield lineno, line
 
@@ -902,16 +890,9 @@ class ReferenceScanner:
             secret_line_nos.add(finding.line_no)
 
         content_events: list[HarvestEvent] = []
-        in_block = False
+        _fence = FenceTracker()
         for lineno, line in _skip_frontmatter(lines):
-            stripped = line.strip()
-            if not in_block:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = True
-                    continue
-            else:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = False
+            if _fence.feed(line):
                 continue
 
             def_match = _RE_REF_DEF.match(line)
