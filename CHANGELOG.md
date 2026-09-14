@@ -10,6 +10,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **External-link validation no longer probes RFC 2606 reserved names.** This is a product
+  default: it applies to every run, everywhere, with no configuration. `example.com`,
+  `example.net`, `example.org` and any host under `.test`, `.example`, `.invalid` or
+  `.localhost` are reserved by RFC 2606 precisely so that they cannot resolve to a real
+  server. Probing one could only ever produce a false positive — the documentation-quality
+  engine was issuing HTTP requests against the hostnames the standard provides *for*
+  documentation. In this repository's own `docs/` that is **53 occurrences, 27 distinct
+  URLs, across 12 distinct hostnames** (`https?://[a-zA-Z0-9._~:/?#@!$&*+,;=%-]+` over
+  `docs/**/*.md`, hostname tested via `urlsplit().hostname`). Matching is on the parsed
+  host, never a substring, so `notexample.com`, `example.company`, `myexample.net` and
+  `example.com.evil.net` are still validated normally. The skip runs *after*
+  `excluded_external_urls`, so a prefix you declared explicitly is still recorded as used
+  and will not be reported stale by `Z620`. See `Z101` and `Z109` for the full rule.
+
+  **External-link validation itself is unchanged.** `zenzic check all --strict` still sends
+  HTTP requests for every non-reserved external URL, on your machine as before. Only the
+  reserved names are skipped.
+
+- **`Z109 EXTERNAL_LINK_BROKEN` is documented as what it is: a catalogue alias that is never
+  emitted.** The engine consolidates every unreachable link — internal or external — into
+  `Z101 LINK_BROKEN`, and `Z109` has no emission site anywhere in the codebase. The
+  documentation nonetheless described it as an active code: the rule card advertised
+  "evaluation ACTIVE" and a **3.0 pt** penalty, while a broken external link actually costs
+  `Z101`'s **8.0 pt** — 2.67x the documented rate. Worse, `docs/how-to/configure-ci-cd.md`
+  contained a copy-pasteable CI example depicting a `[Z109] External URL returned...` line
+  that no user could ever see. Corrected across five surfaces (the `Z109` and `Z101` rule
+  cards, the finding-codes and scoring-algorithm references, the CLI reference and the CI
+  how-to): `Z109` is now declared a catalogue alias with no penalty applied, and every
+  depicted output shows `Z101`. **No engine behaviour changed** — the registry entry is
+  retained so that `zenzic lab z109` and the gallery entry keep resolving.
+
 ### ⚠ Upgrade notice — verify before rolling out
 
 **Seven** changes in this release alter what a corpus reports or what it emits. Items 1-3 can make a corpus

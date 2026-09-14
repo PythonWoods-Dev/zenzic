@@ -266,9 +266,15 @@ Inline Markdown link or collapsed reference link has empty or whitespace-only vi
 
 **Severity:** `error` · **Penalty:** −3.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z109-external-link-broken.md) · [↗ Rule Specification](../rules/Z109.md)
 
+!!! info "Catalogued alias — never emitted"
+    `Z109` is a **catalogue alias**, not a code the engine produces. Every external-link
+    failure is emitted as **`Z101` LINK_BROKEN** and charged at `Z101`'s **8.0 pt**, not
+    the 3.0 pt shown above. The penalty above records the catalogue entry so that the
+    registry and this reference stay in step; **no finding is ever scored against it.**
+    The alias is kept because `zenzic lab z109` and the gallery entry resolve through it.
+
 An external URL returned an HTTP error status code (e.g. 404, 500) or was completely unreachable due to a connection timeout or DNS resolution failure during scan.
-Cataloged separately, but the current engine consolidates and emits this
-condition under **`Z101` LINK_BROKEN** rather than `Z109` — see the [LINK_BROKEN entry](#z101).
+The engine consolidates and emits this condition under **`Z101` LINK_BROKEN** — see the [LINK_BROKEN entry](#z101).
 
 **Fix:**
 

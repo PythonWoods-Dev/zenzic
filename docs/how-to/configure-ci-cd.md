@@ -156,7 +156,7 @@ unchanged. Unset, it expands to empty and the gate behaves at full strictness.
 
     ```bash
     just build
-    # [Z109] External URL returned an HTTP error or could not be reached: 'https://zenzic.dev/blog/'
+    # [Z101] external link 'https://zenzic.dev/blog/' — connection error: Name or service not known
     # FAILED: Hard errors detected. Exit code 1 is mandatory.
     ```
 

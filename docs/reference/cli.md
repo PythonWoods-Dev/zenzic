@@ -50,7 +50,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--strict` | `-s` | `false` | Treats warnings as errors (exit non-zero on any warning). On `check links` and `check all`, also activates external HTTP link validation (Z109). Combine with `--no-external` to promote warnings without performing network I/O. |
+    | `--strict` | `-s` | `false` | Treats warnings as errors (exit non-zero on any warning). On `check links` and `check all`, also activates external HTTP link validation (failures emit `Z101`). Combine with `--no-external` to promote warnings without performing network I/O. |
     | `--exit-zero` | — | `false` | Always exit 0; report issues without failing. |
     | `--quiet` | `-q` | `false` | Minimal one-line output for pre-commit hooks. |
     | `--engine` | — | auto | Override the build engine adapter (e.g. `mkdocs`, `zensical`). Auto-detected from `.zenzic.toml` when omitted. |
@@ -559,14 +559,14 @@ otherwise be non-blocking.
 
 | Command | Effect |
 | :--- | :--- |
-| `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (Z109) |
-| `check all --strict` | Activates external URL validation (Z109) + promotes warnings to errors |
+| `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (failures emit `Z101`) |
+| `check all --strict` | Activates external URL validation (failures emit `Z101`) + promotes warnings to errors |
 | `check references --strict` | Treats Dead Definitions (unused reference links) as hard errors |
 
 `zenzic score` and `zenzic diff` do not have a `--strict` flag — external HTTP/HTTPS link
 validation always runs unconditionally on both commands, with no opt-out.
 
-The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting Z109 on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
+The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting `Z101` on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
 
 !!! tip "Air-Gapped CI Environments"
     Combine `--strict` with `--no-external` to retain strict warning promotion while **disabling
@@ -579,7 +579,7 @@ The `--strict` flag enforces rigorous validation: for link checking, it validate
     ```
 
     This keeps Pass 1 (filesystem resolution) and Pass 2 (internal link graph) fully active.
-    Only Pass 3 (Z109 external HTTP validation) is suppressed.
+    Only Pass 3 (external HTTP validation) is suppressed.
 
 You can also set `strict = true` in `.zenzic.toml` to make it the permanent default.
 

@@ -1138,7 +1138,7 @@ class TestExternalLinks:
 
     def test_strict_false_never_pings_external(self, tmp_path: Path) -> None:
         """With strict=False, _ping_url must never be invoked."""
-        self._setup_docs(tmp_path, "[link](https://example.com/404)")
+        self._setup_docs(tmp_path, "[link](https://fixture-host.zenzic-test.dev/404)")
         mock_ping = AsyncMock(return_value=None)
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
@@ -1149,7 +1149,7 @@ class TestExternalLinks:
         assert errors == []
 
     def test_http_200_no_error(self, tmp_path: Path) -> None:
-        self._setup_docs(tmp_path, "[link](https://example.com)")
+        self._setup_docs(tmp_path, "[link](https://fixture-host.zenzic-test.dev)")
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
@@ -1158,7 +1158,7 @@ class TestExternalLinks:
         assert errors == []
 
     def test_http_404_reported(self, tmp_path: Path) -> None:
-        url = "https://example.com/missing"
+        url = "https://fixture-host.zenzic-test.dev/missing"
         self._setup_docs(tmp_path, f"[broken]({url})")
         err_msg = f"external link '{url}' returned HTTP 404"
         config = ZenzicConfig()
@@ -1180,7 +1180,7 @@ class TestExternalLinks:
         assert errors == []
 
     def test_timeout_reported(self, tmp_path: Path) -> None:
-        url = "https://slow.example.com"
+        url = "https://slow.zenzic-test.dev"
         self._setup_docs(tmp_path, f"[slow]({url})")
         err_msg = f"external link '{url}' timed out (>10 s)"
         config = ZenzicConfig()
@@ -1192,7 +1192,7 @@ class TestExternalLinks:
         assert "timed out" in errors[0]
 
     def test_connection_error_reported(self, tmp_path: Path) -> None:
-        url = "https://unreachable.invalid"
+        url = "https://unreachable.zenzic-test.dev"
         self._setup_docs(tmp_path, f"[dead]({url})")
         err_msg = f"external link '{url}' — connection error: [Errno -2] Name or service not known"
         config = ZenzicConfig()
@@ -1205,7 +1205,7 @@ class TestExternalLinks:
 
     def test_duplicate_url_pinged_exactly_once(self, tmp_path: Path) -> None:
         """The same URL in two files must result in exactly one HTTP request."""
-        url = "https://example.com"
+        url = "https://fixture-host.zenzic-test.dev"
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "a.md").write_text(f"[link]({url})")
@@ -1222,7 +1222,7 @@ class TestExternalLinks:
         """Both internal and external errors are returned together."""
         docs = tmp_path / "docs"
         docs.mkdir()
-        url = "https://dead.example.com"
+        url = "https://dead.zenzic-test.dev"
         (docs / "index.md").write_text(f"[broken-internal](ghost.md)\n[broken-external]({url})\n")
         err_msg = f"external link '{url}' returned HTTP 404"
         config = ZenzicConfig()
@@ -1233,6 +1233,62 @@ class TestExternalLinks:
         assert len(errors) == 2
         assert any("ghost.md" in e for e in errors)
         assert any("404" in e for e in errors)
+
+    def test_rfc2606_reserved_host_is_never_pinged(self, tmp_path: Path) -> None:
+        """RFC 2606 reserves these names so they cannot resolve; probing one can
+        only ever yield a false positive, so no HTTP request may be issued.
+        """
+        self._setup_docs(
+            tmp_path,
+            "\n".join(
+                f"[l{i}]({url})"
+                for i, url in enumerate(
+                    (
+                        "https://example.com/a",
+                        "https://sub.example.net/b",
+                        "https://example.org",
+                        "https://host.test/c",
+                        "https://host.example/d",
+                        "https://host.invalid/e",
+                        "https://host.localhost/f",
+                    )
+                )
+            ),
+        )
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        mock_ping = AsyncMock(return_value="external link returned HTTP 404")
+        with patch("zenzic.core.validator._ping_url", new=mock_ping):
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
+        assert mock_ping.call_count == 0
+        assert errors == []
+
+    def test_lookalike_hosts_are_still_pinged(self, tmp_path: Path) -> None:
+        """The skip matches the parsed host, not a substring: these are real
+        domains that merely resemble the reserved names, and must still be checked.
+        """
+        self._setup_docs(
+            tmp_path,
+            "\n".join(
+                f"[l{i}]({url})"
+                for i, url in enumerate(
+                    (
+                        "https://notexample.com/a",
+                        "https://example.company/b",
+                        "https://myexample.net/c",
+                        "https://example.com.evil.net/d",
+                    )
+                )
+            ),
+        )
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        mock_ping = AsyncMock(return_value=None)
+        with patch("zenzic.core.validator._ping_url", new=mock_ping):
+            validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
+        assert mock_ping.call_count == 4
 
     def test_semaphore_constant_is_positive_int(self) -> None:
         """Sanity check: concurrency limit must be a positive integer."""

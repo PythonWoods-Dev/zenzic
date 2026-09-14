@@ -116,7 +116,14 @@ jobs:
       # harness was configured in pyproject.toml but never invoked anywhere, so no
       # score had ever been produced; this step is what makes it real.
       - name: Run Zenzic Quality Gate
-        run: uv run zenzic check all --strict --format github-annotations --ci
+        # --no-external: the PR gate must not depend on third-party uptime.
+        # Observed on run 34860816951: Audit failed on three platforms with nine
+        # distinct URLs, every one a github.com timeout (>10 s) from the runner —
+        # not a broken link. A third-party outage is a real defect but it is not
+        # this pull request's regression, and it left #233 unmergeable.
+        # The external surface is swept on a schedule instead — see
+        # external-link-sweep.yml.
+        run: uv run zenzic check all --strict --no-external --format github-annotations --ci
 
       - name: Build Docs
         run: uv run mkdocs build --strict

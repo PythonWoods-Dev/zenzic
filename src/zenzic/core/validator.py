@@ -42,7 +42,7 @@ else:
     import tomli as tomllib  # PEP 680 backport
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, TypeVar
 from urllib.parse import unquote, urlsplit
 
 import httpx
@@ -1631,6 +1631,29 @@ def repo_relative_label(path: Path, repo_root: Path) -> str:
         return path.as_posix()
 
 
+#: RFC 2606 §2 reserves four top-level domains and §3 three second-level domains
+#: for documentation and examples.  They are guaranteed never to resolve to a
+#: real host, so probing them can only ever produce a false positive: the very
+#: property that makes them safe to write in docs makes them unreachable.
+_RESERVED_DOC_TLDS: Final[tuple[str, ...]] = (".test", ".example", ".invalid", ".localhost")
+_RESERVED_DOC_SLDS: Final[tuple[str, ...]] = ("example.com", "example.net", "example.org")
+
+
+def _is_reserved_documentation_host(url: str) -> bool:
+    """Return True when *url*'s host is reserved by RFC 2606 for documentation.
+
+    Matching is on the parsed host, never on a substring of the URL, so
+    ``notexample.com``, ``example.company`` and ``example.com.evil.net`` are
+    correctly treated as real hosts.
+    """
+    host = (urlsplit(url).hostname or "").lower()
+    if not host:
+        return False
+    if host == "localhost" or host.endswith(_RESERVED_DOC_TLDS):
+        return True
+    return any(host == sld or host.endswith("." + sld) for sld in _RESERVED_DOC_SLDS)
+
+
 async def _check_external_links(
     entries: list[tuple[str, str, int]],
     config: ZenzicConfig,
@@ -1663,6 +1686,11 @@ async def _check_external_links(
                     global_tracker.mark_excluded_external_url_used(prefix)
                 break
         if is_excluded:
+            continue
+        # RFC 2606 reserved names cannot resolve, so probing one can only ever
+        # produce a false positive.  Checked after the exclusion loop so that a
+        # prefix a project declared explicitly is still accounted as used.
+        if _is_reserved_documentation_host(url):
             continue
         url_occurrences.setdefault(url, []).append((label, lineno))
 
