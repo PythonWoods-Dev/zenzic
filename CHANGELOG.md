@@ -18,9 +18,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `.localhost` are reserved by RFC 2606 precisely so that they cannot resolve to a real
   server. Probing one could only ever produce a false positive — the documentation-quality
   engine was issuing HTTP requests against the hostnames the standard provides *for*
-  documentation. In this repository's own `docs/` that is **53 occurrences, 27 distinct
-  URLs, across 12 distinct hostnames** (`https?://[a-zA-Z0-9._~:/?#@!$&*+,;=%-]+` over
-  `docs/**/*.md`, hostname tested via `urlsplit().hostname`). Matching is on the parsed
+  documentation. In this repository's own `docs/` the fix addressed **53 occurrences, 27
+  distinct URLs, across 12 distinct hostnames** as measured at the parent commit
+  `efb385b`; the same pass then re-hosted the two examples on the `Z109` rule card, so the
+  tree published here carries **51 occurrences, 25 distinct URLs, 11 distinct hostnames**.
+  Both figures come from `https?://[a-zA-Z0-9._~:/?#@!$&*+,;=%-]+` over `docs/**/*.md` with
+  the host tested via `urlsplit().hostname` — run it against either commit and it
+  reproduces. Every occurrence is didactic: rule cards, gallery examples, and placeholder
+  hosts in reference and how-to pages. None is a link a reader would follow. Matching is on the parsed
   host, never a substring, so `notexample.com`, `example.company`, `myexample.net` and
   `example.com.evil.net` are still validated normally. The skip runs *after*
   `excluded_external_urls`, so a prefix you declared explicitly is still recorded as used
