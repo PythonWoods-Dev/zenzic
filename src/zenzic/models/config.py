@@ -456,6 +456,75 @@ class PoliciesConfig(BaseModel):
             "tutorial sequence."
         ),
     )
+    # ─── Editorial-policy opt-ins ────────────────────────────────────────────
+    #
+    # A correctness check identifies something wrong: a link that does not
+    # resolve, a snippet that does not parse, a credential in plain text. A
+    # policy check identifies something that differs from a preference: a word
+    # count, a house style, a site shape. The six below are policy checks, and
+    # they are off by default for the same reason Z106 is -- a threshold tuned
+    # on one project's prose fires on everyone else's.
+    #
+    # Z514 and Z515 were considered and deliberately left ON. Z514 (generic alt
+    # text) is accessibility, not style: alt text reading "image" is unusable
+    # with a screen reader, the same class as Z516. Z515 (bare URL) was decided
+    # by measuring renderers rather than asserting: MkDocs/Material, four
+    # python-markdown configurations and markdown-it all leave a bare URL as
+    # inert text, matching CommonMark, where only <https://...> is an autolink.
+    # GitHub linkifies it; our own generator does not. It identifies something
+    # genuinely broken.
+    enable_sentence_length_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports sentences longer than max_sentence_length "
+            "(Z511 EXCESSIVE_SENTENCE_LENGTH). Off by default: the threshold is a "
+            "readability preference, and a 52-word sentence is long rather than wrong."
+        ),
+    )
+    enable_short_content_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports pages with fewer than placeholder_max_words words "
+            "(Z502 SHORT_CONTENT). Off by default: a stub, a redirect page and a "
+            "changelog entry are all legitimately short."
+        ),
+    )
+    enable_heading_punctuation_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports headings ending in '.', ':' or ';' "
+            "(Z517 HEADING_PUNCTUATION). Off by default: trailing punctuation in a "
+            "heading is a house style, and it renders correctly either way."
+        ),
+    )
+    enable_duplicate_heading_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports two headings in one document that resolve to the same "
+            "text (Z513 DUPLICATE_HEADING). Off by default: repeating 'Configuration' "
+            "under several sections is legal Markdown and ordinary structure. Note "
+            "that duplicate headings still produce colliding anchor slugs; Z102 "
+            "reports a link to an anchor that does not resolve, and is unaffected."
+        ),
+    )
+    enable_dead_end_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports pages with no outgoing links (Z411 DEAD_END_NODE). "
+            "Off by default: a licence page, a changelog and a glossary are dead ends "
+            "by design. Enable it for a corpus meant to be a navigable graph."
+        ),
+    )
+    enable_directory_index_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports directories holding Markdown files but no index page "
+            "(Z401 MISSING_DIRECTORY_INDEX). Off by default: whether a directory URL "
+            "must resolve is a site-structure choice, not every generator uses "
+            "directory indexes, and some serve a listing instead of a 404."
+        ),
+    )
+
     required_table_columns: dict[str, list[str]] = Field(
         default_factory=dict,
         description=(

@@ -40,6 +40,12 @@ def _make_sandbox(tmp_path: Path, num_pages: int) -> Path:
 
             [build_context]
             engine = "standalone"
+
+            # Z502 is opt-in since V031_OPT_IN_CODES; this test asserts a
+            # rule-engine finding reaches a single-file target, and Z502 is the
+            # finding it uses.
+            [policies]
+            enable_short_content_check = true
         """),
         encoding="utf-8",
     )
@@ -119,6 +125,12 @@ def z502_target_sandbox(tmp_path: Path) -> tuple[Path, Path]:
 
             [build_context]
             engine = "standalone"
+
+            # Z502 is opt-in since V031_OPT_IN_CODES; this test asserts a
+            # rule-engine finding reaches a single-file target, and Z502 is the
+            # finding it uses.
+            [policies]
+            enable_short_content_check = true
         """),
         encoding="utf-8",
     )
@@ -178,6 +190,12 @@ def z502_target_outside_docs_root_sandbox(tmp_path: Path) -> Path:
 
             [build_context]
             engine = "standalone"
+
+            # Z502 is opt-in since V031_OPT_IN_CODES; this test asserts a
+            # rule-engine finding reaches a single-file target, and Z502 is the
+            # finding it uses.
+            [policies]
+            enable_short_content_check = true
         """),
         encoding="utf-8",
     )

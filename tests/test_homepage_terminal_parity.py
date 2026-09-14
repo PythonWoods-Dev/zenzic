@@ -43,7 +43,18 @@ _VOLATILE = re.compile(r"files/s|^─+$")
 #: content means changing this fixture too — that coupling is the point.
 _FIXTURE: dict[str, str] = {
     "mkdocs.yml": "site_name: Demo\n",
-    ".zenzic.toml": 'docs_dir = "docs"\n\n[governance]\nbrand_obsolescence = ["OldPlatform"]\n',
+    # Z411 and Z502 became opt-in in V031_OPT_IN_CODES, and the depicted block
+    # shows both. The fixture declares them so the block stays a faithful capture
+    # of the scenario it portrays -- whether the *landing page* should depict a
+    # configured project or a default install is a separate question, recorded
+    # for the documentation audit rather than decided here.
+    ".zenzic.toml": (
+        'docs_dir = "docs"\n\n'
+        '[governance]\nbrand_obsolescence = ["OldPlatform"]\n\n'
+        "[policies]\n"
+        "enable_dead_end_check = true\n"
+        "enable_short_content_check = true\n"
+    ),
     "docs/deploy.md": "# Deploy\n\n```bash\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n```\n",
     "docs/index.md": (
         "# Welcome\n\n"

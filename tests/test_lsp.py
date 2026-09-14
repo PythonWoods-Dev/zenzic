@@ -2306,7 +2306,15 @@ def _init_server_with_config(tmp_path: Path) -> "LanguageServer":
 
     server = LanguageServer()
     server.repo_root = tmp_path
+    # Z502/Z511/Z513/Z517/Z411/Z401 are opt-in since V031_OPT_IN_CODES. The LSP
+    # tests assert editor parity with the CLI for fixable codes, three of which
+    # are now gated, so the server's config must declare them the way a project
+    # enabling those checks would.
     server.config, _ = ZenzicConfig.load(tmp_path)
+    server.config.policies.enable_heading_punctuation_check = True
+    server.config.policies.enable_short_content_check = True
+    server.config.policies.enable_dead_end_check = True
+    server.config.policies.enable_duplicate_heading_check = True
     server.rule_engine = _build_rule_engine(server.config)
     return server
 

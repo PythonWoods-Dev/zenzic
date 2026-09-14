@@ -44,6 +44,10 @@ def short_page_sandbox(tmp_path: Path) -> Path:
 
             [build_context]
             engine = "standalone"
+
+            # Opt-in since V031_OPT_IN_CODES; these fixtures rely on it firing.
+            [policies]
+            enable_short_content_check = true
         """),
         encoding="utf-8",
     )
@@ -92,6 +96,10 @@ def dead_reference_sandbox(tmp_path: Path) -> Path:
 
             [build_context]
             engine = "standalone"
+
+            # Opt-in since V031_OPT_IN_CODES; these fixtures rely on it firing.
+            [policies]
+            enable_short_content_check = true
         """),
         encoding="utf-8",
     )

@@ -36,9 +36,26 @@ fail_under = 0
 
 [build_context]
 engine = "standalone"
+
+# Z502 is opt-in (V031_OPT_IN_CODES) and this corpus relies on it firing.
+[policies]
+enable_short_content_check = true
 """
 
 _FILES = {
+    # Z403 is a file-level finding: reported against the page, with no source
+    # line. The omission branch below needs one, and this corpus previously got
+    # it from Z502 -- which became opt-in in V031_OPT_IN_CODES, leaving every
+    # finding line-anchored and the branch unexercised.
+    "docs/no-alt.md": """\
+        # No Alt
+
+        A page carrying an image with no alt text, which is reported against the
+        page rather than a line.
+
+        ![](./banner.png)
+        """,
+    "docs/banner.png": "",
     "docs/index.md": """\
         # Index
 

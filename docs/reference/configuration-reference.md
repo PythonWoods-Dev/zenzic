@@ -1075,6 +1075,132 @@ When `true`, enables heuristic passive-voice detection in prose. Detected senten
 enable_passive_voice_check = true
 ```
 
+### `enable_sentence_length_check` {#enable_sentence_length_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z511 `EXCESSIVE_SENTENCE_LENGTH` |
+| **Opt-in** | **Yes** |
+
+When `true`, a sentence longer than `max_sentence_length` (default 40 words) is
+reported. Off by default, because the threshold is a readability preference: a
+52-word sentence is long rather than wrong, and a number tuned on one project's
+prose fires on every other.
+
+Measured on the [Zensical documentation](https://github.com/zensical/docs) with
+the check on, it produced **22 findings across 16 files** — the largest single
+class on that corpus, and none of them a defect.
+
+```toml
+[policies]
+enable_sentence_length_check = true
+```
+
+### `enable_short_content_check` {#enable_short_content_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z502 `SHORT_CONTENT` |
+| **Opt-in** | **Yes** |
+
+When `true`, a page with fewer than `placeholder_max_words` words (default 50)
+is reported. Off by default: a stub, a redirect page, a changelog entry and a
+licence page are all legitimately short, and the count says nothing about whether
+the page is finished.
+
+```toml
+[policies]
+enable_short_content_check = true
+```
+
+### `enable_heading_punctuation_check` {#enable_heading_punctuation_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z517 `HEADING_PUNCTUATION` |
+| **Opt-in** | **Yes** |
+
+When `true`, a heading ending in `.`, `:` or `;` is reported. Off by default:
+trailing punctuation in a heading is a house style, and the heading renders
+correctly either way.
+
+```toml
+[policies]
+enable_heading_punctuation_check = true
+```
+
+### `enable_duplicate_heading_check` {#enable_duplicate_heading_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z513 `DUPLICATE_HEADING` |
+| **Opt-in** | **Yes** |
+
+When `true`, two headings in one document that resolve to the same text are
+reported. Off by default: repeating `## Configuration` under several sections is
+legal Markdown and ordinary structure.
+
+Note that duplicate headings still produce colliding anchor slugs. That half is
+not affected by this flag — [`Z102`](../rules/Z102.md) reports a link to an
+anchor that does not resolve, and stays on.
+
+```toml
+[policies]
+enable_duplicate_heading_check = true
+```
+
+### `enable_dead_end_check` {#enable_dead_end_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z411 `DEAD_END_NODE` |
+| **Opt-in** | **Yes** |
+
+When `true`, a page with no outgoing links is reported as a structural dead end.
+Off by default: a licence page, a changelog and a glossary are dead ends by
+design. Enable it for a corpus meant to be a navigable graph, where every page
+should offer the reader somewhere to go next.
+
+```toml
+[policies]
+enable_dead_end_check = true
+```
+
+### `enable_directory_index_check` {#enable_directory_index_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z401 `MISSING_DIRECTORY_INDEX` |
+| **Opt-in** | **Yes** |
+
+When `true`, a directory holding Markdown files but no index page is reported,
+on the grounds that its directory URL may 404. Off by default: whether a
+directory URL must resolve is a site-structure choice, not every generator uses
+directory indexes, and some serve a listing instead of an error.
+
+```toml
+[policies]
+enable_directory_index_check = true
+```
+
 ### `enable_circular_link_check` {#enable_circular_link_check}
 
 | | |

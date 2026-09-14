@@ -58,8 +58,8 @@ excluded_file_patterns = []
 [governance.directory_policies]
 # docs/index.md: routing/SEO-only file, real content lives in
 # overrides/partials/homepage/ — see commit 59bc449.
-"docs/index.md" = ["Z411", "Z502"]
-"docs/blog/posts/**" = ["Z410", "Z411", "Z513"]
+"docs/index.md" = ["Z502"]
+"docs/blog/posts/**" = ["Z410"]
 # Individual ADR records and the internal release runbook are pulled from the
 # public nav (versioned reference material, link-checked normally, but never
 # expected to appear in site navigation) — see
@@ -72,7 +72,7 @@ excluded_file_patterns = []
 # via GitHub. Exempted here (self-referencing ADR pages) and on each specific
 # file elsewhere in the site that cites an archived ADR or the release
 # runbook — see V031_DOCUMENTATION_PRUNING_EXECUTION.
-"docs/developers/explanation/adr-vault/records/**" = ["Z103", "Z402", "Z410", "Z411"]
+"docs/developers/explanation/adr-vault/records/**" = ["Z103", "Z402"]
 "docs/developers/explanation/adr-vault/index.md" = ["Z103"]
 "docs/developers/how-to/release-governance-protocol.md" = ["Z402"]
 "docs/developers/how-to/troubleshooting.md" = ["Z103"]
@@ -83,9 +83,6 @@ excluded_file_patterns = []
 "docs/explanation/privacy-gate.md" = ["Z103"]
 "docs/explanation/the-zenzic-trinity.md" = ["Z103"]
 "docs/blog/posts/2026-08-11-zenzic-v0280-governance-and-extensibility.md" = ["Z103"]
-"docs/developers/reference/**" = ["Z513"]
-"docs/reference/**" = ["Z513"]
-"docs/tutorials/examples/**" = ["Z410", "Z411"]
 "docs/tutorials/examples/z5xx-content/**" = ["Z506"]
 # z506's page opens with a deliberately malformed frontmatter delimiter ("--"
 # instead of "---") -- that malformation IS the fixture. A side effect is that

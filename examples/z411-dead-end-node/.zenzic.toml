@@ -16,3 +16,10 @@ engine = "zensical"
 
 [governance.per_file_ignores]
 "docs/suppressed_deadend.md" = ["Z411"]
+
+# Z411 is opt-in: a licence page, a changelog and a glossary are dead ends by design.
+# A fixture named for the code must enable it, or it demonstrates nothing --
+# which is what tests/test_gallery_code_coverage.py caught when Z106's default
+# changed and its own fixture stopped emitting it.
+[policies]
+enable_dead_end_check = true

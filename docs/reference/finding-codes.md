@@ -508,7 +508,7 @@ Diagnostic findings related to Virtual Site Map topology and navigation structur
 
 ### Z401: MISSING_DIRECTORY_INDEX {#z401}
 
-**Severity:** `info` · **Penalty:** none (structural hint) · **Exit:** 0 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z401.md)
+**Severity:** `info` · **Penalty:** none (structural hint) · **Exit:** 0 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-In** — requires `[policies] enable_directory_index_check` · [↗ Rule Specification](../rules/Z401.md)
 
 A documentation directory has no `index.md` or `README.md`. The directory URL may return 404 or a raw listing depending on the build engine.
 
@@ -591,7 +591,7 @@ This rule exists to detect when an internal document is physically present but u
 
 ### Z411: DEAD_END_NODE {#z411}
 
-**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z411.md)
+**Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · **Opt-In** — requires `[policies] enable_dead_end_check` · [↗ Rule Specification](../rules/Z411.md)
 
 This rule exists to detect when an active document has no outgoing navigational edges to the rest of the site structure.
 
@@ -629,7 +629,7 @@ FIXME
 
 ### Z502: SHORT_CONTENT {#z502}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z502-short-content.md) · [↗ Rule Specification](../rules/Z502.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z502-short-content.md) · **Opt-In** — requires `[policies] enable_short_content_check` · [↗ Rule Specification](../rules/Z502.md)
 
 A page contains fewer than 50 words of rendered prose (frontmatter, Markdown comments, and HTML comments excluded). A page below this threshold cannot contain the semantic components necessary to answer a reader's question.
 
@@ -717,7 +717,7 @@ This rule exists to detect when a heading level skips one or more levels in the 
 
 ### Z511: EXCESSIVE_SENTENCE_LENGTH {#z511}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z511.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** — requires `[policies] enable_sentence_length_check` · [↗ Rule Specification](../rules/Z511.md)
 
 This rule exists to detect when a sentence in the markdown body exceeds the maximum configured word limit.
 
@@ -733,7 +733,7 @@ This rule exists to detect when a heading section contains no body content befor
 
 ### Z513: DUPLICATE_HEADING {#z513}
 
-**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z513.md)
+**Severity:** `warning` · **Penalty:** −2.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Opt-In** — requires `[policies] enable_duplicate_heading_check` · [↗ Rule Specification](../rules/Z513.md)
 
 This rule exists to detect when two or more headings within the same document resolve to identical text, preventing ambiguous anchor collisions.
 
@@ -765,7 +765,7 @@ This rule exists to enforce that every document has at most one top-level H1 hea
 
 ### Z517: HEADING_PUNCTUATION {#z517}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · [↗ Rule Specification](../rules/Z517.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · **Auto-fixable:** Yes · **Opt-In** — requires `[policies] enable_heading_punctuation_check` · [↗ Rule Specification](../rules/Z517.md)
 
 This rule exists to detect headings that end with invalid trailing punctuation (such as periods, colons, or semicolons).
 

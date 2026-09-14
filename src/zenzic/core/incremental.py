@@ -388,7 +388,12 @@ class IncrementalAnalysisEngine:
 
             entry_points = self.adapter.get_entry_points(vsm)
             self._orphaned_urls = set(detect_orphans(vsm, entry_points))
-            self._dead_end_urls = set(detect_dead_ends(vsm))
+            # Same gate as the CLI path in scanner.py. Gating one side only is
+            # how this codebase has repeatedly produced a capability that exists
+            # in CI and not in the editor, or the reverse.
+            self._dead_end_urls = (
+                set(detect_dead_ends(vsm)) if self.config.policies.enable_dead_end_check else set()
+            )
         else:
             self._orphaned_urls = set()
             self._dead_end_urls = set()

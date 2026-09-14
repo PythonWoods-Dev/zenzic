@@ -48,6 +48,10 @@ def _make_sandbox(tmp_path: Path, files: dict[str, str]) -> Path:
 
             [build_context]
             engine = "mkdocs"
+
+            # Opt-in since V031_OPT_IN_CODES; these fixtures rely on it firing.
+            [policies]
+            enable_short_content_check = true
         """),
         encoding="utf-8",
     )

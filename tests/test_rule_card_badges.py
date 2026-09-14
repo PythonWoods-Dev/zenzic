@@ -112,6 +112,15 @@ _OPT_IN_CODES: frozenset[str] = frozenset(
         "Z617",  # governance.py: gated behind self._forbidden_content
         "Z618",  # governance.py: gated behind self._required_headings
         "Z619",  # governance.py: gated behind self._max_complexity > 0
+        # V031_OPT_IN_CODES: six editorial-policy checks. A correctness check
+        # identifies something wrong; these identify something that differs from
+        # a preference, so the threshold tuned on one corpus fires on every other.
+        "Z401",  # scanner.py: gated behind config.policies.enable_directory_index_check
+        "Z411",  # scanner.py + incremental.py: config.policies.enable_dead_end_check
+        "Z502",  # scanner.py: gated behind config.policies.enable_short_content_check
+        "Z511",  # scanner.py: gated behind config.policies.enable_sentence_length_check
+        "Z513",  # rules.py: config.policies.enable_duplicate_heading_check
+        "Z517",  # rules.py: config.policies.enable_heading_punctuation_check
     }
 )
 

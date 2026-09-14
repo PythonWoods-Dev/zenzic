@@ -692,6 +692,11 @@ def find_missing_directory_indices(
     """Return directories that contain ``.md`` / ``.mdx`` source files but no
     engine-provided index page, indicating a potential 404 at the directory URL.
 
+    Opt-in (``[policies] enable_directory_index_check``): whether a directory URL
+    must resolve is a site-structure choice. Not every generator uses directory
+    indexes, and some serve a listing rather than a 404. Returns an empty list
+    when the policy is off, which is what "no such directories" already means.
+
     The check is engine-aware via the injected ``provides_index`` callback so
     the scanner stays independent from adapter resolution.
 
@@ -711,6 +716,11 @@ def find_missing_directory_indices(
         List of :class:`~pathlib.Path` objects relative to *docs_root*,
         sorted lexicographically, for directories that lack an index page.
     """
+    # The gate, not merely its docstring. An earlier pass documented this policy
+    # here and left the function returning its list unconditionally -- the same
+    # shape as writing a comment and calling it a control.
+    if not config.policies.enable_directory_index_check:
+        return []
     if not docs_root.exists() or not docs_root.is_dir():
         return []
 
@@ -1339,7 +1349,12 @@ def _run_vsm_and_urp_pass(
 
         entry_points = adapter.get_entry_points(vsm)
         orphaned_urls = set(detect_orphans(vsm, entry_points))
-        dead_end_urls = set(detect_dead_ends(vsm))
+        # Z411 is opt-in: a licence page, a changelog and a glossary are dead
+        # ends by design. Leaving the set empty is exactly what "no dead ends"
+        # already means downstream, so no consumer needs to learn a new state.
+        dead_end_urls = (
+            set(detect_dead_ends(vsm)) if config.policies.enable_dead_end_check else set()
+        )
         if config.policies and config.policies.traceability_targets:
             for url, _rel_src, target_glob, req_sources in detect_traceability_violations(
                 vsm, config.policies.traceability_targets, docs_root=docs_root, repo_root=repo_root
@@ -1656,10 +1671,21 @@ def _build_rule_engine(
         WeaselWordsRule,
     )
 
-    built_in.append(ShortContentRule(config.placeholder_max_words))
+    # Z502 and Z511 are editorial policy, not correctness: both compare a word
+    # count against a threshold tuned on one project's prose. Off unless asked
+    # for, the same shape as Z518/Z519 below and Z106 in the link pass.
+    if config.policies.enable_short_content_check:
+        built_in.append(ShortContentRule(config.placeholder_max_words))
     built_in.append(PlaceholderRule(config.placeholder_patterns_compiled))
-    built_in.append(CombinedHeadingRule(anchors_out=anchors_out))
-    built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
+    built_in.append(
+        CombinedHeadingRule(
+            anchors_out=anchors_out,
+            enable_duplicate_heading=config.policies.enable_duplicate_heading_check,
+            enable_heading_punctuation=config.policies.enable_heading_punctuation_check,
+        )
+    )
+    if config.policies.enable_sentence_length_check:
+        built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
     built_in.append(EmptySectionRule())
     built_in.append(GenericImageAltTextRule())
     built_in.append(BareUrlUsedRule())

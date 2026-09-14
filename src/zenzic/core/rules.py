@@ -1503,8 +1503,16 @@ class CombinedHeadingRule(BaseRule):
     side effect, eliminating the separate ``anchors_in_file()`` pass in VSM.
     """
 
-    def __init__(self, anchors_out: dict[Path, set[str]] | None = None) -> None:
+    def __init__(
+        self,
+        anchors_out: dict[Path, set[str]] | None = None,
+        *,
+        enable_duplicate_heading: bool = True,
+        enable_heading_punctuation: bool = True,
+    ) -> None:
         self._anchors_out = anchors_out
+        self._enable_duplicate_heading = enable_duplicate_heading
+        self._enable_heading_punctuation = enable_heading_punctuation
 
     @property
     def rule_id(self) -> str:
@@ -1513,7 +1521,19 @@ class CombinedHeadingRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_all_heading_rules
 
-        return check_all_heading_rules(file_path, text, anchors_out=self._anchors_out)
+        findings = check_all_heading_rules(file_path, text, anchors_out=self._anchors_out)
+        # Z513 and Z517 are opt-in; Z510 and Z516 are not. They share one pass
+        # because four separate passes cost 716ms against 255ms on a 300-file
+        # corpus (2.8x, measured 2026-09-14), so the gate drops the findings
+        # rather than the work -- the saving is preserved, not traded away.
+        # Filtering is also correct rather than merely cheap: the pass collects
+        # heading anchors as a side effect for the VSM, and skipping it to save
+        # a disabled code would silently remove anchors the link graph needs.
+        if not self._enable_duplicate_heading:
+            findings = [f for f in findings if f.rule_id != "Z513"]
+        if not self._enable_heading_punctuation:
+            findings = [f for f in findings if f.rule_id != "Z517"]
+        return findings
 
 
 class PassiveVoiceRule(BaseRule):

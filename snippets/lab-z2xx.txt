@@ -12,7 +12,7 @@ detection, not a problem with your install.
   Action: Rotate this credential immediately and purge it from the repository
 history.
 
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 36 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.1s • 14 files/s
 
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -23,7 +23,6 @@ FAILED: Security breaches detected. Exit code 2 is mandatory.
 
 ✔ LAB RESULT
 
-1 file scanned • 0.03s • 36 files/s
-1 unrelated finding hidden (not Z201) • pass --all to see everything
+1 file scanned • 0.07s • 14 files/s
 
 ✔ Z201 — Credential Scanner — expectation met.
