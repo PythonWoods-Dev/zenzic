@@ -255,6 +255,38 @@ def explain(
     console.print(bc_table)
     console.print()
 
+    # ── Section B-bis: Exclusion layers ───────────────────────────────────
+    # A scan that silently ignores a tree is the same opacity as a suppression
+    # that costs no debt. The layers exist as separate attributes on the
+    # manager; `excluded_dirs` flattens them, which is why this reads each one
+    # rather than the union.
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.exclusion import LayeredExclusionManager
+
+    _docs_root = repo_root / config.docs_dir
+    _adapter = get_adapter(config.build_context, _docs_root, repo_root)
+    _mgr = LayeredExclusionManager(
+        config,
+        repo_root=repo_root,
+        docs_root=_docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
+    excl_table = _make_table(f"{emoji('info')}  Exclusion layers")
+    excl_table.add_column("Layer", style="bold", min_width=28, no_wrap=True)
+    excl_table.add_column("Active Value", min_width=30)
+    excl_table.add_column("Source", min_width=8, justify="center")
+    excl_table.add_column("Origin", min_width=22)
+    for _layer, _attr, _src in (
+        ("L1 system guardrails", "_system_dirs", "default"),
+        ("L1b adapter output", "_adapter_output_dirs", "default"),
+        ("L2 included_dirs", "_config_included_dirs", "global"),
+        ("L3 excluded_dirs", "_config_excluded_dirs", "global"),
+        ("L4 CLI --exclude-dir", "_cli_exclude_dirs", "default"),
+    ):
+        _add_row(excl_table, _layer, sorted(getattr(_mgr, _attr, frozenset())), _src)
+    console.print(excl_table)
+    console.print()
+
     # ── Section C: Governance ─────────────────────────────────────────────
     gov = config.governance
     gov_table = _make_table(f"{emoji('brand')}  Governance")
