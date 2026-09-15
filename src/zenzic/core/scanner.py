@@ -138,6 +138,31 @@ _RE_HTML_IMG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 
 
+#: The ``srcset`` attribute of an ``<img>`` or ``<source>`` tag. Its value is a
+#: candidate list -- a URL, then an optional width (``480w``) or density (``2x``)
+#: descriptor, candidates separated by commas -- so it is parsed, not matched as
+#: one URL. Deliberately read only by the asset pass: the tag extractor that
+#: feeds link validation and the attribute-governance codes is left untouched.
+_SRCSET_ATTR_RE = re.compile(
+    r"(?is)<(?:img|source)\b[^>]*?\bsrcset\s*=\s*(?:\"([^\"]*)\"|'([^']*)')"
+)
+
+
+def _srcset_candidate_urls(value: str) -> list[str]:
+    """URLs named by a ``srcset`` value, descriptors dropped.
+
+    Covers the comma-separated candidate list with ``w``/``x`` descriptors or none.
+    Does not cover a URL that itself contains a comma: HTML allows one only where it
+    cannot be mistaken for a separator, and splitting on commas would cut it.
+    """
+    urls: list[str] = []
+    for candidate in value.split(","):
+        parts = candidate.strip().split()
+        if parts:
+            urls.append(parts[0])
+    return urls
+
+
 _MARKDOWN_ASSET_LINK_RE = re.compile(
     r"\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>|<a.*?href=[\"'](.*?)[\"'].*?>"
 )
@@ -430,6 +455,23 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
         normalized = posixpath.normpath(posixpath.join(base, clean_url))
         if not normalized.startswith(".."):
             referenced.add(normalized)
+
+    # 2b. ``srcset`` on <img>/<source> -- every candidate URL, over the same masked
+    #     buffer the tag extractor reads, so a srcset inside a fence, a comment or
+    #     inline code is not a reference.
+    masked = extractor._mask_math(
+        extractor._mask_inline_code(extractor._mask_fences(extractor._mask_comments(text)))
+    )
+    for srcset_match in _SRCSET_ATTR_RE.finditer(masked):
+        srcset_value = srcset_match.group(1) or srcset_match.group(2) or ""
+        for srcset_url in _srcset_candidate_urls(srcset_value):
+            if srcset_url.startswith(("http://", "https://", "data:", "#")):
+                continue
+            clean_url = unquote(srcset_url.split("?")[0].split("#")[0])
+            base = page_dir if page_dir else "."
+            normalized = posixpath.normpath(posixpath.join(base, clean_url))
+            if not normalized.startswith(".."):
+                referenced.add(normalized)
 
     # 3. Standard inline markdown links [text](url)
     for match in _MARKDOWN_ASSET_LINK_RE.finditer(text):

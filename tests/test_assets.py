@@ -254,3 +254,70 @@ def test_code_asset_suffixes_exempts_mts_and_cts(tmp_path: Path) -> None:
     assert "vitest.config.mts" not in unused_names
     assert "build.cts" not in unused_names
     assert "unused.png" in unused_names
+
+
+# ── <source srcset> and <img srcset> count as references ─────────────────────
+#
+# A responsive image names its files in a srcset candidate list -- a URL, then an
+# optional width or density descriptor, candidates separated by commas. An asset
+# named only there was reported unused (Z405): the asset pass took HTML
+# references from href/src alone.
+
+
+def _srcset_repo(tmp_path: Path, page: str) -> tuple[Path, Path]:
+    repo = tmp_path / "repo"
+    assets = repo / "docs" / "assets"
+    assets.mkdir(parents=True)
+    for name in ("light.png", "dark.png", "wide.png", "unused.png"):
+        (assets / name).touch()
+    (repo / "docs" / "index.md").write_text(page)
+    return repo, repo / "docs"
+
+
+def _unused(tmp_path: Path, page: str) -> set[str]:
+    repo, docs = _srcset_repo(tmp_path, page)
+    config = ZenzicConfig()
+    return {
+        p.name for p in find_unused_assets(docs, make_mgr(config, repo_root=repo), config=config)
+    }
+
+
+def test_an_asset_named_only_in_source_srcset_is_used(tmp_path: Path) -> None:
+    page = (
+        "# Home\n\n<picture>\n"
+        '  <source media="(prefers-color-scheme: light)" srcset="assets/light.png">\n'
+        '  <img alt="logo" src="assets/dark.png">\n'
+        "</picture>\n"
+    )
+    unused = _unused(tmp_path, page)
+    assert "light.png" not in unused
+    assert "dark.png" not in unused
+
+
+def test_every_candidate_in_a_descriptor_list_is_used(tmp_path: Path) -> None:
+    page = '# Home\n\n<img alt="x" src="assets/dark.png" srcset="assets/light.png 1x, assets/wide.png 2x">\n'
+    unused = _unused(tmp_path, page)
+    assert "light.png" not in unused
+    assert "wide.png" not in unused
+
+
+def test_width_descriptors_and_single_quotes_are_parsed(tmp_path: Path) -> None:
+    page = "# Home\n\n<picture><source srcset='assets/light.png 480w,assets/wide.png 1080w'><img alt='x' src='assets/dark.png'></picture>\n"
+    unused = _unused(tmp_path, page)
+    assert {"light.png", "wide.png", "dark.png"}.isdisjoint(unused)
+
+
+def test_srcset_does_not_silence_an_asset_it_does_not_name(tmp_path: Path) -> None:
+    """The negative control: a genuinely unused asset stays reported."""
+    page = '# Home\n\n<picture><source srcset="assets/light.png 1x, assets/wide.png 2x"><img alt="x" src="assets/dark.png"></picture>\n'
+    assert "unused.png" in _unused(tmp_path, page)
+
+
+def test_srcset_inside_a_fence_or_a_comment_is_not_a_reference(tmp_path: Path) -> None:
+    page = (
+        '# Home\n\n```html\n<source srcset="assets/light.png">\n```\n\n'
+        '<!-- <img srcset="assets/wide.png 2x"> -->\n'
+    )
+    unused = _unused(tmp_path, page)
+    assert "light.png" in unused
+    assert "wide.png" in unused

@@ -330,6 +330,16 @@ added for the build directory is now redundant.
 
 ### Fixed
 
+- **An image named only in `srcset` is no longer reported unused (`Z405`).** A responsive image
+  — `<picture><source srcset>` or `<img srcset>` — names its files in a candidate list, each URL
+  followed by an optional width (`480w`) or density (`2x`) descriptor. The unused-asset check took
+  references from `src` and `href` alone, so a file used only as one variant, such as the
+  light-theme logo inside `<picture>`, was reported unused. `srcset` is now read candidate by
+  candidate on `<img>` and `<source>`, outside fenced code, comments and inline code. **What you may
+  see**: `Z405` findings disappear for such files, and a `directory_policies` or `per_file_ignores`
+  entry that existed only to silence them is reported as dead configuration (`Z620`). **Not
+  covered**: a URL that itself contains a comma, an unquoted JSX `srcSet={…}` expression, and
+  `<source src>` inside `<video>` or `<audio>`.
 - **External-link validation no longer probes RFC 2606 reserved names.** This is a product
   default: it applies to every run, everywhere, with no configuration. `example.com`,
   `example.net`, `example.org` and any host under `.test`, `.example`, `.invalid` or
