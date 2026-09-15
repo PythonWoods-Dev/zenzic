@@ -264,7 +264,7 @@ Inline Markdown link or collapsed reference link has empty or whitespace-only vi
 
 ### Z109: EXTERNAL_LINK_BROKEN {#z109}
 
-**Severity:** `error` · **Penalty:** −3.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z109-external-link-broken.md) · [↗ Rule Specification](../rules/Z109.md)
+**Severity:** `error` · **Penalty:** none — catalogue alias, never emitted · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z109-external-link-broken.md) · [↗ Rule Specification](../rules/Z109.md)
 
 !!! info "Catalogued alias — never emitted"
     `Z109` is a **catalogue alias**, not a code the engine produces. Every external-link

@@ -335,7 +335,10 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     ),  # CIRCULAR_LINK    — informational
     "Z107": CodeDefinition("error", 1.0, "structural"),  # CIRCULAR_ANCHOR
     "Z108": CodeDefinition("error", 1.0, "structural", fixable=True),  # EMPTY_LINK_TEXT
-    "Z109": CodeDefinition("error", 3.0, "structural"),  # EXTERNAL_LINK_BROKEN
+    # EXTERNAL_LINK_BROKEN — a catalogue alias, never emitted: the engine reports an
+    # unreachable external link as Z101. Inactive and penalty-free, so no surface can
+    # advertise a cost nobody pays; the entry stays so `zenzic lab z109` resolves.
+    "Z109": CodeDefinition("error", 0.0, "structural", status="inactive"),
     "Z110": CodeDefinition("error", 0.0, None),  # CONFIG_SYNTAX_ERROR — malformed TOML
     "Z111": CodeDefinition("error", 0.0, None),  # CONFIG_SCHEMA_ERROR — invalid schema/type
     "Z112": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY

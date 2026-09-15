@@ -93,7 +93,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z106** | CIRCULAR_LINK | 0.0 pts | *(uncategorized)* | Informational — no DQS penalty |
 | **Z107** | CIRCULAR_ANCHOR | 1.0 pt | Structural Integrity | Default |
 | **Z108** | EMPTY_LINK_TEXT | 1.0 pt | Structural Integrity | Default |
-| **Z109** | EXTERNAL_LINK_BROKEN | 3.0 pts | Structural Integrity | Catalogue alias — never emitted; charged as Z101 (8.0 pts) |
+| **Z109** | EXTERNAL_LINK_BROKEN | — | Structural Integrity | Catalogue alias — never emitted; charged as Z101 (8.0 pts) |
 | **Z110** | CONFIG_SYNTAX_ERROR | 0.0 pts | Configuration Guard | Fatal Guard |
 | **Z111** | CONFIG_SCHEMA_ERROR | 0.0 pts | Configuration Guard | Fatal Guard |
 | **Z112** | STALE_ALLOWLIST_ENTRY | 1.0 pt | Structural Integrity | Default |
