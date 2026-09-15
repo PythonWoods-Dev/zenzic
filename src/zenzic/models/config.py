@@ -615,6 +615,30 @@ class NetworkConfig(BaseModel):
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
 # in ``.zenzic.toml`` are additive — they cannot remove these guardrails.
+#
+# MEMBERSHIP CRITERION.  Until 2026-09-15 this list carried a description of
+# what it *does* and no test for what belongs in it, which is how ``dist``
+# came to be present while ``site`` — MkDocs' own default output directory —
+# was absent.  An entry qualifies only if it satisfies **both** axes, the same
+# two that :data:`SECURITY_EXEMPT_DIRS` below has always applied to its own
+# subtractions:
+#
+#   (1) a conventional name owned by a specific tool or platform, not one a
+#       project would organically choose for its own content; and
+#   (2) machine-generated contents, not something a person hand-types and
+#       ships.
+#
+# Failing either axis keeps a directory out, however obviously "generated" it
+# looks.  ``site`` fails axis (1) and was rejected on measurement, not taste:
+# excluding the bare name pruned a legitimate ``docs/site/`` content directory
+# and turned a working link into a `Z101`, with no configuration able to
+# recover it because ``should_exclude_dir`` returns at L1 before
+# ``included_dirs`` is consulted.  A generator's output directory is instead
+# reported by its adapter (``BaseAdapter.get_output_dirs``), which knows the
+# declared path rather than guessing a name.
+#
+# The current twenty classify as: **18 generated/derived, 2 VCS metadata,
+# 0 unclassified.**  Adding this criterion changed no membership.
 SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
     {
         # VCS and CI/CD
