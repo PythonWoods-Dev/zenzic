@@ -10,59 +10,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Fixed
-
-- **External-link validation no longer probes RFC 2606 reserved names.** This is a product
-  default: it applies to every run, everywhere, with no configuration. `example.com`,
-  `example.net`, `example.org` and any host under `.test`, `.example`, `.invalid` or
-  `.localhost` are reserved by RFC 2606 precisely so that they cannot resolve to a real
-  server. Probing one could only ever produce a false positive — the documentation-quality
-  engine was issuing HTTP requests against the hostnames the standard provides *for*
-  documentation. In this repository's own `docs/` the fix addressed **53 occurrences, 27
-  distinct URLs, across 12 distinct hostnames** as measured at the parent commit
-  `efb385b`; the same pass then re-hosted the two examples on the `Z109` rule card, so the
-  tree published here carries **51 occurrences, 25 distinct URLs, 11 distinct hostnames**.
-  Both figures come from `https?://[a-zA-Z0-9._~:/?#@!$&*+,;=%-]+` over `docs/**/*.md` with
-  the host tested via `urlsplit().hostname` — run it against either commit and it
-  reproduces. Every occurrence is didactic: rule cards, gallery examples, and placeholder
-  hosts in reference and how-to pages. None is a link a reader would follow. Matching is on the parsed
-  host, never a substring, so `notexample.com`, `example.company`, `myexample.net` and
-  `example.com.evil.net` are still validated normally. The skip runs *after*
-  `excluded_external_urls`, so a prefix you declared explicitly is still recorded as used
-  and will not be reported stale by `Z620`. See `Z101` and `Z109` for the full rule.
-
-  **External-link validation itself is unchanged.** `zenzic check all --strict` still sends
-  HTTP requests for every non-reserved external URL, on your machine as before. Only the
-  reserved names are skipped.
-
-- **`Z109 EXTERNAL_LINK_BROKEN` is documented as what it is: a catalogue alias that is never
-  emitted.** The engine consolidates every unreachable link — internal or external — into
-  `Z101 LINK_BROKEN`, and `Z109` has no emission site anywhere in the codebase. The
-  documentation nonetheless described it as an active code: the rule card advertised
-  "evaluation ACTIVE" and a **3.0 pt** penalty, while a broken external link actually costs
-  `Z101`'s **8.0 pt** — 2.67x the documented rate. Worse, `docs/how-to/configure-ci-cd.md`
-  contained a copy-pasteable CI example depicting a `[Z109] External URL returned...` line
-  that no user could ever see. Corrected across five surfaces (the `Z109` and `Z101` rule
-  cards, the finding-codes and scoring-algorithm references, the CLI reference and the CI
-  how-to): `Z109` is now declared a catalogue alias with no penalty applied, and every
-  depicted output shows `Z101`. **No engine behaviour changed** — the registry entry is
-  retained so that `zenzic lab z109` and the gallery entry keep resolving.
-
 ### ⚠ Upgrade notice — verify before rolling out
 
-**Seven** changes in this release alter what a corpus reports or what it emits. Items 1-3 can make a corpus
-that passes today fail after upgrading, and the two security-tier ones are
-**non-suppressible**; none is a regression — each closes a path by which a code was silenced.
-Item 4 goes the other way: `Z106` stops reporting unless you ask for it. Run the check
-against your repository before you roll the new version into a gate.
-
-The count previously read "Two" while three items were listed; corrected here.
+The changes below alter what a corpus reports or what the tool emits, and several can make a corpus
+that passes today fail after upgrading. Items 1-3 add findings, and the two security-tier ones are
+**non-suppressible**; none is a regression — each closes a path by which a code was silenced. Items
+4, 6, 8, 9 and 10 remove findings, item 7 moves them both ways, and item 5 changes the JSON payload.
+The list ends with the breaking changes that are not about findings. Run the check against your
+repository before you roll the new version into a gate:
 
 ```bash
 zenzic check all
 ```
 
-Both changes surface there with the file, the line and the cause. Exit `2` is a forbidden
+Every added finding surfaces there with the file, the line and the cause. Exit `2` is a forbidden
 scheme or credential; exit `3` is a path traversal.
 
 **1. The security tier no longer reads the quality tier's masked text.** Comments, inline
@@ -158,14 +119,71 @@ removal.
 `findings[]` across the whole example gallery — **216 items, 216 covered, 0 missing** — per
 array, immediately before the change.
 
+**6. Six editorial-policy checks are now opt-in, so their findings disappear.**
+
+*What you will see:* `Z511` (sentence length), `Z502` (short content), `Z517` (heading punctuation),
+`Z513` (duplicate heading), `Z411` (dead-end page) and `Z401` (missing directory index) report nothing
+unless enabled, and baselined findings for them are gone.
+
+*What to do:* to keep one, set its key under `[policies]`:
+
+```toml
+[policies]
+enable_sentence_length_check = true      # Z511
+enable_short_content_check = true        # Z502
+enable_heading_punctuation_check = true  # Z517
+enable_duplicate_heading_check = true    # Z513
+enable_dead_end_check = true             # Z411
+enable_directory_index_check = true      # Z401
+```
+
+`zenzic explain <code>` shows each code's activation, and `zenzic init` writes every opt-in key into
+the configuration it generates. `Z514` (generic image alt text) and `Z515` (bare URL) are unchanged
+and still on.
+
+**7. Fenced code is tracked the way CommonMark defines it, which moves findings both ways.**
+
+*Fewer:* a heading, list or sentence inside a block that nests fences — a page documenting Markdown
+by showing it — is no longer read as prose, so `Z516`, `Z513`, `Z510`, `Z520` and `Z511` findings from
+inside such blocks disappear.
+
+*More:* `Z505` now recognises untagged code blocks indented inside admonitions and list items, which
+it never saw. Expect its count to rise, and read the new findings as a backlog that was hidden.
+
+*Security tier:* a credential inside a fenced block is still found; the credential scanner reads raw
+lines and never consulted the fence tracker.
+
+**8. `Z503` no longer reports a snippet that is teaching syntax.** A TOML placeholder key such as
+`<type> = "<icon>"` and a code block whose body itself opens a fence are recognised as illustrations
+and skipped, so those findings disappear. A genuine syntax error beside a placeholder key is still
+reported.
+
+**9. Footnote definitions are no longer parsed as link references.** `[^1]: text` stops producing
+`Z101` and `Z302`; every such finding pointed at prose, so nothing worth reporting stops being reported.
+
+**10. A MkDocs project's build output is no longer scanned by the quality checks.** When `docs_dir`
+covers it, `site/` — or whatever `site_dir` names — used to be reported file by file: `Z405` on
+generated assets, `Z402` and `Z410` on generated pages. Those findings disappear. The credential scanner
+still reads the directory, so a secret in build output still exits `2`. An `excluded_dirs` entry you
+added for the build directory is now redundant.
+
+**Breaking changes that are not about findings** — each has its own entry below:
+
+- CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
+- `Z301` (`DANGLING_REF`) is a `--strict`-gated warning, not a hard error.
+- `--strict`/`-s` is removed from `zenzic score` and `zenzic diff`.
+- `[project_metadata].obsolete_names` is removed.
+- `Z000`, `Z113`, `Z114` and `Z504` are removed, and `--only` rejects them as invalid codes.
+- `STALE_ALLOWLIST_ENTRY` moved from `Z110` to `Z112`; a baseline counting it under `Z110` needs regenerating.
+- `Z521`, `Z522` and `Z523` refuse inline suppression; declare them in `.zenzic.toml`.
+
 ### Added
 
+- **`zenzic config explain` Shows Which Layer Excludes What**: a new *Exclusion layers* table lists each exclusion layer with its current contents — `L1` system guardrails, `L1b` the build engine's declared output directory, `L2` `included_dirs`, `L3` `excluded_dirs`, `L4` `--exclude-dir` — so a directory that is not being scanned can be traced to the layer that removed it without reading the source.
 - **`CODE_DEFINITIONS` Now Records How Each Code Is Activated**: the registry held severity, penalty, category, lifecycle status and fixability, but nothing expressing whether a code runs at all — so four surfaces carried that fact by hand: the generated `.zenzic.toml`, the rule cards, `finding-codes.md`, and a frozenset in the test suite whose own comment said it deliberately avoided deriving from `codes.py`, *because there was nothing there to derive from*. That comment was the defect. Reconciling those four was provisional; without a field they diverge again and nothing notices. `CodeDefinition` gains `activation` and `activation_key`, and all 70 codes are classified from their real gates: **47 default** (runs unless suppressed), **8 flag** (runs only when its `enable_*` key is true), **15 data** (always runs, finds nothing until its `[policies]` collection is declared). The third state is the one that needed representing — it is **not off**: a user cannot tell "no violations" from "nothing configured" by reading output. `zenzic explain <code>` now shows it, and the frozenset is deleted: its test reads the registry, so a card and the registry cannot disagree silently. Proven rather than asserted — flipping `Z511` from flag to default in the registry fails the card test, and restoring it passes; the same on `Z617` for the data state.
 - **`zenzic explain <code>` Gains an Activation Row**: it reports `on by default`, `opt-in — set [policies] <key> = true`, or `inert — runs, but finds nothing until [policies] <key> is declared`. Placed here rather than in `zenzic inspect codes` because that table is horizontal: a seventh column does not render untruncated at Rich's 80-column default, and the attempt silently dropped the `Name` and `Fixable` headers rather than wrapping. `inspect codes`' docstring had promised "activation status from config" since before this release and never showed it; it now says where to look.
 
 - **SARIF Results Carry `partialFingerprints` (Two Keys), So an Alert Keeps Its History**: GitHub Code Scanning decides whether two results are the same alert across commits from this field. With it absent, GitHub inferred identity, and an alert could be closed and reopened as a duplicate when unrelated lines shifted above it — a finding nobody touched losing its triage. Each result now carries `primaryLocationLineHash`, GitHub's own documented key, as a SHA-256 of the stripped source line: it hashes the *line* rather than the position, which is what lets it survive that line moving. **`primaryLocationLineHash` is deliberately omitted rather than faked** when the source line is unknown — a file-level finding such as `Z502` (`SHORT_CONTENT`) or `Z411` (`DEAD_END_NODE`) has no excerpt, and a hash over an empty string would give every such finding the same identity, so GitHub would merge unrelated alerts instead of failing to track one. A second key, **`zenzicFindingV1`**, is therefore emitted on *every* result: it is the same identity the `gitlab-codequality` emitter writes as `fingerprint` (shared function, so the two formats cannot drift), built from relative path, code, message, match text and occurrence index, with the line number deliberately absent. No result is ever without `partialFingerprints`. Measured on a probe corpus: 5 results, 5 carrying `zenzicFindingV1`, 1 also carrying `primaryLocationLineHash` and 4 correctly without it.
-
-### Added
 
 - **Two Link Gates That Check the Built Site Rather Than the Source Tree**: `scripts/check_built_site_links.py` resolves every internal link the way a browser does, by parsing the rendered HTML; `scripts/check_redirect_destinations.py` resolves every `docs/_redirects` destination transitively against the build, so a rule pointing at a page a release deletes fails before it ships. Both run from `just docs-build`, and therefore from `verify` and CI. The link checker parses rather than pattern-matches because `minify_html` strips attribute quotes — a regex requiring them finds nothing and reports a clean sweep. Stated limit: MkDocs does not render `.mdx`, so no built-site checker can cover those links; the engine is the only instrument there.
 
@@ -228,6 +246,7 @@ array, immediately before the change.
 
 ### Changed
 
+- **A MkDocs Project's Declared Build Output Is No Longer Scanned by the Quality Checks — Findings on Generated Files Disappear**: with `docs_dir` covering a MkDocs project, `mkdocs build` left `site/` inside the scanned tree and every generated file was reported — `Z405` on `404.html`, source maps and webfonts, `Z402`/`Z410` on generated pages. The engine now asks the adapter for the directory the build engine declares — MkDocs' `site_dir`, `site` when unset — and removes that exact repository-relative path from the quality checks. **The credential scanner still reads it**: a secret written into build output still exits `2`, because a value taken from a file the scanned project writes must not be able to narrow the security tier. The match is on the path rather than the name, so a documentation section at `docs/site/` is still scanned, and a `site_dir` that is absolute, empty, `.` or outside the repository is ignored. Zensical, standalone and prebuilt projects declare no output directory and are unchanged. *What to do:* nothing, unless you excluded the build directory by hand — that entry is now redundant for a MkDocs project.
 - **`zenzic score --breakdown` Grouped Findings by Code Number, Not by Scoring Category — `Z106` and `Z123` Were Printed Under STRUCTURAL**: the detailed breakdown decided a finding's section by reading the code's first digit whenever the scorer had not categorised it, so `Z106` (`CIRCULAR_LINK`) and `Z123` (`NON_HTTP_SCHEME`) — `Z1xx` codes that **no** bucket scores — were listed under **STRUCTURAL CATEGORY (Weight: 30%)** beside genuine point deductions. **The same run disagreed with itself**: the summary table above showed `structural: 0 issues`, because the scorer correctly excludes them, and `zenzic check all --format sarif` reported `"category": "uncategorized"` for the same code in the same scan. Both now say uncategorized, and such findings appear under **UNCATEGORIZED FINDINGS** with `(no DQS penalty)` — a section that existed, was correct, and had never once rendered because nothing ever reached it. **What changes for you**: if you parse `--breakdown` text, a zero-penalty uncategorised finding moves out of the weighted section it was never part of. No score changes — these codes carry 0.0 points and were never in any bucket's arithmetic; only where they are printed changes. `docs/reference/cli.md`'s worked example showed the defect and has been replaced with captured output. **Root cause, and why it recurred**: the grouping was one of thirteen places deciding something about a code from its numeric prefix. `CODE_DEFINITIONS` now exports `CATEGORY_DISPLAY_NAMES`, `category_display_name()` and `category_bucket_key()`, so a bucket has one source; the remaining twelve sites decide a different question (which band, or whether a code is fatal) and are recorded for separate treatment rather than swept blind. The regression test asserts the *association* between a code and its section: the previous test checked that `STRUCTURAL CATEGORY` and `Z106 (CIRCULAR_LINK)` each appeared somewhere in the output, which passed whether or not they appeared together.
 
 - **The Generated `.zenzic.toml`'s Activation Section Is Derived From the Code Registry**: the opt-in flags were hand-written in two template blocks, and they had already diverged — `enable_circular_link_check` was absent entirely, so `Z106` was documented in the configuration reference and invisible in the file the tool writes. The block is now generated from `CODE_DEFINITIONS`: every flag-gated code emits its flag, every data-gated code its required `[policies]` declaration, each preceded by the code and its description. **Grouped by code rather than by kind**, so a reader sees one check's identity and its activation together. The section opens by naming the three behaviours, because the third is the one a user cannot otherwise detect: an *inert* check is running and finding nothing until its data is declared, which reads identically to "no violations". Proven rather than asserted — adding a gated code to the registry changes the generated block, and `zenzic init` was verified by generating a project and parsing the result, not by reading a diff. That check earned itself: the first attempt emitted `enable_passive_voice_check` twice (once from a stale hand-written literal, once from the registry) and TOML rejects a duplicate key, so the generated file did not parse at all.
@@ -274,6 +293,7 @@ array, immediately before the change.
 
 ### Removed
 
+- **`Z504` (`QUALITY_REGRESSION`) Removed — BREAKING**: the code was registered and had a rule card and a reference entry, and no code path could emit it — `zenzic diff` emits no codes. *What you will see:* `--only Z504` is rejected as an invalid finding code, and a suppression naming `Z504`, inline or in `per_file_ignores`, is reported as dead (`Z603`, `Z620`) because there is nothing for it to suppress. *What to do:* remove any reference to `Z504`.
 - **`[project_metadata].obsolete_names` Removed — BREAKING**: the field had spent two minor versions as a deprecated alias that the loader copied into `[governance].brand_obsolescence` before every scan. **If your `.zenzic.toml` still sets `[project_metadata].obsolete_names`, move the list to `[governance].brand_obsolescence`** — the syntax is otherwise identical, and `obsolete_names_exclude_patterns` is unaffected and stays where it is (it remains a `[project_metadata]` field). Z601 detection is unchanged for anyone already using the replacement. **A configuration still setting the old key loads without error and contributes nothing to Z601** — the unknown-key warning in `ZenzicConfig._build_from_data` iterates root-level keys only and does not descend into a declared section, so neither this removal nor an ordinary typo inside `[project_metadata]`, `[governance]` or `[policies]` produces a diagnostic. The removal was chosen over carrying the alias a third minor because a `0.x` version promises no stability, and the alias cost was a dual-read spread across the model, the loader, the rule constructor and the tests — the same multi-surface divergence this release spent its time removing. `BrandObsolescenceRule` now takes the name list as an explicit constructor argument rather than reading it off `ProjectMetadata`, so there is one place the list comes from.
 
 - **Two Orphaned Brand Badge `.license` Sidecars and Their Two Dead Redirects**: `zenzic-badge-audit.svg` and `zenzic-badge-score.svg` were deleted from `docs/assets/brand/svg/` in an earlier documentation prune, but their `.license` sidecars and two `/static/assets/brand/svg/…` redirect rules were left behind — so both URLs issued a `301` into a `404`. Deleting the leftovers was chosen over restoring the SVGs: nothing in the repository references either badge. A full re-audit of `docs/_redirects` confirms zero remaining rules whose `/assets/` target does not exist on disk.
@@ -310,6 +330,49 @@ array, immediately before the change.
 
 ### Fixed
 
+- **External-link validation no longer probes RFC 2606 reserved names.** This is a product
+  default: it applies to every run, everywhere, with no configuration. `example.com`,
+  `example.net`, `example.org` and any host under `.test`, `.example`, `.invalid` or
+  `.localhost` are reserved by RFC 2606 precisely so that they cannot resolve to a real
+  server. Probing one could only ever produce a false positive — the documentation-quality
+  engine was issuing HTTP requests against the hostnames the standard provides *for*
+  documentation. In this repository's own `docs/` the fix addressed **53 occurrences, 27
+  distinct URLs, across 12 distinct hostnames** as measured at the parent commit
+  `efb385b`; the same pass then re-hosted the two examples on the `Z109` rule card, so the
+  tree published here carries **51 occurrences, 25 distinct URLs, 11 distinct hostnames**.
+  Both figures come from `https?://[a-zA-Z0-9._~:/?#@!$&*+,;=%-]+` over `docs/**/*.md` with
+  the host tested via `urlsplit().hostname` — run it against either commit and it
+  reproduces. Every occurrence is didactic: rule cards, gallery examples, and placeholder
+  hosts in reference and how-to pages. None is a link a reader would follow. Matching is on the parsed
+  host, never a substring, so `notexample.com`, `example.company`, `myexample.net` and
+  `example.com.evil.net` are still validated normally. The skip runs *after*
+  `excluded_external_urls`, so a prefix you declared explicitly is still recorded as used
+  and will not be reported stale by `Z620`. See `Z101` and `Z109` for the full rule.
+
+  **External-link validation itself is unchanged.** `zenzic check all --strict` still sends
+  HTTP requests for every non-reserved external URL, on your machine as before. Only the
+  reserved names are skipped.
+
+- **`Z109 EXTERNAL_LINK_BROKEN` is documented as what it is: a catalogue alias that is never
+  emitted.** The engine consolidates every unreachable link — internal or external — into
+  `Z101 LINK_BROKEN`, and `Z109` has no emission site anywhere in the codebase. The
+  documentation nonetheless described it as an active code: the rule card advertised
+  "evaluation ACTIVE" and a **3.0 pt** penalty, while a broken external link actually costs
+  `Z101`'s **8.0 pt** — 2.67x the documented rate. Worse, `docs/how-to/configure-ci-cd.md`
+  contained a copy-pasteable CI example depicting a `[Z109] External URL returned...` line
+  that no user could ever see. Corrected across five surfaces (the `Z109` and `Z101` rule
+  cards, the finding-codes and scoring-algorithm references, the CLI reference and the CI
+  how-to): `Z109` is now declared a catalogue alias with no penalty applied, and every
+  depicted output shows `Z101`. **No engine behaviour changed** — the registry entry is
+  retained so that `zenzic lab z109` and the gallery entry keep resolving. The registry now says the
+  same thing: `Z109` is `inactive`, the lifecycle state for a code kept in the namespace and never
+  emitted, and its penalty is `0.0`, so `zenzic inspect codes` and `zenzic explain` no longer show a
+  3.0-point cost nobody pays.
+
+- **Rule-Card Examples That Could Not Produce Their Own Finding**: several cards showed an example that, copied as written, reported a different code or nothing. `Z101`, `Z102`, `Z103` and `Z104` placed their example at `docs/example.md` and linked `../…`, which from that location leaves the documentation root, so a reader got `Z202` rather than the card's code; `Z105`, `Z202`, `Z203` and `Z405` had the same mismatch in their passing example. The examples now declare a page one level below `docs/`, where each link means what the card says. `Z503`'s bad example was tagged `text`, which is never validated, and is now `python`. `Z506`'s examples opened with a comment, pushing the frontmatter off line 1, the only line the rule reads. `Z401`, `Z411`, `Z502`, `Z511`, `Z513` and `Z517` were marked opt-in without naming the key that enables them, and each now shows it.
+
+- **Reference Pages Described Opt-In Checks as Always On, and `check all`'s JSON Example Showed the Removed Arrays**: `cli.md` showed `check all --format json` with `links`, `orphans` and the other arrays removed in this release, and now shows `findings`. `scoring-algorithm.md`, `checks.md`, `cli.md` and `configuration-reference.md` described `Z106`, `Z401`, `Z411`, `Z502`, `Z511`, `Z513` and `Z517` as running by default, and each now names its `enable_*` key. `configuration-reference.md` said a `brand_obsolescence` match exits `2` like a credential leak — `Z601` is a warning — and named an `[HISTORICAL]` marker the engine no longer reads. `finding-codes.md`, `configuration-loading.md`, the `Z111` card and the `Z001` gallery page said an unknown configuration key aborts the run or is silently ignored; it is reported as a warning that names it, and ignored. `checks.md` now states that RFC 2606 reserved hosts are never probed, `discovery.md` documents the adapter-output exclusion layer, and `finding-codes.md`'s `Z503` "do not do this" example is one that actually fails.
+
 - **`Z503` No Longer Reports a Syntax Error on a Snippet That Is Teaching Syntax**: two kinds of illustrative code block were parsed as if they declared configuration. **A placeholder key** — `<type> = "<icon>"` under `[project.theme.icon.admonition]` — is a documentation convention for naming a slot, and no TOML parser accepts it, because a bare key may not contain `<`. **A snippet whose body opens a fence** — a four-backtick wrapper around `` ``` { .yaml .copy } `` — is showing what a code block looks like, and parsing the display as data reports a syntax error against prose. Both are now recognised and skipped. **The rule is anchored narrowly, and the width was measured rather than chosen**: on `zensical/docs` @ `6346cfd`, **12** validatable blocks contain an angle-bracket placeholder and only **4** fail to parse — all 4 with a placeholder *key*. The other 8 hold placeholders in *values* (`link = "mailto:<email-address>"`) or are YAML, where `<type>: <icon>` is valid; a rule keyed on "contains a placeholder" would have silenced all 12 and removed coverage from 8 snippets that were never failing. **Stated limits**: a quoted placeholder key (`"<tag>" = 1`) is valid TOML, parses, and is still validated; a placeholder in a *table header* (`[<section>]`) fails with a different parser message and is **not** recognised — 0 such blocks exist in either corpus, so the case is recorded rather than handled. A genuinely malformed snippet still fires, in both languages, and the tests assert that direction explicitly. **Measured**: `Z503` on the foreign corpus **7 → 0**, with every other code unchanged (`Z102` 3, `Z205` 1, `Z301` 1, `Z302` 27, `Z402` 2, `Z405` 3, `Z410` 1, `Z505` 30, `Z512` 1, `Z515` 2 — identical before and after); this repository's own corpus was clean before and after. **Placement**: the recognisers live in `core/validator.py` beside `_HIGHLIGHT_COMMENT_RE`, which already neutralises Docusaurus highlight comments the same way. A placeholder in angle brackets is a documentation convention, not a generator's construct, so it belongs in the core — no adapter participates in snippet validation at all.
 
 - **One Fence Tracker, Built Against CommonMark — Thirty Sites Consolidated**: the engine tracked fenced code blocks in **thirty-one** places. Six compared delimiter, length and info string correctly but were hand-copied five times; the other twenty-five flipped a boolean on any ``` or `~~~` line, so a three-backtick fence closed a four-backtick one and a tilde closed a backtick. A corpus that documents Markdown by showing it — the only kind that nests fences — leaked fenced content into the heading, list, link and snippet checks. All thirty consumers now share one implementation in `core/ast.py`; the two `PolyglotExtractor` masking functions keep their own loops because they must mask text per line and retro-mask a closed region, and they say so in place. Enforced per CommonMark 0.31.2 §4.5: a closer must be **at least as long** as its opener, must use the **same delimiter**, and must carry **no info string**; an unclosed fence runs to end of document.
@@ -338,6 +401,7 @@ array, immediately before the change.
 - **Internal Links Resolved Against the Source Tree Instead of the Served URL**:
   - `zenzic check links` reported clean while **161 internal links across 66 pages returned 404** on the live site. With `use_directory_urls` a non-index page is served one segment deeper than its source directory, and the site generator rewrites only links whose literal path names a file — so an extensionless, trailing-slash or `.html` link is emitted verbatim and resolved by the browser against the page URL. `resolver.py` additionally registered a suffix-stripped alias, which made the verdicts **inverted**: the spelling that 404s resolved cleanly, and the spelling that works raised `Z202`. **If your documentation uses extensionless internal links, upgrading will surface real broken links that were previously invisible** — they were always broken; only the reporting changed.
   - Five further defects were found behind it, each masked by the one before: `scanner.py`'s `getattr(config, "use_directory_urls", True)` always returned `True` because `ZenzicConfig` has no such attribute, so a flat-URL site got directory-URL canonicalisation regardless; `Z101` is emitted from `rules.py`, which computed its own base, so fixing the resolver alone changed nothing; the link extractor's fence tracking used a naive toggle, so a page quoting terminal output containing a fence desynchronised it and **no links at all were extracted from the rest of that file**; and the broken-link rule's locale fallback stripped the source file's first path segment as an i18n locale without checking it was one, so any broken link that happened to resolve at the site root was accepted.
+  - This project's own documentation carried both populations and is corrected: the 161 links that returned 404, and a further 73 that worked only through a redirect because they named a directory page without its trailing slash.
   - `href_resolution_base` is now the single definition of the boundary, read by `resolve_href_target`, `_to_canonical_url`, `vsm.py` and `governance.py` — four independent copies of the alias rules collapsed to one.
 
 - **`Z202`/`Z203` Conflated Two Different Questions, and Could Miss a Traversal Entirely**:
@@ -838,6 +902,8 @@ array, immediately before the change.
 
 ### Known Limitations
 
+- **`Z403` and `Z107` Read the Contents of Fenced Code Blocks**: unlike the link checks, which skip a fenced block, these two report an image without alt text or a self-referential anchor link *shown inside a fence* as if it were live content. A page that documents either pattern has to escape or break its example to keep its own check clean.
+- **An Unknown Configuration Key Breaks `--format json` Output**: the warning naming the key is printed to standard output ahead of the JSON payload, so a strict JSON parser rejects the whole output. Correct the key, or read from the first `{`.
 - **CLI/LSP Topology Model Divergence**: the CLI's `check_all` pipeline and the Language Server's `IncrementalAnalysisEngine` do not share a common analysis primitive. Most steps (file discovery, rule engine construction/execution, config loading, adapter resolution) genuinely are shared; the two areas that are not are per-file content caching within a single CLI run (partially addressed this release — see below) and, more significantly, orphan/topology detection: the CLI's `Z402` (nav-membership-based) and the LSP's `Z410`/`Z411` (VSM-graph-reachability-based) are two independent algorithms for related-but-not-identical concepts. Formally tracked as an open architectural decision, not silently accepted — see the forthcoming ADR in `docs/developers/explanation/adr-vault/`.
   - This release's caching fix: `_to_findings` no longer re-reads a file's content twice within a single call when that file appears in both `snippet_errors` and `reference_reports`. This addresses only the redundant read *inside* `_to_findings` — the eight independent sub-checks in `_collect_all_results` (`find_orphans`, `find_unused_assets`, `validate_snippets`, etc.) still walk and read files independently of each other; deduplicating across those would require `scanner.py`/`validator.py` to expose raw file content on their result objects, which is a larger change than this release's scope.
 - **`check <file>` Is Still Not Near-Instant**: `zenzic check all <file>` now skips the rule-engine pass on non-target files (~18-26% faster overall; ~90% of the rule engine's own cost eliminated); full VSM construction and Pass 1-3 security/topology scanning still run project-wide by design, so overall time remains proportional to project size, not target-file size. True near-instant single-file checking requires a persistent process (see the LSP) — this is not planned for the CLI without a broader architectural change, tracked alongside the CLI/LSP topology-model divergence noted above as the same underlying gap: no shared, persistent analysis primitive between the two.
