@@ -41,26 +41,23 @@ uvx zenzic check all --strict
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 65 files/s
 
 .zenzic.toml:8  ⚠  [Z620]  Global policy 'docs/clean-page.md' = ['Z101'] was
 never used to suppress a finding. Remove the dead configuration.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 1 warning  💡 2 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
-✨ Analysis complete: Links, credentials, semantic structure, and policies
-verified.
-
-💡 2 info findings hidden — use --show-info to display.
-DQS Final Score: 99/100 (Gate Passed)
+FAILED: Warnings promoted to errors via --strict flag.
+DQS Final Score: 99/100 (Gate Failed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
-Exit code: `0`
+Exit code: `1`
 
 ---
 

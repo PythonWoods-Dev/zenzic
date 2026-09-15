@@ -15,52 +15,60 @@ description: "Analysis of the z603-dead-suppression fixture. Demonstrates how Ze
 Z603 fires when a `<!-- zenzic:ignore: Zxxx -->` directive exists on a line
 but no active finding of code `Zxxx` is produced for that line.
 
-The directive silences nothing. It is **Phantom Debt**: it consumes part of
-the 30-point governance budget without justification.
+The directive silences nothing, so it costs no debt point — only suppressions in
+use are charged. It is still dead weight: if a finding of that code ever appears
+on the line, the directive silences it without anyone having decided to.
 
 ---
 
 ## The Fixture
 
-This page intentionally contained a dead suppression directive as a fixture.
-It has been converted to a code block to achieve a perfect 100/100 DQS.
+The fixture lives at `examples/z603-dead-suppression/`. Its `docs/index.md` carries a
+broken link with an inline directive, and its `.zenzic.toml` already exempts the same
+code for the whole tree:
 
-```markdown
-[Zenzic Documentation](./z601-brand-obsolescence.md) <!-- zenzic:ignore: Z101 - this link is fine, suppression is dead -->
+```markdown title="examples/z603-dead-suppression/docs/index.md"
+This is a broken link: [Bad Link](broken.md) <!-- zenzic:ignore: Z101 -->
 ```
 
-Zenzic will report Z603 on the line above because the `zenzic:ignore: Z101` directive
-never matched an active Z101 (LINK_BROKEN) finding.
+```toml title="examples/z603-dead-suppression/.zenzic.toml"
+[governance.directory_policies]
+"docs/**" = ["Z101"]
+```
+
+The directory policy is applied first and silences the `Z101`, so the inline directive
+never has a finding to consume: Zenzic reports it as `Z603`. The footer counts one
+suppression in use — the policy pair — and none inline. Remove the policy and the
+directive consumes the finding instead: no `Z603`, one inline suppression.
 
 ---
 
 ## Running the Example
 
 ```bash
-# From the zenzic-doc root
-uvx zenzic check references
+# Clone the Zenzic repository — no install required
+cd examples/z603-dead-suppression
+uvx zenzic check all
 ```
 
-Expected output (simplified):
+Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/index.md:1  ⚠  [Z502]  Page has only 9 words (minimum 50).
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 31 files/s
 
 docs/index.md:3  ⚠  [Z603]  Inline suppression directive does not suppress any
 active finding. Remove the dead comment.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
 ✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
-DQS Final Score: 97/100 (Gate Passed)
+DQS Final Score: 98/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 1/30 (inline: 1, per-file: 0) [MANAGED DEBT]
+🔒 Suppression Audit: 1/30 [MANAGED DEBT] (inline: 0, per-file: 0, directory: 1)
 ```
 
 Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)
@@ -69,7 +77,7 @@ Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)
 
 ## The Three Z603 Scenarios
 
-### Scenario A — Dead Directive (this page)
+### Scenario A — Dead Directive
 
 A valid link has a `zenzic:ignore: Z101` directive that is never consumed.
 

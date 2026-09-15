@@ -28,10 +28,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/'
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 35 files/s
 
 docs/index.md:10  ⚠  [Z501]  Found placeholder text matching pattern:
 '(?i)\btodo\b'
@@ -55,68 +52,14 @@ docs/index.md:14  ⚠  [Z501]  Found placeholder text matching pattern:
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 3 warnings  💡 0 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
 ✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
-DQS Final Score: 91/100 (Gate Passed)
+DQS Final Score: 96/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
-```text
-    21  ❱  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-        │                                                             ^^^^
-    22  │  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-    23  │  ```
-
-docs/index.md:21:25  !  [Z501]  Found placeholder text matching pattern:
-'(?i)placeholder'
-
-    19  │
-    20  │  ```text
-    21  ❱  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-        │                           ^^^^^^^^^^^
-    22  │  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-    23  │  ```
-
-docs/index.md:22:59  !  [Z501]  Found placeholder text matching pattern:
-'(?i)coming\ soon'
-
-    20  │  ```text
-    21  │  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-    22  ❱  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-        │
-^^^^^^^^^^^
-    23  │  ```
-    24  │
-
-docs/index.md:22:25  !  [Z501]  Found placeholder text matching pattern:
-'(?i)placeholder'
-
-    20  │  ```text
-    21  │  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-    22  ❱  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-        │                           ^^^^^^^^^^^
-    23  │  ```
-    24  │
-
-────────────────────────────────────────────────────────────────────────────────
-
-Summary:  x 0 errors  ! 9 warnings  i 0 info  - 1 file with findings
-
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
-'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`

@@ -51,10 +51,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/'
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 29 files/s
 
 docs/index.md:12  ✘  [Z203]  '../../../../etc/passwd' resolves outside the docs
 directory
@@ -76,7 +73,7 @@ the docs directory
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 2 security incidents  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file
+Summary:  ✘ 2 security incidents  ✘ 0 errors  ⚠ 0 warnings  💡 0 info  • 1 file
 with findings
 
 FAILED: Security incidents detected. Exit code 3 is mandatory.
@@ -84,7 +81,7 @@ DQS Final Score: 0/100 (Security Override — 2 non-suppressible findings
 detected)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Read the summary line carefully: **0 errors**, and two *security incidents* —

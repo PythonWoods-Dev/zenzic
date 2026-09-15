@@ -28,15 +28,27 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 68 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 36 files/s
+
+docs/index.md:22  ⚠  [Z302]  Reference '[setup]: https://example.com/setup' is
+defined but never used.
+
+    20  │  for the formal reference-definition syntax.
+    21  │
+    22  ❱  [setup]: https://example.com/setup
+    23  │
+    24  │  <!-- The "setup" reference definition above is never used by any lin…
 
 ────────────────────────────────────────────────────────────────────────────────
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 99/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 1/30 (inline: 0, per-file: 1) [MANAGED DEBT]
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`

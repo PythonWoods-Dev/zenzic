@@ -50,12 +50,7 @@ uvx zenzic check links
 Expected output:
 
 ```text
-zensical • 2 files (2 pages, 0 assets) • 0.0s
-
-docs/guide.md  ⚠  [Z402]  Physical file not listed in navigation.
-
-docs/guide.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/guide/'
+zensical • 2 files (2 pages, 0 assets) • 0.0s • 71 files/s
 
 docs/index.md:16  ✘  [Z103]  'guide.md' resolves to '/guide/' which exists on
 disk but is not in the site navigation (ORPHAN_LINK / UNREACHABLE_LINK). Readers
@@ -69,13 +64,10 @@ cannot reach this page via the nav tree.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 2 warnings  💡 0 info  • 2 files with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-DQS Final Score: 89/100 (Gate Failed)
-Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
-'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`

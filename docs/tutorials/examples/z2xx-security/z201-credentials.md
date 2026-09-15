@@ -36,21 +36,18 @@ Expected output:
   Action: Rotate this credential immediately and purge it from the repository
 history.
 
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/setup.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/setup/'
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 34 files/s
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 security breach  • 1 file impacted  ✘ 0 errors  ⚠ 1 warning  💡 0
-info  • 1 file with findings
+Summary:  ✘ 1 security breach  • 1 file impacted  ✘ 0 errors  ⚠ 0 warnings  💡 0
+info  • 0 files with findings
 
 FAILED: Security breaches detected. Exit code 2 is mandatory.
 DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `2`

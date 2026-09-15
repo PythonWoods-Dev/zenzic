@@ -28,33 +28,23 @@ uvx zenzic check all
 Expected output:
 
 ```text
-zensical • 3 files (3 pages, 0 assets) • 0.0s
-
-docs/guide.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/guide/'
-
-docs/guide.md:4  ⚠  [Z502]  Page has only 19 words (minimum 50).
-
-docs/index.md:4  ⚠  [Z502]  Page has only 45 words (minimum 50).
+zensical • 3 files (3 pages, 0 assets) • 0.0s • 93 files/s
 
 docs/secret.md  ⚠  [Z402]  Physical file not listed in navigation.
 
 docs/secret.md:1  ⚠  [Z410]  Document is isolated and unreachable from defined
 entry points: '/secret/'
 
-docs/secret.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/secret/'
-
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 6 warnings  💡 0 info  • 3 files with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
 ✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
-DQS Final Score: 79/100 (Gate Passed)
+DQS Final Score: 91/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`

@@ -22,44 +22,40 @@ Consider a project with the following configuration:
 
 ```toml
 # .zenzic.toml
-absolute_path_allowlist = ["/legacy/path/"]
+absolute_path_allowlist = ["/legacy/unused/path/"]
 ```
 
-If none of the Markdown files in the project contain a link starting with `/legacy/path/`, this entry is stale.
+If none of the Markdown files in the project contain a link starting with `/legacy/unused/path/`, this entry is stale.
 
 ---
 
 ## Running the Check
 
-When running Zenzic on a project with this configuration:
+The scenario ships as a fixture at `examples/z112-stale-allowlist/`:
 
 ```bash
-zenzic check links --strict
+# Clone the Zenzic repository — no install required
+cd examples/z112-stale-allowlist
+uvx zenzic check links --strict
 ```
 
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 81 files/s
 
 .zenzic.toml:1  ⚠  [Z112]  Stale absolute_path_allowlist entry
 '/legacy/unused/path/': no link matched this prefix across all scanned files
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 1 warning  💡 2 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
-✨ Analysis complete: Links, credentials, semantic structure, and policies
-verified.
-
-💡 2 info findings hidden — use --show-info to display.
-DQS Final Score: 99/100 (Gate Passed)
-Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
-'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+✔ No broken links found.
+Try 'zenzic check links --help' for options.
 ```
 
-Exit code: `0` (if run with `--strict` or if `strict = true` is set in config; otherwise exits with `0` as a warning).
+Exit code: `1` — `--strict` promotes the warning to an error; without it the run exits `0`.
 
 ---
 
@@ -77,7 +73,7 @@ The `Z112` finding indicates a **STALE_ALLOWLIST_ENTRY** issue.
 
 1. Open `.zenzic.toml` (or `pyproject.toml`).
 2. Locate the `absolute_path_allowlist` field.
-3. Remove the unused entry (e.g. `"/legacy/path/"`) from the list.
+3. Remove the unused entry (e.g. `"/legacy/unused/path/"`) from the list.
 
 ---
 

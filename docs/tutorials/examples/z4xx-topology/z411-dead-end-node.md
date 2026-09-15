@@ -50,16 +50,12 @@ uvx zenzic check all
 Expected output:
 
 ```text
-zensical • 4 files (4 pages, 0 assets) • 0.0s
+zensical • 4 files (4 pages, 0 assets) • 0.0s • 127 files/s
 
 docs/deadend.md  ⚠  [Z402]  Physical file not listed in navigation.
 
 docs/deadend.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
 structural dead end: '/deadend/'
-
-docs/deadend.md:1  ⚠  [Z502]  Page has only 16 words (minimum 50).
-
-docs/index.md:1  ⚠  [Z502]  Page has only 8 words (minimum 50).
 
 docs/index.md:3  ✘  [Z103]  'deadend.md' resolves to '/deadend/' which exists on
 disk but is not in the site navigation (ORPHAN_LINK / UNREACHABLE_LINK). Readers
@@ -82,17 +78,15 @@ docs/suppressed_deadend.md  ⚠  [Z402]  Physical file not listed in navigation.
 docs/suppressed_deadend.md:1  ⚠  [Z410]  Document is isolated and unreachable
 from defined entry points: '/suppressed_deadend/'
 
-docs/suppressed_deadend.md:1  ⚠  [Z502]  Page has only 19 words (minimum 50).
-
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 10 warnings  💡 0 info  • 4 files with findings
+Summary:  ✘ 1 error  ⚠ 7 warnings  💡 0 info  • 4 files with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-DQS Final Score: 62/100 (Gate Failed)
+DQS Final Score: 65/100 (Gate Failed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 1/30 (inline: 0, per-file: 1) [MANAGED DEBT]
+🔒 Suppression Audit: 1/30 [MANAGED DEBT] (inline: 0, per-file: 1, directory: 0)
 ```
 
 Note `suppressed_deadend.md` is absent from the output entirely — the per-file

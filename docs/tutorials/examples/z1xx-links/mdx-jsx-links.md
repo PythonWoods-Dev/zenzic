@@ -65,7 +65,7 @@ uvx zenzic check references
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s • 94 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 92 files/s
 
 docs/index.mdx:21  ✘  [Z101]  './nowhere.mdx' resolves to '/nowhere/' which is
 not in the Virtual Site Map — the target file may not exist
@@ -74,13 +74,15 @@ not in the Virtual Site Map — the target file may not exist
     20  │
     21  ❱  <Link to="./nowhere.mdx">A page that was never written</Link>
     22  │
-    23  │  A Markdown link written inside a JSX string attribute. It renders as
+    23  │  A Markdown link written inside a JSX string attribute. It renders as…
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 0 warnings  💡 2 info  • 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
 ```
 
 Exit code: `1`

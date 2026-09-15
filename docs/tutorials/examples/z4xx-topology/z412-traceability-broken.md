@@ -50,7 +50,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 3 files (3 pages, 0 assets) • 0.0s
+standalone • 3 files (3 pages, 0 assets) • 0.0s • 96 files/s
 
 docs/specs/spec1.md:1  ⚠  [Z412]  Document matches traceability target
 'specs/**' but has no inbound references from required source namespaces
@@ -58,16 +58,14 @@ docs/specs/spec1.md:1  ⚠  [Z412]  Document matches traceability target
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 1 warning  💡 5 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
 ✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
-
-💡 5 info findings hidden — use --show-info to display.
 DQS Final Score: 96/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 The message names the pattern the document matched and the namespaces that were

@@ -46,7 +46,7 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 62 files/s
 
 docs/index.md:11  ✘  [Z102]  anchor '#nonexistent-section' not found in
 'guide.md'
@@ -62,10 +62,7 @@ docs/index.md:11  ✘  [Z102]  anchor '#nonexistent-section' not found in
 Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-DQS Final Score: 95/100 (Gate Failed)
-Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
-'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`

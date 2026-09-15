@@ -45,7 +45,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 2 files (1 pages, 1 assets) • 0.0s
+standalone • 2 files (1 pages, 1 assets) • 0.0s • 76 files/s
 
 docs/index.md:3  ⚠  [Z514]  Image 'assets/logo.png' uses generic alt text
 'image'. Provide descriptive alt text for accessibility.
@@ -66,7 +66,7 @@ verified.
 DQS Final Score: 98/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 The caret underlines the alt text itself, not the whole image syntax.

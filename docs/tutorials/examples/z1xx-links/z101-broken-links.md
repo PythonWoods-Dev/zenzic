@@ -45,7 +45,7 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 39 files/s
 
 docs/index.md:11  ✘  [Z101]  'missing.md' resolves to '/missing/' which is not
 in the Virtual Site Map — the target file may not exist
@@ -70,10 +70,7 @@ is not in the Virtual Site Map — the target file may not exist
 Summary:  ✘ 2 errors  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-DQS Final Score: 84/100 (Gate Failed)
-Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
-'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`

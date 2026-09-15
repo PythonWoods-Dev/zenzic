@@ -28,7 +28,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 69 files/s
 
 docs/index.md:6:33  ⚠  [Z601]  Obsolete or unauthorized brand term 'OldPlatform'
 detected. Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress
@@ -64,16 +64,14 @@ prose, or suppress if this is a historical ledger.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 3 warnings  💡 2 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 3 warnings  💡 0 info  • 1 file with findings
 
 ✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
-
-💡 2 info findings hidden — use --show-info to display.
 DQS Final Score: 94/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`

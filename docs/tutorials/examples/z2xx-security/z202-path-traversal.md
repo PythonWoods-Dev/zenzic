@@ -28,10 +28,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/'
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 35 files/s
 
 docs/index.md:11  ✘  [Z202]  '../../private/secret.txt' resolves outside the
 docs directory
@@ -44,13 +41,13 @@ docs directory
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
 DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `1`

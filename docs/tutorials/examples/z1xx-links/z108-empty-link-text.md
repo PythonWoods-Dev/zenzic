@@ -40,7 +40,7 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone • 2 files (2 pages, 0 assets) • 0.0s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 75 files/s
 
 docs/index.md:10:2  ✘  [Z108]  Link text is empty or contains only whitespace.
 
@@ -53,15 +53,10 @@ docs/index.md:10:2  ✘  [Z108]  Link text is empty or contains only whitespace.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 0 warnings  💡 2 info  • 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-
-💡 2 info findings hidden — use --show-info to display.
-DQS Final Score: 99/100 (Gate Failed)
-Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
-'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`

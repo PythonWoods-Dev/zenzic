@@ -28,23 +28,20 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/'
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 39 files/s
 
 docs/index.md:4  ⚠  [Z502]  Page has only 22 words (minimum 50).
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
 ✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
-DQS Final Score: 94/100 (Gate Passed)
+DQS Final Score: 99/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`

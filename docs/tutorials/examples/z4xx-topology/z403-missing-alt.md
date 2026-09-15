@@ -28,7 +28,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 2 files (1 pages, 1 assets) • 0.0s
+standalone • 2 files (1 pages, 1 assets) • 0.0s • 69 files/s
 
 docs/index.md:14  ⚠  [Z403]  Image 'diagram.png' has no alt text.
 
@@ -47,7 +47,7 @@ verified.
 DQS Final Score: 99/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`

@@ -53,10 +53,7 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
-
-docs/index.md:1  ⚠  [Z411]  Document has no outgoing links and forms a
-structural dead end: '/'
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 38 files/s
 
 docs/index.md:1  ✘  [Z613]  Frontmatter key 'version' value '1.0' does not match
 required RE2 pattern '^v\d+\.\d+\.\d+$'. Declared in
@@ -68,13 +65,13 @@ required RE2 pattern '^v\d+\.\d+\.\d+$'. Declared in
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-DQS Final Score: 90/100 (Gate Failed)
+DQS Final Score: 95/100 (Gate Failed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 ---

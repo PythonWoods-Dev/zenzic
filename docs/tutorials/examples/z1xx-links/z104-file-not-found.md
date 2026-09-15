@@ -41,16 +41,16 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 36 files/s
 
-docs/index.md:11  ✘  [Z101]  'api/reference.md' resolves to '/api/reference/'
-which is not in the Virtual Site Map — the target file may not exist
+docs/index.md:14  ✘  [Z104]  'assets/architecture.png' not found in docs
 
-     9  │  ## API Reference
-    10  │
-    11  ❱  For the complete API specification, see the [API Reference](api/refe…
-    12  │  The API reference contains all endpoints, request formats, and respo…
+    12  │  and is not present on disk:
     13  │
+    14  ❱  ![Architecture overview](assets/architecture.png)
+        │  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    15  │
+    16  │  A missing asset is a different failure from a missing page. The link…
 
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -60,7 +60,7 @@ FAILED: Hard errors detected. Exit code 1 is mandatory.
 DQS Final Score: 92/100 (Gate Failed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `1`
