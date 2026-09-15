@@ -57,8 +57,7 @@ from ._governance import (
     build_cap_exceeded_codequality_payload,
     build_cap_exceeded_json_payload,
     build_cap_exceeded_sarif_payload,
-    collect_inline_suppression_stats,
-    count_per_file_ignores,
+    build_suppression_audit,
     print_governance_cap_failure,
     print_suppression_audit_footer,
     resolve_governance_panel_title,
@@ -1846,46 +1845,9 @@ def check_all(
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
     t0 = time.monotonic()
-    _t_suppr_start = time.perf_counter()
-    inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
-        docs_root, config, exclusion_mgr
-    )
-    per_file_suppressions = count_per_file_ignores(config)
-    _suppression_s = time.perf_counter() - _t_suppr_start
-    suppression_audit = SuppressionAudit(
-        inline_count=inline_suppressions,
-        per_file_count=per_file_suppressions,
-        cap=config.governance.suppression_cap,
-        inline_hotspots=inline_hotspots,
-    )
-
-    if (
-        config.governance.suppression_cap_fail_hard
-        and suppression_audit.total > suppression_audit.cap
-    ):
-        if output_format == "json":
-            print(json.dumps(build_cap_exceeded_json_payload(suppression_audit), indent=2))
-        elif output_format == "sarif":
-            print(
-                json.dumps(
-                    build_cap_exceeded_sarif_payload(suppression_audit, version=__version__),
-                    indent=2,
-                )
-            )
-        elif output_format == "gitlab-codequality":
-            print(json.dumps(build_cap_exceeded_codequality_payload(suppression_audit), indent=2))
-        elif output_format == "github-annotations":
-            print(
-                f"::error title=Zenzic::Suppression CAP exceeded: {suppression_audit.total} > {suppression_audit.cap}"
-            )
-        elif output_format == "text":
-            if not quiet:
-                _shared.console.print()
-            print_governance_cap_failure(
-                suppression_audit,
-                title=resolve_governance_panel_title(repo_root),
-            )
-        raise typer.Exit(1)
+    # Suppression debt is counted after the scan, from what the run actually used;
+    # the cap gate follows the count below. Nothing is timed before the scan now.
+    _suppression_s = 0.0
 
     show_progress = not (ci or no_header or quiet or output_format != "text")
 
@@ -1915,6 +1877,36 @@ def check_all(
         )
         if only:
             all_findings = _filter_flat_findings(all_findings, only)
+
+    suppression_audit = build_suppression_audit(results.reference_reports, config, docs_root)
+
+    if (
+        config.governance.suppression_cap_fail_hard
+        and suppression_audit.total > suppression_audit.cap
+    ):
+        if output_format == "json":
+            print(json.dumps(build_cap_exceeded_json_payload(suppression_audit), indent=2))
+        elif output_format == "sarif":
+            print(
+                json.dumps(
+                    build_cap_exceeded_sarif_payload(suppression_audit, version=__version__),
+                    indent=2,
+                )
+            )
+        elif output_format == "gitlab-codequality":
+            print(json.dumps(build_cap_exceeded_codequality_payload(suppression_audit), indent=2))
+        elif output_format == "github-annotations":
+            print(
+                f"::error title=Zenzic::Suppression CAP exceeded: {suppression_audit.total} > {suppression_audit.cap}"
+            )
+        elif output_format == "text":
+            if not quiet:
+                _shared.console.print()
+            print_governance_cap_failure(
+                suppression_audit,
+                title=resolve_governance_panel_title(repo_root),
+            )
+        raise typer.Exit(1)
 
     if _single_file is not None:
         _sf_rel = _single_file.relative_to(repo_root).as_posix()

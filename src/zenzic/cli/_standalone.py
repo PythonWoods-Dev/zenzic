@@ -133,13 +133,11 @@ def _run_all_checks(
         code = f.code.upper().strip()
         findings_counts[code] = findings_counts.get(code, 0) + 1
 
-    # Suppression Debt: count all active suppressions (inline + per-file config).
-    # Each suppression is a technical debt entry that reduces the final score.
-    from zenzic.cli._governance import collect_inline_suppression_stats, count_per_file_ignores
+    # Suppression debt: the declared exceptions this run used -- inline directives the
+    # trackers consumed, and per-file and directory-policy pairs the usage ledger saw work.
+    from zenzic.cli._governance import build_suppression_audit
 
-    inline_suppressions, _ = collect_inline_suppression_stats(docs_root, config, exclusion_mgr)
-    per_file_suppressions = count_per_file_ignores(config)
-    total_suppressions = inline_suppressions + per_file_suppressions
+    total_suppressions = build_suppression_audit(results.reference_reports, config, docs_root).total
     suppression_cap = (
         config.governance.suppression_cap if hasattr(config.governance, "suppression_cap") else 30
     )

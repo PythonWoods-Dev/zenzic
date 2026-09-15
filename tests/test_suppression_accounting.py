@@ -392,26 +392,28 @@ def test_fix_removes_a_dead_suppression_and_leaves_working_ones_alone(
 # ── the Suppression Audit figure ─────────────────────────────────────────────
 
 
-def test_suppression_audit_counts_declared_directives_against_a_known_corpus(
+def test_suppression_audit_counts_suppressions_in_use_against_a_known_corpus(
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The governance figure counts *declared* debt, working or not.
+    """The governance figure counts the declared exceptions this run used.
 
-    That is the right semantic for a debt ceiling — a dead directive is still a
-    line someone has to remove — so the figure is deliberately independent of
-    the consumption accounting this module otherwise tests. It is pinned here
-    because it is the number the project publishes about itself, and because
-    "independent" is a claim that needs a corpus with a known count behind it.
+    A suppression is one declared decision to look away, and it costs a point only
+    while it is looking away from something. A dead directive is not charged: it is
+    reported (``Z603``, ``Z620``), which is how it gets removed. This reverses the
+    earlier reading of the figure as *declared* debt, working or not -- that reading
+    charged a dead directive twice, once as debt and once as a finding.
 
-    Known: 4 comment directives + 2 ``data-zenzic-ignore`` attributes = 6
-    inline, and 2 per-file entries. The fenced and inline-code examples in
-    ``fenced.md`` are prose and count for nothing.
+    Known, from the corpus rather than from a run: ``_WORKING_SITES`` names three
+    working inline suppressions -- two comments and one ``data-zenzic-ignore`` --
+    and ``pfi-used.md`` is the one per-file entry that silences something. The two
+    dead sites, the unused per-file entry and the examples in ``fenced.md`` count
+    for nothing.
     """
     monkeypatch.chdir(corpus)
     out = _run(corpus, "check", "all")
     audit = next(ln for ln in out.splitlines() if "Suppression Audit" in ln)
-    assert "(inline: 5, per-file: 2)" in audit, audit
-    assert "7/" in audit, audit
+    assert "(inline: 3, per-file: 1, directory: 0)" in audit, audit
+    assert "4/" in audit, audit
 
 
 def test_fix_declines_the_rename_when_the_suppression_scan_cannot_run(
@@ -554,17 +556,18 @@ def test_every_directive_spelling_counts_toward_the_suppression_audit(
 ) -> None:
     """A spelling the counter cannot see understates the published debt figure.
 
-    The corpus declares three directives in every spelling. `mdx-spaced` counted
-    two, because the counter and the parser are the same pattern — so an unparsed
-    directive is also an uncounted one, and the governance number the project
-    publishes about itself was quietly low.
+    The corpus declares three directives in every spelling, and two of them do work:
+    the cross-file and the per-file specimen. The third silences nothing and is
+    reported dead, not charged. `mdx-spaced` once went uncounted because the counter
+    and the parser are the same pattern -- an unparsed directive is also an unused
+    one -- so every spelling must reach the same two.
     """
     corpus = _mdx_corpus(tmp_path, _SPELLINGS[spelling])
     monkeypatch.chdir(corpus)
     audit = next(
         ln for ln in _run(corpus, "check", "all").splitlines() if "Suppression Audit" in ln
     )
-    assert "(inline: 3, per-file: 0)" in audit, f"{spelling}: {audit}"
+    assert "(inline: 2, per-file: 0, directory: 0)" in audit, f"{spelling}: {audit}"
 
 
 @pytest.mark.parametrize("spelling", sorted(_SPELLINGS))

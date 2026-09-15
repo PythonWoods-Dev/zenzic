@@ -22,11 +22,9 @@ from zenzic.cli._check import (
     _to_findings,
 )
 from zenzic.cli._governance import (
-    SuppressionAudit,
     _apply_directory_policies,
     _apply_per_file_ignores,
-    collect_inline_suppression_stats,
-    count_per_file_ignores,
+    build_suppression_audit,
 )
 from zenzic.cli._shared import (
     _count_docs_assets,
@@ -107,17 +105,6 @@ def audit(
     exclusion_mgr = LayeredExclusionManager(config=config, repo_root=repo_root)
     effective_strict = strict or ci
 
-    inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
-        docs_root, config, exclusion_mgr
-    )
-    per_file_suppressions = count_per_file_ignores(config)
-    suppression_audit = SuppressionAudit(
-        inline_count=inline_suppressions,
-        per_file_count=per_file_suppressions,
-        cap=config.governance.suppression_cap,
-        inline_hotspots=inline_hotspots,
-    )
-
     with sovereign_context(force_audit=False):
         results = _collect_all_results(
             repo_root,
@@ -141,6 +128,8 @@ def audit(
         )
         if only:
             all_findings = _filter_flat_findings(all_findings, only)
+
+    suppression_audit = build_suppression_audit(results.reference_reports, config, docs_root)
 
     baseline_file_path = Path(baseline) if baseline else (repo_root / DEFAULT_BASELINE_FILE)
     if baseline_file_path.is_file():
@@ -237,7 +226,7 @@ def audit(
             "technical_debt_ledger": {
                 "inline_suppressions": suppression_audit.inline_count,
                 "per_file_ignores": suppression_audit.per_file_count,
-                "directory_policies": len(config.governance.directory_policies),
+                "directory_policies": suppression_audit.directory_policy_count,
                 "suppression_debt_pts": suppression_audit.excess,
                 "total_debt_penalty": score_report.suppression_debt_pts,
                 "debt_status": suppression_audit.debt_status,

@@ -877,13 +877,14 @@ class TestSuppressionCapE2E:
                 [governance]
                 suppression_cap = {cap}
                 suppression_cap_fail_hard = true
+                brand_obsolescence = ["OldBrand"]
                 """
             ).format(cap=cap),
             encoding="utf-8",
         )
 
         suppressions = "\n".join(
-            f"Allowed historical note {i}. <!-- zenzic:ignore: Z601 - test -->"
+            f"OldBrand historical note {i}. <!-- zenzic:ignore: Z601 - test -->"
             for i in range(1, inline_count + 1)
         )
         page = tmp_path / "docs" / "index.md"
@@ -1031,7 +1032,7 @@ class TestSuppressionCapE2E:
         assert "Suppression Audit:" in result.stdout
         assert "per-file: 1" in result.stdout
 
-    def test_directory_policies_filter_findings_zero_debt(
+    def test_directory_policies_filter_findings_and_cost_one_point_each(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """directory_policies must filter matching findings with zero suppression debt."""
@@ -1061,9 +1062,9 @@ class TestSuppressionCapE2E:
             "# Directory policy test\n\n"
             "This page mentions OldBrand which triggers Z601.\n\n"
             "It also contains enough words to avoid triggering Z502 short-content warnings. "
-            "The directory_policies feature introduced in ADR-084 allows strategic exemptions "
-            "with zero suppression debt cost, unlike per_file_ignores which costs one point. "
-            "This is the primary difference between the two governance mechanisms.\n",
+            "The directory_policies feature introduced in ADR-084 declares an exemption for a "
+            "whole path pattern, and like every declared exemption in use it costs one point. "
+            "This paragraph only exists to keep the fixture page above the short-content limit.\n",
             encoding="utf-8",
         )
 
@@ -1077,7 +1078,8 @@ class TestSuppressionCapE2E:
         import json
 
         data = json.loads(result.stdout)
-        # Finding must be absent (dropped silently)
-        assert data["suppression_count"] == 0, (
-            f"directory_policies must contribute 0 debt, got {data['suppression_count']}"
+        # The finding is dropped, and the policy that dropped it is one declared exception
+        # in use: it costs one point, like an inline directive or a per-file entry.
+        assert data["suppression_count"] == 1, (
+            f"a directory policy in use must cost one point, got {data['suppression_count']}"
         )

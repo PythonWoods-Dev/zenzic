@@ -39,6 +39,9 @@ def _make_sandbox(tmp_path: Path, files: dict[str, str]) -> Path:
 
             [build_context]
             engine = "standalone"
+
+            [governance]
+            brand_obsolescence = ["Legacy"]
         """),
         encoding="utf-8",
     )

@@ -90,6 +90,7 @@ EXEMPT: frozenset[str] = frozenset(
         "statistics.excess_debt",
         "statistics.inline_ignores",
         "statistics.per_file_ignores",
+        "statistics.directory_policies",
         # `score_trend` is emitted as `null` until `.zenzic-history.jsonl`
         # exists, which requires two prior `score --save` runs. The key itself
         # IS emitted and therefore not exempt; only its sub-fields are.

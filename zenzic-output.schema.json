@@ -285,7 +285,8 @@
             "configured_global_cap",
             "excess_debt",
             "inline_ignores",
-            "per_file_ignores"
+            "per_file_ignores",
+            "directory_policies"
           ],
           "properties": {
             "active_suppressions": {
@@ -305,6 +306,10 @@
               "minimum": 0
             },
             "per_file_ignores": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "directory_policies": {
               "type": "integer",
               "minimum": 0
             }

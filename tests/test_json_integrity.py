@@ -45,13 +45,14 @@ def _write_contract_sandbox(
             [governance]
             suppression_cap = {cap}
             suppression_cap_fail_hard = {fail_hard}
+            brand_obsolescence = ["OldBrand"]
             """
         ).format(cap=cap, fail_hard=str(fail_hard).lower()),
         encoding="utf-8",
     )
 
     suppressions = "\n".join(
-        f"Allowed historical note {i}. <!-- zenzic:ignore: Z601 - test -->"
+        f"OldBrand historical note {i}. <!-- zenzic:ignore: Z601 - test -->"
         for i in range(1, inline_count + 1)
     )
     index = tmp_path / "docs" / "index.md"
