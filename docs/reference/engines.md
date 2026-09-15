@@ -371,7 +371,7 @@ and selects `StandaloneAdapter` automatically.
 ### Capabilities
 
 Snippet, placeholder, link, and asset checks run at full strength. Z201 credential detection,
-Z202/Z203 path traversal detection, and Z401 logo/favicon guards all operate normally.
+Z202/Z203 path traversal detection, and Z404 logo/favicon guards all operate normally.
 
 All adapter methods are no-ops:
 

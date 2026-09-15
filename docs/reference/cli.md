@@ -27,11 +27,11 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | :--- | :--- |
     | `zenzic check links` | Check for broken internal links and enforce strict warning policy. |
     | `zenzic check orphans` | Detect `.md` files not listed in the nav. |
-    | `zenzic check snippets` | Validate Python code blocks in documentation Markdown files. |
+    | `zenzic check snippets` | Validate Python, YAML, JSON and TOML code blocks in documentation Markdown files. |
     | `zenzic check references` | Run the Three-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan. |
     | `zenzic check assets` | Detect unused images and assets in the documentation. |
-    | `zenzic check placeholders` | Detect pages with < 50 words or containing TODOs/stubs. |
-    | `zenzic check all` | Run every check above, plus 3 checks with no standalone sub-command: nav contract (`Z406`), directory indices (`Z401`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
+    | `zenzic check placeholders` | Detect pages containing TODOs or stubs, and — with `[policies] enable_short_content_check = true` — pages with fewer than 50 words. |
+    | `zenzic check all` | Run every check above, plus 3 checks with no standalone sub-command: nav contract (`Z406`), directory indices (`Z401`, opt-in via `[policies] enable_directory_index_check`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
 
     Every `check` sub-command, including `check all`, also accepts an optional `PATH`
     positional argument to scope the check to a single Markdown file or a specific directory
@@ -1171,21 +1171,16 @@ All concrete check subcommands support `--format json` for machine-readable outp
 
 ### `check all`
 
-The aggregated report groups findings by check:
+The aggregated report carries every finding in one `findings` array:
 
 ```bash
-zenzic check all --format json | jq '.orphans'
+zenzic check all --format json | jq '.findings[] | select(.code == "Z402")'
 zenzic check all --format json > report.json
 ```
 
 ```json
 {
-  "links":         [],
-  "orphans":       [],
-  "snippets":      [],
-  "unused_assets": [],
-  "nav_contract":  [],
-  "references":    [],
+  "findings": [],
   "security_breaches": 0,
   "security_incidents": 0,
   "suppression_count": 0,
@@ -1195,12 +1190,10 @@ zenzic check all --format json > report.json
 }
 ```
 
-Each of `links`/`orphans`/`snippets`/`unused_assets`/`nav_contract`/`references` holds a list
-of issue strings or objects — an empty list means that check passed. `nav_contract` validates
-`extra.alternate` links in `mkdocs.yml` against the Virtual Site Map — always empty for
-non-MkDocs projects. `security_breaches` and `security_incidents` are integer counts, so a JSON
+Each entry in `findings` carries `rel_path`, `line_no`, `code`, `severity` and `message`, and an
+empty array means every check passed. `security_breaches` and `security_incidents` are integer counts, so a JSON
 consumer can detect a `Z2xx` security breach or `Z203` path-traversal incident without parsing
-issue message text or relying solely on the process exit code.
+message text or relying solely on the process exit code.
 
 For the authoritative machine contract (including `score --format json` and CAP fail-hard payloads),
 see [API JSON Contract](../api-json/).

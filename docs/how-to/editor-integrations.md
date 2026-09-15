@@ -101,8 +101,8 @@ all` is clean while the Problems panel still lists findings, or the reverse.
 - **Neovim / other LSP clients**: restart the client, or the editor.
 
 If the two still disagree after a restart, that is a real divergence and worth
-reporting. One exception is known and tracked: the **topology family** (`Z106`,
-`Z402`, `Z403`, `Z410`, `Z411`, `Z412`) is computed differently by the two
+reporting. One exception is known and tracked: the **topology family** (`Z402`,
+`Z403`, `Z410`, `Z411`, `Z412`) is computed differently by the two
 paths. The editor can legitimately show topology findings the CLI does not.
 The CLI is authoritative for a gate; the editor is authoritative for what is
 on screen.

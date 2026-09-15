@@ -90,7 +90,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z103** | ORPHAN_LINK | 2.0 pts | Structural Integrity | Default |
 | **Z104** | FILE_NOT_FOUND | 8.0 pts | Structural Integrity | Default |
 | **Z105** | ABSOLUTE_PATH | 2.0 pts | Structural Integrity | Default |
-| **Z106** | CIRCULAR_LINK | 0.0 pts | *(uncategorized)* | Informational — no DQS penalty |
+| **Z106** | CIRCULAR_LINK | 0.0 pts | *(uncategorized)* | **Opt-In** — informational, no DQS penalty |
 | **Z107** | CIRCULAR_ANCHOR | 1.0 pt | Structural Integrity | Default |
 | **Z108** | EMPTY_LINK_TEXT | 1.0 pt | Structural Integrity | Default |
 | **Z109** | EXTERNAL_LINK_BROKEN | — | Structural Integrity | Catalogue alias — never emitted; charged as Z101 (8.0 pts) |
@@ -110,28 +110,28 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z301** | DANGLING_REF | 4.0 pts | Navigation Graph | Default |
 | **Z302** | DEAD_DEF | 1.0 pt | Navigation Graph | Default |
 | **Z303** | DUPLICATE_DEF | 3.0 pts | Navigation Graph | Default |
-| **Z401** | MISSING_DIRECTORY_INDEX | 0.0 pts | Navigation Graph | Informational — no DQS penalty |
+| **Z401** | MISSING_DIRECTORY_INDEX | 0.0 pts | Navigation Graph | **Opt-In** — informational, no DQS penalty |
 | **Z402** | ORPHAN_PAGE | 4.0 pts | Navigation Graph | Default |
 | **Z403** | MISSING_ALT | 1.0 pt | Content Excellence | Default |
 | **Z404** | CONFIG_ASSET_MISSING | 3.0 pts | Governance & Brand | Default |
 | **Z405** | UNUSED_ASSET | 3.0 pts | Governance & Brand | Default |
 | **Z406** | NAV_CONTRACT | 2.0 pts | Governance & Brand | Default |
 | **Z410** | UNREACHABLE_GRAPH_NODE | 5.0 pts | Structural Integrity | Default |
-| **Z411** | DEAD_END_NODE | 5.0 pts | Structural Integrity | Default |
+| **Z411** | DEAD_END_NODE | 5.0 pts | Structural Integrity | **Opt-In** |
 | **Z412** | TRACEABILITY_BROKEN | 4.0 pts | Navigation Graph | **Opt-In** |
 | **Z501** | PLACEHOLDER | 2.0 pts | Content Excellence | Default |
-| **Z502** | SHORT_CONTENT | 1.0 pt | Content Excellence | Default |
+| **Z502** | SHORT_CONTENT | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z503** | SNIPPET_ERROR | 10.0 pts | Content Excellence | Default |
 | **Z505** | UNTAGGED_CODE_BLOCK | 1.0 pt | Content Excellence | Default |
 | **Z506** | MALFORMED_FRONTMATTER | 5.0 pts | Content Excellence | Default |
 | **Z510** | HEADING_HIERARCHY | 1.0 pt | Content Excellence | Default |
-| **Z511** | EXCESSIVE_SENTENCE_LENGTH | 1.0 pt | Content Excellence | Default |
+| **Z511** | EXCESSIVE_SENTENCE_LENGTH | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z512** | EMPTY_SECTION | 1.0 pt | Content Excellence | Default |
-| **Z513** | DUPLICATE_HEADING | 2.0 pts | Content Excellence | Default |
+| **Z513** | DUPLICATE_HEADING | 2.0 pts | Content Excellence | **Opt-In** |
 | **Z514** | GENERIC_IMAGE_ALT_TEXT | 2.0 pts | Content Excellence | Default |
 | **Z515** | BARE_URL_USED | 1.0 pt | Content Excellence | Default |
 | **Z516** | MULTIPLE_H1_HEADINGS | 5.0 pts | Content Excellence | Default |
-| **Z517** | HEADING_PUNCTUATION | 1.0 pt | Content Excellence | Default |
+| **Z517** | HEADING_PUNCTUATION | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z518** | PASSIVE_VOICE_DETECTED | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z519** | WEASEL_WORDS | 1.0 pt | Content Excellence | **Opt-In** |
 | **Z520** | MALFORMED_LIST_DETECTED | 2.0 pts | Content Excellence | Default |

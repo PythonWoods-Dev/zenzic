@@ -152,7 +152,7 @@ Zenzic enforces a strict boundary between suppressible quality checks and **invi
 | :--- | :--- | :--- | :---: | :--- |
 | **Link Integrity** | `Z101`–`Z124` | Broken links, missing anchors, orphan links | ✅ Yes | Deducts score / Exit 1 |
 | **Reference Graph** | `Z301`–`Z303` | Dangling reference definitions | ✅ Yes | Deducts score / Exit 1 |
-| **Graph Topology** | `Z401`–`Z406` | Missing directory indexes, orphan pages | ✅ Yes | Deducts score / Exit 1 |
+| **Graph Topology** | `Z401`–`Z406` | Orphan pages, nav contract, config assets; `Z401` (missing directory index) is opt-in and informational | ✅ Yes | Deducts score / Exit 1 — `Z401` carries no penalty |
 | **Content Quality** | `Z501`–`Z506` | Placeholder text, untagged code blocks | ✅ Yes | Deducts score / Exit 1 |
 | **Brand Governance**| `Z601`–`Z603` | Brand obsolescence, dead suppressions | ✅ Yes | Deducts score / Exit 1 |
 | **Security Surface** | `Z201` | Credential Scanner (Tokens, API Keys) | ❌ **NEVER** | **Fatal Exit 2** |

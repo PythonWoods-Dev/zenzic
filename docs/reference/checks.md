@@ -39,7 +39,7 @@ All `.md` files are read once; anchors are pre-computed from headings (`# Headin
 
 ### Tier 2 — external links (`--strict` only)
 
-With `--strict`, every `http://` and `https://` URL in the docs is validated via concurrent HTTP HEAD requests using `httpx`. Up to 20 connections run simultaneously. Servers that reject HEAD receive a GET fallback. The same URL referenced in multiple pages is pinged exactly once.
+With `--strict`, every `http://` and `https://` URL in the docs is validated via concurrent HTTP HEAD requests using `httpx`. Up to 20 connections run simultaneously. Servers that reject HEAD receive a GET fallback. The same URL referenced in multiple pages is pinged exactly once. Hostnames reserved for documentation by RFC 2606 — `example.com`, `example.net`, `example.org` and their subdomains, and any host under `.test`, `.example`, `.invalid` or `.localhost` — are never probed.
 
 Servers returning `401`, `403`, or `429` are treated as reachable — these indicate access restrictions, not broken links. Timeouts (>10 s) and connection errors are reported as failures.
 
@@ -174,7 +174,7 @@ Placeholder pages are pages that were created as stubs and never completed. They
 
 ### Signal 1 — word count
 
-Pages with fewer than `placeholder_max_words` words (default: 50) are flagged as `short-content`.
+Opt-in. With `[policies] enable_short_content_check = true`, pages with fewer than `placeholder_max_words` words (default: 50) are reported as `Z502`.
 
 ### Signal 2 — pattern match
 

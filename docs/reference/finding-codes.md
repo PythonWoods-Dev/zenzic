@@ -18,7 +18,7 @@ Zenzic organises diagnostics into four operational tiers:
 | Tier | Ownership | Format | Scope |
 |---|---|---|---|
 | Core | Zenzic | `Zxxx` | Built-in scanners and system findings |
-| Governance | Zenzic | `Z6xx` | Opt-in policy checks (`[governance]`) |
+| Governance | Zenzic | `Z6xx` | Brand and policy checks: `Z603` and `Z620` run by default, `Z601` reports once `[governance] brand_obsolescence` is set, `Z610`–`Z619` read `[policies]` |
 | Plugin | Third-party | `<plugin-id>:<code>` | External entry-point rules |
 | Custom | Project local | `ZZxxx` | `[[custom_rules]]` declared in TOML |
 
@@ -159,7 +159,7 @@ A relative link points to a resource not found in the Virtual Site Map. The file
 
 1. Verify the physical file exists.
 2. Correct the relative path (e.g. `../folder/target.md`).
-3. Confirm the file is not matched by `ignored_patterns` in config.
+3. Confirm the file is not excluded by `excluded_dirs` or `excluded_file_patterns`, or by `.gitignore` when `respect_vcs_ignore` is on.
 
 ---
 
@@ -299,7 +299,7 @@ The `.zenzic.toml` (or `pyproject.toml`) workspace configuration file contains a
 
 **Severity:** `error` · **Penalty:** none · **Exit:** 1 · **Suppressible:** No · [↗ Rule Specification](../rules/Z111.md)
 
-The `.zenzic.toml` (or `pyproject.toml`) configuration file contains an invalid schema structure, unknown key, or data type mismatch (e.g. providing a string instead of an integer). Zenzic halts document analysis before any Markdown file is read to protect workspace integrity.
+The `.zenzic.toml` (or `pyproject.toml`) configuration file contains an invalid structure or a value of the wrong type (e.g. a string where an integer is required). An unknown key or section is not an error: it is reported as a warning that names it, and ignored. Zenzic halts document analysis before any Markdown file is read to protect workspace integrity.
 
 **Fix:**
 
@@ -322,7 +322,7 @@ An entry in the `absolute_path_allowlist` configuration was never matched by any
 
 ### Z120: UNKNOWN_HTML_ATTRIBUTE {#z120}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z120-unknown-html-attr.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z120-unknown-html-attr.md)
 
 An HTML `<a>` tag contains unknown or malformed attributes.
 
@@ -342,7 +342,7 @@ An HTML `<a>` tag is missing the required `href` attribute.
 
 ### Z122: JUMP_LINK_DETECTED {#z122}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z122-jump-link.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z122-jump-link.md)
 
 An HTML tag uses `href="javascript:void(0)"` or `href="#"`, which is an anti-pattern for documentation.
 
@@ -660,10 +660,10 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
     that is not syntactically complete (e.g., a parameter list without a surrounding
     `def` statement), use `` ```text `` instead of the actual language tag.
 
-    **Z503 (error — do not do this):**
+    **Z503 (warning — do not do this):**
 
     ````markdown
-    ```text
+    ```python
     my_function(
         param: str,
         other: int = 0,

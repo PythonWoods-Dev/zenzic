@@ -210,10 +210,10 @@ The function takes three arguments:
 
 ## Layered Exclusion Hierarchy {#layered-exclusion}
 
-Zenzic uses a 4-level exclusion model, named L1-L4. Each level's *name* reflects its role, not
-its evaluation position — the real evaluation order (per `src/zenzic/core/exclusion.py`'s own
-module docstring) is L1, L2 (Forced Inclusions), **L4 (CLI Overrides)**, L2-VCS, L3 (Config
-Exclusions), Default. CLI overrides are checked before VCS-ignore and config exclusions, not
+Zenzic uses a 4-level exclusion model, named L1-L4, plus L1b, a layer the build engine declares.
+Each level's *name* reflects its role, not its evaluation position — the real evaluation order
+(per `should_exclude_dir` in `src/zenzic/core/exclusion.py`) is L1, L2 (Forced Inclusions),
+L1b (Adapter Output), **L4 (CLI Overrides)**, L2-VCS, L3 (Config Exclusions), Default. CLI overrides are checked before VCS-ignore and config exclusions, not
 after — so `--include-dir` can currently override both `.gitignore` and `.zenzic.toml`
 `excluded_dirs`. The hierarchy is evaluated top-to-bottom in that real order; the **first
 matching rule wins**.
@@ -226,7 +226,9 @@ flowchart TD
     L1 -->|".git, .venv, node_modules..."| EXCLUDED_L1[EXCLUDED - Immutable]
     L1 -->|Not in guardrails| L2{L2: Forced Inclusions}
     L2 -->|"included_dirs / included_file_patterns"| INCLUDED_L2[INCLUDED - Forced]
-    L2 -->|Not force-included| L4{L4: CLI Overrides}
+    L2 -->|Not force-included| L1B{L1b: Adapter Output}
+    L1B -->|"declared site_dir"| EXCLUDED_L1B[EXCLUDED - Build output]
+    L1B -->|Not declared output| L4{L4: CLI Overrides}
     L4 -->|"--exclude-dir"| EXCLUDED_L4[EXCLUDED - CLI]
     L4 -->|"--include-dir"| INCLUDED_L4[INCLUDED - CLI]
     L4 -->|No CLI override| L2VCS{L2-VCS: .gitignore}
@@ -239,6 +241,7 @@ flowchart TD
     style EXCLUDED_VCS fill:#f59e0b,color:#fff
     style EXCLUDED_L3 fill:#f59e0b,color:#fff
     style EXCLUDED_L4 fill:#f59e0b,color:#fff
+    style EXCLUDED_L1B fill:#f59e0b,color:#fff
     style INCLUDED_L2 fill:#10b981,color:#fff
     style INCLUDED_L4 fill:#10b981,color:#fff
     style INCLUDED fill:#10b981,color:#fff
@@ -247,9 +250,17 @@ flowchart TD
 | Level | Name | Source | Mutable? |
 | :---: | :--- | :--- | :---: |
 | **L1** | System Guardrails | Hardcoded in `SYSTEM_EXCLUDED_DIRS` | No |
+| **L1b** | Adapter Output | The directory the build engine declares for its output — MkDocs `site_dir`, `site` when unset | Via the engine's own config |
 | **L2** | Forced Inclusions + VCS | `included_dirs`, `included_file_patterns`, `.gitignore` | Yes (config) |
 | **L3** | Config Exclusions | `excluded_dirs`, `excluded_file_patterns` in `.zenzic.toml` or `[tool.zenzic]` in `pyproject.toml` | Yes (config) |
 | **L4** | CLI Overrides | `--exclude-dir`, `--include-dir` flags | Yes (per-run) |
+
+**L1b** removes build output from the quality checks only: the credential scanner still reads it, so a
+secret written into `site/` is still reported. It matches the repository-relative path the engine
+declares, not a directory name, so a documentation section at `docs/site/` is still scanned. It is
+checked after forced inclusions, so `included_dirs` can bring the directory back. Zensical, standalone
+and prebuilt projects declare no output directory. `zenzic config explain` lists every layer's current
+contents under *Exclusion layers*.
 
 ### L1 -- System Guardrails {#l1-system-guardrails}
 

@@ -61,8 +61,8 @@ become `[[tool.zenzic.custom_rules]]`.
 
 If the winning config file contains a **TOML syntax error**, Zenzic raises a `ConfigurationError`
 with a human-friendly message and exits immediately — silent fallback on a broken config file
-would hide mistakes. Unknown fields are silently ignored, which means adding fields not yet
-supported by your installed version is safe.
+would hide mistakes. An unknown key or section is ignored with a warning that names it, so a field
+your installed version does not support yet is safe to add, and a misspelled one is visible.
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Analysis of the z001-config-error scenario: how syntax errors or unknown keys in configuration TOML trigger analysis abort, exiting 1."
+description: "Analysis of the z001-config-error scenario: how a configuration value of the wrong type aborts the scan before any Markdown is read, exiting 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
@@ -12,23 +12,25 @@ description: "Analysis of the z001-config-error scenario: how syntax errors or u
 
 ## Overview
 
-The configuration file `.zenzic.toml` (or `pyproject.toml`) defines the constitution of the scan: its rules, scoring parameters, and exclusion zones. When the parser encounters structural or semantic issues, it cannot safely execute the check suite. Zenzic aborts the scan immediately to prevent non-deterministic behavior.
+The configuration file `.zenzic.toml` (or `pyproject.toml`) defines the constitution of the scan: its rules, scoring parameters, and exclusion zones. When a value in it cannot be validated, Zenzic cannot safely execute the check suite, and it stops before reading any Markdown.
 
 ---
 
 ## The Scenario
 
-Consider a project with a `.zenzic.toml` containing a misspelled key or a key declared outside of any valid section table:
+Consider a project whose `.zenzic.toml` gives a setting a value of the wrong type:
 
 ```toml
 # .zenzic.toml
-swallowed_key = true
+docs_dir = "docs"
 
-[project]
-name = "My Project"
+[governance]
+suppression_cap = "high"
 ```
 
-Because `swallowed_key` is not a valid root-level configuration option under the `ZenzicConfig` schema, Pydantic's validation fails.
+`suppression_cap` must be an integer, so the configuration fails validation.
+
+An unknown key is a different case and does not stop the scan: Zenzic prints a warning naming the key, ignores it, and runs.
 
 ---
 
@@ -40,12 +42,11 @@ When running Zenzic on a project with this configuration:
 zenzic check all
 ```
 
-Expected output:
+Zenzic prints a *Zenzic Error* panel whose message names the setting and the problem:
 
 ```text
-Error: Configuration validation failed.
-Detailed errors in .zenzic.toml:
-  - line 1: Extra input or unknown configuration option 'swallowed_key' was not expected.
+Configuration validation failed in .zenzic.toml:
+  - suppression_cap: Input should be a valid integer, unable to parse string as an integer
 ```
 
 Exit code: `1`
@@ -65,8 +66,8 @@ The `Z001` finding indicates a **CORE_CONFIG_STRUCTURE** issue.
 ## Resolve the Issue
 
 1. Open `.zenzic.toml` or `pyproject.toml`.
-2. Locate the unrecognized or malformed configuration key (e.g. `swallowed_key`).
-3. Correct the key's spelling, place it inside the appropriate table/section, or remove it entirely.
+2. Find the setting the message names (here, `suppression_cap`).
+3. Give it a value of the expected type, or remove it to use the default.
 
 ---
 

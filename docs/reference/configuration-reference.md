@@ -227,7 +227,7 @@ snippet_min_lines = 3
 | **Type** | `int` |
 | **Default** | `40` |
 
-Maximum words allowed in a sentence before triggering `Z511` `EXCESSIVE_SENTENCE_LENGTH`.
+Maximum words allowed in a sentence before triggering `Z511` `EXCESSIVE_SENTENCE_LENGTH`. Has no effect unless `[policies] enable_sentence_length_check = true`.
 
 ```toml
 max_sentence_length = 60
@@ -240,7 +240,7 @@ max_sentence_length = 60
 | **Type** | `int` |
 | **Default** | `50` |
 
-Pages with fewer words than this threshold are flagged as `short-content` placeholders.
+Pages with fewer words than this threshold are reported as `Z502` `SHORT_CONTENT`. Has no effect unless `[policies] enable_short_content_check = true`.
 
 ```toml
 placeholder_max_words = 100
@@ -720,7 +720,7 @@ Configure brand governance and directory policies.
 
 A governance rule to enforce terminology standards across documentation. Ideal for corporate rebranding or deprecating internal project names. Zenzic ships with an empty default list — teams configure their own deprecated term lists here.
 
-When a term in this list appears in any scanned file, Zenzic emits Z601 `BRAND_OBSOLESCENCE` with exit code 2 (same severity as a credential leak). Historical files (e.g. `CHANGELOG*.md`) are excluded via `excluded_file_patterns`. Use an inline `[HISTORICAL]` comment to suppress individual intentional references in other files.
+When a term in this list appears in any scanned file, Zenzic emits Z601 `BRAND_OBSOLESCENCE`, a warning: exit `0`, or `1` under `--strict`. Changelogs and other historical files are exempted with `[project_metadata] obsolete_names_exclude_patterns`. To keep an individual intentional reference, suppress it on its line with `<!-- zenzic:ignore: Z601 -->`.
 
 ```toml
 [governance]
@@ -869,7 +869,7 @@ Expected blank-line count in the redirects file.
 
 ## Policy-as-Code Settings {#policies-settings}
 
-Configure declarative Policy-as-Code rules (`Z412`, `Z518`–`Z519`, `Z521`–`Z523`, `Z610`–`Z619`). All policy rules are **opt-in** and inactive by default — empty lists/dicts (`[]`/`{}`) short-circuit evaluation in $O(1)$ time with zero performance overhead.
+Configure the checks that report only when you enable them. They come in two kinds. **Flag-activated** checks are off until their `enable_*` key is `true`: `Z106`, `Z401`, `Z411`, `Z502`, `Z511`, `Z513`, `Z517`, `Z518`. **Data-activated** checks always run and find nothing until you declare the collection they read — inert rather than off: `Z412`, `Z519`, `Z521`–`Z523`, `Z610`–`Z619`. An empty list or table (`[]`/`{}`) short-circuits evaluation in $O(1)$ time. `zenzic explain <code>` shows which state a code is in.
 
 ### `required_frontmatter_keys` {#required-frontmatter-keys}
 
