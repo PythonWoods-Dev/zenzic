@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z112 STALE_ALLOWLIST_ENTRY gallery example
+#
+# absolute_path_allowlist contains "/legacy/unused/path/".
+# docs/index.md contains no links starting with this prefix.
+# Zenzic flags it as Z112 STALE_ALLOWLIST_ENTRY — warning on configuration.
+#
+# Expected results:
+#   zenzic check all   → EXIT 0  (warning only)
+#   zenzic check links --strict  → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+absolute_path_allowlist = ["/legacy/unused/path/"]
+
+[build_context]
+engine = "standalone"

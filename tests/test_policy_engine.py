@@ -295,9 +295,7 @@ def test_policy_evaluator_z614_whitelisted_domain_passes() -> None:
     policies = PoliciesConfig(allowed_external_domains=["pythonwoods.dev", "github.com"])
     config = ZenzicConfig()
     config.policies = policies
-    content = (
-        "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods/zenzic)."
-    )
+    content = "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods-Dev/zenzic)."
     evaluator = PolicyEvaluator(config)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z614" for f in findings)
@@ -431,7 +429,7 @@ def test_zenzic_config_backward_compat_no_policies_key() -> None:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     toml_str = b"strict = true\nfail_under = 98\n"
     data = tomllib.loads(toml_str.decode())
@@ -447,7 +445,7 @@ def test_init_template_includes_policies_section() -> None:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE
 

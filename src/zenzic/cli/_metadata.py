@@ -53,7 +53,25 @@ COMMANDS: tuple[CommandMeta, ...] = (
         panel="Core",
         short_help="Run documentation quality checks.",
         long_help="Run documentation quality checks.",
-        usage_hint="Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try 'zenzic check --help' for options.",
+        usage_hint="Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try 'zenzic check --help' for options.",
+    ),
+    CommandMeta(
+        name="doctor",
+        panel="Governance",
+        short_help="Check repository conventions: ADR citations, redirects, and config schema.",
+        long_help=(
+            "Check the repository's own conventions rather than its documentation "
+            "content: that every cited decision record exists, that the redirects "
+            "file is structurally intact, and that the config loads."
+        ),
+        usage_hint="Try 'zenzic doctor --help' for options.",
+    ),
+    CommandMeta(
+        name="adr",
+        panel="Governance",
+        short_help="Manage architectural decision records.",
+        long_help="Scaffold and manage architectural decision records.",
+        usage_hint="Try 'zenzic adr new --help' for options.",
     ),
     CommandMeta(
         name="clean",

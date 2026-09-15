@@ -25,9 +25,9 @@ All contract outputs above include these fields, always:
 
 | Field | Type | Meaning |
 | :--- | :--- | :--- |
-| `suppression_count` | integer | Active suppressions (`inline + per-file`) |
+| `suppression_count` | integer | Suppressions in use (`inline + per-file + directory policy`) |
 | `suppression_cap` | integer | Configured governance CAP |
-| `suppression_debt_pts` | integer | Debt points (`max(0, suppression_count - suppression_cap)`) |
+| `suppression_debt_pts` | integer | Debt points — formula differs by shape (see below) |
 | `debt_status` | enum | Governance debt posture |
 
 `debt_status` values:
@@ -43,19 +43,89 @@ All contract outputs above include these fields, always:
 
 ```json
 {
-  "links": [],
-  "orphans": [],
-  "snippets": [],
-  "placeholders": [],
-  "unused_assets": [],
-  "references": [],
-  "nav_contract": [],
+  "findings": [
+    {
+      "rel_path": "docs/index.md",
+      "line_no": 11,
+      "code": "Z101",
+      "severity": "error",
+      "message": "'missing.md' resolves to '/missing/' which is not in the Virtual Site Map",
+      "col_start": 0,
+      "fixable": false
+    }
+  ],
+  "security_breaches": 0,
+  "security_incidents": 0,
   "suppression_count": 0,
   "suppression_cap": 30,
   "suppression_debt_pts": 0,
   "debt_status": "CLEAN"
 }
 ```
+
+**`findings[]` is the array to read**, and since v0.31.0 it is the only one. It carries every
+finding the run produced, in one shape, with the code and the location as separate fields.
+
+Six grouped arrays — `links[]`, `orphans[]`, `snippets[]`, `unused_assets[]`,
+`references[]` and `nav_contract[]` — were **removed in v0.31.0**. They carried the same
+findings a second time, in shapes a consumer could not use: `links[]` and `nav_contract[]`
+held pre-formatted prose with no code in it at all, and `orphans[]` and `unused_assets[]`
+held bare paths, so a finding could not be resolved to a file and a code from them.
+Everything they carried is in `findings[]`, verified by execution per array across the whole
+example gallery immediately before removal: **216 items, 216 covered, 0 missing**.
+
+`col_start` is 0-based, and `0` means *no column was determined* rather than column zero.
+SARIF's `startColumn` is this value plus one, since SARIF columns are 1-based.
+
+`security_breaches` counts `Z201`/`Z204`/`Z205`-severity findings; `security_incidents` counts
+`Z203`-severity findings. `Z202` (ordinary path traversal, plain Exit 1) is excluded from both.
+These fields let a JSON consumer detect a security breach or fatal path-traversal incident
+without parsing issue message text or relying solely on the process exit code.
+
+In this shape, `suppression_debt_pts` is a **flat count** — every active suppression costs 1 point
+regardless of `suppression_cap` (ADR-061: the cap is a hard-fail threshold, not a free allowance).
+This differs from the CAP Fail-Hard shape below.
+
+---
+
+## Shape: check &lt;subcommand&gt; JSON
+
+`zenzic check links`, `orphans`, `snippets`, `references`, `assets` and `placeholders` all
+emit one shape with `--format json`, and it is not the `check all` shape above — it carries
+no grouped arrays, because these commands were built after `findings[]` existed.
+
+```json
+{
+  "findings": [
+    {
+      "rel_path": "docs/index.md",
+      "line_no": 11,
+      "code": "Z101",
+      "severity": "error",
+      "message": "'missing.md' resolves to '/missing/' which is not in the Virtual Site Map",
+      "col_start": 0,
+      "fixable": false
+    }
+  ],
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "info": 0,
+    "security_incidents": 0,
+    "security_breaches": 0,
+    "elapsed_seconds": 0.026
+  }
+}
+```
+
+A finding here is byte-identical in shape to one in `check all`'s `findings[]` — both are
+built by the same helper, so the two commands cannot disagree about the same finding.
+
+`elapsed_seconds` is informational: it varies per run and per machine, so nothing should
+gate on it.
+
+Under Silent-on-Success a subcommand with nothing to report prints nothing at all, so a
+consumer must treat empty output as "no findings" rather than as a parse failure.
 
 ---
 
@@ -88,6 +158,9 @@ All contract outputs above include these fields, always:
 
 Optional score fields (`security_override`, `security_findings`) appear when the Security Override fires.
 
+Like the `check all` shape above, `suppression_debt_pts` here is a flat count of active suppressions, not
+`suppression_count - suppression_cap`.
+
 ---
 
 ## Shape: CAP Fail-Hard JSON
@@ -115,11 +188,16 @@ Optional score fields (`security_override`, `security_findings`) appear when the
     }
   ],
   "remediation": [
-    "Review hotspots and remove suppressions where possible."
+    "Review hotspots and remove suppressions where possible.",
+    "If debt is intentional, update governance.suppression_cap in .zenzic.toml.",
+    "Follow the playbook: https://zenzic.dev/developers/how-to/release-governance-protocol"
   ],
   "playbook": "https://zenzic.dev/developers/how-to/release-governance-protocol"
 }
 ```
+
+This is the one shape where `suppression_debt_pts` equals `max(0, suppression_count - suppression_cap)`
+(the `excess_debt` statistic) — the flat-count formula used by the two shapes above does not apply here.
 
 ---
 
@@ -144,7 +222,7 @@ Each rule descriptor under `runs[0].tool.driver.rules` includes rich taxonomy an
   "defaultConfiguration": {
     "level": "error"
   },
-  "helpUri": "https://zenzic.dev/docs/reference/finding-codes#z101",
+  "helpUri": "https://zenzic.dev/reference/finding-codes/#z101",
   "properties": {
     "category": "structural",
     "penalty": 8.0
@@ -153,11 +231,24 @@ Each rule descriptor under `runs[0].tool.driver.rules` includes rich taxonomy an
 ```
 
 - **`helpUri`**: Direct URL to Zenzic finding code documentation or Custom Rule SDK v3 `docs_url`.
-- **`properties.category`**: DQS taxonomy category (`structural`, `navigation`, `content`, `brand`, `governance`, or `custom`).
+- **`properties.category`**: DQS taxonomy category (`structural`, `navigation`, `content`, `brand`, `governance`, `custom`, or `uncategorized` — the fallback for any registered code with no explicit category assigned).
 - **`properties.penalty`**: DQS penalty deduction cost per occurrence.
 - **`defaultConfiguration.level`**: OASIS SARIF level (`error`, `warning`, `note`).
 
 ---
+
+## GitLab Code Quality Contract
+
+`zenzic check all --format gitlab-codequality` emits GitLab's Code Quality report schema — a
+single JSON array whose objects carry `description`, `check_name`, `fingerprint`, `severity`
+and `location.path` + `location.lines.begin`.
+
+Unlike the JSON and SARIF contracts above, this one is **not ours to version**: the shape is
+GitLab's, and Zenzic conforms to it. The severity mapping, fingerprint stability rules and
+suppression-cap behaviour are specified in
+[CLI Reference → GitLab Code Quality output](./cli.md#gitlab-codequality-output).
+
+Available on `check all` only.
 
 ## Validation Guidance
 

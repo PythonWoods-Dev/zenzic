@@ -67,6 +67,13 @@ class StandaloneAdapter(BaseAdapter):
         """StandaloneAdapter has no engine config file."""
         return frozenset()
 
+    def get_output_dirs(self) -> frozenset[str]:
+        """Standalone mode has no engine and builds nothing, so it declares no
+        output directory. ``PrebuiltVSMAdapter`` inherits this for the same
+        reason: it consumes a VSM someone else produced.
+        """
+        return frozenset()
+
     @property
     def use_directory_urls(self) -> bool:
         """Standalone mode defaults to directory-style canonical URLs."""

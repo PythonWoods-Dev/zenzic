@@ -7,7 +7,8 @@ from __future__ import annotations
 import io
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Annotated, Any, cast
 
 import typer
@@ -15,12 +16,14 @@ from rich.console import Console
 
 from zenzic import __version__
 from zenzic.cli import (
+    adr_app,
     audit,
     check_app,
     clean_app,
     config_app,
     configure_console,
     diff,
+    doctor,
     env,
     explain,
     fix,
@@ -37,6 +40,118 @@ from zenzic.cli._metadata import COMMANDS, ROOT_EPILOG, ROOT_HELP
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
 from zenzic.core.ui import ZenzicPalette, ZenzicUI
+
+
+# The Exit Code Contract reserves exit 2 for a Credential Scanner Breach, "never
+# suppressible". Click's default for a usage error -- unknown option, unknown
+# command, missing subcommand -- is also 2, so a typo'd flag and a live AWS key
+# were indistinguishable by exit code and no CI gate could discriminate. That is
+# not theoretical: the collision misled an adversarial audit of this very
+# contract three separate times. Usage errors belong to the quality/error tier,
+# so they exit 1 and exit 2 stays exclusive to the security tier.
+#
+# Set at module scope rather than inside cli_main() so every consumer of `app`
+# -- the console entry point, the test runner, zenzic-mcp -- agrees on the
+# semantics. A remap that only applies to one entry point is the same
+# some-decision-points-but-not-all shape this contract keeps being bitten by.
+#
+# Typer vendors its own click (`typer._click`), which is a DIFFERENT module
+# object from the installed `click` package -- patching only the latter changes
+# nothing, because Typer's `_main` reads `e.exit_code` off its own class. Both
+# are set: the vendored one is what actually runs today, and the upstream one
+# keeps the behaviour correct for any path that reaches real click.
+@contextmanager
+def _usage_errors_exit_1() -> Iterator[None]:
+    """Move Click usage errors off exit 2 -- for this invocation only.
+
+    The Exit Code Contract reserves exit 2 for a Credential Scanner Breach, and
+    Click's default for a usage error is also 2, so a typo'd flag and a live key
+    were indistinguishable to any CI gate.
+
+    ``exit_code`` is a class attribute on a class Zenzic does not own, so the
+    remap is necessarily a mutation of shared state. Doing it at import time
+    made it **process-wide**: merely importing ``zenzic.main`` changed the exit
+    code of every other Click application in the same interpreter, which is a
+    library reaching outside its own boundary. Scoped here instead, it applies
+    while Zenzic's own entry point is running and is restored afterwards, so an
+    import has no observable effect on anyone else.
+
+    Typer vendors its own click (``typer._click``), a DIFFERENT module object
+    from the installed ``click`` package -- patching only the latter changes
+    nothing, because Typer's ``_main`` reads ``e.exit_code`` off its own class.
+    Both are set, and both are restored to whatever they held before, not to a
+    hardcoded 2. Each import is guarded so a Typer version without the vendored
+    alias degrades to patching what exists rather than failing at import time.
+    """
+    modules: list[Any] = []
+    try:
+        from typer import _click as _typer_click
+
+        modules.append(_typer_click)
+    except ImportError:  # pragma: no cover -- older Typer, no vendored module
+        pass
+    try:
+        import click as _click_pkg
+
+        modules.append(_click_pkg)
+    except ImportError:  # pragma: no cover -- click is a hard Typer dependency
+        pass
+
+    previous = [(module, module.exceptions.UsageError.exit_code) for module in modules]
+    for module in modules:
+        module.exceptions.UsageError.exit_code = 1
+
+    # The error the user sees is rendered by Typer's rich formatter, not by
+    # Click's own `show` -- patching the latter changes nothing, because Typer
+    # intercepts first. Extending the renderer mirrors the exit_code patch above
+    # rather than adding a second mechanism, and is restored in the same
+    # `finally`. If Typer ever stops exposing this, the hint disappears and the
+    # bare Click message returns: a lost hint, not a broken CLI.
+    import typer.rich_utils as _rich_utils
+
+    _orig_format_error = _rich_utils.rich_format_error
+
+    def _format_error_with_placement_hint(self: Any) -> None:
+        # Parameter named `self`, matching Typer's own signature: it is called
+        # unbound as rich_format_error(exc), so the name is part of the contract
+        # mypy checks against.
+        _orig_format_error(self)
+        hint = _global_option_hint(self, sys.argv)
+        if hint:
+            _err_console.print(
+                f"[dim]{getattr(self, 'option_name', '')} is a global option: "
+                f"it goes before the subcommand.[/dim]\n    [bold]{hint}[/bold]"
+            )
+
+    _rich_utils.rich_format_error = _format_error_with_placement_hint
+    try:
+        yield
+    finally:
+        _rich_utils.rich_format_error = _orig_format_error
+        for module, code in previous:
+            module.exceptions.UsageError.exit_code = code
+
+
+# The options declared on the root callback. A user reaching for one of these
+# mid-command gets Click's bare "No such option", which is true and useless: the
+# option exists, it is simply global, and nothing in the message says so or shows
+# where it goes. Deriving that from a Typer/Click convention is not something a
+# user can be expected to do.
+_GLOBAL_OPTIONS = frozenset({"--version", "-V", "--no-color", "--force-color"})
+
+
+def _global_option_hint(exc: Any, argv: list[str]) -> str | None:
+    """Return a corrected invocation when a *global* option was placed too late.
+
+    Returns None for a genuinely unknown option, so the hint stays specific: a
+    message that called every typo "a global option" would be worse than the
+    bare error it replaces.
+    """
+    name = getattr(exc, "option_name", None)
+    if name not in _GLOBAL_OPTIONS:
+        return None
+    rest = [a for a in argv[1:] if a != name]
+    return "zenzic " + " ".join([name, *rest])
 
 
 def _version_callback(value: bool) -> None:
@@ -88,6 +203,7 @@ def _main(
 
 
 _SUB_APPS = {
+    "adr": adr_app,
     "check": check_app,
     "clean": clean_app,
     "config": config_app,
@@ -105,6 +221,7 @@ _STANDALONE_COMMANDS = {
     "fix": fix,
     "init": init,
     "lsp": lsp,
+    "doctor": doctor,
 }
 
 for cmd in COMMANDS:
@@ -173,14 +290,40 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
     Otherwise, return False.
     """
     import json
+    from pathlib import Path as _Path
+
+    from rich.text import Text as _Text
 
     from zenzic.core.codes import CODE_DEFINITIONS
+    from zenzic.core.validator import repo_relative_label
 
     filename = exc.context.get(
         "file", exc.context.get("file_path", exc.context.get("config_path", ".zenzic.toml"))
     )
-    if not isinstance(filename, str):
-        filename = str(filename)
+    # Relative and POSIX, for the same reason every finding is: an absolute path
+    # publishes the runner's directory layout to whoever reads the SARIF, and makes
+    # two machines checking one commit produce payloads that do not compare equal.
+    # The text panel deliberately keeps the absolute path -- config discovery walks
+    # upward, so for a fatal startup diagnostic the full path is the answer a human
+    # needs. Only the machine-readable forms are normalised here.
+    filename = repo_relative_label(_Path(str(filename)), _Path.cwd())
+
+    # The message was composed for a terminal. Serialising it unchanged handed
+    # `[bold red]`, `[#64748b]` and `[/]` to every JSON and SARIF consumer, and a
+    # code-scanning service renders those literally.
+    message = _Text.from_markup(exc.message).plain
+    # The message body repeats the path, so normalising only the `file` field
+    # above left the absolute path in the payload anyway -- which is how the first
+    # version of this fix passed its own markup test and failed its path test.
+    # Both separator forms: the message was built from a Path, so on Windows it
+    # carries `C:\\dir\\file` while `as_posix()` yields `C:/dir/file`. Stripping only
+    # the POSIX form would leave the absolute path in the payload on exactly the
+    # platform nobody checks by hand.
+    _cwd_posix = _Path.cwd().as_posix()
+    _cwd_native = str(_Path.cwd())
+    for _form in (_cwd_posix + "/", _cwd_posix, _cwd_native + os.sep, _cwd_native):
+        if _form:
+            message = message.replace(_form, "")
 
     line = exc.context.get("line", exc.context.get("line_no", 1))
     code = getattr(exc, "code", "Z001") or "Z001"
@@ -222,7 +365,7 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
             "code": code,
             "tier": tier,
             "severity": severity,
-            "message": exc.message,
+            "message": message,
         }
         print(json.dumps(report, indent=2))
         return True
@@ -256,7 +399,7 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
                                 {
                                     "descriptor": {"id": code},
                                     "level": sarif_level,
-                                    "message": {"text": exc.message},
+                                    "message": {"text": message},
                                 }
                             ],
                         }
@@ -291,7 +434,8 @@ def cli_main() -> None:
         _print_banner()
 
     try:
-        app()
+        with _usage_errors_exit_1():
+            app()
     except (SystemExit, KeyboardInterrupt):
         raise
     except PluginContractError as exc:

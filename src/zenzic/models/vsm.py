@@ -23,15 +23,39 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.discovery import build_content_mounts
 from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
-def _uri_to_path(uri: str) -> Path:
-    """Convert a file:// URI to a cross-platform pathlib.Path."""
-    parsed = urlsplit(uri)
-    return Path(url2pathname(parsed.path))
+_ENCODED_DRIVE = re.compile(r"^/([A-Za-z])%3[Aa](/|$)")
+
+
+def uri_to_path(uri: str) -> Path:
+    """Convert a ``file://`` URI to a cross-platform :class:`Path`.
+
+    The single implementation. Three private copies of this function existed
+    -- here, in ``core.incremental`` and in ``lsp.server`` -- and all three
+    carried the same Windows defect, so fixing one left the engine crashing
+    on the next request. A structural test now asserts ``url2pathname`` is
+    called from exactly one module under ``src/``.
+
+    VS Code spells a Windows drive as ``file:///d%3A/...`` -- lowercase letter,
+    percent-encoded colon. ``url2pathname`` on Windows splits on the colon
+    *before* unquoting, so the encoded form hides the drive and the result is
+    a bogus rooted path (``\\d:\\a\\...``) that ``Path.as_uri()`` later
+    rejects as relative. Only the drive colon is decoded here; everything else
+    is left to ``url2pathname`` so ordinary escapes are not decoded twice.
+    """
+    path = urlsplit(uri).path
+    m = _ENCODED_DRIVE.match(path)
+    if m:
+        path = f"/{m.group(1).upper()}:{m.group(2)}{path[m.end() :]}"
+    return Path(url2pathname(path))
+
+
+_uri_to_path = uri_to_path  # local callers below
 
 
 _log = logging.getLogger(__name__)
@@ -360,7 +384,6 @@ def resolve_link_to_canonical(
     extra_mounts: list[tuple[Path, str]],
     adapter: BaseAdapter,
 ) -> str | None:
-    import os
     from urllib.parse import unquote, urlsplit
 
     _bypass_schemes = (
@@ -381,18 +404,22 @@ def resolve_link_to_canonical(
     if not path_part:
         return None
 
-    # Resolve relative to source_file parent or docs_root
-    if path_part.startswith("/"):
-        target_path = docs_root / path_part.lstrip("/")
-    elif path_part.startswith("@site/docs/"):
-        target_path = docs_root / path_part[len("@site/docs/") :]
-    elif path_part.startswith("@site/"):
-        target_path = docs_root.parent / path_part[len("@site/") :]
-    else:
-        target_path = source_file.parent / path_part
+    # The alias rules (`/`, `@site/docs/`, `@site/`, else page-relative) and the
+    # directory-URL depth boundary are defined once in
+    # `zenzic.core.resolver.resolve_href_target`.  This used to be a fourth
+    # independent copy of them, and the copies did not agree.
+    from zenzic.core.resolver import resolve_href_target
 
-    # Clean up target_path (collapse segments)
-    target_path = Path(os.path.normpath(str(target_path)))
+    use_dir_urls = bool(getattr(adapter, "use_directory_urls", True))
+    target_path = Path(
+        resolve_href_target(
+            source_file,
+            path_part,
+            str(docs_root),
+            str(docs_root.parent),
+            use_directory_urls=use_dir_urls,
+        )
+    )
 
     # Determine the relative path used by the adapter
     if target_path.is_relative_to(docs_root):
@@ -408,6 +435,28 @@ def resolve_link_to_canonical(
         root, prefix = matched_root
         inner = target_path.relative_to(root)
         rel = (Path(prefix) / inner) if prefix else inner
+
+    # `rel` is a resolved *href target*, and that is not always a source file.
+    # A link written in the form the site serves -- `./page/`, `../section/` --
+    # resolves to a URL-shaped path carrying no document suffix, and
+    # `get_route_info` is specified over source files: its adapters correctly read
+    # a suffix-less path as a static asset and return it verbatim, giving
+    # `/section/page` where the route table keys the page at `/section/page/`. The
+    # VSM then failed to find a page it was itself routing and dropped the edge --
+    # 235 occurrences on this project's own corpus, and 234 of 797 reverse-index
+    # entries pointing at a target that was not a route key.
+    #
+    # So the URL for a URL-shaped target is formed here rather than by asking the
+    # source-file mapper a question it is not defined for. This is deliberately the
+    # only place it happens: the adapters' contract is left intact, and a target
+    # that *does* carry a suffix -- `feed.xml`, `rss.xsl`, an image -- still goes
+    # through the adapter and still resolves to no route, which is correct because
+    # it is not a page.
+    if use_dir_urls and not rel.suffix:
+        slug = rel.as_posix().strip("/")
+        if slug in ("", "."):
+            return "/"
+        return f"/{slug}/"
 
     meta = adapter.get_route_info(rel)
     return meta.canonical_url

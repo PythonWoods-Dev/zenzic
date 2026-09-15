@@ -23,8 +23,10 @@ import pytest
 
 from zenzic.core.adapters._zensical import (
     ZensicalAdapter,
+    _extract_config_declared_assets,
     _extract_nav_paths,
     _load_zensical_config,
+    check_config_assets,
     find_zensical_config,
 )
 from zenzic.core.exceptions import ConfigurationError
@@ -219,6 +221,39 @@ class TestZensicalAdapterClassifyRoute:
         adapter = _adapter(tmp_path, config)
         assert adapter.get_route_info(Path("unlisted.md")).status == "ORPHAN_BUT_EXISTING"
 
+    def test_nested_readme_not_in_nav_is_ignored_not_orphan(self, tmp_path: Path) -> None:
+        """Mirrors MkDocsAdapter's identical, deliberate convention: an unlisted
+        README.md is IGNORED (not an orphan), regardless of nesting depth —
+        confirmed live against Zensical's own docs that README.md is a valid
+        per-directory index-page candidate at any level, not just root, so
+        flagging it ORPHAN_BUT_EXISTING here would be a false positive
+        (Z402/Z410) on real, correctly-structured Zensical content."""
+        config = {"project": {"nav": ["index.md"]}}
+        adapter = _adapter(tmp_path, config)
+        assert adapter.get_route_info(Path("guide/README.md")).status == "IGNORED"
+
+    def test_nested_readme_in_nav_is_still_reachable(self, tmp_path: Path) -> None:
+        """An explicitly nav-listed nested README.md must stay REACHABLE —
+        the new IGNORED-by-default rule must not override an explicit nav entry."""
+        config = {"project": {"nav": ["index.md", "guide/README.md"]}}
+        adapter = _adapter(tmp_path, config)
+        assert adapter.get_route_info(Path("guide/README.md")).status == "REACHABLE"
+
+    def test_nested_readme_ignored_even_with_no_explicit_nav(self, tmp_path: Path) -> None:
+        """Matches MkDocsAdapter's rule 0: even when no nav is declared at all
+        (auto-include-everything mode), README.md is still never auto-promoted."""
+        adapter = _adapter(tmp_path, {})
+        assert adapter.get_route_info(Path("guide/README.md")).status == "IGNORED"
+
+    def test_nested_index_md_not_in_nav_is_still_orphan(self, tmp_path: Path) -> None:
+        """Asymmetric by design, matching MkDocsAdapter: only README.md gets the
+        auto-IGNORED treatment. An unlisted nested index.md is still a real
+        orphan candidate — index.md is the conventional page expected to be
+        explicitly listed, not a GitHub-convention overflow file."""
+        config = {"project": {"nav": ["index.md"]}}
+        adapter = _adapter(tmp_path, config)
+        assert adapter.get_route_info(Path("guide/index.md")).status == "ORPHAN_BUT_EXISTING"
+
 
 # ── ZensicalAdapter.get_route_info ────────────────────────────────────────────
 
@@ -291,3 +326,144 @@ class TestZensicalFromRepo:
         ctx = _ctx()
         with pytest.raises(ConfigurationError, match="engine 'zensical'"):
             ZensicalAdapter.from_repo(ctx, docs_root, tmp_path)
+
+
+# ── check_config_assets ─────────────────────────────────────────────────────
+#
+# Zensical's own real schema nests favicon/logo under [project.theme], not
+# top-level [project] — confirmed live against zensical.org/docs/setup/logo-and-icons/
+# and the real bootstrap zensical.toml shipped in zensical/zensical's own repo,
+# both of which show `[project.theme]` as the table these keys live under.
+
+
+class TestCheckConfigAssets:
+    def test_missing_favicon_under_project_theme_is_detected(self, tmp_path: Path) -> None:
+        """A favicon declared under the real [project.theme] table, pointing at a
+        file that does not exist on disk, must fire Z404 CONFIG_ASSET_MISSING."""
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "zensical.toml").write_text(
+            '[project]\nsite_name = "Test"\n\n[project.theme]\nfavicon = "assets/favicon.png"\n',
+            encoding="utf-8",
+        )
+
+        issues = check_config_assets(tmp_path)
+
+        assert len(issues) == 1
+        rel_path, message = issues[0]
+        assert rel_path == "docs/assets/favicon.png"
+        assert "favicon" in message.lower()
+
+    def test_missing_logo_under_project_theme_is_detected(self, tmp_path: Path) -> None:
+        """Same as above for `logo`, confirming both fields, not just favicon."""
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "zensical.toml").write_text(
+            '[project]\nsite_name = "Test"\n\n[project.theme]\nlogo = "assets/logo.png"\n',
+            encoding="utf-8",
+        )
+
+        issues = check_config_assets(tmp_path)
+
+        assert len(issues) == 1
+        rel_path, message = issues[0]
+        assert rel_path == "docs/assets/logo.png"
+        assert "logo" in message.lower()
+
+    def test_present_favicon_under_project_theme_is_not_flagged(self, tmp_path: Path) -> None:
+        """A favicon that genuinely exists on disk must not be reported missing."""
+        docs_root = tmp_path / "docs"
+        (docs_root / "assets").mkdir(parents=True)
+        (docs_root / "assets" / "favicon.png").write_bytes(b"\x89PNG\r\n")
+        (tmp_path / "zensical.toml").write_text(
+            '[project]\nsite_name = "Test"\n\n[project.theme]\nfavicon = "assets/favicon.png"\n',
+            encoding="utf-8",
+        )
+
+        issues = check_config_assets(tmp_path)
+
+        assert issues == []
+
+
+# ── _extract_config_declared_assets ─────────────────────────────────────────
+#
+# Phase 3 sibling check: this function feeds get_metadata_files(), which
+# protects engine-declared assets from a false-positive Z405 UNUSED_ASSET.
+# It shared the same wrong [project]-only assumption for favicon/logo, and a
+# second, differently-shaped mismatch for extra_css/extra_javascript (real
+# Zensical schema nests those under [project] directly, not top-level —
+# confirmed live against zensical.org/docs/customization/).
+
+
+class TestExtractConfigDeclaredAssets:
+    def test_recognizes_theme_nested_favicon_and_logo(self) -> None:
+        doc_config = {
+            "project": {
+                "theme": {
+                    "favicon": "assets/favicon.png",
+                    "logo": "assets/logo.png",
+                },
+            },
+        }
+
+        assets = _extract_config_declared_assets(doc_config)
+
+        assert "assets/favicon.png" in assets
+        assert "assets/logo.png" in assets
+
+    def test_recognizes_project_nested_extra_css_and_javascript(self) -> None:
+        doc_config = {
+            "project": {
+                "extra_css": ["stylesheets/extra.css"],
+                "extra_javascript": ["javascripts/extra.js"],
+            },
+        }
+
+        assets = _extract_config_declared_assets(doc_config)
+
+        assert "stylesheets/extra.css" in assets
+        assert "javascripts/extra.js" in assets
+
+
+# ── provides_index ───────────────────────────────────────────────────────────
+#
+# Zensical's own docs (zensical.org/docs/authoring/markdown/) confirm a page is
+# considered an index page if its basename is index.md OR README.md, at any
+# directory level, not just root. provides_index() previously only checked
+# index.md, causing a false-positive Z401 MISSING_DIRECTORY_INDEX on any
+# nested directory indexed only by README.md.
+#
+# Precedence when both exist in the same directory is explicitly undefined by
+# Zensical itself ("it is better to avoid having both" — zensical/backlog#135),
+# so this method deliberately does not model one: it only answers whether an
+# index exists at all (an OR), which is all Z401 needs and is well-defined
+# regardless of which file Zensical would actually pick.
+
+
+class TestProvidesIndex:
+    def test_index_md_only_is_recognized(self, tmp_path: Path) -> None:
+        (tmp_path / "index.md").write_text("# Home\n", encoding="utf-8")
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is True
+
+    def test_readme_md_only_is_recognized(self, tmp_path: Path) -> None:
+        """The false-positive case: a directory indexed only by README.md,
+        exactly as Zensical's own docs confirm is a valid convention at any
+        directory level."""
+        (tmp_path / "README.md").write_text("# Guide\n", encoding="utf-8")
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is True
+
+    def test_neither_present_is_not_recognized(self, tmp_path: Path) -> None:
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is False
+
+    def test_both_present_is_recognized(self, tmp_path: Path) -> None:
+        """Precedence between the two is undefined upstream; this method only
+        needs to answer whether *an* index exists, which is true either way."""
+        (tmp_path / "index.md").write_text("# Home\n", encoding="utf-8")
+        (tmp_path / "README.md").write_text("# Home (alt)\n", encoding="utf-8")
+        adapter = _adapter(tmp_path)
+
+        assert adapter.provides_index(tmp_path) is True

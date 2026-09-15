@@ -156,6 +156,56 @@ class TestPolyglotUnifiedExtractor:
         assert all_links[0].line_no == 5
 
 
+class TestForbiddenSchemeBypassPrevention:
+    """Z205 forbidden-scheme detection must survive 4 known bypass techniques.
+
+    Regression coverage for a fixture (``tests/fixtures/z205-bypass-test.md``,
+    from Direttiva CEO onwards) that documented these payloads but was never
+    actually loaded by any test — the payloads themselves were confirmed still
+    genuinely caught by live end-to-end reproduction before writing these
+    (``zenzic check all --show-info`` on each, real ``SECURITY BREACH
+    DETECTED`` panel, real Exit 2, for all 4). These tests assert the same
+    detection at the unit level: ``HtmlNodeInfo.z205_scheme`` is the field
+    ``_parse_node`` sets when ``_POLY_FORBIDDEN_SCHEMES`` matches the
+    normalised href (``html.unescape`` then whitespace/control-char strip,
+    applied before the scheme comparison — the exact mechanism that defeats
+    all 4 techniques below).
+    """
+
+    def test_double_href_attack_uses_first_occurrence(self) -> None:
+        """A second, decoy href must not shadow a malicious first href."""
+        html = '<a href="javascript:alert(1)" href="safe.md">Double Href Attack</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].href == "javascript:alert(1)"
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_html_entity_encoded_scheme_is_unescaped_before_check(self) -> None:
+        """A numeric HTML entity inside the scheme must not bypass detection."""
+        html = '<a href="&#106;avascript:alert(1)">HTML Entities</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_embedded_whitespace_in_scheme_is_stripped_before_check(self) -> None:
+        """A literal space inside the scheme must not bypass detection."""
+        html = '<a href="java script:alert(1)">Whitespace</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+    def test_embedded_control_char_in_scheme_is_stripped_before_check(self) -> None:
+        """An HTML-entity-encoded control character must not bypass detection."""
+        html = '<a href="java&#x09;script:alert(1)">Control Chars</a>'
+        nodes = PolyglotExtractor().extract(html)
+
+        assert len(nodes) == 1
+        assert nodes[0].z205_scheme == "javascript:"
+
+
 # ─── slug_heading (pure) ──────────────────────────────────────────────────────
 
 
@@ -1088,7 +1138,7 @@ class TestExternalLinks:
 
     def test_strict_false_never_pings_external(self, tmp_path: Path) -> None:
         """With strict=False, _ping_url must never be invoked."""
-        self._setup_docs(tmp_path, "[link](https://example.com/404)")
+        self._setup_docs(tmp_path, "[link](https://fixture-host.zenzic-test.dev/404)")
         mock_ping = AsyncMock(return_value=None)
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
@@ -1099,7 +1149,7 @@ class TestExternalLinks:
         assert errors == []
 
     def test_http_200_no_error(self, tmp_path: Path) -> None:
-        self._setup_docs(tmp_path, "[link](https://example.com)")
+        self._setup_docs(tmp_path, "[link](https://fixture-host.zenzic-test.dev)")
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
@@ -1108,7 +1158,7 @@ class TestExternalLinks:
         assert errors == []
 
     def test_http_404_reported(self, tmp_path: Path) -> None:
-        url = "https://example.com/missing"
+        url = "https://fixture-host.zenzic-test.dev/missing"
         self._setup_docs(tmp_path, f"[broken]({url})")
         err_msg = f"external link '{url}' returned HTTP 404"
         config = ZenzicConfig()
@@ -1130,7 +1180,7 @@ class TestExternalLinks:
         assert errors == []
 
     def test_timeout_reported(self, tmp_path: Path) -> None:
-        url = "https://slow.example.com"
+        url = "https://slow.zenzic-test.dev"
         self._setup_docs(tmp_path, f"[slow]({url})")
         err_msg = f"external link '{url}' timed out (>10 s)"
         config = ZenzicConfig()
@@ -1142,7 +1192,7 @@ class TestExternalLinks:
         assert "timed out" in errors[0]
 
     def test_connection_error_reported(self, tmp_path: Path) -> None:
-        url = "https://unreachable.invalid"
+        url = "https://unreachable.zenzic-test.dev"
         self._setup_docs(tmp_path, f"[dead]({url})")
         err_msg = f"external link '{url}' — connection error: [Errno -2] Name or service not known"
         config = ZenzicConfig()
@@ -1155,7 +1205,7 @@ class TestExternalLinks:
 
     def test_duplicate_url_pinged_exactly_once(self, tmp_path: Path) -> None:
         """The same URL in two files must result in exactly one HTTP request."""
-        url = "https://example.com"
+        url = "https://fixture-host.zenzic-test.dev"
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "a.md").write_text(f"[link]({url})")
@@ -1172,7 +1222,7 @@ class TestExternalLinks:
         """Both internal and external errors are returned together."""
         docs = tmp_path / "docs"
         docs.mkdir()
-        url = "https://dead.example.com"
+        url = "https://dead.zenzic-test.dev"
         (docs / "index.md").write_text(f"[broken-internal](ghost.md)\n[broken-external]({url})\n")
         err_msg = f"external link '{url}' returned HTTP 404"
         config = ZenzicConfig()
@@ -1183,6 +1233,62 @@ class TestExternalLinks:
         assert len(errors) == 2
         assert any("ghost.md" in e for e in errors)
         assert any("404" in e for e in errors)
+
+    def test_rfc2606_reserved_host_is_never_pinged(self, tmp_path: Path) -> None:
+        """RFC 2606 reserves these names so they cannot resolve; probing one can
+        only ever yield a false positive, so no HTTP request may be issued.
+        """
+        self._setup_docs(
+            tmp_path,
+            "\n".join(
+                f"[l{i}]({url})"
+                for i, url in enumerate(
+                    (
+                        "https://example.com/a",
+                        "https://sub.example.net/b",
+                        "https://example.org",
+                        "https://host.test/c",
+                        "https://host.example/d",
+                        "https://host.invalid/e",
+                        "https://host.localhost/f",
+                    )
+                )
+            ),
+        )
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        mock_ping = AsyncMock(return_value="external link returned HTTP 404")
+        with patch("zenzic.core.validator._ping_url", new=mock_ping):
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
+        assert mock_ping.call_count == 0
+        assert errors == []
+
+    def test_lookalike_hosts_are_still_pinged(self, tmp_path: Path) -> None:
+        """The skip matches the parsed host, not a substring: these are real
+        domains that merely resemble the reserved names, and must still be checked.
+        """
+        self._setup_docs(
+            tmp_path,
+            "\n".join(
+                f"[l{i}]({url})"
+                for i, url in enumerate(
+                    (
+                        "https://notexample.com/a",
+                        "https://example.company/b",
+                        "https://myexample.net/c",
+                        "https://example.com.evil.net/d",
+                    )
+                )
+            ),
+        )
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        mock_ping = AsyncMock(return_value=None)
+        with patch("zenzic.core.validator._ping_url", new=mock_ping):
+            validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
+        assert mock_ping.call_count == 4
 
     def test_semaphore_constant_is_positive_int(self) -> None:
         """Sanity check: concurrency limit must be a positive integer."""
@@ -1420,15 +1526,22 @@ key: value
 
 
 class TestFindCyclesIterative:
-    """Unit tests for _find_cycles_iterative (pure function, no I/O)."""
+    """Unit tests for _find_cycles_iterative (pure function, no I/O).
+
+    The function returns the nodes it was given, not stringified copies of them.
+    That is a deliberate contract change: it used to return ``p.as_posix()``, which
+    bound it to ``Path`` keys, and cycle detection therefore existed only on the CLI
+    path while the Virtual Site Map's URL-keyed graph had no equivalent pass. It is
+    now generic over the node type and each caller converts at its own boundary.
+    """
 
     def test_simple_cycle_ab(self) -> None:
         a = Path("/docs/a.md")
         b = Path("/docs/b.md")
         adj: dict[Path, set[Path]] = {a: {b}, b: {a}}
         result = _find_cycles_iterative(adj)
-        assert a.as_posix() in result
-        assert b.as_posix() in result
+        assert a in result
+        assert b in result
 
     def test_linear_chain_no_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1442,7 +1555,7 @@ class TestFindCyclesIterative:
         a = Path("/docs/a.md")
         adj: dict[Path, set[Path]] = {a: {a}}
         result = _find_cycles_iterative(adj)
-        assert a.as_posix() in result
+        assert a in result
 
     def test_three_node_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1450,9 +1563,27 @@ class TestFindCyclesIterative:
         c = Path("/docs/c.md")
         adj: dict[Path, set[Path]] = {a: {b}, b: {c}, c: {a}}
         result = _find_cycles_iterative(adj)
-        assert a.as_posix() in result
-        assert b.as_posix() in result
-        assert c.as_posix() in result
+        assert a in result
+        assert b in result
+        assert c in result
+
+    def test_the_same_graph_gives_the_same_answer_under_either_keying(self) -> None:
+        """One algorithm over ``Path`` keys and over canonical-URL keys.
+
+        This is what makes it legitimate for the CLI and the editor to share it: the
+        CLI's graph is keyed by source path, the Virtual Site Map's reverse index by
+        canonical URL, and a cycle must be a cycle in both. When the function returned
+        posix strings it could only be used for one of them, which is the whole reason
+        the editor had no cycle pass.
+        """
+        paths: dict[Path, set[Path]] = {
+            Path("/docs/a.md"): {Path("/docs/b.md")},
+            Path("/docs/b.md"): {Path("/docs/a.md")},
+            Path("/docs/c.md"): set(),
+        }
+        urls: dict[str, set[str]] = {"/a/": {"/b/"}, "/b/": {"/a/"}, "/c/": set()}
+        assert {p.stem for p in _find_cycles_iterative(paths)} == {"a", "b"}
+        assert _find_cycles_iterative(urls) == frozenset({"/a/", "/b/"})
 
     def test_isolated_nodes_no_cycle(self) -> None:
         a = Path("/docs/a.md")
@@ -1477,7 +1608,10 @@ class TestCircularLinkIntegration:
         docs.mkdir()
         (docs / "a.md").write_text("[go to b](b.md)\n")
         (docs / "b.md").write_text("[go to a](a.md)\n")
+        # Z106 is opt-in (a cycle is documentation's ordinary shape); these
+        # tests exercise the capability, so they enable it explicitly.
         config = ZenzicConfig()
+        config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
@@ -1490,7 +1624,10 @@ class TestCircularLinkIntegration:
         (docs / "a.md").write_text("[go to b](b.md)\n")
         (docs / "b.md").write_text("[go to c](c.md)\n")
         (docs / "c.md").write_text("# Terminus\n")
+        # Z106 is opt-in (a cycle is documentation's ordinary shape); these
+        # tests exercise the capability, so they enable it explicitly.
         config = ZenzicConfig()
+        config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
@@ -1505,7 +1642,10 @@ class TestCircularLinkIntegration:
         it_dir.mkdir()
         (docs / "guide.md").write_text("[Italian version](it/guide.md)\n")
         (it_dir / "guide.md").write_text("[English version](../guide.md)\n")
+        # Z106 is opt-in (a cycle is documentation's ordinary shape); these
+        # tests exercise the capability, so they enable it explicitly.
         config = ZenzicConfig()
+        config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
@@ -1615,7 +1755,7 @@ class TestCheckExternalFlag:
 
 
 def test_validator_short_circuits_analysis_on_z001(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a malformed config structure causes a short-circuit before scanning starts."""
     import sys
@@ -1647,7 +1787,7 @@ def test_validator_short_circuits_analysis_on_z001(
 
 
 def test_cli_z001_outputs_json(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a Z001 error is correctly formatted as JSON."""
     import json
@@ -1677,7 +1817,7 @@ def test_cli_z001_outputs_json(
 
 
 def test_cli_z001_outputs_sarif(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Verify that a Z001 error is correctly formatted as SARIF."""
     import json
@@ -1712,7 +1852,7 @@ def test_cli_z001_outputs_sarif(
 
 
 def test_stale_allowlist_entry(tmp_path: Path) -> None:
-    """Verify that Z110 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
+    """Verify that Z112 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
     from zenzic.core.validator import validate_links_structured
     from zenzic.models.config import ZenzicConfig
 
@@ -1736,9 +1876,9 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
         check_external=False,
     )
 
-    z110_errors = [e for e in errors if e.error_type == "Z110"]
+    z110_errors = [e for e in errors if e.error_type == "Z112"]
     assert len(z110_errors) == 1
-    assert z110_errors[0].error_type == "Z110"
+    assert z110_errors[0].error_type == "Z112"
     assert "/unused/" in z110_errors[0].message
     assert z110_errors[0].file_path == tmp_path / ".zenzic.toml"
     assert ".zenzic.toml:1: Stale absolute_path_allowlist entry" in z110_errors[0].message
@@ -1757,9 +1897,9 @@ def test_stale_allowlist_entry(tmp_path: Path) -> None:
         check_external=False,
     )
 
-    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z110"]
+    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z112"]
     assert len(z110_errors_pyproject) == 1
-    assert z110_errors_pyproject[0].error_type == "Z110"
+    assert z110_errors_pyproject[0].error_type == "Z112"
     assert "/unused/" in z110_errors_pyproject[0].message
     assert z110_errors_pyproject[0].file_path == tmp_path / "pyproject.toml"
     assert (
@@ -1810,3 +1950,78 @@ Line 10 text
     link = extracted[0]
     assert link.url == "https://example.com/real"
     assert link.line_no == 11
+
+
+class TestFootnoteDefinitionsAreNotLinkReferences:
+    """`[^1]: text` is a footnote definition, not a link reference definition.
+
+    `_REF_DEF_RE` accepted any label, so `[^1]: The data was collected from …` parsed as
+    a reference definition whose destination was the first word of the prose. Measured on
+    the official `zensical/docs` corpus at commit `6346cfd`: **17 of its 20 link-family
+    findings came from this**, reading `'The' resolves to '/browser-support/The/'` and
+    `'Zensical' resolves to '/create-your-site/Zensical/'`.
+
+    Footnotes are a standard Python-Markdown extension and a Material for MkDocs staple.
+    **Zenzic's own documentation contains zero footnote definitions**, which is the whole
+    reason nothing exposed this: the corpus that validates the engine does not use the
+    construct, so the engine was never asked the question.
+    """
+
+    _FOOTNOTES = [
+        "[^1]: The data was collected in January 2022 and is primarily based on support.",
+        "[^2]: Zensical Studio will be supported in more editors in the future.",
+        "[^note]: A named footnote label, which the extension also allows.",
+        "[^1]: [`site_name`][site_name] is currently required because MkDocs requires it.",
+    ]
+
+    @pytest.mark.parametrize("line", _FOOTNOTES)
+    def test_a_footnote_definition_yields_no_reference(self, line: str) -> None:
+        extractor = PolyglotExtractor()
+        text = f"# Page\n\nSome prose with a marker.[^1]\n\n{line}\n"
+        refs = [n for n in extractor.extract_all_links(text) if n.node_type == "ref_def"]
+        assert not refs, (
+            f"a footnote definition was parsed as a link reference: "
+            f"{[(r.url, r.line_no) for r in refs]}"
+        )
+
+    def test_a_real_reference_definition_still_parses(self) -> None:
+        """The control: narrowing the pattern must not stop it finding what it is for."""
+        extractor = PolyglotExtractor()
+        text = "# Page\n\nSee [the guide][guide].\n\n[guide]: ./guide.md\n"
+        refs = [n for n in extractor.extract_all_links(text) if n.node_type == "ref_def"]
+        assert [r.url for r in refs] == ["./guide.md"], (
+            f"the ordinary reference definition was lost: {[(r.url) for r in refs]}"
+        )
+
+    def test_a_caret_inside_a_label_is_still_a_reference(self) -> None:
+        """Only a *leading* caret marks a footnote; one elsewhere is an ordinary label."""
+        extractor = PolyglotExtractor()
+        text = "# Page\n\nSee [it][a^b].\n\n[a^b]: ./target.md\n"
+        refs = [n for n in extractor.extract_all_links(text) if n.node_type == "ref_def"]
+        assert [r.url for r in refs] == ["./target.md"]
+
+
+class TestFootnotesThroughTheRulesPath:
+    """The footnote guard must hold on the path that actually emitted the findings.
+
+    `extract_all_links` and `validator.build_ref_map` already skipped `[^label]:`. The
+    findings came from three *other* copies of the same pattern -- `rules.py`,
+    `scanner.py` and `content.py` -- because the reference-definition decision exists in
+    four places and only one carried the guard. That is the same shape as the resolution
+    base (four copies) and the fence machine (two), and it is why this test drives the
+    engine rather than the extractor: a unit test on the extractor passed throughout.
+    """
+
+    def test_footnotes_produce_no_link_or_reference_findings(self, tmp_path: Path) -> None:
+        from zenzic.core.rules import _REF_DEF_RE as RULES_RE
+        from zenzic.core.scanner import _RE_REF_DEF as SCANNER_RE
+
+        # The guard, asserted on each copy directly: a footnote must not match, an
+        # ordinary definition must.
+        assert RULES_RE.match("[^1]: The data was collected in January 2022.") is None
+        assert SCANNER_RE.match("[^1]: The data was collected in January 2022.") is None
+        assert RULES_RE.match("[guide]: ./guide.md") is not None
+        assert SCANNER_RE.match("[guide]: ./guide.md") is not None
+        # And a caret elsewhere in the label is still an ordinary definition.
+        assert RULES_RE.match("[a^b]: ./target.md") is not None
+        assert SCANNER_RE.match("[a^b]: ./target.md") is not None

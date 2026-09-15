@@ -71,6 +71,13 @@ By default, `--stamp` updates only `README.md`. To update additional files (e.g.
 badge_stamp_files = ["README.md", "README.it.md"]
 ```
 
+The same key is available under `[tool.zenzic.project_metadata]` in `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.zenzic.project_metadata]
+badge_stamp_files = ["README.md", "README.it.md"]
+```
+
 Place both markers (`<!-- zenzic:audit-badge -->` and `<!-- zenzic:score-badge -->`) in each listed file.
 
 ---

@@ -120,6 +120,38 @@ def emoji(name: str) -> str:
     return pair[0] if SUPPORTS_EMOJI else pair[1]
 
 
+# ── Elapsed-time formatting ───────────────────────────────────────────────────
+
+
+def format_elapsed_ms(elapsed_seconds: float) -> str:
+    """Format a duration for a progress-line suffix, e.g. ``(331.2ms)``.
+
+    Single source of truth for the per-phase timing suffix rendered on every
+    Zenzic progress line. Previously each call site inlined its own
+    ``f"({x:.1f}ms)"``, which is how two of them ended up measuring windows
+    their labels did not describe without anything making the inconsistency
+    visible.
+
+    Deliberately always milliseconds with one decimal, and deliberately *not*
+    threshold-switching to seconds for long runs: the progress lines are read
+    against each other to compare phase costs, and a column that silently
+    changes unit partway down the list is harder to scan, not easier. The final
+    summary line is the one place a coarser seconds figure is appropriate, and
+    it is produced separately by the reporter.
+
+    Args:
+        elapsed_seconds: Duration in **seconds** (as returned by
+            ``time.perf_counter()``/``time.monotonic()`` deltas), not
+            milliseconds — the conversion happens here so no call site repeats
+            a ``* 1000`` it might get wrong.
+
+    Returns:
+        The formatted suffix including surrounding parentheses and Rich dim
+        markup, ready to append to a task description.
+    """
+    return f"[dim]({elapsed_seconds * 1000:.1f}ms)[/dim]"
+
+
 # ── Banner ────────────────────────────────────────────────────────────────────
 
 

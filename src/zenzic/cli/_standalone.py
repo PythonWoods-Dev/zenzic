@@ -7,7 +7,9 @@ from __future__ import annotations
 import contextlib
 import json
 import sys
+import time
 from pathlib import Path
+from typing import Any
 
 
 if sys.version_info >= (3, 11):
@@ -22,12 +24,16 @@ from rich.text import Text
 
 from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 from zenzic.core import regex as re
+from zenzic.core.adapters import get_adapter
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.history import append_history_entry, read_history, summarize_trend
 from zenzic.core.scanner import (
     find_repo_root,
 )
 from zenzic.core.scorer import (
+    _SNAPSHOT_FILENAME as _SCORE_SNAPSHOT_FILENAME,
+    DEFAULT_BASELINE_STALE_DAYS,
     CategoryScore,
     ScoreReport,
     compute_score,
@@ -46,6 +52,51 @@ _SLUG_NONWORD_RE = re.compile(r"[^a-z0-9-]+")
 _SLUG_MULTI_DASH_RE = re.compile(r"-+")
 
 # ── Score helpers ─────────────────────────────────────────────────────────────
+
+
+#: Below this console width the six-column breakdown table cannot be rendered
+#: without losing content, so a different layout is used instead of a cropped
+#: one. Measured rather than chosen: at 67 columns the table renders whole; at
+#: 66 and 65 the right border stops closing; at 64 and below the `Applied Pts`
+#: column is gone entirely -- and that column is the number the table exists to
+#: show, how many points each category actually cost. Rich crops silently, so
+#: the reader sees a table that looks complete and is not.
+_BREAKDOWN_MIN_WIDTH = 67
+
+
+def _print_narrow_breakdown(
+    rows: list[tuple[str, str, str, str, str, str]], total_display: str
+) -> None:
+    """The breakdown as a list, for terminals too narrow for the table.
+
+    Borders are NOT the problem and removing them is not the fix: dropping
+    `box.ROUNDED` recovers about seven columns, which a six-column numeric table
+    still cannot use at 30. The identity cost would also be real -- that box
+    appears in every screenshot, both demo GIFs, the README and the Marketplace
+    listing. What the content needs is a layout that degrades instead of
+    cropping, and a label-per-line list holds every figure down to roughly 24
+    columns.
+    """
+    labels = ("Issues", "Weight", "Raw Pts", "Applied Pts")
+    _shared.console.print("  [bold]Quality Breakdown[/]")
+    for icon, name, *values in rows:
+        _shared.console.print(f"  {icon} [bold]{name}[/]")
+        for label, value in zip(labels, values, strict=True):
+            _shared.console.print(f"      [dim]{label:<12}[/]{value}")
+    _shared.console.print(f"  [dim]{'Σ Penalties':<14}[/]{total_display}")
+
+
+def _score_rule() -> str:
+    """The separator under the penalty column, clamped to the real terminal.
+
+    It was 37 literal box-drawing characters. A constant is a promise about the
+    reader's terminal that nothing can keep: below 41 columns Rich wrapped it
+    onto a second line, so the rule that exists to separate two figures was
+    itself drawn in two pieces. `min` rather than the console width outright --
+    the rule underlines a short column of numbers, and stretching it across a
+    200-column terminal would be a different defect in the other direction.
+    """
+    return "─" * max(8, min(37, _shared.console.width - 4))
 
 
 def _run_all_checks(
@@ -82,13 +133,11 @@ def _run_all_checks(
         code = f.code.upper().strip()
         findings_counts[code] = findings_counts.get(code, 0) + 1
 
-    # Suppression Debt: count all active suppressions (inline + per-file config).
-    # Each suppression is a technical debt entry that reduces the final score.
-    from zenzic.cli._governance import collect_inline_suppression_stats, count_per_file_ignores
+    # Suppression debt: the declared exceptions this run used -- inline directives the
+    # trackers consumed, and per-file and directory-policy pairs the usage ledger saw work.
+    from zenzic.cli._governance import build_suppression_audit
 
-    inline_suppressions, _ = collect_inline_suppression_stats(docs_root, config, exclusion_mgr)
-    per_file_suppressions = count_per_file_ignores(config)
-    total_suppressions = inline_suppressions + per_file_suppressions
+    total_suppressions = build_suppression_audit(results.reference_reports, config, docs_root).total
     suppression_cap = (
         config.governance.suppression_cap if hasattr(config.governance, "suppression_cap") else 30
     )
@@ -184,6 +233,102 @@ def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
     return True
 
 
+def _compute_baseline_freshness(repo_root: Path, config: ZenzicConfig) -> tuple[str, float | None]:
+    """Read the saved score snapshot's mtime and classify it fresh/stale/absent.
+
+    This is deliberately CLI-layer I/O — ``compute_score()``/``ScoreReport`` stay
+    pure (Determinism invariant). Returns ``(baseline_status, baseline_age_days)``;
+    ``baseline_age_days`` is ``None`` only when no snapshot exists.
+    """
+    snapshot_path = repo_root / _SCORE_SNAPSHOT_FILENAME
+    if not snapshot_path.is_file():
+        return "absent", None
+
+    threshold_days = config.baseline_stale_days
+    if threshold_days is None:
+        threshold_days = DEFAULT_BASELINE_STALE_DAYS
+
+    age_seconds = max(0.0, time.time() - snapshot_path.stat().st_mtime)
+    age_days = age_seconds / 86400
+    status = "stale" if age_days >= threshold_days else "fresh"
+    return status, age_days
+
+
+def _history_entry(report: Any) -> dict[str, Any]:
+    """One history record from a score report.
+
+    Deliberately small and flat: the score, when it was taken, and the per-category
+    contributions. Anything reconstructible from the repository (file lists,
+    findings) is left out — this file is a series, not a second report archive.
+    """
+    from datetime import datetime, timezone
+
+    data = report.to_dict()
+    categories = {
+        str(c.get("name")): c.get("category_score")
+        for c in data.get("categories", [])
+        if isinstance(c, dict) and c.get("name")
+    }
+    entry: dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "score": data.get("score"),
+        "categories": categories,
+    }
+    return entry
+
+
+def _render_trend(repo_root: Path, output_format: str) -> None:
+    """Print the recorded score series, or say plainly that there is none yet."""
+    entries = read_history(repo_root)
+    summary = summarize_trend(entries)
+
+    if output_format == "json":
+        print(json.dumps({"history": entries, "summary": summary}, indent=2))
+        return
+
+    if summary is None:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]No score history yet. "
+            f"Run 'zenzic score --save' to start recording one.[/]"
+        )
+        return
+
+    arrow = "→" if summary["delta"] == 0 else ("↑" if summary["delta"] > 0 else "↓")
+    sign = "+" if summary["delta"] > 0 else ""
+    _shared.console.print(
+        f"Score trend over {summary['runs']} run(s): "
+        f"{summary['first']} {arrow} {summary['last']} "
+        f"({sign}{summary['delta']})  ·  min {summary['min']}  max {summary['max']}"
+    )
+    for entry in entries[-10:]:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]  {entry.get('timestamp', '?')}  {entry.get('score', '?')}[/]"
+        )
+
+
+def _compute_score_trend(repo_root: Path, current_score: int) -> dict[str, int] | None:
+    """Compare the current score against the saved snapshot, if one exists.
+
+    Reuses ``load_snapshot()`` — the same JSON file already touched by
+    ``_compute_baseline_freshness`` — so no second `zenzic` subprocess or LSP
+    call is ever needed to surface a trend indicator. Returns ``None`` when no
+    snapshot exists or it cannot be parsed (e.g. legacy pre-v2 schema); a
+    missing/incompatible baseline is a graceful "no trend to show", not an
+    error the caller needs to handle differently from the "absent" case.
+    """
+    try:
+        baseline = load_snapshot(repo_root)
+    except ConfigurationError:
+        return None
+    if baseline is None:
+        return None
+    return {
+        "baseline_score": baseline.score,
+        "current_score": current_score,
+        "delta": current_score - baseline.score,
+    }
+
+
 # ── score command ─────────────────────────────────────────────────────────────
 
 
@@ -193,18 +338,17 @@ def score(
         help="Repository root or docs directory to score (default: configured docs directory).",
         show_default=False,
     ),
-    strict: bool | None = typer.Option(
-        None,
-        "--strict",
-        "-s",
-        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
-    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
     ),
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
     fail_under: int = typer.Option(
         0, "--fail-under", help="Exit non-zero if score is below this threshold (0 = disabled)."
+    ),
+    trend: bool = typer.Option(
+        False,
+        "--trend",
+        help="Show the score series recorded in .zenzic-history.jsonl by previous --save runs.",
     ),
     stamp: bool = typer.Option(
         False,
@@ -248,6 +392,16 @@ def score(
         "-q",
         help="Suppress output on successful score.",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
     # ECOSYSTEM-FEAT-002: --json is a shorthand alias for --format json.
@@ -264,9 +418,10 @@ def score(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, _ = ZenzicConfig.load(repo_root)
+        config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except (RuntimeError, ConfigurationError) as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -295,7 +450,16 @@ def score(
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scoring: {_hint}[/]")
         _shared.console.print()
 
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    # The adapter declares where its engine builds to (MkDocs ``site_dir``);
+    # get_adapter() caches by (engine, docs_root, repo_root), so this is a
+    # cache hit rather than a second construction.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
     report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
@@ -303,11 +467,28 @@ def score(
     if save:
         report.threshold = effective_threshold
         snapshot_path = save_snapshot(repo_root, report)
+        # The series is appended alongside the snapshot rather than replacing it:
+        # .zenzic-score.json stays exactly as every existing consumer expects, and
+        # the history file is additive. Failing to record a trend entry must never
+        # fail a scoring run, so the append is best-effort.
+        with contextlib.suppress(OSError):
+            append_history_entry(repo_root, _history_entry(report))
         if not quiet:
             _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
 
+    if trend:
+        _render_trend(repo_root, output_format)
+        raise typer.Exit(0)
+
     if output_format == "json" and not check_stamp:
-        print(json.dumps(report.to_dict(), indent=2))
+        payload = report.to_dict()
+        baseline_status, baseline_age_days = _compute_baseline_freshness(repo_root, config)
+        payload["baseline_status"] = baseline_status
+        payload["baseline_age_days"] = (
+            round(baseline_age_days, 2) if baseline_age_days is not None else None
+        )
+        payload["score_trend"] = _compute_score_trend(repo_root, report.score)
+        print(json.dumps(payload, indent=2))
     elif not check_stamp and not (quiet and report.score >= effective_threshold):
         if report.score >= 80:
             score_style = ZenzicPalette.STYLE_OK
@@ -340,6 +521,10 @@ def score(
         table.add_column("Applied Pts", justify="right")
 
         total_category_penalties = 0
+        # Collected rather than added straight to the table, so the narrow
+        # layout below renders the same values from the same place. Building the
+        # numbers twice is how two layouts come to disagree about one score.
+        breakdown_rows: list[tuple[str, str, str, str, str, str]] = []
         for cat in report.categories:
             # Split issues into punitive (penalty > 0) vs. informational (penalty == 0).
             from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY
@@ -374,29 +559,32 @@ def score(
             )
             total_category_penalties += applied_penalty
             capped_suffix = " [yellow](Max limit reached)[/yellow]" if cat.is_capped else ""
-            table.add_row(
-                status_icon,
-                cat.name,
-                issue_display,
-                f"{cat.weight:.0%}",
-                raw_display,
-                f"{applied_display}{capped_suffix}",
+            breakdown_rows.append(
+                (
+                    status_icon,
+                    cat.name,
+                    issue_display,
+                    f"{cat.weight:.0%}",
+                    raw_display,
+                    f"{applied_display}{capped_suffix}",
+                )
             )
 
-        table.add_section()
-        table.add_row(
-            "",
-            "[dim]Σ Category Penalties[/dim]",
-            "",
-            "",
-            "",
+        total_display = (
             f"[bold red]-{total_category_penalties}[/bold red]"
             if total_category_penalties > 0
-            else "[bold]0[/bold]",
+            else "[bold]0[/bold]"
         )
 
         _shared.console.print(score_summary)
-        _shared.console.print(table)
+        if _shared.console.width >= _BREAKDOWN_MIN_WIDTH:
+            for row in breakdown_rows:
+                table.add_row(*row)
+            table.add_section()
+            table.add_row("", "[dim]Σ Category Penalties[/dim]", "", "", "", total_display)
+            _shared.console.print(table)
+        else:
+            _print_narrow_breakdown(breakdown_rows, total_display)
 
         subtotal = sum(round(c.contribution * 100) for c in report.categories)
         gravity_loss = subtotal - (report.score + report.suppression_debt_pts)
@@ -423,26 +611,14 @@ def score(
 
             _shared.console.print()
             _shared.console.print("[bold cyan]DETAILED CATEGORY BREAKDOWN[/]")
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
 
-            # Helper to map codes to display categories
-            def get_display_category(c: str) -> str:
-                from zenzic.core.scorer import _CODE_CATEGORY
-
-                cat = _CODE_CATEGORY.get(c)
-                if cat is not None:
-                    return cat
-                if c.startswith("Z1"):
-                    return "structural"
-                if c.startswith("Z3"):
-                    return "navigation"
-                if c.startswith("Z5"):
-                    return "content"
-                if c.startswith("Z6"):
-                    return "brand"
-                if c.startswith("Z2"):
-                    return "security"
-                return "other"
+            # Which bucket a finding is grouped under comes from the registry, not
+            # from its numeric prefix. The prefix cascade this replaced answered for
+            # any code the scorer did not categorise by reading its first digit, so
+            # `Z106` and `Z123` -- Z1xx codes that no bucket scores -- were printed
+            # under STRUCTURAL while the same run's SARIF reported them uncategorized.
+            from zenzic.core.codes import category_bucket_key as get_display_category
 
             # Group findings by display category
             grouped_findings: dict[str, list[tuple[str, int]]] = {
@@ -513,7 +689,8 @@ def score(
                         f"  [yellow]![/] [bold]{code}[/] ({name}): {count} occurrence(s) (no DQS penalty)"
                     )
 
-            _shared.console.print("\n[dim]━[/]" * 50)
+            _shared.console.print()
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
             _shared.console.print("[bold cyan]DQS MATHEMATICAL TRANSPARENCY[/]")
             _shared.console.print("  [bold]Base Score:[/bold]                100.0 pts")
 
@@ -526,19 +703,22 @@ def score(
                 )
                 total_cat_penalties += penalty
 
-            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(f"  [dim]{_score_rule()}[/]")
             _shared.console.print(
                 f"  [bold]Total Category Penalties:[/]   -{total_cat_penalties:.1f} pts"
             )
 
             brand_cat = next((cs for cs in report.categories if cs.name == "brand"), None)
             subtotal_val = sum(cs.contribution * 100 for cs in report.categories)
-            if brand_cat is not None and brand_cat.category_score == 0.0:
+            brand_zeroed = brand_cat is not None and brand_cat.category_score == 0.0
+            if brand_zeroed:
                 gravity_loss_val = max(0.0, subtotal_val - 70.0)
+                gravity_note = "Brand bucket zeroed cap"
             else:
                 gravity_loss_val = 0.0
+                gravity_note = "not triggered"
             _shared.console.print(
-                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts (Brand bucket zeroed cap)"
+                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts ({gravity_note})"
             )
 
             debt_pts = report.suppression_debt_pts
@@ -547,11 +727,11 @@ def score(
             )
 
             total_penalties_val = total_cat_penalties + gravity_loss_val + debt_pts
-            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(f"  [dim]{_score_rule()}[/]")
             _shared.console.print(
                 f"  [bold]Final Score: 100 - {total_penalties_val:.1f} = {report.score:.1f}[/bold]"
             )
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
 
         if report.score == 100:
             from rich.console import Group
@@ -667,12 +847,6 @@ def diff(
         help="Repository root or docs directory to compare (default: configured docs directory).",
         show_default=False,
     ),
-    strict: bool | None = typer.Option(
-        None,
-        "--strict",
-        "-s",
-        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
-    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
     ),
@@ -697,6 +871,16 @@ def diff(
         "--ci",
         help="CI shorthand: sets --no-header.",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Compare current documentation score against the saved snapshot.
 
@@ -714,9 +898,10 @@ def diff(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, _ = ZenzicConfig.load(repo_root)
+        config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except (RuntimeError, ConfigurationError) as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -726,7 +911,16 @@ def diff(
         docs_root.relative_to(repo_root)
     except ValueError:
         repo_root = docs_root
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    # The adapter declares where its engine builds to (MkDocs ``site_dir``);
+    # get_adapter() caches by (engine, docs_root, repo_root), so this is a
+    # cache hit rather than a second construction.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
 
     baseline: ScoreReport | None = None
     try:
@@ -760,14 +954,17 @@ def diff(
     delta = current.score - baseline.score
 
     # ── FATAL / HALT semantic detection ──────────────────────────────────────
-    # Z0xx (config abort) and Z2xx (security) collapse score to 0 unconditionally.
+    # Z2xx (security) collapses score to 0 unconditionally. Z0xx (config abort,
+    # e.g. Z001) can never appear here: ZenzicConfig.load() above already raised
+    # ConfigurationError and returned Exit 1 before _run_all_checks() was ever
+    # called, so no Z0xx code can reach current.findings_counts — confirmed dead
+    # branch, removed rather than left checking an unreachable prefix
+    # (V031_CODE_BACKLOG_BATCH1_EXECUTION_AND_PROACTIVE_ADVISORY_CODIFICATION).
     from zenzic.core.codes import CODE_DEFINITIONS
 
-    _fatal_codes = sorted(
-        c for c in current.findings_counts if c.startswith("Z0") or c.startswith("Z2")
-    )
+    _fatal_codes = sorted(c for c in current.findings_counts if c.startswith("Z2"))
     has_fatal = bool(_fatal_codes) or current.security_override
-    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z504).
+    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z902).
     _halt_codes = sorted(
         c
         for c in current.findings_counts
@@ -1014,6 +1211,25 @@ def explain(
     meta_table.add_row(
         "Fixable", "[green]Yes[/]" if getattr(_defn, "fixable", False) else "[yellow]No[/]"
     )
+    # Activation lives here rather than in `zenzic inspect codes`: this panel is
+    # vertical, so a long key costs no width, while a seventh column in that
+    # table truncated at Rich's 80-column default. Derived from the registry,
+    # which has been activation's single source since it gained the field.
+    _act = getattr(_defn, "activation", "default")
+    _act_key = getattr(_defn, "activation_key", None)
+    if _act == "flag":
+        meta_table.add_row(
+            "Activation",
+            f"[yellow]opt-in[/] — set [bold]\\[policies] {_act_key} = true[/]",
+        )
+    elif _act == "data":
+        meta_table.add_row(
+            "Activation",
+            f"[cyan]inert[/] — runs, but finds nothing until "
+            f"[bold]\\[policies] {_act_key}[/] is declared",
+        )
+    else:
+        meta_table.add_row("Activation", "[green]on by default[/]")
     _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
     _is_halt = (
         _defn is not None and _defn.severity == "warning" and _defn.penalty == 0.0 and not _is_fatal
@@ -1067,7 +1283,7 @@ def explain(
             "Z601": [("governance.brand_obsolescence", "brand_obsolescence list")],
             "Z204": [("forbidden_patterns", "forbidden_patterns list")],
             "Z501": [("placeholder_patterns", "placeholder_patterns list")],
-            "Z502": [("short_content_threshold", "short_content_threshold")],
+            "Z502": [("placeholder_max_words", "placeholder_max_words (minimum word count)")],
             "Z402": [("excluded_dirs", "excluded_dirs (removes pages from nav scope)")],
         }
         # Global: .zenzic.toml presence
@@ -1129,6 +1345,14 @@ def explain(
                                 "Rule fires on default patterns.",
                             )
                         )
+                elif val is not None:
+                    genealogy_rows.append(
+                        (
+                            f"  {label}",
+                            f"[yellow]{val}[/]",
+                            "Configured value for this rule.",
+                        )
+                    )
 
         # Per-file suppression status for this rule
         suppressed_patterns = [
@@ -1200,7 +1424,7 @@ def init(
     pyproject: bool = typer.Option(
         False,
         "--pyproject",
-        help="Write configuration into pyproject.toml [tool.zenzic] instead of .zenzic.toml.",
+        help=r"Write configuration into pyproject.toml \[tool.zenzic] instead of .zenzic.toml.",
     ),
     local: bool = typer.Option(
         False,
@@ -1270,7 +1494,9 @@ def init(
                 "These flags target different init modes.",
                 err=True,
             )
-            raise typer.Exit(2)
+            # Plain CLI-usage error: Exit 1, matching --local+--pyproject's
+            # exit code below (Exit 2 is reserved for security breaches).
+            raise typer.Exit(1)
         _scaffold_plugin(repo_root, plugin, force)
         return
 
@@ -1332,9 +1558,9 @@ def init(
         "\n[bold green]✨ Zenzic initialized successfully![/]\n\n"
         "[bold]Next steps:[/]\n"
         "  1. Run [bold cyan]zenzic check all[/] to see your baseline.\n"
-        "  2. To automate Zenzic in CI/CD or pre-commit, see:\n"
-        "     [link=https://zenzic.dev/docs/how-to/configure-ci-cd]"
-        "https://zenzic.dev/docs/how-to/configure-ci-cd[/link]"
+        "  2. To automate Zenzic in pre-commit hooks or CI/CD, see:\n"
+        "     [link=https://zenzic.dev/how-to/configure-ci-cd/]"
+        "https://zenzic.dev/how-to/configure-ci-cd/[/link]"
     )
     _shared.print_footer_hint("init")
 
@@ -1407,12 +1633,12 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
             added_str = " and ".join(f"[bold]{a}[/]" for a in additions)
             gitignore_line = (
                 f"[yellow]🛡️ Security Note:[/] Added {added_str} "
-                "to your [bold].gitignore[/] to preserve local sovereignty.\\n"
+                "to your [bold].gitignore[/] to preserve local sovereignty.\n"
             )
         else:
-            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\\n"
+            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\n"
     else:
-        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\\n"
+        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\n"
 
     _shared.console.print(
         Panel(
@@ -1568,7 +1794,7 @@ def _scaffold_plugin(repo_root: Path, plugin_name: str, force: bool) -> None:
     """Create a ready-to-edit plugin package scaffold."""
     raw = plugin_name.strip()
     if not raw:
-        _shared.console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
+        _shared.stderr_console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
         raise typer.Exit(1)
 
     project_slug = _SLUG_NONWORD_RE.sub("-", raw.lower()).strip("-")

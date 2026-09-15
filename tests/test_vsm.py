@@ -631,3 +631,123 @@ class TestUnreachableLinkDetection:
         # Should not contain UNREACHABLE_LINK for the CONFLICT route
         unreachable = [e for e in errors if "UNREACHABLE_LINK" in e]
         assert not unreachable, f"Unexpected UNREACHABLE_LINK for CONFLICT route: {unreachable}"
+
+
+class TestDirectoryFormLinkCanonicalisation:
+    """A link written in the form MkDocs serves must resolve to a route that exists.
+
+    `resolve_link_to_canonical` resolves an href to a target *path*, then asks the
+    adapter for that path's canonical URL. For a directory-form link -- `./page/`,
+    which is exactly what MkDocs emits and serves under `use_directory_urls` -- the
+    resolved target is URL-shaped and carries no `.md` suffix, so it is not a source
+    file at all. `_map_url`'s documented contract is source-file-to-URL, and its
+    suffix check correctly treats a suffix-less path as a static asset, returning it
+    verbatim: `/section/page`. The route table keys the page at `/section/page/`.
+
+    The VSM therefore failed to find a page it was itself routing, and dropped the
+    edge -- 235 occurrences on this repository's own corpus, 234 of 797
+    `outgoing_links` entries pointing at a target that was not a route key. The
+    defect is at the call site, not in the adapter: the fix forms the URL for a
+    URL-shaped target directly instead of routing it through the source-file mapper.
+    """
+
+    @staticmethod
+    def _fixture(tmp_path: Path) -> tuple[Path, MkDocsAdapter, dict[Path, str]]:
+        _make_docs(
+            tmp_path,
+            {
+                "index.md": "# Home\n\n[Section](section/)\n",
+                "section/index.md": "# Section\n\n[Page](./page/)\n",
+                "section/page.md": "# Page\n\nLeaf.\n",
+            },
+        )
+        docs_root = (tmp_path / "docs").resolve()
+        adapter = MkDocsAdapter(BuildContext(), docs_root, {})
+        md_contents = {
+            (docs_root / "index.md").resolve(): "# Home\n\n[Section](section/)\n",
+            (docs_root / "section" / "index.md").resolve(): "# Section\n\n[Page](./page/)\n",
+            (docs_root / "section" / "page.md").resolve(): "# Page\n\nLeaf.\n",
+        }
+        return docs_root, adapter, md_contents
+
+    def test_directory_form_link_canonicalises_to_a_real_route(self, tmp_path: Path) -> None:
+        """The canonical URL for `./page/` must be a key of the route table."""
+        from zenzic.models.vsm import resolve_link_to_canonical
+
+        docs_root, adapter, md_contents = self._fixture(tmp_path)
+        vsm = build_vsm(adapter, docs_root, md_contents)
+        assert "/section/page/" in vsm, "precondition: the page must be routed"
+
+        canonical = resolve_link_to_canonical(
+            (docs_root / "section" / "index.md").resolve(), "./page/", docs_root, [], adapter
+        )
+        assert canonical in vsm, (
+            f"a directory-form link canonicalised to {canonical!r}, which is not a route. "
+            f"The route table keys this page at '/section/page/'."
+        )
+        assert canonical == "/section/page/"
+
+    def test_the_edge_reaches_the_reverse_index(self, tmp_path: Path) -> None:
+        """The dropped canonical meant a dropped edge, which is what consumers read."""
+        docs_root, adapter, md_contents = self._fixture(tmp_path)
+        vsm = build_vsm(adapter, docs_root, md_contents)
+        outgoing = getattr(vsm, "outgoing_links", {})
+        assert "/section/page/" in outgoing.get("/section/", []), (
+            "the directory-form edge is missing from outgoing_links: "
+            f"/section/ -> {outgoing.get('/section/')}"
+        )
+
+    def test_a_suffixed_asset_link_is_untouched(self, tmp_path: Path) -> None:
+        """The fix must not turn an asset path into a directory URL.
+
+        `blog/rss.xsl`, `rss.xml` and a `.gif` were the four residual non-route
+        canonicals on the real corpus, and they are correctly not routes. A fix that
+        appended a slash unconditionally would invent routes for them.
+        """
+        from zenzic.models.vsm import resolve_link_to_canonical
+
+        docs_root, adapter, md_contents = self._fixture(tmp_path)
+        canonical = resolve_link_to_canonical(
+            (docs_root / "section" / "index.md").resolve(), "../feed.xml", docs_root, [], adapter
+        )
+        assert canonical == "/feed.xml", f"asset path was rewritten to {canonical!r}"
+
+
+class TestReferenceDefinitionsAreRealEdges:
+    """A reference-style link definition is a navigable edge, and the graph must hold it.
+
+    `[label]: target.md` is the other spelling of an inline link: when `[text][label]`
+    appears in the body, the rendered page carries a real `href`. The CLI's link graph
+    is built from a cache that filters `node_type == "ref_def"`, so those edges were
+    absent from it while the VSM's reverse index kept them -- the entire residual
+    divergence after the canonicalisation fix, 6 edges on this repository's corpus.
+
+    Settled against the served HTML rather than by reading the parser: on
+    `docs/developers/how-to/contribute/index.md`, whose five sibling links are all
+    reference definitions, the built page carries 3, 4, 3, 3 and 2 matching `href`s.
+    The reader navigates them, so the graph that omits them is the wrong one.
+    """
+
+    def test_a_reference_definition_produces_a_graph_edge(self, tmp_path: Path) -> None:
+        from zenzic.core.resolver import InMemoryPathResolver
+        from zenzic.core.scanner import _graph_link_infos
+        from zenzic.core.validator import _build_link_graph
+
+        body = "# Index\n\nSee [the leaf][leaf] for detail.\n\n  [leaf]: leaf.md\n"
+        _make_docs(tmp_path, {"index.md": body, "leaf.md": "# Leaf\n\nText.\n"})
+        docs_root = (tmp_path / "docs").resolve()
+        md_contents = {
+            (docs_root / "index.md").resolve(): body,
+            (docs_root / "leaf.md").resolve(): "# Leaf\n\nText.\n",
+        }
+        anchors: dict[Path, set[str]] = {p: set() for p in md_contents}
+        resolver = InMemoryPathResolver(
+            docs_root, md_contents, anchors, repo_root=tmp_path, use_directory_urls=True
+        )
+        graph = _build_link_graph(_graph_link_infos(md_contents), resolver, frozenset(md_contents))
+        src = (docs_root / "index.md").resolve()
+        tgt = (docs_root / "leaf.md").resolve()
+        assert tgt in graph.get(src, set()), (
+            "a reference definition produced no graph edge, so a link the reader can "
+            f"follow is invisible to cycle detection: {graph.get(src)}"
+        )

@@ -24,7 +24,7 @@ Governance Escalation (Z6xx threshold = 10):
   governance bucket — doubling every 5 excess findings — until 0.
 
 Suppression Debt (ADR-061): flat-cost model.
-    Every inline or per-file suppression costs exactly 1 point, with no free
+    Every suppression in use costs exactly 1 point, with no free
     allowance.  The ``suppression_cap`` is a hard-fail threshold enforced by
     the CLI layer: exceeding it causes Exit 1 regardless of the computed score.
 
@@ -49,10 +49,10 @@ from zenzic.core.exceptions import ConfigurationError
 # ─── Weights ──────────────────────────────────────────────────────────────────
 
 _WEIGHTS: dict[str, float] = {
-    "structural": 0.30,  # Z101, Z102, Z104, Z105, Z107, Z108 — Structural Integrity
-    "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z401, Z402 — Navigation & Logic
-    "content": 0.20,  # Z403, Z501, Z502, Z503, Z505 — Content Quality
-    "brand": 0.25,  # Z404, Z405, Z406, Z601 — Governance & Brand
+    "structural": 0.30,  # Structural Integrity — see CATEGORY_DISPLAY_NAMES["structural"] (SSoT)
+    "navigation": 0.25,  # Navigation Graph — see CATEGORY_DISPLAY_NAMES["navigation"] (SSoT)
+    "content": 0.20,  # Content Excellence — see CATEGORY_DISPLAY_NAMES["content"] (SSoT)
+    "brand": 0.25,  # Governance & Brand — see CATEGORY_DISPLAY_NAMES["brand"] (SSoT)
 }
 
 # ─── Penalty Table — derived from CODE_DEFINITIONS (SSoT) ────────────────────
@@ -92,6 +92,13 @@ _Z6XX_CODES: frozenset[str] = frozenset(
 
 _SOVEREIGN_SUPPRESSION_CAP: int = 30
 _DEBT_STATUS_VALUES: frozenset[str] = frozenset({"CLEAN", "MANAGED", "EXTENDED", "CRITICAL"})
+
+# Default age (in days) after which a saved score snapshot (.zenzic-score.json) is
+# considered stale.  A plain constant only — no filesystem access.  Reading the
+# snapshot's actual mtime and comparing it against this threshold (or a
+# .zenzic.toml override) is CLI-layer I/O, deliberately kept out of this module
+# to preserve compute_score()/ScoreReport's purity (Determinism invariant).
+DEFAULT_BASELINE_STALE_DAYS: int = 7
 
 
 def classify_suppression_debt_status(suppression_count: int, suppression_cap: int) -> str:
@@ -190,8 +197,8 @@ def compute_score(
     score is capped at 70 — a document with uncontrolled governance violations
     cannot score above 70/100.
 
-    Suppression Debt (ADR-061): flat-cost model — every suppression costs
-    exactly 1 point. ``suppression_cap`` is a hard-fail exit threshold only;
+    Suppression Debt (ADR-061): flat-cost model — every suppression in use
+    costs exactly 1 point. ``suppression_cap`` is a hard-fail exit threshold only;
     it does not grant any free allowance.
     Debt is applied after all category calculations and after the Gravity Cap.
 
@@ -288,7 +295,7 @@ def compute_score(
     if brand_cat is not None and brand_cat.category_score == 0.0:
         total_pts = min(total_pts, 70.0)
 
-    # Suppression Debt (ADR-061): flat-cost model — every suppression costs 1 pt.
+    # Suppression Debt (ADR-061): flat-cost model — every suppression in use costs 1 pt.
     # The cap is a hard-fail threshold enforced by the CLI, not a free allowance.
     debt_pts = normalized_suppression_count
     total_pts = max(0.0, total_pts - debt_pts)

@@ -16,27 +16,24 @@ Our documentation includes extensive information on features, configurations,
 and much more. If you have found an inconsistency or see room for improvement,
 please follow this guide to submit an issue on our [issue tracker].
 
-  [issue tracker]: https://github.com/PythonWoods/zenzic/issues
+  [issue tracker]: https://github.com/PythonWoods-Dev/zenzic/issues
 
 ---
 
 ## Issue template
 
-Reporting a documentation issue is usually less involved than reporting a bug,
-as we don't need a reproduction. Our issue template consists of the following
-parts:
+There is no dedicated GitHub issue template for documentation problems yet —
+open a [blank issue](https://github.com/PythonWoods-Dev/zenzic/issues/new) rather
+than picking one of the structured templates (those are for bug reports,
+feature requests, and similar categories that don't fit a docs correction).
+Reporting a documentation issue is usually less involved than reporting a
+bug, as we don't need a reproduction. Structure your blank issue around the
+following parts:
 
-- [Title]
-- [Description]
-- [Related links]
-- [Proposed change] <small>optional</small>
-- [Checklist]
-
-  [Title]: #title
-  [Description]: #description
-  [Related links]: #related-links
-  [Proposed change]: #proposed-change
-  [Checklist]: #checklist
+- Title
+- Description
+- Related links
+- Proposed change <small>optional</small>
 
 ### Title
 
@@ -76,11 +73,9 @@ are both welcome. This field is optional but invaluable.
 > __Why we need this__: improvement proposals benefit other users who encounter
 > the same issue before the documentation can be updated.
 
-### Checklist
-
 Thanks for following the guide and providing valuable feedback for our
-documentation. The checklist ensures that you have read this guide and provided
-us with every piece of information we need to improve it.
+documentation — this gives us every piece of information we need to improve
+it.
 
 __We'll take it from here.__
 

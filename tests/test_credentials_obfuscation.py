@@ -568,6 +568,68 @@ class TestBase64Bypass:
         findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
         assert findings == [], f"Expected no findings for innocent Base64 content; got {findings}"
 
+    def test_base64_decoded_token_preceded_by_a_word_char_is_still_detected(self) -> None:
+        """A GitHub token reconstructed via Base64 decode (or the lookback
+        join) must be caught even when the byte immediately before its
+        ``ghp_``/``gho_``/etc. prefix is itself a word character with no
+        separator -- the raw-text scan's leading ``\\b`` is a reasonable
+        anti-false-positive guard for hand-typed prose, but it silently
+        drops a token nobody ever gets to see the raw bytes of (decoded
+        Base64, a cross-line lookback join), which is exactly the case an
+        obfuscation-resistant scanner exists to cover.
+
+        Vector: "start" immediately followed by ``_FAKE_GH_TOKEN``, so 't'
+        precedes the token prefix with no word boundary between them, then
+        Base64-encoded.
+
+        The blob is built here rather than pasted as a literal, and that is
+        deliberate: a hardcoded Base64 string decoding to a GitHub-token
+        shape is blocked by GitHub's own push protection, which decodes
+        candidate blobs. Constructing it keeps the test honest about its
+        vector while leaving no token shape -- encoded or plain -- in the
+        source.
+        """
+        import base64
+
+        blob = base64.b64encode(f"start{_FAKE_GH_TOKEN}".encode()).decode()
+        line = f"blob: {blob}"
+        findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
+        gh = [f for f in findings if f.secret_type == "github-token"]
+        assert len(gh) == 1, (
+            f"Expected 1 github-token finding for a decoded token preceded "
+            f"by a word character; got {len(gh)} (full findings: {findings})"
+        )
+
+    def test_base64_with_embedded_plus_still_decodes(self) -> None:
+        """A Base64 blob containing a literal '+' (a real Base64 alphabet
+        character) must still decode and be flagged -- not corrupted by the
+        concatenation-operator stripper, which used to delete every '+' in
+        the line unconditionally before the speculative decode ever ran.
+
+        Canonical vector: two filler bytes, then '>' (0x3E), then an
+        AWS-shaped key. The '>' lands as the third byte of a 3-byte group,
+        and its low 6 bits (111110) always encode to '+' regardless of what
+        follows -- so whoever writes the blob can place a '+' anywhere in it
+        by choosing filler. Deleting that '+' shifts every following Base64
+        group by one character, garbling the decode of a real secret placed
+        after it: a scanner-evasion bypass, not a cosmetic bug.
+
+        Built rather than pasted, for the same reason as the sibling test
+        above: a literal blob decoding to a credential shape does not
+        survive push protection.
+        """
+        import base64
+
+        blob = base64.b64encode(f"AA>{_FAKE_AWS_KEY}".encode()).decode()
+        assert "+" in blob, "the vector must actually contain a '+' to prove anything"
+        line = f"config: {blob}"
+        findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
+        aws = [f for f in findings if f.secret_type == "aws-access-key"]
+        assert len(aws) == 1, (
+            f"Expected 1 aws-access-key finding for a Base64 blob containing "
+            f"a literal '+'; got {len(aws)} (full findings: {findings})"
+        )
+
 
 # ─── Mutant-Killing Tests: _normalize_line_for_scan ─────────────────────────
 

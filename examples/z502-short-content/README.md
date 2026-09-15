@@ -20,7 +20,7 @@ fires (not Z501).
 ```bash
 zenzic lab z502
 # or directly:
-zenzic check content
+zenzic check placeholders
 ```
 
 ## Expected output

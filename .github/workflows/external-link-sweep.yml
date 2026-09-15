@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# The PR gate runs with --no-external. The reason is measured, not assumed:
+# on run 34860816951 the Audit job failed on three platforms, and all nine
+# distinct URLs were github.com links that timed out (>10 s) from the runner.
+# None was broken. A third-party outage is a real defect but it is not the
+# pull request's regression, and letting it gate the merge queue left #233
+# unmergeable. The external surface is still checked — here, on a schedule,
+# where a failure is triaged rather than sitting in front of someone's merge.
+#
+# This schedule is this project's arrangement, not a feature of the tool.
+name: External Link Sweep
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    name: Sweep external links
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Sync dependencies
+        run: uv sync --all-extras
+
+      - name: Check external links
+        run: uv run zenzic check links --strict

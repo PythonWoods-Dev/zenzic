@@ -10,7 +10,7 @@ description: "Configure adapter behavior, locale settings, and engine-specific o
 Zenzic uses an **adapter** to obtain engine-specific knowledge — nav structure, i18n directories,
 and locale patterns — without importing or executing any build framework.
 
-> For the complete `[build_context]` field reference, adapter discovery rules, and ZensicalAdapter nav format, see [Configuration Reference — `[build_context]`](../reference/configuration-reference.md#build-context).
+> For the complete `[build_context]` field reference, adapter discovery rules, and ZensicalAdapter nav format, see [Configuration Reference — `[build_context]`](../reference/configuration-reference.md#build-context). For the specific engine version each adapter is tested against, see the [Tested Compatibility Matrix](../reference/compatibility.md).
 
 ---
 
@@ -25,28 +25,166 @@ default_locale = "en"       # ISO 639-1 code of the default locale
 locales        = ["it"]     # non-default locale directory names (e.g. docs/it/, docs/fr/)
 ```
 
-> **TOML ordering:** `[build_context]` must be the **last** section in `.zenzic.toml`.
+The same section is available under `[tool.zenzic.build_context]` when embedding configuration in `pyproject.toml` instead:
+
+```toml title="pyproject.toml"
+[tool.zenzic.build_context]
+engine = "mkdocs"
+```
 
 ---
 
 ## `--engine` flag (one-off override)
 
-The `--engine` flag on `zenzic check orphans` and `zenzic check all` overrides
-`build_context.engine` for a single run without touching `.zenzic.toml`:
+The `--engine` flag on `zenzic check orphans`, `zenzic check all`, `zenzic clean assets`, and
+`zenzic init` overrides `build_context.engine` for a single run without touching `.zenzic.toml`:
 
 ```bash
 zenzic check orphans --engine zensical
 zenzic check all --engine mkdocs
 ```
 
-If you pass an engine name that has no registered adapter, Zenzic lists the available adapters
-and exits with code 1:
+If you pass `--engine` a name that has no registered adapter, Zenzic lists the available
+adapters and exits with code 1:
 
 ```text
 ERROR: Unknown engine adapter 'hugo'.
-Installed adapters: mkdocs, standalone, zensical
-Install a third-party adapter or choose from the list above.
+Installed adapters: mkdocs, prebuilt, standalone, vsm, zensical
 ```
+
+A near miss also gets a suggestion — `--engine mkdoc` adds `Did you mean mkdocs?`. An unknown
+engine written into `.zenzic.toml` instead is rejected earlier, by config validation, which
+reports the same set as a schema error rather than through this message.
+
+---
+
+## A framework Zenzic has no adapter for (Astro, Docusaurus, Next.js) {#prebuilt-route-manifest}
+
+Zenzic ships adapters for MkDocs and Zensical. For any other generator the default
+`standalone` adapter has no way to know the site's URL convention, so an **absolute** link
+like `/guides/example/` cannot be resolved: `Z101` reports it as absent from the Virtual
+Site Map, and `Z105` reports the absolute path itself. On a site that links by route —
+which is the idiom in Astro, Docusaurus and Next.js — that is the dominant finding, and
+none of it is a broken link.
+
+`prebuilt` closes this without Zenzic learning anything about your generator. It reads
+`.zenzic-vsm.json` from the repository root: a map of source path to published URL.
+
+**Step 1 — build the site**, so the generator states its own routes:
+
+```bash
+npx astro build        # or: npm run build
+```
+
+**Step 2 — write `.zenzic-vsm.json`**. What it must contain is generator-neutral: a map from
+**source path relative to `docs_dir`** to the **URL that source publishes at, written the way
+an author writes it in a link**. That contract does not change between generators. The script
+that produces it does, materially — so pick your generator below rather than adapting the
+other one.
+
+```json
+{
+  "index.mdx":         { "url": "/",                "status": "REACHABLE" },
+  "guides/example.md": { "url": "/guides/example/", "status": "REACHABLE" }
+}
+```
+
+Nothing ships to generate this file. Writing it is the cost of this approach.
+
+=== "Astro / Starlight"
+
+    The build tree *is* the manifest: every `dist/**/index.html` is a published URL, and the
+    source that produced it has the corresponding path under the content directory.
+
+    ```python
+    urls = {"/" if (r := h.parent.relative_to("dist").as_posix()) == "." else f"/{r}/"
+            for h in Path("dist").rglob("index.html")}
+    ```
+
+    Starlight publishes docs at the site root, so source path and URL correspond directly
+    and there is no prefix to handle.
+
+=== "Docusaurus"
+
+    **Do not derive URLs from filenames** — a page carrying `slug:` publishes somewhere its
+    filename does not predict, and a filename-derived script drops it from the manifest
+    silently. Docusaurus emits the pairing itself: every object under `.docusaurus/**/*.json`
+    carrying both `source` and `permalink` is one route, with `slug` already resolved.
+
+    ```python
+    vsm[d["source"].replace("@site/", "")] = {"url": d["permalink"].rstrip("/") + "/",
+                                              "status": "REACHABLE"}
+    ```
+
+    Two conventions must be handled or the manifest is wrong:
+
+    - **`baseUrl`** — permalinks carry it (`/myproject/docs/intro/`) while authors write
+      links without it (`/docs/intro`). Strip the prefix; otherwise every link fails.
+    - **`routeBasePath`** — docs publish under `/docs/`. Set `docs_dir = "."` and exclude
+      `node_modules`, `build` and `.docusaurus`, so Zenzic's own path mapping agrees with the
+      published prefix. Without this the **absolute** links pass and the **relative** ones
+      fail, because relative targets are mapped without the prefix.
+
+**Step 3 — declare the engine and allow the route prefix**:
+
+```toml
+# Astro / Starlight
+docs_dir = "src/content/docs"
+absolute_path_allowlist = ["/"]
+
+[build_context]
+engine = "prebuilt"
+```
+
+```toml
+# Docusaurus — docs_dir is the repository root, so path mapping matches routeBasePath
+docs_dir = "."
+absolute_path_allowlist = ["/"]
+excluded_dirs = ["node_modules", "build", ".docusaurus", "src", "static"]
+
+[build_context]
+engine = "prebuilt"
+```
+
+`absolute_path_allowlist` is what silences `Z105`; without it the absolute paths are still
+reported as a governance finding even once they resolve.
+
+!!! success "Measured on real scaffolded builds of both generators"
+    | Site | `standalone` | `prebuilt` + allowlist |
+    | :--- | ---: | ---: |
+    | Astro Starlight, 2 valid absolute links + 1 broken | 4 errors (3 `Z105` incl. **both valid links**, 1 `Z101`) | **1** — the broken link |
+    | Docusaurus classic, same three links | 8 errors (3 `Z101` incl. both valid, 4 `Z105`) | **1** `Z101` — the broken link (plus one unrelated `Z516` in Docusaurus's own scaffold) |
+
+!!! danger "The Docusaurus recipe holds for a single-locale, unversioned site — and not beyond it"
+    Both conventions were tested, and **both break it**. This replaces an earlier note that
+    expected them to work; the expectation was wrong.
+
+    **i18n breaks it silently, and this is the serious one.** `.docusaurus/` is regenerated
+    per locale build, so after `npm run build` on a two-locale site the metadata describes
+    only the **last locale built**. Measured: **19 of 24 manifest entries claimed a `/fr/`
+    URL**, including pages that publish at `/docs/…` in English, and Zenzic then reported
+    **6 `Z101` on links that are perfectly valid**. The manifest looks complete, which is
+    what makes it dangerous.
+
+    **Versioning inverts the mapping.** After `docusaurus docs:version 1.0`,
+    `versioned_docs/version-1.0/intro.mdx` publishes at `/docs/intro/` while the working
+    `docs/intro.mdx` moves to `/docs/next/intro/`. A source path no longer predicts its URL,
+    and `docs_dir = "."` — the alignment the recipe depends on — now points at the wrong
+    version.
+
+    **And the metadata is an undocumented internal.** The `source`/`permalink` pairs come
+    from `createData` plugin storage, in a directory whose own marker file is named
+    `DONT-EDIT-THIS-FOLDER`, under hash-suffixed filenames. Docusaurus documents
+    [`setGlobalData`/`useGlobalData`](https://docusaurus.io/docs/api/plugin-methods/lifecycle-apis)
+    as a public plugin API; it does not document these files, and nothing obliges them to
+    keep their shape.
+
+    **If your site uses either**, the documented route is a small inline plugin using the
+    [`postBuild`](https://docusaurus.io/docs/api/plugin-methods/lifecycle-apis) lifecycle,
+    which receives `routesPaths` and `outDir` on **each** locale build and can accumulate
+    across them. That uses public API rather than internals — and it is more work than the
+    script above, which is why it is named rather than presented as equivalent. **Zenzic has
+    not verified that approach**, and this page will not claim it works until it has.
 
 ---
 
@@ -64,9 +202,11 @@ Zenzic then uses Auto-Discovery: it inspects the project root for known manifest
 the correct adapter automatically.
 
 !!! info "Auto-Discovery priority order"
-    1. `zensical.toml` → `ZensicalAdapter`
-    3. `mkdocs.yml` → `MkDocsAdapter`
-    4. No manifest found → `StandaloneAdapter`
+    1. `.zenzic-vsm.json` → prebuilt VSM artifact (skips adapter discovery entirely)
+    2. `zensical.toml` → `ZensicalAdapter`
+    3. `mkdocs.yml` / `mkdocs.yaml` with `theme: zensical` → `ZensicalAdapter` (compat)
+    4. `mkdocs.yml` / `mkdocs.yaml` → `MkDocsAdapter`
+    5. No manifest found → `StandaloneAdapter`
 
 ```toml
 # .zenzic.toml — explicit engine declaration required

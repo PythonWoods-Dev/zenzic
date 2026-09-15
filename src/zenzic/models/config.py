@@ -38,6 +38,7 @@ class CustomRuleConfig(BaseModel):
         pattern = "internal\\.corp\\.example\\.com"
         message = "Internal hostname must not appear in public docs."
         severity = "error"
+        link = "https://wiki.example.com/hostname-policy"  # optional
 
     TOML example (SDK v3 Python class)::
 
@@ -61,6 +62,10 @@ class CustomRuleConfig(BaseModel):
     class_name: str | None = Field(
         default=None,
         description="Fully qualified Python class name for a Custom Rule SDK v3 rule.",
+    )
+    link: str | None = Field(
+        default=None,
+        description="Optional rationale URL, shown alongside the message in the finding.",
     )
 
     @field_validator("id", mode="before")
@@ -93,19 +98,20 @@ class CustomRuleConfig(BaseModel):
 class ProjectMetadata(BaseModel):
     """Optional brand-integrity metadata declared in ``[project_metadata]``.
 
-    When ``obsolete_names`` is non-empty, Zenzic activates the Z905
+    When ``[governance] brand_obsolescence`` is non-empty, Zenzic activates the Z601
     BRAND_OBSOLESCENCE rule, which warns on every occurrence of a deprecated
     brand term found in documentation source files.  Lines carrying a
     ``zenzic:ignore`` comment are silently skipped so intentional historical
     references (e.g. in CHANGELOG files or ADR entries) are not flagged.
-    Use ``<!-- zenzic:ignore: Z905 -->`` in ``.md`` files and
-    ``{/* zenzic:ignore: Z905 */}`` in ``.mdx`` files.
+    Use ``<!-- zenzic:ignore: Z601 -->`` in ``.md`` files and
+    ``{/* zenzic:ignore: Z601 */}`` in ``.mdx`` files.  The comment must sit on
+    the **same line** as the flagged term; this rule checks the line it is on.
 
     TOML example::
 
         [project_metadata]
         release_name = "MyRelease"
-        obsolete_names = ["PreviousRelease"]
+        # brand terms live in [governance].brand_obsolescence
         # ADR files contain intentional historical references
         obsolete_names_exclude_patterns = [
             "CHANGELOG*.md",
@@ -115,18 +121,12 @@ class ProjectMetadata(BaseModel):
 
     release_name: str = Field(
         default="",
-        description="Current canonical brand/release name shown in Z905 remediation hints.",
-    )
-    # Deprecated in v0.8: canonical source moved to [governance].brand_obsolescence.
-    # Kept for runtime compatibility while scanner migration is completed.
-    obsolete_names: list[str] = Field(
-        default=[],
-        description="Deprecated legacy field; populated from [governance].brand_obsolescence.",
+        description="Current canonical brand/release name shown in Z601 remediation hints.",
     )
     obsolete_names_exclude_patterns: list[str] = Field(
         default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
         description=(
-            "Glob patterns (relative to docs_dir) for files excluded from Z905. "
+            "Glob patterns (relative to docs_dir) for files excluded from Z601. "
             "CHANGELOG*.md is excluded by default to allow historical prose."
         ),
     )
@@ -173,6 +173,100 @@ class BuildContext(BaseModel):
         default=False,
         description="When True, adapters force flat URL structure (e.g. use_directory_urls=False) for offline builds.",
     )
+
+
+class DoctorConfig(BaseModel):
+    """Repository-health conventions read by ``zenzic doctor`` and ``zenzic adr new``.
+
+    These checks depend on choices that are not universal — where a project keeps
+    its architectural decision records, how it cites them in prose and code, where
+    its redirects file lives. Hardcoding Zenzic's own layout would make the
+    commands useless to anyone else, so the layout is configuration and the
+    defaults are simply Zenzic's own values.
+
+    **Public repository content only.** Every default resolves inside the
+    published tree. `zenzic doctor` deliberately cannot inspect `.claude/` or
+    `.human/`: both are gitignored, so neither exists in a clone or in CI, and a
+    check that silently passed for everyone but one developer would be worse than
+    no check. Paths reaching into either are rejected rather than merely
+    defaulted away from, so the boundary cannot be opted out of by configuration.
+    """
+
+    adr_vault_path: Path = Field(
+        # Zenzic's own public vault. Never `.claude/` — see the class docstring:
+        # that directory is gitignored and absent from every clone, so pointing a
+        # shipped check at it would make the check structurally unrunnable.
+        default=Path("docs/developers/explanation/adr-vault"),
+        description=(
+            "Directory holding architectural decision records, relative to the "
+            "repository root. Must be inside the published documentation tree."
+        ),
+    )
+    adr_citation_pattern: str = Field(
+        default=r"ADR-\d{3}",
+        description=(
+            "Regular expression matching an ADR citation in source or prose. "
+            "Compiled once at config load; an invalid pattern is a config error."
+        ),
+    )
+    redirects_path: Path = Field(
+        default=Path("docs/_redirects"),
+        description=(
+            "Redirects file to structurally validate, relative to the repository "
+            "root. Set to a non-existent path to skip the redirect check."
+        ),
+    )
+    redirects_expected_blanks: int = Field(
+        default=8,
+        ge=0,
+        description=(
+            "Expected blank-line count in the redirects file. Blank lines belong "
+            "only to its comment header, so an unexplained change is a signal "
+            "that something reshaped the file. Set to 0 to disable the count."
+        ),
+    )
+
+    @field_validator("adr_vault_path", "redirects_path")
+    @classmethod
+    def _must_be_public_repo_content(cls, value: Path) -> Path:
+        """Refuse absolute paths, traversal, and anything reaching a gitignored plane.
+
+        ``doctor`` walks these paths with ``rglob`` directly rather than through
+        ``discovery.walk_files``, so it does not inherit the repository-root boundary
+        check every corpus read gets. This validator *is* that boundary. It already
+        refused an absolute path; ``..`` was the sibling case it did not, and
+        ``adr_vault_path = "../outside"`` therefore loaded cleanly and had doctor read
+        a decision-record vault outside the repository entirely.
+        """
+        if value.is_absolute():
+            raise ValueError(
+                f"{value} is absolute; doctor paths are relative to the repository root."
+            )
+        parts_ordered = Path(value).parts
+        if ".." in parts_ordered:
+            raise ValueError(
+                f"{value} traverses outside the repository root; doctor paths must stay "
+                "inside the published tree."
+            )
+        parts = set(parts_ordered)
+        for private in (".claude", ".human"):
+            if private in parts:
+                raise ValueError(
+                    f"{value} points inside '{private}', which is gitignored and absent "
+                    "from every clone. Doctor checks operate on public repository "
+                    "content only."
+                )
+        return value
+
+    @field_validator("adr_citation_pattern")
+    @classmethod
+    def _must_compile(cls, value: str) -> str:
+        """Reject an unusable pattern at load time, not midway through a scan."""
+        try:
+            re.compile(value)
+        except Exception as exc:  # RE2 raises its own error type
+            raise ValueError(f"adr_citation_pattern is not a valid regex: {exc}") from exc
+        return value
 
 
 class GovernanceConfig(BaseModel):
@@ -350,6 +444,123 @@ class PoliciesConfig(BaseModel):
             "Strictly opt-in."
         ),
     )
+    enable_circular_link_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports every page participating in a link cycle "
+            "(Z106 CIRCULAR_LINK). Strictly opt-in, and off by default because a "
+            "cycle is documentation's ordinary shape rather than a defect: an "
+            "index links to its records and each record links back, and two "
+            "articles cross-reference each other. Enable it only for a corpus "
+            "that is meant to be an acyclic hierarchy, such as an ordered "
+            "tutorial sequence."
+        ),
+    )
+    # ─── Editorial-policy opt-ins ────────────────────────────────────────────
+    #
+    # A correctness check identifies something wrong: a link that does not
+    # resolve, a snippet that does not parse, a credential in plain text. A
+    # policy check identifies something that differs from a preference: a word
+    # count, a house style, a site shape. The six below are policy checks, and
+    # they are off by default for the same reason Z106 is -- a threshold tuned
+    # on one project's prose fires on everyone else's.
+    #
+    # Z514 and Z515 were considered and deliberately left ON. Z514 (generic alt
+    # text) is accessibility, not style: alt text reading "image" is unusable
+    # with a screen reader, the same class as Z516. Z515 (bare URL) was decided
+    # by measuring renderers rather than asserting: MkDocs/Material, four
+    # python-markdown configurations and markdown-it all leave a bare URL as
+    # inert text, matching CommonMark, where only <https://...> is an autolink.
+    # GitHub linkifies it; our own generator does not. It identifies something
+    # genuinely broken.
+    enable_sentence_length_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports sentences longer than max_sentence_length "
+            "(Z511 EXCESSIVE_SENTENCE_LENGTH). Off by default: the threshold is a "
+            "readability preference, and a 52-word sentence is long rather than wrong."
+        ),
+    )
+    enable_short_content_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports pages with fewer than placeholder_max_words words "
+            "(Z502 SHORT_CONTENT). Off by default: a stub, a redirect page and a "
+            "changelog entry are all legitimately short."
+        ),
+    )
+    enable_heading_punctuation_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports headings ending in '.', ':' or ';' "
+            "(Z517 HEADING_PUNCTUATION). Off by default: trailing punctuation in a "
+            "heading is a house style, and it renders correctly either way."
+        ),
+    )
+    enable_duplicate_heading_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports two headings in one document that resolve to the same "
+            "text (Z513 DUPLICATE_HEADING). Off by default: repeating 'Configuration' "
+            "under several sections is legal Markdown and ordinary structure. Note "
+            "that duplicate headings still produce colliding anchor slugs; Z102 "
+            "reports a link to an anchor that does not resolve, and is unaffected."
+        ),
+    )
+    enable_dead_end_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports pages with no outgoing links (Z411 DEAD_END_NODE). "
+            "Off by default: a licence page, a changelog and a glossary are dead ends "
+            "by design. Enable it for a corpus meant to be a navigable graph."
+        ),
+    )
+    enable_directory_index_check: bool = Field(
+        default=False,
+        description=(
+            "When True, reports directories holding Markdown files but no index page "
+            "(Z401 MISSING_DIRECTORY_INDEX). Off by default: whether a directory URL "
+            "must resolve is a site-structure choice, not every generator uses "
+            "directory indexes, and some serve a listing instead of a 404."
+        ),
+    )
+
+    required_table_columns: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a heading/context pattern (or '*' for all tables) to a list "
+            "of required column header names. Missing columns emit Z521 REQUIRED_TABLE_COLUMN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"*": ["Status", "Description"], "^API Reference$": ["Method", "Endpoint"]}'
+        ),
+    )
+    table_cell_enums: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping column header names to allowed string enum values. "
+            "Cells with values outside this whitelist emit Z522 TABLE_CELL_ENUM. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"Status": ["draft", "review", "stable"]}'
+        ),
+    )
+    required_heading_order: list[str] = Field(
+        default_factory=list,
+        description=(
+            "List of RE2 regex heading patterns that must appear in strictly ascending sequential order. "
+            "Out-of-order headings emit Z523 HEADING_ORDER_VIOLATION. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: ["^Overview$", "^Usage$", "^API Reference$"]'
+        ),
+    )
+    traceability_targets: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Dictionary mapping a target documentation glob pattern to a list of source documentation glob patterns. "
+            "Target documents not linked by at least one matching source document emit Z412 TRACEABILITY_BROKEN. "
+            "Policy is inactive when empty (opt-in). "
+            'Example: {"docs/specs/**": ["docs/architecture/**"]}'
+        ),
+    )
 
     @field_validator("required_url_schemes")
     @classmethod
@@ -371,7 +582,12 @@ class PoliciesConfig(BaseModel):
                 ) from err
         return v
 
-    @field_validator("forbidden_content_patterns", "required_heading_patterns", "weasel_words")
+    @field_validator(
+        "forbidden_content_patterns",
+        "required_heading_patterns",
+        "required_heading_order",
+        "weasel_words",
+    )
     @classmethod
     def _validate_re2_list_patterns(cls, v: list[str]) -> list[str]:
         for pattern in v:
@@ -399,6 +615,30 @@ class NetworkConfig(BaseModel):
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
 # in ``.zenzic.toml`` are additive — they cannot remove these guardrails.
+#
+# MEMBERSHIP CRITERION.  Until 2026-09-15 this list carried a description of
+# what it *does* and no test for what belongs in it, which is how ``dist``
+# came to be present while ``site`` — MkDocs' own default output directory —
+# was absent.  An entry qualifies only if it satisfies **both** axes, the same
+# two that :data:`SECURITY_EXEMPT_DIRS` below has always applied to its own
+# subtractions:
+#
+#   (1) a conventional name owned by a specific tool or platform, not one a
+#       project would organically choose for its own content; and
+#   (2) machine-generated contents, not something a person hand-types and
+#       ships.
+#
+# Failing either axis keeps a directory out, however obviously "generated" it
+# looks.  ``site`` fails axis (1) and was rejected on measurement, not taste:
+# excluding the bare name pruned a legitimate ``docs/site/`` content directory
+# and turned a working link into a `Z101`, with no configuration able to
+# recover it because ``should_exclude_dir`` returns at L1 before
+# ``included_dirs`` is consulted.  A generator's output directory is instead
+# reported by its adapter (``BaseAdapter.get_output_dirs``), which knows the
+# declared path rather than guessing a name.
+#
+# The current twenty classify as: **18 generated/derived, 2 VCS metadata,
+# 0 unclassified.**  Adding this criterion changed no membership.
 SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
     {
         # VCS and CI/CD
@@ -433,6 +673,48 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
         "out",
         ".vscode-test",
     }
+)
+
+#: The subset of :data:`SYSTEM_EXCLUDED_DIRS` genuinely safe to also exempt
+#: from the credential/forbidden-term security tier (``security_view()`` in
+#: ``exclusion.py``). An entry earns the exemption only if it satisfies
+#: *both* axes: (1) a conventional name owned by a specific tool or
+#: platform, not one a project would organically choose for its own
+#: content, and (2) machine-generated/opaque contents that a person never
+#: hand-types and ships -- "fixed in code and not editable by the project
+#: under scan," in ``security_view()``'s own words. Failing either axis
+#: keeps a directory in security scope even though it stays excluded from
+#: the ordinary quality scan.
+#:
+#: ``out``/``tmp``/``temp``/``.temp`` fail axis (1): those are ordinary
+#: directory names any project can create and write real content into (a
+#: docs section literally named ``out/``, a scratch note someone forgot to
+#: delete), and a credential pasted there was invisible to the scanner with
+#: no way for a project to reconfigure it back into scope.
+#:
+#: ``.github`` passes axis (1) -- the name is GitHub's own reserved
+#: convention, not a project's choice, same category as ``build``/``dist``/
+#: ``mutants``/``.vscode-test`` below -- but fails axis (2): CI/CD workflow
+#: YAML is one of the best-documented real-world vectors for an
+#: accidentally committed credential (a hardcoded token in a debug ``echo``
+#: or a copy-pasted curl example), and unlike the fully-gitignored internal
+#: workspace directories this project keeps outside version control (see
+#: ``.gitignore``), ``.github``'s contents are ordinarily *committed*: a
+#: real public repo ships its workflows, issue templates, and
+#: ``SECURITY.md``/``CONTRIBUTING.md`` right alongside its docs. Confirmed
+#: live (see ``test_security_exclusion_immunity.py``'s
+#: ``TestOrdinaryDirectoryNamesAreNotSecurityExempt``): a credential in
+#: ``docs/.github/ISSUE_TEMPLATE/`` was invisible to both quality and
+#: security scanning before this subtraction.
+#:
+#: ``build``/``dist``/``mutants``/``.vscode-test`` pass both axes:
+#: convention-owned by a specific build/test tool (wheel/JS-bundle output,
+#: mutmut's own working directory, the vscode-test runner's downloaded VS
+#: Code binary cache) *and* machine-generated -- no plausible path puts
+#: hand-typed, shipped content there the way a workflow file is hand-typed
+#: and shipped under ``.github``.
+SECURITY_EXEMPT_DIRS: Final[frozenset[str]] = SYSTEM_EXCLUDED_DIRS - frozenset(
+    {"out", "tmp", "temp", ".temp", ".github"}
 )
 
 # ── System File Guardrails (L1a) ─────────────────────────────────────────────
@@ -617,17 +899,6 @@ class ZenzicConfig(BaseModel):
             "being in .gitignore — e.g. 'api.generated.md'."
         ),
     )
-    validate_same_page_anchors: bool = Field(
-        default=True,
-        description=(
-            "When True, same-page anchor links (#section) are validated against the "
-            "headings present in the source file. A link like [text](#missing) is "
-            "reported as broken when no heading in the file produces that slug. "
-            "Disabled by default because single-page anchor IDs can also be generated "
-            "by HTML attributes, custom plugins, or build-time macros that are invisible "
-            "at source-scan time."
-        ),
-    )
     excluded_external_urls: list[str] = Field(
         default=[],
         description=(
@@ -635,7 +906,7 @@ class ZenzicConfig(BaseModel):
             "A URL is skipped when it starts with any entry in this list. "
             "Use this for URLs that are valid but not yet publicly reachable at lint time "
             "(e.g. a GitHub repo not yet created, an internal service behind a firewall). "
-            'Example: ["https://github.com/PythonWoods/zenzic"]'
+            'Example: ["https://github.com/PythonWoods-Dev/zenzic"]'
         ),
     )
     absolute_path_allowlist: list[str] = Field(
@@ -662,6 +933,14 @@ class ZenzicConfig(BaseModel):
             "Minimum quality score (0–100). If the score falls below this value, "
             "zenzic score exits with code 1. 0 means no threshold (observational mode). "
             "The --fail-under CLI flag overrides this value when explicitly provided."
+        ),
+    )
+    baseline_stale_days: int | None = Field(
+        default=None,
+        description=(
+            "Age in days after which the saved score snapshot (.zenzic-score.json) is "
+            "considered stale in `zenzic score --json`'s baseline_status field. "
+            "None (default) falls back to Core's DEFAULT_BASELINE_STALE_DAYS (7)."
         ),
     )
     strict: bool = Field(
@@ -694,11 +973,18 @@ class ZenzicConfig(BaseModel):
         default_factory=ProjectMetadata,
         description=("Optional metadata used by remediation messaging and legacy compatibility."),
     )
+    doctor: DoctorConfig = Field(
+        default_factory=DoctorConfig,
+        description=(
+            "Repository-health conventions for 'zenzic doctor' and 'zenzic adr new'. "
+            "Operates on public repository content only."
+        ),
+    )
     governance: GovernanceConfig = Field(
         default_factory=GovernanceConfig,
         description=(
-            "Governance toggles for ADR-012 checks. Prefer this section over "
-            "legacy [project_metadata].obsolete_names."
+            "Governance toggles for ADR-012 checks. brand_obsolescence lives here; "
+            "the legacy [project_metadata].obsolete_names was removed in v0.31.0."
         ),
     )
     policies: PoliciesConfig = Field(
@@ -804,32 +1090,79 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
+        # Sections promoted into sub-models below. `i18n` was in this set until
+        # v0.31.0 and is deliberately not any more: there is no `i18n` field on
+        # this model and no code that reads one, so listing it here exempted a
+        # section that does nothing from the very warning that would have said so.
         _HANDLED_SECTIONS = frozenset(
             {
                 "build_context",
                 "custom_rules",
                 "project_metadata",
                 "governance",
-                "i18n",
                 "network",
                 "policies",
             }
         )
+        #: Each promoted section and the model that defines its legal keys. Used to
+        #: warn about a key *inside* a section -- the root-level loop below cannot
+        #: see those, which is how a misspelling in `[governance]` loaded cleanly
+        #: and did nothing for two minor versions.
+        _SECTION_MODELS: dict[str, type[BaseModel]] = {
+            "build_context": BuildContext,
+            "project_metadata": ProjectMetadata,
+            "governance": GovernanceConfig,
+            "policies": PoliciesConfig,
+            "network": NetworkConfig,
+        }
+
+        def _warn_unknown_section_keys(section: str, table: dict[str, Any]) -> None:
+            """Report keys in ``[section]`` that its model does not define."""
+            model = _SECTION_MODELS.get(section)
+            if model is None:
+                return
+            for key in table:
+                if key not in model.model_fields:
+                    _cfg_log.warning(
+                        ".zenzic.toml: unknown key '%s' in section \\[%s] will be "
+                        "ignored. Check the spelling against the configuration "
+                        "reference -- a key this section does not define is discarded, "
+                        "so the setting has no effect.",
+                        _md_escape(str(key)),
+                        _md_escape(section),
+                    )
+
+        from rich.markup import escape as _md_escape
+
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
                     _cfg_log.warning(
-                        ".zenzic.toml: unknown section [%s] will be ignored — "
+                        ".zenzic.toml: unknown section \\[%s] will be ignored — "
                         "all keys nested inside it are silently discarded. "
                         "Root-level settings (e.g. placeholder_patterns, docs_dir) "
-                        "must appear BEFORE any [section] header.",
-                        key,
+                        "must appear BEFORE any \\[section] header.",
+                        _md_escape(str(key)),
                     )
                 else:
                     _cfg_log.warning(
                         ".zenzic.toml: unknown key '%s' will be ignored.",
-                        key,
+                        _md_escape(str(key)),
                     )
+        for _section in _SECTION_MODELS:
+            _table = data.get(_section)
+            if isinstance(_table, dict):
+                _warn_unknown_section_keys(_section, _table)
+        if isinstance(data.get("custom_rules"), list):
+            for _rule in data["custom_rules"]:
+                if isinstance(_rule, dict):
+                    for _key in _rule:
+                        if _key not in CustomRuleConfig.model_fields:
+                            _cfg_log.warning(
+                                ".zenzic.toml: unknown key '%s' in a "
+                                "\\[[custom_rules]] entry will be ignored.",
+                                _md_escape(str(_key)),
+                            )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
         if "build_context" in data and isinstance(data["build_context"], dict):
             filtered_data["build_context"] = BuildContext(
@@ -848,7 +1181,7 @@ class ZenzicConfig(BaseModel):
                 **{
                     k: v
                     for k, v in data["project_metadata"].items()
-                    if k in ProjectMetadata.model_fields and k != "obsolete_names"
+                    if k in ProjectMetadata.model_fields
                 }
             )
         if "governance" in data and isinstance(data["governance"], dict):
@@ -868,29 +1201,15 @@ class ZenzicConfig(BaseModel):
                 **{k: v for k, v in data["network"].items() if k in NetworkConfig.model_fields}
             )
 
-        # Legacy migration path (v0.8): [project_metadata].obsolete_names ->
-        # [governance].brand_obsolescence.
-        legacy_obsolete: list[str] = []
-        if "project_metadata" in data and isinstance(data["project_metadata"], dict):
-            raw_legacy = data["project_metadata"].get("obsolete_names", [])
-            if isinstance(raw_legacy, list):
-                legacy_obsolete = [name for name in raw_legacy if isinstance(name, str)]
-        if legacy_obsolete:
-            _cfg_log.warning(
-                "Deprecated in v0.8: The '[project_metadata].obsolete_names' field is "
-                "deprecated. Please move it to '[governance].brand_obsolescence'."
-            )
-            governance_cfg = filtered_data.get("governance", GovernanceConfig())
-            if not governance_cfg.brand_obsolescence:
-                governance_cfg.brand_obsolescence = legacy_obsolete
-            filtered_data["governance"] = governance_cfg
-
-        # Runtime compatibility bridge for current scanner wiring.
-        governance_cfg = filtered_data.get("governance")
-        if governance_cfg is not None and governance_cfg.brand_obsolescence:
-            metadata_cfg = filtered_data.get("project_metadata", ProjectMetadata())
-            metadata_cfg.obsolete_names = list(governance_cfg.brand_obsolescence)
-            filtered_data["project_metadata"] = metadata_cfg
+        # `[project_metadata].obsolete_names` was removed in v0.31.0, and with it
+        # both halves of its plumbing: the v0.8 migration that copied it into
+        # `[governance].brand_obsolescence`, and the compatibility bridge that
+        # copied the result back again so the scanner could read the legacy name.
+        # That dual read spread one decision across four surfaces -- model,
+        # loader, rule constructor and tests -- which is the cost a deprecated
+        # alias imposes on the project rather than on its users, and the reason
+        # a pre-1.0 alias is removed instead of carried. `brand_obsolescence` is
+        # now the only source and the scanner reads it directly.
         return cls(**filtered_data)
 
     @staticmethod
@@ -903,7 +1222,6 @@ class ZenzicConfig(BaseModel):
                 "fail_under",
                 "exit_zero",
                 "respect_vcs_ignore",
-                "validate_same_page_anchors",
                 "excluded_external_urls",
                 "forbidden_patterns",
                 "excluded_dirs",
@@ -946,11 +1264,13 @@ class ZenzicConfig(BaseModel):
                     )
 
     @classmethod
-    def load(cls, repo_root: Path) -> tuple[ZenzicConfig, bool]:
+    def load(cls, repo_root: Path, *, config_file: Path | None = None) -> tuple[ZenzicConfig, bool]:
         """Load configuration following the Agnostic Citizen priority chain.
 
         Priority order (first match wins):
 
+        0. *config_file*, if given — an explicit override path, bypassing
+           discovery entirely. Used by ``--config PATH`` on the CLI.
         1. ``.zenzic.toml`` at *repo_root* — the authoritative sovereign config.
         2. ``[tool.zenzic]`` table in ``pyproject.toml`` at *repo_root*.
         3. Built-in defaults (``loaded_from_file`` returned as ``False``).
@@ -960,22 +1280,71 @@ class ZenzicConfig(BaseModel):
         Rich-formatted message — silent fallback would hide user mistakes.
 
         Args:
-            repo_root: Repository root that may contain config files.
+            repo_root: Repository root that may contain config files. Also
+                used as the base for ``.zenzic.local.toml`` overlay lookup
+                and any relative paths inside the loaded config, even when
+                *config_file* is given.
+            config_file: Optional explicit path to a TOML file to load
+                instead of the normal ``.zenzic.toml``/``pyproject.toml``
+                discovery. Does not have to live under *repo_root*. Must
+                exist and parse as valid TOML — a missing or malformed
+                override raises rather than silently falling through to
+                discovery, matching the existing "no silent fallback"
+                contract for the two discovered paths.
 
         Returns:
             A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
-            ``True`` when either ``.zenzic.toml`` or ``pyproject.toml`` was
-            found and parsed, ``False`` when built-in defaults are in use.
+            ``True`` when *config_file*, ``.zenzic.toml``, or
+            ``pyproject.toml`` was found and parsed, ``False`` when built-in
+            defaults are in use.
 
         Raises:
             :class:`~zenzic.core.exceptions.ZenzicConfigError`: When a
-                config file is present but cannot be parsed.
+                config file is present but cannot be parsed, or when an
+                explicit *config_file* override does not exist.
         """
         from pydantic import ValidationError
 
         from zenzic.core.exceptions import (
             ZenzicConfigError,  # deferred to avoid circular import
         )
+
+        # ── Priority 0: explicit config_file override ──────────────────────────
+        if config_file is not None:
+            if not config_file.is_file():
+                raise ZenzicConfigError(
+                    f"[bold red]{config_file}[/] does not exist.\n\n"
+                    "The --config path must point to an existing TOML file.",
+                    context={"config_path": str(config_file), "file": str(config_file)},
+                )
+            try:
+                with config_file.open("rb") as f:
+                    data = tomllib.load(f)
+            except tomllib.TOMLDecodeError as exc:
+                raise ZenzicConfigError(
+                    f"[bold red]{config_file}[/] contains a syntax error and cannot be loaded.\n"
+                    f"  [red]{exc}[/]\n\n"
+                    "Fix the TOML syntax error and re-run Zenzic.",
+                    context={"config_path": str(config_file), "file": str(config_file)},
+                ) from exc
+            cls._validate_no_swallowed_root_keys(data)
+            try:
+                config = cls._build_from_data(data)
+                config.origin_file = config_file
+                cls._apply_local_toml(config, repo_root)
+            except ValidationError as exc:
+                errors_str = "\n".join(
+                    f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                    for err in exc.errors()
+                )
+                raise ZenzicConfigError(
+                    f"Configuration validation failed in [bold red]{config_file}[/]:\n{errors_str}",
+                    context={"errors": exc.errors(), "file": str(config_file)},
+                ) from exc
+            from zenzic.core.suppressions import GlobalUsageTracker
+
+            config._global_tracker = GlobalUsageTracker(config)
+            return config, True
 
         # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
         zenzic_toml = repo_root / ".zenzic.toml"
@@ -1270,6 +1639,7 @@ def load_config_with_diagnostics(
     """
     from pydantic import ValidationError
 
+    from zenzic.core.codes import code_severity
     from zenzic.core.reporter import Finding
 
     target_file = config_file if config_file else (repo_root / ".zenzic.toml")
@@ -1359,7 +1729,7 @@ def load_config_with_diagnostics(
             rel_path=err_file_str,
             line_no=line_no,
             code="Z110",
-            severity="error",
+            severity=code_severity("Z110"),
             message=f"TOML syntax error in configuration file: {exc}",
             source_line=source_line,
         )
@@ -1387,7 +1757,7 @@ def load_config_with_diagnostics(
                     rel_path=rel_file_str,
                     line_no=line_no,
                     code="Z111",
-                    severity="error",
+                    severity=code_severity("Z111"),
                     message=msg,
                     match_text=last_key,
                     source_line=source_line,
@@ -1409,7 +1779,7 @@ def load_config_with_diagnostics(
             rel_path=err_rel_path,
             line_no=1,
             code="Z111",
-            severity="error",
+            severity=code_severity("Z111"),
             message=f"Configuration error: {exc}",
         )
         return None, [finding]

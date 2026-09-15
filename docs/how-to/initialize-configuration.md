@@ -17,8 +17,11 @@ project root (e.g. `mkdocs.yml`) and pre-sets `engine` in `[build_context]`:
 ```bash
 zenzic init             # creates .zenzic.toml with detected engine
 zenzic init --pyproject # embeds [tool.zenzic] in pyproject.toml instead
-zenzic init --force     # overwrite an existing file
 ```
+
+`--force` is not supported for configuration initialization — re-running `zenzic init` against an
+existing file exits with an error. Edit `.zenzic.toml` (or `.zenzic.local.toml`) directly to modify
+existing settings.
 
 When `pyproject.toml` exists, `zenzic init` asks whether to embed the configuration there
 as a `[tool.zenzic]` table.  Pass `--pyproject` to skip the interactive prompt.
@@ -34,7 +37,7 @@ technical reference pages, or to add team-specific placeholder patterns — crea
 # Everything is optional. Absent fields use their defaults
 
 # docs_dir = "docs"
-# excluded_dirs = ["includes", "assets", "stylesheets", "overrides"]
+# excluded_dirs = ["includes", "stylesheets", "overrides"]
 # excluded_assets = []
 # snippet_min_lines = 1
 # placeholder_max_words = 50

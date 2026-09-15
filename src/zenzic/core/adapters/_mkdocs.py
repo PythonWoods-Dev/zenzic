@@ -57,6 +57,40 @@ def _iter_path_like_values(value: Any) -> list[str]:
     return out
 
 
+def _collect_nav_includes(node: Any, out: list[str]) -> None:
+    """Collect ``!include`` targets from a nav tree, at any depth.
+
+    The plugin's own documented spelling puts the directive in the *value* of a
+    titled entry (``- Sub: '!include ./sub/mkdocs.yml'``). The previous version
+    read bare string items and dicts keyed on ``!include``, and never looked at
+    a value, so the canonical form matched nothing and the sub-project's
+    ``docs_dir`` was never discovered — which is a security reach gap, because
+    these roots are what ``iter_security_scan_sources`` walks.
+
+    Nav is a tree, so this recurses: an include can sit inside a section, and a
+    matcher that only reads the top level would be the same defect one level
+    down.
+    """
+    if isinstance(node, str):
+        if node.startswith("!include"):
+            parts = node.split(maxsplit=1)
+            if len(parts) == 2 and parts[1].strip():
+                out.append(parts[1].strip())
+        return
+    if isinstance(node, list):
+        for item in node:
+            _collect_nav_includes(item, out)
+        return
+    if isinstance(node, dict):
+        for key, value in node.items():
+            # A dict keyed on the directive carries a bare path as its value;
+            # every other key is a section title whose value may itself be one.
+            if key == "!include" and isinstance(value, str) and value.strip():
+                out.append(value.strip())
+            else:
+                _collect_nav_includes(value, out)
+
+
 def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
     """Extract include-config paths from monorepo-style MkDocs plugins."""
     includes: list[str] = []
@@ -68,18 +102,7 @@ def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
                 continue
             includes.extend(_iter_path_like_values(plugin_cfg[key]))
 
-    nav = doc_config.get("nav")
-    if isinstance(nav, list):
-        for item in nav:
-            if isinstance(item, str) and item.startswith("!include"):
-                parts = item.split(maxsplit=1)
-                if len(parts) == 2 and parts[1].strip():
-                    includes.append(parts[1].strip())
-            elif isinstance(item, dict):
-                include_val = item.get("!include")
-                if isinstance(include_val, str) and include_val.strip():
-                    includes.append(include_val.strip())
-
+    _collect_nav_includes(doc_config.get("nav"), includes)
     return includes
 
 
@@ -188,7 +211,7 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
                 (
                     rel,
                     f"{field_key} asset not found on disk: '{rel}' "
-                    f"(declared as {config_key}: '{value}' in mkdocs.yml) [Z404]",
+                    f"(declared as {config_key}: '{value}' in mkdocs.yml)",
                 )
             )
 
@@ -599,6 +622,28 @@ class MkDocsAdapter(BaseAdapter):
         if "awesome-pages" in plugin_names or "mkdocs-awesome-pages-plugin" in plugin_names:
             names.add(".pages")
         return frozenset(names)
+
+    def get_output_dirs(self) -> frozenset[str]:
+        """The directory MkDocs builds into, from ``site_dir`` (default ``site``).
+
+        Read from the same parsed config the adapter already uses for
+        ``docs_dir``. The value comes out of a file the *scanned project*
+        writes, so it is resolved against the repository root and dropped
+        unless it stays inside it -- an absolute path or a ``../`` escape
+        declares nothing about this repository and must not prune a directory
+        outside it. Mirrors the bound applied in ``discovery.walk_files``.
+        """
+        if self._repo_root is None:
+            return frozenset()
+        raw = self._doc_config.get("site_dir")
+        site_dir = str(raw).strip() if raw is not None else "site"
+        if not site_dir:
+            return frozenset()
+        repo_root = self._repo_root.resolve(strict=False)
+        candidate = (repo_root / site_dir).resolve(strict=False)
+        if candidate == repo_root or not candidate.is_relative_to(repo_root):
+            return frozenset()
+        return frozenset({candidate.relative_to(repo_root).as_posix()})
 
     @property
     def use_directory_urls(self) -> bool:

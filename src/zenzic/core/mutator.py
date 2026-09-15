@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import copy
+import os
+from pathlib import Path
 from typing import Protocol
 
 from zenzic.core import regex
-from zenzic.core.ast import CodeSpanNode, LinkNode, Node, TextNode
+from zenzic.core.ast import CodeSpanNode, FenceTracker, LinkNode, Node, TextNode
 
 
 _FENCE_OPEN_RE = regex.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
@@ -71,33 +73,18 @@ class UntaggedCodeBlockMutation:
             lines = text.splitlines(keepends=True)
             new_lines = []
             mutated = False
-            inside = False
-            open_char = ""
-            open_count = 0
+            _fence = FenceTracker()
 
             for line in lines:
                 line_clean = line.rstrip("\r\n")
-                m = _FENCE_OPEN_RE.match(line_clean)
-                if not inside:
-                    if m:
-                        fence = m.group("fence")
-                        info = m.group("info").strip()
-                        has_tag = bool(info)
-                        inside = True
-                        open_char = fence[0]
-                        open_count = len(fence)
-                        if not has_tag:
-                            rest = line[len(fence) :].lstrip(" \t")
-                            line = f"{fence}text{rest}"
-                            mutated = True
-                else:
-                    if m:
-                        fence = m.group("fence")
-                        info = m.group("info").strip()
-                        if fence[0] == open_char and len(fence) >= open_count and not info:
-                            inside = False
-                            open_char = ""
-                            open_count = 0
+                opened = _fence.opens(line_clean)
+                _fence.feed(line_clean)
+                if opened is not None:
+                    fence, raw_info = opened
+                    if not raw_info.strip():
+                        rest = line[len(fence) :].lstrip(" \t")
+                        line = f"{fence}text{rest}"
+                        mutated = True
 
                 new_lines.append(line)
 
@@ -371,6 +358,102 @@ class MalformedListMutation:
                 return True
 
         mutated = False
+        for child in node.children:
+            if self.apply(child):
+                mutated = True
+
+        return mutated
+
+
+class RenameLinkMutation:
+    """Rewrites relative-link ``LinkNode.url`` hrefs that resolve (via the
+    existing :func:`zenzic.core.resolver.resolve_href_target`) to a renamed
+    file's OLD absolute path, replacing them with a correct relative href to
+    its NEW absolute path.
+
+    Deliberately narrow and deterministic -- no new *resolution* logic:
+    ``resolve_href_target`` (unchanged) still decides what a given href
+    currently points at. This class only computes the mechanical relative
+    path to the already-known new location and only for hrefs whose original
+    style it can safely reconstruct.
+
+    A leading ``/`` (docs-root-relative) or ``@site/`` (alias) href is left
+    untouched -- reconstructing those correctly would require re-deriving
+    which alias style the author intended, which is a judgment call this
+    class does not make.  Skipping is the fail-safe choice.
+    """
+
+    def __init__(
+        self,
+        source_file: Path,
+        docs_root_str: str,
+        repo_root_str: str,
+        old_abs: str,
+        new_abs: str,
+        match_case_insensitively: bool = False,
+    ) -> None:
+        self.source_file = source_file
+        self.docs_root_str = docs_root_str
+        self.repo_root_str = repo_root_str
+        self.old_abs = os.path.normpath(old_abs)
+        self.new_abs = new_abs
+        # Rename edge case (6): an href that names the renamed file up to
+        # letter case only. The caller decides whether that identity is safe
+        # -- it is when no other route differs from the renamed file's only
+        # by case -- so this class never guesses on its own; default is the
+        # exact comparison it always made.
+        self.match_case_insensitively = match_case_insensitively
+        self._old_abs_folded = self.old_abs.casefold()
+        # An extensionless href resolves to a suffix-less string, so comparing
+        # it against `old_abs` -- a real file path, always suffixed -- could
+        # never match, and renaming a page silently left every such link
+        # pointing at the old address with no finding.
+        self._old_abs_stem = os.path.splitext(self.old_abs)[0]
+        self._old_abs_stem_folded = self._old_abs_stem.casefold()
+        self.matched = False
+
+    def apply(self, node: Node) -> bool:
+        from zenzic.core.resolver import resolve_href_target
+
+        mutated = False
+        if isinstance(node, LinkNode) and node.url:
+            from urllib.parse import unquote, urlsplit
+
+            parsed = urlsplit(node.url)
+            path_part = unquote(parsed.path.replace("\\", "/"))
+            if path_part and not path_part.startswith(("/", "@site/")):
+                from zenzic.core.resolver import href_resolution_base, is_emitted_verbatim
+
+                _verbatim = is_emitted_verbatim(path_part)
+                resolved = resolve_href_target(
+                    self.source_file, path_part, self.docs_root_str, self.repo_root_str
+                )
+                _hit = resolved == self.old_abs or (
+                    self.match_case_insensitively and resolved.casefold() == self._old_abs_folded
+                )
+                if not _hit and _verbatim:
+                    _hit = resolved == self._old_abs_stem or (
+                        self.match_case_insensitively
+                        and resolved.casefold() == self._old_abs_stem_folded
+                    )
+                if _hit:
+                    # The replacement keeps the author's spelling. A suffixed
+                    # path written in place of an extensionless one would be the
+                    # right file and the wrong link: the generator rewrites the
+                    # first and emits the second verbatim, so they resolve
+                    # against different bases.
+                    _base = href_resolution_base(
+                        self.source_file, path_part, use_directory_urls=True
+                    )
+                    _target = os.path.splitext(self.new_abs)[0] if _verbatim else self.new_abs
+                    new_rel = os.path.relpath(_target, _base)
+                    new_href = Path(new_rel).as_posix()
+                    if parsed.fragment:
+                        new_href = f"{new_href}#{parsed.fragment}"
+                    node.url = new_href
+                    self.matched = True
+                    mutated = True
+
         for child in node.children:
             if self.apply(child):
                 mutated = True

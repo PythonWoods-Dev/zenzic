@@ -10,6 +10,7 @@ wording changes can be made without touching CLI wiring code.
 # license declaration for this source file.
 _SPDX = "SPDX-License-Identifier"
 
+
 # ===========================================================================
 # GLOBAL_TOML_TEMPLATE
 # ===========================================================================
@@ -17,6 +18,52 @@ _SPDX = "SPDX-License-Identifier"
 # Dynamic placeholders: {engine}, {hint_name}  (call .format() before write).
 # All literal curly braces in the TOML content must be doubled: {{ }}.
 # ===========================================================================
+def _activation_block() -> str:
+    """Render the opt-in section of ``[policies]`` from the code registry.
+
+    Hand-written until now, and it had already diverged: ``enable_circular_link_check``
+    was absent entirely, so ``Z106`` was documented in the configuration reference
+    and invisible in the file the tool writes. Same shape as ``fixable`` -- a fact
+    the registry holds, maintained by hand, drifting the moment the set grows.
+
+    Grouped by code rather than by kind, so a reader sees one code's flag, its
+    data requirement and its identity together instead of scattered across the
+    file.
+    """
+    from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS, CODE_NAMES
+
+    flag = [(c, d) for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "flag"]
+    data = [(c, d) for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "data"]
+
+    out = [
+        "# --- ACTIVATION: WHAT MAKES A CHECK REPORT ---\n",
+        "# Three behaviours, and the difference matters when output is empty.\n",
+        "#\n",
+        "#   on by default  runs unless you suppress it. Most codes.\n",
+        "#   opt-in         off until you set its flag to true, below.\n",
+        "#   inert          runs already, and finds nothing until you declare the\n",
+        "#                  data it works on. NOT the same as off: an empty list\n",
+        "#                  below means the check is looking and has nothing to\n",
+        "#                  look for, which reads identically to 'no violations'.\n",
+        "#\n",
+        "# Generated from the code registry (src/zenzic/core/codes.py). Adding a\n",
+        "# gated code there changes this block; it is not maintained by hand.\n",
+        "\n",
+        "# -- opt-in: set to true to enable --\n",
+    ]
+    for code, defn in flag:
+        desc = CODE_DESCRIPTIONS.get(code, CODE_NAMES.get(code, code))
+        out.append(f"# {code} {CODE_NAMES.get(code, '')} - {desc}\n")
+        out.append(f"{defn.activation_key} = false\n")
+
+    out.append("\n# -- inert until declared: the check runs, the data is yours --\n")
+    for code, defn in data:
+        desc = CODE_DESCRIPTIONS.get(code, CODE_NAMES.get(code, code))
+        out.append(f"# {code} {CODE_NAMES.get(code, '')} - {desc}\n")
+        out.append(f"#   declare [policies] {defn.activation_key}\n")
+    return "".join(out)
+
+
 GLOBAL_TOML_TEMPLATE: str = (
     "# SPDX-FileCopyrightText: 2026 [Your Name] <[Your Email]>\n"
     "# " + _SPDX + ": Apache-2.0\n"
@@ -38,6 +85,12 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# BEHAVIOR:\n"
     '#   - If omitted, Zenzic uses "docs" as the default directory.\n'
     '#   - Set to "." to scan the entire repository (L1 system exclusions apply).\n'
+    "#   - Both .md and .mdx are scanned, in any letter case. MDX is a first-class\n"
+    "#     format: JSX components carrying a URL participate in the link graph, and\n"
+    # Braces doubled: this template is passed through str.format, which reads a
+    # single brace as a field and raised KeyError: '/* zenzic' on the first run.
+    "#     {{/* zenzic:ignore: Zxxx */}} works wherever the HTML comment form does.\n"
+    "#     Other extensions (.markdown, .txt) are not scanned.\n"
     "#\n"
     '# DEFAULT: "docs"\n'
     "#\n"
@@ -54,7 +107,10 @@ GLOBAL_TOML_TEMPLATE: str = (
     "fail_under = 100\n"
     "# exit_zero = false\n"
     "# respect_vcs_ignore = true\n"
-    "# validate_same_page_anchors = true\n"
+    "# baseline_stale_days: age (days) after which the saved score snapshot\n"
+    "# (.zenzic-score.json) is flagged stale in `zenzic score --json`'s\n"
+    "# baseline_status field. Defaults to 7 when unset.\n"
+    "# baseline_stale_days = 7\n"
     "\n"
     "# External URLs excluded from the broken-link check"
     " (applies only with --strict)\n"
@@ -103,10 +159,12 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# Hard-fail threshold for technical debt.\n"
     "#\n"
     "# BEHAVIOR:\n"
-    "#   - If total suppressions > cap: CI fails immediately (Exit Code 1).\n"
-    "#   - Scoring: Every suppression costs 1 DQS point (Flat-Cost Model).\n"
+    "#   - If suppressions in use > cap: CI fails immediately (Exit Code 1).\n"
+    "#   - Scoring: Every suppression in use costs 1 DQS point (Flat-Cost Model).\n"
     "#\n"
-    "# DEFAULT: 30\n"
+    "# DEFAULT: 30 — not calibrated. It was the free allowance of the model that\n"
+    "#   preceded flat-cost debt, kept as the threshold. Declare the cap your project\n"
+    "#   defends, and keep fail_under <= 100 - suppression_cap.\n"
     "#\n"
     "suppression_cap = 30\n"
     "suppression_cap_fail_hard = true\n"
@@ -121,8 +179,8 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# ---------------------------------------------------------------------------\n"
     "# Silence a rule for specific file globs.\n"
     "#\n"
-    "# BEHAVIOR: ADDITIVE — each entry adds 1 pt of Technical Debt (flat-cost).\n"
-    "# IMPACT:   Use directory_policies below for zero-debt strategic exemptions.\n"
+    "# BEHAVIOR: ADDITIVE — each pair in use adds 1 pt of Technical Debt (flat-cost).\n"
+    "# IMPACT:   A pair that silences nothing costs nothing; it is reported as Z620.\n"
     "#\n"
     "# [governance.per_file_ignores]\n"
     '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
@@ -133,15 +191,28 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# ---------------------------------------------------------------------------\n"
     "# Strategic exemptions for entire directory trees or specific files.\n"
     "#\n"
-    "# BEHAVIOR: Matched findings are silently dropped — ZERO debt added.\n"
+    "# BEHAVIOR: Matched findings are dropped — each pair in use adds 1 pt of debt.\n"
     "# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.\n"
     "#\n"
     "# [governance.directory_policies]\n"
-    '# "blog/**"                       = ["Z601"]  # historical archive\n'
-    '# "docs/explanation/registry.mdx" = ["Z601"]  # SSOT codename registry\n'
+    '# "blog/**"                       = ["Z411", "Z601"]  # historical archive & dead-ends\n'
+    '# "docs/specs/**"                 = ["Z412"]          # traceability exemption\n'
+    '# "docs/explanation/registry.mdx" = ["Z601", "Z620"]  # SSOT codename registry\n'
     "\n"
     "# Governance Playbook:\n"
     "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"
+    "\n"
+    "# --- REPOSITORY HEALTH (zenzic doctor) ---\n"
+    "# Conventions checked by 'zenzic doctor' and used by 'zenzic adr new'.\n"
+    "# All defaults resolve inside your published documentation tree; doctor reads\n"
+    "# public repository content only and never inspects gitignored directories.\n"
+    "# Every value below is the default — uncomment only to override.\n"
+    "#\n"
+    "# [doctor]\n"
+    '# adr_vault_path = "docs/developers/explanation/adr-vault"  # where decision records live\n'
+    '# adr_citation_pattern = "ADR-\\\\d{{3}}"                   # how a citation looks in prose/code\n'
+    '# redirects_path = "docs/_redirects"                     # structurally validated if present\n'
+    "# redirects_expected_blanks = 8                           # 0 disables the blank-line check\n"
     "\n"
     "# --- POLICY-AS-CODE ENGINE ---\n"
     "[policies]\n"
@@ -160,6 +231,10 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# max_document_complexity: Maximum allowed document complexity score (Z619).\n"
     "# weasel_words: List of words to detect in technical prose (Z519).\n"
     "# enable_passive_voice_check: Enable passive voice detection heuristic (Z518).\n"
+    "# required_table_columns: Markdown table missing required column header (Z521).\n"
+    "# table_cell_enums: Table cell value not in allowed enum list (Z522).\n"
+    "# required_heading_order: Headings appear out of configured sequential order (Z523).\n"
+    "# traceability_targets: Required cross-directory traceability link missing (Z412).\n"
     "required_frontmatter_keys = []\n"
     "forbidden_external_domains = []\n"
     "forbidden_frontmatter_keys = []\n"
@@ -168,12 +243,18 @@ GLOBAL_TOML_TEMPLATE: str = (
     "forbidden_content_patterns = []\n"
     "required_heading_patterns = []\n"
     "max_document_complexity = 0\n"
-    "weasel_words = []\n"
-    "enable_passive_voice_check = false\n"
+    "weasel_words = []\n" + _activation_block() + "required_heading_order = []\n"
     "# [policies.frontmatter_schema_match]\n"
     '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
     "# [policies.cross_namespace_restrictions]\n"
     '# "docs/public" = ["docs/internal"]\n'
+    "# [policies.required_table_columns]\n"
+    '# "*" = ["Status", "Description"]\n'
+    '# "^API Reference$" = ["Method", "Endpoint"]\n'
+    "# [policies.table_cell_enums]\n"
+    '# Status = ["draft", "review", "stable"]\n'
+    "# [policies.traceability_targets]\n"
+    '# "docs/specs/**" = ["docs/architecture/**"]\n'
     "\n"
     "# --- NETWORK I/O ---\n"
     "[network]\n"
@@ -187,16 +268,21 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
+    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
     "\n"
-    "# --- HTML POLYGLOT INTEGRITY (v0.17.0) ---\n"
-    "# Zenzic v0.17.0 analyses <a>/<img> via the Uniform Resolver Pipeline.\n"
-    '# Suppress Z120-Z124 with: <a href="..." data-zenzic-ignore>text</a>\n'
+    "# --- HTML POLYGLOT INTEGRITY ---\n"
+    "# Zenzic analyses <a>/<img> via the Uniform Resolver Pipeline.\n"
+    '# Suppress inline HTML findings with: <a href="..." data-zenzic-ignore>text</a>\n'
     "# Z205 (javascript:, data:) is NEVER suppressible. Absolute security gate.\n"
-    "# Each suppression: -1.0 pts DQS. exclude_patterns=[RELEASE.md, CITATION.cff]\n"
-    "\n"
-    "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
-    "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
+    "# --- GATE 4: AUTOMATION (Pre-commit & CI/CD) ---\n"
+    "# Track 1 — Pre-commit Hook (Recommended: add to .pre-commit-config.yaml):\n"
+    "# repos:\n"
+    "#   - repo: https://github.com/PythonWoods-Dev/zenzic\n"
+    "#     rev: v0.30.0\n"
+    "#     hooks:\n"
+    "#       - id: zenzic-guard\n"
     "#\n"
+    "# Track 2 / CI — GitHub Actions (Optional: add to .github/workflows/zenzic.yml):\n"
     "# name: zenzic\n"
     "# on: [pull_request, push]\n"
     "# jobs:\n"
@@ -205,7 +291,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "#     steps:\n"
     "#       - uses: actions/checkout@v4\n"
     "#       - name: Run Zenzic Action\n"
-    "#         uses: pythonwoods/zenzic-action@v1\n"
+    "#         uses: pythonwoods/zenzic-action@v2\n"
     "#       - name: Verify Badge Freshness\n"
     "#         run: uvx zenzic score --check-stamp\n"
 )
@@ -299,9 +385,9 @@ LOCAL_TOML_TEMPLATE: str = (
     "# [governance.per_file_ignores]\n"
     '# "docs/wip/**" = ["Z101"]\n'
     "\n"
-    "# Directory policy — silent exemption (0 pt debt, shown in --audit).\n"
+    "# Directory policy — exemption (1 pt debt per pair in use, shown in --audit).\n"
     "# [governance.directory_policies]\n"
-    '# "blog/**" = ["Z601"]\n'
+    '# "blog/**" = ["Z411", "Z601"]\n'
     "\n"
     "[secrets]\n"
     "# ---------------------------------------------------------------------------\n"
@@ -331,7 +417,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "# ---------------------------------------------------------------------------\n"
     "# Zenzic — Documentation Quality System\n"
-    "# Full reference: https://zenzic.dev/docs/reference/configuration/\n"
+    "# Full reference: https://zenzic.dev/reference/configuration-reference/\n"
     "# Precedence: pyproject.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
     "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
     "# ---------------------------------------------------------------------------\n"
@@ -352,7 +438,10 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "fail_under = 100\n"
     "# exit_zero = false\n"
     "# respect_vcs_ignore = true\n"
-    "# validate_same_page_anchors = true\n"
+    "# baseline_stale_days: age (days) after which the saved score snapshot\n"
+    "# (.zenzic-score.json) is flagged stale in `zenzic score --json`'s\n"
+    "# baseline_status field. Defaults to 7 when unset.\n"
+    "# baseline_stale_days = 7\n"
     "\n"
     "# External URLs excluded from the broken-link check (--strict only).\n"
     '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
@@ -389,9 +478,10 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "[tool.zenzic.governance]\n"
     "# suppression_cap — hard-fail threshold for technical debt.\n"
-    "#   BEHAVIOR: if total suppressions > cap → CI fails immediately (Exit Code 1).\n"
-    "#   SCORING:  every suppression costs 1 DQS point (Flat-Cost Model).\n"
-    "#   DEFAULT:  30\n"
+    "#   BEHAVIOR: if suppressions in use > cap → CI fails immediately (Exit Code 1).\n"
+    "#   SCORING:  every suppression in use costs 1 DQS point (Flat-Cost Model).\n"
+    "#   DEFAULT:  30 — not calibrated (the allowance of the model that preceded\n"
+    "#             flat-cost debt). Declare the cap your project defends.\n"
     "suppression_cap           = 30\n"
     "suppression_cap_fail_hard = true\n"
     "\n"
@@ -402,18 +492,20 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "# [tool.zenzic.governance.per_file_ignores]\n"
     "# Silence a rule for specific file globs.\n"
-    "# BEHAVIOR: ADDITIVE — each entry adds 1 pt of Technical Debt (flat-cost).\n"
-    "# IMPACT:   Use directory_policies below for zero-debt strategic exemptions.\n"
+    "# BEHAVIOR: ADDITIVE — each pair in use adds 1 pt of Technical Debt (flat-cost).\n"
+    "# IMPACT:   A pair that silences nothing costs nothing; it is reported as Z620.\n"
     "#\n"
     '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
     '# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt\n'
     "\n"
     "# [tool.zenzic.governance.directory_policies]\n"
     "# Strategic exemptions for entire directory trees or specific files.\n"
-    "# BEHAVIOR: Matched findings are silently dropped — ZERO debt added.\n"
+    "# BEHAVIOR: Matched findings are dropped — each pair in use adds 1 pt of debt.\n"
     "# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.\n"
     "#\n"
-    '# "blog/**"      = ["Z601"]  # historical archive\n'
+    '# "blog/**"                       = ["Z411", "Z601"]  # historical archive & dead-ends\n'
+    '# "docs/specs/**"                 = ["Z412"]          # traceability exemption\n'
+    '# "docs/explanation/registry.mdx" = ["Z601", "Z620"]  # SSOT codename registry\n'
     "\n"
     "# --- POLICY-AS-CODE ENGINE ---\n"
     "[tool.zenzic.policies]\n"
@@ -430,6 +522,10 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# max_document_complexity: Maximum allowed document complexity score (Z619).\n"
     "# weasel_words: List of words to detect in technical prose (Z519).\n"
     "# enable_passive_voice_check: Enable passive voice detection heuristic (Z518).\n"
+    "# required_table_columns: Markdown table missing required column header (Z521).\n"
+    "# table_cell_enums: Table cell value not in allowed enum list (Z522).\n"
+    "# required_heading_order: Headings appear out of configured sequential order (Z523).\n"
+    "# traceability_targets: Required cross-directory traceability link missing (Z412).\n"
     "required_frontmatter_keys = []\n"
     "forbidden_external_domains = []\n"
     "forbidden_frontmatter_keys = []\n"
@@ -439,7 +535,23 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "required_heading_patterns = []\n"
     "max_document_complexity = 0\n"
     "weasel_words = []\n"
-    "enable_passive_voice_check = false\n"
+    "required_heading_order = []\n"
+    "\n"
+    "# Which checks run, which are opt-in, and which stay inert until you\n"
+    "# declare their data: see\n"
+    "# https://zenzic.dev/reference/configuration-reference/\n"
+    "# or run `zenzic init` in a scratch directory to read the annotated form.\n"
+    "# [tool.zenzic.policies.frontmatter_schema_match]\n"
+    '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
+    "# [tool.zenzic.policies.cross_namespace_restrictions]\n"
+    '# "docs/public" = ["docs/internal"]\n'
+    "# [tool.zenzic.policies.required_table_columns]\n"
+    '# "*" = ["Status", "Description"]\n'
+    '# "^API Reference$" = ["Method", "Endpoint"]\n'
+    "# [tool.zenzic.policies.table_cell_enums]\n"
+    '# Status = ["draft", "review", "stable"]\n'
+    "# [tool.zenzic.policies.traceability_targets]\n"
+    '# "docs/specs/**" = ["docs/architecture/**"]\n'
     "\n"
     "# --- NETWORK I/O ---\n"
     "[tool.zenzic.network]\n"
@@ -453,10 +565,17 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
+    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
     "\n"
-    "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
-    "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
+    "# --- GATE 4: AUTOMATION (Pre-commit & CI/CD) ---\n"
+    "# Track 1 — Pre-commit Hook (Recommended: add to .pre-commit-config.yaml):\n"
+    "# repos:\n"
+    "#   - repo: https://github.com/PythonWoods-Dev/zenzic\n"
+    "#     rev: v0.30.0\n"
+    "#     hooks:\n"
+    "#       - id: zenzic-guard\n"
     "#\n"
+    "# Track 2 / CI — GitHub Actions (Optional: add to .github/workflows/zenzic.yml):\n"
     "# name: zenzic\n"
     "# on: [pull_request, push]\n"
     "# jobs:\n"
@@ -465,7 +584,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "#     steps:\n"
     "#       - uses: actions/checkout@v4\n"
     "#       - name: Run Zenzic Action\n"
-    "#         uses: pythonwoods/zenzic-action@v1\n"
+    "#         uses: pythonwoods/zenzic-action@v2\n"
     "#       - name: Verify Badge Freshness\n"
     "#         run: uvx zenzic score --check-stamp\n"
 )

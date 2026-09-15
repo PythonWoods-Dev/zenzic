@@ -53,9 +53,30 @@ Every card in a `<div class="grid cards" markdown>` block must have exactly:
 
 ---
 
-## 3. Iconography Law (Material for MkDocs) {#iconography}
+## 2. Admonition Role Taxonomy {#admonition-roles}
 
-This section details the specifications and guidelines for 3. Iconography Law (Material for MkDocs) within the Zenzic ecosystem.
+The docs site uses 8 admonition types (`!!! note`, `tip`, `info`, `danger`, `warning`,
+`abstract`, `caution`, `important`). Pick by role, not by which one "looks right" —
+each has a distinct, observed convention across this site:
+
+| Type | Role | Example use |
+| :--- | :--- | :--- |
+| `note` | An architectural invariant or ADR-level fact the reader should retain | "ADR-078-STRICT Invariant: BaseAdapter Contract" |
+| `tip` | Helpful, non-critical guidance — prerequisites, optional shortcuts | "Prerequisites", "Interactive Demo — No installation required" |
+| `info` | Supplementary or navigational context, often cross-referencing another page | "Next Steps", "Rule R21 — Protocol Sovereignty" |
+| `warning` | A real constraint or process rule the reader must respect | "Bug fixes are not backported", "Avoid global mutable state" |
+| `danger` | A non-negotiable security or safety invariant — inviolable, not just risky | "Inviolable Security Override", "Exit Code Contract" |
+| `caution` | A narrow, specific pitfall or trap to avoid — smaller scope than `warning` | "`docs_dir` trap", "`strict = true` trap for monorepos" |
+| `important` | A hard version/compatibility or invariant requirement, non-security | "Minimum Core Version Requirement" |
+| `abstract` | A dated historical-snapshot summary at the top of an ADR or changelog-style page | "Architectural Update" |
+
+When two types both seem to fit, prefer the narrower one: `caution` over `warning`
+for a single specific gotcha, `danger` over `important` when a security or exit-code
+invariant is involved.
+
+---
+
+## 3. Iconography Law (Material for MkDocs) {#iconography}
 
 ### Native Emoji & Icon Shortcodes
 
@@ -84,8 +105,6 @@ Examples:
 ---
 
 ## 4. Anchor ID Protocol (ZRT-DOC-004) {#anchor-ids}
-
-This section details the specifications and guidelines for 4. Anchor ID Protocol (ZRT-DOC-004) within the Zenzic ecosystem.
 
 ### When to add explicit IDs
 
@@ -203,7 +222,7 @@ Before submitting a PR, verify:
 ## 8. ZenzicUI Gateway {#zenzicui-gateway}
 
 All branded terminal output in Zenzic flows through a single object: `ZenzicUI` in
-`src/zenzic/ui.py`. Command modules must **never** instantiate `Console` or `ZenzicUI`
+`src/zenzic/core/ui.py`. Command modules must **never** instantiate `Console` or `ZenzicUI`
 directly — they must call `get_ui()` and `get_console()` from `zenzic.cli._shared`.
 
 ### Core methods
@@ -256,7 +275,7 @@ Add to your PR checklist:
 
 ## 9. ZenzicPalette — Zero Hex Law {#zenzic-palette}
 
-`ZenzicPalette` in `src/zenzic/ui.py` is the **sole authorised source of colour values**
+`ZenzicPalette` in `src/zenzic/core/ui.py` is the **sole authorised source of colour values**
 in the entire Zenzic codebase. This is the Zero Hex Law.
 
 ### The Law
@@ -295,7 +314,7 @@ For the most common combinations, use a `STYLE_*` constant instead of constructi
 
 ```python
 # CORRECT — semantic alias via ZenzicPalette
-from zenzic.ui import ZenzicPalette
+from zenzic.core.ui import ZenzicPalette
 
 table = Table(border_style=ZenzicPalette.DIM, header_style=ZenzicPalette.STYLE_BRAND)
 text = Text.from_markup(f"[{ZenzicPalette.BRAND}]Zenzic[/]")
@@ -304,19 +323,19 @@ panel = Panel("...", border_style=ZenzicPalette.STYLE_ERR)
 
 ```python
 # FORBIDDEN — hex literal outside ZenzicPalette
-text = Text.from_markup("[#4f46e5]Zenzic[/]")   # ✗
+text = Text.from_markup("[#4f46e5]Zenzic[/]")  # ✗
 
 # FORBIDDEN — flat constant import (removed in)
-from zenzic.ui import INDIGO, EMERALD            # ✗
+from zenzic.core.ui import INDIGO, EMERALD  # ✗
 
 # FORBIDDEN — inline alias
-P = ZenzicPalette                              # ✗  use full qualification
+P = ZenzicPalette  # ✗  use full qualification
 ```
 
 ### Updating the palette
 
 To change a colour, edit **only** the corresponding `_PRIVATE` hex attribute inside
-`ZenzicPalette` in `src/zenzic/ui.py`. All semantic aliases and pre-composed style
+`ZenzicPalette` in `src/zenzic/core/ui.py`. All semantic aliases and pre-composed style
 strings derive from those private attributes — the entire codebase updates automatically.
 
 ### Checklist addition
@@ -326,7 +345,7 @@ Add to your PR checklist:
 - [ ] No hex literal (`#rrggbb`) anywhere in `src/` outside `ZenzicPalette._*`.
 - [ ] No raw Rich colour names (`"red"`, `"cyan"`) for brand-palette usage — use `ZenzicPalette.*`.
 - [ ] No local alias `P = ZenzicPalette` — always use the full class name.
-- [ ] No `from zenzic.ui import INDIGO` (or any removed flat constant).
+- [ ] No `from zenzic.core.ui import INDIGO` (or any removed flat constant).
 
 ---
 
@@ -339,7 +358,7 @@ Add to your PR checklist:
     Any diagram or structured illustration intended for **exclusive use within Markdown pages** must be implemented
     using native HTML/Jinja templates or Mermaid code blocks, never as a static text-bearing `.svg` file.
 
-For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/mdx-asset-rationale.md).
+For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/svg-vs-native-asset-rationale.md).
 
 ### Checklist addition
 

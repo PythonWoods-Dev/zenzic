@@ -1,0 +1,37 @@
+Z101 -- Link Integrity
+
+Z101 LINK_BROKEN — file references that resolve to missing pages
+This scenario is designed to fail — the output below is the expected Z101
+detection, not a problem with your install.
+
+standalone • 1 file (1 pages, 0 assets) • 0.1s • 18 files/s
+
+docs/index.md:11  ✘  [Z101]  'missing.md' resolves to '/missing/' which is not
+in the Virtual Site Map — the target file may not exist
+
+     9  │  ## Broken References
+    10  │
+    11  ❱  - [Getting Started](missing.md) — this file does not exist → **Z101**
+    12  │  - [Setup Guide](guide/setup.md) — this directory does not exist → **…
+    13  │
+
+docs/index.md:12  ✘  [Z101]  'guide/setup.md' resolves to '/guide/setup/' which
+is not in the Virtual Site Map — the target file may not exist
+
+    10  │
+    11  │  - [Getting Started](missing.md) — this file does not exist → **Z101**
+    12  ❱  - [Setup Guide](guide/setup.md) — this directory does not exist → **…
+    13  │
+    14  │  ## What Zenzic Reports
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 2 errors  ⚠ 0 warnings  💡 0 info  • 1 file with findings
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+
+✔ LAB RESULT
+
+1 file scanned • 0.06s • 18 files/s
+
+✔ Z101 — Link Integrity — expectation met.

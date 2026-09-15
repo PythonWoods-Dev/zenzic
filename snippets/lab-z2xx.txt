@@ -1,0 +1,28 @@
+Z201 -- Credential Scanner
+
+Z201 CREDENTIAL_SECRET — AWS key in docs; security_breach severity, exit 2
+This scenario is designed to fail — the output below is the expected Z201
+detection, not a problem with your install.
+
+✘ SECURITY BREACH DETECTED  [LIKELY PLACEHOLDER]
+  ✘ Finding:    Secret detected (aws-access-key) — rotate immediately.
+  ✘ Location:   docs/setup.md:15
+  ✘ Credential:  AKIA************MPLE
+
+  Action: Rotate this credential immediately and purge it from the repository
+history.
+
+standalone • 1 file (1 pages, 0 assets) • 0.1s • 14 files/s
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 1 security breach  • 1 file impacted  ✘ 0 errors  ⚠ 0 warnings  💡 0
+info  • 0 files with findings
+
+FAILED: Security breaches detected. Exit code 2 is mandatory.
+
+✔ LAB RESULT
+
+1 file scanned • 0.07s • 14 files/s
+
+✔ Z201 — Credential Scanner — expectation met.

@@ -6,7 +6,7 @@ description: "Walk through the z620-stale-global-suppression fixture: an unused 
 
 # Z620 — Stale Global Suppression
 
-**Z-Code:** `Z620 STALE_GLOBAL_SUPPRESSION` · **Engine:** `standalone` · **Exit:** `1`
+**Z-Code:** `Z620 STALE_GLOBAL_SUPPRESSION` · **Engine:** `standalone` · **Exit:** `1` (under strict mode) / `0` (warnings only)
 
 ---
 
@@ -41,7 +41,20 @@ uvx zenzic check all --strict
 Expected output:
 
 ```text
-.zenzic.toml:1  !  [Z620]  Global policy 'docs/clean-page.md' = ['Z101'] was never used to suppress a finding. Remove the dead configuration.
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 65 files/s
+
+.zenzic.toml:8  ⚠  [Z620]  Global policy 'docs/clean-page.md' = ['Z101'] was
+never used to suppress a finding. Remove the dead configuration.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
+FAILED: Warnings promoted to errors via --strict flag.
+DQS Final Score: 99/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `1`

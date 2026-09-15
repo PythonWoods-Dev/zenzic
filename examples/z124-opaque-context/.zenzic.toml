@@ -4,7 +4,5 @@
 #
 # Expected results:
 #   zenzic lab z124   → EXIT 1  (Z124 ×3 — error, opaque attrs)
-[zenzic]
+[build_context]
 engine = "standalone"
-[links]
-check_external = false

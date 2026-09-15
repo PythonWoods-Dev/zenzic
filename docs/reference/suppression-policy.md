@@ -46,9 +46,9 @@ The following diagram illustrates how Zenzic evaluates file finding codes agains
 ```mermaid
 flowchart TD
     A["Static Analysis Finding"] --> B{"Is Code Non-Suppressible? (Z2xx)"}
-    B -->|Yes: Z201-Z205 Security Breach| C["FATAL SECURITY OVERRIDE (Exit 2/3)\nSuppression Blocked"]
+    B -->|Yes: Z201-Z205 Security Breach| C["SECURITY OVERRIDE (Non-Suppressible)\nExit code varies by code — see table below"]
     B -->|No: Standard Finding| D{"Directory Policy Exempt? (Level 4)"}
-    D -->|Yes| E["POLICY_EXEMPTION (0 Debt Pts)"]
+    D -->|Yes| E["POLICY_EXEMPTION (+1 Debt Pt)"]
     D -->|No| F{"Per-File Ignore Matched? (Level 2)"}
     F -->|Yes| G["PER_FILE_IGNORE (+1 Debt Pt)"]
     F -->|No| H{"Inline Comment Present? (Level 1)"}
@@ -56,11 +56,34 @@ flowchart TD
     H -->|No| J["EMIT FINDING (Exit 1)"]
 
     style C fill:#ef4444,color:#fff
-    style E fill:#10b981,color:#fff
+    style E fill:#f59e0b,color:#fff
     style G fill:#f59e0b,color:#fff
     style I fill:#f59e0b,color:#fff
     style J fill:#e11d48,color:#fff
 ```
+
+### Inspecting a suppression in your editor
+
+Reading this cascade tells you what *should* happen. To see what actually happened for a
+specific comment, hover it. Any editor connected to the Zenzic language server — see
+[Editor Integrations](../how-to/editor-integrations.md) — shows, on hovering a
+`<!-- zenzic:ignore: CODE -->` directive, which branch above it took:
+
+| Hover says | Meaning |
+| :--- | :--- |
+| ✅ **Active** | The directive suppresses a real finding on that line. |
+| ⚠️ **Nothing to suppress** | No such finding occurs there. Reported as [`Z603`](../rules/Z603.md); remove the comment. |
+| ↩️ **Redundant** | A `directory_policies` pattern already covers this code for this file. The hover names the matching glob. Also `Z603`. |
+| 🔒 **Has no effect** | A `Z2xx` security code. Inviolable — see [Suppressible vs. Inviolable](#suppressible-vs-inviolable-security-surface). |
+| ⚙️ **Has no effect (ADR-093)** | A graph- or file-level code, governable only through `.zenzic.toml`. |
+
+Hovering a *live* finding additionally states whether an inline comment could silence it
+at all, so the two inviolable families are visible before you reach for a directive that
+would only become dead weight.
+
+The hover never changes anything it reports on. It reads the suppression state through a
+side-effect-free query, so inspecting a directive cannot consume it or alter the `Z603`
+findings for the file.
 
 ---
 
@@ -76,7 +99,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     `<!-- zenzic:ignore: ZXXX -->` placed at the end of a line. Silences a finding on a single line.
 
-    **Cost**: `1 Debt Point`
+    **Cost**: `1 Debt Point` per directive that silences a finding
 
 - :material-file-document-outline:{ .lg .middle } **Level 2: Per-File Ignore**
 
@@ -84,7 +107,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     `[governance.per_file_ignores]` in `.zenzic.toml`. Silences a specific rule across a file glob.
 
-    **Cost**: `1 Debt Point per entry`
+    **Cost**: `1 Debt Point` per pattern–code pair that silences a finding
 
 - :material-folder-remove-outline:{ .lg .middle } **Level 3: Exclusion Zone**
 
@@ -100,7 +123,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     `[governance.directory_policies]` in `.zenzic.toml`. Strategic organizational exemptions for legacy doc trees.
 
-    **Cost**: `0 Debt Points` (`[POLICY_EXEMPTION]`)
+    **Cost**: `1 Debt Point` per pattern–code pair that silences a finding (`[POLICY_EXEMPTION]` in `--audit`)
 
 </div>
 
@@ -114,20 +137,23 @@ Zenzic enforces a strict boundary between suppressible quality checks and **invi
 | :--- | :--- | :--- | :---: | :--- |
 | **Link Integrity** | `Z101`–`Z124` | Broken links, missing anchors, orphan links | ✅ Yes | Deducts score / Exit 1 |
 | **Reference Graph** | `Z301`–`Z303` | Dangling reference definitions | ✅ Yes | Deducts score / Exit 1 |
-| **Graph Topology** | `Z401`–`Z406` | Missing directory indexes, orphan pages | ✅ Yes | Deducts score / Exit 1 |
+| **Graph Topology** | `Z401`–`Z406` | Orphan pages, nav contract, config assets; `Z401` (missing directory index) is opt-in and informational | ✅ Yes | Deducts score / Exit 1 — `Z401` carries no penalty |
 | **Content Quality** | `Z501`–`Z506` | Placeholder text, untagged code blocks | ✅ Yes | Deducts score / Exit 1 |
 | **Brand Governance**| `Z601`–`Z603` | Brand obsolescence, dead suppressions | ✅ Yes | Deducts score / Exit 1 |
-| **Security Surface**| `Z201` | Credential Scanner (Tokens, API Keys) | ❌ **NEVER** | **Fatal Exit 2** |
-| **Security Surface**| `Z202`–`Z203` | Path Traversal Guard (Boundary Violation) | ❌ **NEVER** | **Fatal Exit 3** |
+| **Security Surface** | `Z201` | Credential Scanner (Tokens, API Keys) | ❌ **NEVER** | **Fatal Exit 2** |
+| **Security Surface** | `Z202` | Path Traversal Guard (Boundary Violation) | ❌ **NEVER** | Exit 1 (not escalated) |
+| **Security Surface** | `Z203` | Path Traversal Guard (Fatal, OS System Directory) | ❌ **NEVER** | **Fatal Exit 3** |
 
 !!! danger "Inviolable Security Surface (Z201–Z205)"
-    Security findings (**Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**) unconditionally bypass all directory policies, per-file ignores, and inline comments. They are non-suppressible security facts that trigger exit codes 2 and 3 regardless of any TOML configuration.
+    Security findings (**Z201 Credential Scanner**, **Z202/Z203 Path Traversal Guard**) unconditionally bypass all directory policies, per-file ignores, and inline comments. They are non-suppressible security facts. `Z201`, `Z204`, and `Z205` trigger exit code 2; `Z203` triggers exit code 3. `Z202` stays at plain exit code 1 — non-suppressible but deliberately not escalated to Exit 3 — regardless of any TOML configuration.
 
 ---
 
 ## Suppression CAP & Technical Debt Ledger
 
 While suppressions (`<!-- zenzic:ignore -->`, `directory_policies`, `per_file_ignores`) are permitted, they are now formally tracked as Technical Debt.
+
+A suppression costs while it is in use: a directive, a `per_file_ignores` pair or a `directory_policies` pair that silences a finding in the run adds one point of debt and counts once against `suppression_cap`. A declaration that silences nothing adds no debt; it is reported instead, as [`Z603`](../rules/Z603.md) inline and [`Z620`](../rules/Z620.md) in configuration. The model is recorded as ADR 061 in the [ADR Vault](../developers/explanation/adr-vault/index.md).
 
 The `zenzic audit` command generates a **Technical Debt Ledger** that exposes all active suppressions, tracks `suppression_cap` consumption, and identifies suppression hotspots across the documentation tree.
 
@@ -137,10 +163,13 @@ suppression_cap = 30
 suppression_cap_fail_hard = true
 ```
 
+The same fields also work nested under `[tool.zenzic.governance]` in `pyproject.toml` (Track 2) — see
+[Embedded in `pyproject.toml`](./configuration-reference.md#embedded-in-pyprojecttoml).
+
 The CLI and CI pipelines report active debt state in the audit footer and through formal `zenzic audit` reports:
 
 ```text title="Terminal"
-🔒 Suppression Audit: 2/30 (inline: 2, per-file: 0) [MANAGED DEBT]
+🔒 Suppression Audit: 2/30 [MANAGED DEBT] (inline: 2, per-file: 0, directory: 0)
 ```
 
 If active suppressions exceed `suppression_cap`, Zenzic emits `[CAP_EXCEEDED]` and fails the quality gate with **Exit 1**.
