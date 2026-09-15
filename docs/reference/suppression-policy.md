@@ -48,7 +48,7 @@ flowchart TD
     A["Static Analysis Finding"] --> B{"Is Code Non-Suppressible? (Z2xx)"}
     B -->|Yes: Z201-Z205 Security Breach| C["SECURITY OVERRIDE (Non-Suppressible)\nExit code varies by code — see table below"]
     B -->|No: Standard Finding| D{"Directory Policy Exempt? (Level 4)"}
-    D -->|Yes| E["POLICY_EXEMPTION (0 Debt Pts)"]
+    D -->|Yes| E["POLICY_EXEMPTION (+1 Debt Pt)"]
     D -->|No| F{"Per-File Ignore Matched? (Level 2)"}
     F -->|Yes| G["PER_FILE_IGNORE (+1 Debt Pt)"]
     F -->|No| H{"Inline Comment Present? (Level 1)"}
@@ -56,7 +56,7 @@ flowchart TD
     H -->|No| J["EMIT FINDING (Exit 1)"]
 
     style C fill:#ef4444,color:#fff
-    style E fill:#10b981,color:#fff
+    style E fill:#f59e0b,color:#fff
     style G fill:#f59e0b,color:#fff
     style I fill:#f59e0b,color:#fff
     style J fill:#e11d48,color:#fff
@@ -85,21 +85,6 @@ The hover never changes anything it reports on. It reads the suppression state t
 side-effect-free query, so inspecting a directive cannot consume it or alter the `Z603`
 findings for the file.
 
-!!! warning "Known limitation — `Z603` can report a working directive as dead"
-
-    For **`Z107`**, **`Z505`**, **`Z506`** and **`Z601`**, an inline directive that
-    *does* suppress its finding is still reported as `Z603`. The four rules test the
-    line through a helper that answers the question without telling the suppression
-    ledger it was used, so the ledger never learns the directive was consumed.
-
-    **Do not follow the "remove the comment" advice for these four codes without
-    checking first.** Delete the directive and the suppressed finding comes back.
-    Confirm by removing it temporarily and re-running: if the original finding
-    reappears, the directive was working and the `Z603` is wrong.
-
-    The other codes are unaffected — their suppressions route through the ledger and
-    are recorded correctly.
-
 ---
 
 ## Four Suppression Governance Levels
@@ -114,7 +99,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     `<!-- zenzic:ignore: ZXXX -->` placed at the end of a line. Silences a finding on a single line.
 
-    **Cost**: `1 Debt Point`
+    **Cost**: `1 Debt Point` per directive that silences a finding
 
 - :material-file-document-outline:{ .lg .middle } **Level 2: Per-File Ignore**
 
@@ -122,7 +107,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     `[governance.per_file_ignores]` in `.zenzic.toml`. Silences a specific rule across a file glob.
 
-    **Cost**: `1 Debt Point per entry`
+    **Cost**: `1 Debt Point` per pattern–code pair that silences a finding
 
 - :material-folder-remove-outline:{ .lg .middle } **Level 3: Exclusion Zone**
 
@@ -138,7 +123,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     `[governance.directory_policies]` in `.zenzic.toml`. Strategic organizational exemptions for legacy doc trees.
 
-    **Cost**: `0 Debt Points` (`[POLICY_EXEMPTION]`)
+    **Cost**: `1 Debt Point` per pattern–code pair that silences a finding (`[POLICY_EXEMPTION]` in `--audit`)
 
 </div>
 
@@ -168,6 +153,8 @@ Zenzic enforces a strict boundary between suppressible quality checks and **invi
 
 While suppressions (`<!-- zenzic:ignore -->`, `directory_policies`, `per_file_ignores`) are permitted, they are now formally tracked as Technical Debt.
 
+A suppression costs while it is in use: a directive, a `per_file_ignores` pair or a `directory_policies` pair that silences a finding in the run adds one point of debt and counts once against `suppression_cap`. A declaration that silences nothing adds no debt; it is reported instead, as [`Z603`](../rules/Z603.md) inline and [`Z620`](../rules/Z620.md) in configuration. The model is recorded as ADR 061 in the [ADR Vault](../developers/explanation/adr-vault/index.md).
+
 The `zenzic audit` command generates a **Technical Debt Ledger** that exposes all active suppressions, tracks `suppression_cap` consumption, and identifies suppression hotspots across the documentation tree.
 
 ```toml title=".zenzic.toml"
@@ -182,7 +169,7 @@ The same fields also work nested under `[tool.zenzic.governance]` in `pyproject.
 The CLI and CI pipelines report active debt state in the audit footer and through formal `zenzic audit` reports:
 
 ```text title="Terminal"
-🔒 Suppression Audit: 2/30 (inline: 2, per-file: 0) [MANAGED DEBT]
+🔒 Suppression Audit: 2/30 [MANAGED DEBT] (inline: 2, per-file: 0, directory: 0)
 ```
 
 If active suppressions exceed `suppression_cap`, Zenzic emits `[CAP_EXCEEDED]` and fails the quality gate with **Exit 1**.

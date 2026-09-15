@@ -106,7 +106,7 @@ When adding a new third-party dependency to a Zenzic project:
 
 - CAP sovereign default is 30 active suppressions.
 - CAP is configurable per repository in `[governance].suppression_cap`.
-- Scope is global: inline comments plus per-file config suppressions.
+- Scope is global: inline directives plus `per_file_ignores` and `directory_policies` pairs, each counted while it silences a finding.
 - Enforcement is fail-hard: if count is 31 or more, `check all` exits 1.
 - Every run prints the suppression counter in the report footer.
 

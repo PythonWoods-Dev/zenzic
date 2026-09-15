@@ -879,7 +879,7 @@ default_locale = "en"
 release_name = "MyRelease"
 
 [governance]
-# Maximum allowed architectural debt (inline + per-file suppressions).
+# Maximum suppressions in use (inline + per-file + directory policy).
 # Default: 30. Build fails if exceeded.
 suppression_cap = 30
 suppression_cap_fail_hard = true

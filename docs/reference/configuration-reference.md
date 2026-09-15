@@ -759,8 +759,10 @@ Scoped suppressions per glob pattern. Security findings remain non-suppressible.
 | **Default** | `{}` |
 | **Section** | `[governance]` |
 
-Strategic directory-level policy exemptions (zero debt). In `--audit` mode,
-these findings are surfaced with the `[POLICY_EXEMPTION]` label.
+Strategic directory-level policy exemptions. Each pattern–code pair that silences a finding in the
+run costs 1 debt point and counts against [`suppression_cap`](#suppression-cap), like a
+`per_file_ignores` pair; a pair that silences nothing costs nothing and is reported as `Z620`. In
+`--audit` mode, these findings are surfaced with the `[POLICY_EXEMPTION]` label.
 
 !!! tip "Z620 (Stale Global Suppression)"
     Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `per_file_ignores`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z620** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
@@ -773,7 +775,11 @@ these findings are surfaced with the `[POLICY_EXEMPTION]` label.
 | **Default** | `30` |
 | **Section** | `[governance]` |
 
-Maximum number of active suppressions (inline `zenzic:ignore` comments plus `per_file_ignores` entries) allowed before the debt is considered excessive.
+Maximum number of suppressions in use allowed before the debt is considered excessive. A suppression is in use when it silences a finding in the run: an inline `zenzic:ignore` directive or `data-zenzic-ignore` attribute, or a `per_file_ignores` or `directory_policies` pattern–code pair.
+
+Each suppression in use also deducts 1 point from the score, so a project that uses its whole cap cannot score above `100 − suppression_cap`. Keep `fail_under <= 100 − suppression_cap`; otherwise a project within its cap can fail the score gate on debt alone. At equality the floor leaves no room for any other penalised finding.
+
+The default of `30` is not calibrated against real projects: it was the free allowance of the scoring model that preceded flat-cost debt, and was kept as the hard-fail threshold when that model was replaced (recorded as ADR 061 in the [ADR Vault](../developers/explanation/adr-vault/index.md)). Declare the cap your project defends rather than relying on the default.
 
 ```toml
 [governance]

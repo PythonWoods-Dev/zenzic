@@ -79,7 +79,7 @@ suppression_cap = 16
 # public nav (versioned reference material, link-checked normally, but never
 # expected to appear in site navigation) — see
 # V031_MULTI_ROOT_DOCUMENTATION_ARCHITECTURE_ASSESSMENT. Z402 (ORPHAN_PAGE) is
-# a strategic exemption (0 DQS debt points), not a suppression of a real
+# a strategic exemption (one DQS debt point per pair in use), not a suppression of a real
 # defect: nav-absence was never a defect for this category. Z103 (ORPHAN_LINK)
 # is the same category from the linking side — a link INTO this archive is
 # not broken just because its target left the nav; it's a real, working,

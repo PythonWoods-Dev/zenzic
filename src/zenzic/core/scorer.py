@@ -24,7 +24,7 @@ Governance Escalation (Z6xx threshold = 10):
   governance bucket — doubling every 5 excess findings — until 0.
 
 Suppression Debt (ADR-061): flat-cost model.
-    Every inline or per-file suppression costs exactly 1 point, with no free
+    Every suppression in use costs exactly 1 point, with no free
     allowance.  The ``suppression_cap`` is a hard-fail threshold enforced by
     the CLI layer: exceeding it causes Exit 1 regardless of the computed score.
 
@@ -197,8 +197,8 @@ def compute_score(
     score is capped at 70 — a document with uncontrolled governance violations
     cannot score above 70/100.
 
-    Suppression Debt (ADR-061): flat-cost model — every suppression costs
-    exactly 1 point. ``suppression_cap`` is a hard-fail exit threshold only;
+    Suppression Debt (ADR-061): flat-cost model — every suppression in use
+    costs exactly 1 point. ``suppression_cap`` is a hard-fail exit threshold only;
     it does not grant any free allowance.
     Debt is applied after all category calculations and after the Gravity Cap.
 
@@ -295,7 +295,7 @@ def compute_score(
     if brand_cat is not None and brand_cat.category_score == 0.0:
         total_pts = min(total_pts, 70.0)
 
-    # Suppression Debt (ADR-061): flat-cost model — every suppression costs 1 pt.
+    # Suppression Debt (ADR-061): flat-cost model — every suppression in use costs 1 pt.
     # The cap is a hard-fail threshold enforced by the CLI, not a free allowance.
     debt_pts = normalized_suppression_count
     total_pts = max(0.0, total_pts - debt_pts)

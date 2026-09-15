@@ -9,7 +9,7 @@ description: "Step-by-step guide to auditing, understanding, and reducing suppre
 
 > *"Why did my score drop after I ignored an error?"*
 
-When you suppress a finding in Zenzic — via an inline comment or a per-file config entry — you are not erasing the problem. You are **assuming responsibility** for it. That assumption has a cost: **Technical Debt Points** deducted from your quality score.
+When you suppress a finding in Zenzic — via an inline comment, a per-file config entry or a directory policy — you are not erasing the problem. You are **assuming responsibility** for it. That assumption has a cost: **Technical Debt Points** deducted from your quality score.
 
 This guide explains how to read the debt, understand the cost formula, and reduce it over time.
 
@@ -22,7 +22,7 @@ After running `zenzic score`, you may see an extra line below the score table:
 ```text
 Score: 93/100
 ! Technical Debt (Suppressions): -7 pts
-Suppression Audit: 7/30 (inline: 5, per-file: 2)
+Suppression Audit: 7/30 [MANAGED DEBT] (inline: 5, per-file: 2, directory: 0)
 ```
 
 This means:
@@ -30,6 +30,7 @@ This means:
 - **7 active suppressions** are hiding findings from the audit stream.
 - **5** are inline `zenzic:ignore` comments in Markdown files.
 - **2** are per-file entries in `governance.per_file_ignores`.
+- **0** are `governance.directory_policies` pairs.
 - The debt formula reduced the score by **7 pts**.
 
 ---
@@ -42,8 +43,8 @@ $$
 
 Where:
 
-- $n$ = total active suppressions (inline + per-file)
-- `cap` = `governance.suppression_cap` in `.zenzic.toml` (default: **30**)
+- $n$ = suppressions in use (inline + per-file + directory policy) — a declaration that silences nothing is not counted; it is reported as `Z603` or `Z620`
+- `cap` = `governance.suppression_cap` in `.zenzic.toml` (default: **30**, not calibrated — see [`suppression_cap`](../reference/configuration-reference.md#suppression-cap))
 
 The debt cost is **flat**: each suppression always costs **1 pt**.
 
@@ -67,7 +68,7 @@ Run a sovereign audit to see all findings that are currently suppressed:
 zenzic check all --audit
 ```
 
-The `--audit` flag bypasses all inline `zenzic:ignore` comments and all `governance.per_file_ignores` entries. It shows the true state of your documentation.
+The `--audit` flag bypasses all inline `zenzic:ignore` comments, all `governance.per_file_ignores` entries and all `governance.directory_policies` entries. It shows the true state of your documentation.
 
 Compare the `--audit` output with a normal `zenzic check all` run to see exactly which findings are hidden.
 
@@ -98,7 +99,7 @@ For each suppressed finding, make an explicit decision:
 Remove the suppression and fix the underlying issue:
 
 1. Delete the `<!-- zenzic:ignore ZXXX -->` comment from the Markdown line.
-2. Or remove the entry from `governance.per_file_ignores`.
+2. Or remove the entry from `governance.per_file_ignores` or `governance.directory_policies`.
 3. Then fix the actual violation (update the link, remove the obsolete term, etc.).
 4. Run `zenzic check all` to verify.
 
@@ -213,7 +214,7 @@ Zenzic does not require either choice.
 
 ## Reference {#reference}
 
-- [Suppression Policy](../reference/suppression-policy.md) — Full reference for all three suppression levels.
+- [Suppression Policy](../reference/suppression-policy.md) — Full reference for all four suppression levels.
 - [Scoring Algorithm](../reference/scoring-algorithm.md) — How debt interacts with the Gravity Cap and category weights.
 - [`zenzic explain`](../reference/cli.md) — Inspect any rule's cost and suppression status.
 - [`zenzic score --trend`](../reference/cli.md) — Full option reference for the recorded score series.

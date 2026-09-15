@@ -183,13 +183,13 @@ A document repository with unaddressed governance failures cannot score above 70
 
 ## Stage 5 — Suppression Debt {#suppression-debt}
 
-Under the **flat-cost model**, every active inline or per-file suppression deducts **exactly 1 point**:
+Under the **flat-cost model** (ADR 061 in the [ADR Vault](../developers/explanation/adr-vault/index.md)), every suppression in use deducts **exactly 1 point**:
 
 $$
 \omega_{\text{debt}} = n
 $$
 
-where $n$ is the total count of active suppressions (`<!-- zenzic:ignore -->` and `per_file_ignores` entries).
+where $n$ counts the declared exceptions that silenced a finding in the run: inline `zenzic:ignore` directives and `data-zenzic-ignore` attributes, and `per_file_ignores` and `directory_policies` pattern–code pairs. A declaration that silences nothing adds no debt; it is reported as `Z603` (inline) or `Z620` (configuration).
 
 The final score is:
 

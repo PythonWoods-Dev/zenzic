@@ -25,7 +25,7 @@ All contract outputs above include these fields, always:
 
 | Field | Type | Meaning |
 | :--- | :--- | :--- |
-| `suppression_count` | integer | Active suppressions (`inline + per-file`) |
+| `suppression_count` | integer | Suppressions in use (`inline + per-file + directory policy`) |
 | `suppression_cap` | integer | Configured governance CAP |
 | `suppression_debt_pts` | integer | Debt points — formula differs by shape (see below) |
 | `debt_status` | enum | Governance debt posture |

@@ -261,9 +261,9 @@ Quartz was the internal code name for v0.6.0.
 The Obsidian milestone closed the legacy adapter contract.
 ```
 
-This approach accumulates debt. Inline suppressions count against the `suppression_cap`. Each file that writes its own inline escapes consumes one audit slot. At `suppression_cap = 10`, a fleet with many historical blog posts can exhaust the cap through legitimate exemptions, leaving no headroom for actual suppression abuse.
+This approach accumulates debt. Each inline suppression that silences a finding counts against the `suppression_cap` and costs one point. Every line that carries its own inline escape consumes one slot. At `suppression_cap = 10`, a fleet with many historical blog posts can exhaust the cap through legitimate exemptions, leaving no headroom for actual suppression abuse.
 
-The structural fix introduced in v0.8.0 is `directory_policies`: a governance-level TOML contract that grants zero-debt exemptions to named path patterns.
+The structural fix introduced in v0.8.0 is `directory_policies`: a governance-level TOML contract that declares an exemption once for a named path pattern, instead of on every affected line.
 
 ```toml title=".zenzic.toml"
 [governance]
@@ -283,17 +283,17 @@ Quartz was the internal code name for v0.6.0.
 The Obsidian milestone closed the legacy adapter contract.
 ```
 
-No inline tags. No suppression comments. No debt. The policy exemption is declared once at the governance contract level, not repeated across every affected line.
+No inline tags. No suppression comments. The `"blog/**" = ["Z601"]` pair costs one point of debt while it silences a finding, however many posts it covers — not one point per line. The policy exemption is declared once at the governance contract level, not repeated across every affected line.
 
 When Zenzic applies a policy exemption during a standard scan, findings in those paths are dropped silently; the `[POLICY_EXEMPTION]` label is emitted only in `--audit` mode, giving reviewers a complete, centralized record of what was exempted and under which pattern. This preserves auditability without hiding the signal.
 
 The hierarchy that emerges is deliberate:
 
 1. **Non-suppressible codes** (`NON_SUPPRESSIBLE_CODES`) — security findings that cannot be overridden by any mechanism.
-2. **Directory policies** — governance-level zero-debt exemptions declared in `.zenzic.toml`.
+2. **Directory policies** — governance-level exemptions declared once in `.zenzic.toml`, one point of debt per pattern–code pair in use.
 3. **Inline suppressions** — per-line escape hatches, counted against the cap and logged.
 
-Zero-debt means the suppression cap is preserved for genuine edge cases, and the governance contract remains the authoritative source of intent.
+Declaring the exemption once keeps its cost proportional to the decision rather than to the number of lines it covers, and the governance contract remains the authoritative source of intent.
 
 ---
 

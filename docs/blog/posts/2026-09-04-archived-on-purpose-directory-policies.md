@@ -44,7 +44,7 @@ Before any exemption is configured, running `zenzic check all` against this fixt
 "docs/archive/**" = ["Z402"]
 ```
 
-That's the entire declaration, and it says something specific: for any file under `docs/archive/`, do not report `Z402`. It doesn't say anything about `Z101`, `Z410`, `Z502`, or any other code — those keep being evaluated by their own independent logic, exactly as they would anywhere else in the repository. Zenzic's reference documentation describes the mechanism as a zero-debt directory-level policy exemption, and in `--audit` mode a finding removed this way is still surfaced, labeled `[POLICY_EXEMPTION]`, rather than disappearing from the record entirely — a declared exemption stays visible as a declared exemption, not as silence.
+That's the entire declaration, and it says something specific: for any file under `docs/archive/`, do not report `Z402`. It doesn't say anything about `Z101`, `Z410`, `Z502`, or any other code — those keep being evaluated by their own independent logic, exactly as they would anywhere else in the repository. The pair costs one point of suppression debt while it silences a finding, like any other suppression in use, and in `--audit` mode a finding removed this way is still surfaced, labeled `[POLICY_EXEMPTION]`, rather than disappearing from the record entirely — a declared exemption stays visible as a declared exemption, not as silence.
 
 ## What the same fixture reports after the exemption
 

@@ -36,11 +36,13 @@ matrix — treat that page as the source of truth if the two ever appear to disa
 The `fail_under` score threshold and `suppression_cap` operate as orthogonal, independently enforced quality constraints:
 
 - **Score Gate (`fail_under`)**: Fails CI (Exit 1) if computed DQS score falls below the required threshold.
-- **Governance Cap (`suppression_cap`)**: Fails CI (Exit 1) if active suppressions exceed the configured debt limit (default: **30**).
+- **Governance Cap (`suppression_cap`)**: Fails CI (Exit 1) if suppressions in use exceed the configured debt limit (default: **30**, not calibrated — see [`suppression_cap`](../reference/configuration-reference.md#suppression-cap)).
 
-Every active inline or per-file suppression deducts **1 Debt Point** from the score:
+Every suppression in use — an inline directive, a `per_file_ignores` pair or a `directory_policies` pair that silences a finding in the run — deducts **1 Debt Point** from the score (recorded as ADR 061 in the [ADR Vault](../developers/explanation/adr-vault/index.md)):
 
 $$\text{Max Achievable Score} = 100 - |F_s|$$
+
+The cap and the debt count the same suppressions, so a project at its cap cannot score above `100 − suppression_cap`. The two gates agree only while `fail_under <= 100 − suppression_cap`.
 
 ---
 

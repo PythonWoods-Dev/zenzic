@@ -41,25 +41,15 @@ The three paradox codes received their penalties in the migration:
 
 ---
 
-## From Allowance to Flat-Cost
+## Flat-Cost Suppression Debt
 
-The previous suppression model was allowance-based:
-
-$$
-\omega_{\text{debt}} = \max(0,\; n - \text{cap})
-$$
-
-Suppressions up to `suppression_cap` were free. Only excess suppressions generated debt. The cap served two roles simultaneously: it was a governance allowance boundary and a hard-fail threshold.
-
-That dual role was the problem. A project with `suppression_cap = 30` and 30 active suppressions had: score impact = 0, exit code = 0. Suppressions were invisible in the DQS.
-
-The v0.8.0 model decouples the two roles:
+Every suppression in use deducts one point:
 
 $$
 \omega_{\text{debt}} = n
 $$
 
-Every suppression deducts 1 point. The cap is exclusively a hard-fail threshold:
+where $n$ counts the declared exceptions that silenced a finding in the run: an inline directive or `data-zenzic-ignore` attribute, a `per_file_ignores` pair, or a `directory_policies` pair. A declaration that silences nothing costs nothing; it is reported as dead configuration instead. No suppression is free, and the cap grants no allowance — it is exclusively a hard-fail threshold:
 
 - When $n \leq \text{cap}$: score is reduced by $n$ points. Exit code is determined by the score gate.
 - When $n > \text{cap}$: `zenzic score` exits with code 1 immediately, before score gate evaluation.
