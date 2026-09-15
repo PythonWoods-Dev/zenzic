@@ -1,8 +1,8 @@
 {
   "$schema": "https://zenzic.dev/schemas/zenzic-baseline.schema.json",
   "version": "1.0",
-  "created_at": "2026-09-02T17:10:05.995946+00:00",
-  "score": 98,
+  "created_at": "2026-09-15T22:58:05.293247+00:00",
+  "score": 84,
   "findings_count": 0,
   "signatures": [],
   "metadata": {
