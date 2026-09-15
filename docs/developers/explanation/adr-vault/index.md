@@ -58,6 +58,7 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 021](./records/adr-021-parallel-audit.md) | Parallel Audit Completeness vs. Fail-Fast |
 | [ADR 022](./records/adr-022-english-only-governance.md) | English-Only Governance & Deprecation of Bilingual Invariant |
 | [ADR 031](./records/adr-031-ssot-code-definitions-and-gate-paradox.md) | SSoT Code Definitions & the Gate Paradox |
+| [ADR 061](./records/adr-061-flat-cost-suppression-debt.md) | Flat-Cost Suppression Debt |
 | [ADR 075](./records/adr-075-radical-unawareness.md) | Radical Unawareness |
 | [ADR 078](./records/adr-078-baseadapter-abstract-runtime-contract.md) | BaseAdapter Abstract Runtime Contract |
 | [ADR 084](./records/adr-084-centralized-core-governance.md) | Centralized Core Governance |
