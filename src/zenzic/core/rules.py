@@ -839,8 +839,6 @@ class CircularAnchorRule(BaseRule):
                 current_heading_slug = _slugify(heading_match.group(2))
             if "(#" not in line:
                 continue
-            if _is_suppressed(line, self.rule_id):
-                continue
             for m in _ANCHOR_LINK_RE.finditer(line):
                 link_text = m.group(1)
                 fragment = m.group(2)
@@ -897,7 +895,7 @@ class UntaggedCodeBlockRule(BaseRule):
                 # char. Supports Docusaurus metadata:
                 # ```python title="x" showLineNumbers
                 has_tag = bool(opened[1].strip())
-                if not has_tag and not _is_suppressed(line, self.rule_id):
+                if not has_tag:
                     findings.append(
                         RuleFinding(
                             file_path=file_path,
@@ -944,8 +942,6 @@ class MalformedFrontmatterRule(BaseRule):
         # Trigger when the line starts with "--" (at least 2 dashes) but is NOT
         # exactly "---".  Examples: "--", "----", "--- trailing chars".
         if stripped.startswith("--") and stripped != "---":
-            if _is_suppressed(first_line, self.rule_id):
-                return []
             return [
                 RuleFinding(
                     file_path=file_path,
@@ -1033,8 +1029,6 @@ class BrandObsolescenceRule(BaseRule):
         _fence = FenceTracker()
         for line_no, line in enumerate(text.splitlines(), start=1):
             if _fence.feed(line):
-                continue
-            if _is_suppressed(line, "Z601"):
                 continue
             for m in self._union_pattern.finditer(line):
                 findings.append(

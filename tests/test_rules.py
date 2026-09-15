@@ -34,6 +34,15 @@ from zenzic.models.config import CustomRuleConfig, ProjectMetadata, ZenzicConfig
 from zenzic.models.vsm import Route
 
 
+def _through_the_tracker(rule, path, text):
+    """Run *rule* the way both engines do: filtered, and consumed, by the file's tracker."""
+    from zenzic.core.suppressions import SuppressionTracker
+
+    tracker = SuppressionTracker(path, text)
+    findings = AdaptiveRuleEngine([rule]).run_with_tracker(path, text, tracker)
+    return findings, tracker.get_dead_suppressions()
+
+
 _FILE = Path("docs/guide.md")
 
 
@@ -2024,19 +2033,21 @@ class TestBrandObsolescenceRule:
         assert "semantic versioning" in findings[0].message
 
     def test_z601_suppress_md_html_comment(self) -> None:
-        """CEO-143: HTML comment suppression (Markdown .md syntax)."""
+        """CEO-143: HTML comment suppression (Markdown .md syntax) -- silenced and consumed."""
         rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. <!-- zenzic:ignore: Z601 -->\n"
-        findings = rule.check(_ANCHOR_FILE, text)
+        findings, dead = _through_the_tracker(rule, _ANCHOR_FILE, text)
         assert findings == []
+        assert dead == []
 
     def test_z601_suppress_mdx_jsx_comment(self) -> None:
         """CEO-143: JSX comment suppression (MDX .mdx syntax)."""
         rule = self._rule(_meta(), ["OldBrand"])
         mdx_file = Path("docs/guide/history.mdx")
         text = "The OldBrand era defined our foundations. {/* zenzic:ignore: Z601 */}\n"
-        findings = rule.check(mdx_file, text)
+        findings, dead = _through_the_tracker(rule, mdx_file, text)
         assert findings == []
+        assert dead == []
 
     def test_z601_suppress_only_correct_code(self) -> None:
         """CEO-143: A suppression comment for a different code does NOT suppress Z601."""
@@ -2182,10 +2193,11 @@ class TestMalformedFrontmatterRule:
         assert len(findings) == 1
 
     def test_z506_suppression_honored(self, tmp_path: Path) -> None:
-        """<!-- zenzic:ignore: Z506 --> on line 1 suppresses the finding."""
+        """<!-- zenzic:ignore: Z506 --> on line 1 suppresses the finding, and is consumed."""
         text = "-- <!-- zenzic:ignore: Z506 -->\ntitle: test\n---\n"
-        findings = self._rule().check(tmp_path / "ok.md", text)
+        findings, dead = _through_the_tracker(self._rule(), tmp_path / "ok.md", text)
         assert findings == []
+        assert dead == []
 
     def test_z506_integrated_in_rule_engine(self, tmp_path: Path) -> None:
         """MalformedFrontmatterRule fires when run through AdaptiveRuleEngine."""

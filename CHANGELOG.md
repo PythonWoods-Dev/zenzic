@@ -330,6 +330,14 @@ added for the build directory is now redundant.
 
 ### Fixed
 
+- **An inline suppression of `Z107`, `Z506` or `Z601` that silences its finding is no longer reported
+  dead (`Z603`).** Those three checks skipped a suppressed line themselves, without recording that the
+  directive had been used, so the directive that removed the finding was reported as dead configuration
+  beneath it — there was no way to silence `Z601` inline without earning a `Z603` instead. The directive
+  is now consumed like every other code's. **What you may see**: `Z603` findings disappear on lines
+  whose directive does silence one of these codes. **`Z505` is unchanged and cannot be suppressed
+  inline**: any text after a fence's opening backticks — a suppression comment included — is read as
+  the block's language tag, so there is no untagged block left to report.
 - **An image named only in `srcset` is no longer reported unused (`Z405`).** A responsive image
   — `<picture><source srcset>` or `<img srcset>` — names its files in a candidate list, each URL
   followed by an optional width (`480w`) or density (`2x`) descriptor. The unused-asset check took

@@ -12,12 +12,18 @@ import yaml
 from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
-from zenzic.core.rules import BrandObsolescenceRule, PlaceholderRule, ShortContentRule
+from zenzic.core.rules import (
+    AdaptiveRuleEngine,
+    BrandObsolescenceRule,
+    PlaceholderRule,
+    ShortContentRule,
+)
 from zenzic.core.scanner import (
     find_orphans,
     find_repo_root,
     find_unused_assets,
 )
+from zenzic.core.suppressions import SuppressionTracker
 from zenzic.models.config import ProjectMetadata, ZenzicConfig
 
 
@@ -220,8 +226,10 @@ def test_jsx_suppression_is_respected_for_z601() -> None:
         ["v0.6.x"],
     )
     text = "v0.6.x codename {/* zenzic:ignore: Z601 release codename */}\n"
-    findings = rule.check(Path("docs/page.mdx"), text)
+    tracker = SuppressionTracker(Path("docs/page.mdx"), text)
+    findings = AdaptiveRuleEngine([rule]).run_with_tracker(Path("docs/page.mdx"), text, tracker)
     assert findings == []
+    assert tracker.get_dead_suppressions() == []
 
 
 def test_html_suppression_still_works_for_z601() -> None:
@@ -231,8 +239,10 @@ def test_html_suppression_still_works_for_z601() -> None:
         ["v0.6.x"],
     )
     text = "v0.6.x codename <!-- zenzic:ignore: Z601 release codename -->\n"
-    findings = rule.check(Path("docs/page.md"), text)
+    tracker = SuppressionTracker(Path("docs/page.md"), text)
+    findings = AdaptiveRuleEngine([rule]).run_with_tracker(Path("docs/page.md"), text, tracker)
     assert findings == []
+    assert tracker.get_dead_suppressions() == []
 
 
 def test_short_content_pointer_skips_spdx_comments() -> None:
