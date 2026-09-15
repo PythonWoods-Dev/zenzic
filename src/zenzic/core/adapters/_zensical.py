@@ -346,6 +346,14 @@ class ZensicalAdapter(BaseAdapter):
         names.update(config_assets)
         return frozenset(names)
 
+    def get_output_dirs(self) -> frozenset[str]:
+        """Zensical declares no output directory -- neither ``zensical.toml``
+        nor the ``mkdocs.yml`` form it accepts carries one, so there is nothing
+        to report. Returning the empty set states that; returning ``{"site"}``
+        would be a guess about a convention this engine has not declared.
+        """
+        return frozenset()
+
     @property
     def use_directory_urls(self) -> bool:
         """Return Zensical URL mode (directory URLs or flat URLs)."""

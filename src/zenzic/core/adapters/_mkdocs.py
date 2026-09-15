@@ -623,6 +623,28 @@ class MkDocsAdapter(BaseAdapter):
             names.add(".pages")
         return frozenset(names)
 
+    def get_output_dirs(self) -> frozenset[str]:
+        """The directory MkDocs builds into, from ``site_dir`` (default ``site``).
+
+        Read from the same parsed config the adapter already uses for
+        ``docs_dir``. The value comes out of a file the *scanned project*
+        writes, so it is resolved against the repository root and dropped
+        unless it stays inside it -- an absolute path or a ``../`` escape
+        declares nothing about this repository and must not prune a directory
+        outside it. Mirrors the bound applied in ``discovery.walk_files``.
+        """
+        if self._repo_root is None:
+            return frozenset()
+        raw = self._doc_config.get("site_dir")
+        site_dir = str(raw).strip() if raw is not None else "site"
+        if not site_dir:
+            return frozenset()
+        repo_root = self._repo_root.resolve(strict=False)
+        candidate = (repo_root / site_dir).resolve(strict=False)
+        if candidate == repo_root or not candidate.is_relative_to(repo_root):
+            return frozenset()
+        return frozenset({candidate.relative_to(repo_root).as_posix()})
+
     @property
     def use_directory_urls(self) -> bool:
         """Return MkDocs URL mode from config/offline context."""

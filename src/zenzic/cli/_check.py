@@ -1827,6 +1827,11 @@ def check_all(
             exclude_url=exclude_url,
             cli_exclude_dirs=exclude_dir,
             cli_include_dirs=include_dir,
+            # Without this the adapter is never consulted, so neither its
+            # metadata filenames nor its declared build-output directory reach
+            # the exclusion manager -- `check all` scanned `site/` for that
+            # reason, while `check assets` (which passes it) did not.
+            include_adapter_metadata=True,
         )
     except RuntimeError as exc:
         typer.echo(f"ERROR: {exc}", err=True)

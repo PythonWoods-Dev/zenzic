@@ -100,6 +100,23 @@ class BaseAdapter(ABC):
     def get_metadata_files(self) -> frozenset[str]:
         """Return engine-owned config filenames excluded from quality findings."""
 
+    def get_output_dirs(self) -> frozenset[str]:
+        """Return repo-relative directories this engine writes its built site to.
+
+        Not abstract, and deliberately so: an engine that declares no output
+        directory returns the empty set rather than a guess. Only MkDocs
+        declares one (``site_dir``), so a default here keeps the other three
+        adapters honest instead of making them implement a stub that invents
+        ``"site"``.
+
+        Paths are **repo-relative POSIX strings**, matched against the walk's
+        ``rel_path`` rather than a basename. That distinction is the whole
+        point: a name-based exclusion of ``site`` also excluded a legitimate
+        ``docs/site/`` content directory, which measured as a `Z101` on a real
+        fixture. A declared output directory is one specific path.
+        """
+        return frozenset()
+
     @abstractmethod
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return canonical URL and route status metadata for ``rel``."""

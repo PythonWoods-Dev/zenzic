@@ -24,6 +24,7 @@ from rich.text import Text
 
 from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 from zenzic.core import regex as re
+from zenzic.core.adapters import get_adapter
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.history import append_history_entry, read_history, summarize_trend
@@ -451,7 +452,16 @@ def score(
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scoring: {_hint}[/]")
         _shared.console.print()
 
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    # The adapter declares where its engine builds to (MkDocs ``site_dir``);
+    # get_adapter() caches by (engine, docs_root, repo_root), so this is a
+    # cache hit rather than a second construction.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
     report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
@@ -903,7 +913,16 @@ def diff(
         docs_root.relative_to(repo_root)
     except ValueError:
         repo_root = docs_root
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    # The adapter declares where its engine builds to (MkDocs ``site_dir``);
+    # get_adapter() caches by (engine, docs_root, repo_root), so this is a
+    # cache hit rather than a second construction.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
 
     baseline: ScoreReport | None = None
     try:

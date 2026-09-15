@@ -95,13 +95,14 @@ def setup_command(
     # config first (that would misattribute a transient CLI flag as a
     # declared config pattern for governance/audit purposes).
     adapter_metadata_files: frozenset[str] = frozenset()
+    adapter_output_dirs: frozenset[str] = frozenset()
     if include_adapter_metadata:
         # get_adapter() caches by (engine, docs_root, repo_root), so building
         # it here and again in the caller (for other adapter methods) is a
         # cheap cache hit, not redundant work.
-        adapter_metadata_files = get_adapter(
-            config.build_context, docs_root, repo_root
-        ).get_metadata_files()
+        _adapter = get_adapter(config.build_context, docs_root, repo_root)
+        adapter_metadata_files = _adapter.get_metadata_files()
+        adapter_output_dirs = _adapter.get_output_dirs()
 
     exclusion_mgr = _shared._build_exclusion_manager(
         config,
@@ -110,6 +111,7 @@ def setup_command(
         exclude_dirs=cli_exclude_dirs,
         include_dirs=cli_include_dirs,
         adapter_metadata_files=adapter_metadata_files,
+        adapter_output_dirs=adapter_output_dirs,
     )
 
     return config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file, target_hint

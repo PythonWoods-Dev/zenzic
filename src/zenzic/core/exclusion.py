@@ -147,6 +147,7 @@ class LayeredExclusionManager:
         "_global_tracker",
         "_system_dirs",
         "_adapter_metadata_files",
+        "_adapter_output_dirs",
         "_config_excluded_dirs",
         "_config_included_dirs",
         "_cli_exclude_dirs",
@@ -167,9 +168,12 @@ class LayeredExclusionManager:
         cli_exclude: list[str] | None = None,
         cli_include: list[str] | None = None,
         adapter_metadata_files: frozenset[str] = frozenset(),
+        adapter_output_dirs: frozenset[str] = frozenset(),
     ) -> None:
         self._system_dirs: frozenset[str] = SYSTEM_EXCLUDED_DIRS
         self._adapter_metadata_files: frozenset[str] = adapter_metadata_files
+        #: Repo-relative paths an engine declares as its build output (L1b-dirs).
+        self._adapter_output_dirs: frozenset[str] = adapter_output_dirs
         self._repo_root: Path | None = repo_root
 
         # Config-level dirs — strip system guardrails to keep layers clean
@@ -253,6 +257,13 @@ class LayeredExclusionManager:
         # Stripped: config-driven, basename-matched tree-wide, and writable by
         # the project under scan -- see the docstring above.
         view._adapter_metadata_files = frozenset()
+        # Stripped for the same reason as adapter metadata files: the value
+        # comes from ``mkdocs.yml``'s ``site_dir``, a file the scanned project
+        # writes. A guardrail the project can edit is user-controllable by
+        # definition, and the credential tier must not be one of the things a
+        # project can reconfigure. Proven: a real AWS key under the declared
+        # output directory is still reported.
+        view._adapter_output_dirs = frozenset()
         view._repo_root = self._repo_root
         view._config_excluded_dirs = frozenset()
         view._config_included_dirs = frozenset()
@@ -280,6 +291,18 @@ class LayeredExclusionManager:
         # L2 forced: Config included_dirs override config exclusions
         if dir_name in self._config_included_dirs:
             return False
+
+        # L1b-dirs: adapter-declared build output (e.g. MkDocs ``site_dir``).
+        #
+        # Placed *after* the forced-inclusion check, not immediately after L1,
+        # and matched on the repo-relative path rather than the basename. Both
+        # choices exist to avoid reproducing a measured regression: excluding
+        # the bare name ``site`` at L1 also pruned a legitimate
+        # ``docs/site/`` content directory and turned a working link into a
+        # `Z101`, with no configuration able to bring it back because L1
+        # returns before ``included_dirs`` is consulted.
+        if rel_path is not None and rel_path in self._adapter_output_dirs:
+            return True
 
         # L4: CLI --exclude-dir
         if dir_name in self._cli_exclude_dirs:

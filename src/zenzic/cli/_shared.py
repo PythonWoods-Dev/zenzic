@@ -784,6 +784,7 @@ def _build_exclusion_manager(
     exclude_dirs: list[str] | None = None,
     include_dirs: list[str] | None = None,
     adapter_metadata_files: frozenset[str] = frozenset(),
+    adapter_output_dirs: frozenset[str] = frozenset(),
 ) -> LayeredExclusionManager:
     """Construct a :class:`LayeredExclusionManager` from config + CLI flags.
 
@@ -801,6 +802,7 @@ def _build_exclusion_manager(
         cli_exclude=exclude_dirs,
         cli_include=include_dirs,
         adapter_metadata_files=adapter_metadata_files,
+        adapter_output_dirs=adapter_output_dirs,
     )
 
 
