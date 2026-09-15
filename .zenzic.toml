@@ -25,7 +25,10 @@
 # docs_dir = "."
 
 strict = true
-fail_under = 98
+# fail_under = 100 - suppression_cap, the relation the generated configuration states
+# (fail_under <= 100 - suppression_cap). With the cap declared below at 16 this is 84: a
+# higher floor would fail the project on the debt it declares, with no finding in sight.
+fail_under = 84
 max_sentence_length = 50
 # exit_zero = false
 # respect_vcs_ignore = true
@@ -54,7 +57,19 @@ excluded_assets = ["favicon.ico"]
 absolute_path_allowlist = ["/blog/rss.xml", "/blog/rss-updated.xml"]
 
 excluded_file_patterns = []
-# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
+
+[governance]
+# suppression_cap = 16: the directory-policy pairs this project defends, counted in use on
+# 2026-09-15. Twelve follow from pages kept out of the navigation on purpose (the ADR
+# records and the release runbook) and the links that reach them; one exempts the blog
+# posts' unreachable-page finding; three keep tutorial pages that demonstrate a finding.
+# The default of 30 is not calibrated for any project -- it began as the free allowance of
+# a retired scoring model -- so the cap is declared from what this project holds, and a new
+# exemption lands only by raising it on purpose.
+suppression_cap = 16
+
+# Directory policies: each (pattern, code) pair that silences a finding costs one point and
+# counts toward suppression_cap; a pair that silences nothing is reported (Z620).
 [governance.directory_policies]
 # `"docs/index.md" = ["Z502"]` was removed 2026-09-15. The short-content check became
 # opt-in and defaults to off, so the entry suppressed nothing; the dead-policy report
