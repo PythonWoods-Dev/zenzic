@@ -56,9 +56,9 @@ absolute_path_allowlist = ["/blog/rss.xml", "/blog/rss-updated.xml"]
 excluded_file_patterns = []
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
 [governance.directory_policies]
-# docs/index.md: routing/SEO-only file, real content lives in
-# overrides/partials/homepage/ — see commit 59bc449.
-"docs/index.md" = ["Z502"]
+# `"docs/index.md" = ["Z502"]` was removed 2026-09-15. The short-content check became
+# opt-in and defaults to off, so the entry suppressed nothing; the dead-policy report
+# skips exactly this path by name, which is why it was never flagged.
 "docs/blog/posts/**" = ["Z410"]
 # Individual ADR records and the internal release runbook are pulled from the
 # public nav (versioned reference material, link-checked normally, but never
