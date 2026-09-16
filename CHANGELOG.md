@@ -14,10 +14,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 The changes below alter what a corpus reports or what the tool emits, and several can make a corpus
 that passes today fail after upgrading. Items 1-3 add findings, and the two security-tier ones are
-**non-suppressible**; none is a regression — each closes a path by which a code was silenced. Items
-4, 6, 8, 9 and 10 remove findings, item 7 moves them both ways, and item 5 changes the JSON payload.
-The list ends with the breaking changes that are not about findings. Run the check against your
-repository before you roll the new version into a gate:
+**non-suppressible**; none is a regression — each closes a path by which a code was silenced. Item
+14 adds a finding too, for a configuration defect that used to pass in silence. Items 4, 6, 8, 9, 10
+and 13 remove findings, item 7 moves them both ways, item 5 changes the JSON payload, and item 15
+changes the wording of one. The list ends with the breaking changes that are not about findings.
+Run the check against your repository before you roll the new version into a gate:
 
 ```bash
 zenzic check all
@@ -179,6 +180,29 @@ be reported as `Z620` — delete them, or the `--strict` gate fails on the dead 
 documents all three as supported in `mkdocs.yml` form, so the warning said the opposite of what the
 generator does. The warned set is now the six keys Zensical's own compatibility page lists as
 unsupported: `remote_branch`, `remote_name`, `exclude_docs`, `draft_docs`, `not_in_nav`, `hooks`.
+
+**13. MkDocs' `exclude_docs` and `draft_docs` are honoured, so findings on pages the build omits
+disappear.** A page declared by either key is absent from the published site, so a quality finding
+about it describes something no reader can reach — measured before the fix: `Z402`, `Z410` and
+`Z512` on a file `mkdocs build` never produces. `draft_docs` is treated with **build** semantics:
+`mkdocs serve` renders a draft and `mkdocs build` omits it, and Zenzic analyses a repository rather
+than a running command, so it takes the published site as the reference. The credential scan is
+unaffected — a secret in an unbuilt file still reports `Z201` and still exits `2`. **If you keep a
+baseline, regenerate it**: it lists findings that no longer exist.
+
+**14. A new finding, `Z407` (`INVALID_ENGINE_PATTERN`), reports a pattern that cannot be parsed.**
+`not_in_nav`, `exclude_docs` and `draft_docs` take gitignore-style patterns; MkDocs refuses to build
+when one is malformed. Zenzic used to say nothing, so a typo silently did nothing and the only trace
+was the finding the author expected to be suppressed, still firing. Warning, penalty `0.0` — the
+configuration is wrong but no document is worse for it — and not inline-suppressible, because a
+config-file defect has no document line to anchor to. A pattern that parses but matches nothing is
+**not** reported here; that stays `Z620`.
+
+**15. `Z620`'s message no longer tells you to delete something that may be load-bearing.** It read
+"Remove the dead configuration", which is advice for one of two situations the tool cannot tell
+apart: the finding the entry covered has been fixed, or the pattern never matched what its author
+meant — a stray bracket makes `docs/[archive.md` a literal no file will ever equal. The message now
+names both and says to check before deleting.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
