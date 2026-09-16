@@ -120,6 +120,10 @@ _ATTR_LIST_RE = re.compile(r"\s+\{[^}]*\}$")
 _FN_DEF_RE = re.compile(r"^ {0,3}\[\^([^\]]+)\]:")
 
 # Matches HTML tags to strip from heading text before slugification.
+#: Bare ``[^>]`` deliberately: this strips tags out of a heading, so a tag cut short at
+#: a ``>`` inside a quoted value leaves characters in the slug rather than removing text
+#: the heading really has. Recorded because the same shape, used to *read* a tag rather
+#: than to strip one, was four separate defects this cycle.
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 # Matches id="..." or id='...' attributes inside standard HTML tags
 #: An anchor target declared as an HTML ``id``. The bare ``[^>]*`` this replaced

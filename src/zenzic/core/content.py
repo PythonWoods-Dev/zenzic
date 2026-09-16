@@ -161,6 +161,15 @@ _VOID_TAGS = {
 }
 
 
+#: These three are bare ``[^>]`` on purpose, and the purpose is written here because
+#: the same shape was a real defect in four other patterns this cycle (Z205 mis-tiered
+#: as Z121, Z403 on a tag that has alt, Z516 on a truncated title, Z405 on a referenced
+#: image). They mask rather than read: a tag cut short at a ``>`` inside a quoted value
+#: leaves the tail as prose instead of swallowing it, which is the safe direction —
+#: masking too little shows text that is there, masking too much hides text that is.
+#: Measured with a control pair rather than argued: ``<span title="a > b">TODO: ... bare
+#: URL</span>`` and the same line with ``title="a b"`` report the same two findings
+#: (Z501, Z515), differing only in the column the caret lands on.
 _OPEN_TAG_RE = re.compile(r"<([a-zA-Z1-6]+)\b([^>]*)/?>", re.IGNORECASE)
 _CLOSE_TAG_RE = re.compile(r"</([a-zA-Z1-6]+)\s*>", re.IGNORECASE)
 _TAG_MASK_RE = re.compile(r"<[^>]+>")
@@ -376,7 +385,13 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
 _HEADING_ANCHOR_STRIP_RE = re.compile(r"\s*\{#[^}]+\}\s*$")
 _WS_COLLAPSE_RE = re.compile(r"\s+")
 _TRAILING_INVALID_PUNCT = {".", ":", ";"}
-_HTML_H1_RE = re.compile(r"<h1\b[^>]*>(.*?)</h1>", re.IGNORECASE)
+#: Attribute-aware: the bare ``[^>]*`` this replaced ended the tag at the first
+#: ``>`` anywhere in it, including inside a quoted attribute value, so
+#: ``<h1 title="a > b">Second Title</h1>`` reported its title as
+#: ``b">Second Title`` -- a heading the document does not contain, in the
+#: message, in ``match_text`` and in everything downstream that reads them.
+#: Measured with a control pair: the same heading with ``title="a b"`` was clean.
+_HTML_H1_RE = re.compile(r"""<h1\b(?:[^>"']|"[^"]*"|'[^']*')*>(.*?)</h1>""", re.IGNORECASE)
 
 _GENERIC_ALT_SET = frozenset(
     {
@@ -407,8 +422,13 @@ _GENERIC_ALT_PREFIXES = (
 )
 
 _BARE_URL_RE = re.compile(r"https?://[^\s<>`\"'\[\]\(\)]+")
+#: Bare ``[^>]`` deliberately, same reasoning as the masking patterns above: this one
+#: strips tags out of prose before the content rules read it, so cutting a tag short
+#: leaves text rather than eating it.
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
+#: An autolink is *defined* as ending at the first ``>``: CommonMark forbids ``>``
+#: inside one, so here the bare class is the specification, not a shortcut.
 _AUTOLINK_RE = re.compile(r"<https?://[^>]+>")
 _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\([^)]+\)")
 # A leading caret marks a footnote definition (`[^1]: prose`), not a link

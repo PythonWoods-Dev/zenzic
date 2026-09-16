@@ -456,3 +456,33 @@ def test_z520_malformed_list_detection_and_mutator(tmp_path: Path) -> None:
     # Re-evaluating fixed text should produce zero Z520 findings
     recheck_findings = check_malformed_lists(file_path, fixed_text)
     assert len(recheck_findings) == 0
+
+
+# `<h1\b[^>]*>` ended the tag at the first `>` anywhere in it, so an attribute
+# value carrying one was read as part of the heading text: the finding named a
+# title the document does not contain, and the truncated text is what the
+# message, `match_text` and every downstream reader saw.
+
+
+def test_z516_reports_the_whole_html_title_when_an_attribute_contains_a_greater_than(
+    tmp_path: Path,
+) -> None:
+    file_path = tmp_path / "doc.md"
+    text = '# First Title\n\n<h1 title="a > b">Second Title</h1>\n'
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_multiple_h1_headings(file_path, text)
+    assert len(findings) == 1
+    assert findings[0].match_text == "Second Title"
+    assert "('Second Title')" in findings[0].message
+
+
+def test_z516_reports_the_same_title_without_the_greater_than(tmp_path: Path) -> None:
+    """The control half of the pair: identical heading, `>` removed from the value."""
+    file_path = tmp_path / "doc.md"
+    text = '# First Title\n\n<h1 title="a b">Second Title</h1>\n'
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_multiple_h1_headings(file_path, text)
+    assert len(findings) == 1
+    assert findings[0].match_text == "Second Title"

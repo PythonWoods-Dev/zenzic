@@ -405,6 +405,11 @@ when the same truncation let a `javascript:` href past the security tier.
   check never saw it — the same false positive the `srcset` support was added to remove, in a
   narrower case, introduced by the commit that removed it. **What you may see**: assets referenced
   only through `srcset` on such a tag stop being reported unused.
+- **A heading whose attribute contains `>` is reported with its real text (`Z516`).**
+  `<h1 title="a > b">Second Title</h1>` was reported as a duplicate H1 titled `b">Second Title` —
+  a heading no document contains — because the pattern ended the tag inside `title`. The finding
+  fired either way; the text in the message and in `match_text` was wrong, and that text is what
+  tooling downstream reads. **What you may see**: the same finding, naming the heading you wrote.
 - **An image named only in `srcset` is no longer reported unused (`Z405`).** A responsive image
   — `<picture><source srcset>` or `<img srcset>` — names its files in a candidate list, each URL
   followed by an optional width (`480w`) or density (`2x`) descriptor. The unused-asset check took
