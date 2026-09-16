@@ -187,7 +187,7 @@ pre-commit hook. Every source file must carry an SPDX copyright header.
 
 ### Single-author file (default)
 
-```text
+```python
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 ```
@@ -198,7 +198,7 @@ If you contribute to a file that already has a copyright header, **append** your
 own `SPDX-FileCopyrightText` line on a new line immediately below the existing
 one. Never replace or remove the original author's line:
 
-```text
+```python
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-FileCopyrightText: 2026 Your Name <your@email.example>
 # SPDX-License-Identifier: Apache-2.0
