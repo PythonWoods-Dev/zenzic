@@ -54,7 +54,7 @@ Warnings indicate that content remains structurally valid but violates governanc
 
 Examples include:
 
-- `Z511` — Excessive Sentence Length
+- `Z511` — Excessive Sentence Length (**opt-in**: enable `[policies] enable_sentence_length_check`)
 - `Z610` — Missing Required Frontmatter
 
 Warnings do not fail the build by default.
@@ -72,7 +72,7 @@ Info findings describe observable repository conditions that are not defects.
 Examples include:
 
 - `Z106` — Circular Link
-- `Z401` — Missing Directory Index
+- `Z401` — Missing Directory Index (**opt-in**: enable `[policies] enable_directory_index_check`)
 
 These findings may be useful for architecture analysis, navigation audits, or repository introspection, but they do not indicate broken behavior.
 

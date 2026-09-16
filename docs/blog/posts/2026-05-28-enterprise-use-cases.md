@@ -13,6 +13,14 @@ Zenzic is designed to run inside automated pipelines without configuration drift
 
 These patterns target different teams at different stages: DevOps teams enforcing merge gates in CI, technical leads scoping governance adoption in repositories with accumulated debt, and documentation engineers maintaining multilingual portals. The patterns are independent and can be combined. A repository with legacy debt can run Pattern 2 to fence exemptions while still enforcing a quality floor via Pattern 1 and structural i18n parity via Pattern 3.
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post describes the v0.9.0 line, where a `[governance.directory_policies]`
+    entry cost nothing against `suppression_cap`. That is no longer how the engine accounts for it:
+    every pattern-code pair that silences a finding in the run now costs one point of suppression
+    debt and counts once against the cap, exactly as an inline directive or a `per_file_ignores`
+    entry does — while a pair that silences nothing costs nothing and is reported as dead
+    configuration instead. The patterns below still work; their price changed.
+
 <!-- more -->
 
 ## Pattern 1 — CI/CD Quality Gate

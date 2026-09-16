@@ -100,7 +100,7 @@ That is the mechanism doing the actual work of "pay down debt over time" — the
 
 ## A real number, from Zenzic's own docs
 
-Baseline debt and suppression debt are two different, complementary levers — worth distinguishing so they aren't conflated. Baseline tracking gates the *build* on regressions; it does not, by itself, change the score. Suppressions (`<!-- zenzic:ignore -->` comments and per-file `.zenzic.toml` ignores) directly cost DQS points at a flat rate of 1 point per active suppression, independent of any baseline.
+Baseline debt and suppression debt are two different, complementary levers — worth distinguishing so they aren't conflated. Baseline tracking gates the *build* on regressions; it does not, by itself, change the score. Suppressions directly cost DQS points at a flat rate of 1 point each, independent of any baseline — an inline `<!-- zenzic:ignore -->` directive, a `per_file_ignores` entry, or a `directory_policies` pair, counted while it actually silences something.
 
 We ran `zenzic score docs --breakdown` against this repository's own `docs/` tree. It returned 98/100, with exactly 2 of those points coming from 2 active suppressions — matching the flat per-suppression cost model documented in Zenzic's technical-debt guide exactly. Both debt mechanisms make cost visible rather than hiding it. They just apply to different questions: "did this change make things worse?" versus "how much responsibility is the team currently assuming for known exceptions?"
 
