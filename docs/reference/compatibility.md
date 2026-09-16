@@ -21,7 +21,7 @@ installed and exercised in CI."
 | :--- | :--- | :--- | :--- |
 | MkDocs | `1.6.1` (pinned `>=1.5.0,<2`) | `uv.lock`-resolved version, exercised by `mkdocs build --strict` in CI on every push (`ci.yml`, `release-docs.yml`) — this project's own docs site building cleanly, not a dedicated multi-version matrix | 2026-08-29 |
 | Material for MkDocs | `9.7.7` (pinned `>=9.0.0,<10`) | Same as MkDocs above | 2026-08-29 |
-| Zensical | `0.0.57` (pre-1.0) | Manual schema review against Zensical's own live documentation and `zensical.toml` format — Zensical is not a pip dependency of this project (nothing to lock or CI-build against; `ZensicalAdapter` parses its config as data) | 2026-08-27 |
+| Zensical | `0.0.62` (pre-1.0) | Manual schema review against Zensical's own documentation repository (`github.com/zensical/docs` at `6346cfd`) and its published releases — Zensical is not a pip dependency of this project (nothing to lock or CI-build against; `ZensicalAdapter` parses its config as data) | 2026-09-16 |
 | Standalone | — | Engine-agnostic; no external schema to track | — |
 
 **What "verified" does not mean here**: there is no dedicated CI job that installs and tests

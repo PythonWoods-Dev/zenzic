@@ -49,16 +49,27 @@ from zenzic.models.config import BuildContext
 
 _log = logging.getLogger(__name__)
 
+# Zensical's own list of unsupported ``mkdocs.yml`` settings, as published in
+# its compatibility documentation (``compatibility/mkdocs/migration.md``,
+# "Unsupported settings", read at zensical/docs ``6346cfd``, 2026-09-13).
+#
+# It is six keys, not nine.  ``validation``, ``strict`` and ``watch`` were in
+# this set and are removed: Zensical documents all three as supported, in
+# ``mkdocs.yml`` form, in its own setup pages (``setup/validation.md`` for
+# ``validation:`` and ``strict: true``, ``setup/basics.md`` for ``watch:``).
+# Warning that they "will not affect the build" told users the opposite of what
+# the generator does.
+#
+# Upstream words it as "not *yet* supported" and tracks the gaps in its backlog
+# (``not_in_nav`` is issue 63, ``exclude_docs``/``draft_docs`` issue 65), so
+# this set is a snapshot of a moving target, not a permanent contract.
 _UNSUPPORTED_MKDOCS_KEYS = {
     "remote_branch",
     "remote_name",
     "exclude_docs",
     "draft_docs",
     "not_in_nav",
-    "validation",
-    "strict",
     "hooks",
-    "watch",
 }
 
 

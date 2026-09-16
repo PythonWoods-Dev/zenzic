@@ -22,6 +22,7 @@ from zenzic.core.adapters._mkdocs_config import (
 )
 from zenzic.core.adapters._utils import (
     _extract_blog_dir,
+    _extract_not_in_nav_spec,
     _iter_plugins,
     case_sensitive_exists,
     dedupe_roots,
@@ -494,6 +495,13 @@ class MkDocsAdapter(BaseAdapter):
                 nav_paths.add(f"{p}index.md")
         self._nav_paths: frozenset[str] = frozenset(nav_paths)
 
+        # MkDocs' ``not_in_nav``: pages the author declared as deliberately
+        # absent from the nav.  Upstream still builds and serves them; the key
+        # only exempts them from the nav-omission diagnostic.  Precomputed once
+        # here for the same reason as ``_nav_paths`` — ``_classify_route`` runs
+        # per file.
+        self._not_in_nav_spec = _extract_not_in_nav_spec(self._doc_config)
+
         # Emit a UX hint when the config is redundant: reconfigure_material
         # auto-generates the switcher, so extra.alternate is both unnecessary
         # and harmful (it competes with the plugin and can hide the switcher).
@@ -772,6 +780,17 @@ class MkDocsAdapter(BaseAdapter):
         # material/blog plugin: every .md under <blog_dir>/posts/ is a live,
         # dynamically-indexed page — never listed in nav: but always REACHABLE.
         if self._blog_posts_prefix and rel_posix.startswith(f"{self._blog_posts_prefix}/"):
+            return "REACHABLE"
+
+        # not_in_nav: the author declared this page as deliberately absent from
+        # the nav.  MkDocs matches the same gitignore spec against the same
+        # docs-root-relative path (``structure/files.py``'s ``set_exclusions``
+        # against ``file.src_uri``) and marks it NOT_IN_NAV — still built, still
+        # served, merely exempt from the nav-omission diagnostic.  A declared
+        # page is therefore reachable by intent, not an orphan.  This runs after
+        # the nav-membership check so a page that is both listed and declared
+        # stays REACHABLE for the ordinary reason.
+        if self._not_in_nav_spec is not None and self._not_in_nav_spec.match_file(rel_posix):
             return "REACHABLE"
 
         return "ORPHAN_BUT_EXISTING"

@@ -229,6 +229,17 @@ def print_suppression_audit_footer(
         f"directory: {suppression_audit.directory_policy_count})"
         f"{scope_label}"
     )
+    # The default view removes exempted findings before display, so a reader of
+    # this footer sees the count of policies in use but never what they took out.
+    # Name the route to the detail rather than reprinting the findings here: the
+    # exemptions exist to keep them out of this view, and --audit already shows
+    # each one with a [POLICY_EXEMPTION] label.
+    if suppression_audit.directory_policy_count and not audit_mode:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]   {suppression_audit.directory_policy_count} directory "
+            f"{'policy' if suppression_audit.directory_policy_count == 1 else 'policies'} "
+            f"removed findings from this report — run with --audit to see them.[/]"
+        )
     if audit_mode:
         _shared.console.print(
             f"[{ZenzicPalette.DIM}]Sovereign Audit Mode:[/] "

@@ -17,6 +17,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pathspec.gitignore
+
 from zenzic.core import regex as re
 
 
@@ -45,6 +47,41 @@ def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]
             normalized.append((name, cfg if isinstance(cfg, dict) else {}))
 
     return normalized
+
+
+def _extract_not_in_nav_spec(
+    doc_config: dict[str, Any],
+) -> pathspec.gitignore.GitIgnoreSpec | None:
+    """Build MkDocs' ``not_in_nav`` matcher from an engine config, or ``None``.
+
+    Upstream semantics, read from MkDocs 1.6.1 rather than inferred: the key is
+    a ``config_options.PathSpec``, i.e. **gitignore-style patterns in a single
+    multiline string**.  ``set_exclusions`` (``structure/files.py``) matches it
+    against ``file.src_uri`` — the docs-root-relative POSIX path — and marks a
+    hit ``InclusionLevel.NOT_IN_NAV``.  Such a page is still built and served;
+    it is only exempt from the nav-omission diagnostic
+    (``validation.nav.omitted_files``).  Excluding a page from the *site* is
+    ``exclude_docs``/``draft_docs``, which are different keys.
+
+    A non-string value returns ``None`` deliberately.  MkDocs raises
+    *"Expected a multiline string, but a <class 'list'> was given"* and aborts
+    the build, so honouring a list here would invent a semantic upstream
+    rejects and attribute it to the generator's key.  Declaring nothing leaves
+    the page an orphan, which is the finding that tells the author their
+    configuration is wrong.
+    """
+    raw = doc_config.get("not_in_nav")
+    if not isinstance(raw, str):
+        return None
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    try:
+        return pathspec.gitignore.GitIgnoreSpec.from_lines(lines)
+    except (ValueError, TypeError):
+        # A malformed pattern is the author's to fix; it must not take the scan
+        # down, and it must not silently behave as "everything is declared".
+        return None
 
 
 def _extract_blog_dir(doc_config: dict[str, Any]) -> str | None:

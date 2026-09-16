@@ -156,9 +156,13 @@ nav = [
     Switch the engine declaration, run `zenzic check all`, see the result — no Markdown file
     touched, no pipeline broken.
 
-    While reading `mkdocs.yml` in this fallback mode, Zenzic emits warnings for MkDocs-specific keys
-    that Zensical ignores: `remote_branch`, `remote_name`, `exclude_docs`, `draft_docs`,
-    `not_in_nav`, `validation`, `strict`, `hooks`, and `watch`.
+    While reading `mkdocs.yml` in this fallback mode, Zenzic emits warnings for the MkDocs
+    settings Zensical lists as unsupported: `remote_branch`, `remote_name`, `exclude_docs`,
+    `draft_docs`, `not_in_nav`, and `hooks`. The list mirrors Zensical's own
+    [compatibility documentation](https://zensical.org/docs/compatibility/mkdocs/migration/#unsupported-settings),
+    which words it as "not *yet* supported" and tracks each gap in its backlog — so expect it to
+    shrink. `validation`, `strict` and `watch` are **not** in this set: Zensical documents all
+    three as supported, in `mkdocs.yml` form, on its own setup pages.
 
 ### Step 4 — Verify link integrity
 

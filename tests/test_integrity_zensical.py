@@ -307,7 +307,13 @@ class TestZensicalFromRepo:
     def test_unsupported_mkdocs_keys_emit_warning(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Unsupported MkDocs keys emit a warning during bridge construction."""
+        """Unsupported MkDocs keys emit a warning during bridge construction.
+
+        The set mirrors Zensical's own "Unsupported settings" list. ``strict`` is
+        asserted *absent* deliberately: Zensical documents it as supported, in
+        ``mkdocs.yml`` form, on its own setup pages, so warning that it "will not
+        affect the build" told users the opposite of what the generator does.
+        """
         docs_root = tmp_path / "docs"
         docs_root.mkdir()
         (tmp_path / "mkdocs.yml").write_text(
@@ -317,7 +323,8 @@ class TestZensicalFromRepo:
         with caplog.at_level(logging.WARNING, logger="zenzic.core.adapters._zensical"):
             ZensicalAdapter.from_repo(ctx, docs_root, tmp_path)
         warned_keys = {r.message for r in caplog.records}
-        assert any("strict" in msg for msg in warned_keys)
+        assert any("hooks" in msg for msg in warned_keys)
+        assert not any("strict" in msg for msg in warned_keys)
 
     def test_raises_config_error_when_neither_exists(self, tmp_path: Path) -> None:
         """from_repo raises ConfigurationError when no config file is found."""

@@ -531,7 +531,8 @@ A file exists in `docs/` but is not reachable from any navigation menu. The docu
 **Fix:**
 
 1. Add the file to `nav` (MkDocs).
-2. Delete the file if it is a leftover artifact.
+2. Declare it deliberately out-of-nav with MkDocs' `not_in_nav` — a gitignore-style pattern block. Zenzic honours it and the page is treated as reachable by intent. The page is still built and served; the key only exempts it from the nav-omission diagnostic. Not supported by Zensical. See [the rule card](../rules/Z402.md#declaring-a-page-deliberately-absent-from-the-nav-mkdocs).
+3. Delete the file if it is a leftover artifact.
 
 ---
 

@@ -294,7 +294,10 @@ class GovernanceConfig(BaseModel):
         default_factory=dict,
         description=(
             "Strategic directory-level policy exemptions (glob pattern -> finding codes). "
-            "Matched findings are removed before display with ZERO suppression debt cost. "
+            "Matched findings are removed before display. A pattern-code pair that "
+            "silences a finding counts as one suppression in use and costs one DQS "
+            "point, exactly like an inline directive or a per-file entry (ADR 061); "
+            "a pair that silences nothing costs nothing and is reported as Z620. "
             "In --audit mode, exempted findings appear with a [POLICY_EXEMPTION] label. "
             "Intended for historical archives, SSOT registries, and blog directories. "
             "Security findings (Z201-Z204) bypass this exemption unconditionally."

@@ -167,6 +167,19 @@ generated assets, `Z402` and `Z410` on generated pages. Those findings disappear
 still reads the directory, so a secret in build output still exits `2`. An `excluded_dirs` entry you
 added for the build directory is now redundant.
 
+**11. MkDocs' `not_in_nav` is honoured, so pages declared out-of-nav stop reporting `Z402` — and the
+links into them stop reporting `Z103`.** The key is a gitignore-style pattern block (a YAML list is
+rejected by MkDocs itself, so Zenzic declares nothing for one). A declared page is still built and
+served; upstream only exempts it from the nav-omission diagnostic, and Zenzic now mirrors that. An
+undeclared orphan still reports `Z402`. Zensical does not support the key, so nothing changes under
+that engine. Directory policies you added for deliberately-unlisted pages may now silence nothing and
+be reported as `Z620` — delete them, or the `--strict` gate fails on the dead pairs.
+
+**12. Zenzic no longer warns that Zensical ignores `validation`, `strict` and `watch`.** Zensical
+documents all three as supported in `mkdocs.yml` form, so the warning said the opposite of what the
+generator does. The warned set is now the six keys Zensical's own compatibility page lists as
+unsupported: `remote_branch`, `remote_name`, `exclude_docs`, `draft_docs`, `not_in_nav`, `hooks`.
+
 **Breaking changes that are not about findings** — each has its own entry below:
 
 - CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
