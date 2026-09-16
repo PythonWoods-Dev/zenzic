@@ -25,14 +25,18 @@ RULES_DIR = REPO_ROOT / "docs" / "rules"
 # Severity token stored in codes.py -> (displayed label, icon name, hex color).
 # "note" is displayed as "Info" to match the CLI's own note->info user-facing
 # mapping (src/zenzic/main.py: `severity = "info" if defn.severity == "note" ...`).
+# Colours are CSS variables: see the reasoning in sync_rule_card_badges.py, whose
+# map this one mirrors. The two are deliberately separate copies -- the test must
+# be able to disagree with the script -- so they are updated together.
 SEVERITY_DISPLAY: dict[str, tuple[str, str, str]] = {
-    "error": ("Error", "material-alert-circle", "#e11d48"),
-    "warning": ("Warning", "material-alert-outline", "#f59e0b"),
-    "note": ("Info", "material-information-outline", "#3b82f6"),
+    "error": ("Error", "material-alert-circle", "var(--zz-error)"),
+    "warning": ("Warning", "material-alert-outline", "var(--zz-warning)"),
+    "note": ("Info", "material-information-outline", "var(--zz-info)"),
 }
 
 BADGE_PATTERN = re.compile(
-    r"- :(?P<icon>material-[a-z-]+):\{ \.lg \.middle style=\"color: (?P<color>#[0-9a-f]{6});\" \} "
+    r"- :(?P<icon>material-[a-z-]+):\{ \.lg \.middle "
+    r"style=\"color: (?P<color>#[0-9a-f]{6}|var\(--[a-z-]+\));\" \} "
     r"\*\*Severity: (?P<severity>\w+)\*\*\s*"
     r"---\s*"
     r"Penalty: \*\*(?P<penalty>[\d.]+) points\*\* \| Category: \*\*`(?P<category>[a-z]+)`\*\*",

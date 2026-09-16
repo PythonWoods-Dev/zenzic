@@ -35,10 +35,19 @@ EXCLUDED_CODES = frozenset({"Z412", "Z521", "Z522", "Z523"})
 # Severity token in codes.py -> (displayed label, icon name, hex color).
 # "note" displays as "Info" to match the CLI's own note->info mapping
 # (src/zenzic/main.py: `severity = "info" if defn.severity == "note" ...`).
+# Colours are CSS variables, not literals. A literal written by a script is more
+# durable than one written by hand, not less: the drift acquires a generator that
+# maintains it. `#3b82f6` was such a case -- it marked Severity: Info on 4 cards
+# and was declared nowhere in extra.css, while `--zz-info` existed all along
+# (#38bdf8 slate, #0284c7 default). Measured 2026-09-16, `V031_RULE_CARD_ICONS`.
+#
+# A variable also resolves the light/dark asymmetry instead of choosing a side:
+# the cards carried the light `#e11d48` for Error while the diagrams took dark
+# values. `var(--zz-error)` follows whichever scheme the reader is in.
 SEVERITY_DISPLAY: dict[str, tuple[str, str, str]] = {
-    "error": ("Error", "material-alert-circle", "#e11d48"),
-    "warning": ("Warning", "material-alert-outline", "#f59e0b"),
-    "note": ("Info", "material-information-outline", "#3b82f6"),
+    "error": ("Error", "material-alert-circle", "var(--zz-error)"),
+    "warning": ("Warning", "material-alert-outline", "var(--zz-warning)"),
+    "note": ("Info", "material-information-outline", "var(--zz-info)"),
 }
 
 #: The Auto-Fixable | Opt-In line. `fixable` has been in the registry since
@@ -50,7 +59,8 @@ FIXABLE_OPT_IN_PATTERN = re.compile(
 
 
 BADGE_PATTERN = re.compile(
-    r"- :(?P<icon>material-[a-z-]+):\{ \.lg \.middle style=\"color: (?P<color>#[0-9a-f]{6});\" \} "
+    r"- :(?P<icon>material-[a-z-]+):\{ \.lg \.middle "
+    r"style=\"color: (?P<color>#[0-9a-f]{6}|var\(--[a-z-]+\));\" \} "
     r"\*\*Severity: (?P<severity>\w+)\*\*\s*"
     r"---\s*"
     r"Penalty: \*\*(?P<penalty>[\d.]+) points\*\* \| Category: \*\*`(?P<category>[a-z]+)`\*\*",
