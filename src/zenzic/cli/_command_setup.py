@@ -13,6 +13,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+import pathspec.gitignore
+
 from zenzic.core.adapters import get_adapter
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import find_repo_root
@@ -96,6 +98,7 @@ def setup_command(
     # declared config pattern for governance/audit purposes).
     adapter_metadata_files: frozenset[str] = frozenset()
     adapter_output_dirs: frozenset[str] = frozenset()
+    adapter_excluded_docs: pathspec.gitignore.GitIgnoreSpec | None = None
     if include_adapter_metadata:
         # get_adapter() caches by (engine, docs_root, repo_root), so building
         # it here and again in the caller (for other adapter methods) is a
@@ -103,6 +106,7 @@ def setup_command(
         _adapter = get_adapter(config.build_context, docs_root, repo_root)
         adapter_metadata_files = _adapter.get_metadata_files()
         adapter_output_dirs = _adapter.get_output_dirs()
+        adapter_excluded_docs = _adapter.get_excluded_docs_spec()
 
     exclusion_mgr = _shared._build_exclusion_manager(
         config,
@@ -112,6 +116,7 @@ def setup_command(
         include_dirs=cli_include_dirs,
         adapter_metadata_files=adapter_metadata_files,
         adapter_output_dirs=adapter_output_dirs,
+        adapter_excluded_docs=adapter_excluded_docs,
     )
 
     return config, repo_root, docs_root, exclusion_mgr, single_file, loaded_from_file, target_hint

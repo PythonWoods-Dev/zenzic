@@ -425,7 +425,12 @@ class GlobalUsageTracker:
                         file_path=origin,
                         line_no=line_no,
                         rule_id="Z620",
-                        message=f"Global policy '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
+                        message=(
+                            f"Global policy '{pattern}' = ['{code}'] was never used to "
+                            "suppress a finding. Either the finding it covered is fixed "
+                            "and the entry can be removed, or the pattern does not match "
+                            "what it was meant to match — check it before deleting."
+                        ),
                         severity=code_severity("Z620"),
                     )
                 )
@@ -463,7 +468,12 @@ class GlobalUsageTracker:
                         file_path=origin,
                         line_no=line_no,
                         rule_id="Z620",
-                        message=f"Per-file ignore '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
+                        message=(
+                            f"Per-file ignore '{pattern}' = ['{code}'] was never used to "
+                            "suppress a finding. Either the finding it covered is fixed "
+                            "and the entry can be removed, or the pattern does not match "
+                            "what it was meant to match — check it before deleting."
+                        ),
                         severity=code_severity("Z620"),
                     )
                 )

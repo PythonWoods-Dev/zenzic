@@ -1038,7 +1038,7 @@ This rule exists to detect overly complex documents whose structural score excee
 
 An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
 
-**Fix:** Remove the dead configuration line from `.zenzic.toml`.
+**Fix:** Check the pattern before deleting anything. A policy reports `Z620` for two very different reasons: the finding it covered has been fixed, in which case the entry is dead and should go; or the pattern never matched what its author meant it to match — a stray bracket makes `docs/[archive.md` a literal no file will ever equal — in which case the exemption was never in force and deleting it hides that. The tool cannot tell the two apart, which is why the message names both.
 
 ---
 

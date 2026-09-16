@@ -1211,19 +1211,25 @@ def _scan_single_file(
                 if _cached is None:
                     _cached = []
                     for _pat, _codes in config.governance.directory_policies.items():
-                        with contextlib.suppress(Exception):
+                        # Narrow by type, not by breadth: translate_glob_to_re2
+                        # produces a compilable RE2 for every glob measured, so a
+                        # failure here is a real defect and must not be hidden.
+                        # ``suppress(Exception)`` used to wrap this and swallowed
+                        # TypeError and AttributeError along with it.
+                        try:
                             _cached.append((_pat, re.compile(translate_glob_to_re2(_pat)), _codes))
-                    with contextlib.suppress(Exception):
+                        except (re.error, ValueError):
+                            continue
+                    with contextlib.suppress(AttributeError, TypeError):
                         object.__setattr__(config, "_compiled_dir_policies", _cached)
 
                 for _pat, compiled, codes in _cached:
-                    with contextlib.suppress(Exception):
-                        if compiled.fullmatch(rel_path):
-                            _dir_policy_patterns.add(_pat)
-                            for c in codes:
-                                globally_suppressed_codes.setdefault(
-                                    str(c).strip().upper(), []
-                                ).append(_pat)
+                    if compiled.fullmatch(rel_path):
+                        _dir_policy_patterns.add(_pat)
+                        for c in codes:
+                            globally_suppressed_codes.setdefault(str(c).strip().upper(), []).append(
+                                _pat
+                            )
 
         tracker = SuppressionTracker(
             md_file,

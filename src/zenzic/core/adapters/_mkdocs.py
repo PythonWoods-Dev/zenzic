@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pathspec.gitignore
+
 from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import (
@@ -23,6 +25,7 @@ from zenzic.core.adapters._mkdocs_config import (
 from zenzic.core.adapters._utils import (
     PATHSPEC_KEYS,
     _extract_blog_dir,
+    _extract_excluded_docs_spec,
     _extract_not_in_nav_spec,
     _iter_plugins,
     case_sensitive_exists,
@@ -546,6 +549,9 @@ class MkDocsAdapter(BaseAdapter):
         # per file.
         self._not_in_nav_spec = _extract_not_in_nav_spec(self._doc_config)
 
+        # exclude_docs / draft_docs: pages absent from the built site.
+        self._excluded_docs_spec = _extract_excluded_docs_spec(self._doc_config)
+
         # Emit a UX hint when the config is redundant: reconfigure_material
         # auto-generates the switcher, so extra.alternate is both unnecessary
         # and harmful (it competes with the plugin and can hide the switcher).
@@ -838,6 +844,10 @@ class MkDocsAdapter(BaseAdapter):
             return "REACHABLE"
 
         return "ORPHAN_BUT_EXISTING"
+
+    def get_excluded_docs_spec(self) -> pathspec.gitignore.GitIgnoreSpec | None:
+        """``exclude_docs``/``draft_docs`` as one matcher, or ``None`` if unset."""
+        return self._excluded_docs_spec
 
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return unified routing metadata for a MkDocs source file.

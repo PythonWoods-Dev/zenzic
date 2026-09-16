@@ -148,6 +148,7 @@ class LayeredExclusionManager:
         "_system_dirs",
         "_adapter_metadata_files",
         "_adapter_output_dirs",
+        "_adapter_excluded_docs",
         "_config_excluded_dirs",
         "_config_included_dirs",
         "_cli_exclude_dirs",
@@ -169,11 +170,17 @@ class LayeredExclusionManager:
         cli_include: list[str] | None = None,
         adapter_metadata_files: frozenset[str] = frozenset(),
         adapter_output_dirs: frozenset[str] = frozenset(),
+        adapter_excluded_docs: pathspec.gitignore.GitIgnoreSpec | None = None,
     ) -> None:
         self._system_dirs: frozenset[str] = SYSTEM_EXCLUDED_DIRS
         self._adapter_metadata_files: frozenset[str] = adapter_metadata_files
         #: Repo-relative paths an engine declares as its build output (L1b-dirs).
         self._adapter_output_dirs: frozenset[str] = adapter_output_dirs
+        #: Matcher for pages an engine declares absent from the built site
+        #: (MkDocs ``exclude_docs``/``draft_docs``) — L1b-files. A spec rather
+        #: than a path set: enumerating matches would require walking the docs
+        #: tree, and every walk in the engine goes through ``discovery``.
+        self._adapter_excluded_docs: pathspec.gitignore.GitIgnoreSpec | None = adapter_excluded_docs
         self._repo_root: Path | None = repo_root
 
         # Config-level dirs — strip system guardrails to keep layers clean
@@ -264,6 +271,11 @@ class LayeredExclusionManager:
         # project can reconfigure. Proven: a real AWS key under the declared
         # output directory is still reported.
         view._adapter_output_dirs = frozenset()
+        # Stripped for the same reason as the output directory: the value comes
+        # from ``mkdocs.yml``, a file the scanned project writes. A page kept out
+        # of the built site is out of *quality* scope; a credential inside it is
+        # still a credential in the repository.
+        view._adapter_excluded_docs = None
         view._repo_root = self._repo_root
         view._config_excluded_dirs = frozenset()
         view._config_included_dirs = frozenset()
@@ -378,6 +390,16 @@ class LayeredExclusionManager:
         for part in Path(rel_path).parts[:-1]:
             if part in self._config_included_dirs:
                 return False
+
+        # L1b-files: pages the engine declares absent from the built site
+        # (MkDocs ``exclude_docs``/``draft_docs``). Placed after the L2 forced
+        # inclusions, not immediately after L1, so ``included_file_patterns``
+        # can still pull a file back — the same ordering ``_adapter_output_dirs``
+        # uses, and for the same reason.
+        if self._adapter_excluded_docs is not None and self._adapter_excluded_docs.match_file(
+            rel_path
+        ):
+            return True
 
         # L4: CLI --exclude-dir (docs-relative scope)
         for part in Path(rel_path).parts[:-1]:

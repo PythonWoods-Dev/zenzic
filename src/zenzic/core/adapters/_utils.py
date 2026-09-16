@@ -83,6 +83,44 @@ def validate_pathspec_value(raw: object) -> str | None:
     return None
 
 
+def _extract_excluded_docs_spec(
+    doc_config: dict[str, Any],
+) -> pathspec.gitignore.GitIgnoreSpec | None:
+    """Build a matcher for pages MkDocs will not put in the built site.
+
+    Covers ``exclude_docs`` and ``draft_docs`` together, because the question
+    Zenzic asks is the same for both: *will a reader be able to reach this page
+    on the published site?*
+
+    Upstream, the two differ by one level. ``exclude_docs`` marks a file
+    ``InclusionLevel.EXCLUDED`` — never built, never served. ``draft_docs``
+    marks it ``DRAFT``, and ``commands/build.py`` picks the set with
+    ``inclusion = is_in_serve if serve_url else is_included``: ``mkdocs serve``
+    renders a draft, ``mkdocs build`` omits it.
+
+    **Zenzic adopts build semantics**, and that is a choice rather than an
+    oversight. This tool analyses a repository, not a running command; it cannot
+    know whether the next invocation will be ``serve`` or ``build``, and the
+    published site is what a reader gets. A draft page is therefore out of
+    quality scope, exactly like an excluded one.
+
+    Malformed patterns are not this function's business — they are reported as
+    ``Z407`` — so an unparseable value simply declares nothing here.
+    """
+    specs: list[str] = []
+    for key in ("exclude_docs", "draft_docs"):
+        raw = doc_config.get(key)
+        if not isinstance(raw, str):
+            continue
+        specs.extend(ln for ln in raw.splitlines() if ln.strip())
+    if not specs:
+        return None
+    try:
+        return pathspec.gitignore.GitIgnoreSpec.from_lines(specs)
+    except Exception:  # two unrelated families; see validate_pathspec_value
+        return None
+
+
 def _extract_not_in_nav_spec(
     doc_config: dict[str, Any],
 ) -> pathspec.gitignore.GitIgnoreSpec | None:

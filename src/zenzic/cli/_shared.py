@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pathspec.gitignore
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -785,6 +786,7 @@ def _build_exclusion_manager(
     include_dirs: list[str] | None = None,
     adapter_metadata_files: frozenset[str] = frozenset(),
     adapter_output_dirs: frozenset[str] = frozenset(),
+    adapter_excluded_docs: pathspec.gitignore.GitIgnoreSpec | None = None,
 ) -> LayeredExclusionManager:
     """Construct a :class:`LayeredExclusionManager` from config + CLI flags.
 
@@ -803,6 +805,7 @@ def _build_exclusion_manager(
         cli_include=include_dirs,
         adapter_metadata_files=adapter_metadata_files,
         adapter_output_dirs=adapter_output_dirs,
+        adapter_excluded_docs=adapter_excluded_docs,
     )
 
 

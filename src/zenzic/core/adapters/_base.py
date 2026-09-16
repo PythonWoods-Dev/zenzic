@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import pathspec.gitignore
+
 
 if TYPE_CHECKING:
     from zenzic.models.vsm import RouteStatus, VirtualSiteMap
@@ -116,6 +118,22 @@ class BaseAdapter(ABC):
         fixture. A declared output directory is one specific path.
         """
         return frozenset()
+
+    def get_excluded_docs_spec(self) -> pathspec.gitignore.GitIgnoreSpec | None:
+        """Return a matcher for pages this engine keeps out of the built site.
+
+        Not abstract, for the same reason as :meth:`get_output_dirs`: an engine
+        with no such concept returns ``None`` rather than implementing a stub.
+        Only MkDocs declares these (``exclude_docs``/``draft_docs``).
+
+        A **matcher**, not a list of paths, and deliberately so. Enumerating the
+        matches would mean walking the docs tree here, and every filesystem walk
+        in the engine goes through ``discovery`` — that is the check keeping a
+        config-derived root from reaching outside the repository. The exclusion
+        manager applies this spec to each ``rel_path`` during the walk it already
+        performs, exactly as it applies the VCS pathspec.
+        """
+        return None
 
     @abstractmethod
     def get_route_info(self, rel: Path) -> RouteMetadata:

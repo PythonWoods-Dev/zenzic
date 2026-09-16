@@ -44,7 +44,9 @@ Expected output:
 standalone • 2 files (2 pages, 0 assets) • 0.0s • 65 files/s
 
 .zenzic.toml:8  ⚠  [Z620]  Global policy 'docs/clean-page.md' = ['Z101'] was
-never used to suppress a finding. Remove the dead configuration.
+never used to suppress a finding. Either the finding it covered is fixed and
+the entry can be removed, or the pattern does not match what it was meant to
+match — check it before deleting.
 
 ────────────────────────────────────────────────────────────────────────────────
 
