@@ -122,7 +122,17 @@ _FN_DEF_RE = re.compile(r"^ {0,3}\[\^([^\]]+)\]:")
 # Matches HTML tags to strip from heading text before slugification.
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 # Matches id="..." or id='...' attributes inside standard HTML tags
-_HTML_ID_RE = re.compile(r"""<[^>]*\bid\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE)
+#: An anchor target declared as an HTML ``id``. The bare ``[^>]*`` this replaced
+#: ended the tag at the first ``>`` anywhere in it, including inside a quoted
+#: attribute value -- so ``<span title="a > b" id="target">`` was truncated before
+#: ``id=`` was reached, the anchor never entered the target set, and a link to
+#: ``#target`` was reported ``Z102 ANCHOR_MISSING`` against a target that exists.
+#: Measured with a control pair: the same ``>`` placed *after* ``id=`` was clean.
+#: Same family as ``scanner.py``'s ``_RE_HTML_IMG``, and the same remedy as the
+#: security-tier fix ``POLY_ATTRS_FRAGMENT`` below was written for.
+_HTML_ID_RE = re.compile(
+    r"""<(?:[^>"']|"[^"]*"|'[^']*')*?\bid\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE
+)
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
 # A leading caret marks a *footnote* definition (`[^1]: prose`), which the footnotes

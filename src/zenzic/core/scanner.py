@@ -134,7 +134,17 @@ _RE_REF_SHORTCUT = re.compile(r"\[([^\]]+)\]")
 _RE_IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
 # HTML image tag — captures the entire tag for alt extraction
-_RE_HTML_IMG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+#: An ``<img>`` tag, aware that a quoted attribute value may contain ``>``.
+#: The bare ``[^>]*`` this replaced ended the tag at the first ``>`` anywhere
+#: in it, including inside ``src`` or ``title`` -- so a tag whose value carried
+#: one before ``alt=`` was truncated before the alt attribute was ever seen, and
+#: Z403 (missing alt) and Z514 (generic alt) both read the truncated text.
+#: Measured: ``src="a.png?q=<x>"`` and ``title="a > b"`` with a good ``alt`` were
+#: reported as having none, while the same ``>`` placed *after* ``alt=`` was clean.
+#: Reuses ``POLY_ATTRS_FRAGMENT``'s shape -- alternation and character classes
+#: only, RE2-safe and linear -- which ``validator.py`` introduced when the same
+#: truncation let a ``javascript:`` href past the security tier.
+_RE_HTML_IMG = re.compile(r"""<img\b(?:[^>"']|"[^"]*"|'[^']*')*>""", re.IGNORECASE)
 _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 
 

@@ -204,6 +204,27 @@ apart: the finding the entry covered has been fixed, or the pattern never matche
 meant — a stray bracket makes `docs/[archive.md` a literal no file will ever equal. The message now
 names both and says to check before deleting.
 
+**16. `Z619`'s rule card documented a complexity ceiling that suppresses its own example.**
+The card's Configuration section showed `max_document_complexity = 50`, while the fixture the card
+demonstrates sets `5`. Measured both ways: the example document emits `Z619` at a ceiling of 5 and
+emits nothing at 50 — so a reader following the card's own configuration would have seen no finding
+and concluded the rule does not work. The card now documents `5` and says what it is measured against.
+No engine behaviour changed; this corrects published documentation that was wrong.
+
+**17. Two false positives are fixed: an `<img>` carrying `alt=` reported as missing it, and a valid
+HTML anchor reported as `Z102`.** Both came from the same defect. The tag patterns behind `Z403`
+(`MISSING_ALT`), `Z514` (`GENERIC_IMAGE_ALT`) and `Z102` (`ANCHOR_MISSING`) ended a tag at the first
+`>` anywhere in it — including one inside a *quoted attribute value*. A tag whose `src` or `title`
+carried `>` before the attribute being read was truncated before that attribute was ever seen.
+Measured with control pairs: `<img src="a.png?q=<x>" alt="described">` and
+`<img src="a.png" title="a > b" alt="described">` were both reported as having no alt text, while
+the same `>` placed *after* `alt=` was clean; `<span title="a > b" id="target">` never registered its
+anchor, so a link to `#target` was reported missing against a target that exists. Position, not
+content — it is not about SVG or `data:` URIs, which is how it was first seen. **If your corpus
+documents HTML with `>` inside an attribute value, findings disappear after upgrading**; nothing new
+is reported. The patterns now use the quote-aware, RE2-safe form `validator.py` already introduced
+when the same truncation let a `javascript:` href past the security tier.
+
 **Breaking changes that are not about findings** — each has its own entry below:
 
 - CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
