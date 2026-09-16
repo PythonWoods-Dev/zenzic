@@ -26,6 +26,21 @@ Scope: Mermaid blocks under ``docs/``. Rule cards carry their own icon colours a
 are NOT in scope -- three of their values are undeclared today, and a gate that
 starts red on seventy-one pages teaches its reader to ignore it.
 
+**This gate reads ``docs/**/*.md`` and nothing else, and that perimeter is
+narrower than the project's diagrams.** A coverage audit on 2026-09-16 ran this
+file's own fence pattern across every surface and found 12 blocks here and
+**11 more outside**, in four files that this gate cannot see. They are not
+missing by accident: the private trees are gitignored, and a script in this
+public directory must not name them (see *Governance Scope* in the control
+plane's own instructions -- a public file citing a private path is the exact
+disclosure defect recorded there). Those 11 are checked by the private-side
+gate instead, so the surface is covered by a second instrument rather than by a
+promise to remember.
+
+What no instrument covers, stated rather than left silent: diagrams in the three
+satellite repositories and the four READMEs -- measured empty on 2026-09-16, with
+the sweep's reach positive-controlled, but nothing re-measures them on a schedule.
+
 Exit codes: 0 = conformant, 1 = divergence.
 """
 
