@@ -97,6 +97,37 @@ CANNOT_BE_RUN: dict[str, str] = {
         "request, which a test run must not depend on"
     ),
     "Z405": "describes a file on disk that nothing links to; there is no page content to run",
+    # Added 2026-09-16 (V031_CARDS_DOCS_AUDIT) when these four cards gained an example
+    # derived from their fixture. Each is a graph-shaped code: the harness writes one
+    # page, and one page has no graph. What each emits alone was measured, not assumed.
+    "Z402": (
+        "an orphan needs a site to be orphaned from; the fixture is three pages and the "
+        "example page alone reports Z101 instead"
+    ),
+    "Z410": (
+        "an unreachable node needs a graph to be unreachable in; the fixture is two pages "
+        "and the example page alone emits nothing"
+    ),
+    "Z411": (
+        "a dead end needs somewhere to lead from; the fixture is four pages and the example "
+        "page alone reports Z101 and Z620 instead"
+    ),
+    "Z412": (
+        "traceability needs its target namespace present; the fixture is three pages and the "
+        "example page alone reports Z202 instead"
+    ),
+    # Measured 2026-09-16 (V031_CARDS_DOCS_AUDIT), both ways. Unmasked, the example
+    # emits Z201 and the Secret Guard pre-commit hook refuses the commit -- correctly:
+    # Z201 is non-suppressible, and the hook's exclude list is a deliberate two-path
+    # allowance for the fixture that must carry a real string to BE a fixture. Masked to
+    # the convention seven other public pages use (AKIA************MPLE), the page is
+    # guard-clean and emits nothing. The two requirements are mutually exclusive.
+    "Z201": (
+        "a card that demonstrates a credential must contain one, and a public page "
+        "containing one is what the product exists to block; masked to the house "
+        "convention it is guard-clean and emits nothing -- a masked credential is not "
+        "a credential, the same shape as Z403's escaped image"
+    ),
 }
 
 
