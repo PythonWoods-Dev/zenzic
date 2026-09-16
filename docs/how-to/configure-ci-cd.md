@@ -154,10 +154,10 @@ unchanged. Unset, it expands to empty and the gate behaves at full strictness.
     in any configuration file. Run `just build` without the variable to confirm that the
     gate still blocks on the broken links:
 
-    ```bash
-    just build
-    # [Z101] external link 'https://zenzic.dev/blog/' — connection error: Name or service not known
-    # FAILED: Hard errors detected. Exit code 1 is mandatory.
+    ```console
+    $ just build
+    [Z101] external link 'https://zenzic.dev/blog/' — connection error: Name or service not known
+    FAILED: Hard errors detected. Exit code 1 is mandatory.
     ```
 
     The protection is active by default. The variable is an operator exception, not a
