@@ -153,8 +153,14 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 #: descriptor, candidates separated by commas -- so it is parsed, not matched as
 #: one URL. Deliberately read only by the asset pass: the tag extractor that
 #: feeds link validation and the attribute-governance codes is left untouched.
+#: Attribute-aware, for the reason ``_RE_HTML_IMG`` above is: the bare ``[^>]*?``
+#: this replaced ended the tag at the first ``>`` anywhere in it, so an image whose
+#: earlier attribute carried one -- ``src="a.png?q=<x>"`` -- hid its own candidates
+#: and the asset pass reported them unused. Measured with a control pair: the same
+#: tag with ``?q=x`` was clean. That is the Z405 false positive this pattern was
+#: added to remove, reintroduced in a narrower case by the commit that removed it.
 _SRCSET_ATTR_RE = re.compile(
-    r"(?is)<(?:img|source)\b[^>]*?\bsrcset\s*=\s*(?:\"([^\"]*)\"|'([^']*)')"
+    r"""(?is)<(?:img|source)\b(?:[^>"']|"[^"]*"|'[^']*')*?\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)')"""
 )
 
 

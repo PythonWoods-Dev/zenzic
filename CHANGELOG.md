@@ -399,6 +399,12 @@ when the same truncation let a `javascript:` href past the security tier.
   inline**: any text after a fence's opening backticks — a suppression comment included — is read as
   the block's language tag, so there is no untagged block left to report. The Suppression Policy page's warning that these directives are reported dead is removed.
 - **Every Example Page Shows What Its Fixture Prints Again.** 56 of the 57 *Expected output* blocks under `docs/tutorials/examples/` that run a fixture no longer matched it. Most still showed a `Z411` dead-end warning, and the points it cost, from before that check became opt-in, and a Suppression Audit footer without its `directory` count. Some were wrong in ways a reader would act on: the `Z620` page gave exit `0` for a command that exits `1`; the `Z112` and `Z603` pages ran a command, or started from a repository, that does not produce the output shown; the `Z603` page described a fixture it does not ship and said a dead suppression consumes part of the cap; the `Z501` and `Z505` pages carried a second, stale copy of their output after the block. Each block is now its fixture's real output at 80 columns, without the progress rows, which carry per-run timings. The `Z110` and `Z111` pages are unchanged: that output is an error panel printed with the absolute path of the machine that ran it.
+- **An image whose earlier attribute contains `>` no longer hides its own `srcset` (`Z405`).**
+  The `srcset` pattern ended the tag at the first `>` anywhere in it, including inside a quoted
+  value, so `<img src="a.png?q=<x>" srcset="wide.png 2x">` named `wide.png` and the unused-asset
+  check never saw it — the same false positive the `srcset` support was added to remove, in a
+  narrower case, introduced by the commit that removed it. **What you may see**: assets referenced
+  only through `srcset` on such a tag stop being reported unused.
 - **An image named only in `srcset` is no longer reported unused (`Z405`).** A responsive image
   — `<picture><source srcset>` or `<img srcset>` — names its files in a candidate list, each URL
   followed by an optional width (`480w`) or density (`2x`) descriptor. The unused-asset check took

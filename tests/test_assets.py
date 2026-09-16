@@ -321,3 +321,26 @@ def test_srcset_inside_a_fence_or_a_comment_is_not_a_reference(tmp_path: Path) -
     unused = _unused(tmp_path, page)
     assert "light.png" in unused
     assert "wide.png" in unused
+
+
+# A quoted attribute value may contain `>`, and the srcset pattern ended the tag
+# at the first one -- so an image whose `src` carried a query string with `>`
+# hid its own srcset candidates, and the asset pass reported them unused. This
+# is the defect `a92b4a6` removed for the general case, in a narrower one.
+
+
+def test_srcset_is_read_when_an_earlier_attribute_value_contains_a_greater_than(
+    tmp_path: Path,
+) -> None:
+    page = '# Home\n\n<img alt="x" src="assets/dark.png?q=<x>" srcset="assets/wide.png 2x">\n'
+    unused = _unused(tmp_path, page)
+    assert "wide.png" not in unused
+    assert "dark.png" not in unused
+
+
+def test_the_same_tag_without_the_greater_than_is_read_too(tmp_path: Path) -> None:
+    """The control half of the pair: identical tag, `>` removed from the value."""
+    page = '# Home\n\n<img alt="x" src="assets/dark.png?q=x" srcset="assets/wide.png 2x">\n'
+    unused = _unused(tmp_path, page)
+    assert "wide.png" not in unused
+    assert "dark.png" not in unused
