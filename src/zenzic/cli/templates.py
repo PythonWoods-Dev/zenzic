@@ -101,7 +101,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# - fail_under: Controls the global health of the project (active findings + debt).\n"
     "# - suppression_cap: An absolute hard-fail ceiling for hidden debt.\n"
     "# Mathematical invariant: fail_under <= (100 - suppression_cap)\n"
-    "# Example Hybrid Policy: fail_under = 90, suppression_cap = 30.\n"
+    "# Example: fail_under = 90 with suppression_cap = 10 (90 <= 100 - 10).\n"
     "# This ensures overall quality never drops below 90, while strictly preventing\n"
     "# the accumulation of more than 30 suppressed errors under any circumstance.\n"
     "fail_under = 100\n"
@@ -182,7 +182,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "#   preceded flat-cost debt, kept as the threshold. Declare the cap your project\n"
     "#   defends, and keep fail_under <= 100 - suppression_cap.\n"
     "#\n"
-    "suppression_cap = 30\n"
+    "suppression_cap = 0\n"
     "suppression_cap_fail_hard = true\n"
     "\n"
     "# Terms that should no longer appear in your documentation.\n"
@@ -428,6 +428,20 @@ LOCAL_TOML_TEMPLATE: str = (
 # ===========================================================================
 # Appended to pyproject.toml by `zenzic init --pyproject`.
 # Dynamic placeholders: {engine}, {hint_name}
+#
+# THIS IS A POINTER, NOT A CATALOGUE, AND THAT IS THE POINT.
+#
+# Until 2026-09-16 this template was 173 lines of annotated reference written
+# into a file the Python project owns. The reason to shrink it is not that the
+# file is shared -- though it is -- but that the same knowledge was written in
+# three places: 19 finding codes enumerated by hand here, 31 in the .zenzic.toml
+# template, and the registry that actually knows. Two of the three had already
+# diverged. A catalogue in three copies is three surfaces that drift, and
+# `activation`/`activation_key` exist precisely so enumeration can derive.
+#
+# So this holds what a project must DECIDE, and points at the reference for
+# everything it can look up. The reference page is built and verified:
+# docs/reference/configuration-reference/.
 # ===========================================================================
 PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
@@ -436,171 +450,49 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# Full reference: https://zenzic.dev/reference/configuration-reference/\n"
     "# Precedence: pyproject.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
     "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
+    "#\n"
+    "# This section carries the decisions. Every other setting -- suppression\n"
+    "# policies, per-file ignores, custom rules, the policy engine, opt-in codes --\n"
+    "# is documented at the reference above. Run `zenzic init` in a scratch\n"
+    "# directory to read the fully annotated form.\n"
     "# ---------------------------------------------------------------------------\n"
     "\n"
     "[tool.zenzic]\n"
-    "# docs_dir — relative path to your documentation root.\n"
-    '#   Default: "docs" | Use "." to scan the entire repository (L1 exclusions apply).\n'
-    "#\n"
+    "# docs_dir — your documentation root.\n"
+    '#   Default: "docs" | Use "." to scan the whole repository.\n'
     '# docs_dir = "docs"\n'
     "\n"
     "strict = true\n"
-    "# ORTHOGONAL CONSTRAINTS (Flat-Cost Model):\n"
-    "#   fail_under:      global health gate (active findings + debt).\n"
-    "#   suppression_cap: absolute hard-fail ceiling for hidden debt.\n"
-    "#   Invariant:       fail_under <= (100 - suppression_cap)\n"
-    "#   Example: fail_under = 90, suppression_cap = 30 → score must stay above 90\n"
-    "#            while capping hidden debt at 30 suppressions.\n"
+    "\n"
+    "# The two gates, and the invariant that binds them:\n"
+    "#     fail_under <= (100 - suppression_cap)\n"
+    "#\n"
+    "# fail_under — the score your project defends.\n"
     "fail_under = 100\n"
-    "# exit_zero = false\n"
-    "# respect_vcs_ignore = true\n"
-    "# baseline_stale_days: age (days) after which the saved score snapshot\n"
-    "# (.zenzic-score.json) is flagged stale in `zenzic score --json`'s\n"
-    "# baseline_status field. Defaults to 7 when unset.\n"
-    "# baseline_stale_days = 7\n"
     "\n"
-    "# External URLs excluded from the broken-link check (--strict only).\n"
-    '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
     "\n"
-    "# Z204 Privacy Gate — terms that must never appear in published docs.\n"
-    "# forbidden_patterns = []\n"
-    "\n"
-    "# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---\n"
-    '# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo"]\n'
-    "# placeholder_max_words = 50\n"
-    "# snippet_min_lines = 1\n"
-    "\n"
-    "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
-    "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
-    "# Prefer [tool.zenzic.governance.per_file_ignores] for targeted suppression with an audit trail.\n"
-    '# excluded_dirs          = ["legacy/", "third-party/"]\n'
-    '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
-    '# excluded_assets        = ["favicon.ico"]\n'
-    '# excluded_build_artifacts = ["pdf/*.pdf"]\n'
-    "\n"
-    "# --- PLUGINS (Optional) ---\n"
-    "# plugins = []\n"
+    "[tool.zenzic.governance]\n"
+    "# suppression_cap — the ceiling on hidden debt. Every suppression in use\n"
+    "# costs 1 point (flat-cost model), and exceeding the cap fails the run.\n"
+    "#\n"
+    "# Starts at 0 because a new project genuinely has no suppressions: the\n"
+    "# number measures your real state instead of granting an allowance. The\n"
+    "# first suppression then forces a deliberate choice rather than quietly\n"
+    "# consuming an uncalibrated 30 -- which is the engine default, inherited\n"
+    "# from the model that preceded flat-cost debt and never calibrated since.\n"
+    "# Raise it to the debt your project defends, keeping the invariant above.\n"
+    "suppression_cap = 0\n"
+    "suppression_cap_fail_hard = true\n"
     "\n"
     "[tool.zenzic.build_context]\n"
-    "# engine — auto-detected from project files; override with --engine if needed.\n"
+    "# engine — auto-detected from project files; override with --engine.\n"
     "#   Supported: mkdocs, zensical, standalone\n"
     'engine         = "{engine}"\n'
     'base_url       = "/"\n'
     'default_locale = "en"\n'
     "\n"
     "[tool.zenzic.project_metadata]\n"
+    '# name = "{hint_name}"\n'
     '# release_name = "YOUR-RELEASE"\n'
-    "# badge_stamp_files = [\"README.md\"]  # files updated by 'zenzic score --stamp'\n"
-    "\n"
-    "[tool.zenzic.governance]\n"
-    "# suppression_cap — hard-fail threshold for technical debt.\n"
-    "#   BEHAVIOR: if suppressions in use > cap → CI fails immediately (Exit Code 1).\n"
-    "#   SCORING:  every suppression in use costs 1 DQS point (Flat-Cost Model).\n"
-    "#   DEFAULT:  30 — not calibrated (the allowance of the model that preceded\n"
-    "#             flat-cost debt). Declare the cap your project defends.\n"
-    "suppression_cap           = 30\n"
-    "suppression_cap_fail_hard = true\n"
-    "\n"
-    "# Terms that should no longer appear in your documentation.\n"
-    "# Keep empty until your governance policy defines deprecated brand terms.\n"
-    "brand_obsolescence = []\n"
-    '# suppression_cap_scope = "all"  # Options: all, per-file\n'
-    "\n"
-    "# [tool.zenzic.governance.per_file_ignores]\n"
-    "# Silence a rule for specific file globs.\n"
-    "# BEHAVIOR: ADDITIVE — each pair in use adds 1 pt of Technical Debt (flat-cost).\n"
-    "# IMPACT:   A pair that silences nothing costs nothing; it is reported as Z620.\n"
-    "#\n"
-    '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
-    '# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt\n'
-    "\n"
-    "# [tool.zenzic.governance.directory_policies]\n"
-    "# Strategic exemptions for entire directory trees or specific files.\n"
-    "# BEHAVIOR: Matched findings are dropped — each pair in use adds 1 pt of debt.\n"
-    "# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.\n"
-    "#\n"
-    '# "blog/**"                       = ["Z411", "Z601"]  # historical archive & dead-ends\n'
-    '# "docs/specs/**"                 = ["Z412"]          # traceability exemption\n'
-    '# "docs/explanation/registry.mdx" = ["Z601", "Z620"]  # SSOT codename registry\n'
-    "\n"
-    "# --- POLICY-AS-CODE ENGINE ---\n"
-    "[tool.zenzic.policies]\n"
-    "# Enforces declarative structural and security policies across your docs graph.\n"
-    "# Opt-in by default: empty lists/dicts bypass evaluation with zero performance overhead.\n"
-    "#\n"
-    "# required_frontmatter_keys: Markdown files must declare these keys in YAML frontmatter (Z610).\n"
-    "# forbidden_external_domains: Links matching these domains emit governance warnings (Z611).\n"
-    "# forbidden_frontmatter_keys: Markdown files must not contain these frontmatter keys (Z612).\n"
-    "# allowed_external_domains: Zero-Trust whitelist for external link domains (Z614).\n"
-    "# required_url_schemes: Whitelist of allowed URL protocols (Z615).\n"
-    "# forbidden_content_patterns: RE2 regex patterns forbidden in prose (Z617).\n"
-    "# required_heading_patterns: RE2 regex patterns required in headings (Z618).\n"
-    "# max_document_complexity: Maximum allowed document complexity score (Z619).\n"
-    "# weasel_words: List of words to detect in technical prose (Z519).\n"
-    "# enable_passive_voice_check: Enable passive voice detection heuristic (Z518).\n"
-    "# required_table_columns: Markdown table missing required column header (Z521).\n"
-    "# table_cell_enums: Table cell value not in allowed enum list (Z522).\n"
-    "# required_heading_order: Headings appear out of configured sequential order (Z523).\n"
-    "# traceability_targets: Required cross-directory traceability link missing (Z412).\n"
-    "required_frontmatter_keys = []\n"
-    "forbidden_external_domains = []\n"
-    "forbidden_frontmatter_keys = []\n"
-    "allowed_external_domains = []\n"
-    "required_url_schemes = []\n"
-    "forbidden_content_patterns = []\n"
-    "required_heading_patterns = []\n"
-    "max_document_complexity = 0\n"
-    "weasel_words = []\n"
-    "required_heading_order = []\n"
-    "\n"
-    "# Which checks run, which are opt-in, and which stay inert until you\n"
-    "# declare their data: see\n"
-    "# https://zenzic.dev/reference/configuration-reference/\n"
-    "# or run `zenzic init` in a scratch directory to read the annotated form.\n"
-    "# [tool.zenzic.policies.frontmatter_schema_match]\n"
-    '# version = "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"\n'
-    "# [tool.zenzic.policies.cross_namespace_restrictions]\n"
-    '# "docs/public" = ["docs/internal"]\n'
-    "# [tool.zenzic.policies.required_table_columns]\n"
-    '# "*" = ["Status", "Description"]\n'
-    '# "^API Reference$" = ["Method", "Endpoint"]\n'
-    "# [tool.zenzic.policies.table_cell_enums]\n"
-    '# Status = ["draft", "review", "stable"]\n'
-    "# [tool.zenzic.policies.traceability_targets]\n"
-    '# "docs/specs/**" = ["docs/architecture/**"]\n'
-    "\n"
-    "# --- NETWORK I/O ---\n"
-    "[tool.zenzic.network]\n"
-    "# Cache external link responses to speed up local execution.\n"
-    "cache_ttl_hours = 24\n"
-    "\n"
-    "# --- CUSTOM RULES (Optional) ---\n"
-    "# Declares project-specific regex-based lint rules applied line-by-line.\n"
-    "# [[tool.zenzic.custom_rules]]\n"
-    '# id       = "ZZ-NOCLICKHERE"\n'
-    '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
-    '# message  = "Avoid generic link text. Use a meaningful description."\n'
-    '# severity = "error"\n'
-    '# link     = "https://wiki.example.com/link-text-policy"  # optional\n'
-    "\n"
-    "# --- GATE 4: AUTOMATION (Pre-commit & CI/CD) ---\n"
-    "# Track 1 — Pre-commit Hook (Recommended: add to .pre-commit-config.yaml):\n"
-    "# repos:\n"
-    "#   - repo: https://github.com/PythonWoods-Dev/zenzic\n"
-    "#     rev: v0.30.0\n"
-    "#     hooks:\n"
-    "#       - id: zenzic-guard\n"
-    "#\n"
-    "# Track 2 / CI — GitHub Actions (Optional: add to .github/workflows/zenzic.yml):\n"
-    "# name: zenzic\n"
-    "# on: [pull_request, push]\n"
-    "# jobs:\n"
-    "#   audit:\n"
-    "#     runs-on: ubuntu-latest\n"
-    "#     steps:\n"
-    "#       - uses: actions/checkout@v4\n"
-    "#       - name: Run Zenzic Action\n"
-    "#         uses: pythonwoods/zenzic-action@v2\n"
-    "#       - name: Verify Badge Freshness\n"
-    "#         run: uvx zenzic score --check-stamp\n"
+    '# badge_stamp_files = ["README.md"]  # updated by `zenzic score --stamp`\n'
 )

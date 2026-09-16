@@ -1096,9 +1096,25 @@ def test_init_standalone_creates_zenzic_toml(
     assert "# --- PROJECT IDENTITY ---" in content
     assert "[project_metadata]" in content
     assert '# release_name = "YOUR-RELEASE"' in content
-    assert "suppression_cap = 30" in content
+    assert "suppression_cap = 0" in content
     assert "suppression_cap_fail_hard = true" in content
     assert "release-governance-protocol" in content
+
+    # The invariant the template prints two lines above the values it writes:
+    #     fail_under <= (100 - suppression_cap)
+    # It shipped fail_under = 100 beside suppression_cap = 30 -- i.e. 100 <= 70,
+    # false -- from the template's creation until 2026-09-17, and nothing
+    # checked it: no model_validator ties the two fields, no finding code
+    # reports the pair, and no test compared them. A generated config that
+    # contradicts its own stated rule teaches the rule wrong.
+    import re as _re
+
+    _fu_m = _re.search(r"^fail_under = (\d+)", content, _re.M)
+    _cap_m = _re.search(r"^suppression_cap = (\d+)", content, _re.M)
+    assert _fu_m is not None, "the template no longer writes fail_under"
+    assert _cap_m is not None, "the template no longer writes suppression_cap"
+    _fu, _cap = int(_fu_m.group(1)), int(_cap_m.group(1))
+    assert _fu <= 100 - _cap, f"template violates its own invariant: {_fu} <= {100 - _cap} is false"
 
     local_cfg = repo / ".zenzic.local.toml"
     assert local_cfg.is_file()
@@ -1332,7 +1348,16 @@ def test_init_pyproject_no_file_creates_minimal(
     content = pyproject.read_text(encoding="utf-8")
     assert "[tool.zenzic]" in content
     assert "[tool.zenzic.governance]" in content
-    assert "suppression_cap = 30" in content
+    assert "suppression_cap = 0" in content
+
+    import re as _re
+
+    _fu_m = _re.search(r"^fail_under = (\d+)", content, _re.M)
+    _cap_m = _re.search(r"^suppression_cap = (\d+)", content, _re.M)
+    assert _fu_m is not None, "the template no longer writes fail_under"
+    assert _cap_m is not None, "the template no longer writes suppression_cap"
+    _fu, _cap = int(_fu_m.group(1)), int(_cap_m.group(1))
+    assert _fu <= 100 - _cap, f"template violates its own invariant: {_fu} <= {100 - _cap} is false"
 
 
 def test_init_interactive_prompt_chooses_pyproject(
@@ -1710,8 +1735,18 @@ def test_init_pyproject_engine_flag_override(
     assert "(manually specified via --engine)" in result.stdout
 
 
-def test_init_pyproject_template_verbose(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """pyproject.toml template includes didactic comments matching .zenzic.toml quality."""
+def test_init_pyproject_writes_the_decisions_and_points_at_the_rest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The written section carries what a project must decide, and a pointer for the rest.
+
+    This test asserted the opposite until 2026-09-16: it required ORTHOGONAL
+    CONSTRAINTS, the CI/CD block, per_file_ignores and directory_policies to be
+    present in the generated file -- that is, it fixed the catalogue as a
+    contract, which is the mechanism that made the template 173 lines and would
+    have made it grow back. What matters is that the section is usable and that
+    its keys land where the model reads them, not that it is long.
+    """
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -1722,12 +1757,10 @@ def test_init_pyproject_template_verbose(tmp_path: Path, monkeypatch: pytest.Mon
     assert result.exit_code == 0
 
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
-    assert "ORTHOGONAL CONSTRAINTS" in content
-    assert "suppression_cap" in content
-    assert "CI/CD" in content
-    assert "[tool.zenzic.governance.per_file_ignores]" in content
-    assert "[tool.zenzic.governance.directory_policies]" in content
-    assert "excluded_dirs" in content
+    assert 'name = "myapp"' in content, "the project's own content must survive"
+    assert "reference/configuration-reference" in content, "a pointer template must point"
+    for decision in ("docs_dir", "fail_under", "suppression_cap", "engine"):
+        assert decision in content, f"{decision} is a decision the project makes here"
 
 
 # ---------------------------------------------------------------------------
@@ -3097,3 +3130,59 @@ def test_env_command_json() -> None:
     assert "zenzic_module_path" in data
     assert "current_working_directory" in data
     assert "active_config_path" in data
+
+
+def test_pyproject_template_stays_a_pointer_not_a_catalogue() -> None:
+    """The [tool.zenzic] section holds decisions and points at the reference.
+
+    Until 2026-09-16 it was 173 lines of annotated reference written into a file
+    the Python project owns. The reason to keep it short is not politeness about
+    a shared file: the same knowledge lived in three places -- 19 finding codes
+    enumerated by hand in this template, 31 in the .zenzic.toml one, and the
+    registry that actually knows -- and two of the three had already diverged.
+
+    Without this test the catalogue returns on the first edit that "just adds
+    one more useful comment", which is how it grew the first time.
+    """
+    import re
+
+    from zenzic.cli.templates import PYPROJECT_TOML_SECTION_TEMPLATE as template
+
+    rendered = template.format(engine="mkdocs", hint_name="demo")
+
+    assert len(rendered.splitlines()) <= 60, (
+        f"the pyproject section is {len(rendered.splitlines())} lines; it is a pointer, "
+        "and anything a reader can look up belongs in the reference page instead"
+    )
+
+    codes = set(re.findall(r"\bZ[0-9]{3}\b", rendered))
+    assert not codes, (
+        f"the template enumerates finding codes by hand: {sorted(codes)}. "
+        "Codes derive from the registry (activation/activation_key); a hand-written "
+        "list is a second copy that drifts from it"
+    )
+
+    assert "reference/configuration-reference" in rendered, (
+        "a pointer template must point: the reference URL is what replaces the catalogue"
+    )
+
+    for decision in ("docs_dir", "fail_under", "suppression_cap", "engine"):
+        assert decision in rendered, f"{decision} is a decision the project must make; keep it"
+
+    # The defect this assertion exists for: shortening the template moved
+    # suppression_cap out of [governance] and under [tool.zenzic], where the
+    # loader discards it with "unknown key ... will be ignored". The generated
+    # config then declared a ceiling that had no effect -- worse than a long
+    # template, because it was false rather than verbose. Length, codes and the
+    # pointer all still checked out; nothing here looked at which table a key
+    # landed in, so the check this file exists for walked straight past it.
+    import tomllib
+
+    parsed = tomllib.loads('[project]\nname = "demo"\n' + rendered)
+    zenzic = parsed["tool"]["zenzic"]
+    assert "suppression_cap" in zenzic["governance"], (
+        "suppression_cap belongs to [tool.zenzic.governance]; the loader ignores it elsewhere"
+    )
+    assert "suppression_cap_fail_hard" in zenzic["governance"]
+    assert "engine" in zenzic["build_context"]
+    assert "fail_under" in zenzic
