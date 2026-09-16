@@ -237,14 +237,14 @@ flowchart TD
     L3 -->|"excluded_dirs / excluded_file_patterns"| EXCLUDED_L3[EXCLUDED - Config]
     L3 -->|Not config-excluded| INCLUDED[INCLUDED - Default]
 
-    style EXCLUDED_L1 fill:#ef4444,color:#fff
-    style EXCLUDED_VCS fill:#f59e0b,color:#fff
-    style EXCLUDED_L3 fill:#f59e0b,color:#fff
-    style EXCLUDED_L4 fill:#f59e0b,color:#fff
-    style EXCLUDED_L1B fill:#f59e0b,color:#fff
-    style INCLUDED_L2 fill:#10b981,color:#fff
-    style INCLUDED_L4 fill:#10b981,color:#fff
-    style INCLUDED fill:#10b981,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class INCLUDED_L2,INCLUDED_L4,INCLUDED ok
+    class EXCLUDED_VCS,EXCLUDED_L3,EXCLUDED_L4,EXCLUDED_L1B gate
+    class EXCLUDED_L1 danger
 ```
 
 | Level | Name | Source | Mutable? |

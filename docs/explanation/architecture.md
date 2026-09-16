@@ -65,11 +65,15 @@ flowchart TD
         K --> P["SARIF / JSON / GitHub Annotations Output"]
     end
 
-    style L fill:#10b981,color:#fff
-    style M fill:#f59e0b,color:#fff
-    style N fill:#ef4444,color:#fff
-    style O fill:#ef4444,color:#fff
-    style P fill:#0284c7,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class P data
+    class L ok
+    class M gate
+    class N,O danger
 ```
 
 !!! note "ADR-075 Invariant: Radical Unawareness"
@@ -545,8 +549,13 @@ flowchart LR
     CMD --> CB["@app.callback()\nconfigure_console()"]
     CB --> EXEC["Command executes\nwith correct console"]
 
-    style BANNER fill:#4f46e5,color:#fff
-    style EXEC fill:#10b981,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class BANNER entry
+    class EXEC ok
 ```
 
 The banner always writes to **stdout** (the shared `_shared.console`) so it uses the same color-detection stream as the subsequent command output. The Typer callback runs *after* the banner, which is acceptable — the module-level console already uses `force_terminal=None` (auto-detect) at startup.

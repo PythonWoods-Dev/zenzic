@@ -79,6 +79,42 @@ By excluding line numbers from the signature computation:
 
 ---
 
+## How a check comes to run {#activation}
+
+Three things decide whether a code produces findings at all, and the distinction a reader
+cannot otherwise make is between a check that is **off** and one that is **on and inert** —
+running, finding nothing, because the data it compares against was never declared.
+
+```mermaid
+flowchart TD
+    A["A finding code in the registry"] --> B{"How is it activated?"}
+    B -->|"default — 48 codes"| C["Runs on every scan"]
+    B -->|"flag — 8 codes"| D{"Is its [policies] flag true?"}
+    B -->|"data — 15 codes"| E{"Is its data key declared?"}
+    D -->|No, the default| F["OFF — never evaluated"]
+    D -->|Yes| C
+    E -->|"No, the default"| G["INERT — evaluated, nothing to compare against"]
+    E -->|Yes| C
+    C --> H["Findings enter the report"]
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A entry
+    class C,H ok
+    class F gate
+    class G data
+```
+
+**`OFF` and `INERT` look identical in a report — both produce nothing — and they are fixed
+differently.** A flag-gated code is switched on with its `[policies] enable_*` key; a
+data-gated one needs the list it compares against, and turning a flag on for it would change
+nothing. `zenzic config explain` prints which state each code is in.
+
+---
+
 ## Global Usage Tracker
 
 To enforce configuration hygiene and accurate debt accounting, the core execution engine maintains a `GlobalUsageTracker` attached directly to the `ZenzicConfig` model.

@@ -41,13 +41,16 @@ flowchart TD
         J --> K["GitHub Code Scanning / Inline Annotations"]
     end
 
-    style F fill:#10b981,color:#fff
-    style G fill:#f59e0b,color:#fff
-    style H fill:#ef4444,color:#fff
-    style I fill:#ef4444,color:#fff
-    style C fill:#4f46e5,color:#fff
-    style J fill:#0284c7,color:#fff
-    style K fill:#0284c7,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class C entry
+    class J,K data
+    class F ok
+    class G gate
+    class H,I danger
 ```
 
 ---

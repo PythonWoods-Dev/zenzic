@@ -403,6 +403,13 @@ docs-build:
 	# site and starts 404ing the moment this build ships -- a regression the
 	# release introduces rather than inherits. Six were found this way.
 	uv run python3 scripts/check_redirect_destinations.py site
+	# Every Mermaid node takes its colour from a declared class, and every class
+	# value is one the dark theme declares. Diagrams only: the rule cards carry
+	# three undeclared values today and are their own batch -- a gate that starts
+	# red on seventy-one pages teaches its reader to ignore it. The check states
+	# in its own docstring what it cannot do: whether a depicted flow is still
+	# the flow.
+	uv run python3 scripts/check_diagram_palette.py
 	# Every internal link must resolve the way a browser resolves it. The
 	# engine answers a different question -- against the source tree -- which
 	# is how 161 broken links passed `zenzic check links`. Public gate, not a

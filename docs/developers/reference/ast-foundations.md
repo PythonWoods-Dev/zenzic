@@ -61,10 +61,15 @@ flowchart TD
         F -->|Z2xx Security Breaches| H["Fatal Security Override (Exit 2/3)"]
     end
 
-    style C fill:#4f46e5,color:#fff
-    style D fill:#0284c7,color:#fff
-    style G fill:#10b981,color:#fff
-    style H fill:#ef4444,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class C entry
+    class D data
+    class G ok
+    class H danger
 ```
 
 ---

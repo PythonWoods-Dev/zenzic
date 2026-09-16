@@ -27,6 +27,39 @@ The scoring pipeline operates across five sequential stages:
 
 ---
 
+## The five stages, in order {#stages}
+
+The stages below run in sequence and each one can only lower the score. Two properties are
+easy to miss in prose and are the reason this is drawn: the security override **replaces**
+the result rather than deducting from it, and the Gravity Cap applies to the subtotal
+**before** suppression debt — so debt is subtracted from a number that may already have been
+capped.
+
+```mermaid
+flowchart TD
+    A["Findings from the scan"] --> B{"Any Z2xx security finding?"}
+    B -->|Yes| C["Score is 0 — the other stages do not run"]
+    B -->|No| D["Category penalties, each capped at its tier's budget"]
+    D --> E{"Any category fully consumed?"}
+    E -->|Yes| F["Gravity Cap: subtotal held at 70"]
+    E -->|No| G["Subtotal stands"]
+    F --> H["Subtract one point per suppression in use"]
+    G --> H
+    H --> I["Final score"]
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A entry
+    class C danger
+    class F gate
+    class I ok
+```
+
+---
+
 ## Stage 1 — Security Override {#security-override}
 
 Before any category calculation, the engine evaluates **Z2xx findings**:

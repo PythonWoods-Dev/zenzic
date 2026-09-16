@@ -127,9 +127,14 @@ flowchart TD
     Soul -->|"Invariants & policies"| Action["<b>Enforcement (CI, Editor, AI)</b><br>Applies the Core at the point of contact"]
     Action -->|"Real-world failures & telemetry"| Core
 
-    style Core fill:#4f46e5,stroke:#4338ca,color:#ffffff,stroke-width:2px
-    style Soul fill:#0284c7,stroke:#0369a1,color:#ffffff,stroke-width:2px
-    style Action fill:#10b981,stroke:#059669,color:#ffffff,stroke-width:2px
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class Core entry
+    class Soul data
+    class Action ok
 ```
 
 A change to the Core that is not reflected in the Soul is a **ghost commit**. An Action that

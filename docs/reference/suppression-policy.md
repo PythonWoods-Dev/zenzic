@@ -55,11 +55,13 @@ flowchart TD
     H -->|Yes| I["INLINE_IGNORE (+1 Debt Pt)"]
     H -->|No| J["EMIT FINDING (Exit 1)"]
 
-    style C fill:#ef4444,color:#fff
-    style E fill:#f59e0b,color:#fff
-    style G fill:#f59e0b,color:#fff
-    style I fill:#f59e0b,color:#fff
-    style J fill:#e11d48,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class E,G,I gate
+    class C,J danger
 ```
 
 ### Inspecting a suppression in your editor
@@ -84,6 +86,43 @@ would only become dead weight.
 The hover never changes anything it reports on. It reads the suppression state through a
 side-effect-free query, so inspecting a directive cannot consume it or alter the `Z603`
 findings for the file.
+
+---
+
+## How a finding that ran gets silenced {#suppression}
+
+Activation decides whether a check runs at all, and that is a different question with its own diagram in [Core Mechanics](../explanation/core-mechanics.md#activation). This one starts after a finding exists.
+
+Activation decides whether a check runs. Suppression decides what happens to a finding it
+already produced — the two are orthogonal, and conflating them is what makes a configuration
+hard to reason about. A data-gated code that is inert produces nothing to suppress; a default
+code silenced inline still ran.
+
+```mermaid
+flowchart TD
+    A["A finding the engine produced"] --> B{"Is the code in the security tier?"}
+    B -->|"Z2xx — non-suppressible"| C["Reported, whatever the configuration says"]
+    B -->|No| D{"Does a directory_policies pair match?"}
+    D -->|Yes| E["Silenced — costs one debt point"]
+    D -->|No| F{"Does a per_file_ignores pair match?"}
+    F -->|Yes| E
+    F -->|No| G{"Is there an inline directive on the line?"}
+    G -->|"zenzic:ignore or data-zenzic-ignore"| E
+    G -->|No| H["Reported"]
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A entry
+    class C,H danger
+    class E gate
+```
+
+**A file removed by `excluded_file_patterns` or `excluded_dirs` never reaches this diagram at
+all** — exclusion happens before any check runs, so there is no finding to silence and no debt
+to pay. That is the difference between excluding a path and suppressing a code on it.
 
 ---
 

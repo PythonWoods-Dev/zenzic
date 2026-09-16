@@ -31,8 +31,13 @@ flowchart TD
     I -->|Yes| J["Execute Sovereign Local Core Engine"]
     I -->|No| H
 
-    style H fill:#ef4444,color:#fff
-    style J fill:#10b981,color:#fff
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class J ok
+    class H danger
 ```
 
 ---

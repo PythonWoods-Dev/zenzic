@@ -16,8 +16,13 @@ Instead, it relies on the Language Server Protocol (LSP) over `stdio` to communi
 flowchart LR
     VS["VS Code Extension<br><code>pythonwoods.zenzic-vscode</code>"] <-->|"JSON-RPC 2.0 (stdio)"| ZLS["Zenzic Language Server<br><code>zenzic lsp</code>"]
 
-    style VS fill:#0284c7,stroke:#0369a1,color:#ffffff,stroke-width:2px
-    style ZLS fill:#4f46e5,stroke:#4338ca,color:#ffffff,stroke-width:2px
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class ZLS entry
+    class VS data
 ```
 
 !!! important "Minimum Core Version Requirement"
