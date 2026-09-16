@@ -22,7 +22,7 @@ categories:
 A repository that's been alive for a few years usually accumulates content nobody wants to delete but nobody wants live in the navigation either — a retired migration guide, a deprecated API reference, a changelog for a version nobody runs anymore. It's still worth keeping as a historical record, so it stays in the repository, deliberately dropped from `mkdocs.yml`'s navigation the day it was retired. Every scan since then reports it as an orphan page, and no amount of time passing will make that finding go away, because the file is *supposed* to sit outside the nav permanently. This article answers a specific, practical question: how do you tell Zenzic to stop flagging that one fact about that one directory, without also telling it to stop checking the directory at all.
 
 !!! abstract "Architectural Update"
-    *Updated 2026-09-16:* the run quoted below was captured when `Z502` (short content) still ran
+    *2026-09-16.* The run quoted below was captured when `Z502` (short content) still ran
     by default. It is opt-in since then — enabled with `[policies] enable_short_content_check` — so
     on a default configuration that warning is absent and the score is **one point higher**, `Z502`
     carrying a 1.0 pt penalty. The point the run is making, that the exemption removes one code and
