@@ -54,8 +54,6 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 31 files/s
-
 docs/index.md:3  ⚠  [Z603]  Inline suppression directive does not suppress any
 active finding. Remove the dead comment.
 
@@ -69,6 +67,8 @@ DQS Final Score: 98/100 (Gate Passed)
 Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
 🔒 Suppression Audit: 1/30 [MANAGED DEBT] (inline: 0, per-file: 0, directory: 1)
+   1 directory policy removed findings from this report — run with --audit to
+see them.
 ```
 
 Exit code: `0` (warning-only; use `--strict` to promote to Exit 1)
