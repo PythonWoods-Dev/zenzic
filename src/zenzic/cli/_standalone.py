@@ -1228,6 +1228,17 @@ def explain(
             f"[cyan]inert[/] — runs, but finds nothing until "
             f"[bold]\\[policies] {_act_key}[/] is declared",
         )
+    elif getattr(_defn, "status", "active") != "active":
+        # A catalogued alias: registered, carded and fixtured, but consolidated
+        # into another code at runtime so nothing ever emits it. Saying "on by
+        # default" here told a reader the opposite of the truth, and no command
+        # surfaced status at all. The wording distinguishes an alias from a
+        # broken rule, because the aliasing was a decision and the card says so.
+        meta_table.add_row(
+            "Activation",
+            "[magenta]never emitted[/] — catalogued alias; the condition is real "
+            "and reported under another code (see the rule card)",
+        )
     else:
         meta_table.add_row("Activation", "[green]on by default[/]")
     _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
@@ -1263,7 +1274,17 @@ def explain(
             "[bold red]HALT[/bold red] — pipeline-blocking warning; CI exits non-zero regardless of score",
         )
     else:
+        # Every code renders a Penalty row so the field set does not depend on
+        # whether a code has a scoring category -- Z407 and Z906 both carry
+        # penalty 0.0 and used to render different fields. The content still
+        # differs, because these four genuinely sit outside the score rather
+        # than scoring zero within it, and equalising the wording would imply a
+        # scoring relationship they do not have.
         meta_table.add_row("Scoring Tier", f"[{ZenzicPalette.DIM}]not included in DQS[/]")
+        meta_table.add_row(
+            "Penalty",
+            f"[{ZenzicPalette.DIM}]none — this code is not in the DQS penalty table[/]",
+        )
 
     _shared.console.print(meta_table)
     _shared.console.print()
