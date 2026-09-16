@@ -116,7 +116,7 @@ flowchart TD
     classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
     classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
     class A entry
-    class C,H danger
+    class C danger
     class E gate
 ```
 
