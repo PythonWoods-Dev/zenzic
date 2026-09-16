@@ -78,9 +78,19 @@ def _extract_not_in_nav_spec(
         return None
     try:
         return pathspec.gitignore.GitIgnoreSpec.from_lines(lines)
-    except (ValueError, TypeError):
+    except Exception:
         # A malformed pattern is the author's to fix; it must not take the scan
         # down, and it must not silently behave as "everything is declared".
+        #
+        # Caught broadly on purpose, and narrowed by scope instead of by type:
+        # only ``from_lines`` is inside the ``try``.  ``pathspec`` raises two
+        # unrelated families — ``GitIgnorePatternError`` (a ``ValueError``) for
+        # ``!`` and ``\``, and a bare ``re2._re2.Error`` for a bad character
+        # class such as ``[[:bad:]``, because it compiles gitignore syntax with
+        # ``re2`` directly.  That second one is not a ``ValueError`` and not
+        # ``zenzic.core.regex.error`` either: the shim translating RE2 failures
+        # only covers compiles routed through it.  Listing types here let the
+        # character-class case abort the whole scan.
         return None
 
 
