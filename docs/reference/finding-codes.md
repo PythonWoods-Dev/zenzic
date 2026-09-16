@@ -588,6 +588,23 @@ A conflict between the physical file structure and the engine's navigation confi
 
 ---
 
+### Z407: INVALID_ENGINE_PATTERN {#z407}
+
+**Severity:** `warning` · **Penalty:** −0.0 pts (Brand) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z407.md)
+
+`mkdocs.yml` declares `not_in_nav`, `exclude_docs` or `draft_docs` with a pattern gitignore syntax cannot parse. MkDocs refuses to build on it; Zenzic reports it and keeps scanning, because aborting would deny every other finding in the repository. The declaration has no effect until the pattern is fixed.
+
+The penalty is zero: the configuration is wrong, but no document is worse for it.
+
+**Fix:**
+
+1. Correct the pattern in `mkdocs.yml` — the message names the key and quotes the parse failure.
+2. Remove the key if the declaration is no longer wanted.
+
+A pattern that parses but matches nothing is not reported here; a declaration that silences nothing is [`Z620`](#z620).
+
+---
+
 ### Z410: UNREACHABLE_GRAPH_NODE {#z410}
 
 **Severity:** `warning` · **Penalty:** −5.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes — [not inline](#z603), only via `.zenzic.toml` `directory_policies`/`per_file_ignores` (ADR-093) · [↗ Rule Specification](../rules/Z410.md)

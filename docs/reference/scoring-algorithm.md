@@ -66,7 +66,7 @@ If no Z2xx finding is detected, the engine calculates per-category scores using 
 | Structural | `structural` | Z101–Z105, Z107–Z109, Z112, Z121, Z124, Z410, Z411 | 30% | 30 pts |
 | Navigation | `navigation` | Z301–Z303, Z401, Z402, Z412 | 25% | 25 pts |
 | Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z523 | 20% | 20 pts |
-| Governance & Brand | `brand` | Z620, Z404–Z406, Z601, Z603, Z610–Z619 | 25% | 25 pts |
+| Governance & Brand | `brand` | Z620, Z404–Z407, Z601, Z603, Z610–Z619 | 25% | 25 pts |
 
 ### Category Penalty Formula
 
@@ -116,6 +116,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z404** | CONFIG_ASSET_MISSING | 3.0 pts | Governance & Brand | Default |
 | **Z405** | UNUSED_ASSET | 3.0 pts | Governance & Brand | Default |
 | **Z406** | NAV_CONTRACT | 2.0 pts | Governance & Brand | Default |
+| **Z407** | INVALID_ENGINE_PATTERN | 0.0 pts | Governance & Brand | Default |
 | **Z410** | UNREACHABLE_GRAPH_NODE | 5.0 pts | Structural Integrity | Default |
 | **Z411** | DEAD_END_NODE | 5.0 pts | Structural Integrity | **Opt-In** |
 | **Z412** | TRACEABILITY_BROKEN | 4.0 pts | Navigation Graph | **Opt-In** |

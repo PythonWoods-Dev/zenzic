@@ -66,6 +66,7 @@ uvx zenzic check all
 | Z404 | Asset referenced in engine config not found on disk | [z404-config-asset-missing](z4xx-topology/z404-config-asset-missing/) |
 | Z405 | Asset file not referenced by any documentation page | [z405-unused-assets](z4xx-topology/z405-unused-assets/) |
 | Z406 | Navigation contract violation detected | [z406-nav-contract](z4xx-topology/z406-nav-contract/) |
+| Z407 | Engine config declares a pattern that cannot be parsed | [z407-invalid-pattern](z4xx-topology/z407-invalid-pattern/) |
 | Z410 | Document is isolated and unreachable from the navigation en… | [z410-unreachable-graph-node](z4xx-topology/z410-unreachable-graph-node/) |
 | Z411 | Document has no outgoing links and forms a structural dead end | [z411-dead-end-node](z4xx-topology/z411-dead-end-node/) |
 | Z412 | Document lacks required inbound links from specified docume… | [z412-traceability-broken](z4xx-topology/z412-traceability-broken/) |

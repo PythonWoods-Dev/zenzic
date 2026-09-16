@@ -48,6 +48,7 @@ Z4xx — Navigation & Structure
     Z404  CONFIG_ASSET_MISSING — infrastructure asset referenced in engine config not found on disk
     Z405  UNUSED_ASSET         — asset file not referenced by any documentation page
     Z406  NAV_CONTRACT         — navigation contract violation
+    Z407  INVALID_ENGINE_PATTERN — engine config declares a pattern that cannot be parsed
     Z410  UNREACHABLE_GRAPH_NODE — document is isolated and unreachable from navigation entry points
     Z411  DEAD_END_NODE        — document has no outgoing links and forms a structural dead end
     Z412  TRACEABILITY_BROKEN  — target document has no inbound links from required source namespaces (opt-in)
@@ -293,6 +294,7 @@ NON_INLINE_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
         "Z404",  # CONFIG_ASSET_MISSING
         "Z405",  # UNUSED_ASSET
         "Z406",  # NAV_CONTRACT
+        "Z407",  # INVALID_ENGINE_PATTERN — a config-file defect: no document line to anchor to
         "Z410",  # UNREACHABLE_GRAPH_NODE
         "Z411",  # DEAD_END_NODE
         "Z412",  # TRACEABILITY_BROKEN
@@ -377,6 +379,8 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z404": CodeDefinition("warning", 3.0, "brand"),  # CONFIG_ASSET_MISSING
     "Z405": CodeDefinition("warning", 3.0, "brand"),  # UNUSED_ASSET
     "Z406": CodeDefinition("warning", 2.0, "brand"),  # NAV_CONTRACT
+    # Penalty 0.0: the configuration is wrong, but no document is worse for it.
+    "Z407": CodeDefinition("warning", 0.0, "brand"),  # INVALID_ENGINE_PATTERN
     "Z410": CodeDefinition("warning", 5.0, "structural"),  # UNREACHABLE_GRAPH_NODE
     "Z411": CodeDefinition(
         "warning", 5.0, "structural", activation="flag", activation_key="enable_dead_end_check"
@@ -600,6 +604,7 @@ CODE_NAMES: Final[dict[str, str]] = {
     "Z404": "CONFIG_ASSET_MISSING",
     "Z405": "UNUSED_ASSET",
     "Z406": "NAV_CONTRACT",
+    "Z407": "INVALID_ENGINE_PATTERN",
     "Z410": "UNREACHABLE_GRAPH_NODE",
     "Z411": "DEAD_END_NODE",
     "Z412": "TRACEABILITY_BROKEN",
@@ -681,6 +686,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z404": "Asset referenced in engine config not found on disk",
     "Z405": "Asset file not referenced by any documentation page",
     "Z406": "Navigation contract violation detected",
+    "Z407": "Engine config declares a pattern that cannot be parsed",
     "Z410": "Document is isolated and unreachable from the navigation entry points",
     "Z411": "Document has no outgoing links and forms a structural dead end",
     "Z412": "Document lacks required inbound links from specified documentation namespaces (graph traceability broken)",

@@ -116,6 +116,7 @@ nav:
           - rules/Z404.md
           - rules/Z405.md
           - rules/Z406.md
+          - rules/Z407.md
           - rules/Z410.md
           - rules/Z411.md
           - rules/Z412.md
@@ -201,6 +202,7 @@ nav:
           - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
           - tutorials/examples/z4xx-topology/z405-unused-assets.md
           - tutorials/examples/z4xx-topology/z406-nav-contract.md
+          - tutorials/examples/z4xx-topology/z407-invalid-pattern.md
           - tutorials/examples/z4xx-topology/z410-unreachable-graph-node.md
           - tutorials/examples/z4xx-topology/z411-dead-end-node.md
           - tutorials/examples/z4xx-topology/z412-traceability-broken.md

@@ -31,7 +31,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `zenzic check references` | Run the Three-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan. |
     | `zenzic check assets` | Detect unused images and assets in the documentation. |
     | `zenzic check placeholders` | Detect pages containing TODOs or stubs, and — with `[policies] enable_short_content_check = true` — pages with fewer than 50 words. |
-    | `zenzic check all` | Run every check above, plus 3 checks with no standalone sub-command: nav contract (`Z406`), directory indices (`Z401`, opt-in via `[policies] enable_directory_index_check`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
+    | `zenzic check all` | Run every check above, plus 4 checks with no standalone sub-command: nav contract (`Z406`), unparseable engine patterns (`Z407`), directory indices (`Z401`, opt-in via `[policies] enable_directory_index_check`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
 
     Every `check` sub-command, including `check all`, also accepts an optional `PATH`
     positional argument to scope the check to a single Markdown file or a specific directory
@@ -1277,7 +1277,7 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
 | Z204 FORBIDDEN_TERM | `Z204` | `error` |
 | Z301–Z303 Reference Integrity | `Z301`–`Z303` | `warning` |
 | Z401 Structure | `Z401` | `note` |
-| Z402–Z406 Structure | `Z402`–`Z406` | `warning` |
+| Z402–Z407 Structure | `Z402`–`Z407` | `warning` |
 | Z501–Z505 Content Quality | `Z501`–`Z505` | `warning` |
 | Z601 Governance | `Z601` | `warning` |
 | Z901 System | `Z901` | `error` |

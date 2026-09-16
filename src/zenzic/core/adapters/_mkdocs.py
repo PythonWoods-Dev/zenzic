@@ -21,12 +21,14 @@ from zenzic.core.adapters._mkdocs_config import (
     load_mkdocs_config_file,
 )
 from zenzic.core.adapters._utils import (
+    PATHSPEC_KEYS,
     _extract_blog_dir,
     _extract_not_in_nav_spec,
     _iter_plugins,
     case_sensitive_exists,
     dedupe_roots,
     remap_to_default_locale,
+    validate_pathspec_value,
 )
 from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.models.config import BuildContext
@@ -164,6 +166,48 @@ def _load_doc_config(repo_root: Path) -> dict[str, Any]:
 # ── Infrastructure asset path extraction (Z404) ──────────────────────────────
 
 _IMAGE_EXT_RE_MKDOCS = re.compile(r"\.(png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
+
+
+def check_engine_patterns(repo_root: Path) -> list[tuple[str, str]]:
+    """Report ``mkdocs.yml`` pattern keys whose value cannot be parsed (Z407).
+
+    MkDocs refuses to build on these: ``Invalid git pattern``, ``Aborted with a
+    configuration error!``.  Zenzic cannot follow it there — an analyser that
+    aborts denies the reader every other finding in the repository — so the
+    pattern is reported and the scan continues.  What it must not do is stay
+    silent, which is what happened before this check existed: the declaration
+    had no effect and the only trace was the finding the author expected to be
+    suppressed, still firing, with nothing saying why.
+
+    Returns:
+        List of ``(rel_path, message)`` tuples, one per unusable key. Empty when
+        every declared pattern parses or none is declared.
+    """
+    config_file = find_mkdocs_config_file(repo_root)
+    if config_file is None:
+        return []
+    doc_config = _load_doc_config(repo_root)
+    if not doc_config:
+        return []
+    try:
+        rel = config_file.relative_to(repo_root).as_posix()
+    except ValueError:
+        rel = config_file.name
+
+    issues: list[tuple[str, str]] = []
+    for key in PATHSPEC_KEYS:
+        if key not in doc_config:
+            continue
+        reason = validate_pathspec_value(doc_config[key])
+        if reason is not None:
+            issues.append(
+                (
+                    rel,
+                    f"'{key}' declares a pattern that cannot be parsed and has no effect: "
+                    f"{reason}. MkDocs refuses to build with it.",
+                )
+            )
+    return issues
 
 
 def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:

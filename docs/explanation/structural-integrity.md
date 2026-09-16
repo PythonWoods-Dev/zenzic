@@ -50,6 +50,7 @@ Structural Integrity rules catch these breaks **before the build runs**:
 | [`Z401`](../reference/finding-codes.md#z401) | `MISSING_DIRECTORY_INDEX` | Directories without a reachable `index.md` |
 | [`Z402`](../reference/finding-codes.md#z402) | `ORPHAN_PAGE` | Files unreachable from any navigation path |
 | [`Z404`](../reference/finding-codes.md#z404) | `CONFIG_ASSET_MISSING` | Assets declared in config that do not exist on disk |
+| [`Z407`](../reference/finding-codes.md#z407) | `INVALID_ENGINE_PATTERN` | Engine config declares a pattern that cannot be parsed |
 
 ---
 

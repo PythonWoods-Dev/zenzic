@@ -49,6 +49,40 @@ def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]
     return normalized
 
 
+#: MkDocs keys whose value is a ``config_options.PathSpec`` — gitignore-style
+#: patterns in one multiline string.  All three share a parser, so one
+#: validator covers them and a fourth key costs a list entry.
+PATHSPEC_KEYS: tuple[str, ...] = ("not_in_nav", "exclude_docs", "draft_docs")
+
+
+def validate_pathspec_value(raw: object) -> str | None:
+    """Return why ``raw`` cannot be used as a MkDocs PathSpec, or ``None``.
+
+    Only genuinely unparseable input is reported.  ``pathspec`` raises two
+    unrelated families — ``GitIgnorePatternError`` (a ``ValueError``) for ``!``
+    and ``\\``, and a bare ``re2._re2.Error`` for a bad character class such as
+    ``[[:bad:]`` — so the guard catches ``Exception`` and is narrowed by scope:
+    only the parse is inside the ``try``.
+
+    A pattern that parses and matches nothing is **not** reported.
+    ``docs/[orphan.md`` compiles to a literal that no file will ever equal, and
+    from the outside that is indistinguishable from a pattern whose targets were
+    all fixed — which is the ordinary, correct end state of an exemption.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        return f"expected a multiline string, got {type(raw).__name__}"
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    try:
+        pathspec.gitignore.GitIgnoreSpec.from_lines(lines)
+    except Exception as exc:  # two unrelated families; see the docstring
+        return str(exc)
+    return None
+
+
 def _extract_not_in_nav_spec(
     doc_config: dict[str, Any],
 ) -> pathspec.gitignore.GitIgnoreSpec | None:

@@ -14,7 +14,10 @@ import typer
 
 from zenzic import __version__
 from zenzic.core.adapters import get_adapter
-from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
+from zenzic.core.adapters._mkdocs import (
+    check_config_assets as _mkdocs_check_assets,
+    check_engine_patterns as _mkdocs_check_patterns,
+)
 from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
 from zenzic.core.codes import (
@@ -1083,6 +1086,7 @@ class _AllCheckResults:
     security_events: int
     directory_index_issues: list[Path]
     config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
+    engine_pattern_issues: list[tuple[str, str]] = field(default_factory=list)
 
 
 # Codes that --only can never filter out, regardless of its contents: the
@@ -1271,9 +1275,11 @@ def _collect_all_results(
         security_events = sum(len(r.security_findings) for r in ref_reports)
 
         config_asset_issues: list[tuple[str, str]] = []
+        engine_pattern_issues: list[tuple[str, str]] = []
         _engine = config.build_context.engine
         if _engine == "mkdocs":
             config_asset_issues = _mkdocs_check_assets(repo_root)
+            engine_pattern_issues = _mkdocs_check_patterns(repo_root)
         elif _engine == "zensical":
             config_asset_issues = _zensical_check_assets(repo_root)
 
@@ -1461,6 +1467,7 @@ def _collect_all_results(
             security_events=security_events,
             directory_index_issues=directory_index_issues,
             config_asset_issues=config_asset_issues,
+            engine_pattern_issues=engine_pattern_issues,
         )
     finally:
         if progress is not None:
@@ -1646,6 +1653,17 @@ def _to_findings(
                 line_no=0,
                 code="Z404",
                 severity=_finding_severity("Z404"),
+                message=message,
+            )
+        )
+
+    for rel_path, message in results.engine_pattern_issues:
+        findings.append(
+            Finding(
+                rel_path=rel_path,
+                line_no=0,
+                code="Z407",
+                severity=_finding_severity("Z407"),
                 message=message,
             )
         )

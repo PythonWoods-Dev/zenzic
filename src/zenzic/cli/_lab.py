@@ -439,6 +439,13 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z404-config-asset-missing",
         expected_pass=False,
     ),
+    "z407": _Act(
+        code="z407",
+        title="Invalid Engine Pattern",
+        description="Z407 INVALID_ENGINE_PATTERN — mkdocs.yml not_in_nav pattern cannot be parsed; exit 1",
+        example_dir="z407-invalid-pattern",
+        expected_pass=False,
+    ),
     "z406": _Act(
         code="z406",
         title="Nav Contract",
