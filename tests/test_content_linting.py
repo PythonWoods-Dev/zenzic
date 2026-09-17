@@ -486,3 +486,27 @@ def test_z516_reports_the_same_title_without_the_greater_than(tmp_path: Path) ->
     findings = check_multiple_h1_headings(file_path, text)
     assert len(findings) == 1
     assert findings[0].match_text == "Second Title"
+
+
+def test_z515_reference_definition_skip_follows_commonmark_indentation(tmp_path: Path) -> None:
+    """A link reference definition may be indented at most three spaces
+    (CommonMark §4.7). A line indented four or more is either indented code --
+    when a blank line precedes it -- or a paragraph continuation. The skip that
+    keeps a definition's URL out of Z515 matched `^\\s*`, so a four-space
+    paragraph line shaped like a definition was silently exempted, and an
+    indented code line was exempted for the wrong reason."""
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n\n"
+        "Prose that continues on the next line\n"
+        "    [ref]: https://example.com/continued-paragraph\n"  # line 4: paragraph continuation, not a definition
+        "\n"
+        "    [code]: https://example.com/indented-code\n"  # line 6: indented code after a blank line
+        "\n"
+        "   [three]: https://example.com/real-definition\n"  # line 8: a definition, three spaces
+    )
+    file_path.write_text(text, encoding="utf-8")
+    lines = {f.line_no for f in check_bare_urls(file_path, text) if f.code == "Z515"}
+    assert 4 in lines, "a four-space paragraph continuation is prose: its bare URL is reported"
+    assert 6 not in lines, "indented code is inert"
+    assert 8 not in lines, "a real definition is not a bare URL"

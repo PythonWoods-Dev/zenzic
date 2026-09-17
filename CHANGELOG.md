@@ -393,6 +393,7 @@ when the same truncation let a `javascript:` href past the security tier.
 
 ### Fixed
 
+- **`Z515` No Longer Exempts a Four-Space Line Shaped Like a Reference Definition**: the bare-URL check skipped any line matching `[label]: url` at *any* indentation, so a paragraph continuation indented four spaces carried its URL unreported, and an indented code line was exempted for the wrong reason. A definition may be indented at most three spaces (CommonMark §4.7); four or more after a blank line is indented code and stays inert, four or more inside a paragraph is prose and is now reported. Found while consolidating the four copies of the definition pattern, one of which was this one.
 - **An inline suppression of `Z107`, `Z506` or `Z601` that silences its finding is no longer reported
   dead (`Z603`).** Those three checks skipped a suppressed line themselves, without recording that the
   directive had been used, so the directive that removed the finding was reported as dead configuration

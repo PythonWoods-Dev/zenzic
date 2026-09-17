@@ -436,7 +436,12 @@ _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\([^)]+\)")
 # 17 phantom Z101 on `zensical/docs`. This is the fourth copy of one decision --
 # validator.py, rules.py, scanner.py and content.py each carry the pattern, and
 # only validator.py had the guard. Consolidation is tracked; the guard is here now.
-_MARKDOWN_REF_DEF_RE = re.compile(r"^\s*\[[^^\]][^\]]*\]:\s*\S+")
+# At most three spaces of indentation (CommonMark 4.7): four or more is indented
+# code or a paragraph continuation, and `^\s*` used to exempt both as definitions.
+_MARKDOWN_REF_DEF_RE = re.compile(r"^ {0,3}\[[^^\]][^\]]*\]:\s*\S+")
+# Indented code (CommonMark 4.4): four spaces or a tab, and only where a blank line
+# precedes it -- indented code cannot interrupt a paragraph.
+_INDENTED_CODE_RE = re.compile(r"^(?: {4}|\t)")
 
 
 def _is_generic_alt(alt: str) -> bool:
@@ -596,6 +601,7 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
+        prev_blank = i > 1 and not lines[i - 2].strip()
         if i == 1 and stripped == "---":
             in_frontmatter = True
             continue
@@ -614,6 +620,9 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
             continue
 
         if _MARKDOWN_REF_DEF_RE.match(line):
+            continue
+
+        if prev_blank and _INDENTED_CODE_RE.match(line):
             continue
 
         masked = line
