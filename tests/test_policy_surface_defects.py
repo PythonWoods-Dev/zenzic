@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -174,14 +175,23 @@ def _project(tmp_path: Path, config_text: str, name: str) -> Path:
 
 
 def _cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run the CLI in its own process: the point is which stream each line lands on.
+
+    The environment is inherited and then overridden. An env built from scratch
+    with ``PATH: ""`` killed the interpreter on windows-latest -- ``Fatal Python
+    error: _Py_HashRandomization_Init: failed to get random numbers`` -- because
+    Windows needs SYSTEMROOT to seed the hash, and the test then read that crash
+    instead of the CLI's output.
+    """
     code = "import sys; from zenzic.main import cli_main; sys.argv = ['zenzic', *sys.argv[1:]]; cli_main()"
+    env = {**os.environ, "NO_COLOR": "1", "COLUMNS": "200", "HOME": str(root)}
     return subprocess.run(  # noqa: S603
         [sys.executable, "-c", code, *args],
         cwd=root,
         capture_output=True,
         text=True,
         encoding="utf-8",
-        env={"NO_COLOR": "1", "COLUMNS": "200", "PATH": "", "HOME": str(root)},
+        env=env,
         check=False,
     )
 
