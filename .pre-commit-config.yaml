@@ -81,14 +81,16 @@ repos:
   #     README.md, CONTRIBUTING.md, SECURITY.md, .github/, scripts/, changelogs/.
   #     That breadth is the point, so it is not narrowed to the corpus.
   #
-  #     Two paths are exempted here, and the exemption lives in this file rather
-  #     than in .zenzic.toml or the engine. Both are fixtures whose whole purpose
+  #     Three paths are exempted here, and the exemption lives in this file rather
+  #     than in .zenzic.toml or the engine. All are fixtures whose whole purpose
   #     is to carry a credential the scanner detects -- examples/z201-credentials/
-  #     demonstrates Z201 firing for the tutorial, and the hero_specimen sandbox
-  #     backs the test suite -- so the scanner detects them and blocks every
-  #     commit that touches them. These two are the complete set: of the 502
-  #     tracked Markdown/MDX files, the guard flags exactly these and nothing
-  #     else, checked by running it over all of them rather than by assuming.
+  #     demonstrates Z201 firing for the tutorial, the hero_specimen sandbox
+  #     backs the test suite, and the readme_capture sandbox (2026-09-17) is the
+  #     four-file fixture the README's regenerated capture runs on -- so the
+  #     scanner detects them and blocks every commit that touches them. These
+  #     three are the complete set: of the tracked Markdown/MDX files, the guard
+  #     flags exactly these and nothing else, checked by running it over all of
+  #     them rather than by assuming (re-run 2026-09-17 when the third was added).
   #     The engine must not grow a config-named
   #     exemption to accommodate that -- the security tier is never suppressible
   #     by any mechanism (discovery.py, iter_security_scan_sources), and a key
@@ -104,7 +106,7 @@ repos:
         entry: uv run zenzic guard scan --quiet --no-header
         language: system
         types_or: [markdown, mdx]
-        exclude: ^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$)
+        exclude: ^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$|tests/sandboxes/readme_capture/docs/deploy\.md$)
         pass_filenames: true
 
   # 7a. Breaking-change marker (commit-msg stage -- the pre-commit stage never

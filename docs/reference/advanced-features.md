@@ -228,6 +228,7 @@ for error in link_errors:
 
 `scan_docs_references` deduplicates external URLs across the entire docs tree before
 firing HTTP requests — 50 files linking to the same URL result in exactly one HEAD request.
+The probe is a `HEAD` request; when the server answers with any status of 400 or above other than 401, 403 or 429 (which count as alive: the host is answering and restricting access), the probe retries with `GET` and reports that status instead. Some hosts refuse `HEAD` outright — the VS Code Marketplace answers it with 404 and `GET` with 200 — and until 2026-09-17 only a 405 triggered the retry, so such a link was reported broken.
 
 ### Hybrid Adaptive Engine
 

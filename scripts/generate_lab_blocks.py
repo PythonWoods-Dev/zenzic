@@ -40,6 +40,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SNIPPET_DIR = REPO_ROOT / "snippets"
+FAMILY_DIR = REPO_ROOT / "docs" / "tutorials" / "examples"
 
 #: Block file name -> the argv that produces it. This mapping is the single
 #: registration point: the parity test imports it and asserts it matches the
@@ -48,16 +49,23 @@ SNIPPET_DIR = REPO_ROOT / "snippets"
 BLOCKS: dict[str, tuple[str, ...]] = {
     "lab-z1xx.txt": ("lab", "z101"),
     "lab-z2xx.txt": ("lab", "z201"),
+    "lab-z3xx.txt": ("lab", "z302"),
     "lab-z4xx.txt": ("lab", "z405"),
     "lab-z5xx.txt": ("lab", "z501"),
     "lab-z6xx.txt": ("lab", "z601"),
 }
 
-#: Families that get no block, each with its reason. Recorded here rather than
-#: left as a silent absence: five blocks for seven families is a number someone
-#: would otherwise have to re-derive.
+#: Families that get no block, each with the KIND of its reason, which the
+#: parity test verifies mechanically -- the family directories are read from
+#: disk, every one must be here or in BLOCKS, and a reason that stopped being
+#: true fails the suite. Until 2026-09-17 this was a tuple nothing imported, and
+#: its entry for `z3xx-references` ("names no lab command at all") described the
+#: page while `zenzic lab --list` carried Z301, Z302 and Z303: a block was one
+#: registration away and no check could say so.
 #:
-#: `z3xx-references` names no lab command at all.
+#: Kinds: `no-lab-command` -- the lab lists no code of the family (checked
+#: against `zenzic lab --list`); `unpublishable-path` -- the family's lab output
+#: embeds an absolute filesystem path (checked against real output).
 #:
 #: `z0xx-core` names one, and its output cannot be published. `zenzic lab z001`
 #: demonstrates a config parse failure, and pydantic reports the offending file
@@ -68,25 +76,68 @@ BLOCKS: dict[str, tuple[str, ...]] = {
 #: would have hidden the machine path in the published block rather than
 #: removing it, and rewriting the path would put a line in the file that no
 #: command printed -- the transcription this whole mechanism exists to avoid.
-NO_COMMAND = ("z3xx-references", "z0xx-core")
+NO_COMMAND: dict[str, str] = {
+    "z0xx-core": "unpublishable-path",
+}
+
+#: Code bands with no family page and no block, and why. `Z901`, `Z902` and
+#: `Z906` are status codes: penalty 0.0, category None, printed as a HALT or a
+#: skipped-audit notice rather than emitted into findings[], so there is no
+#: scenario to run and no page to hold one. The test checks each claim: no
+#: `Z9` code in `lab --list`, no family directory, penalty 0 in the registry.
+NO_FAMILY_PAGE: dict[str, str] = {
+    "z9xx": "status codes (Z901 RULE_ENGINE_ERROR, Z902 RULE_TIMEOUT, Z906 NO_FILES_FOUND): "
+    "penalty 0.0, never in findings[], no lab command, no family page",
+}
+
+
+def families() -> list[str]:
+    """The family directories under docs/tutorials/examples, read from disk."""
+    return sorted(p.name for p in FAMILY_DIR.iterdir() if p.is_dir() and p.name.startswith("z"))
+
+
+def family_block(family_dir: str) -> str:
+    """`z1xx-links` -> `lab-z1xx.txt`."""
+    return f"lab-{family_dir.split('-')[0]}.txt"
+
+
+#: Marker regions in Markdown that GitHub renders raw, where `--8<--` cannot
+#: reach: the region between `<!-- zenzic:block NAME:begin -->` and
+#: `<!-- zenzic:block NAME:end -->` is rewritten from the command's real output
+#: (`--regions`) and compared to it by `--check` and by the parity test. The
+#: README's four-file capture had been transcribed once and never regenerated:
+#: 297 files where there were 335, a message that had since gained a suffix.
+#: Each entry: (argv, working directory, extra environment).
+REGIONS: dict[str, dict[str, tuple[tuple[str, ...], Path, dict[str, str]]]] = {
+    "README.md": {
+        "readme-capture": (
+            ("check", "all", "docs", "--no-header"),
+            REPO_ROOT / "tests" / "sandboxes" / "readme_capture",
+            {"CI": "1"},  # ASCII glyphs, as an Actions log renders them
+        ),
+    },
+}
 
 
 def _zenzic() -> Path:
     return Path(sys.executable).parent / ("zenzic.exe" if os.name == "nt" else "zenzic")
 
 
-def capture(argv: tuple[str, ...]) -> str:
+def capture(
+    argv: tuple[str, ...], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None
+) -> str:
     """Real output of one command, banner removed, trailing blanks collapsed."""
     proc = subprocess.run(  # noqa: S603
         [str(_zenzic()), *argv],
-        cwd=REPO_ROOT,
+        cwd=cwd,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
         # Emoji forced on: the blocks depict what a developer sees in their own
-        # terminal, and `zenzic.core.ui` swaps in ASCII whenever CI is set.
-        env={**os.environ, "COLUMNS": "80", "NO_COLOR": "1", "CI": ""},
+        # terminal, and `zenzic.core.ui` swaps in ASCII whenever CI is set. A
+        # region may override this (the README depicts an Actions log).
+        env={**os.environ, "COLUMNS": "80", "NO_COLOR": "1", "CI": "", **(env or {})},
     )
     lines = proc.stdout.splitlines()
     # Drop the banner: everything up to and including its closing border.
@@ -124,11 +175,34 @@ def comparable(text: str) -> list[str]:
     ]
 
 
+def region_bounds(text: str, name: str) -> tuple[int, int] | None:
+    """Character offsets of the fenced text inside a named marker region."""
+    begin = f"<!-- zenzic:block {name}:begin -->"
+    end = f"<!-- zenzic:block {name}:end -->"
+    i = text.find(begin)
+    j = text.find(end, i)
+    if i < 0 or j < 0:
+        return None
+    fence_open = text.find("```text\n", i, j)
+    fence_close = text.rfind("```", i, j)
+    if fence_open < 0 or fence_close <= fence_open:
+        return None
+    return fence_open + len("```text\n"), fence_close
+
+
+def region_text(text: str, name: str) -> str:
+    bounds = region_bounds(text, name)
+    return text[bounds[0] : bounds[1]] if bounds else ""
+
+
 def main() -> int:
     check = "--check" in sys.argv
+    only = [a for a in sys.argv[1:] if not a.startswith("--")]
     SNIPPET_DIR.mkdir(exist_ok=True)
     stale: list[str] = []
     for name, argv in sorted(BLOCKS.items()):
+        if only and name not in only:
+            continue
         target = SNIPPET_DIR / name
         fresh = capture(argv)
         if check:
@@ -138,6 +212,25 @@ def main() -> int:
             continue
         target.write_text(fresh, encoding="utf-8")
         print(f"  wrote {target.relative_to(REPO_ROOT)}  ({len(fresh.splitlines())} lines)")
+    for rel, regions in sorted(REGIONS.items()):
+        path = REPO_ROOT / rel
+        text = path.read_text(encoding="utf-8")
+        for name, (argv, cwd, env) in sorted(regions.items()):
+            if only and name not in only:
+                continue
+            fresh = capture(argv, cwd=cwd, env=env)
+            bounds = region_bounds(text, name)
+            if bounds is None:
+                print(f"FAILED: {rel} has no region named {name!r}", file=sys.stderr)
+                return 1
+            if check:
+                if comparable(text[bounds[0] : bounds[1]]) != comparable(fresh):
+                    stale.append(f"{rel}#{name}")
+                continue
+            text = text[: bounds[0]] + fresh + text[bounds[1] :]
+            print(f"  rewrote {rel} region {name}  ({len(fresh.splitlines())} lines)")
+        if not check:
+            path.write_text(text, encoding="utf-8")
     if check:
         if stale:
             print(
@@ -146,7 +239,8 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        print(f"lab blocks: {len(BLOCKS)} block(s) match real output")
+        n_regions = sum(len(r) for r in REGIONS.values())
+        print(f"lab blocks: {len(BLOCKS)} block(s) and {n_regions} region(s) match real output")
     return 0
 
 

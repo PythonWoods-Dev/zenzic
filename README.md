@@ -109,29 +109,53 @@ zenzic fix --apply  # apply safe, idempotent auto-fixes (--dry-run to preview)
 
 ## What It Looks Like
 
-A failing run in CI (`zenzic check all docs`, on a 4-file fixture, exit code 2 — a real capture, ASCII glyphs as rendered in an Actions log). The last line reports the DQS — the Documentation Quality Score, explained under [Core Capabilities](#core-capabilities):
+A failing run in CI (`zenzic check all docs` on the four-file fixture in `tests/sandboxes/readme_capture/`, exit code 2 — regenerated from real output by `just lab-blocks`, ASCII glyphs as an Actions log renders them, and compared line by line with that output by the test suite). The last line reports the DQS — the Documentation Quality Score, explained under [Core Capabilities](#core-capabilities):
 
+<!-- zenzic:block readme-capture:begin -->
 ```text
 ✘ SECURITY BREACH DETECTED  [LIKELY PLACEHOLDER]
   x Finding:    Secret detected (aws-access-key) — rotate immediately.
   x Location:   docs/deploy.md:4
   x Credential:  AKIA************MPLE
-  Action: Rotate this credential immediately and purge it from the repository history.
 
-mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.0s - 177 files/s
+  Action: Rotate this credential immediately and purge it from the repository
+history.
 
-docs/assets/unused.png  !  [Z405]  File not referenced in any documentation page.
-docs/deploy.md:1  !  [Z410]  Document is isolated and unreachable from defined entry points: '/deploy/'
-docs/index.md:3  x  [Z101]  './setup.md' resolves to '/setup/' which is not in the Virtual Site Map - the target file may not exist
+mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.1s - 71 files/s
+
+docs/assets/unused.png  !  [Z405]  File not referenced in any documentation
+page.
+
+docs/index.md:3  x  [Z101]  './setup.md' resolves to '/setup/' which is not in
+the Virtual Site Map — the target file may not exist
+
+    1  │  # Home
+    2  │
     3  ❱  See the [setup guide](./setup.md) for details.
+    4  │
+    5  │  ![architecture](./assets/diagram.png)
+
 docs/index.md:5  x  [Z104]  './assets/diagram.png' not found in docs
+
+    3  │  See the [setup guide](./setup.md) for details.
+    4  │
     5  ❱  ![architecture](./assets/diagram.png)
        │  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    6  │
+    7  │  This page introduces the project and its documentation, explains how …
 
-Summary:  x 1 security breach  - 1 file impacted  x 2 errors  ! 5 warnings  i 0 info  - 3 files with findings
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  x 1 security breach  - 1 file impacted  x 2 errors  ! 1 warning  i 0
+info  - 2 files with findings
+
 FAILED: Security breaches detected. Exit code 2 is mandatory.
 DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+[ Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
+<!-- zenzic:block readme-capture:end -->
 
 Credential leaks and path traversal (exit 2 / 3, see [Exit Codes](#exit-codes)) cannot be suppressed by policy or inline comment, regardless of everything else in the repo. A clean run, on this repository's own 335-file docs tree, looks like this instead:
 

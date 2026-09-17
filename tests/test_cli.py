@@ -2300,7 +2300,7 @@ def test_score_breakdown_gravity_cap_triggered(_run: object, _cfg: object, _root
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-@patch("zenzic.cli._standalone._check_stamp_file", return_value=True)
+@patch("zenzic.cli._standalone._check_stamp_file", return_value="current")
 def test_score_check_stamp_passes_when_current(
     _chk: object, _run: object, _cfg: object, _root: object
 ) -> None:
@@ -2319,13 +2319,15 @@ def test_score_check_stamp_passes_when_current(
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
     assert result.exit_code == 0
     assert "Quality Breakdown" not in result.stdout
-    assert "All badges are current" in result.stdout
+    # Since 2026-09-17 the success line counts: a file the check could not
+    # examine is never reported as current.
+    assert "2 badge(s) current in 1 file(s)" in " ".join(result.stdout.split())
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-@patch("zenzic.cli._standalone._check_stamp_file", return_value=False)
+@patch("zenzic.cli._standalone._check_stamp_file", return_value="stale")
 def test_score_check_stamp_fails_when_stale(
     _chk: object, _run: object, _cfg: object, _root: object
 ) -> None:
@@ -2351,7 +2353,7 @@ def test_score_check_stamp_fails_when_stale(
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-@patch("zenzic.cli._standalone._check_stamp_file", side_effect=[False, True])
+@patch("zenzic.cli._standalone._check_stamp_file", side_effect=["stale", "current"])
 def test_score_check_stamp_fails_when_score_badge_stale_only(
     _chk: object, _run: object, _cfg: object, _root: object
 ) -> None:
@@ -2376,7 +2378,7 @@ def test_score_check_stamp_fails_when_score_badge_stale_only(
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-@patch("zenzic.cli._standalone._check_stamp_file", side_effect=[True, False])
+@patch("zenzic.cli._standalone._check_stamp_file", side_effect=["current", "stale"])
 def test_score_check_stamp_fails_when_audit_badge_stale_only(
     _chk: object, _run: object, _cfg: object, _root: object
 ) -> None:

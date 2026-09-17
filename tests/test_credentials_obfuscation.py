@@ -380,13 +380,30 @@ class TestDosResilience:
         assert elapsed < 5, f"Null bytes scan took {elapsed:.1f}s"
 
     def test_normalizer_on_huge_input(self) -> None:
-        """The line normalizer should handle large inputs without ReDoS."""
-        # Pathological input for regex: many backticks and pipes
-        pathological = "`a`|" * 100000
+        """The line normalizer should handle large inputs without ReDoS.
+
+        Asserted as scaling, not as a wall-clock bound: the 10 s bound this test
+        carried until 2026-09-17 read 11.9 s under an eight-worker `-n auto`
+        gate and 4.7 s alone (measured) -- the runner's load, not the normalizer, decided the
+        verdict. Four times the input must cost well under sixteen times the
+        time (quadratic backtracking); both measurements share the same
+        contention, as the suite's other performance assertions do. A loose
+        absolute ceiling stays as the hang guard.
+        """
+        small = "`a`|" * 25000
+        pathological = "`a`|" * 100000  # 400K characters
+        t0 = time.monotonic()
+        _normalize_line_for_scan(small)
+        t_small = time.monotonic() - t0
         t0 = time.monotonic()
         _normalize_line_for_scan(pathological)
         elapsed = time.monotonic() - t0
-        assert elapsed < 10, f"Normalizer on 400K pathological input took {elapsed:.1f}s"
+        ratio = elapsed / max(t_small, 1e-6)
+        assert ratio < 8, (
+            f"Normalizer scaled x{ratio:.1f} for x4 input ({t_small:.2f}s -> {elapsed:.2f}s): "
+            "worse than linear by a wide margin, the ReDoS shape"
+        )
+        assert elapsed < 60, f"Normalizer on 400K pathological input took {elapsed:.1f}s"
 
     def test_rule_engine_many_files(self) -> None:
         """AdaptiveRuleEngine on 5000 files should stay fast."""

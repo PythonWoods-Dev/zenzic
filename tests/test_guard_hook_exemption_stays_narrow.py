@@ -35,7 +35,14 @@ yaml = pytest.importorskip("yaml")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 
-EXPECTED_EXCLUDE = r"^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$)"
+# Three fixtures since 2026-09-17: the tutorial example, the hero sandbox, and the
+# README-capture sandbox whose deploy.md carries the placeholder key the README
+# block depicts. Re-verified when the third was added: the guard run over every
+# other tracked Markdown file (514) exits 0, and over the exempted file alone exits 2.
+EXPECTED_EXCLUDE = (
+    r"^(examples/z201-credentials/|tests/sandboxes/hero_specimen/docs/secrets\.md$"
+    r"|tests/sandboxes/readme_capture/docs/deploy\.md$)"
+)
 
 
 def _guard_hook() -> dict[str, object]:
@@ -49,7 +56,7 @@ def _guard_hook() -> dict[str, object]:
     raise AssertionError("the zenzic-guard hook is not declared in .pre-commit-config.yaml")
 
 
-def test_the_guard_hook_excludes_exactly_the_one_fixture_path() -> None:
+def test_the_guard_hook_excludes_exactly_the_fixture_paths() -> None:
     """A widened regex is the failure mode; pin the string, not a match."""
     hook = _guard_hook()
     assert hook.get("exclude") == EXPECTED_EXCLUDE, (

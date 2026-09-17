@@ -207,18 +207,19 @@ def _stamp_file(path: Path, marker: str, badge_url: str) -> bool:
     return modified
 
 
-def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
-    """Return True if the badge after marker matches expected_url.
+def _check_stamp_file(path: Path, marker: str, expected_url: str) -> str:
+    """State of the badge after *marker*: ``current``, ``stale``, ``no-marker`` or ``missing``.
 
-    Returns True (pass) when the file does not exist, has no marker, or the
-    marker has no following badge line — badge is considered 'not configured'.
-    Returns False (stale) only when a badge line is present but the URL differs.
+    Until 2026-09-17 this returned True for a missing file and for a file with no
+    marker, and ``--check-stamp`` printed ``All badges are current`` over a README
+    that carried nothing to check (measured in `zenzic-vscode`). A declared file
+    the check cannot examine is now named, never counted as verified.
     """
     if not path.exists():
-        return True
+        return "missing"
     content = path.read_text(encoding="utf-8")
     if marker not in content:
-        return True
+        return "no-marker"
     lines = content.splitlines(keepends=True)
     i = 0
     while i < len(lines):
@@ -228,9 +229,9 @@ def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
                 j += 1
             if j < len(lines) and "img.shields.io/badge/" in lines[j]:
                 m = _SHIELDS_URL_RE.search(lines[j])
-                return bool(m and m.group() == expected_url)
+                return "current" if (m and m.group() == expected_url) else "stale"
         i += 1
-    return True
+    return "no-marker"
 
 
 def _compute_baseline_freshness(repo_root: Path, config: ZenzicConfig) -> tuple[str, float | None]:
@@ -801,20 +802,60 @@ def score(
         )
         audit_url = _audit_badge_url(audit_ok)
         outdated: list[tuple[Path, str]] = []
+        unverifiable: list[tuple[Path, str]] = []
+        skipped: list[tuple[Path, str]] = []
+        current = 0
         for rel in config.project_metadata.badge_stamp_files:
             p = repo_root / rel
-            if not _check_stamp_file(p, _SCORE_STAMP_MARKER, score_url):
-                outdated.append((p, "score"))
-            if not _check_stamp_file(p, _AUDIT_STAMP_MARKER, audit_url):
-                outdated.append((p, "audit"))
-        if outdated:
+            states = {
+                "score": _check_stamp_file(p, _SCORE_STAMP_MARKER, score_url),
+                "audit": _check_stamp_file(p, _AUDIT_STAMP_MARKER, audit_url),
+            }
+            if all(st == "missing" for st in states.values()):
+                unverifiable.append((p, "declared in badge_stamp_files and not on disk"))
+                continue
+            if all(st == "no-marker" for st in states.values()):
+                unverifiable.append(
+                    (
+                        p,
+                        "declared in badge_stamp_files and carries neither "
+                        f"{_SCORE_STAMP_MARKER} nor {_AUDIT_STAMP_MARKER}, so nothing in it can be checked",
+                    )
+                )
+                continue
+            for badge_type, st in states.items():
+                if st == "stale":
+                    outdated.append((p, badge_type))
+                elif st == "no-marker":
+                    skipped.append((p, badge_type))
+                else:
+                    current += 1
+        for p, badge_type in skipped:
+            _shared.console.print(
+                f"[{ZenzicPalette.DIM}]--check-stamp: {badge_type} badge in {p.name} skipped — no marker.[/]"
+            )
+        if outdated or unverifiable:
             for p, badge_type in outdated:
                 _shared.console.print(
                     f"[red][FAILED][/red] Badge ({badge_type}) in [bold]{p}[/] is stale. "
                     "Run 'zenzic score --stamp' locally and commit the result."
                 )
+            for p, reason in unverifiable:
+                _shared.console.print(
+                    f"[red][FAILED][/red] Badge file [bold]{p}[/] cannot be checked: {reason}. "
+                    "Add the markers, or remove the file from badge_stamp_files."
+                )
             raise typer.Exit(1)
-        _shared.console.print(f"[{ZenzicPalette.SUCCESS}][SUCCESS] All badges are current.[/]")
+        n_files = len(config.project_metadata.badge_stamp_files)
+        tail = f"; {len(skipped)} skipped (no marker)" if skipped else ""
+        if n_files == 0:
+            _shared.console.print(
+                f"[{ZenzicPalette.WARNING}][SUCCESS] 0 badges checked: badge_stamp_files is empty.[/]"
+            )
+        else:
+            _shared.console.print(
+                f"[{ZenzicPalette.SUCCESS}][SUCCESS] {current} badge(s) current in {n_files} file(s){tail}.[/]"
+            )
 
     if effective_threshold > 0 and report.score < effective_threshold:
         _fail_console = _shared.stderr_console if output_format == "json" else _shared.console

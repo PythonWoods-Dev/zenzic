@@ -100,7 +100,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--breakdown` | — | `false` | Expands category breakdown showing individual Z-Codes and transparent penalty math. |
     | `--save` | — | `false` | Saves score snapshot to `.zenzic-score.json` for use with `zenzic diff`. |
     | `--trend` | — | `false` | Shows the score series recorded in `.zenzic-history.jsonl` by previous `--save` runs, then exits. Prints a one-line summary plus the last ten entries; with `--format json`, emits the full series and a summary object. Reports "No score history yet" and exits `0` when the file is absent — an empty history is not an error. |
-    | `--check-stamp` | — | `false` | Verifies badge stamp files contain the current score URL. Exits 1 if any badge is stale. |
+    | `--check-stamp` | — | `false` | Verifies that every file in `badge_stamp_files` carries the current score and audit badge URLs after its markers. Exits 1 when a badge is stale, when a declared file is missing, or when it carries no marker at all — a file the check cannot examine is named, never counted as current. A file with one marker of the two is checked on that one and the other is reported as skipped. The success line states how many badges were checked in how many files. |
     | `--quiet` | `-q` | `false` | Suppress output on successful score. |
     | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |

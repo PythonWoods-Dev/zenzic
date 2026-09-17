@@ -73,3 +73,9 @@ path = "docs/assets/fonts/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "tests/sandboxes/readme_capture/docs/assets/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"

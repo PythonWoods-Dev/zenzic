@@ -1569,13 +1569,17 @@ async def _ping_url(
 ) -> str | None:
     """HEAD-ping a single URL; returns an error string or ``None`` if reachable.
 
-    Falls back to GET when the server returns 405 Method Not Allowed.
-    Treats HTTP 401 / 403 / 429 as "alive" — the server is responding but
-    restricting access, which is common for GitHub, StackOverflow, etc.
+    Falls back to GET on any HEAD failure that is not an access restriction,
+    not only on 405: a server may answer HEAD with 404 and GET with 200 (the
+    VS Code Marketplace listing did, measured 2026-09-17 — the only such host
+    among 405 URLs across five corpora, and the fallback on 405 alone caught
+    none of them). Treats HTTP 401 / 403 / 429 as "alive" — the server is
+    responding but restricting access, which is common for GitHub,
+    StackOverflow, etc.
     """
     try:
         response = await client.head(url)
-        if response.status_code == 405:
+        if response.status_code >= 400 and response.status_code not in (401, 403, 429):
             async with client.stream("GET", url) as stream_resp:
                 if stream_resp.status_code in (401, 403, 429):
                     cache[url] = {"status": 200, "timestamp": timestamp}

@@ -346,3 +346,107 @@ def test_no_generated_block_embeds_an_absolute_path() -> None:
         + "\nEither the command's output is not publishable, or it needs a fixture "
         "that produces a relative path."
     )
+
+
+# ─── Families and regions: completeness, not only coherence ────────────────
+#
+# The registration check above is bidirectional between BLOCKS and the files
+# on disk. It never looked at the family pages, so a whole family could be
+# missing while everything present agreed with itself -- the shape that hid
+# Batch 14, and here hid z3xx: its NO_COMMAND reason ("names no lab command")
+# was true of the page and false of the lab. These tests read the families
+# from disk and make every exclusion reason mechanically true.
+
+from generate_lab_blocks import (  # noqa: E402
+    NO_COMMAND,
+    NO_FAMILY_PAGE,
+    REGIONS,
+    REPO_ROOT,
+    families,
+    family_block,
+    region_text,
+)
+
+
+def _lab_list_codes() -> set[str]:
+    result = CliRunner().invoke(app, ["lab", "--list"])
+    assert result.exit_code == 0, result.output
+    return set(re.findall(r"Z\d{3}", result.output))
+
+
+def test_every_family_directory_has_a_block_or_a_reason() -> None:
+    fams = families()
+    assert len(fams) >= 7, fams
+    unaccounted = [f for f in fams if family_block(f) not in BLOCKS and f not in NO_COMMAND]
+    assert not unaccounted, (
+        f"family pages with neither a block nor a recorded reason: {unaccounted}"
+    )
+    stray = [f for f in NO_COMMAND if f not in fams]
+    assert not stray, f"NO_COMMAND names directories that do not exist: {stray}"
+    both = [f for f in NO_COMMAND if family_block(f) in BLOCKS]
+    assert not both, f"excluded and registered at once: {both}"
+
+
+def test_every_exclusion_reason_still_holds() -> None:
+    listed = _lab_list_codes()
+    for fam, kind in NO_COMMAND.items():
+        band = fam.split("-")[0][:2].upper()  # z3xx-references -> Z3
+        in_lab = sorted(c for c in listed if c.startswith(band))
+        if kind == "no-lab-command":
+            assert not in_lab, (
+                f"{fam} is excluded as having no lab command, but `zenzic lab --list` carries "
+                f"{in_lab}: the reason no longer holds, register a block"
+            )
+        elif kind == "unpublishable-path":
+            assert in_lab, f"{fam}: no lab code to run for the unpublishable-path check"
+            out = capture(("lab", in_lab[0].lower()))
+            assert re.search(r"(?<![\w:])/(?:[^/\s]+/)+[^/\s]+", out), (
+                f"{fam}: the block was excluded because its output embeds an absolute path, and it "
+                "no longer does -- generate the block"
+            )
+        else:
+            raise AssertionError(f"{fam}: unknown exclusion kind {kind!r}")
+
+
+def test_every_bandless_exclusion_reason_still_holds() -> None:
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    listed = _lab_list_codes()
+    for band, reason in NO_FAMILY_PAGE.items():
+        prefix = band[:2].upper()
+        assert not any(
+            d.name.startswith(band) for d in (REPO_ROOT / "docs/tutorials/examples").iterdir()
+        ), f"{band}: a family page exists now; move it out of NO_FAMILY_PAGE"
+        assert not any(c.startswith(prefix) for c in listed), (
+            f"{band}: the lab lists a code of this band"
+        )
+        codes = [c for c in CODE_DEFINITIONS if c.startswith(prefix)]
+        assert codes and all(CODE_DEFINITIONS[c].penalty == 0.0 for c in codes), (
+            band,
+            reason,
+            codes,
+        )
+
+
+@pytest.mark.parametrize(
+    ("rel", "name"),
+    [(rel, name) for rel, regions in REGIONS.items() for name in regions],
+)
+def test_every_line_of_a_marker_region_appears_in_real_output(rel: str, name: str) -> None:
+    """The README's capture, regenerated in place: every depicted line is one the
+    command prints inside its sandbox, ASCII glyphs and all."""
+    argv, cwd, env = REGIONS[rel][name]
+    depicted = region_text((REPO_ROOT / rel).read_text(encoding="utf-8"), name)
+    assert depicted.strip(), f"{rel}: region {name} is empty or its markers are missing"
+    real = re.sub(r"\s+", " ", capture(argv, cwd=cwd, env=env))
+    missing = [
+        line.strip()
+        for line in depicted.splitlines()
+        if line.strip()
+        and not _VOLATILE.search(line)
+        and re.sub(r"\s+", " ", line.strip()) not in real
+    ]
+    assert not missing, (
+        f"{rel}#{name} shows {len(missing)} line(s) the command does not print:\n  "
+        + "\n  ".join(missing[:8])
+    )
