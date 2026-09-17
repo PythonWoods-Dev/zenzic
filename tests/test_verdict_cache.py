@@ -37,7 +37,8 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for k, v in (("user.email", "t@e.invalid"), ("user.name", "T"), ("commit.gpgsign", "false")):
         _run(["git", "config", k, v], root)
     (root / "a.txt").write_text("a\n", encoding="utf-8")
-    (root / ".gitignore").write_text(".claude/\n.zenzic_cache/\n", encoding="utf-8")
+    (root / ".gitignore").write_text(".local-notes/\n.zenzic_cache/\n", encoding="utf-8")
+    monkeypatch.setattr(vc, "PRIVATE", (".local-notes",))
     _run(["git", "add", "-A"], root)
     _run(["git", "commit", "-q", "-m", "seed"], root)
     return root
@@ -72,10 +73,10 @@ def test_a_tracked_edit_an_untracked_file_a_deletion_and_a_private_edit_each_mov
     keys.add(vc.tree_key(repo))
     (repo / "a.txt").unlink()
     keys.add(vc.tree_key(repo))
-    (repo / ".claude").mkdir()
-    (repo / ".claude" / "rule.md").write_text("rule\n", encoding="utf-8")  # gitignored
+    (repo / ".local-notes").mkdir()
+    (repo / ".local-notes" / "rule.md").write_text("rule\n", encoding="utf-8")  # gitignored
     keys.add(vc.tree_key(repo))
-    (repo / ".claude" / "rule.md").write_text("rule changed\n", encoding="utf-8")
+    (repo / ".local-notes" / "rule.md").write_text("rule changed\n", encoding="utf-8")
     keys.add(vc.tree_key(repo))
     assert len(keys) == 6, "every one of the five changes must produce a distinct key"
 

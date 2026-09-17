@@ -99,8 +99,9 @@ _EXAMPLES_ROOT = Path(__file__).resolve().parents[1] / "examples"
 #:    So the deferral rests on two measurements, the second having tested the
 #:    first's premise rather than inheriting it. Closing this means giving both
 #:    graphs one node identity -- routing through the adapter rather than the file
-#:    path -- which is not a filter change. Deferred to v0.31.1 on that, not on
-#:    cost: the DFS itself is 0.47 ms.
+#:    path -- which is not a filter change. It was deferred to v0.31.1 on that,
+#:    not on cost (the DFS itself is 0.47 ms), and then closed on this branch:
+#:    see the paragraph below on the trailing-slash defect.
 #: **`Z106` was removed from this set on 2026-09-13** and is now compared like any
 #: other code. The reason it was excluded -- that the CLI's graph and the VSM's were
 #: too different to share the cycle algorithm -- was measured and found to be an

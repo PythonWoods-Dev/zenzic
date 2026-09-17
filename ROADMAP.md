@@ -45,7 +45,6 @@ The release also carries two breaking changes to what the security tier reads an
 
 - **One reference-definition rule:** four modules carry their own regular expression for a Markdown link reference definition, in four spellings, and only one of them excluded footnote labels until 2026-09-13. One function, five call sites, one stated rule.
 - **Mutant triage with identities:** the mutation gate now records each mutant's fate beside the aggregate score, so the four mutants killed under Python 3.10 and surviving under 3.14 can be named rather than counted. The triage is a local session against the expanded module set.
-- **Visual consistency pass:** the documentation palette is already variable-driven (rule-card icons and diagrams derive their colours from the theme, enforced by a gate); what remains is the site stylesheet's own literals and a decision on typography and spacing, then re-capturing the assets that carry the brand.
 
 ### [v0.32] — Auto-Fix Audit & CommonMark Conformance
 
