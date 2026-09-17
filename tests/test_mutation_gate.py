@@ -12,11 +12,16 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from mutation_gate import FLOOR, INVARIANT_TARGET, MAX_SURVIVORS, _decide  # noqa: E402
+
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_score_below_floor_fails() -> None:
@@ -81,3 +86,39 @@ def test_survivor_count_above_baseline_fails_even_when_score_clears_floor() -> N
         f"gate even at a passing percentage; got exit {exit_code}: {messages}"
     )
     assert any("survived" in m and "baseline" in m for m in messages)
+
+
+def test_main_captures_mutmut_results_beside_the_stats(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stats file carries aggregates only -- killed, survived, no_tests --
+    so a survivor has no identity anywhere the gate keeps. Two priority rows
+    since 2026-09-07 waited on a triage that could not start because
+    `mutmut results`, the command that names each mutant, was never invoked.
+    The gate now captures it next to the stats it already exports."""
+    import json
+
+    import mutation_gate as mg
+
+    calls: list[tuple[str, ...]] = []
+    stats = tmp_path / "mutants" / "mutmut-cicd-stats.json"
+    results = tmp_path / "mutants" / "mutmut-results.txt"
+    stats.parent.mkdir()
+
+    def fake_run(*argv: str) -> int:
+        calls.append(argv)
+        if argv == ("mutmut", "export-cicd-stats"):
+            stats.write_text(json.dumps({"killed": 400, "survived": 18, "no_tests": 0}))
+        return 0
+
+    def fake_capture(*argv: str) -> str:
+        calls.append(argv)
+        return "src/zenzic/core/credentials.py.x_1: survived\n"
+
+    monkeypatch.setattr(mg, "_run", fake_run)
+    monkeypatch.setattr(mg, "_capture", fake_capture)
+    monkeypatch.setattr(mg, "STATS", stats)
+    monkeypatch.setattr(mg, "RESULTS", results)
+    assert mg.main() == 0
+    assert ("mutmut", "results") in calls, "the gate must ask mutmut which mutants survived"
+    assert results.read_text() == "src/zenzic/core/credentials.py.x_1: survived\n"

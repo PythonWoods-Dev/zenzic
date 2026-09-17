@@ -79,6 +79,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STATS = REPO_ROOT / "mutants" / "mutmut-cicd-stats.json"
+#: `mutmut results` names every mutant and its fate. The stats file above carries
+#: aggregates only, so for ten days no survivor had an identity anywhere the gate
+#: kept, and the per-mutant triage two priority rows waited on could not start.
+RESULTS = REPO_ROOT / "mutants" / "mutmut-results.txt"
 
 #: Measured floor. See the module docstring before changing this.
 FLOOR = 95.7
@@ -102,6 +106,14 @@ def _run(*argv: str) -> int:
     return subprocess.run(  # noqa: S603
         [sys.executable, "-m", *argv], cwd=REPO_ROOT, check=False
     ).returncode
+
+
+def _capture(*argv: str) -> str:
+    """Run a mutmut command and return what it printed; empty on failure."""
+    done = subprocess.run(  # noqa: S603
+        [*argv], cwd=REPO_ROOT, check=False, capture_output=True, text=True
+    )
+    return done.stdout if done.returncode == 0 else ""
 
 
 def _decide(stats: dict[str, int]) -> tuple[int, list[str]]:
@@ -159,6 +171,19 @@ def main() -> int:
     if _run("mutmut", "export-cicd-stats") != 0 or not STATS.is_file():
         print("mutation gate: mutmut produced no stats file", file=sys.stderr)
         return 2
+
+    # Per-mutant identities, beside the aggregates: without this file a survivor
+    # count is a number nobody can act on. Captured before deciding, so a failing
+    # gate still leaves the list that explains it.
+    listing = _capture("mutmut", "results")
+    if listing:
+        RESULTS.write_text(listing, encoding="utf-8")
+        print(f"mutation gate: per-mutant results written to {RESULTS.parent.name}/{RESULTS.name}")
+    else:
+        print(
+            "mutation gate: `mutmut results` produced nothing; survivors have no identity this run",
+            file=sys.stderr,
+        )
 
     stats = json.loads(STATS.read_text(encoding="utf-8"))
     exit_code, messages = _decide(stats)
