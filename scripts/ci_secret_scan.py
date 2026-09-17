@@ -60,6 +60,10 @@ ALLOWED: dict[tuple[str, str], str] = {
     ("tests/sandboxes/hero_specimen/docs/secrets.md", "aws-access-key"): (
         "the hero screenshot specimen; the finding is the subject of the image"
     ),
+    ("tests/sandboxes/readme_capture/docs/deploy.md", "aws-access-key"): (
+        "the four-file fixture the README's capture is generated from (2026-09-17); "
+        "the breach it reports is the first thing that block shows"
+    ),
 }
 
 #: Deliberately NOT here, and the reason is a blind spot worth naming. GitHub's own

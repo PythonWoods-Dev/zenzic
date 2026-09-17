@@ -836,8 +836,15 @@ def score(
             )
         if outdated or unverifiable:
             for p, badge_type in outdated:
+                # The expected URL is printed because "is stale" alone cannot be
+                # diagnosed off the machine that printed it: on 2026-09-17 this
+                # check failed on a GitHub runner and passed in five local
+                # reproductions of the same tree, and the message said nothing
+                # about which number the run had computed.
+                expected = score_url if badge_type == "score" else audit_url
                 _shared.console.print(
-                    f"[red][FAILED][/red] Badge ({badge_type}) in [bold]{p}[/] is stale. "
+                    f"[red][FAILED][/red] Badge ({badge_type}) in [bold]{p}[/] is stale: this run "
+                    f"computed score {report.score}/100 and expects\n  {expected}\n"
                     "Run 'zenzic score --stamp' locally and commit the result."
                 )
             for p, reason in unverifiable:
