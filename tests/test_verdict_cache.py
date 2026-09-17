@@ -46,9 +46,17 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _touch_counter(root: Path) -> list[str]:
     """A command that records every real execution -- outside the repository,
-    or its own log would be an untracked file and move the key it is testing."""
+    or its own log would be an untracked file and move the key it is testing.
+
+    Spelled as a Python one-liner, not ``sh -c "echo ran >> <path>"``: on the
+    Windows CI runner ``sh`` exists and exits 0, but the backslashes of the
+    temp path go through the shell's own unescaping and the redirect lands in
+    a file that is not ``ran.log`` -- four tests read zero runs on
+    windows-latest (run 35206161264, 2026-09-17) while every POSIX leg was
+    green. ``repr`` quotes the path for Python on every platform.
+    """
     log = root.parent / "ran.log"
-    return ["sh", "-c", f"echo ran >> {log}"]
+    return [sys.executable, "-c", f"open({str(log)!r}, 'a').write('ran\\n')"]
 
 
 def _runs(root: Path) -> int:

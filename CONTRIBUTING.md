@@ -278,7 +278,7 @@ project states a duration it states the conditions with it, as in `RELEASE.md`.
 | Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
 | Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage JSON |
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
-| **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** |
+| **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** — its test stage runs `pytest -n auto` (adopted 2026-09-17 on measurement: 256 s serial → ~140 s; CI stays serial) |
 | Show version | `just version` | — | Print current version from bump-my-version |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Hero screenshot | `just screenshot-hero` | — | Run the "Power Triad" sandbox (`tests/sandboxes/hero_specimen/`) for a manual landing-page terminal screenshot — exits 3 by design, capture the output rather than treating it as a failure |

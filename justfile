@@ -204,8 +204,15 @@ _verify-deterministic: release-contracts check-pinning docs-build
     @just _local-checks
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
     {{ runner }} pre-commit run --all-files
-    @echo "==> [2/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml)..."
-    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
+    @echo "==> [2/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml; pytest-xdist)..."
+    # -n auto adopted 2026-09-17 on measurement, here and not in CI: 256 s serial
+    # vs 129-150 s on 8 cores; the coverage figure moved by three lines, traced
+    # to a test reading the worker's argv (now pinned), and what remains is the
+    # same +/-3-line order noise two serial runs show. The perf assertions'
+    # worst margin narrowed from 1.74x to 1.45x under contention -- the one
+    # cost (CHANGELOG, Unreleased/Changed, carries the figures). CI runs
+    # `just test-cov`, serial, where nothing was measured.
+    {{ runner }} pytest tests/ -n auto --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
     @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
 
 # Badge freshness gate for non-mutating CI pipelines
