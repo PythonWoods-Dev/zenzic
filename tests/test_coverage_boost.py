@@ -53,8 +53,12 @@ class TestLogging:
     def _clear_handlers(self) -> None:
         from rich.logging import RichHandler
 
+        from zenzic.core.logging import DeferringHandler
+
         root = _logging.getLogger("zenzic")
-        root.handlers = [h for h in root.handlers if not isinstance(h, RichHandler)]
+        root.handlers = [
+            h for h in root.handlers if not isinstance(h, RichHandler | DeferringHandler)
+        ]
 
     def test_get_logger_no_name(self) -> None:
         from zenzic.core.logging import get_logger
@@ -80,12 +84,16 @@ class TestLogging:
         """Cover the handler installation path in ``setup_cli_logging``."""
         from rich.logging import RichHandler
 
-        from zenzic.core.logging import setup_cli_logging
+        from zenzic.core.logging import DeferringHandler, setup_cli_logging
 
         self._clear_handlers()
         setup_cli_logging()
         root = _logging.getLogger("zenzic")
-        assert any(isinstance(h, RichHandler) for h in root.handlers)
+        # Since 2026-09-17 the RichHandler sits behind a DeferringHandler and
+        # writes to stderr: a warning must never precede the JSON on stdout.
+        deferring = [h for h in root.handlers if isinstance(h, DeferringHandler)]
+        assert deferring and isinstance(deferring[0].target, RichHandler)
+        assert deferring[0].target.console.stderr is True
         self._clear_handlers()
 
     def test_setup_cli_logging_idempotent(self) -> None:

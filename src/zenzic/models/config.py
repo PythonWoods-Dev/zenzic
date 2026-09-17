@@ -1079,11 +1079,15 @@ class ZenzicConfig(BaseModel):
         self.forbidden_patterns_compiled = re.compile(f"(?:{union})", re.IGNORECASE)
 
     @classmethod
-    def _build_from_data(cls, data: dict[str, Any]) -> ZenzicConfig:
+    def _build_from_data(
+        cls, data: dict[str, Any], *, source: str = ".zenzic.toml"
+    ) -> ZenzicConfig:
         """Construct a ``ZenzicConfig`` from a raw TOML dict.
 
         Shared by :meth:`load` (``.zenzic.toml``) and the ``pyproject.toml``
-        fallback path.  Strips unknown keys and promotes sub-tables.
+        fallback path.  Strips unknown keys and promotes sub-tables. *source*
+        names the file in every warning -- until 2026-09-17 a key discarded from
+        ``pyproject.toml`` was reported as a ``.zenzic.toml`` defect.
         """
         import logging as _logging
 
@@ -1127,10 +1131,11 @@ class ZenzicConfig(BaseModel):
             for key in table:
                 if key not in model.model_fields:
                     _cfg_log.warning(
-                        ".zenzic.toml: unknown key '%s' in section \\[%s] will be "
+                        "%s: unknown key '%s' in section \\[%s] will be "
                         "ignored. Check the spelling against the configuration "
                         "reference -- a key this section does not define is discarded, "
                         "so the setting has no effect.",
+                        source,
                         _md_escape(str(key)),
                         _md_escape(section),
                     )
@@ -1141,15 +1146,17 @@ class ZenzicConfig(BaseModel):
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
                     _cfg_log.warning(
-                        ".zenzic.toml: unknown section \\[%s] will be ignored — "
+                        "%s: unknown section \\[%s] will be ignored — "
                         "all keys nested inside it are silently discarded. "
                         "Root-level settings (e.g. placeholder_patterns, docs_dir) "
                         "must appear BEFORE any \\[section] header.",
+                        source,
                         _md_escape(str(key)),
                     )
                 else:
                     _cfg_log.warning(
-                        ".zenzic.toml: unknown key '%s' will be ignored.",
+                        "%s: unknown key '%s' will be ignored.",
+                        source,
                         _md_escape(str(key)),
                     )
         for _section in _SECTION_MODELS:
@@ -1162,8 +1169,9 @@ class ZenzicConfig(BaseModel):
                     for _key in _rule:
                         if _key not in CustomRuleConfig.model_fields:
                             _cfg_log.warning(
-                                ".zenzic.toml: unknown key '%s' in a "
+                                "%s: unknown key '%s' in a "
                                 "\\[[custom_rules]] entry will be ignored.",
+                                source,
                                 _md_escape(str(_key)),
                             )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
@@ -1398,10 +1406,31 @@ class ZenzicConfig(BaseModel):
                 ) from exc
             tool_section = pyproject_data.get("tool", {})
             zenzic_section = tool_section.get("zenzic", {})
+            # A zenzic section pasted at the root of pyproject.toml -- the
+            # README's `[policies]` block, verbatim -- is outside [tool.zenzic]
+            # and was read by nothing and named by nothing: no warning, no
+            # finding, a clean score (measured 2026-09-17).
+            import logging as _logging
+
+            for _misplaced in (
+                "policies",
+                "governance",
+                "build_context",
+                "project_metadata",
+                "network",
+                "custom_rules",
+            ):
+                if _misplaced in pyproject_data:
+                    _logging.getLogger("zenzic").warning(
+                        "pyproject.toml: a root-level \\[%s] table is not read -- zenzic reads "
+                        "\\[tool.zenzic.%s]. Move it under \\[tool.zenzic] for it to take effect.",
+                        _misplaced,
+                        _misplaced,
+                    )
             if zenzic_section:
                 cls._validate_no_swallowed_root_keys(zenzic_section)
                 try:
-                    config = cls._build_from_data(zenzic_section)
+                    config = cls._build_from_data(zenzic_section, source="pyproject.toml")
                     config.origin_file = pyproject_toml
                     cls._apply_local_toml(config, repo_root)
                 except ValidationError as exc:
@@ -1685,7 +1714,7 @@ def load_config_with_diagnostics(
                 cfg.origin_file = target_file
                 return cfg, []
             ZenzicConfig._validate_no_swallowed_root_keys(tool_data)
-            cfg = ZenzicConfig._build_from_data(tool_data)
+            cfg = ZenzicConfig._build_from_data(tool_data, source="pyproject.toml")
             cfg.origin_file = target_file
             ZenzicConfig._apply_local_toml(cfg, repo_root, raise_on_error=True)
             return cfg, []

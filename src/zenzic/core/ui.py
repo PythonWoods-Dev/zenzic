@@ -261,6 +261,11 @@ class ZenzicUI:
         self.console.print()
         self.console.print(panel)
         self.console.print()
+        # Configuration warnings were held back so that they follow the frame
+        # instead of preceding it; this is where a reader meets them.
+        from zenzic.core.logging import release_deferred_logs
+
+        release_deferred_logs()
 
     def print_exception_alert(
         self,

@@ -150,7 +150,7 @@ DQS Final Score: 96/100 (Gate Passed)
 - **Structural specification checks** — required table columns, closed cell-value enums, and mandated heading sequences (`Z521`, `Z522`, `Z523`, `Z412`) catch AI-edited tables and specs that parse fine but violate a project's own declared contract. They are inert until that contract is declared in `[policies]`.
 - **Atomic auto-fix** (`zenzic fix`) — lossless, idempotent AST mutations: wraps bare URLs, strips trailing heading punctuation, converts fake bullet-point paragraphs into real lists, tags unlabelled code fences, cleans up dead inline suppressions, and repairs relative links across the tree after a rename (`zenzic fix --rename OLD NEW`). Running it twice never produces a second diff.
 - **Quality score (DQS)** — a deterministic 0–100 score built from active findings, category weights, and suppression debt (every inline `<!-- zenzic:ignore ZXXX -->` costs a flat, capped point penalty). Gate CI on it with `fail_under` in `.zenzic.toml`; inspect the full deduction ledger with `zenzic score --breakdown`.
-- **Policy-as-Code** — declared once in `.zenzic.toml` and enforced identically everywhere Zenzic runs:
+- **Policy-as-Code** — declared once in `.zenzic.toml` (or under `[tool.zenzic.policies]` in `pyproject.toml`; a `[policies]` table at that file's root is outside `[tool.zenzic]` and is reported as misplaced) and enforced identically everywhere Zenzic runs:
 
   ```toml
   [policies]

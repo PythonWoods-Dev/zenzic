@@ -1489,6 +1489,19 @@ WARNING  .zenzic.toml: unknown section [project] will be ignored …
 
 move all settings that follow that header to the top of the file, before any `[section]` tag.
 
+Every configuration warning is written to **stderr**, never to stdout — so `--format json`
+and `--format sarif` payloads stay parseable — and is held until the banner has been printed,
+so it appears below the frame rather than above it (or at exit, when no banner is printed).
+The prefix names the file the key came from: `pyproject.toml:` when the key sat under
+`[tool.zenzic]`. A zenzic table found at the *root* of `pyproject.toml` — `[policies]`
+pasted verbatim from a `.zenzic.toml` example, outside `[tool.zenzic]` — is not read, and
+the loader says so:
+
+```text
+WARNING  pyproject.toml: a root-level [policies] table is not read -- zenzic reads
+         [tool.zenzic.policies]. Move it under [tool.zenzic] for it to take effect.
+```
+
 ### Dogfooding Pattern with Zensical/MkDocs {#dogfooding}
 
 Documenting an integrity engine with its own analysis tool creates intentional false positives: pages that *explain* placeholder patterns will trigger the placeholder checker.

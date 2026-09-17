@@ -245,6 +245,9 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
                         line_no=start_line,
                         message=f"Sentence of {len(words)} words exceeds maximum limit of {max_words} words.",
                         match_text=preview,
+                        col_start=_col_of(lines[start_line - 1], s_clean[:24])
+                        if 0 < start_line <= len(lines)
+                        else 0,
                     )
                 )
         parts.clear()
@@ -351,6 +354,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                         line_no=current_heading_line,
                         message=f"Heading section '{current_heading}' contains no body content before next section or EOF.",
                         match_text=current_heading,
+                        col_start=_col_of(lines[current_heading_line - 1], current_heading),
                     )
                 )
             current_heading = m.group(2).strip()
@@ -374,6 +378,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                 line_no=current_heading_line,
                 message=f"Heading section '{current_heading}' contains no body content before next section or EOF.",
                 match_text=current_heading,
+                col_start=_col_of(lines[current_heading_line - 1], current_heading),
             )
         )
 
@@ -431,6 +436,30 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
 #: inside one, so here the bare class is the specification, not a shortcut.
 _AUTOLINK_RE = re.compile(r"<https?://[^>]+>")
 _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\([^)]+\)")
+
+
+def _blank(pattern: re.RegexPattern, text: str) -> str:
+    """Mask every match of *pattern* with spaces of the same width.
+
+    A mask that shrinks a span to one space shifts every column after it,
+    and a caret computed on the masked line then points beside the word it
+    names. Width-preserving masking keeps ``m.start()`` a column of the
+    raw line.
+    """
+    return str(pattern.sub(lambda m: " " * len(m.group(0)), text))
+
+
+def _col_of(line: str, text: str) -> int:
+    """Column at which *text* starts in *line*; 0 when it is not on the line.
+
+    Every content rule used to construct its finding without ``col_start``,
+    so the reporter, the SARIF ``startColumn`` and the LSP range all said
+    column 0 for 1,629 of 1,629 findings measured on 2026-09-17.
+    """
+    idx = line.find(text) if text else -1
+    return idx if idx >= 0 else 0
+
+
 # A leading caret marks a footnote definition (`[^1]: prose`), not a link
 # reference. Accepting it turned the first word of the footnote text into a URL:
 # 17 phantom Z101 on `zensical/docs`. This is the fourth copy of one decision --
@@ -504,6 +533,7 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
                         line_no=i,
                         message=f"Duplicate heading '{clean_title}' found (first occurrence at line {first_line}).",
                         match_text=clean_title,
+                        col_start=_col_of(line, clean_title),
                         matched_line=line,
                     )
                 )
@@ -560,6 +590,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
                             "Provide descriptive alt text for accessibility."
                         ),
                         match_text=alt_text.strip(),
+                        col_start=_col_of(line, alt_text.strip()),
                         matched_line=line,
                     )
                 )
@@ -582,6 +613,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
                                 "Provide descriptive alt text for accessibility."
                             ),
                             match_text=alt_text.strip(),
+                            col_start=_col_of(line, alt_text.strip()),
                             matched_line=line,
                         )
                     )
@@ -648,6 +680,7 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
                         f"or Markdown link syntax '[text]({url})'."
                     ),
                     match_text=url,
+                    col_start=_col_of(line, url),
                     matched_line=line,
                 )
             )
@@ -698,6 +731,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
                             "Documents must have exactly one H1 title."
                         ),
                         match_text=clean_title,
+                        col_start=_col_of(line, clean_title),
                         matched_line=line,
                     )
                 )
@@ -719,6 +753,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
                             "Documents must have exactly one H1 title."
                         ),
                         match_text=html_title,
+                        col_start=_col_of(line, html_title),
                         matched_line=line,
                     )
                 )
@@ -768,6 +803,7 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
                             "Headings should not end with periods, colons, or semicolons."
                         ),
                         match_text=clean_title,
+                        col_start=_col_of(line, clean_title),
                         matched_line=line,
                     )
                 )
@@ -864,6 +900,7 @@ def check_all_heading_rules(
                             line_no=i,
                             message=f"Duplicate heading '{clean_title}' found (first occurrence at line {seen_headings[norm_title]}).",
                             match_text=clean_title,
+                            col_start=_col_of(line, clean_title),
                             matched_line=line,
                         )
                     )
@@ -885,6 +922,7 @@ def check_all_heading_rules(
                                 "Documents must have exactly one H1 title."
                             ),
                             match_text=clean_title,
+                            col_start=_col_of(line, clean_title),
                             matched_line=line,
                         )
                     )
@@ -902,6 +940,7 @@ def check_all_heading_rules(
                             "Headings should not end with periods, colons, or semicolons."
                         ),
                         match_text=clean_title,
+                        col_start=_col_of(line, clean_title),
                         matched_line=line,
                     )
                 )
@@ -924,6 +963,7 @@ def check_all_heading_rules(
                                 "Documents must have exactly one H1 title."
                             ),
                             match_text=html_title,
+                            col_start=_col_of(line, html_title),
                             matched_line=line,
                         )
                     )
@@ -949,6 +989,41 @@ _PASSIVE_VOICE_RE = re.compile(
     r"(?i)\b(is|are|was|were|be|been|being)\s+([a-z]+(?:ed|en)|done|seen|made|found|built|written|read|set|put|known|taken|chosen|given|held|left|sent)\b"
 )
 _INLINE_CODE_SPAN_RE = re.compile(r"`[^`]+`")
+#: Words the second group of _PASSIVE_VOICE_RE accepts that are not past
+#: participles. Measured on 2026-09-17 over 1,629 findings on this
+#: repository's docs: `is often` x11, `is open` x2, `between` x2, `even`,
+#: `then`, `when`, `green` -- 19 findings, every one a word ending in -en.
+_NOT_A_PARTICIPLE: frozenset[str] = frozenset(
+    {
+        "often",
+        "open",
+        "even",
+        "seven",
+        "eleven",
+        "between",
+        "when",
+        "then",
+        "green",
+        "sudden",
+        "wooden",
+        "golden",
+        "oxygen",
+        "kitchen",
+        "garden",
+        "linen",
+        "amen",
+        "need",
+        "red",
+        "indeed",
+        "embed",
+        "speed",
+        "hundred",
+        "bed",
+        "fed",
+        "shed",
+        "wed",
+    }
+)
 
 
 def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
@@ -977,13 +1052,20 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
             continue
 
         # Mask inline code, HTML tags/comments, and link targets
-        masked = _INLINE_CODE_SPAN_RE.sub(" ", line)
-        masked = _HTML_COMMENT_RE.sub(" ", masked)
-        masked = _HTML_TAG_RE.sub(" ", masked)
-        masked = _MARKDOWN_LINK_RE.sub(" ", masked)
+        masked = _blank(_INLINE_CODE_SPAN_RE, line)
+        masked = _blank(_HTML_COMMENT_RE, masked)
+        masked = _blank(_HTML_TAG_RE, masked)
+        masked = _blank(_MARKDOWN_LINK_RE, masked)
 
         for match in _PASSIVE_VOICE_RE.finditer(masked):
             matched_text = match.group(0)
+            # RE2 has no lookaround, so the two exclusions are checked here:
+            # a word that merely ends in -en/-ed (`is often`, `is open`) and a
+            # participle that is the head of a hyphenated compound (`read-only`).
+            if match.group(2).lower() in _NOT_A_PARTICIPLE:
+                continue
+            if masked[match.end() : match.end() + 1] == "-":
+                continue
             findings.append(
                 RuleFinding(
                     rule_id="Z518",
@@ -995,6 +1077,7 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
                         "Consider using active voice for clearer technical writing."
                     ),
                     match_text=matched_text,
+                    col_start=match.start(),
                     matched_line=line,
                 )
             )
@@ -1040,10 +1123,10 @@ def check_weasel_words(
         if _fence.inside:
             continue
 
-        masked = _INLINE_CODE_SPAN_RE.sub(" ", line)
-        masked = _HTML_COMMENT_RE.sub(" ", masked)
-        masked = _HTML_TAG_RE.sub(" ", masked)
-        masked = _MARKDOWN_LINK_RE.sub(" ", masked)
+        masked = _blank(_INLINE_CODE_SPAN_RE, line)
+        masked = _blank(_HTML_COMMENT_RE, masked)
+        masked = _blank(_HTML_TAG_RE, masked)
+        masked = _blank(_MARKDOWN_LINK_RE, masked)
 
         for match in pattern.finditer(masked):
             matched_word = match.group(0)
@@ -1058,6 +1141,7 @@ def check_weasel_words(
                         "Consider using direct, precise language instead."
                     ),
                     match_text=matched_word,
+                    col_start=match.start(),
                     matched_line=line,
                 )
             )
@@ -1178,6 +1262,7 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
                         "without proper Markdown list markers ('- ', '* ', '1. ')."
                     ),
                     match_text=matched_snippet,
+                    col_start=len(lines[run_indices[0]]) - len(lines[run_indices[0]].lstrip()),
                     matched_line=lines[run_indices[0]],
                 )
             )

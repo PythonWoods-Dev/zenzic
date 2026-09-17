@@ -407,6 +407,7 @@ class PolicyEvaluator:
                                 f"Declared in [policies].forbidden_content_patterns."
                             ),
                             match_text=matched_text,
+                            col_start=m.start(),
                             matched_line=line,
                         )
                     )
