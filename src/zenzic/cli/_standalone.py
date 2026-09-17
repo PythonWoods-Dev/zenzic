@@ -1464,6 +1464,16 @@ def init(
         ),
         metavar="ENGINE",
     ),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help=(
+            "Ask before writing: the engine (offered from the adapter registry, the detected "
+            "one proposed with its reason), then each opt-in finding code one at a time. "
+            "Data-gated codes are not asked. Without this flag nothing about codes is asked."
+        ),
+    ),
     path: str | None = typer.Argument(
         None,
         help="Directory to initialize (default: current project root or current working directory).",
@@ -1560,16 +1570,46 @@ def init(
     use_pyproject = pyproject
     pyproject_path = repo_root / "pyproject.toml"
 
+    enabled_keys: list[str] = []
+    engine_reason = "manually specified via --engine"
+    if interactive:
+        engine = _prompt_engine(repo_root, engine)
+        engine_reason = "chosen at the prompt"
+        enabled_keys = _prompt_opt_in_codes()
+
     if not use_pyproject and pyproject_path.is_file():
-        use_pyproject = typer.confirm(
-            "Found pyproject.toml. Embed Zenzic config there as [tool.zenzic]?",
-            default=False,
-        )
+        try:
+            use_pyproject = typer.confirm(
+                "Found pyproject.toml. Embed Zenzic config there as [tool.zenzic]?",
+                default=False,
+            )
+        except typer.Abort:
+            # No terminal and no answer on stdin -- a CI job, a script. The
+            # question cannot be answered there, and aborting the whole command
+            # over it left a Python project uninitialised in exactly the
+            # unattended setting init is documented to serve. The default the
+            # question already offers is the answer.
+            _shared.console.print(
+                f"\n[{ZenzicPalette.DIM}]  pyproject.toml found and no answer available: "
+                "writing .zenzic.toml (pass --pyproject to embed instead).[/]"
+            )
+            use_pyproject = False
 
     if use_pyproject:
-        _init_pyproject(repo_root, pyproject_path, engine_override=engine)
+        _init_pyproject(
+            repo_root,
+            pyproject_path,
+            engine_override=engine,
+            engine_reason=engine_reason,
+            enabled_keys=enabled_keys,
+        )
     else:
-        _init_standalone(repo_root, engine_override=engine)
+        _init_standalone(
+            repo_root,
+            engine_override=engine,
+            engine_reason=engine_reason,
+            enabled_keys=enabled_keys,
+        )
 
     # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root, discovered_name=_discover_project_name(repo_root))
@@ -1677,6 +1717,81 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
     )
 
 
+def _detection_reason(repo_root: Path) -> str:
+    """Name the file the engine detection rested on, or say there was none."""
+    for marker, why in (
+        (".zenzic-vsm.json", "a prebuilt route manifest, .zenzic-vsm.json"),
+        ("zensical.toml", "zensical.toml"),
+        ("mkdocs.yml", "mkdocs.yml"),
+        ("mkdocs.yaml", "mkdocs.yaml"),
+    ):
+        if (repo_root / marker).is_file():
+            return f"{why} found"
+    return "no engine file found"
+
+
+def _prompt_engine(repo_root: Path, override: str | None) -> str:
+    """Offer every engine the adapter registry holds, proposing the detected one.
+
+    Detection that guesses wrong is worse than none, so the proposal states what
+    it rests on and the reader accepts or overrides it. The choices come from the
+    registry, not from a list written here.
+    """
+    from zenzic.core.adapters._factory import list_adapter_engines
+
+    detected = override or _detect_init_engine(repo_root)
+    reason = "given with --engine" if override else _detection_reason(repo_root)
+    choices = list_adapter_engines()
+    _shared.console.print(
+        f"[bold]Engine[/] — detected [bold cyan]{detected}[/] ({reason}). "
+        f"Available: {', '.join(choices)}."
+    )
+    while True:
+        chosen: str = typer.prompt("Engine", default=detected)
+        if chosen in choices:
+            return chosen
+        _shared.console.print(f"[{ZenzicPalette.FATAL}]  {chosen!r} is not a registered engine.[/]")
+
+
+def _prompt_opt_in_codes() -> list[str]:
+    """Ask about each flag-gated code, one at a time, derived from the registry.
+
+    A code added to the registry with ``activation="flag"`` appears here on its
+    own; nothing in this function names a code. Data-gated codes are excluded
+    with the reason printed: they are inert until their ``[policies]`` data is
+    declared, and that is not a yes-or-no question.
+    """
+    from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS, CODE_NAMES
+
+    flagged = [(c, d) for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "flag"]
+    data = [c for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "data"]
+    _shared.console.print(
+        f"\n[bold]Opt-in checks[/] — {len(flagged)} codes run only when their flag is set. "
+        "Answer per code; every default is no."
+    )
+    enabled: list[str] = []
+    for code, defn in flagged:
+        desc = CODE_DESCRIPTIONS.get(code, CODE_NAMES.get(code, code))
+        key = defn.activation_key or ""
+        if typer.confirm(
+            f"Enable {code} {CODE_NAMES.get(code, '')} — {desc} [{key}]", default=False
+        ):
+            enabled.append(key)
+    _shared.console.print(
+        f"[{ZenzicPalette.DIM}]  {len(data)} data-gated codes ({', '.join(data)}) are not asked: "
+        "they run once their [policies] data is declared, and a list is not a yes or no. "
+        "The generated file names each with the key it waits on.[/]"
+    )
+    return enabled
+
+
+def _enable_flags(content: str, enabled_keys: list[str]) -> str:
+    """Flip ``key = false`` to ``true`` for each chosen opt-in flag in generated TOML."""
+    for key in enabled_keys:
+        content = content.replace(f"{key} = false\n", f"{key} = true\n", 1)
+    return content
+
+
 def _detect_init_engine(repo_root: Path) -> str:
     """Auto-detect the documentation engine from config files at *repo_root*.
 
@@ -1720,7 +1835,13 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
     return GLOBAL_TOML_TEMPLATE.format(engine=engine, hint_name=hint_name)
 
 
-def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> None:
+def _init_standalone(
+    repo_root: Path,
+    *,
+    engine_override: str | None = None,
+    engine_reason: str = "manually specified via --engine",
+    enabled_keys: list[str] | None = None,
+) -> None:
     """Create a standalone ``.zenzic.toml`` configuration file."""
     config_path = repo_root / ".zenzic.toml"
     local_path = repo_root / ".zenzic.local.toml"
@@ -1732,7 +1853,7 @@ def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> 
 
     detected_engine = engine_override or _detect_init_engine(repo_root)
     engine_hint = (
-        f"[bold cyan]{detected_engine}[/] (manually specified via --engine)."
+        f"[bold cyan]{detected_engine}[/] ({engine_reason})."
         if engine_override
         else f"[bold cyan]{detected_engine}[/] (auto-detected)."
     )
@@ -1741,6 +1862,7 @@ def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> 
         engine=detected_engine,
         discovered_name=discovered_name,
     )
+    toml_content = _enable_flags(toml_content, enabled_keys or [])
 
     config_path.write_text(toml_content, encoding="utf-8")
 
@@ -1758,7 +1880,12 @@ def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> 
 
 
 def _init_pyproject(
-    repo_root: Path, pyproject_path: Path, *, engine_override: str | None = None
+    repo_root: Path,
+    pyproject_path: Path,
+    *,
+    engine_override: str | None = None,
+    engine_reason: str = "manually specified via --engine",
+    enabled_keys: list[str] | None = None,
 ) -> None:
     """Append a ``[tool.zenzic]`` section to ``pyproject.toml``, creating it if absent."""
     from zenzic.cli.templates import PYPROJECT_TOML_SECTION_TEMPLATE
@@ -1779,7 +1906,7 @@ def _init_pyproject(
 
     detected_engine = engine_override or _detect_init_engine(repo_root)
     engine_hint = (
-        f"[bold cyan]{detected_engine}[/] (manually specified via --engine)."
+        f"[bold cyan]{detected_engine}[/] ({engine_reason})."
         if engine_override
         else f"[bold cyan]{detected_engine}[/] (auto-detected)."
     )
@@ -1789,6 +1916,10 @@ def _init_pyproject(
         engine=detected_engine,
         hint_name=discovered_name or "your-project",
     )
+    if enabled_keys:
+        # The pyproject section is the pointer, not the catalogue: a chosen
+        # opt-in flag is the one decision it carries beyond the defaults.
+        section += "\n[tool.zenzic.policies]\n" + "".join(f"{key} = true\n" for key in enabled_keys)
 
     pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")
 

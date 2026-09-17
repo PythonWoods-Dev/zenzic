@@ -26,6 +26,35 @@ existing settings.
 When `pyproject.toml` exists, `zenzic init` asks whether to embed the configuration there
 as a `[tool.zenzic]` table.  Pass `--pyproject` to skip the interactive prompt.
 
+## Interactive mode
+
+`zenzic init --interactive` (or `-i`) asks before it writes, and asks only what the generated
+file cannot decide for you:
+
+1. **The engine.** The prompt offers every engine the adapter registry holds and proposes the
+   one detected from the project root, saying why — `mkdocs.yml` found, `zensical.toml` found,
+   or no engine file at all, in which case the proposal is `standalone`. Press Enter to accept
+   the detection, or type another name.
+2. **Each opt-in finding code, one at a time.** These are the codes that run only when their
+   flag is set — `enable_circular_link_check` and the others. The list comes from the code
+   registry, so a code added in a later release appears in the prompt without anyone editing
+   `init`. Every answer defaults to *no*, and a *yes* writes `= true` for that flag in the
+   generated `[policies]` section.
+3. **Whether to embed in `pyproject.toml`**, when that file exists — the same question the
+   plain command asks.
+
+The **data-gated codes** are not asked. They are not off: they run as soon as their
+`[policies]` data is declared, and "list your forbidden domains" is not a yes-or-no question.
+The prompt prints which codes these are, and the generated file names each of them with the
+key it waits on — both derived from the registry, so this page does not carry a list that
+would go stale.
+
+Without `--interactive` nothing about codes or engines is asked, so scripts and CI get exactly
+what they get today: the detected engine, every opt-in flag written as `false`, and the
+`pyproject.toml` question only when that file exists (pass `--pyproject` to pre-answer it).
+Answering every interactive question with its default produces the same file as the plain
+command.
+
 When you need to customise behaviour — for example, to raise the word-count threshold for concise
 technical reference pages, or to add team-specific placeholder patterns — create or edit
 `.zenzic.toml` at the repository root:

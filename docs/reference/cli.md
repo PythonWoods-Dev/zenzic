@@ -267,11 +267,15 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--pyproject` | `false` | Write configuration into `pyproject.toml` instead of `.zenzic.toml`. |
     | `--local` | `false` | Create only `.zenzic.local.toml` (machine-local overlay, gitignored). Use this when cloning a repo that already has `.zenzic.toml` committed. |
     | `--engine ENGINE` | auto | Override the build engine adapter (`mkdocs`, `zensical`, `standalone`). Auto-detected from project files when omitted. |
+    | `--interactive` / `-i` | `false` | Ask before writing: the engine, offered from the adapter registry with the detected one and its reason stated; then each opt-in finding code, one at a time, derived from the code registry. Data-gated codes are not asked — they run once their `[policies]` data is declared. Without the flag nothing about codes is asked, so scripts and CI keep the current behaviour. |
 
     **Usage Examples:**
     ```bash title="Terminal"
     # Bootstrap configuration scaffold
     zenzic init
+
+    # Choose the engine and the opt-in codes at the prompt
+    zenzic init --interactive
 
     # Write config into pyproject.toml
     zenzic init --pyproject

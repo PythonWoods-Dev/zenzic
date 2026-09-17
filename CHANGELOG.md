@@ -238,6 +238,7 @@ when the same truncation let a `javascript:` href past the security tier.
 
 ### Added
 
+- **`zenzic init --interactive`**: asks before it writes — the engine, offered from the adapter registry with the detected one and its reason stated, then each opt-in finding code one at a time, derived from the code registry rather than enumerated by hand, so a code added later appears in the prompt on its own. The data-gated codes are deliberately not asked: they are inert until their `[policies]` data is declared, and that is not a yes-or-no question. Without the flag nothing changes for scripts and CI; answering every prompt with its default produces the file the plain command writes.
 - **`just verify` Runs Its Tree-Deterministic Half Once per Tree**: `scripts/verdict_cache.py` records the green verdict of the stages that read nothing but the tree — release contracts, pinning, the docs build, the local gates, `pre-commit --all-files` and `pytest` with coverage — keyed on the tree's content (tracked files, untracked files and the gitignored local trees the gates read), and skips them when the pre-push hook meets the same tree it already verified. Measured before building: those stages took about 400 of the gate's 445 seconds and were paid twice on every compliant push. `pip-audit`, the structural audit and the score run every time, a failing stage records nothing, CI never caches, and `ZENZIC_VERDICT_CACHE=0` forces a full run.
 - **The Mutation Gate Keeps Each Mutant's Fate**: `scripts/mutation_gate.py` now runs `mutmut results` after the run and writes it to `mutants/mutmut-results.txt` beside the aggregate stats. The stats file carries only `killed`, `survived` and `no_tests`, so for ten days no survivor had an identity anywhere the gate kept and the per-mutant triage could not start; the missing call was one line.
 
@@ -393,6 +394,7 @@ when the same truncation let a `javascript:` href past the security tier.
 
 ### Fixed
 
+- **`zenzic init` no longer aborts when `pyproject.toml` is present and no answer can be read.** With a `pyproject.toml` beside it and stdin closed — a CI job, a script — the command printed `Aborted.` and wrote nothing, exit 1, in exactly the unattended setting it is documented to serve. The question's own default is now the answer there: `.zenzic.toml` is written and a note says `--pyproject` embeds instead.
 - **`Z515` No Longer Exempts a Four-Space Line Shaped Like a Reference Definition**: the bare-URL check skipped any line matching `[label]: url` at *any* indentation, so a paragraph continuation indented four spaces carried its URL unreported, and an indented code line was exempted for the wrong reason. A definition may be indented at most three spaces (CommonMark §4.7); four or more after a blank line is indented code and stays inert, four or more inside a paragraph is prose and is now reported. Found while consolidating the four copies of the definition pattern, one of which was this one.
 - **An inline suppression of `Z107`, `Z506` or `Z601` that silences its finding is no longer reported
   dead (`Z603`).** Those three checks skipped a suppressed line themselves, without recording that the

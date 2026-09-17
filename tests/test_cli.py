@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -30,7 +31,12 @@ _CFG = ZenzicConfig()
 # ---------------------------------------------------------------------------
 
 
-def test_cli_main_calls_app() -> None:
+def test_cli_main_calls_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Pinned: the entry point reads the process argv to decide on the banner,
+    # and a pytest-xdist worker's argv is ``['-c']`` -- one element, so the
+    # banner branch ran under ``-n auto`` and not serially, moving the coverage
+    # figure by three lines depending on the runner. Measured 2026-09-17.
+    monkeypatch.setattr(sys, "argv", ["zenzic", "check", "all"])
     with patch("zenzic.main.app") as mock_app:
         cli_main()
         mock_app.assert_called_once()
@@ -3176,7 +3182,10 @@ def test_pyproject_template_stays_a_pointer_not_a_catalogue() -> None:
     # template, because it was false rather than verbose. Length, codes and the
     # pointer all still checked out; nothing here looked at which table a key
     # landed in, so the check this file exists for walked straight past it.
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10, the floor: the PEP 680 backport
+        import tomli as tomllib
 
     parsed = tomllib.loads('[project]\nname = "demo"\n' + rendered)
     zenzic = parsed["tool"]["zenzic"]
