@@ -54,8 +54,8 @@ AI-assisted edits and fast-moving docs-as-code repos produce Markdown that reads
 | Capability | Syntax Formatters & Linters | Prose & Grammar Checkers | Zenzic |
 | :--- | :--- | :--- | :--- |
 | **Scope of Analysis** | Single-file syntax & whitespace | Single-file grammar & spelling | Global document graph & cross-file structure |
-| **Specification Validation** | None | None | AST table structure (`Z521`), cell enums (`Z522`), heading sequence (`Z523`) |
-| **Graph Traceability** | None | None | Cross-namespace reference coverage (`Z412`) & reachability (`Z410`, `Z411`) |
+| **Specification Validation** | None | None | AST table structure (`Z521`), cell enums (`Z522`), heading sequence (`Z523`) — each active once its `[policies]` contract is declared |
+| **Graph Traceability** | None | None | Reachability (`Z410`; `Z411` dead ends as an opt-in flag) and required inbound links per namespace (`Z412`, once `traceability_targets` is declared) |
 | **Link & Anchor Resolution** | None | None | Cross-file & framework slug parity |
 | **Security Verification** | None | None | Secret leak & path traversal guards (exit codes 2 & 3) |
 | **Technical Debt Management** | Inline comments only | Config ignores | Cryptographic baselines (`.zenzic-baseline.json`) & quality scoring |
@@ -122,7 +122,7 @@ mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.0s - 177 files/s
 
 docs/assets/unused.png  !  [Z405]  File not referenced in any documentation page.
 docs/deploy.md:1  !  [Z410]  Document is isolated and unreachable from defined entry points: '/deploy/'
-docs/index.md:3  x  [Z101]  './setup.md' resolves to '/setup/' which is not in the Virtual Site Map
+docs/index.md:3  x  [Z101]  './setup.md' resolves to '/setup/' which is not in the Virtual Site Map - the target file may not exist
     3  ❱  See the [setup guide](./setup.md) for details.
 docs/index.md:5  x  [Z104]  './assets/diagram.png' not found in docs
     5  ❱  ![architecture](./assets/diagram.png)
@@ -133,21 +133,21 @@ FAILED: Security breaches detected. Exit code 2 is mandatory.
 DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
 ```
 
-Credential leaks and path traversal (exit 2 / 3, see [Exit Codes](#exit-codes)) cannot be suppressed by policy or inline comment, regardless of everything else in the repo. A clean run, on this repository's own 297-file docs tree, looks like this instead:
+Credential leaks and path traversal (exit 2 / 3, see [Exit Codes](#exit-codes)) cannot be suppressed by policy or inline comment, regardless of everything else in the repo. A clean run, on this repository's own 335-file docs tree, looks like this instead:
 
 ```text
-mkdocs - ./docs/ - 297 files (265 pages, 4 config, 28 assets) - 5.9s - 50 files/s
+mkdocs - ./docs/ - 335 files (302 pages, 4 config, 29 assets) - 10.7s - 31 files/s
 * Analysis complete: Links, credentials, semantic structure, and policies verified.
-DQS Final Score: 98/100 (Gate Passed)
+DQS Final Score: 96/100 (Gate Passed)
 ```
 
 ---
 
 ## Core Capabilities
 
-- **Graph analysis** — an in-memory link/anchor/asset graph (the Virtual Site Map) built once per run and reused for every check: broken links (`Z101`), missing files (`Z104`), unused assets (`Z405`), and pages unreachable from any entry point (`Z410`, `Z411`). It scales linearly with repository size — doubling the page count roughly doubles scan time, not worse.
+- **Graph analysis** — an in-memory link/anchor/asset graph (the Virtual Site Map) built once per run and reused for every check: broken links (`Z101`), missing files (`Z104`), unused assets (`Z405`), and pages unreachable from any entry point (`Z410`; `Z411`, dead ends, is an opt-in flag). It scales linearly with repository size — doubling the page count roughly doubles scan time, not worse.
 - **Security scanning** — leaked API keys and cloud credentials (`Z201` and related codes) and path-traversal sequences are exit-2 / exit-3 failures that cannot be suppressed, by design.
-- **Structural specification checks** — required table columns, closed cell-value enums, and mandated heading sequences (`Z521`, `Z522`, `Z523`, `Z412`) catch AI-edited tables and specs that parse fine but violate a project's own declared contract.
+- **Structural specification checks** — required table columns, closed cell-value enums, and mandated heading sequences (`Z521`, `Z522`, `Z523`, `Z412`) catch AI-edited tables and specs that parse fine but violate a project's own declared contract. They are inert until that contract is declared in `[policies]`.
 - **Atomic auto-fix** (`zenzic fix`) — lossless, idempotent AST mutations: wraps bare URLs, strips trailing heading punctuation, converts fake bullet-point paragraphs into real lists, tags unlabelled code fences, cleans up dead inline suppressions, and repairs relative links across the tree after a rename (`zenzic fix --rename OLD NEW`). Running it twice never produces a second diff.
 - **Quality score (DQS)** — a deterministic 0–100 score built from active findings, category weights, and suppression debt (every inline `<!-- zenzic:ignore ZXXX -->` costs a flat, capped point penalty). Gate CI on it with `fail_under` in `.zenzic.toml`; inspect the full deduction ledger with `zenzic score --breakdown`.
 - **Policy-as-Code** — declared once in `.zenzic.toml` and enforced identically everywhere Zenzic runs:
@@ -160,7 +160,7 @@ DQS Final Score: 98/100 (Gate Passed)
   weasel_words = ["clearly", "simply", "obviously"]
   ```
 
-  The last two options (`Z518` passive voice, `Z519` weasel words) are opt-in, non-backtracking RE2 pattern heuristics, not full grammar or NLP analysis — they flag likely candidates for a human to confirm, not certainties.
+  The last two options (`Z518` passive voice, `Z519` weasel words) are non-backtracking RE2 pattern heuristics, not full grammar or NLP analysis — they flag likely candidates for a human to confirm, not certainties. Codes come in three kinds: on by default, opt-in behind an `enable_*` flag, and inert until their policy data is declared; the generated `.zenzic.toml` names every flag and key, and `zenzic init --interactive` asks about each opt-in flag one at a time.
 - **Custom rules** — the [Custom Rule SDK](https://zenzic.dev/developers/how-to/write-ast-rule/) lets teams write their own typed Python AST checks, with SARIF output for free.
 
 ---
@@ -182,7 +182,7 @@ Full internals — the AST/mutator design, the scoring model, and the adapter co
 | `zenzic score` | Calculate quality metrics and update status badges | `--stamp`, `--check-stamp`, `--badge-json` |
 | `zenzic audit` | Generate formal compliance and technical debt reports | `--format markdown`, `--output <file>` |
 | `zenzic lab` | Interactive finding lab and scenario runner | `<code>` (e.g. `z101`), `all`, `--list`, `--all` |
-| `zenzic init` | Scaffold `.zenzic.toml` configuration or plugin template | `--pyproject`, `--local`, `--engine <name>`, `--plugin` |
+| `zenzic init` | Scaffold `.zenzic.toml` configuration or plugin template | `--pyproject`, `--local`, `--engine <name>`, `--plugin`, `--interactive` / `-i` |
 | `zenzic config explain` | Introspect active policies, discovery paths, and rules | `--all`, `--json` |
 | `zenzic doctor` | Check repository conventions: ADR citations, redirects, config schema | `--format json`, `--quiet` |
 | `zenzic adr new` | Scaffold the next architectural decision record | `<title>`, `--path` |
@@ -226,13 +226,13 @@ Stable across the CLI, pre-commit hooks, and CI — script against them directly
 
 ## The Zenzic Ecosystem
 
-The same rule engine and finding codes run across every touchpoint, with one tracked exception — see [Known Limitations](CHANGELOG.md#unreleased):
+The same rule engine and finding codes run across every touchpoint, with one tracked exception — see [Known Limitations](CHANGELOG.md#known-limitations):
 
 | Platform | Primary Use Case | Delivery |
 | :--- | :--- | :--- |
 | **[Zenzic CLI (Core)](https://github.com/PythonWoods-Dev/zenzic)** | Local development, batch auto-fixes, scriptable audits | Pre-commit / PyPI (`uv`/`pip`) |
-| **[VS Code Extension][zenzic-vscode]** | Real-time diagnostics, LSP Quick Fixes (`Ctrl+.`), status telemetry | [VS Code Marketplace][zenzic-vscode] |
-| **[GitHub Action][zenzic-action]** | CI/CD pull request gate, SARIF Code Scanning alerts, merge blocking | [GitHub Marketplace][zenzic-action] |
+| **[VS Code Extension][zenzic-vscode]** | Real-time diagnostics, LSP Quick Fixes (`Ctrl+.`), status telemetry | [VS Code Marketplace][zenzic-vscode-marketplace] |
+| **[GitHub Action][zenzic-action]** | CI/CD pull request gate, SARIF Code Scanning alerts, merge blocking | [GitHub Marketplace][zenzic-action-marketplace] |
 | **[MCP Server][zenzic-mcp]** | Exposes a single `check_document` tool to MCP-capable LLM agents over stdio | Source only — pre-release |
 
 > **`zenzic-mcp` is pre-release.** Version `0.1.0`, no published release, and one tool —
@@ -244,7 +244,7 @@ The same rule engine and finding codes run across every touchpoint, with one tra
 ## Documentation & Guides
 
 - **[Quick Start Tutorial](https://zenzic.dev/tutorials/first-audit/)**: Step-by-step introduction.
-- **[Finding Codes Catalog](https://zenzic.dev/reference/finding-codes/)**: Complete reference for all `Z1xx`–`Z6xx` finding codes.
+- **[Finding Codes Catalog](https://zenzic.dev/reference/finding-codes/)**: Complete reference for every finding code, `Z0xx` through `Z9xx`.
 - **[Policy-as-Code Guide](https://zenzic.dev/how-to/configuration-strategy/)**: Enforce repository standards.
 - **[Custom Rule SDK](https://zenzic.dev/developers/how-to/write-ast-rule/)**: Author deterministic, typed Python linting plugins.
 - **[CI/CD Configuration](https://zenzic.dev/how-to/configure-ci-cd/)**: Set up automated GitHub Actions pipelines.
@@ -255,7 +255,7 @@ For deep architectural explanations, configuration strategies, and the full find
 
 ## Roadmap
 
-- **Sphinx Adapter**: Native Virtual Site Map adapter for Sphinx, parsing `conf.py` and `.rst` files without invoking `sphinx-build`. Docusaurus and Hugo support is community-contributed via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) and [GH #51](https://github.com/PythonWoods-Dev/zenzic/issues/51).
+- **Sphinx, Hugo and Docusaurus**: community-contributed adapters via the [adapter guide](https://zenzic.dev/developers/how-to/implement-adapter/) — see [GH #51](https://github.com/PythonWoods-Dev/zenzic/issues/51) (Sphinx) and [GH #50](https://github.com/PythonWoods-Dev/zenzic/issues/50) (Hugo). A native Sphinx adapter was on this list until 2026-09-15; [ROADMAP.md](ROADMAP.md) records why it was retired, and the `prebuilt` engine covers a built Sphinx or Docusaurus site today.
 - **Multi-Repository Documentation Graph**: Cross-repository link resolution and contract validation across polyrepo documentation architectures without network calls.
 - **Auto-Fix Expansion**: Extended lossless AST mutations for additional structural codes (`Z1xx`), reference normalization (`Z3xx`), and frontmatter standardization (`Z6xx`).
 
@@ -270,3 +270,5 @@ Copyright (c) 2026 PythonWoods `<dev@pythonwoods.dev>`.
 [zenzic-vscode]: https://github.com/PythonWoods-Dev/zenzic-vscode
 [zenzic-action]: https://github.com/PythonWoods-Dev/zenzic-action
 [zenzic-mcp]: https://github.com/PythonWoods-Dev/zenzic-mcp
+[zenzic-vscode-marketplace]: https://marketplace.visualstudio.com/items?itemName=pythonwoods.zenzic-vscode
+[zenzic-action-marketplace]: https://github.com/marketplace/actions/zenzic-documentation-quality-gate
