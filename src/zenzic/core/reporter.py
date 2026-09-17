@@ -296,14 +296,14 @@ class ZenzicReporter:
                 if bf.code == "Z204":
                     self._con.print(
                         Text.from_markup(
-                            "[bold white on #8b0000]\u2718 POLICY VIOLATION DETECTED[/]"
+                            f"[bold white on {ZenzicPalette.FATAL}]\u2718 POLICY VIOLATION DETECTED[/]"
                             f"{placeholder_tag}"
                         )
                     )
                 else:
                     self._con.print(
                         Text.from_markup(
-                            "[bold white on #8b0000]\u2718 SECURITY BREACH DETECTED[/]"
+                            f"[bold white on {ZenzicPalette.FATAL}]\u2718 SECURITY BREACH DETECTED[/]"
                             f"{placeholder_tag}"
                         )
                     )
