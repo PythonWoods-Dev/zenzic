@@ -239,7 +239,7 @@ Run the full verification gate before pushing:
 just verify
 ```
 
-`just verify` is the canonical entry point, and the table below lists what it runs. `zenzic score --check-stamp` is **not** part of it — that is `just check-badges`, a separate recipe for pipelines that must not write the badge.
+`just verify` is the canonical entry point, and the table below lists what it runs. The stages that read nothing but the tree run once per tree: `scripts/verdict_cache.py` records their green verdict under `.zenzic_cache/verdicts/` keyed on the tree's content, so the pre-push hook does not repeat what you already ran on an unchanged tree. Anything that reaches outside the tree (`pip-audit`, the structural audit's external-link probes, the score) runs every time; a failing stage records nothing; CI never caches; `ZENZIC_VERDICT_CACHE=0 just verify` forces a full run. `zenzic score --check-stamp` is **not** part of it — that is `just check-badges`, a separate recipe for pipelines that must not write the badge.
 
 ---
 
@@ -249,7 +249,7 @@ just verify
 |:---|:---|:---|:---|
 | **TDD inner loop** | `just test` | `pytest -n auto` (parallel, no coverage) | the whole suite, fastest path |
 | **Commit** | `git commit` | Light hooks on **staged files only** (ruff, format, file hygiene, type check, secret guard) | what you are about to commit |
-| **Final Guard** | `just verify` | git-hook & release-contract checks → docs build → `pre-commit --all-files` → `pip-audit` → `pytest` with coverage → `zenzic check all --strict` → `zenzic score --stamp` | the whole tree |
+| **Final Guard** | `just verify` | git-hook check → *[tree-deterministic, verdict cached per tree: release-contract checks → docs build → local gates → `pre-commit --all-files` → `pytest` with coverage]* → `pip-audit` → `zenzic check all --strict` → `zenzic score --stamp` | the whole tree |
 | **Pre-push** | `git push` | `just verify` | the whole tree, before anything leaves the machine |
 | **CI** | GitHub Actions | the test matrix on three platform/interpreter pairs, plus CodeQL, secret scanning, compliance and a mutation gate | things a single machine cannot check |
 

@@ -178,20 +178,35 @@ _local-checks:
     echo "note: '.justfile.local' not present — repository-local checks skipped (expected for a fresh clone)."
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ (coverage enforced) → structural audit → score + stamp.
-verify: _check-hooks release-contracts check-pinning docs-build
-    @just _local-checks
-    @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
-    {{ runner }} pre-commit run --all-files
-    @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
+# Sequence: git-hook check → [tree-deterministic, verdict cached per tree: release
+# contracts → pinning → docs build → local gates → pre-commit (all hooks) →
+# pytest with coverage] → pip-audit → structural audit → score + stamp.
+#
+# The bracketed stages read nothing but the tree, so their verdict for a
+# byte-identical tree is the verdict already recorded: `just verify` before a
+# commit and again inside the pre-push hook paid them twice -- about 400 of
+# 445 seconds -- for the same answer. scripts/verdict_cache.py keys on the
+# tree's content (tracked, untracked and the gitignored local trees the
+# local gates read) and records a verdict only on exit 0. The three stages that
+# reach outside the tree -- pip-audit, the structural audit, the score -- run
+# every time. Off in CI; ZENZIC_VERDICT_CACHE=0 forces a full run locally.
+verify: _check-hooks
+    @{{ runner }} python scripts/verdict_cache.py run deterministic -- just _verify-deterministic
+    @echo "==> [3/5] Dependency vulnerability audit (pip-audit)..."
     {{ runner }} pip-audit
-    @echo "==> [3/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml)..."
-    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
-    @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
     @echo "==> [4/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [5/5] Score computation and badge stamp (zenzic score --stamp)..."
     {{ runner }} zenzic score --stamp --ci --no-header
+
+# The tree-deterministic half of `verify`, run through the verdict cache above.
+_verify-deterministic: release-contracts check-pinning docs-build
+    @just _local-checks
+    @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
+    {{ runner }} pre-commit run --all-files
+    @echo "==> [2/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml)..."
+    {{ runner }} pytest tests/ --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
+    @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
 
 # Badge freshness gate for non-mutating CI pipelines
 check-badges: docs-build

@@ -14,6 +14,8 @@ script is dead — check this table first.
 | Script | Status | When to run it |
 | :--- | :--- | :--- |
 | `generate_blog_headers.sh` | **Active** | Regenerates the six Foundations header images from real fixtures. See [`BLOG_HEADERS.md`](BLOG_HEADERS.md). |
+| `verdict_cache.py` | **Active** (`just verify`) | Skips the tree-deterministic half of `verify` when this exact tree already earned a green verdict; never caches `pip-audit`, the structural audit or the score. `ZENZIC_VERDICT_CACHE=0` forces a full run. |
+| `mutation_gate.py` | **Active** (`just mutation`, CI) | Runs mutmut over the credential scanner, gates the score floor and the survivor count, and writes `mutants/mutmut-results.txt` — the per-mutant fates a triage needs — beside the aggregate stats. |
 | `benchmark.py` | Hand-run | Performance harness for scan throughput; run when investigating a regression. |
 | `sync_rule_card_badges.py` | Hand-run | Synchronises rule-card badges after a finding-code change. |
 | `sweep_rule_card_badges_v2.py` | Hand-run | Bulk badge sweep across rule cards. |
