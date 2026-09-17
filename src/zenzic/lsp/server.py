@@ -626,6 +626,14 @@ class LanguageServer:
                     {"globPattern": "**/"},
                     {"globPattern": "**/.zenzic.toml"},
                     {"globPattern": "**/.zenzic.local.toml"},
+                    # pyproject.toml carries [tool.zenzic] for projects that keep
+                    # their configuration there. `_is_config_file_change` has always
+                    # recognised it and the reload branch has always handled it, but
+                    # it was absent from this list until 2026-09-17 -- so the client
+                    # never notified the server, and an edit to [tool.zenzic.policies]
+                    # did nothing until a restart while the same edit to .zenzic.toml
+                    # took effect at once. Measured by driving the server over stdio.
+                    {"globPattern": "**/pyproject.toml"},
                 ]
                 if self.adapter:
                     for cfg_file in self.adapter.watched_config_files:

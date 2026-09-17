@@ -2282,6 +2282,17 @@ def test_initialized_registers_directory_watcher() -> None:
             f"Directory watcher '**/' not found in registered patterns: {registered_patterns}"
         )
 
+        # Every file the reload branch claims to handle must be watched, or the
+        # client never notifies and the branch is unreachable. `pyproject.toml`
+        # was recognised by `_is_config_file_change` and absent here until
+        # 2026-09-17: an edit to [tool.zenzic.policies] did nothing until a
+        # restart, while the same edit to .zenzic.toml took effect at once.
+        for cfg in (".zenzic.toml", ".zenzic.local.toml", "pyproject.toml"):
+            assert f"**/{cfg}" in registered_patterns, (
+                f"{cfg} is treated as a configuration change by _is_config_file_change but is not "
+                f"registered with the client: {registered_patterns}"
+            )
+
 
 def _send_will_save_wait_until(server: "LanguageServer", out_stream, doc_uri: str, msg_id: int):
     """Send textDocument/willSaveWaitUntil and return the parsed JSON-RPC response."""

@@ -179,10 +179,15 @@ DQS Final Score: 96/100 (Gate Passed)
   ```toml
   [policies]
   required_frontmatter_keys = ["title", "description"]
-  allowed_external_domains = ["github.com", "zenzic.dev"]
+  allowed_external_domains = ["github.com", "zenzic.dev"]  # exclusive: every other domain is an error
   enable_passive_voice_check = true
   weasel_words = ["clearly", "simply", "obviously"]
   ```
+
+  `allowed_external_domains` is a **whitelist and it is exclusive**: declaring it makes every link to a
+  domain outside the list a `Z614` error. Measured on an eight-link page, the two domains above take it
+  from 100/100 to 70/100 with five errors. Use `forbidden_external_domains` for the opposite rule — a
+  blacklist that flags only the domains it names.
 
   The last two options (`Z518` passive voice, `Z519` weasel words) are non-backtracking RE2 pattern heuristics, not full grammar or NLP analysis — they flag likely candidates for a human to confirm, not certainties. Codes come in three kinds: on by default, opt-in behind an `enable_*` flag, and inert until their policy data is declared; the generated `.zenzic.toml` names every flag and key, and `zenzic init --interactive` asks about each opt-in flag one at a time.
 - **Custom rules** — the [Custom Rule SDK](https://zenzic.dev/developers/how-to/write-ast-rule/) lets teams write their own typed Python AST checks, with SARIF output for free.

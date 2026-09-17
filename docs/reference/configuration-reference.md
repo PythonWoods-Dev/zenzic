@@ -906,6 +906,10 @@ required_frontmatter_keys = ["title", "description", "author"]
 
 Declarative list of restricted external domain prefixes. Links (native Markdown `[text](url)` or raw HTML `<a href="url">`) referencing matching domains emit Z611 governance findings. Matching is case-insensitive and covers exact domain names and all subdomains (e.g. `"example.com"` matches `"sub.example.com"`).
 
+**This key is a blacklist, and it is the opposite of [`allowed_external_domains`](#allowed-external-domains)**: it flags only the domains it names and leaves
+every other domain alone. The two are easy to reach for by mistake — declaring the whitelist when you
+meant the blacklist turns every unlisted domain into an error.
+
 ```toml
 [policies]
 forbidden_external_domains = ["legacy.corp", "competitor.example.com"]
@@ -956,6 +960,12 @@ version = "^v\\d+\\.\\d+\\.\\d+$"
 | **Opt-in** | **Yes** |
 
 Zero-Trust whitelist of allowed external domain prefixes. When non-empty, ANY external link pointing to a domain not in this whitelist emits a Z614 error finding.
+
+**This key is exclusive, and that is the whole of it**: an empty list checks nothing, and a list of two
+domains turns every link to a third domain into an error. Measured on an eight-link page, `["github.com", "zenzic.dev"]` produced five `Z614` errors and took the score from 100 to 70. Declare it
+when you genuinely intend an allow-list; for the opposite rule — flag only the domains you name — use
+[`forbidden_external_domains`](#forbidden-external-domains), which is a blacklist and leaves every
+unlisted domain alone.
 
 ```toml
 [policies]
