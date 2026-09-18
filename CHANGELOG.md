@@ -258,6 +258,13 @@ documentation writes `\\[` to show a literal bracket — teaching Markdown, or d
 the engine was building a link out of it and reporting it broken. Those findings go away. Nothing new
 is reported, and `\\\\[text](url)`, which is a literal backslash followed by a real link, still is.
 
+**20. Two constructs the engine could not see are now read, and both make findings appear.** A
+frontmatter block closed with YAML's `...` marker made the engine skip a document's entire body and
+report it clean with a passing gate; it is now analysed. And a setext heading — `Title` underlined
+with `===` — was invisible to every rule that reads headings; it is now counted. Both directions add
+findings that were always due and never reported, so a gate that passes today may not after
+upgrading. Neither affects the security tier.
+
 **Breaking changes that are not about findings** — each has its own entry below:
 
 - CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
@@ -440,6 +447,18 @@ is reported, and `\\\\[text](url)`, which is a literal backslash followed by a r
   - Both pages read in full and classified as internal design-system/marketing material (a CSS-token consumption contract for the site's own components, an "A/B Palette Profile" cosmetic toggle, a lexicon/posture style guide, logo-symbolism prose, a palette-design-rationale essay) — zero operational content a third-party user or contributor would actually need. Real external comparables fetched before deciding: `eslint.org/branding/` and HashiCorp's product-logo brand page are both pure trademark/logo-usage references (naming convention, logo sizing, reference-only hex values) — no posture narrative, no symbolic-meaning essay, no design-token consumption guide; Prometheus, ruff, and ffmpeg have no dedicated brand page at all. Both pages deleted; `mkdocs.yml` nav entries removed; `how-to/index.md`'s "Brand Governance System" card removed (its own description — "Configure brand term dictionaries and eradicate obsolete product naming conventions" — didn't even match the real page content, a further confirmation the card had drifted from reality); `community-index.md`'s "Philosophy" card retargeted from `brand-philosophy.md` to `explanation/why-zenzic.md`, a real page that actually covers Zenzic's design philosophy and direction. `docs/_redirects`: 4 existing historical-variant lines for `use-brand-system` retargeted to `/how-to/add-badges/` — the real, already-existing, complete "add a build/score badge to your README" page, since `use-brand-system.md` never contained any badge-related content to begin with; 4 existing historical-variant lines for `brand-philosophy` retargeted to `/explanation/why-zenzic/`; 2 new bare-canonical-URL lines added for each deleted page. **Second-order consequence found and fixed in the same pass**: `use-brand-system.md`'s own text described its font/logo/favicon link list as existing specifically to keep those real, CSS/template-consumed theme assets out of `Z405` (`UNUSED_ASSET`) — deleting the page surfaced exactly the 30 `Z405` findings its own text predicted, live-confirmed via `zenzic check all --show-info` before the fix. Added `excluded_asset_dirs = ["overrides", "brand", "fonts"]` (preserving the pre-existing `"overrides"` default, which a bare list reassignment would otherwise have silently dropped) and `excluded_assets = ["favicon.ico"]` to the root `.zenzic.toml`, replacing the deleted page's incidental markdown-link-anchoring with the same real exclusion mechanism `configure-social-metadata.md` already documents for the same class of problem. `just check` (98/100, 0 new) and `mkdocs build --strict` both clean after the fix. Full `pytest tests/` suite unaffected (2118 passed).
 
 ### Fixed
+
+- **A document whose frontmatter ends with `...` is now analysed. It was reported clean, with a passing gate, without being read.** `...` is YAML's document-end marker and a legitimate way to close a frontmatter block. Thirteen copies of the frontmatter rule inside the engine accepted only `---`, so a file closed the other way had its **entire body** treated as frontmatter: every content rule went silent. Measured on the published v0.30.0 — a document with two `H1` headings exits `0` with no `Z516`; the same document closed with `---` exits `1` and reports it.
+
+    **It does not look wrong, which is the worst part.** Rules that do not use that loop — `Z411`, `Z502` — still fire, so the report is not empty and the score stays high.
+
+    **The security tier was never affected, and the reason is worth stating**: `scanner._skip_frontmatter` is the one copy that already accepted both terminators, and it is the one the credential scanner uses. A secret below a `...` terminator still exits `2`. The invariant held because that copy happened to be written correctly, not because anything enforced it.
+
+    The decision now lives in one place — the block tracker — and fourteen call sites query it instead of carrying their own. **If your documentation uses that terminator, findings will appear** where nothing was reported before. `grep -rln --include='*.md' -e '^\.\.\.$' docs/` lists the files affected.
+
+- **Setext headings are recognised, so the seven rules that read headings can see them.** `Title` underlined with `===` is an `H1` and the engine counted none: two ATX `H1`s fired `Z516`, a setext one plus an ATX one did not. Five independent heading recognisers existed across five modules; there is now one, and it answers for both forms. A finding on a setext heading points at the text line, not the underline.
+
+    A thematic break is not mistaken for one: `---` after a blank line is a break, the same characters under a line of text are an `H2` underline, and only the line above decides. The suite is derived from CommonMark §4.2 and §4.3 rather than from the cases found.
 
 - **A backslash-escaped bracket no longer produces a link, or a broken-link finding.** CommonMark §2.4 makes `\\[text](./nowhere.md)` a literal bracket — there is no link — and the engine built one and then reported it broken. Every extractor had it: measured on one input, the VSM link rule, the polyglot extractor, the policy extractor and the content masker all returned the URL. The fix is one length-preserving mask reused at each extraction site, so the policy codes (`Z611`, `Z614`–`Z616`) are covered along with `Z101`. **Findings disappear; nothing new is reported.**
 
