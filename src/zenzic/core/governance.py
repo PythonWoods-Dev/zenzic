@@ -381,7 +381,6 @@ class PolicyEvaluator:
         findings: list[RuleFinding] = []
         lines = content.splitlines()
         _fence = BlockTracker(self._containers)
-        in_frontmatter = False
 
         compiled_patterns = []
         for pat in self._forbidden_content:
@@ -392,16 +391,12 @@ class PolicyEvaluator:
                 continue
 
         for i, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if i == 1 and stripped == "---":
-                in_frontmatter = True
-                continue
-            if in_frontmatter:
-                if stripped == "---":
-                    in_frontmatter = False
-                continue
-
-            if _fence.feed(line) or _fence.in_indented_code:
+            # The tracker answers "is this frontmatter", so this loop no longer
+            # carries its own copy of the rule. Thirteen copies did; they accepted
+            # only `---` and not YAML's `...` document-end marker, and they skipped
+            # lines *before* feeding the tracker, which left it computing container
+            # and paragraph state on an amputated document.
+            if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
                 continue
 
             if _fence.inside:
@@ -438,20 +433,16 @@ class PolicyEvaluator:
 
         lines = content.splitlines()
         _fence = BlockTracker(self._containers)
-        in_frontmatter = False
         heading_titles: list[str] = []
 
-        for i, line in enumerate(lines, start=1):
+        for line in lines:
             stripped = line.strip()
-            if i == 1 and stripped == "---":
-                in_frontmatter = True
-                continue
-            if in_frontmatter:
-                if stripped == "---":
-                    in_frontmatter = False
-                continue
-
-            if _fence.feed(line) or _fence.in_indented_code:
+            # The tracker answers "is this frontmatter", so this loop no longer
+            # carries its own copy of the rule. Thirteen copies did; they accepted
+            # only `---` and not YAML's `...` document-end marker, and they skipped
+            # lines *before* feeding the tracker, which left it computing container
+            # and paragraph state on an amputated document.
+            if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
                 continue
 
             if _fence.inside:
@@ -497,23 +488,19 @@ class PolicyEvaluator:
 
         lines = content.splitlines()
         _fence = BlockTracker(self._containers)
-        in_frontmatter = False
         word_count = 0
         heading_count = 0
         max_depth = 1
         link_count = 0
 
-        for i, line in enumerate(lines, start=1):
+        for line in lines:
             stripped = line.strip()
-            if i == 1 and stripped == "---":
-                in_frontmatter = True
-                continue
-            if in_frontmatter:
-                if stripped == "---":
-                    in_frontmatter = False
-                continue
-
-            if _fence.feed(line) or _fence.in_indented_code:
+            # The tracker answers "is this frontmatter", so this loop no longer
+            # carries its own copy of the rule. Thirteen copies did; they accepted
+            # only `---` and not YAML's `...` document-end marker, and they skipped
+            # lines *before* feeding the tracker, which left it computing container
+            # and paragraph state on an amputated document.
+            if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
                 continue
 
             if _fence.inside:
