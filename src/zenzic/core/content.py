@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import zenzic.core.regex as re
-from zenzic.core.ast import BlockTracker
+from zenzic.core.ast import BlockTracker, setext_heading
 from zenzic.core.codes import code_severity
 
 
@@ -109,21 +109,21 @@ def check_heading_hierarchy(
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if m:
-            level = len(m.group(1))
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is not None:
+            level, _raw_title, _hline, _hraw = _h
             if prev_level > 0 and level > prev_level + 1:
                 findings.append(
                     RuleFinding(
                         rule_id="Z510",
                         severity=code_severity("Z510"),
                         file_path=file_path,
-                        line_no=i,
+                        line_no=_hline,
                         message=(
                             f"Heading level H{level} skips previous level H{prev_level} "
                             f"(expected H{prev_level + 1} or lower)."
                         ),
-                        matched_line=line,
+                        matched_line=_hraw,
                     )
                 )
             prev_level = level
@@ -242,7 +242,6 @@ def check_sentence_lengths(
     text_masked = _mask_html_blocks(text)
     lines = text_masked.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     current_sentence_parts: list[str] = []
     current_start_line = 1
@@ -277,17 +276,9 @@ def check_sentence_lengths(
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
 
-        # Handle frontmatter
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        # Handle code blocks
-        if _fence.feed(line) or _fence.in_indented_code:
+        # Frontmatter and code blocks: both are "not content", and the tracker
+        # is the one place that decides either.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             _flush_and_check(current_sentence_parts, current_start_line)
             continue
 
@@ -333,7 +324,6 @@ def check_empty_sections(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     current_heading: str | None = None
     current_heading_line: int = 0
@@ -343,15 +333,9 @@ def check_empty_sections(
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
 
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # Frontmatter and code blocks are both "not content"; the tracker
+        # decides either, so this loop no longer carries the rule.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             if current_heading is not None:
                 has_body_content = True
             continue
@@ -359,9 +343,9 @@ def check_empty_sections(
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if m:
-            depth = len(m.group(1))
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is not None:
+            depth, _raw_title, _hline, _hraw = _h
             # A heading whose next heading is deeper is a grouping label: it
             # introduces its subsections structurally and the content lives one
             # level down. Flagging it would push authors to write a sentence
@@ -381,8 +365,8 @@ def check_empty_sections(
                         col_start=_col_of(lines[current_heading_line - 1], current_heading),
                     )
                 )
-            current_heading = m.group(2).strip()
-            current_heading_line = i
+            current_heading = _raw_title
+            current_heading_line = _hline
             current_heading_depth = depth
             has_body_content = False
             continue
@@ -410,6 +394,41 @@ def check_empty_sections(
 
 
 # ─── Z513, Z514, Z515, Z516, Z517 ─────────────────────────────────────────────
+
+
+def _heading_here(
+    stripped: str,
+    line: str,
+    i: int,
+    lines: list[str],
+    tracker: BlockTracker,
+) -> tuple[int, str, int, str] | None:
+    """``(level, text, line_no, raw_line)`` for the heading on this line, or None.
+
+    **One recogniser for the seven rules below.** Before this, each matched
+    `^#{1,6}` on its own, and a setext heading (CommonMark 4.2) was therefore
+    invisible to all seven: two ATX H1s fired `Z516`, a setext H1 plus an ATX
+    one did not, because the rule had counted one. Measured with its positive
+    control 2026-09-18 -- the control proves the rule is on, so that "no
+    finding" cannot be read as "no defect".
+
+    The setext branch reports the **text** line (`i - 1`) and that line's raw
+    content, not the underline's: 4.2 requires the underline to follow the
+    paragraph immediately, and the reader is pointed at the words.
+
+    The disambiguation against a thematic break (4.3) is not here. It is
+    `BlockTracker`'s, because it depends on whether a paragraph is open above --
+    state the tracker already carried for indented code, which is why this
+    needed no second state machine.
+    """
+    sx = setext_heading(tracker)
+    if sx is not None:
+        return sx[0], sx[1], i - 1, lines[i - 2] if i >= 2 else line
+    m = _ATX_HEADING_RE.match(stripped)
+    if m:
+        return len(m.group(1)), m.group(2).strip(), i, line
+    return None
+
 
 _HEADING_ANCHOR_STRIP_RE = re.compile(r"\s*\{#[^}]+\}\s*$")
 _WS_COLLAPSE_RE = re.compile(r"\s+")
@@ -522,28 +541,24 @@ def check_duplicate_headings(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
     seen_headings: dict[str, int] = {}
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if m:
-            raw_title = m.group(2).strip()
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is not None:
+            _level, raw_title, _hline, _hraw = _h
             clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
             norm_title = _WS_COLLAPSE_RE.sub(" ", clean_title).lower()
             if not norm_title:
@@ -556,11 +571,11 @@ def check_duplicate_headings(
                         rule_id="Z513",
                         severity=code_severity("Z513"),
                         file_path=file_path,
-                        line_no=i,
+                        line_no=_hline,
                         message=f"Duplicate heading '{clean_title}' found (first occurrence at line {first_line}).",
                         match_text=clean_title,
-                        col_start=_col_of(line, clean_title),
-                        matched_line=line,
+                        col_start=_col_of(_hraw, clean_title),
+                        matched_line=_hraw,
                     )
                 )
             else:
@@ -579,19 +594,14 @@ def check_generic_image_alt_text(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -659,20 +669,15 @@ def check_bare_urls(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
-        stripped = line.strip()
         prev_blank = i > 1 and not lines[i - 2].strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -727,29 +732,25 @@ def check_multiple_h1_headings(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
     h1_count = 0
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if m and len(m.group(1)) == 1:
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is not None and _h[0] == 1:
+            _level, raw_title, _hline, _hraw = _h
             h1_count += 1
-            raw_title = m.group(2).strip()
             clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
             if h1_count > 1:
                 findings.append(
@@ -757,16 +758,18 @@ def check_multiple_h1_headings(
                         rule_id="Z516",
                         severity=code_severity("Z516"),
                         file_path=file_path,
-                        line_no=i,
+                        line_no=_hline,
                         message=(
                             f"Multiple H1 headings detected in document ('{clean_title}'). "
                             "Documents must have exactly one H1 title."
                         ),
                         match_text=clean_title,
-                        col_start=_col_of(line, clean_title),
-                        matched_line=line,
+                        col_start=_col_of(_hraw, clean_title),
+                        matched_line=_hraw,
                     )
                 )
+            continue
+        if _h is not None:
             continue
 
         m_html = _HTML_H1_RE.search(line)
@@ -802,27 +805,23 @@ def check_heading_punctuation(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if m:
-            raw_title = m.group(2).strip()
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is not None:
+            _level, raw_title, _hline, _hraw = _h
             clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
             if clean_title and clean_title[-1] in _TRAILING_INVALID_PUNCT:
                 trailing = clean_title[-1]
@@ -831,14 +830,14 @@ def check_heading_punctuation(
                         rule_id="Z517",
                         severity=code_severity("Z517"),
                         file_path=file_path,
-                        line_no=i,
+                        line_no=_hline,
                         message=(
                             f"Heading '{clean_title}' ends with invalid trailing punctuation '{trailing}'. "
                             "Headings should not end with periods, colons, or semicolons."
                         ),
                         match_text=clean_title,
-                        col_start=_col_of(line, clean_title),
-                        matched_line=line,
+                        col_start=_col_of(_hraw, clean_title),
+                        matched_line=_hraw,
                     )
                 )
 
@@ -876,7 +875,6 @@ def check_all_heading_rules(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
     prev_level = 0
     seen_headings: dict[str, int] = {}
     h1_count = 0
@@ -884,23 +882,19 @@ def check_all_heading_rules(
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
 
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if m:
-            level = len(m.group(1))
-            raw_title = m.group(2).strip()
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is not None:
+            level, raw_title, _hline, _hraw = _h
             clean_title = _HEADING_ANCHOR_STRIP_RE.sub("", raw_title).strip()
 
             # Collect heading anchor slug as side effect (if requested)
@@ -914,12 +908,12 @@ def check_all_heading_rules(
                         rule_id="Z510",
                         severity=code_severity("Z510"),
                         file_path=file_path,
-                        line_no=i,
+                        line_no=_hline,
                         message=(
                             f"Heading level H{level} skips previous level H{prev_level} "
                             f"(expected H{prev_level + 1} or lower)."
                         ),
-                        matched_line=line,
+                        matched_line=_hraw,
                     )
                 )
             prev_level = level
@@ -933,11 +927,11 @@ def check_all_heading_rules(
                             rule_id="Z513",
                             severity=code_severity("Z513"),
                             file_path=file_path,
-                            line_no=i,
+                            line_no=_hline,
                             message=f"Duplicate heading '{clean_title}' found (first occurrence at line {seen_headings[norm_title]}).",
                             match_text=clean_title,
-                            col_start=_col_of(line, clean_title),
-                            matched_line=line,
+                            col_start=_col_of(_hraw, clean_title),
+                            matched_line=_hraw,
                         )
                     )
                 else:
@@ -952,14 +946,14 @@ def check_all_heading_rules(
                             rule_id="Z516",
                             severity=code_severity("Z516"),
                             file_path=file_path,
-                            line_no=i,
+                            line_no=_hline,
                             message=(
                                 f"Multiple H1 headings detected in document ('{clean_title}'). "
                                 "Documents must have exactly one H1 title."
                             ),
                             match_text=clean_title,
-                            col_start=_col_of(line, clean_title),
-                            matched_line=line,
+                            col_start=_col_of(_hraw, clean_title),
+                            matched_line=_hraw,
                         )
                     )
 
@@ -970,14 +964,14 @@ def check_all_heading_rules(
                         rule_id="Z517",
                         severity=code_severity("Z517"),
                         file_path=file_path,
-                        line_no=i,
+                        line_no=_hline,
                         message=(
                             f"Heading '{clean_title}' ends with invalid trailing punctuation '{clean_title[-1]}'. "
                             "Headings should not end with periods, colons, or semicolons."
                         ),
                         match_text=clean_title,
-                        col_start=_col_of(line, clean_title),
-                        matched_line=line,
+                        col_start=_col_of(_hraw, clean_title),
+                        matched_line=_hraw,
                     )
                 )
 
@@ -993,14 +987,14 @@ def check_all_heading_rules(
                             rule_id="Z516",
                             severity=code_severity("Z516"),
                             file_path=file_path,
-                            line_no=i,
+                            line_no=_hline,
                             message=(
                                 f"Multiple H1 headings detected in document ('{html_title}'). "
                                 "Documents must have exactly one H1 title."
                             ),
                             match_text=html_title,
-                            col_start=_col_of(line, html_title),
-                            matched_line=line,
+                            col_start=_col_of(_hraw, html_title),
+                            matched_line=_hraw,
                         )
                     )
 
@@ -1071,19 +1065,14 @@ def check_passive_voice(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -1145,19 +1134,14 @@ def check_weasel_words(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if i == 1 and stripped == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker answers "is this frontmatter", so this loop no longer
+        # carries its own copy of the rule. Thirteen copies did; they accepted
+        # only `---` and not YAML's `...` document-end marker, and they skipped
+        # lines *before* feeding the tracker, which left it computing container
+        # and paragraph state on an amputated document.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -1202,7 +1186,6 @@ def check_malformed_lists(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
-    in_frontmatter = False
     in_html_script = False
     in_html_style = False
 
@@ -1212,17 +1195,10 @@ def check_malformed_lists(
         line = lines[i]
         stripped = line.strip()
 
-        if i == 0 and stripped == "---":
-            in_frontmatter = True
-            i += 1
-            continue
-        if in_frontmatter:
-            if stripped == "---":
-                in_frontmatter = False
-            i += 1
-            continue
-
-        if _fence.feed(line) or _fence.in_indented_code:
+        # The tracker decides what is frontmatter; this loop asks it. Its index
+        # is zero-based, which is why its copy read `i == 0` -- the same rule,
+        # not a divergence, and now not a copy either.
+        if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
             i += 1
             continue
 
@@ -1469,11 +1445,11 @@ def check_heading_order(
         if _fence.inside:
             continue
 
-        m = _ATX_HEADING_RE.match(stripped)
-        if not m:
+        _h = _heading_here(stripped, line, i, lines, _fence)
+        if _h is None:
             continue
 
-        heading_title = m.group(2).strip()
+        _level, heading_title, _hline, _hraw = _h
 
         # Check if heading_title matches any pattern in required_heading_order
         for p_idx, p_str, p_re in compiled_patterns:
@@ -1484,13 +1460,13 @@ def check_heading_order(
                             rule_id="Z523",
                             severity=code_severity("Z523"),
                             file_path=file_path,
-                            line_no=i,
+                            line_no=_hline,
                             message=(
                                 f"Heading '{heading_title}' matches pattern '{p_str}' (order position {p_idx + 1}) "
                                 f"but appears after heading matching '{last_matched_pat}' (order position {max_idx_seen + 1}). "
                                 "Headings must appear in strictly ascending sequential order."
                             ),
-                            matched_line=line,
+                            matched_line=_hraw,
                         )
                     )
                 else:
