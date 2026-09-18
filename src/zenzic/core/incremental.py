@@ -1475,6 +1475,8 @@ class IncrementalAnalysisEngine:
                                 f"anchor '#{anchor}' not found",
                                 severity=code_severity("Z102"),
                                 matched_line=raw_line,
+                                col_start=max(raw_line.find(f"#{anchor}"), 0),
+                                match_text=f"#{anchor}" if f"#{anchor}" in raw_line else "",
                             )
                         )
                 else:

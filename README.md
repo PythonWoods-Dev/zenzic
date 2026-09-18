@@ -121,17 +121,18 @@ A failing run in CI (`zenzic check all docs` on the four-file fixture in `tests/
   Action: Rotate this credential immediately and purge it from the repository
 history.
 
-mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.1s - 71 files/s
+mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.0s - 83 files/s
 
 docs/assets/unused.png  !  [Z405]  File not referenced in any documentation
 page.
 
-docs/index.md:3  x  [Z101]  './setup.md' resolves to '/setup/' which is not in
-the Virtual Site Map — the target file may not exist
+docs/index.md:3:22  x  [Z101]  './setup.md' resolves to '/setup/' which is not
+in the Virtual Site Map — the target file may not exist
 
     1  │  # Home
     2  │
     3  ❱  See the [setup guide](./setup.md) for details.
+       │                        ^^^^^^^^^^
     4  │
     5  │  ![architecture](./assets/diagram.png)
 

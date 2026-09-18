@@ -1285,6 +1285,8 @@ class MissingAltTextRule(BaseRule):
                             file_path=file_path,
                             line_no=lineno,
                             message=f"Image '{url}' has no alt text.",
+                            col_start=max(line.find(url), 0),
+                            match_text=url if url in line else "",
                             matched_line=line,
                         )
                     )
@@ -1812,6 +1814,11 @@ class VSMBrokenLinkRule(BaseRule):
                         ),
                         level=code_severity(self.rule_id),
                         context=raw_line,
+                        # The message names the URL; the caret, SARIF's startColumn and the
+                        # LSP range all read col_start, which was 0 on every one of these
+                        # until 2026-09-18.
+                        col_start=max(raw_line.find(url), 0),
+                        match_text=url if url in raw_line else "",
                     )
                 )
 
@@ -1830,6 +1837,11 @@ class VSMBrokenLinkRule(BaseRule):
                             ),
                             level=code_severity("Z103"),
                             context=raw_line,
+                            # The message names the URL; the caret, SARIF's startColumn and the
+                            # LSP range all read col_start, which was 0 on every one of these
+                            # until 2026-09-18.
+                            col_start=max(raw_line.find(url), 0),
+                            match_text=url if url in raw_line else "",
                         )
                     )
 
@@ -1846,6 +1858,11 @@ class VSMBrokenLinkRule(BaseRule):
                         ),
                         level=code_severity(self.rule_id),
                         context=raw_line,
+                        # The message names the URL; the caret, SARIF's startColumn and the
+                        # LSP range all read col_start, which was 0 on every one of these
+                        # until 2026-09-18.
+                        col_start=max(raw_line.find(url), 0),
+                        match_text=url if url in raw_line else "",
                     )
                 )
 

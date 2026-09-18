@@ -4,7 +4,7 @@ Z601 BRAND_OBSOLESCENCE — deprecated release name detected in content
 This scenario is designed to fail — the output below is the expected Z601
 detection, not a problem with your install.
 
-standalone • 2 files (2 pages, 0 assets) • 0.1s • 29 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.1s • 38 files/s
 
 docs/index.md:6:33  ⚠  [Z601]  Obsolete or unauthorized brand term 'OldPlatform'
 detected. Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress
@@ -47,6 +47,6 @@ verified.
 
 ✔ LAB RESULT
 
-2 files scanned • 0.07s • 29 files/s
+2 files scanned • 0.05s • 38 files/s
 
 ✔ Z601 — Brand Obsolescence — expectation met.

@@ -656,6 +656,14 @@ class PolicyEvaluator:
                                 f"Replace or add to whitelist."
                             ),
                             matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                            # The message names the URL; without col_start the caret, SARIF's
+                            # startColumn and the LSP range all said column 0 (2026-09-18).
+                            col_start=max(
+                                (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                            ),
+                            match_text=url
+                            if line_no <= len(lines) and url in lines[line_no - 1]
+                            else "",
                         )
                     )
                     continue
@@ -688,6 +696,14 @@ class PolicyEvaluator:
                                 f"Declared in [policies].forbidden_external_domains."
                             ),
                             matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                            # The message names the URL; without col_start the caret, SARIF's
+                            # startColumn and the LSP range all said column 0 (2026-09-18).
+                            col_start=max(
+                                (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                            ),
+                            match_text=url
+                            if line_no <= len(lines) and url in lines[line_no - 1]
+                            else "",
                         )
                     )
 
@@ -734,6 +750,14 @@ class PolicyEvaluator:
                             f"Change scheme to an allowed protocol."
                         ),
                         matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                        # The message names the URL; without col_start the caret, SARIF's
+                        # startColumn and the LSP range all said column 0 (2026-09-18).
+                        col_start=max(
+                            (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                        ),
+                        match_text=url
+                        if line_no <= len(lines) and url in lines[line_no - 1]
+                        else "",
                     )
                 )
 
@@ -902,6 +926,14 @@ class PolicyEvaluator:
                                 f"Declared in [policies].cross_namespace_restrictions."
                             ),
                             matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                            # The message names the URL; without col_start the caret, SARIF's
+                            # startColumn and the LSP range all said column 0 (2026-09-18).
+                            col_start=max(
+                                (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                            ),
+                            match_text=url
+                            if line_no <= len(lines) and url in lines[line_no - 1]
+                            else "",
                         )
                     )
                     break
