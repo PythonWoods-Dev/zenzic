@@ -230,6 +230,13 @@ _FENCE_RE = _re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<info>[^\n]*)")
 #: The incompleteness moved with it, and so did the asymmetry note: a missing
 #: marker makes findings disappear (a corpus measurement finds that), a
 #: spurious one makes them appear (nobody reports that).
+#: A setext underline (CommonMark 4.2): a run of `=` or `-`, up to three spaces
+#: of leading indentation, nothing else on the line. Whether it *is* an
+#: underline rather than a thematic break depends on the line above, which is
+#: why matching it is necessary and not sufficient.
+_SETEXT_UNDERLINE_RE = _re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
+
+
 def _default_containers() -> RegexPattern:
     """The pattern for an engine with no configuration to read.
 
@@ -274,10 +281,15 @@ class BlockTracker:
         "_char",
         "_containers",
         "_container_stack",
+        "_frontmatter",
         "_len",
+        "_line_no",
         "_paragraph_open",
+        "_paragraph_text",
+        "in_frontmatter",
         "in_indented_code",
         "inside",
+        "setext_level",
     )
 
     def __init__(self, containers: RegexPattern | None = None) -> None:
@@ -297,6 +309,30 @@ class BlockTracker:
         self.in_indented_code: bool = False
         self._container_stack: list[int] = []
         self._paragraph_open: bool = False
+        #: The text of the paragraph line immediately above -- a setext heading
+        #: *is* that text, so a consumer needs it rather than the underline it
+        #: just read.
+        self._paragraph_text: str = ""
+        #: 0, or 1 / 2 when the line just fed is a setext underline and the
+        #: heading it closes is an H1 / H2. A **third question**, opt-in like
+        #: `in_indented_code`: `feed()`'s verdict stays about fences.
+        self.setext_level: int = 0
+        #: Line counter and YAML frontmatter state. `---` closing a frontmatter
+        #: block sits directly below YAML, which every line-local reading takes
+        #: for an open paragraph -- so without this the closing delimiter
+        #: becomes an H2. Measured 2026-09-18 before the rule was written.
+        self._line_no: int = 0
+        self._frontmatter: bool = False
+        #: True while the line just fed belongs to the YAML frontmatter block,
+        #: **including both delimiters**. A *fourth question*, and the one that
+        #: lets a consumer stop carrying its own copy of the rule: thirteen of
+        #: them did, they accepted only `---`, and a document closed with YAML's
+        #: `...` marker therefore had its whole body treated as frontmatter --
+        #: every content rule silent, exit 0, measured on the published v0.30.0.
+        #:
+        #: `_frontmatter` above is the *state between* the delimiters; this is
+        #: the per-line verdict, which is what a caller's `continue` needs.
+        self.in_frontmatter: bool = False
 
     def feed(self, line: str) -> bool:
         """Advance by one line; return True if the caller should skip it.
@@ -306,6 +342,13 @@ class BlockTracker:
         effect, and answers `in_indented_code` instead.
         """
         self._update_blocks(line)
+        if self.in_frontmatter:
+            # Frontmatter is YAML, not Markdown: a line of backticks in it is a
+            # string, not a fence opener. Returning False keeps this verdict
+            # "about fences only" as the docstring says -- the caller skips the
+            # line by asking `in_frontmatter`, which is the question that means
+            # "not content".
+            return False
         m = _FENCE_RE.match(line)
         if not self.inside:
             if m is None:
@@ -340,6 +383,9 @@ class BlockTracker:
         alone as code would have silenced rules on 1,178 lines here and 608 in
         `zensical/docs`, trading one false positive for ten false negatives.
         """
+        self._line_no += 1
+        self.setext_level = 0
+
         if self.inside:
             # Inside a fence nothing else opens: fence state is an input to
             # this calculation, which is why the two live in one component
@@ -347,10 +393,50 @@ class BlockTracker:
             self.in_indented_code = False
             return
 
-        if not line.strip():
+        stripped = line.strip()
+
+        # YAML frontmatter. `---` on the first line opens it; the next `---`
+        # closes it. Nothing inside opens a paragraph, which is the whole point:
+        # the closing delimiter sits directly below YAML, so a line-local
+        # reading takes it for a setext underline and mints an H2 out of the
+        # frontmatter's own terminator.
+        self.in_frontmatter = False
+        if self._frontmatter:
+            self.in_frontmatter = True
+            # `...` is YAML's document-end marker and closes frontmatter just as
+            # `---` does. Thirteen line-skipping copies of this rule in
+            # `content.py` and `governance.py` accept only `---`, so a document
+            # closed with `...` has its entire body treated as frontmatter and
+            # every content rule goes silent -- measured 2026-09-18 on the
+            # published v0.30.0: two H1 headings, no `Z516`, exit 0.
+            #
+            # `scanner._skip_frontmatter` is the one copy that already accepts
+            # both, which is why the credential scanner is unaffected: measured,
+            # an AWS key below a `...` terminator still exits 2.
+            if stripped in ("---", "..."):
+                self._frontmatter = False
+            return
+        if self._line_no == 1 and stripped == "---":
+            self._frontmatter = True
+            self.in_frontmatter = True
+            return
+
+        # Setext underline (CommonMark 4.2). The disambiguation against a
+        # thematic break (4.3) is *only* whether a paragraph is open above:
+        # `---` after a blank line is a break, the same characters under a line
+        # of text are an H2 underline. `_paragraph_open` already carried that
+        # bit for indented code, which is why this needed no new state machine.
+        if self._paragraph_open and _SETEXT_UNDERLINE_RE.match(line):
+            self.setext_level = 1 if stripped[0] == "=" else 2
+            self._paragraph_open = False
+            self.in_indented_code = False
+            return
+
+        if not stripped:
             # A blank line does not close an indented block -- the next
             # indented line continues it -- but it does close a paragraph.
             self._paragraph_open = False
+            self._paragraph_text = ""
             self.in_indented_code = False
             return
 
@@ -393,6 +479,7 @@ class BlockTracker:
         else:
             self.in_indented_code = False
             self._paragraph_open = True
+            self._paragraph_text = stripped
 
     def opens(self, line: str) -> tuple[str, str] | None:
         """Return ``(fence, info)`` if *line* opens a fence from the outside.
@@ -409,3 +496,23 @@ class BlockTracker:
         if fence[0] == "`" and "`" in m.group("info"):
             return None
         return fence, m.group("info")
+
+
+def setext_heading(tracker: BlockTracker) -> tuple[int, str] | None:
+    """``(level, text)`` when the line just fed is a setext underline.
+
+    One implementation for the rules that read headings, rather than the
+    disambiguation copied into each: CommonMark 4.2 needs the line *above* the
+    underline, and a rule matching only ``^#{1,6}`` cannot see it. The count
+    that decided this: five independent heading recognisers across five modules,
+    twelve call sites -- measured 2026-09-18, before the fix.
+
+    **No line number is returned, deliberately.** §4.2 requires the underline to
+    follow the paragraph line immediately, so the heading's text is always at
+    the caller's ``i - 1``. Returning the tracker's own counter would have been
+    wrong for the callers that skip frontmatter before feeding it, which are
+    most of them -- a count kept in two places that advance differently.
+    """
+    if not tracker.setext_level:
+        return None
+    return tracker.setext_level, tracker._paragraph_text
