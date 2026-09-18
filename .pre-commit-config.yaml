@@ -150,12 +150,27 @@ repos:
         files: ^docs/blog/posts/.*\.md$
         pass_filenames: false
 
-  # 8. Final Guard — score gate + badge freshness + full audit (pre-push only)
+  # 8. Pre-push gate — only the checks a later run cannot undo (~13 s)
+  #
+  # This ran `just verify` until 2026-09-18. That was the cause of the push hang
+  # chased across five attempts in the v0.31.0 cycle, not merely a slow gate:
+  # git opens the SSH connection to fetch the remote refs it feeds this hook on
+  # stdin and keeps it open while the hook runs, GitHub drops a connection idle
+  # for a few minutes, and a 388 s hook (cold verdict cache) therefore failed the
+  # push with `Connection to github.com closed by remote host` and exit 141,
+  # having transferred nothing.
+  #
+  # What remains is the set whose damage a later run cannot undo — disclosure,
+  # private-tree secrets, commit identity, AI-attribution trailers — because a
+  # push publishes and a pushed commit is not rewritten. The suite, the audit,
+  # the score and the coherence gates run in `just verify` before a commit and
+  # in CI on every push; `just verify-full` adds the on-demand gates before a
+  # release. CONTRIBUTING.md, "Which gate runs where", carries the table.
   - repo: local
     hooks:
-      - id: just-verify
-        name: Final Guard (just verify)
-        entry: just verify
+      - id: zenzic-prepush
+        name: Pre-push gate (irreversible checks only)
+        entry: just _prepush-checks
         language: system
         stages: [pre-push]
         pass_filenames: false

@@ -176,7 +176,45 @@ _local-checks:
         exit 1
     fi
     echo "note: '.justfile.local' not present — repository-local checks skipped (expected for a fresh clone)."
-
+# The pre-push gate: only the checks whose failure a later run cannot undo.
+#
+# **This replaced `just verify` in the pre-push hook on 2026-09-18, and the
+# reason is a measured failure, not a preference.** git opens the SSH connection
+# to the remote in order to hand the hook its ref list, and holds it open while
+# the hook runs; GitHub closes a connection left idle for a few minutes. A hook
+# running the full gate took 388 s on a cold verdict cache and therefore failed
+# the push itself — `Connection to github.com closed by remote host`, exit 141,
+# nothing transferred — which is the hang that cost five push attempts in the
+# v0.31.0 cycle before its cause was found. The gate was not merely slow: it was
+# the cause. This recipe finishes in ~13 s and cannot reach that limit.
+#
+# What runs here is the set whose damage is irreversible: a push publishes, and
+# a pushed commit is not rewritten. Everything else — the suite, the audit, the
+# score, the coherence gates — runs in `just verify` before a commit and in CI
+# on every push, where a failure costs a follow-up commit and nothing more.
+# `just verify-full` adds the two on-demand gates before a release.
+# CONTRIBUTING.md, "Which gate runs where", is the table.
+_prepush-checks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f .justfile.local ]; then
+        just _prepush-gates
+        exit 0
+    fi
+    if git config --local --get zenzic.local-tooling >/dev/null 2>&1; then
+        echo -e "\033[31mBLOCKED: this clone opts in to local tooling, but '.justfile.local' is missing.\033[0m" >&2
+        echo "  The pre-push gates cannot run, so this would verify less than it appears to." >&2
+        exit 1
+    fi
+    if [ -d .claude ] || [ -d .human ]; then
+        echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
+        echo "  The disclosure and private-tree gates are the ones that matter most here:" >&2
+        echo "  they are the only checks that read '.claude/' and '.human/' before a push." >&2
+        echo "  Fix — restore the private recipes, then opt this clone in:" >&2
+        echo "    git config --local zenzic.local-tooling true" >&2
+        exit 1
+    fi
+    echo "note: '.justfile.local' not present — pre-push gates skipped (expected for a fresh clone)"
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: git-hook check → [tree-deterministic, verdict cached per tree: release
 # contracts → pinning → docs build → local gates → pre-commit (all hooks) →
