@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 site_name: My Project
+# Declared on purpose: this is the one gallery fixture that exercises the
+# adapter-extension contract. `admonition` is enabled and `pymdownx.details`
+# is not, so `!!!` opens a container here and `???` does not -- which makes the
+# indented lines under the `???` block in docs/index.md a CommonMark §4.4 code
+# block rather than container content. See the README.
+markdown_extensions:
+  - admonition
 extra:
   alternate:
     - name: English

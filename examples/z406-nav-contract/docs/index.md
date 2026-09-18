@@ -15,3 +15,15 @@ Zenzic to ensure link integrity and documentation quality standards are met.
 
 Follow the quick start guide to set up your environment and run your first check.
 See [Index](index.md).
+
+!!! note "This is a container here"
+
+    `admonition` is enabled, so these four spaces are container content and
+    this text is read as prose.
+
+??? note "This is not a container here"
+
+    ## A heading that would report Z517.
+
+    `pymdownx.details` is not enabled, so `???` is ordinary text and these four
+    spaces open a code block. The heading above is never read as a heading.

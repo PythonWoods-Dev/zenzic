@@ -41,12 +41,14 @@ from zenzic.models.config import ZenzicConfig
 )
 def test_passive_voice_ignores_non_participles_and_hyphenated_compounds(line: str) -> None:
     text = f"# T\n\n{line}\n"
-    assert [f.match_text for f in content.check_passive_voice(Path("p.md"), text)] == []
+    assert [
+        f.match_text for f in content.check_passive_voice(Path("p.md"), text, containers=None)
+    ] == []
 
 
 def test_passive_voice_still_reports_a_real_passive() -> None:
     text = "# T\n\nThe report was reviewed by the board.\n"
-    found = content.check_passive_voice(Path("p.md"), text)
+    found = content.check_passive_voice(Path("p.md"), text, containers=None)
     assert [f.match_text for f in found] == ["was reviewed"]
 
 
@@ -64,9 +66,9 @@ def test_z518_and_z519_columns_survive_masking() -> None:
     # them to one space, so a column taken from the masked line was wrong.
     line = "Run `zenzic check all --strict` and [read](./x.md) it; the tree was reviewed, clearly."
     text = f"# T\n\n{line}\n"
-    (p,) = content.check_passive_voice(Path("p.md"), text)
+    (p,) = content.check_passive_voice(Path("p.md"), text, containers=None)
     assert p.col_start == line.index("was reviewed") and _span_matches(p)
-    (w,) = content.check_weasel_words(Path("p.md"), text, ["clearly"])
+    (w,) = content.check_weasel_words(Path("p.md"), text, ["clearly"], containers=None)
     assert w.col_start == line.index("clearly") and _span_matches(w)
 
 
@@ -106,17 +108,17 @@ def test_every_content_rule_points_its_caret_at_the_match() -> None:
     must carry the column where that text starts."""
     p = Path("f.md")
     findings = []
-    findings += content.check_heading_hierarchy(p, _FIXTURE)
-    findings += content.check_sentence_lengths(p, _FIXTURE)
-    findings += content.check_empty_sections(p, _FIXTURE)
-    findings += content.check_duplicate_headings(p, _FIXTURE)
-    findings += content.check_generic_image_alt_text(p, _FIXTURE)
-    findings += content.check_bare_urls(p, _FIXTURE)
-    findings += content.check_multiple_h1_headings(p, _FIXTURE)
-    findings += content.check_heading_punctuation(p, _FIXTURE)
-    findings += content.check_passive_voice(p, _FIXTURE)
-    findings += content.check_weasel_words(p, _FIXTURE, ["obviously"])
-    findings += content.check_malformed_lists(p, _FIXTURE)
+    findings += content.check_heading_hierarchy(p, _FIXTURE, containers=None)
+    findings += content.check_sentence_lengths(p, _FIXTURE, containers=None)
+    findings += content.check_empty_sections(p, _FIXTURE, containers=None)
+    findings += content.check_duplicate_headings(p, _FIXTURE, containers=None)
+    findings += content.check_generic_image_alt_text(p, _FIXTURE, containers=None)
+    findings += content.check_bare_urls(p, _FIXTURE, containers=None)
+    findings += content.check_multiple_h1_headings(p, _FIXTURE, containers=None)
+    findings += content.check_heading_punctuation(p, _FIXTURE, containers=None)
+    findings += content.check_passive_voice(p, _FIXTURE, containers=None)
+    findings += content.check_weasel_words(p, _FIXTURE, ["obviously"], containers=None)
+    findings += content.check_malformed_lists(p, _FIXTURE, containers=None)
     codes = {f.rule_id for f in findings}
     assert {"Z517", "Z516", "Z515", "Z518", "Z519", "Z520", "Z513", "Z512"} <= codes, codes
     wrong = [
@@ -131,7 +133,11 @@ def test_z617_column_is_the_match_start() -> None:
     cfg = ZenzicConfig()
     cfg.policies.forbidden_content_patterns = ["TODO"]
     text = "# T\n\nAll fine — TODO fix this later.\n"
-    found = [f for f in governance.check_policies(Path("g.md"), text, cfg) if f.rule_id == "Z617"]
+    found = [
+        f
+        for f in governance.check_policies(Path("g.md"), text, cfg, containers=None)
+        if f.rule_id == "Z617"
+    ]
     assert found and found[0].col_start == text.splitlines()[2].index("TODO")
 
 

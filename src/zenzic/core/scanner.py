@@ -53,6 +53,7 @@ from zenzic.models.references import IntegrityReport, ReferenceFinding, Referenc
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import BaseAdapter
     from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.core.regex import RegexPattern
 
 
 # ─── Code-asset suffix guard (Z405 exemption) ────────────────────────────────
@@ -1299,7 +1300,12 @@ def _scan_single_file(
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
 
-        policy_findings = check_policies(md_file, text, config)
+        policy_findings = check_policies(
+            md_file,
+            text,
+            config,
+            containers=rule_engine.containers if rule_engine is not None else None,
+        )
         for pf in policy_findings:
             if not tracker.is_suppressed(pf.line_no, pf.rule_id):
                 report.rule_findings.append(pf)
@@ -1354,7 +1360,10 @@ def _run_vsm_and_urp_pass(
     from zenzic.models.vsm import build_vsm
 
     if not rule_engine:
-        rule_engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        # VSM-only engine: Z104 resolves links and consults no container
+        # vocabulary, so the declared default is not merely acceptable
+        # here, it is unread.
+        rule_engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
 
     if repo_root is None:
         repo_root = find_repo_root(fallback_to_cwd=True, search_from=docs_root)
@@ -1494,7 +1503,10 @@ def _run_vsm_and_urp_pass(
 
     from zenzic.core.governance import PolicyEvaluator
 
-    policy_evaluator = PolicyEvaluator(config)
+    policy_evaluator = PolicyEvaluator(
+        config,
+        containers=rule_engine.containers if rule_engine is not None else None,
+    )
 
     for r in reports:
         # In parallel mode, each report is deserialized from a worker process and
@@ -1691,9 +1703,55 @@ def _run_vsm_and_urp_pass(
 #
 # `test_rule_engine_factory_is_not_cached` asserts it, because the property
 # held by accident until 2026-09-18: nothing said it, so nothing protected it.
+def resolve_container_vocabulary(
+    config: ZenzicConfig,
+    docs_root: Path,
+    repo_root: Path | None = None,
+) -> RegexPattern:
+    """The run's container-opening pattern, read from the project's own adapter.
+
+    Which extensions a project enables has **one answer for the whole run**, so
+    this resolves once and the value is handed to
+    :class:`~zenzic.core.rules.AdaptiveRuleEngine`, which is the run-scoped
+    carrier. It deliberately does not ride `ResolutionContext`, which is
+    per-file by construction.
+
+    Cost, measured 2026-09-18 on this repository: ~23 ms to build the adapter
+    cold, ~16 ms to read `markdown_extensions`, ~0.1 ms to compile -- about
+    40 ms once per run, against a scan measured in seconds. It does force one
+    adapter construction on paths where the adapter was previously lazy; that
+    is the price of the vocabulary being right rather than assumed.
+    """
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.extensions import container_pattern
+
+    # Not `docs_root` as the fallback: the adapter looks for `zensical.toml` /
+    # `mkdocs.yml` *in the root it is given*, and a docs directory is not a repo
+    # root. The pre-existing fallback at the security-URP call site does exactly
+    # that, and was harmless only because that path is rarely reached; making
+    # this resolution eager would have made it reachable on every scan.
+    root = (
+        repo_root
+        if repo_root is not None
+        else find_repo_root(fallback_to_cwd=True, search_from=docs_root)
+    )
+    # No guard around this call. Measured 2026-09-18 on a repository declaring
+    # `engine = "zensical"` with no `zensical.toml`: the error surfaces before
+    # this line on every path. Each CLI entry point builds its own adapter first
+    # (`_check.py`, `_audit.py`, `_guard.py`, `_inspect.py`, `_clean.py`) and
+    # reports it there -- exit 1, no traceback. The library path raises from the
+    # pre-existing `get_adapter` in `_run_vsm_and_urp_pass`, and did so before
+    # this resolution existed. A `try/except` here would have been a branch no
+    # measured path can reach.
+    enabled = get_adapter(config.build_context, docs_root, root).get_enabled_extensions()
+    return container_pattern(enabled)
+
+
 def _build_rule_engine(
     config: ZenzicConfig,
     anchors_out: dict[Path, set[str]] | None = None,
+    *,
+    containers: RegexPattern | None,
 ) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
@@ -1883,7 +1941,7 @@ def _build_rule_engine(
 
     if not deduped:
         return None
-    return AdaptiveRuleEngine(deduped)
+    return AdaptiveRuleEngine(deduped, containers=containers)
 
 
 def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) -> None:
@@ -2061,7 +2119,21 @@ def scan_docs_references(
             return [report], []
         config = loaded_cfg or ZenzicConfig()
 
-    rule_engine = _build_rule_engine(config)
+    # ── Run-level container vocabulary ───────────────────────────────────────
+    # Which extensions the project enables has one answer for the whole
+    # execution, so it is resolved once, here, as a *value*. It deliberately
+    # does not ride `ResolutionContext`, which is per-file by construction:
+    # that would build an object per file to carry a fact that never varies.
+    #
+    # This does force one adapter construction per run, where the adapter was
+    # previously built lazily. Measured 2026-09-18 on this repository:
+    # 23.4 ms cold, 16.3 ms to read `markdown_extensions`, 0.1 ms to compile --
+    # ~40 ms once, against a scan measured in seconds. The alternative, leaving
+    # the vocabulary unresolved, is what made every content rule read the full
+    # four-marker default regardless of what the project enables.
+    _containers = resolve_container_vocabulary(config, docs_root, repo_root)
+
+    rule_engine = _build_rule_engine(config, containers=_containers)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
 
     # A rule-engine target outside docs_root (e.g. CHANGELOG.md/README.md at
@@ -2444,7 +2516,9 @@ def scan_docs_references(
         md_contents_seq: dict[Path, str] = {}
         # Anchors collected as side effect of CombinedHeadingRule; reused in VSM pass.
         preloaded_anchors_seq: dict[Path, set[str]] = {}
-        _seq_rule_engine = _build_rule_engine(config, anchors_out=preloaded_anchors_seq)
+        _seq_rule_engine = _build_rule_engine(
+            config, anchors_out=preloaded_anchors_seq, containers=_containers
+        )
         _resolved_rule_engine_target = (
             rule_engine_target.resolve(strict=False) if rule_engine_target is not None else None
         )

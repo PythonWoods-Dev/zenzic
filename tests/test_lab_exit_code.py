@@ -165,3 +165,59 @@ def test_lab_all_exits_nonzero_when_one_scenario_fails() -> None:
         f"lab all must exit non-zero when at least one scenario fails its "
         f"expectation, got exit 0.\nOutput:\n{result.stdout}"
     )
+
+
+def test_every_gallery_scenario_meets_its_expectation_for_real() -> None:
+    """Run the whole gallery against the real fixtures — no mocking.
+
+    The tests above verify that `lab`'s verdict reaches the process exit code.
+    They mock `_ActResult`, so none of them notices when a *scenario's own
+    declaration* stops matching what the engine emits.
+
+    That gap had an instance. `z104`'s registry entry carried
+    ``emitted_code="Z101"`` — an override meaning "the engine emits a different
+    code than the directory name" — and it was false: the engine emits `Z104`
+    for a link to a missing asset. `lab all` filtered the output to `Z101`,
+    found nothing, and printed ``EXPECTED FAIL -- nothing found ✗``. It had been
+    printing that since before this cycle, on every run, and nothing read it.
+
+    So this test asserts the thing the printed table was already saying. It is
+    deliberately live and unmocked: the point is that the fixtures, the registry
+    and the engine are checked against each other rather than against a stub.
+
+    **Cost, measured 2026-09-18: 1.72 s for 67 scenarios** — 88 files scanned.
+    It is not marked ``slow`` and should not be: a check excluded by default is
+    a check nobody runs, which is the same shape as the printed verdict nobody
+    read. If it ever does become slow, move it rather than exclude it.
+    """
+    result = runner.invoke(app, ["lab", "all"])
+    assert result.exit_code == 0, (
+        "at least one gallery scenario no longer matches what the engine emits:\n"
+        + result.output[-4000:]
+    )
+
+
+def test_every_emitted_code_override_names_a_real_code() -> None:
+    """``emitted_code`` is an override nothing else verifies.
+
+    Three entries have carried it; one said the false thing. This pins the
+    cheap half — the override must at least name a code the catalogue defines —
+    while the live gallery run above pins the expensive half, that the engine
+    actually emits it.
+
+    `z109`'s override is **true and must not be removed**: its scenario is an
+    unreachable *external* link, which the engine reports as `Z101` because the
+    consolidation is real there. It only emits under the conditions `lab` sets
+    up, so a plain scan of that directory finds nothing and a reader checking by
+    hand could easily conclude the override is wrong. It is not. The live run
+    above is what proves it, and this note is what stops someone deleting it on
+    the evidence of a bare `zenzic check`.
+    """
+    from zenzic.core.codes import CODE_NAMES
+
+    wrong = {
+        key: act.emitted_code
+        for key, act in _GALLERY.items()
+        if act.emitted_code is not None and act.emitted_code not in CODE_NAMES
+    }
+    assert not wrong, f"emitted_code names a code the catalogue does not define: {wrong}"

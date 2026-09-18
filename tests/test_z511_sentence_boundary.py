@@ -84,7 +84,9 @@ class TestZ511EndToEnd:
         """Two in-limit sentences must not be reported as one over-limit sentence."""
         first = "*Note: " + " ".join(f"w{i}" for i in range(28)) + " parsing.*"
         second = " ".join(f"x{i}" for i in range(28)) + "."
-        findings = check_sentence_lengths(tmp_path / "p.md", f"{first} {second}\n", max_words=40)
+        findings = check_sentence_lengths(
+            tmp_path / "p.md", f"{first} {second}\n", max_words=40, containers=None
+        )
         assert findings == [], (
             "two sentences of ~29 words each were merged across the italic-closing "
             f"asterisk and reported as one long sentence: {[f.message for f in findings]}"
@@ -93,7 +95,9 @@ class TestZ511EndToEnd:
     def test_a_genuinely_long_sentence_is_still_reported(self, tmp_path: Path) -> None:
         """The fix must not silence real findings."""
         long_one = "*Note: " + " ".join(f"w{i}" for i in range(60)) + " parsing.*"
-        findings = check_sentence_lengths(tmp_path / "p.md", long_one + "\n", max_words=40)
+        findings = check_sentence_lengths(
+            tmp_path / "p.md", long_one + "\n", max_words=40, containers=None
+        )
         assert [f.rule_id for f in findings] == ["Z511"]
 
 
@@ -110,12 +114,19 @@ class TestTrailingBufferIsChecked:
 
     def test_final_paragraph_ending_in_emphasis_is_checked(self, tmp_path: Path) -> None:
         text = "*Note: " + " ".join(f"w{i}" for i in range(60)) + " parsing.*\n"
-        assert [f.rule_id for f in check_sentence_lengths(tmp_path / "p.md", text)] == ["Z511"]
+        assert [
+            f.rule_id for f in check_sentence_lengths(tmp_path / "p.md", text, containers=None)
+        ] == ["Z511"]
 
     def test_final_paragraph_with_no_terminator_at_all_is_checked(self, tmp_path: Path) -> None:
         text = " ".join(f"w{i}" for i in range(60)) + "\n"
-        assert [f.rule_id for f in check_sentence_lengths(tmp_path / "p.md", text)] == ["Z511"]
+        assert [
+            f.rule_id for f in check_sentence_lengths(tmp_path / "p.md", text, containers=None)
+        ] == ["Z511"]
 
     def test_short_trailing_paragraph_still_reports_nothing(self, tmp_path: Path) -> None:
         """The new flush must not invent findings on ordinary short prose."""
-        assert check_sentence_lengths(tmp_path / "p.md", "A short closing note.*\n") == []
+        assert (
+            check_sentence_lengths(tmp_path / "p.md", "A short closing note.*\n", containers=None)
+            == []
+        )

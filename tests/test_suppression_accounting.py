@@ -344,7 +344,7 @@ def test_incremental_engine_honours_inline_suppression_of_cross_file_codes(
     vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors, repo_root=corpus)
 
     engine = IncrementalAnalysisEngine(
-        config, _build_rule_engine(config), adapter, docs_root, corpus
+        config, _build_rule_engine(config, containers=None), adapter, docs_root, corpus
     )
     engine.anchors_cache = anchors
     for p, t in contents.items():
@@ -589,7 +589,7 @@ def test_every_directive_spelling_works_in_the_editor(tmp_path: Path, spelling: 
     adapter = get_adapter(config.build_context, docs_root, corpus)
     vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors, repo_root=corpus)
     engine = IncrementalAnalysisEngine(
-        config, _build_rule_engine(config), adapter, docs_root, corpus
+        config, _build_rule_engine(config, containers=None), adapter, docs_root, corpus
     )
     engine.anchors_cache = anchors
     for p, t in contents.items():

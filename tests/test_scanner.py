@@ -227,7 +227,9 @@ def test_jsx_suppression_is_respected_for_z601() -> None:
     )
     text = "v0.6.x codename {/* zenzic:ignore: Z601 release codename */}\n"
     tracker = SuppressionTracker(Path("docs/page.mdx"), text)
-    findings = AdaptiveRuleEngine([rule]).run_with_tracker(Path("docs/page.mdx"), text, tracker)
+    findings = AdaptiveRuleEngine([rule], containers=None).run_with_tracker(
+        Path("docs/page.mdx"), text, tracker
+    )
     assert findings == []
     assert tracker.get_dead_suppressions() == []
 
@@ -240,7 +242,9 @@ def test_html_suppression_still_works_for_z601() -> None:
     )
     text = "v0.6.x codename <!-- zenzic:ignore: Z601 release codename -->\n"
     tracker = SuppressionTracker(Path("docs/page.md"), text)
-    findings = AdaptiveRuleEngine([rule]).run_with_tracker(Path("docs/page.md"), text, tracker)
+    findings = AdaptiveRuleEngine([rule], containers=None).run_with_tracker(
+        Path("docs/page.md"), text, tracker
+    )
     assert findings == []
     assert tracker.get_dead_suppressions() == []
 

@@ -109,7 +109,7 @@ def test_sdk_v3_loading_via_config(tmp_path: Path) -> None:
         custom_rules=[CustomRuleConfig(class_name="zenzic.sdk.examples.NoTodoRule")]
     )
 
-    engine = _build_rule_engine(config)
+    engine = _build_rule_engine(config, containers=None)
     assert engine is not None
     doc_path = tmp_path / "docs" / "index.md"
     content = "Line 1\nLine 2 TODO fix this\nLine 3"

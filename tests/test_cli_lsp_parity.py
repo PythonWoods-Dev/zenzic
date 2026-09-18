@@ -166,7 +166,7 @@ def _cli_sarif_rule_ids(repo_root: Path) -> list[str]:
 def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
     """Run the IncrementalAnalysisEngine path (LSP/zenzic-mcp's shared primitive) directly."""
     config, _ = ZenzicConfig.load(repo_root)
-    rule_engine = _build_rule_engine(config)
+    rule_engine = _build_rule_engine(config, containers=None)
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     # Build the VSM the way the language server does (server.py:288). A bare
@@ -314,7 +314,7 @@ def test_both_paths_detect_the_same_cycle_even_though_only_one_may_show_it(
     )
     engine = IncrementalAnalysisEngine(
         config=config,
-        rule_engine=_build_rule_engine(config),
+        rule_engine=_build_rule_engine(config, containers=None),
         adapter=adapter,
         docs_root=docs,
         repo_root=tmp_path,

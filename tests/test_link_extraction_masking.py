@@ -29,7 +29,7 @@ GENUINE = "A [genuine](./real-missing.md) link."
 
 
 def _urls(text: str) -> list[str]:
-    return [u for u, _lineno, _raw in extract(text)]
+    return [u for u, _lineno, _raw in extract(text, containers=None)]
 
 
 class TestCommentsAreNotLinks:
@@ -84,5 +84,5 @@ class TestNothingElseRegressed:
     def test_line_numbers_survive_masking(self) -> None:
         """Masking must be length/line preserving -- carets depend on it."""
         text = f"<!-- [g](./ghost.md) -->\n\n{GENUINE}\n"
-        found = [(u, n) for u, n, _ in extract(text)]
+        found = [(u, n) for u, n, _ in extract(text, containers=None)]
         assert ("./real-missing.md", 3) in found, found

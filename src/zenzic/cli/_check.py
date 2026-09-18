@@ -253,7 +253,11 @@ def check_links(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         _evaluate_security_exit(findings)
@@ -403,7 +407,11 @@ def check_orphans(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
@@ -532,7 +540,11 @@ def check_snippets(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
@@ -742,7 +754,11 @@ def check_references(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         _evaluate_security_exit(findings)
@@ -873,7 +889,11 @@ def check_assets(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         errors_count = sum(1 for f in findings if f.severity == "error")
@@ -1018,7 +1038,11 @@ def check_placeholders(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
         _evaluate_security_exit(findings)
@@ -2029,7 +2053,11 @@ def check_all(
                 raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        _engine = _build_rule_engine(config)
+        # `containers=None`: this engine is built only to read rule metadata
+        # (`rule_id` -> rule) for the SARIF `rules` block. `engine.run()` is
+        # never called on this path, so the vocabulary is not merely defaulted
+        # here -- it is never read.
+        _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
         _shared._output_sarif_findings(all_findings, __version__, rules_map=_rules_map)
         _evaluate_security_exit(all_findings)

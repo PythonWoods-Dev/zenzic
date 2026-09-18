@@ -60,7 +60,7 @@ def _urp_codes(tmp_path: Path, body: str) -> list[str]:
     config = ZenzicConfig(docs_dir=Path("docs"))
     engine = IncrementalAnalysisEngine(
         config=config,
-        rule_engine=_build_rule_engine(config),
+        rule_engine=_build_rule_engine(config, containers=None),
         adapter=get_adapter(config.build_context, docs, tmp_path),
         docs_root=docs,
         repo_root=tmp_path,

@@ -128,6 +128,44 @@ compare the file list against.
 
 Returns engine-owned metadata filenames excluded from quality findings.
 
+#### `get_enabled_extensions(self) -> EnabledExtensions`
+
+Returns the Markdown extensions the project enables, read from the project's own
+configuration — `markdown_extensions` in `mkdocs.yml` for the MkDocs and Zensical
+adapters.
+
+The core owns the mapping from **extension to construct** (`admonition` brings
+`!!!`, `pymdownx.details` brings `???` and `???+`, `pymdownx.tabbed` brings
+`=== "Tab"`, `def_list` brings `:` followed by spaces); the adapter owns **which
+extensions are enabled**, because only the project knows that. The engine needs
+both to tell a container's indented body from an indented code block.
+
+!!! note "This default is not empty, unlike `get_output_dirs()`"
+
+    The base implementation returns the four extensions above rather than an
+    empty set, and the asymmetry is deliberate.
+
+    For `get_output_dirs()`, emptiness is the cheap answer: an adapter that
+    declares no output directories simply excludes nothing, and the cost of the
+    default is a few extra files scanned.
+
+    Here emptiness is the *expensive* answer. Measured 2026-09-18, a tracker
+    with no container vocabulary classifies 1,112 lines of this repository's own
+    documentation and 1,068 of `zensical/docs` as indented code — content that
+    every consumer then skips. A project writing plain CommonMark has none of
+    these markers in its text, so assuming them costs it nothing, while assuming
+    none costs an admonition-using project every finding inside an admonition.
+
+    Override it when your engine reads a different configuration key; returning
+    an empty `EnabledExtensions` is a statement that the project enables no
+    Markdown extensions at all.
+
+Returned as `EnabledExtensions`, which carries `names`, the per-extension
+`options` (the anchor-slug rules need `pymdownx.tabbed`'s settings), and
+`unreadable` — a count of declaration entries with no readable name, such as the
+`!!python/name:` tags a permissive YAML load cannot resolve. An enabled extension
+the contract cannot see is counted rather than dropped.
+
 #### `get_route_info(self, rel: Path) -> RouteMetadata`
 
 Constructs and returns routing metadata, including the canonical URL and route status (`REACHABLE`, `ORPHAN_BUT_EXISTING`, or `IGNORED`), for a given relative source file path.

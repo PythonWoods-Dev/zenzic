@@ -21,8 +21,26 @@ from zenzic.core.codes import code_severity
 
 
 if TYPE_CHECKING:
+    from zenzic.core.regex import RegexPattern
     from zenzic.core.rules import RuleFinding
 
+
+# WHY THESE FUNCTIONS TAKE A PATTERN AND NOT A CONTEXT
+# -----------------------------------------------------
+# Which containers open an indented block is a fact about the *run* -- which
+# extensions the project enables -- and it has one answer for the whole
+# execution. `ResolutionContext` is per-file by construction, so carrying the
+# vocabulary there would have built an object per file to transport a value
+# that never varies. The run-scoped carrier is `AdaptiveRuleEngine`, which is
+# built once per run and already has a tripwire guarding it against caching.
+#
+# `containers` is keyword-only and has **no default** at every one of the
+# thirteen functions below. That is deliberate: a default would be reachable by
+# omitting one keyword at one call site, and it would silently restore the full
+# four-marker vocabulary to a project that enables only `admonition` -- exactly
+# the defect the extension contract exists to remove. `None` still means "use
+# the declared default vocabulary", but now only a caller who writes it can ask
+# for that.
 # ATX Heading regex matching # to ######
 _ATX_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 
@@ -72,13 +90,15 @@ def _split_sentences(text: str) -> list[str]:
     return sentences
 
 
-def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
+def check_heading_hierarchy(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z510: Detect skipped heading levels (e.g. H3 immediately following H1)."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     prev_level = 0
 
     for i, line in enumerate(lines, start=1):
@@ -212,14 +232,16 @@ def _mask_html_blocks(text: str) -> str:
     return "\n".join(result)
 
 
-def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> list[RuleFinding]:
+def check_sentence_lengths(
+    file_path: Path, text: str, max_words: int = 40, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z511: Detect sentences exceeding max_words readability threshold."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     text_masked = _mask_html_blocks(text)
     lines = text_masked.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     current_sentence_parts: list[str] = []
@@ -302,13 +324,15 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
     return findings
 
 
-def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
+def check_empty_sections(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z512: Detect headings with zero body content before next heading or EOF."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     current_heading: str | None = None
@@ -489,13 +513,15 @@ def _is_generic_alt(alt: str) -> bool:
     return False
 
 
-def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
+def check_duplicate_headings(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z513: Emit if two headings in the same document resolve to the exact same text."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
     seen_headings: dict[str, int] = {}
 
@@ -543,14 +569,16 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
     return findings
 
 
-def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding]:
+def check_generic_image_alt_text(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z514: Emit if an image tag (![]() or <img>) uses generic filler words as alt text."""
     from zenzic.core.rules import RuleFinding
     from zenzic.core.scanner import _INLINE_CODE_RE, _RE_HTML_ALT, _RE_HTML_IMG, _RE_IMAGE_INLINE
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -621,14 +649,16 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
     return findings
 
 
-def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
+def check_bare_urls(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z515: Detect raw URLs in prose that are not wrapped in Markdown link syntax."""
     from zenzic.core.rules import RuleFinding
     from zenzic.core.scanner import _INLINE_CODE_RE
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -688,13 +718,15 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
     return findings
 
 
-def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
+def check_multiple_h1_headings(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z516: Emit if a document contains more than one H1 heading (# or <h1>)."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
     h1_count = 0
 
@@ -761,13 +793,15 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
     return findings
 
 
-def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
+def check_heading_punctuation(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z517: Emit if a heading ends with invalid trailing punctuation (., :, ;)."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -815,6 +849,8 @@ def check_all_heading_rules(
     file_path: Path,
     text: str,
     anchors_out: dict[Path, set[str]] | None = None,
+    *,
+    containers: RegexPattern | None,
 ) -> list[RuleFinding]:
     """Combined single-pass check for Z510, Z513, Z516, Z517.
 
@@ -839,7 +875,7 @@ def check_all_heading_rules(
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
     prev_level = 0
     seen_headings: dict[str, int] = {}
@@ -1026,13 +1062,15 @@ _NOT_A_PARTICIPLE: frozenset[str] = frozenset(
 )
 
 
-def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
+def check_passive_voice(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z518: Heuristic RE2 detection of passive voice constructs in prose (opt-in)."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -1089,6 +1127,8 @@ def check_weasel_words(
     file_path: Path,
     text: str,
     weasel_words: list[str] | None = None,
+    *,
+    containers: RegexPattern | None,
 ) -> list[RuleFinding]:
     """Z519: Detect weasel words in technical prose based on configured weasel_words list (opt-in)."""
     from zenzic.core.rules import RuleFinding
@@ -1104,7 +1144,7 @@ def check_weasel_words(
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -1153,13 +1193,15 @@ _LIST_MARKER_PREFIX_RE = re.compile(r"^(\*|-|\+|\d+\.|\d+\))\s+")
 _CONJUNCTION_START_RE = re.compile(r"^(and|or|but|nor|so|yet)\s+", re.IGNORECASE)
 
 
-def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
+def check_malformed_lists(
+    file_path: Path, text: str, *, containers: RegexPattern | None
+) -> list[RuleFinding]:
     """Z520: Detect malformed/fake lists in paragraphs lacking Markdown list markers."""
     from zenzic.core.rules import RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     in_frontmatter = False
     in_html_script = False
     in_html_style = False
@@ -1396,6 +1438,8 @@ def check_heading_order(
     file_path: Path,
     text: str,
     required_heading_order: list[str],
+    *,
+    containers: RegexPattern | None,
 ) -> list[RuleFinding]:
     """Z523: Detect headings that violate the required sequential order."""
     if not required_heading_order:
@@ -1416,7 +1460,7 @@ def check_heading_order(
 
     max_idx_seen = -1
     last_matched_pat = ""
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()

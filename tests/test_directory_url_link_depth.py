@@ -176,7 +176,7 @@ another block
 
 def test_a_closer_with_an_info_string_does_not_close_the_fence() -> None:
     """The link after the transcript must still be extracted."""
-    urls = [u for u, _, _ in _extract_inline_links_with_lines(_TRANSCRIPT_PAGE)]
+    urls = [u for u, _, _ in _extract_inline_links_with_lines(_TRANSCRIPT_PAGE, containers=None)]
     assert "../../../reference/checks" in urls, (
         f"the extractor stopped seeing links after an embedded fence marker; extracted {urls!r}"
     )
@@ -185,13 +185,13 @@ def test_a_closer_with_an_info_string_does_not_close_the_fence() -> None:
 def test_links_inside_a_real_fence_are_still_skipped() -> None:
     """The control: fenced content must stay out of the link graph."""
     page = "# T\n\n```text\n[not a link](./nope)\n```\n\n[real](./yes)\n"
-    urls = [u for u, _, _ in _extract_inline_links_with_lines(page)]
+    urls = [u for u, _, _ in _extract_inline_links_with_lines(page, containers=None)]
     assert urls == ["./yes"], f"fenced links must not be extracted; got {urls!r}"
 
 
 def test_tilde_fences_and_longer_closers_behave() -> None:
     page = "# T\n\n~~~~text\n[skip](./no)\n~~~~\n\n[keep](./yes)\n"
-    urls = [u for u, _, _ in _extract_inline_links_with_lines(page)]
+    urls = [u for u, _, _ in _extract_inline_links_with_lines(page, containers=None)]
     assert urls == ["./yes"], f"got {urls!r}"
 
 

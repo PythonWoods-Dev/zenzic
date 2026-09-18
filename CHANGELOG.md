@@ -225,6 +225,34 @@ documents HTML with `>` inside an attribute value, findings disappear after upgr
 is reported. The patterns now use the quote-aware, RE2-safe form `validator.py` already introduced
 when the same truncation let a `javascript:` href past the security tier.
 
+**18. Indented code blocks are read as code, so findings inside them disappear.** Four spaces of
+indentation opens a code block in CommonMark (§4.4), and the engine scanned its contents as prose: a
+link inside one was reported broken, a `TODO` inside one was reported as a placeholder, and the
+credential scanner read it too. **Findings disappear after upgrading; nothing new is reported.**
+Measured on this repository's own documentation, phantom fence-state divergences went from 452 to 0
+and, on an external corpus, from 32 to 0.
+
+How much of a document counts as a code block depends on which containers the project has, because
+CommonMark measures those four spaces **from the containing block** rather than from column zero —
+and `!!!`, `???`, `=== "Tab"` and `:` are not CommonMark, they come from Python-Markdown extensions.
+So the engine now reads `markdown_extensions` from your `mkdocs.yml` and recognises a container only
+for the extensions you enable. A project that does not enable `pymdownx.details` has `???` read as
+ordinary text, which makes the indented lines beneath it a code block — so **findings disappear there
+too**, and again none appear. Measured: the same document reports one `Z511` under the full
+vocabulary and none when only `admonition` is enabled.
+
+Both directions remove findings, so a gate that passes today still passes. **What is worth checking
+is whether a finding you relied on has gone quiet**, which means it was inside an indented block all
+along:
+
+```bash
+zenzic check all
+```
+
+If your project enables no Markdown extensions, or none that the engine knows about, it falls back to
+the four above. That default is deliberate rather than empty — assuming none would classify 1,112
+lines of this repository's documentation as code.
+
 **Breaking changes that are not about findings** — each has its own entry below:
 
 - CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
@@ -308,6 +336,10 @@ when the same truncation let a `javascript:` href past the security tier.
   - `ADR-031` had been a phantom citation for the whole session (5 occurrences across `codes.py`, `scorer.py` ×2 comments, this blog post, 2 example READMEs, `changelogs/v0.8.md` — no vault entry ever existed), but unlike the session's 4 other phantom-ADR instances, abundant real source material already existed to draft it for real rather than just removing the citation. Drafted from that scattered material, not invented: `CodeDefinition` (`codes.py`) as the Single Source of Truth for per-code severity/penalty/category, closing the "Gate Paradox" where 3 CI-blocking codes (`Z103`/`Z111`/`Z113`) carried 0 DQS penalty before v0.8.0 — a repository could fail the CI gate while `zenzic score` reported a perfect 100/100; and the Gravity Cap, which caps the total DQS at 70 whenever any scoring category's contribution reaches 0.00. Correction made mid-draft, not shipped wrong: initially conflated the flat-cost inline-suppression model (every suppression costs 1 pt, no free allowance) into this same ADR, since the same blog post narrates both as "two things v0.8.0 changed" — but the real source code cites that model as a *separate* ADR, `ADR-061` (`scorer.py` ×3, `api-json.md`), confirmed by direct grep before finalizing. Scoped this record to the Single Source of Truth and Gravity Cap only; `ADR-061` is logged as a 6th phantom-citation instance, not resolved here. Registered in `docs/developers/explanation/adr-vault/index.md` (Core Architecture Decisions table, numeric position between `ADR-022` and `ADR-075`) and the internal decision manifest.
 
 ### Changed
+
+- **For plugin authors: `run_rule()` accepts the project's container vocabulary, and its signature is otherwise unchanged.** Without it — which is every call written before this release — your rule sees the default vocabulary: `!!!`, `???`, `=== "Tab"` and `:`, regardless of which extensions the project under test enables. That is correct for an isolated test against a literal string, and it means a rule can behave differently in a real scan. To reproduce production behaviour, pass `containers=container_pattern(adapter.get_enabled_extensions())`; the docstring carries the full snippet. `BaseRule.check(self, file_path, text)` is untouched, and no third-party rule needs changing.
+
+- **For adapter authors: `BaseAdapter` gains `get_enabled_extensions()`, and its default is deliberately not empty.** The core owns which construct an extension brings; the adapter owns which extensions the project enables. Unlike `get_output_dirs()`, where emptiness is the cheap answer, an empty vocabulary here classifies 1,112 lines of this repository's documentation and 1,068 of an external corpus as indented code. The base implementation therefore returns the four container-bearing extensions, and a custom adapter overrides it only when its engine reads a different configuration key. Documented in the adapter API reference and the implementation how-to.
 
 - **The generated `.zenzic.toml` says where to find the codes it does not list.** The file carries a key only for the gated codes — 23 of 71 — because only those have something to set, and it already explained the three activation kinds. It did not say where the other 48 are documented, so a reader could take the 23 keys for the whole catalogue. Five lines now state that the on-by-default codes take no configuration, that their absence is not an off switch, and link the finding-code reference.
 
@@ -397,6 +429,10 @@ when the same truncation let a `javascript:` href past the security tier.
   - Both pages read in full and classified as internal design-system/marketing material (a CSS-token consumption contract for the site's own components, an "A/B Palette Profile" cosmetic toggle, a lexicon/posture style guide, logo-symbolism prose, a palette-design-rationale essay) — zero operational content a third-party user or contributor would actually need. Real external comparables fetched before deciding: `eslint.org/branding/` and HashiCorp's product-logo brand page are both pure trademark/logo-usage references (naming convention, logo sizing, reference-only hex values) — no posture narrative, no symbolic-meaning essay, no design-token consumption guide; Prometheus, ruff, and ffmpeg have no dedicated brand page at all. Both pages deleted; `mkdocs.yml` nav entries removed; `how-to/index.md`'s "Brand Governance System" card removed (its own description — "Configure brand term dictionaries and eradicate obsolete product naming conventions" — didn't even match the real page content, a further confirmation the card had drifted from reality); `community-index.md`'s "Philosophy" card retargeted from `brand-philosophy.md` to `explanation/why-zenzic.md`, a real page that actually covers Zenzic's design philosophy and direction. `docs/_redirects`: 4 existing historical-variant lines for `use-brand-system` retargeted to `/how-to/add-badges/` — the real, already-existing, complete "add a build/score badge to your README" page, since `use-brand-system.md` never contained any badge-related content to begin with; 4 existing historical-variant lines for `brand-philosophy` retargeted to `/explanation/why-zenzic/`; 2 new bare-canonical-URL lines added for each deleted page. **Second-order consequence found and fixed in the same pass**: `use-brand-system.md`'s own text described its font/logo/favicon link list as existing specifically to keep those real, CSS/template-consumed theme assets out of `Z405` (`UNUSED_ASSET`) — deleting the page surfaced exactly the 30 `Z405` findings its own text predicted, live-confirmed via `zenzic check all --show-info` before the fix. Added `excluded_asset_dirs = ["overrides", "brand", "fonts"]` (preserving the pre-existing `"overrides"` default, which a bare list reassignment would otherwise have silently dropped) and `excluded_assets = ["favicon.ico"]` to the root `.zenzic.toml`, replacing the deleted page's incidental markdown-link-anchoring with the same real exclusion mechanism `configure-social-metadata.md` already documents for the same class of problem. `just check` (98/100, 0 new) and `mkdocs build --strict` both clean after the fix. Full `pytest tests/` suite unaffected (2118 passed).
 
 ### Fixed
+
+- **An indented code block is read as code, so a link, a `TODO` or a credential inside one no longer reports.** Four spaces of indentation opens a code block in CommonMark (§4.4). The engine scanned its contents as prose, so a deliberately-broken example link was reported broken, a placeholder in a sample was reported as a placeholder, and the credential scanner read example secrets. Measured across five iterations on two corpora: phantom fence-state divergences went from 452 to 0 on this repository's documentation, and from 32 to 0 on an external corpus. The tracker that answers this is one component with two questions — the fence path is unchanged and every security consumer still reads it; `in_indented_code` is opt-in per consumer, so no rule changed behaviour without being wired to.
+
+- **The container vocabulary now comes from the project, so a document is read the way its own configuration renders it.** CommonMark measures those four spaces **from the containing block**, and `!!!` (`admonition`), `???`/`???+` (`pymdownx.details`), `=== "Tab"` (`pymdownx.tabbed`) and `:` (`def_list`) are not CommonMark — they are extensions a project chooses. The engine reads `markdown_extensions` from `mkdocs.yml` (both the MkDocs and Zensical adapters) and recognises only what is enabled. Measured: a document whose `???` block holds one over-long sentence reports one `Z511` under the full vocabulary and none when the project enables only `admonition`. The resolution happens once per run — measured at ~23 ms to build the adapter, ~16 ms to read the configuration, ~0.1 ms to compile — and the editor resolves it the same way, so the LSP and `zenzic check` cannot disagree about what is inside a container.
 
 - **Fifteen link and policy codes now carry the column of the span their message names.** A finding that said `'./nope.md' resolves to …` drew no caret under `./nope.md`, and SARIF emitted **no `startColumn` at all** for it, so every programmatic consumer received a line-only location. The finding types already accepted `col_start` and `match_text`; eight construction sites across `rules.py` and `governance.py` left them at their defaults. Measured on the JSON surface before and after: `Z101` goes from `col_start = 0` to the real column, and SARIF from `startColumn: null` to `15`. Two of the seventeen (`Z102`, `Z301`) are a different cause — their finding type has no column field — and are unchanged here.
 

@@ -2114,7 +2114,7 @@ def test_cache_pruning_clears_ghost_diagnostics(tmp_path: Path) -> None:
     from zenzic.models.vsm import VirtualBufferOverlay, build_vsm
 
     config = ZenzicConfig()
-    rule_engine = AdaptiveRuleEngine([])
+    rule_engine = AdaptiveRuleEngine([], containers=None)
     adapter = get_adapter(config.build_context, docs_dir, tmp_path)
     engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_dir, tmp_path)
 
@@ -2171,7 +2171,7 @@ def test_directory_deletion_evicts_overlay_and_clears_diagnostics(tmp_path: Path
     server = LanguageServer()
     server.repo_root = tmp_path
     server.config, _ = ZenzicConfig.load(tmp_path)
-    server.rule_engine = _build_rule_engine(server.config)
+    server.rule_engine = _build_rule_engine(server.config, containers=None)
     server._build_vsm_sync()
 
     # Simulate creation of folder contents
@@ -2326,7 +2326,7 @@ def _init_server_with_config(tmp_path: Path) -> "LanguageServer":
     server.config.policies.enable_short_content_check = True
     server.config.policies.enable_dead_end_check = True
     server.config.policies.enable_duplicate_heading_check = True
-    server.rule_engine = _build_rule_engine(server.config)
+    server.rule_engine = _build_rule_engine(server.config, containers=None)
     return server
 
 

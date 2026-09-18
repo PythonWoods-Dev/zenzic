@@ -371,7 +371,7 @@ def test_parallel_rule_exception_isolated(tmp_path: Path) -> None:
         f.write_text("# page\n")
 
     config = ZenzicConfig()
-    engine = AdaptiveRuleEngine([_BoomRule()])
+    engine = AdaptiveRuleEngine([_BoomRule()], containers=None)
 
     # All files should produce a report with one Z901 finding
     for f in files:

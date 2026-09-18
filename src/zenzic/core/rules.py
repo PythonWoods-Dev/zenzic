@@ -83,6 +83,7 @@ from zenzic.core.validator import JSX_URL_ATTRS, POLY_ATTRS_FRAGMENT, POLY_TAG_N
 if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
+    from zenzic.core.regex import RegexPattern
     from zenzic.core.suppressions import SuppressionTracker
     from zenzic.models.config import ProjectMetadata
     from zenzic.models.vsm import VSM, Route
@@ -124,17 +125,6 @@ class ResolutionContext:
     #: that happened to resolve at the root was silently accepted.  Empty means
     #: the project has no locales, and the fallback must not fire at all.
     locale_names: frozenset[str] = frozenset()
-    #: The container-opening pattern for this project, resolved **once** from
-    #: the adapter's declared extensions (`core/extensions.py`). It rides the
-    #: context rather than each rule's signature: `get_output_dirs()` and
-    #: `get_metadata_files()` reach their consumers through a route built for
-    #: them, and a third declaration with no route would mean a fourth builds
-    #: its own. One parameter carries this fact and the next one.
-    #:
-    #: ``None`` means "use the default vocabulary", which is what an engine
-    #: with no configuration to read gets -- measured, not empty: emptiness
-    #: reads 1,112 lines of our own corpus as indented code.
-    containers: Any = None
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -371,7 +361,7 @@ class BaseRule(ABC):
     #:
     #: ``None`` for a rule invoked outside the engine, and every consumer must
     #: read that as "use the defaults", never as an error.
-    _context: ResolutionContext | None = None
+    _containers: RegexPattern | None = None
 
     @property
     @abstractmethod
@@ -575,26 +565,48 @@ class AdaptiveRuleEngine:
 
     Usage::
 
-        engine = AdaptiveRuleEngine(rules)
+        engine = AdaptiveRuleEngine(rules, containers=None)
         findings = engine.run(Path("docs/guide.md"), text)
 
     Args:
         rules: Iterable of :class:`BaseRule` (or :class:`CustomRule`) instances
             to apply.  Order is preserved in the output.
+        containers: The container-opening pattern for this run, resolved once
+            from the adapter's declared extensions (`core/extensions.py`).
+            Required, never defaulted: the engine is the run-scoped carrier for
+            this fact, and a default here would silently hand every rule the
+            full four-marker vocabulary regardless of what the project enables.
+            ``None`` is still a legal value and means "use the declared
+            default" -- but a caller has to write it.
 
     Raises:
         PluginContractError: If any rule fails the eager pickle validation.
     """
 
-    def __init__(self, rules: Sequence[BaseRule], context: ResolutionContext | None = None) -> None:
+    def __init__(
+        self,
+        rules: Sequence[BaseRule],
+        *,
+        containers: RegexPattern | None,
+    ) -> None:
         for rule in rules:
             _assert_pickleable(rule)
         self._rules = rules
-        self._context = context
+        self._containers = containers
 
     def __bool__(self) -> bool:
         """Return ``True`` when the engine has at least one rule."""
         return bool(self._rules)
+
+    @property
+    def containers(self) -> RegexPattern | None:
+        """The run-level container vocabulary this engine was built with.
+
+        Read-only, and public so that a consumer which is *not* a rule --
+        `PolicyEvaluator` is the one -- can reach the same resolved value
+        without private access and without resolving it a second time.
+        """
+        return self._containers
 
     def run(self, file_path: Path, text: str) -> list[RuleFinding]:
         """Run all rules against *text* and return consolidated findings.
@@ -618,7 +630,7 @@ class AdaptiveRuleEngine:
                 # from `check()`'s signature: that signature is the SDK's
                 # public contract, and a third positional would break every
                 # third-party rule implementing `check(self, file_path, text)`.
-                rule._context = self._context  # noqa: SLF001
+                rule._containers = self._containers  # noqa: SLF001
                 findings.extend(rule.check(file_path, text))
             except ZenzicRuleTimeout as exc:
                 findings.append(
@@ -1053,7 +1065,7 @@ class BrandObsolescenceRule(BaseRule):
         findings: list[RuleFinding] = []
         # Fence-tracking state — body lines inside code blocks are not brand
         # claims and must not trigger Z601 (CEO-152).
-        _fence = BlockTracker()
+        _fence = BlockTracker(self._containers)
         for line_no, line in enumerate(text.splitlines(), start=1):
             if _fence.feed(line) or _fence.in_indented_code:
                 continue
@@ -1145,7 +1157,9 @@ def _mask_math(text: str) -> str:
     return text
 
 
-def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
+def _extract_inline_links_with_lines(
+    text: str, *, containers: RegexPattern | None
+) -> list[tuple[str, int, str]]:
     """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link
     and HTML anchor/image element found in *text*.
 
@@ -1170,7 +1184,7 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     from zenzic.core.validator import PolyglotExtractor
 
     results: list[tuple[str, int, str]] = []
-    _fence = BlockTracker()
+    _fence = BlockTracker(containers)
     # _mask_comments blanks HTML and MDX comments with spaces of equal length
     # and preserves newlines, so line numbers and caret columns below are
     # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
@@ -1386,7 +1400,7 @@ class PlaceholderRule(BaseRule):
         if not self.patterns or not self._combined_re:
             return []
         findings = []
-        _fence = BlockTracker()
+        _fence = BlockTracker(self._containers)
         for i, line in enumerate(text.splitlines(), start=1):
             if _fence.feed(line) or _fence.in_indented_code:
                 continue
@@ -1422,7 +1436,7 @@ class HeadingHierarchyRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_heading_hierarchy
 
-        return check_heading_hierarchy(file_path, text)
+        return check_heading_hierarchy(file_path, text, containers=self._containers)
 
 
 class ExcessiveSentenceLengthRule(BaseRule):
@@ -1438,7 +1452,9 @@ class ExcessiveSentenceLengthRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_sentence_lengths
 
-        return check_sentence_lengths(file_path, text, max_words=self.max_words)
+        return check_sentence_lengths(
+            file_path, text, max_words=self.max_words, containers=self._containers
+        )
 
 
 class EmptySectionRule(BaseRule):
@@ -1451,7 +1467,7 @@ class EmptySectionRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_empty_sections
 
-        return check_empty_sections(file_path, text)
+        return check_empty_sections(file_path, text, containers=self._containers)
 
 
 class DuplicateHeadingRule(BaseRule):
@@ -1464,7 +1480,7 @@ class DuplicateHeadingRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_duplicate_headings
 
-        return check_duplicate_headings(file_path, text)
+        return check_duplicate_headings(file_path, text, containers=self._containers)
 
 
 class GenericImageAltTextRule(BaseRule):
@@ -1477,7 +1493,7 @@ class GenericImageAltTextRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_generic_image_alt_text
 
-        return check_generic_image_alt_text(file_path, text)
+        return check_generic_image_alt_text(file_path, text, containers=self._containers)
 
 
 class BareUrlUsedRule(BaseRule):
@@ -1490,7 +1506,7 @@ class BareUrlUsedRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_bare_urls
 
-        return check_bare_urls(file_path, text)
+        return check_bare_urls(file_path, text, containers=self._containers)
 
 
 class MultipleH1HeadingsRule(BaseRule):
@@ -1503,7 +1519,7 @@ class MultipleH1HeadingsRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_multiple_h1_headings
 
-        return check_multiple_h1_headings(file_path, text)
+        return check_multiple_h1_headings(file_path, text, containers=self._containers)
 
 
 class HeadingPunctuationRule(BaseRule):
@@ -1516,7 +1532,7 @@ class HeadingPunctuationRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_heading_punctuation
 
-        return check_heading_punctuation(file_path, text)
+        return check_heading_punctuation(file_path, text, containers=self._containers)
 
 
 class CombinedHeadingRule(BaseRule):
@@ -1544,7 +1560,9 @@ class CombinedHeadingRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_all_heading_rules
 
-        findings = check_all_heading_rules(file_path, text, anchors_out=self._anchors_out)
+        findings = check_all_heading_rules(
+            file_path, text, anchors_out=self._anchors_out, containers=self._containers
+        )
         # Z513 and Z517 are opt-in; Z510 and Z516 are not. They share one pass
         # because four separate passes cost 716ms against 255ms on a 300-file
         # corpus (2.8x, measured 2026-09-14), so the gate drops the findings
@@ -1569,7 +1587,7 @@ class PassiveVoiceRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_passive_voice
 
-        return check_passive_voice(file_path, text)
+        return check_passive_voice(file_path, text, containers=self._containers)
 
 
 class WeaselWordsRule(BaseRule):
@@ -1585,7 +1603,7 @@ class WeaselWordsRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_weasel_words
 
-        return check_weasel_words(file_path, text, self.weasel_words)
+        return check_weasel_words(file_path, text, self.weasel_words, containers=self._containers)
 
 
 class MalformedListRule(BaseRule):
@@ -1598,7 +1616,7 @@ class MalformedListRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_malformed_lists
 
-        return check_malformed_lists(file_path, text)
+        return check_malformed_lists(file_path, text, containers=self._containers)
 
 
 class VSMBrokenLinkRule(BaseRule):
@@ -1680,7 +1698,9 @@ class VSMBrokenLinkRule(BaseRule):
         """
         violations: list[Violation] = []
 
-        for url, lineno, raw_line in _extract_inline_links_with_lines(text):
+        for url, lineno, raw_line in _extract_inline_links_with_lines(
+            text, containers=self._containers
+        ):
             # Skip non-navigable schemes and bare fragments
             if url == "#" or any(url.startswith(s) for s in self._SKIP_SCHEMES):
                 continue
@@ -2190,6 +2210,7 @@ def run_rule(
     text: str,
     *,
     file_path: Path | str = "test.md",
+    containers: RegexPattern | None = None,
 ) -> list[RuleFinding]:
     """Run a single rule against *text* and return findings.
 
@@ -2206,11 +2227,36 @@ def run_rule(
         rule: A :class:`BaseRule` instance to test.
         text: Raw Markdown content to scan.
         file_path: Optional file path for labelling (default: ``test.md``).
+        containers: Optional container-opening pattern for the project whose
+            Markdown this is.  ``None`` (the default) uses the declared default
+            vocabulary -- correct for an isolated rule test, which has no
+            project configuration to read.
+
+            **Without it, your rule sees the default vocabulary** -- the four
+            markers ``!!!``, ``???``, ``=== "Tab"`` and ``:`` -- regardless of
+            which extensions your project actually enables.  A rule that passes
+            here can therefore behave differently in a real scan, where the
+            vocabulary comes from the project's own configuration.  To reproduce
+            production behaviour, pass the project's pattern::
+
+                from zenzic.core.adapters import get_adapter
+                from zenzic.core.extensions import container_pattern
+
+                pattern = container_pattern(
+                    get_adapter(cfg.build_context, docs_root, repo_root)
+                    .get_enabled_extensions()
+                )
+                findings = run_rule(MyRule(), text, containers=pattern)
 
     Returns:
         List of :class:`RuleFinding` objects.
     """
     from pathlib import Path
 
-    engine = AdaptiveRuleEngine([rule])
+    # `containers=None` -- the declared default vocabulary. This is a public
+    # SDK helper for plugin authors testing one rule against a literal string;
+    # there is no project to read extensions from, and making the argument
+    # required here would break a third-party contract to close an internal
+    # door. Callers who need a project's real vocabulary pass it explicitly.
+    engine = AdaptiveRuleEngine([rule], containers=containers)
     return engine.run(Path(file_path), text)

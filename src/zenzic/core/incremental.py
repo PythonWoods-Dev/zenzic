@@ -662,7 +662,13 @@ class IncrementalAnalysisEngine:
         from zenzic.core.governance import check_policies
 
         policy_findings = check_policies(
-            path, text, self.config, links=[link.url for link in extracted_links]
+            path,
+            text,
+            self.config,
+            links=[link.url for link in extracted_links],
+            # The engine resolved the run's vocabulary once; this path reuses
+            # that value rather than resolving it again per file.
+            containers=self.rule_engine.containers if self.rule_engine is not None else None,
         )
         for pf in policy_findings:
             if not tracker.is_suppressed(pf.line_no, pf.rule_id):

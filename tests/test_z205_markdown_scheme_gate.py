@@ -36,7 +36,7 @@ def _findings(tmp_path: Path, text: str) -> list[str]:
     page = docs / "index.md"
     page.write_text(text, encoding="utf-8")
     config = ZenzicConfig(docs_dir=Path("docs"))
-    rule_engine = _build_rule_engine(config)
+    rule_engine = _build_rule_engine(config, containers=None)
     engine = IncrementalAnalysisEngine(
         config=config,
         rule_engine=rule_engine,

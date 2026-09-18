@@ -24,6 +24,7 @@ from zenzic.models.config import ZenzicConfig
 
 
 if TYPE_CHECKING:
+    from zenzic.core.regex import RegexPattern
     from zenzic.core.rules import RuleFinding
 
 
@@ -244,11 +245,18 @@ class PolicyEvaluator:
     Usage::
 
         from zenzic.core.governance import PolicyEvaluator
-        evaluator = PolicyEvaluator(config)
+        evaluator = PolicyEvaluator(config, containers=rule_engine.containers)
         findings = evaluator.check(file_path, content, links)
     """
 
-    def __init__(self, config: ZenzicConfig) -> None:
+    def __init__(self, config: ZenzicConfig, *, containers: RegexPattern | None) -> None:
+        #: The run-level container vocabulary, taken from the rule engine that
+        #: already resolved it. `PolicyEvaluator` is not a rule, so it is not
+        #: reached by the engine's per-rule binding and has to be handed the
+        #: value. Required, never defaulted: Z523 reads headings, and a
+        #: forgotten argument here would have it read the full four-marker
+        #: default on a project that enables none of them.
+        self._containers = containers
         self._required_keys: list[str] = config.policies.required_frontmatter_keys
         self._forbidden_domains: list[str] = config.policies.forbidden_external_domains
         self._forbidden_keys: list[str] = config.policies.forbidden_frontmatter_keys
@@ -352,7 +360,14 @@ class PolicyEvaluator:
         if self._required_heading_order:
             from zenzic.core.content import check_heading_order
 
-            findings.extend(check_heading_order(file_path, content, self._required_heading_order))
+            findings.extend(
+                check_heading_order(
+                    file_path,
+                    content,
+                    self._required_heading_order,
+                    containers=self._containers,
+                )
+            )
 
         return findings
 
@@ -365,7 +380,7 @@ class PolicyEvaluator:
 
         findings: list[RuleFinding] = []
         lines = content.splitlines()
-        _fence = BlockTracker()
+        _fence = BlockTracker(self._containers)
         in_frontmatter = False
 
         compiled_patterns = []
@@ -422,7 +437,7 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        _fence = BlockTracker()
+        _fence = BlockTracker(self._containers)
         in_frontmatter = False
         heading_titles: list[str] = []
 
@@ -481,7 +496,7 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        _fence = BlockTracker()
+        _fence = BlockTracker(self._containers)
         in_frontmatter = False
         word_count = 0
         heading_count = 0
@@ -978,9 +993,16 @@ def check_policies(
     vsm: dict[str, Any] | None = None,
     repo_root: Path | None = None,
     docs_root: Path | None = None,
+    *,
+    containers: RegexPattern | None,
 ) -> list[RuleFinding]:
-    """Convenience wrapper: create a PolicyEvaluator and run all policy checks."""
-    evaluator = PolicyEvaluator(config)
+    """Convenience wrapper: create a PolicyEvaluator and run all policy checks.
+
+    ``containers`` is required and carries the run-level container vocabulary;
+    see :class:`PolicyEvaluator`. Callers inside the scanner take it from the
+    rule engine, which resolved it once for the run.
+    """
+    evaluator = PolicyEvaluator(config, containers=containers)
     return evaluator.check(
         file_path,
         content,

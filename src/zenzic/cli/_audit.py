@@ -150,7 +150,13 @@ def audit(
 
     docs_count, config_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    engine = _build_rule_engine(config)
+    # The adapter is already built here, so the vocabulary costs one config
+    # read rather than a second adapter construction.
+    from zenzic.core.extensions import container_pattern
+
+    engine = _build_rule_engine(
+        config, containers=container_pattern(adapter.get_enabled_extensions())
+    )
 
     # Architectural state
     custom_rules_loaded = []

@@ -409,13 +409,9 @@ _GALLERY: dict[str, _Act] = {
     "z104": _Act(
         code="z104",
         title="File Not Found",
-        description=(
-            "Z104 FILE_NOT_FOUND — link target file missing from the filesystem; "
-            "consolidated and reported as Z101 LINK_BROKEN by the current engine"
-        ),
+        description=("Z104 FILE_NOT_FOUND — a link to an asset that is not on disk"),
         example_dir="z104-file-not-found",
         expected_pass=False,
-        emitted_code="Z101",
     ),
     "z107": _Act(
         code="z107",

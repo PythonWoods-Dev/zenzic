@@ -412,7 +412,7 @@ class TestDosResilience:
         rule = CustomRule(
             id="ZZ-TEST", pattern=r"\bTODO\b", message="todo found", severity="warning"
         )
-        engine = AdaptiveRuleEngine([rule])
+        engine = AdaptiveRuleEngine([rule], containers=None)
 
         t0 = time.monotonic()
         for i in range(5000):

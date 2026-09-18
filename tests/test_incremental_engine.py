@@ -28,7 +28,7 @@ def _make_engine(
     docs_dir.mkdir(exist_ok=True)
     if config is None:
         config = ZenzicConfig(docs_dir=Path("docs"))
-    rule_engine = _build_rule_engine(config)
+    rule_engine = _build_rule_engine(config, containers=None)
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_dir, tmp_path)
     vsm = VirtualSiteMap()

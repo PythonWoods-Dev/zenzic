@@ -221,7 +221,8 @@ class TestReDoSCanary:
                         message="Backreference pattern.",
                         severity="error",
                     )
-                ]
+                ],
+                containers=None,
             )
 
     def test_construction_accepts_safe_pattern(self) -> None:
@@ -261,7 +262,7 @@ class TestReDoSCanary:
             CustomRule(id="ZZ-A", pattern=r"TODO", message="todo", severity="info"),
             CustomRule(id="ZZ-B", pattern=r"(?i)\bDRAFT\b", message="draft", severity="warning"),
         ]
-        engine = AdaptiveRuleEngine(rules)
+        engine = AdaptiveRuleEngine(rules, containers=None)
         findings = engine.run(Path("x.md"), "DRAFT content with TODO marker")
         assert len(findings) == 2
 
@@ -425,7 +426,7 @@ class TestVSMContextAwareResolution:
 
     def test_run_vsm_passes_context_to_rule(self) -> None:
         """AdaptiveRuleEngine.run_vsm must forward the context to check_vsm."""
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
         vsm = _make_vsm("/sibling/")
         ctx = ResolutionContext(
             docs_root=Path("/docs"),

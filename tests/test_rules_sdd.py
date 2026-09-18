@@ -68,7 +68,7 @@ def test_z522_table_cell_enum() -> None:
 def test_z523_heading_order_violation() -> None:
     doc = "# API Reference\n\nDetails...\n\n# Overview\n\nIntroduction...\n"
     required_order = ["^Overview$", "^API Reference$"]
-    findings = check_heading_order(DUMMY_FILE, doc, required_order)
+    findings = check_heading_order(DUMMY_FILE, doc, required_order, containers=None)
     assert len(findings) == 1
     assert findings[0].rule_id == "Z523"
     assert "Overview" in findings[0].message
@@ -82,7 +82,7 @@ def test_policy_evaluator_integrates_sdd_rules() -> None:
             required_heading_order=["^First$", "^Second$"],
         )
     )
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     assert evaluator.is_active is True
 
     doc = "# Second\n\n| ColA |\n| --- |\n| invalid_val |\n\n# First\n"

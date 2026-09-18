@@ -1922,7 +1922,7 @@ Inline math $\\text{Ref}[\\text{Code}](:32)$ should also be ignored.
     urls = [e.url for e in extracted]
     assert urls == ["https://example.com/valid"]
 
-    rule_links = _extract_inline_links_with_lines(content)
+    rule_links = _extract_inline_links_with_lines(content, containers=None)
     rule_urls = [u[0] for u in rule_links]
     assert rule_urls == ["https://example.com/valid"]
 

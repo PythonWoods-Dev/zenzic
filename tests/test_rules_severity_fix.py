@@ -36,7 +36,7 @@ class _TimeoutRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         raise ZenzicRuleTimeout("simulated timeout for testing")
 
-    def check_vsm(self, file_path, text, vsm, anchors_cache, context=None):
+    def check_vsm(self, file_path, text, vsm, anchors_cache, containers=None):
         raise ZenzicRuleTimeout("simulated timeout for testing")
 
 
@@ -58,7 +58,7 @@ def test_z107_is_error_not_warning() -> None:
 def test_z902_is_warning_not_error_in_run() -> None:
     """A Z902 finding from AdaptiveRuleEngine.run() must be warning-level,
     matching codes.py's CodeDefinition("warning", 0.0, None)."""
-    engine = AdaptiveRuleEngine([_TimeoutRule()])
+    engine = AdaptiveRuleEngine([_TimeoutRule()], containers=None)
     findings = engine.run(Path("docs/example.md"), "# Example\n")
 
     z902_findings = [f for f in findings if f.rule_id == "Z902"]
@@ -72,7 +72,7 @@ def test_z902_is_warning_not_error_in_run() -> None:
 def test_z902_is_warning_not_error_in_run_vsm() -> None:
     """Same as above, for the run_vsm() code path specifically -- a
     separate emission site with its own duplicated exception handling."""
-    engine = AdaptiveRuleEngine([_TimeoutRule()])
+    engine = AdaptiveRuleEngine([_TimeoutRule()], containers=None)
     findings = engine.run_vsm(Path("docs/example.md"), "# Example\n", {}, {})
 
     z902_findings = [f for f in findings if f.rule_id == "Z902"]

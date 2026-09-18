@@ -157,6 +157,18 @@ class MyEngineAdapter(BaseAdapter):
         """Return engine-owned metadata files to ignore in findings."""
         return frozenset({"myengine.toml"})
 
+    def get_enabled_extensions(self) -> EnabledExtensions:
+        """Return the Markdown extensions this project enables.
+
+        Only override this when your engine reads a different configuration
+        key. The base implementation returns the four container-bearing
+        extensions, and unlike `get_output_dirs()` its default is deliberately
+        not empty -- see the reference page for the measurement.
+        """
+        return EnabledExtensions.from_declaration(
+            self._config.get("markdown_extensions", [])
+        )
+
     @property
     def watched_config_files(self) -> frozenset[str]:
         """Return configuration filenames that trigger a VSM rebuild in LSP mode."""

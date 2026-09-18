@@ -20,7 +20,7 @@ from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_file
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
-from zenzic.core.scanner import _build_rule_engine
+from zenzic.core.scanner import _build_rule_engine, resolve_container_vocabulary
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ZenzicConfig
 from zenzic.models.diagnostics import (
@@ -254,7 +254,24 @@ class LanguageServer:
             self.config, _ = ZenzicConfig.load(self.repo_root)
 
         if not self.rule_engine:
-            self.rule_engine = _build_rule_engine(self.config)
+            self.rule_engine = _build_rule_engine(
+                self.config,
+                # The editor must agree with the CLI about what is inside a
+                # container: a vocabulary resolved differently here would make
+                # a diagnostic appear in one and not the other.
+                #
+                # `None` when there is no workspace: `_resolve_docs_root()`
+                # raises without one, and a file opened outside any project has
+                # no `markdown_extensions` to read. The declared default is the
+                # only answer, and it is reached by an explicit branch.
+                containers=(
+                    resolve_container_vocabulary(
+                        self.config, self._resolve_docs_root(), self.repo_root
+                    )
+                    if self.repo_root is not None and self.config is not None
+                    else None
+                ),
+            )
 
         docs_root = self._resolve_docs_root()
         if not self.exclusion_mgr:
@@ -609,7 +626,24 @@ class LanguageServer:
             # Eagerly initialize configuration and engine on 'initialize'
             if self.repo_root and not self.config:
                 self.config, _ = ZenzicConfig.load(self.repo_root)
-                self.rule_engine = _build_rule_engine(self.config)
+                self.rule_engine = _build_rule_engine(
+                    self.config,
+                    # The editor must agree with the CLI about what is inside a
+                    # container: a vocabulary resolved differently here would make
+                    # a diagnostic appear in one and not the other.
+                    #
+                    # `None` when there is no workspace: `_resolve_docs_root()`
+                    # raises without one, and a file opened outside any project has
+                    # no `markdown_extensions` to read. The declared default is the
+                    # only answer, and it is reached by an explicit branch.
+                    containers=(
+                        resolve_container_vocabulary(
+                            self.config, self._resolve_docs_root(), self.repo_root
+                        )
+                        if self.repo_root is not None and self.config is not None
+                        else None
+                    ),
+                )
 
         elif method == "initialized":
             if self.repo_root:
@@ -775,7 +809,24 @@ class LanguageServer:
             else:
                 self.config = ZenzicConfig()
         if not self.rule_engine:
-            self.rule_engine = _build_rule_engine(self.config)
+            self.rule_engine = _build_rule_engine(
+                self.config,
+                # The editor must agree with the CLI about what is inside a
+                # container: a vocabulary resolved differently here would make
+                # a diagnostic appear in one and not the other.
+                #
+                # `None` when there is no workspace: `_resolve_docs_root()`
+                # raises without one, and a file opened outside any project has
+                # no `markdown_extensions` to read. The declared default is the
+                # only answer, and it is reached by an explicit branch.
+                containers=(
+                    resolve_container_vocabulary(
+                        self.config, self._resolve_docs_root(), self.repo_root
+                    )
+                    if self.repo_root is not None and self.config is not None
+                    else None
+                ),
+            )
 
         docs_root = self._resolve_docs_root() if self.repo_root else Path("/_zenzic_virtual")
 

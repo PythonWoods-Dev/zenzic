@@ -18,7 +18,7 @@ def _make_server(tmp_path: Path) -> LanguageServer:
     server = LanguageServer()
     server.repo_root = tmp_path
     server.config = config
-    server.rule_engine = _build_rule_engine(config)
+    server.rule_engine = _build_rule_engine(config, containers=None)
     server._build_vsm_sync()
     return server
 

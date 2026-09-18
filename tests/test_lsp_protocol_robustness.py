@@ -183,7 +183,7 @@ class TestAConfigErrorDoesNotBlankTheWorkspace:
         cfg = ZenzicConfig()
         engine = IncrementalAnalysisEngine(
             cfg,
-            _build_rule_engine(cfg),
+            _build_rule_engine(cfg, containers=None),
             get_adapter(cfg.build_context, docs, tmp_path),
             docs,
             tmp_path,
