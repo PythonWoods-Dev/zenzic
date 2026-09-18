@@ -219,7 +219,7 @@ Install pre-commit and pre-push hooks immediately after sync (mandatory):
 
 ```bash
 uv run --active pre-commit install              # commit-stage: light hooks (ruff, format, hygiene, guard)
-uv run --active pre-commit install -t pre-push  # push-stage: Final Guard (just verify before pushing)
+uv run --active pre-commit install -t pre-push  # push-stage: the irreversible checks (~13 s), not the full gate
 ```
 
 Configure SSH commit signing (required — all commits must appear **Verified** on GitHub):
@@ -250,8 +250,35 @@ just verify
 | **TDD inner loop** | `just test` | `pytest -n auto` (parallel, no coverage) | the whole suite, fastest path |
 | **Commit** | `git commit` | Light hooks on **staged files only** (ruff, format, file hygiene, type check, secret guard) | what you are about to commit |
 | **Final Guard** | `just verify` | git-hook check → *[tree-deterministic, verdict cached per tree: release-contract checks → docs build → local gates → `pre-commit --all-files` → `pytest` with coverage]* → `pip-audit` → `zenzic check all --strict` → `zenzic score --stamp` | the whole tree |
-| **Pre-push** | `git push` | `just verify` | the whole tree, before anything leaves the machine |
+| **Pre-push** | `git push` | the four irreversible checks only, ~13 s (see below) | what a later run cannot undo |
 | **CI** | GitHub Actions | the test matrix on three platform/interpreter pairs, plus CodeQL, secret scanning, compliance and a mutation gate | things a single machine cannot check |
+
+### Which gate runs where
+
+**Pre-push is deliberately small — about thirteen seconds — and this is why.** git opens the SSH
+connection to the remote in order to hand the hook its ref list, and holds it open while the hook
+runs; GitHub closes a connection left idle for a few minutes. A pre-push hook running the full
+gate took 388 s on a cold cache and so *failed the push itself*: `Connection to github.com closed
+by remote host`, exit 141, nothing transferred. The gate was the cause of the hang, not a victim
+of it. If your push feels fast, that is the reason.
+
+| Runs at | What | Why there |
+|:---|:---|:---|
+| **Pre-push** | disclosure, private-tree secrets, commit identity, AI-attribution trailers | A push publishes and a pushed commit is not rewritten. No later run undoes any of these. |
+| **`just verify`** (before a commit, on demand) | pre-commit hooks on every file, the suite with coverage, `pip-audit`, the structural audit, the score stamp, and the repository-coherence checks | A failure here costs a follow-up commit and nothing more. Run it when you have finished a change, not before every push. |
+| **`just verify-full`** (before a release) | everything in `just verify`, plus the two on-demand gates: documented commands and the control-plane scripts' own tests | Both are slow and neither has caught anything since its first run, so they are paid for at release time. |
+| **CI** (every push) | the same suite and audit on three platform/interpreter pairs, plus CodeQL, secret scanning, compliance and the mutation gate | Four of `just verify`'s five stages are exact duplicates of a CI step, on fewer interpreters and one operating system. CI is the broader instrument, and it is free to the developer. |
+
+**The measured basis.** Across the v0.31.0 cycle's eighteen defects, five were reachable only in
+CI or only on Windows, three were found by a local gate — two of which CI would also have caught —
+and eleven were reachable by no gate at all, having been found by reading real output or using the
+product. The full local gate found **one** defect CI would not have, and it was a private recipe
+that reaches no user.
+
+**Who runs `just verify-full`, and when.** The release checklist does, before a tag; it is a step
+in `docs/developers/how-to/release-governance-protocol.md`, not a habit anyone has to remember. A
+gate nobody invokes is an uninvoked mechanism, which this project has found seventeen times, so
+the two gates moved there are named in that checklist rather than left to discipline.
 
 The stages are ordered by breadth, not by speed: each one sees more than the last.
 `just test` is the fastest because it skips coverage and checks nothing outside the

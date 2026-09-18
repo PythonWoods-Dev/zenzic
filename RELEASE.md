@@ -42,7 +42,7 @@ This release concludes **Epic 2: Semantic Linting Supremacy**, the second major 
 
 Before tagging, every item must be green:
 
-- [ ] `just verify` — exits 0. It runs, in order: the git-hook and release-contract checks, `docs-build`, the eleven private gates, `pre-commit --all-files`, `pip-audit`, `pytest` with coverage, `zenzic check all --strict`, and `zenzic score --stamp`. Roughly **2m40s** on a warm cache (measured 2:37 on a 2026-era 8-core Linux laptop); budget more on a cold one.
+- [ ] `just verify-full` — exits 0. **Use `verify-full` here, not `verify`**: it is everything `just verify` runs (the git-hook and release-contract checks, `docs-build`, the private gates, `pre-commit --all-files`, `pip-audit`, `pytest` with coverage, `zenzic check all --strict`, `zenzic score --stamp`) **plus the two on-demand gates** — documented commands and the control-plane scripts' own tests — which are too slow to run on every push and are paid for once, here. This checklist is the only thing that invokes them; a gate nobody invokes is an uninvoked mechanism. Roughly **3m** on a warm cache; budget more on a cold one. Note that the pre-push hook runs **none** of this: since 2026-09-18 it runs only the four irreversible checks (~13 s), because a full gate in the hook failed the push itself on a cold cache. See CONTRIBUTING.md, "Which gate runs where".
 - [ ] `zenzic lab all` — all gallery scenarios exit with expected code (`zenzic lab all` now exits non-zero if any scenario fails, so this check is enforceable in CI, not just visual — see CHANGELOG.md)
 - [ ] `zenzic score --stamp` committed — badge in README.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
