@@ -1181,7 +1181,7 @@ def _extract_inline_links_with_lines(
     Returns:
         List of ``(url, line_number, raw_line)`` in document order.
     """
-    from zenzic.core.validator import PolyglotExtractor
+    from zenzic.core.validator import PolyglotExtractor, mask_backslash_escapes
 
     results: list[tuple[str, int, str]] = []
     _fence = BlockTracker(containers)
@@ -1189,7 +1189,12 @@ def _extract_inline_links_with_lines(
     # and preserves newlines, so line numbers and caret columns below are
     # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
     _extractor = PolyglotExtractor()
-    text_masked = _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
+    # `mask_backslash_escapes` last: CommonMark §2.4 escapes are neutralised
+    # after comments, JSX and math, so a `\\[` inside any of those is already
+    # blank and cannot be miscounted. It preserves offsets like the others.
+    text_masked = mask_backslash_escapes(
+        _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
+    )
     for lineno, line in enumerate(text_masked.splitlines(), start=1):
         if _fence.feed(line) or _fence.in_indented_code:
             continue

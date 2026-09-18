@@ -966,8 +966,16 @@ _HTML_HREF_RE = re.compile(r"""(?i)href\s*=\s*["']([^"']+)["']""")
 
 def _extract_links(content: str) -> list[str]:
     """Extract all link URLs from raw Markdown content (Markdown + HTML)."""
+    from zenzic.core.validator import mask_backslash_escapes
+
     urls: list[str] = []
     seen: set[str] = set()
+
+    # CommonMark §2.4: `\[text](url)` is a literal bracket and not a link. This
+    # path feeds the policy codes (Z611, Z614-Z616), so without the mask an
+    # escaped example in documentation is judged against a domain allowlist it
+    # was never part of.
+    content = mask_backslash_escapes(content)
 
     for url in _MD_LINK_RE.findall(content):
         url = url.strip().split()[0]

@@ -572,7 +572,9 @@ class PolyglotExtractor:
         masked = (
             _premasked
             if _premasked is not None
-            else self._mask_math(self._mask_fences(self._mask_comments(text)))
+            else mask_backslash_escapes(
+                self._mask_math(self._mask_fences(self._mask_comments(text)))
+            )
         )
         nodes: list[ReferenceLinkNode] = []
         seen_labels: set[str] = set()
@@ -663,8 +665,10 @@ class PolyglotExtractor:
         # a Markdown link inside a prop string still reached the traversal check
         # through here and raised Z203. It renders as literal text; it is not a
         # link on any tier.
-        masked_base = self._mask_math(
-            self._mask_fences(self._mask_jsx_attr_values(self._mask_comments(text)))
+        masked_base = mask_backslash_escapes(
+            self._mask_math(
+                self._mask_fences(self._mask_jsx_attr_values(self._mask_comments(text)))
+            )
         )
         extracted: list[ExtractedLink] = []
 
@@ -1487,6 +1491,47 @@ def slug_tab_title(title: str) -> str:
 #: A bare ``===`` with nothing after it is a setext H1 underline and is excluded
 #: by requiring a non-space character after the whitespace.
 _TAB_MARKER_RE = re.compile(r"^[ \t]*={3,}\s+(?:\+\s+)?(.*\S)\s*$")
+
+
+#: The characters CommonMark §2.4 allows a backslash to escape: **ASCII
+#: punctuation, and nothing else**. A backslash before any other character —
+#: a letter, a digit, a newline, a non-ASCII punctuation mark — is a literal
+#: backslash and escapes nothing.
+_ESCAPABLE_PUNCTUATION = frozenset("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
+
+
+def mask_backslash_escapes(text: str) -> str:
+    """Blank every backslash escape, preserving length and line offsets.
+
+    CommonMark §2.4: ``\\[`` is a literal bracket, so ``\\[text](url)`` is **not a
+    link**. The engine built one anyway and then reported it broken — measured
+    on 72 candidate lines in our own corpus and 12 in the external one.
+
+    **The double backslash is why this is a scan and not a substitution.**
+    ``\\\\[text](url)`` is a literal backslash followed by a *real* link: the
+    first backslash escapes the second, and the bracket that follows is
+    unescaped. Consuming escape pairs left to right gets this right by
+    construction, where a pattern matching ``\\[`` anywhere would delete the
+    link that case contains.
+
+    Both characters are replaced by spaces rather than removed, because every
+    other mask in this module preserves offsets and the callers report columns.
+
+    Scope: this is applied where links are extracted, after code spans and
+    fences have been masked. Inside a code span a backslash is literal rather
+    than an escape, and that content is already blanked before this runs.
+    """
+    if "\\" not in text:
+        return text
+    out = list(text)
+    i, n = 0, len(text)
+    while i < n - 1:
+        if text[i] == "\\" and text[i + 1] in _ESCAPABLE_PUNCTUATION:
+            out[i] = out[i + 1] = " "
+            i += 2
+        else:
+            i += 1
+    return "".join(out)
 
 
 def tab_anchors_in(content: str, *, tabs: str | None) -> set[str]:
