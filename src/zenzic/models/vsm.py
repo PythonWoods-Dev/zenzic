@@ -469,10 +469,15 @@ class VirtualBufferOverlay:
     bypassing L1-L4 filesystem discovery.
     """
 
-    def __init__(self, vsm: VirtualSiteMap) -> None:
+    def __init__(self, vsm: VirtualSiteMap, *, tabs: str | None) -> None:
         self.vsm: VirtualSiteMap = vsm
         self.buffers: dict[str, str] = {}
         self.anchors_cache: dict[Path, set[str]] = {}
+        #: The project's content-tab anchor style. Required rather than
+        #: defaulted: this overlay feeds the editor's anchor resolution, and a
+        #: default would make the editor disagree with the CLI about whether a
+        #: link to a content tab resolves.
+        self._tabs = tabs
 
     # ── Buffer management ─────────────────────────────────────────────────────
 
@@ -484,7 +489,7 @@ class VirtualBufferOverlay:
         self.buffers[uri] = content
         if uri.startswith("file://"):
             path = _uri_to_path(uri).resolve()
-            self.anchors_cache[path] = anchors_in_file(content)
+            self.anchors_cache[path] = anchors_in_file(content, tabs=self._tabs)
 
     def register_file_links(self, path: Path, content: str) -> None:
         """No-op. Reverse index is managed by VirtualSiteMap during build_vsm."""

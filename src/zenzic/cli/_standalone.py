@@ -464,9 +464,16 @@ def score(
     report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
+    # Set here, not inside `if save:`. The threshold is what decided this run's
+    # exit code, so every consumer of the report must see it -- including the
+    # JSON payload, which is emitted whether or not a snapshot is written.
+    # While this lived in the save branch, `zenzic score --format json` reported
+    # `"threshold": 0` and therefore `"status": "success"` on a run that exited
+    # 1, and a consumer reading `status` instead of the exit code got the
+    # opposite verdict.
+    report.threshold = effective_threshold
 
     if save:
-        report.threshold = effective_threshold
         snapshot_path = save_snapshot(repo_root, report)
         # The series is appended alongside the snapshot rather than replacing it:
         # .zenzic-score.json stays exactly as every existing consumer expects, and

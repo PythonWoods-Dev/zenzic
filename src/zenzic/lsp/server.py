@@ -18,6 +18,7 @@ from zenzic.core import regex as re
 from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.extensions import tab_anchor_style
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.scanner import _build_rule_engine, resolve_container_vocabulary
@@ -309,7 +310,14 @@ class LanguageServer:
             repo_root=self.repo_root,
             static_assets=static_assets,
         )
-        self.overlay = VirtualBufferOverlay(self.vsm)
+        self.overlay = VirtualBufferOverlay(
+            self.vsm,
+            # The editor must agree with the CLI about whether a link to a
+            # content tab resolves; both read the style from the adapter.
+            tabs=tab_anchor_style(self.adapter.get_enabled_extensions())
+            if self.adapter is not None
+            else None,
+        )
         # Populate overlay with currently open documents
         for uri, text in self.documents.documents.items():
             self.overlay.update(uri, text)
@@ -842,7 +850,14 @@ class LanguageServer:
             self.vsm = VirtualSiteMap()
 
         if self.overlay is None:
-            self.overlay = VirtualBufferOverlay(self.vsm)
+            self.overlay = VirtualBufferOverlay(
+                self.vsm,
+                # The editor must agree with the CLI about whether a link to a
+                # content tab resolves; both read the style from the adapter.
+                tabs=tab_anchor_style(self.adapter.get_enabled_extensions())
+                if self.adapter is not None
+                else None,
+            )
             for open_uri, open_text in self.documents.documents.items():
                 self.overlay.update(open_uri, open_text)
 

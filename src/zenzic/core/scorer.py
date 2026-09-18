@@ -133,7 +133,12 @@ class ScoreReport:
     """Full scoring report produced by :func:`compute_score`."""
 
     score: int  # 0–100 (rounded)
-    threshold: int = 0  # fail_under value at save time; 0 means no threshold
+    #: The fail_under applied to *this* run -- the number its exit code was
+    #: decided against, not merely the one recorded in a snapshot. 0 means no
+    #: threshold is configured. The old comment said "at save time", which is
+    #: what the assignment did rather than what the field means, and the JSON
+    #: payload reported 0 on every run that did not also pass `--save`.
+    threshold: int = 0
     security_override: bool = False  # True when score collapsed to 0 by a security violation
     security_findings: int = 0  # count of Z2xx findings triggering the Security Gate
     suppression_count: int = 0

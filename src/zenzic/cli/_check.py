@@ -1788,7 +1788,10 @@ def check_all(
         "--audit",
         help=(
             "Sovereign truth-seeking mode: ignore all suppressible bypasses "
-            "(inline zenzic-ignore and governance.per_file_ignores)."
+            "(inline zenzic-ignore and governance.per_file_ignores). The score "
+            "is recomputed without them and is NOT comparable with a normal "
+            "run's -- a lower number here is the exemptions' cost, not a "
+            "regression."
         ),
     ),
     no_header: bool = typer.Option(
@@ -1885,6 +1888,18 @@ def check_all(
 
     effective_strict = strict if strict is not None else config.strict
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
+    # What the file decided and the command line does not account for. Only the
+    # two settings that enter this command's gate: `fail_under` is deliberately
+    # excluded because `check all` never consults it (`zenzic score` does), and
+    # naming it here would imply it had a say in the verdict shown beside it.
+    _from_config = config.verdict_settings_from_file(
+        governing={"strict", "exit_zero"},
+        passed_on_cli={
+            name
+            for name, flag in (("strict", strict), ("exit_zero", exit_zero))
+            if flag is not None
+        },
+    )
 
     t0 = time.monotonic()
     # Suppression debt is counted after the scan, from what the run actually used;
@@ -2220,6 +2235,7 @@ def check_all(
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             target=_target_hint,
             strict=effective_strict,
+            from_config=_from_config,
             show_info=show_info,
             footer_notice=_shared.make_footer_notice(*_footer_lines),
             baseline_active=active_baseline is not None,

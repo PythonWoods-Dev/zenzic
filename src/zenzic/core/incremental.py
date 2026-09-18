@@ -126,6 +126,12 @@ class IncrementalAnalysisEngine:
         self.config = config
         self.rule_engine = rule_engine
         self.adapter = adapter
+        # The content-tab anchor style is a run-level fact, resolved once here
+        # from the adapter rather than per file: `anchors_in_file` is called on
+        # five paths in this class and each would otherwise re-read the config.
+        from zenzic.core.extensions import tab_anchor_style
+
+        self._tabs = tab_anchor_style(adapter.get_enabled_extensions())
         self.docs_root = docs_root
         self.repo_root = repo_root
         self.md_contents_cache: dict[Path, str] = {}
@@ -153,7 +159,7 @@ class IncrementalAnalysisEngine:
             text: Raw Markdown content.
         """
         self.md_contents_cache[path] = text
-        self.anchors_cache[path] = anchors_in_file(text)
+        self.anchors_cache[path] = anchors_in_file(text, tabs=self._tabs)
 
     def remove_file_cache(self, path: Path) -> None:
         """Remove a file from the content and anchor caches.
@@ -263,7 +269,7 @@ class IncrementalAnalysisEngine:
                         continue
                 path = md_file.resolve()
                 self.md_contents_cache[path] = text
-                self.anchors_cache[path] = anchors_in_file(text)
+                self.anchors_cache[path] = anchors_in_file(text, tabs=self._tabs)
                 files_to_process.add(path)
                 valid_paths.add(path)
 
@@ -295,7 +301,7 @@ class IncrementalAnalysisEngine:
                         continue
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
-                        self.anchors_cache[buf_path] = anchors_in_file(buf_text)
+                        self.anchors_cache[buf_path] = anchors_in_file(buf_text, tabs=self._tabs)
                     files_to_process.add(buf_path)
                     valid_paths.add(buf_path)
 
@@ -354,7 +360,7 @@ class IncrementalAnalysisEngine:
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
                     self.md_contents_cache[path] = text
-                    self.anchors_cache[path] = anchors_in_file(text)
+                    self.anchors_cache[path] = anchors_in_file(text, tabs=self._tabs)
                 files_to_process.add(path)
 
         # 2. Re-build or patch VSM topology
@@ -425,7 +431,9 @@ class IncrementalAnalysisEngine:
                             try:
                                 delta_text = delta_path.read_text(encoding="utf-8")
                                 self.md_contents_cache[delta_path] = delta_text
-                                self.anchors_cache[delta_path] = anchors_in_file(delta_text)
+                                self.anchors_cache[delta_path] = anchors_in_file(
+                                    delta_text, tabs=self._tabs
+                                )
                             except OSError:
                                 continue
                         if delta_path in self.md_contents_cache:

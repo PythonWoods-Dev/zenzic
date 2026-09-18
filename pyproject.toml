@@ -115,6 +115,14 @@ test = [
     "hypothesis>=6.100.0",
     "jsonschema>=4.26.0",
     "mutmut>=3.5.0",
+    # Not a runtime dependency and never imported by `src/zenzic/` (ADR-075).
+    # It is here so that `test_replicas_match_the_original.py` can compare the
+    # core's replica of `pymdownx.slugs.slugify` against the real thing on every
+    # run. Declared explicitly rather than relied on transitively through the
+    # docs group: a check that silently skips when its subject is absent is not
+    # a check.
+    "pymdown-extensions>=11.0",
+    "markdown>=3.6",
 ]
 lint = [
     "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)

@@ -33,6 +33,7 @@ import posixpath
 import sys
 import textwrap
 import time
+import unicodedata
 from collections.abc import Hashable, Iterable, Iterator, Mapping
 
 
@@ -1325,7 +1326,11 @@ def _index_file_for_validation(args: tuple[Path, str]) -> _ValidationPayload:
 
     return _ValidationPayload(
         file_path=md_file,
-        anchors=anchors_in_file(content),
+        # `tabs=None`: `_index_file_for_validation` has no caller anywhere in
+        # `src/` or `tests/` -- measured 2026-09-18, its name appears only at
+        # its own definition. It is recorded as dead code rather than wired to
+        # a project whose configuration it has no way to read.
+        anchors=anchors_in_file(content, tabs=None),
         links=links,
         source_lines=content.splitlines(),
     )
@@ -1420,7 +1425,17 @@ def slug_heading(heading: str) -> str:
     heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
     slug = _HTML_TAG_RE.sub("", heading_clean).strip()
     # Decompose accented characters and drop combining marks so that e.g.
-    # "Integrità" → "integrita" (matching MkDocs toc extension behaviour).
+    # "Integrità" → "integrita". This **replicates** `markdown.extensions.toc`'s
+    # default `slugify`; the core does not import it (ADR-075).
+    #
+    # Characterised against Markdown 3.10.3 on 2026-09-18 by execution, and
+    # pinned by `tests/test_replicas_match_the_original.py`, which compares this
+    # function against the real one on every run. Note the limit that comparison
+    # does not cover: a project configuring `toc` with a *custom* slugify --
+    # `pymdownx.slugs.slugify` is the common one, and it preserves Unicode where
+    # this strips it -- gets heading anchors this function does not predict.
+    # Neither corpus measured does, which is why it has never shown.
+    #
     # Lowercase AFTER NFKD so that mathematical/styled Unicode codepoints
     # (e.g. U+1D400 𝐀 → A) are correctly lowered.
     slug = unicodedata.normalize("NFKD", slug)
@@ -1431,7 +1446,97 @@ def slug_heading(heading: str) -> str:
     return slug
 
 
-def anchors_in_file(content: str) -> set[str]:
+#: `pymdownx.slugs.slugify(case="lower")`, **replicated** rather than called:
+#: `pymdownx` is not a runtime dependency and the core must not import it
+#: (ADR-075). Algorithm: NFC-normalise, strip HTML tags, ``.strip()``,
+#: lowercase, delete every character outside ``[\p{L}\p{N}_\- ]``, then turn each
+#: remaining space into the separator.
+#:
+#: **Characterised against `pymdown-extensions` 11.0.1 (with Markdown 3.10.3),
+#: on 2026-09-18, by execution** -- rendering samples through the real extension
+#: and comparing output, not by reading its source alone. Reading gave the shape;
+#: execution gave the two details reading missed, the trailing hyphen that
+#: :func:`slug_heading` would have trimmed and RE2's ASCII-only ``\w``.
+#:
+#: This is a replica of external behaviour, so it can diverge silently when
+#: `pymdownx` changes. `tests/test_replicas_match_the_original.py` is the
+#: mechanical guard: `pymdown-extensions` is a declared **test** dependency and
+#: that file compares this implementation against the installed one on every
+#: run. A test is not the core, so the invariant holds.
+#:
+#: It is **not** :func:`slug_heading`, and the difference is load-bearing: that
+#: one trims leading and trailing hyphens, so a tab titled ``"Open me in a new
+#: tab ..."`` slugs to ``open-me-in-a-new-tab`` there and to
+#: ``open-me-in-a-new-tab-`` here. The corpus links to the second.
+_TAB_SLUG_TAGS_RE = re.compile(r"</?[^>]*>")
+#: ``[^\w\- ]`` in RE2 is **ASCII-only**, unlike Python's `re` with
+#: ``re.UNICODE`` which is what `pymdownx` uses. Written that way first, this
+#: turned "Ünïcodé tàb" into ``ncod-tb`` while `pymdownx` produces
+#: ``ünïcodé-tàb`` -- caught by the comparison test, not by review.
+_TAB_SLUG_INVALID_RE = re.compile(r"[^\p{L}\p{N}_\- ]")
+
+
+def slug_tab_title(title: str) -> str:
+    """Slugify a content-tab title the way `pymdownx.tabbed` does."""
+    slug = _TAB_SLUG_TAGS_RE.sub("", unicodedata.normalize("NFC", title)).strip().lower()
+    return _TAB_SLUG_INVALID_RE.sub("", slug).replace(" ", "-")
+
+
+#: ``=== "Title"`` opens a content tab. The title may be quoted or bare; both
+#: are accepted because the marker, not the quoting, is what pymdownx keys on.
+#: A bare ``===`` with nothing after it is a setext H1 underline and is excluded
+#: by requiring a non-space character after the whitespace.
+_TAB_MARKER_RE = re.compile(r"^[ \t]*={3,}\s+(?:\+\s+)?(.*\S)\s*$")
+
+
+def tab_anchors_in(content: str, *, tabs: str | None) -> set[str]:
+    """Anchors `pymdownx.tabbed` mints for the content tabs in *content*.
+
+    Separate from :func:`anchors_in_file` because it has **two** callers and
+    one implementation is the point: the scanner pre-populates its anchor cache
+    from `CombinedHeadingRule`'s side effect, which collects headings only, and
+    that cache wins over `anchors_in_file`. Collecting tabs in one place and
+    unioning it into both routes avoids a second copy of this rule -- the shape
+    this cycle has now corrected four times (href resolution, fence tracking,
+    ``[^>]*`` truncation, container vocabulary).
+
+    ``tabs`` is the style from
+    :func:`~zenzic.core.extensions.tab_anchor_style`; ``None`` means the
+    extension is not enabled and a ``=== "Tab"`` line mints nothing.
+    """
+    if tabs is None:
+        return set()
+    found: set[str] = set()
+    fence = BlockTracker()
+    heading_slug = ""
+    tab_set = 0
+    tab_index = 0
+    in_tab_set = False
+    for line in content.splitlines():
+        if fence.feed(line) or fence.in_indented_code:
+            continue
+        heading_here = _HEADING_RE.match(line)
+        if heading_here:
+            heading_slug = slug_heading(heading_here.group(1))
+            in_tab_set = False
+            continue
+        tab_here = _TAB_MARKER_RE.match(line)
+        if not tab_here:
+            continue
+        if not in_tab_set:
+            tab_set += 1
+            tab_index = 0
+            in_tab_set = True
+        tab_index += 1
+        if tabs == "indexed":
+            found.add(f"__tabbed_{tab_set}_{tab_index}")
+            continue
+        slug = slug_tab_title(tab_here.group(1).strip().strip('"').strip("'"))
+        found.add(f"{heading_slug}-{slug}" if tabs == "combined" else slug)
+    return found
+
+
+def anchors_in_file(content: str, *, tabs: str | None) -> set[str]:
     """Return anchor slugs for every ATX heading and custom/footnote anchor in *content*.
 
     Recognises MkDocs Material explicit anchors (``{ #id }``), block-level custom ID
@@ -1439,6 +1544,16 @@ def anchors_in_file(content: str) -> set[str]:
 
     Args:
         content: Raw markdown content (no I/O).
+        tabs: The project's content-tab anchor style, from
+            :func:`~zenzic.core.extensions.tab_anchor_style` -- ``"combined"``,
+            ``"slug"``, ``"indexed"``, or ``None`` when `pymdownx.tabbed` is not
+            enabled and a ``=== "Tab"`` line is ordinary text.
+
+            Required, never defaulted. A default would silently decide that a
+            project mints no tab anchors, and every link to one would be
+            reported as ``Z102 ANCHOR_MISSING`` against a target that exists --
+            which is exactly the defect this parameter closes, measured as three
+            findings on the foreign corpus.
 
     Returns:
         Set of lowercase anchor slugs, e.g. ``{'introduction', 'quick-start'}``.
@@ -1449,10 +1564,12 @@ def anchors_in_file(content: str) -> set[str]:
         anchors.add(slug_heading(m.group(1)))
 
     # 2. Extract block-level explicit anchors & footnote anchors (skipping code blocks)
+    anchors |= tab_anchors_in(content, tabs=tabs)
     _fence = BlockTracker()
     for line in content.splitlines():
         if _fence.feed(line) or _fence.in_indented_code:
             continue
+
         # Remove inline code spans to avoid false positives inside backticks
         clean_line = _INLINE_CODE_RE.sub("", line)
         # Search for explicit inline/block anchors { #id }

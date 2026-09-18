@@ -58,7 +58,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
     | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
     | `--no-external` | — | `false` | Skip HTTP validation of external URLs (Pass 3). Credential scanner (Z201) always active regardless. |
-    | `--audit` | — | `false` | Sovereign truth-seeking mode: ignore all suppressible bypasses (inline `zenzic:ignore` and `governance.per_file_ignores`). |
+    | `--audit` | — | `false` | Sovereign truth-seeking mode: ignore all suppressible bypasses (inline `zenzic:ignore` and `governance.per_file_ignores`). Restored findings carry a `[POLICY_EXEMPTION]` label. **The DQS is recomputed without the exemptions, so the two scores are not comparable** — a lower number under `--audit` is what the exemptions cost, not a regression. |
     | `--no-header` | — | `false` | Suppress the Zenzic ASCII art header. |
     | `--update-baseline` | — | `false` | Generate or overwrite the baseline snapshot file (`.zenzic-baseline.json`). |
     | `--baseline` | — | — | Path to a baseline snapshot file to consume (defaults to `.zenzic-baseline.json` if present in the workspace root). |

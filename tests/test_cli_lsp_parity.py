@@ -188,7 +188,7 @@ def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
         repo_root=repo_root,
         static_assets=set(),
     )
-    overlay = VirtualBufferOverlay(vsm)
+    overlay = VirtualBufferOverlay(vsm, tabs=None)
     engine = IncrementalAnalysisEngine(
         config=config,
         rule_engine=rule_engine,
@@ -319,7 +319,7 @@ def test_both_paths_detect_the_same_cycle_even_though_only_one_may_show_it(
         docs_root=docs,
         repo_root=tmp_path,
     )
-    engine.process_changes(vsm, VirtualBufferOverlay(vsm))
+    engine.process_changes(vsm, VirtualBufferOverlay(vsm, tabs=None))
     assert getattr(engine, "_cycle_urls", set()) == {"/", "/other/"}, (
         "the editor path did not detect the cycle the CLI reports: "
         f"{getattr(engine, '_cycle_urls', None)}"

@@ -189,7 +189,7 @@ class TestAConfigErrorDoesNotBlankTheWorkspace:
             tmp_path,
         )
         vsm = VirtualSiteMap()
-        results = engine.process_changes(vsm, VirtualBufferOverlay(vsm), None)
+        results = engine.process_changes(vsm, VirtualBufferOverlay(vsm, tabs=None), None)
 
         by_name = {
             uri.rsplit("/", 1)[-1]: sorted({d.code for d in diags})

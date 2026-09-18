@@ -2119,7 +2119,7 @@ def test_cache_pruning_clears_ghost_diagnostics(tmp_path: Path) -> None:
     engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_dir, tmp_path)
 
     vsm = build_vsm(adapter, docs_dir, {error_md.resolve(): "[self](#self)"}, repo_root=tmp_path)
-    overlay = VirtualBufferOverlay(vsm)
+    overlay = VirtualBufferOverlay(vsm, tabs=None)
 
     # 1. Full sync with error.md present
     results1 = engine.process_changes(vsm, overlay, None)

@@ -605,6 +605,28 @@ Minimum quality score (0--100). If the Zenzic Score falls below this value, `zen
 fail_under = 80
 ```
 
+!!! warning "`zenzic check all` does not consult `fail_under`"
+
+    This is the one setting whose name suggests a global gate and is not one.
+    The three commands answer three different questions, and only the first is
+    about a threshold:
+
+    | Command | Question it answers | What decides its exit code |
+    | :--- | :--- | :--- |
+    | `zenzic score` | *Am I above my bar?* | **`fail_under`** — exit 1 when the score is below it |
+    | `zenzic diff` | *Did I regress?* | The saved snapshot — exit 1 on a drop, at any absolute score |
+    | `zenzic check all` | *Are there defects?* | Breaches, errors, and — under `strict` — warnings. **Never the score.** |
+
+    Measured: a project with `fail_under = 97` and a score of 96 gets exit 1 from
+    `zenzic score` and **exit 0, "Gate Passed"** from `zenzic check all`. There is
+    no `--fail-under` flag on `check all`, and setting the key does not give that
+    command a score gate.
+
+    **In CI this is already handled.** `zenzic-action` runs `check all` *and*
+    `zenzic score`, and propagates the score command's exit code — so a workflow
+    using the action does enforce the threshold. A pipeline that calls
+    `zenzic check all` on its own does not; add `zenzic score` to it.
+
 > See [Exclusion Design — Governance Score Math](../explanation/exclusion-design.md#governance-score-math) for the flat-cost model and hybrid governance policy design.
 
 ### `baseline_stale_days` {#baseline-stale-days}
@@ -628,6 +650,8 @@ baseline_stale_days = 14
 | **Default** | `false` |
 
 When `true`, treat warnings as errors and validate external URLs via network requests. Equivalent to passing `--strict` on every invocation of `check all`, `score`, or `diff`.
+
+Unlike [`fail_under`](#fail-under), this one does reach `check all` — and because a run then behaves in a way nothing on the command line accounts for, the report's telemetry line names it: `… • from config: strict`. `zenzic config explain` gives the full per-key provenance across the global and local layers.
 
 ```toml
 strict = true

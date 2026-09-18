@@ -47,7 +47,7 @@ def _make_engine(
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_dir, tmp_path)
     vsm = VirtualSiteMap()
-    overlay = VirtualBufferOverlay(vsm)
+    overlay = VirtualBufferOverlay(vsm, tabs=None)
     engine = IncrementalAnalysisEngine(
         config=config,
         rule_engine=rule_engine,

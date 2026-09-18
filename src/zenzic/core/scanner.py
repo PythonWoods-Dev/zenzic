@@ -39,6 +39,7 @@ from zenzic.core.discovery import (
     iter_security_scan_sources,
     walk_files,
 )
+from zenzic.core.extensions import tab_anchor_style
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
@@ -1356,6 +1357,7 @@ def _run_vsm_and_urp_pass(
         _build_link_graph,
         _find_cycles_iterative,
         anchors_in_file,
+        tab_anchors_in,
     )
     from zenzic.models.vsm import build_vsm
 
@@ -1374,6 +1376,9 @@ def _run_vsm_and_urp_pass(
     md_contents: dict[Path, str] = (
         preloaded_md_contents if preloaded_md_contents is not None else {}
     )
+    # One answer for the run: which anchors this project's content tabs mint.
+    _anchor_tabs = tab_anchor_style(adapter.get_enabled_extensions())
+
     for f in md_files:
         if f not in md_contents and f.is_file():
             try:
@@ -1383,9 +1388,16 @@ def _run_vsm_and_urp_pass(
                 pass
         if f in md_contents:
             if preloaded_anchors and f in preloaded_anchors:
-                anchors_cache[f] = preloaded_anchors[f]
+                # The preloaded set is `CombinedHeadingRule`'s side effect, which
+                # collects heading slugs only -- and this branch wins whenever the
+                # rule ran, so wiring only the `else` below left the anchors a
+                # content tab mints uncollected. Union them, so both branches
+                # produce the same set.
+                anchors_cache[f] = preloaded_anchors[f] | tab_anchors_in(
+                    md_contents[f], tabs=_anchor_tabs
+                )
             else:
-                anchors_cache[f] = anchors_in_file(md_contents[f])
+                anchors_cache[f] = anchors_in_file(md_contents[f], tabs=_anchor_tabs)
 
     used_assets: set[str] = set()
     for f, text in md_contents.items():

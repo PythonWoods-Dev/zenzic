@@ -468,7 +468,7 @@ class TestBuildVsm:
         )
         from zenzic.core.validator import anchors_in_file
 
-        anchors_cache = {p: anchors_in_file(c) for p, c in md_contents.items()}
+        anchors_cache = {p: anchors_in_file(c, tabs=None) for p, c in md_contents.items()}
         vsm = build_vsm(adapter, docs_root, md_contents, anchors_cache=anchors_cache)
         assert "quick-start" in vsm["/"].anchors
         assert "installation" in vsm["/"].anchors

@@ -241,10 +241,16 @@ def print_suppression_audit_footer(
             f"removed findings from this report — run with --audit to see them.[/]"
         )
     if audit_mode:
+        # The count alone leaves the reader to infer what happened to the score.
+        # They usually infer wrongly: a run that scores 96 normally and 59 here
+        # looks like the flag made something worse, when the two numbers answer
+        # different questions -- one with the project's declared exemptions, one
+        # without. Say so on the same line as the count.
         _shared.console.print(
             f"[{ZenzicPalette.DIM}]Sovereign Audit Mode:[/] "
             f"ignored {suppression_audit.total} active suppression directives "
-            "(inline + per-file + directory policy)."
+            "(inline + per-file + directory policy). The score above is computed "
+            "without them, so it is not comparable with a normal run's."
         )
 
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+from collections.abc import Collection
 from pathlib import Path
 
 
@@ -13,7 +14,7 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib  # PEP 680 backport
-from typing import Any, Final, Literal
+from typing import Any, ClassVar, Final, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
@@ -1077,6 +1078,73 @@ class ZenzicConfig(BaseModel):
             return
         union = "|".join(re.escape(p) for p in self.forbidden_patterns)
         self.forbidden_patterns_compiled = re.compile(f"(?:{union})", re.IGNORECASE)
+
+    #: Settings that decide a run's *verdict* -- its exit code or its gate --
+    #: and that have a command-line flag whose absence makes the file's value
+    #: silently authoritative. Each maps to its default; a value differing from
+    #: the default, with no flag passed, is what :meth:`verdict_settings_from_file`
+    #: reports.
+    #:
+    #: **Deliberately short.** `ZenzicConfig` has 31 fields and only these three
+    #: have that shape: the other 28 are data -- exclusions, patterns, per-code
+    #: thresholds -- which decide *which findings exist*, not how the run is
+    #: judged, and a finding names its own code so its cause is already
+    #: reachable from the output. `engine` is excluded because the telemetry
+    #: line already prints it. `no_external` is excluded because it is a flag
+    #: with no configuration fallback, so it cannot arrive unannounced.
+    _VERDICT_SETTINGS: ClassVar[dict[str, object]] = {
+        "strict": False,
+        "exit_zero": False,
+        "fail_under": 0,
+    }
+
+    def verdict_settings_from_file(
+        self,
+        *,
+        passed_on_cli: Collection[str] = (),
+        governing: Collection[str] | None = None,
+    ) -> list[str]:
+        """Return ``name`` / ``name=value`` for each verdict setting the file decided.
+
+        A setting qualifies when it was **not** passed on the command line and
+        its configured value differs from the default -- the case where the run
+        behaves in a way nothing on the command line accounts for.
+
+        This exists because reading ``STRICT MODE: Warnings have been promoted
+        to errors`` on an invocation that carried no ``--strict`` is
+        indistinguishable from a bug. It was correct: ``strict = true`` was in
+        the project's own ``.zenzic.toml``, and no part of the output said so.
+
+        The complete answer, with per-key provenance across the global and local
+        layers, is ``zenzic config explain``. This is the pointer, not a
+        replacement: a header that lists every key teaches people to skip the
+        header.
+
+        Args:
+            passed_on_cli: Names of settings whose flag the invocation carried,
+                which are therefore already accounted for by the command line.
+            governing: The settings that actually decide *this* command's
+                verdict. ``check all``'s gate is computed from breaches, errors
+                and -- only under ``strict`` -- warnings; ``fail_under`` does
+                not enter it, and naming it there would imply it had decided
+                something. ``None`` means all of them.
+
+        Returns:
+            Stable, sorted list -- ``["fail_under=96", "strict"]``. A boolean
+            setting is named alone, because naming it is the whole message; a
+            valued one carries its value, because the number is the message.
+        """
+        out: list[str] = []
+        for name, default in sorted(self._VERDICT_SETTINGS.items()):
+            if governing is not None and name not in governing:
+                continue
+            if name in passed_on_cli:
+                continue
+            value = getattr(self, name, default)
+            if value == default:
+                continue
+            out.append(name if isinstance(value, bool) else f"{name}={value}")
+        return out
 
     @classmethod
     def _build_from_data(

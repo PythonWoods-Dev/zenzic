@@ -187,3 +187,37 @@ def container_pattern(enabled: EnabledExtensions | None = None) -> RegexPattern:
     for name in sorted(names):
         parts.extend(BLOCK_CONSTRUCTS.get(name, ()))
     return re.compile("|".join(parts))
+
+
+#: How `pymdownx.tabbed` names the anchor it mints for each content tab. The
+#: three values were established by execution on 2026-09-18 -- rendering a
+#: two-tab sample through `markdown` with the extension -- not inferred from
+#: its documentation.
+#:
+#: * ``"combined"`` -- ``slugify`` **and** ``combine_header_slug`` are set:
+#:   ``{enclosing_heading_slug}-{tab_title_slug}``.
+#: * ``"slug"`` -- ``slugify`` alone: ``{tab_title_slug}``.
+#: * ``"indexed"`` -- neither: ``__tabbed_{set}_{n}``, counting from 1.
+TAB_ANCHOR_STYLES: tuple[str, ...] = ("combined", "slug", "indexed")
+
+
+def tab_anchor_style(enabled: EnabledExtensions | None = None) -> str | None:
+    """Which anchors `pymdownx.tabbed` mints for this project, or ``None``.
+
+    ``None`` means the extension is not enabled, so a ``=== "Tab"`` line is
+    ordinary text and mints no anchor at all.
+
+    This is the second consumer of :attr:`EnabledExtensions.options`, and the
+    reason the options are carried beside the names: the container vocabulary
+    needs only to know that `pymdownx.tabbed` is on, while the anchor rule needs
+    to know how it is configured. Measured on the foreign corpus, whose
+    ``mkdocs.yml`` sets ``combine_header_slug: true`` and a ``slugify`` given as
+    a ``!!python/object/apply`` tag -- which the permissive loader renders as a
+    plain mapping, so it reads as present without being resolvable.
+    """
+    if enabled is None or "pymdownx.tabbed" not in enabled.names:
+        return None
+    options = enabled.options.get("pymdownx.tabbed", {})
+    if not options.get("slugify"):
+        return "indexed"
+    return "combined" if options.get("combine_header_slug") else "slug"

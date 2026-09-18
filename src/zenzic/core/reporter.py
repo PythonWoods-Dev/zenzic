@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import shutil
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -219,6 +220,7 @@ class ZenzicReporter:
         show_info: bool = False,
         footer_notice: FooterNotice | None = None,
         baseline_active: bool = False,
+        from_config: Sequence[str] = (),
     ) -> tuple[int, int]:
         """Print the full Zenzic Report.
 
@@ -282,6 +284,14 @@ class ZenzicReporter:
             if total:
                 throughput = total / elapsed
                 parts.append(f"[{ZenzicPalette.BRAND}]{throughput:.0f}[/] files/s")
+        # Settings the configuration decided and the command line does not
+        # account for. Empty for a project that configures none of them, which
+        # is why this is a segment rather than a line: a header that always says
+        # something teaches people to stop reading it. `ZenzicConfig` decides
+        # what qualifies (`verdict_settings_from_file`); the reporter only
+        # prints what it is handed.
+        if from_config:
+            parts.append(f"from config: [{ZenzicPalette.BRAND}]{', '.join(from_config)}[/]")
         telemetry = Text.from_markup(f"[{ZenzicPalette.DIM}]{f' {dot} '.join(parts)}[/]")
 
         # ── Security breach flat output (rendered BEFORE main findings) ──────

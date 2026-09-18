@@ -92,7 +92,7 @@ def test_incremental_engine_emits_config_diagnostic_without_crashing(tmp_path: P
     )
     md_contents = {index_file.resolve(): "# Index\n"}
     vsm = build_vsm(adapter, docs, md_contents=md_contents)
-    overlay = VirtualBufferOverlay(vsm)
+    overlay = VirtualBufferOverlay(vsm, tabs=None)
 
     diags_map = engine.process_changes(vsm, overlay, changed_uris=None)
     config_uri = (tmp_path / ".zenzic.toml").resolve().as_uri()

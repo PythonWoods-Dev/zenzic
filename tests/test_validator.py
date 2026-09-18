@@ -236,21 +236,21 @@ class TestAnchorsInFile:
     """Extract anchor slug set from raw markdown content."""
 
     def test_single_heading(self) -> None:
-        assert anchors_in_file("# Introduction\n") == {"introduction"}
+        assert anchors_in_file("# Introduction\n", tabs=None) == {"introduction"}
 
     def test_multiple_heading_levels(self) -> None:
         content = "# Top\n## Sub\n### Deep\n"
-        assert anchors_in_file(content) == {"top", "sub", "deep"}
+        assert anchors_in_file(content, tabs=None) == {"top", "sub", "deep"}
 
     def test_mixed_content(self) -> None:
         content = "# Quick Start\n\nSome text.\n\n## Installation\n"
-        assert anchors_in_file(content) == {"quick-start", "installation"}
+        assert anchors_in_file(content, tabs=None) == {"quick-start", "installation"}
 
     def test_no_headings(self) -> None:
-        assert anchors_in_file("Just plain text.") == set()
+        assert anchors_in_file("Just plain text.", tabs=None) == set()
 
     def test_heading_with_special_chars(self) -> None:
-        assert "api-reference-v2" in anchors_in_file("## API Reference (v2)\n")
+        assert "api-reference-v2" in anchors_in_file("## API Reference (v2)\n", tabs=None)
 
     def test_explicit_anchors_and_footnotes(self) -> None:
         content = (
@@ -263,7 +263,7 @@ class TestAnchorsInFile:
             "Ignore this { #ignored-inside-code-block }\n"
             "```\n"
         )
-        assert anchors_in_file(content) == {"heading", "custom-id", "feedback", "fn:1"}
+        assert anchors_in_file(content, tabs=None) == {"heading", "custom-id", "feedback", "fn:1"}
 
     def test_html_inline_id_anchors(self) -> None:
         content = (
@@ -273,7 +273,7 @@ class TestAnchorsInFile:
             "<div id='code-block-ignored'>\n"
             "```\n"
         )
-        assert anchors_in_file(content) == {"my-anchor", "another-anchor"}
+        assert anchors_in_file(content, tabs=None) == {"my-anchor", "another-anchor"}
 
 
 # ─── Internal link validation ─────────────────────────────────────────────────

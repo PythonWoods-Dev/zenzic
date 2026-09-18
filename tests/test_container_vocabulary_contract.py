@@ -271,13 +271,19 @@ def _indent_consumers() -> list[tuple[str, str, bool]]:
 
 
 def test_the_unwired_indented_code_consumers_are_a_known_and_fixed_list() -> None:
-    """Nineteen functions read `in_indented_code`; five still take the default.
+    """Twenty functions read `in_indented_code`; six still take the default.
 
     The thirteen in `content.py` are wired, and so are three in `governance.py`
     and three in `rules.py`. The five below extract anchors, reference
     definitions and links rather than running content rules, and reaching them
     means threading the vocabulary through 49 call sites plus `ReferenceScanner`
     — measured 2026-09-18, larger than the thirteen.
+
+    `tab_anchors_in` joined the list when `Z102` was closed: it is the single
+    implementation of the content-tab anchor rule, shared by `anchors_in_file`
+    and the scanner's preloaded-cache branch. It takes the project's tab style
+    but not yet its container vocabulary, so it is counted here rather than
+    quietly excluded.
 
     The residual error has a direction and it is the forgiving one: these five
     receive the **full** four-marker vocabulary, so they read container bodies
@@ -299,6 +305,7 @@ def test_the_unwired_indented_code_consumers_are_a_known_and_fixed_list() -> Non
         "core/validator.py::_extract_empty_link_texts",
         "core/validator.py::anchors_in_file",
         "core/validator.py::extract_ref_links",
+        "core/validator.py::tab_anchors_in",
     ], f"the unwired set moved: {unwired}"
 
 
