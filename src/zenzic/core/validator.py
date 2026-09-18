@@ -125,6 +125,16 @@ _FN_DEF_RE = re.compile(r"^ {0,3}\[\^([^\]]+)\]:")
 #: a ``>`` inside a quoted value leaves characters in the slug rather than removing text
 #: the heading really has. Recorded because the same shape, used to *read* a tag rather
 #: than to strip one, was four separate defects this cycle.
+#: Bare ``[^>]*`` on purpose. This one strips tags out of heading text for
+#: :func:`slug_heading`, and Python-Markdown's own ``toc`` extension truncates
+#: at the first ``>`` when it does the same -- verified by execution against the
+#: installed renderer: ``## Confronto <span title="a > b">fra valori</span>``
+#: gets the id ``confronto-bfra-valori`` there and here.
+#:
+#: Making this attribute-aware would produce ``confronto-fra-valori``, an anchor
+#: no renderer mints, and every link to the real one would be reported as a
+#: missing ``Z102``. The engine's job here is to predict the anchor, not to
+#: improve on it.
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 # Matches id="..." or id='...' attributes inside standard HTML tags
 #: An anchor target declared as an HTML ``id``. The bare ``[^>]*`` this replaced
@@ -1472,6 +1482,10 @@ def slug_heading(heading: str) -> str:
 #: one trims leading and trailing hyphens, so a tab titled ``"Open me in a new
 #: tab ..."`` slugs to ``open-me-in-a-new-tab`` there and to
 #: ``open-me-in-a-new-tab-`` here. The corpus links to the second.
+#: Bare ``[^>]*`` on purpose, and not an oversight: this is a byte-for-byte
+#: replica of `pymdownx.slugs`' own ``RE_TAGS``, verified against the installed
+#: package. Making it attribute-aware here would make the replica diverge from
+#: the original it is compared against on every test run.
 _TAB_SLUG_TAGS_RE = re.compile(r"</?[^>]*>")
 #: ``[^\w\- ]`` in RE2 is **ASCII-only**, unlike Python's `re` with
 #: ``re.UNICODE`` which is what `pymdownx` uses. Written that way first, this

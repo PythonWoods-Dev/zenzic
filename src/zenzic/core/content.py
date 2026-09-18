@@ -190,9 +190,12 @@ _VOID_TAGS = {
 #: Measured with a control pair rather than argued: ``<span title="a > b">TODO: ... bare
 #: URL</span>`` and the same line with ``title="a b"`` report the same two findings
 #: (Z501, Z515), differing only in the column the caret lands on.
-_OPEN_TAG_RE = re.compile(r"<([a-zA-Z1-6]+)\b([^>]*)/?>", re.IGNORECASE)
+#: Attribute-aware: a bare ``[^>]*`` ends the tag at the first ``>`` anywhere
+#: in it, including one inside a quoted attribute value, which then leaves the
+#: rest of the tag unmasked as prose. Same class as the four already fixed.
+_OPEN_TAG_RE = re.compile(r"""<([a-zA-Z1-6]+)\b((?:[^>"']|"[^"]*"|'[^']*')*)/?>""", re.IGNORECASE)
 _CLOSE_TAG_RE = re.compile(r"</([a-zA-Z1-6]+)\s*>", re.IGNORECASE)
-_TAG_MASK_RE = re.compile(r"<[^>]+>")
+_TAG_MASK_RE = re.compile(r"""<(?:[^>"']|"[^"]*"|'[^']*')+>""")
 
 
 def _mask_html_blocks(text: str) -> str:
@@ -491,7 +494,10 @@ _BARE_URL_RE = re.compile(r"https?://[^\s<>`\"'\[\]\(\)]+")
 #: Bare ``[^>]`` deliberately, same reasoning as the masking patterns above: this one
 #: strips tags out of prose before the content rules read it, so cutting a tag short
 #: leaves text rather than eating it.
-_HTML_TAG_RE = re.compile(r"<[^>]+>")
+#: Attribute-aware, for the reason ``_OPEN_TAG_RE`` above is. This one masks
+#: tags before Z515, Z518 and Z519 read the line, so a truncated match left
+#: attribute text visible to them as prose.
+_HTML_TAG_RE = re.compile(r"""<(?:[^>"']|"[^"]*"|'[^']*')+>""")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
 #: An autolink is *defined* as ending at the first ``>``: CommonMark forbids ``>``
 #: inside one, so here the bare class is the specification, not a shortcut.
