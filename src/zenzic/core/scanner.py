@@ -1916,6 +1916,28 @@ def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) ->
     )
 
 
+def _iter_legal_files(docs_root: Path) -> list[Path]:
+    """Legal files at the docs root, which links may target but pages never are.
+
+    Only the names ``SYSTEM_EXCLUDED_FILE_NAMES`` lists as *"Licensing & legal
+    (Zero-Config v0.7.0 -- never documentation assets)"*, and only at the top
+    level: a ``LICENSE`` nested inside a vendored tree is not a link target this
+    project publishes, and walking deeper would re-import the noise the
+    exclusion exists to keep out.
+    """
+    from zenzic.models.config import SYSTEM_EXCLUDED_FILE_NAMES
+
+    legal = {
+        n for n in SYSTEM_EXCLUDED_FILE_NAMES if n.split(".")[0] in ("LICENSE", "NOTICE", "COPYING")
+    }
+    found: list[Path] = []
+    for name in sorted(legal):
+        candidate = docs_root / name
+        if candidate.is_file() and not candidate.is_symlink():
+            found.append(candidate)
+    return found
+
+
 def scan_docs_references(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
@@ -2050,6 +2072,24 @@ def scan_docs_references(
             if fpath.suffix.lower() not in DOC_SUFFIXES and not fpath.is_symlink():
                 if not exclusion_manager.should_exclude_file(fpath, docs_root):
                     static_assets.add(fpath)
+        # Legal files are excluded from the analysed corpus because they are not
+        # documentation -- that is what SYSTEM_EXCLUDED_FILE_NAMES is for and it
+        # stays. The exclusion had a second effect nobody argued for: it kept
+        # them out of the *static asset* index too, so a link to a LICENSE that
+        # exists resolved to nothing and VSMBrokenLinkRule reported Z101 on a
+        # file whose link works on GitHub (measured 2026-09-18 with
+        # docs_dir = "docs" and the standalone engine, alongside a missing
+        # LICENSE that produced the identical finding -- the engine could not
+        # tell the two apart).
+        #
+        # Indexing them here, and only here, separates the two effects: they
+        # enter the site map as assets so links resolve, and they are still
+        # never walked as pages. This deliberately does not touch
+        # SYSTEM_EXCLUDED_FILE_NAMES or should_exclude_file, whose L1a branch is
+        # applied by security_view() as well -- changing that set would change
+        # what the credential scan walks.
+        for fpath in _iter_legal_files(docs_root):
+            static_assets.add(fpath)
 
     # Build locale path remap: actual_abs_path → virtual_path_under_docs_root.
     # virtual_path = docs_root / locale_name / rel_within_locale
