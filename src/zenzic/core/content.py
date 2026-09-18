@@ -131,44 +131,89 @@ def check_heading_hierarchy(
     return findings
 
 
+#: An inline code span. Tags named inside one are prose about HTML, not HTML.
+_CODE_SPAN_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
+
+#: CommonMark 4.6 type 1: these run to their closing tag, and a blank line
+#: inside one does not end the block.
+_TYPE1_TAGS = frozenset({"pre", "script", "style", "textarea"})
+
 _BLOCK_TAGS = {
-    "div",
-    "section",
+    "address",
     "article",
     "aside",
-    "header",
-    "footer",
-    "nav",
-    "figure",
-    "figcaption",
+    "base",
+    "basefont",
+    "blockquote",
+    "body",
+    "caption",
+    "center",
+    "col",
+    "colgroup",
+    "dd",
     "details",
-    "summary",
-    "form",
+    "dialog",
+    "dir",
+    "div",
+    "dl",
+    "dt",
     "fieldset",
-    "table",
-    "tbody",
-    "thead",
-    "tfoot",
-    "tr",
-    "td",
-    "th",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "frame",
+    "frameset",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "head",
+    "header",
+    "hr",
+    "html",
+    "iframe",
+    "legend",
+    "li",
+    "link",
+    "main",
+    "menu",
+    "menuitem",
+    "nav",
+    "noframes",
+    "ol",
+    "optgroup",
+    "option",
+    "p",
+    "param",
     "pre",
     "script",
+    "search",
+    "section",
     "style",
-    "main",
-    "iframe",
-    "blockquote",
-    "p",
+    "summary",
+    "table",
+    "tbody",
+    "td",
+    "textarea",
+    "tfoot",
+    "th",
+    "thead",
+    "title",
+    "tr",
+    "track",
     "ul",
-    "ol",
-    "li",
 }
 _VOID_TAGS = {
     "area",
     "base",
+    "basefont",
     "br",
     "col",
     "embed",
+    "frame",
     "hr",
     "img",
     "input",
@@ -207,9 +252,37 @@ def _mask_html_blocks(text: str) -> str:
     result: list[str] = []
     html_depth = 0
 
-    for line in lines:
+    in_type1 = False
+
+    for raw_line in lines:
+        # CommonMark 4.6 type 6 ends at the first **blank line**, not at the
+        # matching close tag. Closing on tag depth masked everything between the
+        # blank line and the eventual `</div>` -- measured 2026-09-18: 139 of
+        # 141 HTML blocks in this repository's docs have that shape, hiding
+        # 1,348 lines of prose, and 75 of 86 blocks with 590 lines on the
+        # external corpus. The divergence was one-sided: zero lines the
+        # specification masks and we did not.
+        #
+        # Type 1 (`script`, `style`, `pre`, `textarea`) is the exception the
+        # specification itself makes: it runs to its closing tag and a blank
+        # line inside it means nothing.
+        if html_depth > 0 and not in_type1 and not raw_line.strip():
+            html_depth = 0
+            result.append(raw_line)
+            continue
+        # Inline code first. A documentation tool's own pages write `<div>` in
+        # backticks constantly, and without this the mention opened a block that
+        # never closed, hiding the rest of the file from Z511. Measured
+        # 2026-09-18: 7 files and 533 lines here, 3 files and 850 lines on the
+        # external corpus. The blanking is length-preserving, so the line the
+        # caller gets back keeps its offsets.
+        line = (
+            _CODE_SPAN_RE.sub(lambda m: " " * len(m.group(0)), raw_line)
+            if "`" in raw_line
+            else raw_line
+        )
         if "<" not in line:
-            result.append(" " * len(line) if html_depth > 0 else line)
+            result.append(" " * len(raw_line) if html_depth > 0 else raw_line)
             continue
 
         opens = []
@@ -227,10 +300,14 @@ def _mask_html_blocks(text: str) -> str:
         net_change = len(opens) - len(closes)
 
         if html_depth > 0 or opens:
-            result.append(" " * len(line))
+            result.append(" " * len(raw_line))
             html_depth = max(0, html_depth + net_change)
+            if html_depth == 0:
+                in_type1 = False
+            if opens and not in_type1:
+                in_type1 = any(t in _TYPE1_TAGS for t in opens)
         else:
-            result.append(_TAG_MASK_RE.sub(lambda m: " " * len(m.group(0)), line))
+            result.append(_TAG_MASK_RE.sub(lambda m: " " * len(m.group(0)), raw_line))
 
     return "\n".join(result)
 
