@@ -269,8 +269,9 @@ upgrading. Neither affects the security tier.
 block-level tag opened a region that only its closing tag ended, so prose separated from it by a
 blank line was never scanned — 3,620 lines across 85 files in this repository alone. And a tag
 merely *named* in backticks opened the same region, hiding everything after it. Both are fixed, both
-add findings that were always due, and neither affects the security tier. If your documentation
-describes HTML, expect the second one to reach you.
+add findings that were always due, and neither affects the security tier. The second is present in the
+published v0.30.0 and reaches anyone whose pages name HTML tags in prose, which is what documentation
+about HTML does; the first reaches anyone who wraps content in a `<div>` with a blank line inside it.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
@@ -457,7 +458,7 @@ describes HTML, expect the second one to reach you.
 
 - **Prose inside an HTML block is scanned again when a blank line separates it from the tag.** CommonMark §4.6 ends a type-6 HTML block at the **first blank line**; the engine ended it at the matching close tag, so everything between the two was hidden from the sentence-length rule. Measured on this repository's own documentation: **139 of 141 HTML blocks** have that shape, and the fix makes **3,620 lines across 85 files** visible again with **zero** newly hidden. `pre`, `script`, `style` and `textarea` keep running to their closing tag — §4.6's own exception, because a blank line inside one means nothing.
 
-- **A tag named in backticks no longer hides the rest of the page.** Writing `` `<div>` `` in prose — which documentation about HTML does constantly — opened a block that never closed, and everything after it became invisible to `Z511`. Measured at 7 files and 533 lines here, and 3 files and 850 lines on an external corpus. **If your pages document HTML, findings will appear** where nothing was reported.
+- **A tag named in backticks no longer hides the rest of the page.** Writing `` `<div>` `` in prose — which documentation about HTML does constantly — opened a block that never closed, and everything after it became invisible to `Z511`. Measured at 7 files and 533 lines here, and 3 files and 850 lines on an external corpus. **Present in the published v0.30.0**, verified on that release with its own control: the same document reports one `Z511` without the backticks and none with them. **If your pages document HTML, findings will appear** where nothing was reported.
 
 - **The block-tag list is now the specification's**: 36 of the 66 names §4.6 gives were absent, including `textarea`, so a `<textarea>` opened no block at all. Nothing was present that the specification does not name, so the list was short rather than wrong. Two obsolete void elements were added to the void list; without them they would have opened blocks that never close.
 
