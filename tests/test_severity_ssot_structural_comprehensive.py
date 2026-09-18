@@ -174,6 +174,6 @@ def test_scan_covers_every_known_finding_construction_site() -> None:
         "models/config.py",
         "models/references.py",
     }
-    seen = {str(p.relative_to(SRC_ROOT)).replace("\\", "/") for p in _all_source_files()}
+    seen = {p.relative_to(SRC_ROOT).as_posix() for p in _all_source_files()}
     missing = expected_relative_paths - seen
     assert not missing, f"scan did not reach expected file(s): {missing}"

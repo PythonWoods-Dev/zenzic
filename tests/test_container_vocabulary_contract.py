@@ -37,6 +37,10 @@ from zenzic.core.rules import AdaptiveRuleEngine
 
 _CONTENT_SRC = Path(inspect.getfile(content))
 
+#: The installed package's own directory, so that paths in assertions are
+#: independent of the working directory and of the platform's separator.
+_PACKAGE_ROOT = _CONTENT_SRC.resolve().parent.parent
+
 
 def _functions_building_a_tracker() -> list[ast.FunctionDef]:
     """Every module-level function in ``content`` that constructs a BlockTracker."""
@@ -247,7 +251,7 @@ def _indent_consumers() -> list[tuple[str, str, bool]]:
     import ast
 
     rows = []
-    for path in sorted(Path("src").rglob("*.py")):
+    for path in sorted(_PACKAGE_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -266,7 +270,18 @@ def _indent_consumers() -> list[tuple[str, str, bool]]:
                 for n in ast.walk(node)
             )
             if reads:
-                rows.append((str(path), node.name, bool(builds[0].args or builds[0].keywords)))
+                rows.append(
+                    (
+                        # `as_posix()` and relative to the package root, not
+                        # `str(path)` against the working directory. On Windows
+                        # the first gives `src\\zenzic\\core\\scanner.py` and the
+                        # prefix strip below never matched, so this assertion
+                        # failed there and only there -- the set had not moved.
+                        path.relative_to(_PACKAGE_ROOT).as_posix(),
+                        node.name,
+                        bool(builds[0].args or builds[0].keywords),
+                    )
+                )
     return rows
 
 
@@ -296,9 +311,7 @@ def test_the_unwired_indented_code_consumers_are_a_known_and_fixed_list() -> Non
     fails it; wiring one of these fails it too, and the fix is to delete the
     name.
     """
-    unwired = sorted(
-        f"{p.replace('src/zenzic/', '')}::{n}" for p, n, w in _indent_consumers() if not w
-    )
+    unwired = sorted(f"{p}::{n}" for p, n, w in _indent_consumers() if not w)
     assert unwired == [
         "core/scanner.py::harvest",
         "core/validator.py::_build_ref_map",
