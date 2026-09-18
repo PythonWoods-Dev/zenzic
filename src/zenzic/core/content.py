@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import zenzic.core.regex as re
-from zenzic.core.ast import FenceTracker
+from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import code_severity
 
 
@@ -78,12 +78,12 @@ def check_heading_hierarchy(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     prev_level = 0
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -219,7 +219,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
     findings: list[RuleFinding] = []
     text_masked = _mask_html_blocks(text)
     lines = text_masked.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     current_sentence_parts: list[str] = []
@@ -265,7 +265,7 @@ def check_sentence_lengths(file_path: Path, text: str, max_words: int = 40) -> l
             continue
 
         # Handle code blocks
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             _flush_and_check(current_sentence_parts, current_start_line)
             continue
 
@@ -308,7 +308,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     current_heading: str | None = None
@@ -327,7 +327,7 @@ def check_empty_sections(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             if current_heading is not None:
                 has_body_content = True
             continue
@@ -495,7 +495,7 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
     seen_headings: dict[str, int] = {}
 
@@ -509,7 +509,7 @@ def check_duplicate_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -550,7 +550,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -563,7 +563,7 @@ def check_generic_image_alt_text(file_path: Path, text: str) -> list[RuleFinding
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -628,7 +628,7 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -642,7 +642,7 @@ def check_bare_urls(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -694,7 +694,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
     h1_count = 0
 
@@ -708,7 +708,7 @@ def check_multiple_h1_headings(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -767,7 +767,7 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -780,7 +780,7 @@ def check_heading_punctuation(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -839,7 +839,7 @@ def check_all_heading_rules(
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
     prev_level = 0
     seen_headings: dict[str, int] = {}
@@ -856,7 +856,7 @@ def check_all_heading_rules(
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
         if _fence.inside:
             continue
@@ -1032,7 +1032,7 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -1045,7 +1045,7 @@ def check_passive_voice(file_path: Path, text: str) -> list[RuleFinding]:
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -1104,7 +1104,7 @@ def check_weasel_words(
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
 
     for i, line in enumerate(lines, start=1):
@@ -1117,7 +1117,7 @@ def check_weasel_words(
                 in_frontmatter = False
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if _fence.inside:
@@ -1159,7 +1159,7 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
 
     findings: list[RuleFinding] = []
     lines = text.splitlines()
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     in_frontmatter = False
     in_html_script = False
     in_html_style = False
@@ -1180,7 +1180,7 @@ def check_malformed_lists(file_path: Path, text: str) -> list[RuleFinding]:
             i += 1
             continue
 
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             i += 1
             continue
 
@@ -1416,11 +1416,11 @@ def check_heading_order(
 
     max_idx_seen = -1
     last_matched_pat = ""
-    _fence = FenceTracker()
+    _fence = BlockTracker()
 
     for i, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
         if _fence.inside:
             continue

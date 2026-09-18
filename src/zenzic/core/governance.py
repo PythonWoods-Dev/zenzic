@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
 import zenzic.core.regex as re
-from zenzic.core.ast import FenceTracker
+from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, code_severity
 from zenzic.core.exclusion import translate_glob_to_re2
 from zenzic.models.config import ZenzicConfig
@@ -365,7 +365,7 @@ class PolicyEvaluator:
 
         findings: list[RuleFinding] = []
         lines = content.splitlines()
-        _fence = FenceTracker()
+        _fence = BlockTracker()
         in_frontmatter = False
 
         compiled_patterns = []
@@ -386,7 +386,7 @@ class PolicyEvaluator:
                     in_frontmatter = False
                 continue
 
-            if _fence.feed(line):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             if _fence.inside:
@@ -422,7 +422,7 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        _fence = FenceTracker()
+        _fence = BlockTracker()
         in_frontmatter = False
         heading_titles: list[str] = []
 
@@ -436,7 +436,7 @@ class PolicyEvaluator:
                     in_frontmatter = False
                 continue
 
-            if _fence.feed(line):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             if _fence.inside:
@@ -481,7 +481,7 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        _fence = FenceTracker()
+        _fence = BlockTracker()
         in_frontmatter = False
         word_count = 0
         heading_count = 0
@@ -498,7 +498,7 @@ class PolicyEvaluator:
                     in_frontmatter = False
                 continue
 
-            if _fence.feed(line):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             if _fence.inside:

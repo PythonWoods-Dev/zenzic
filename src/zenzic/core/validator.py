@@ -49,7 +49,7 @@ import httpx
 import yaml
 
 from zenzic.core import regex as re
-from zenzic.core.ast import ExtractedLink, FenceTracker
+from zenzic.core.ast import BlockTracker, ExtractedLink
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
     iter_markdown_sources,
@@ -1367,10 +1367,10 @@ def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
     whitespace-only. Images are intentionally excluded from this rule.
     """
     results: list[tuple[int, int, str]] = []
-    _fence = FenceTracker()
+    _fence = BlockTracker()
 
     for lineno, line in enumerate(text.splitlines(), start=1):
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         if "[" not in line:
@@ -1449,9 +1449,9 @@ def anchors_in_file(content: str) -> set[str]:
         anchors.add(slug_heading(m.group(1)))
 
     # 2. Extract block-level explicit anchors & footnote anchors (skipping code blocks)
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     for line in content.splitlines():
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
         # Remove inline code spans to avoid false positives inside backticks
         clean_line = _INLINE_CODE_RE.sub("", line)
@@ -1486,9 +1486,9 @@ def _build_ref_map(text: str) -> dict[str, str]:
         Mapping of lowercase-normalised reference IDs to their URL targets.
     """
     ref_map: dict[str, str] = {}
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     for line in text.splitlines():
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
         m = _REF_DEF_RE.match(line)
         if m:
@@ -1519,9 +1519,9 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
         List of :class:`LinkInfo` with resolved URLs and source positions.
     """
     results: list[LinkInfo] = []
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     for lineno, line in enumerate(text.splitlines(), start=1):
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for m in _REF_LINK_RE.finditer(clean):
@@ -2044,7 +2044,7 @@ def _extract_code_blocks(text: str) -> list[tuple[str, str, int]]:
     block_lines: list[str] = []
     fence_line_no = 0
 
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     for lineno, line in enumerate(text.splitlines(), start=1):
         # `opens()` answers only from outside a fence, so the inner delimiters of
         # a nested block never restart collection -- which is what let a ````

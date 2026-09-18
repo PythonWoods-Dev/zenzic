@@ -157,10 +157,10 @@ class ZenzicRuleV3(BaseRule):
         :class:`zenzic.core.rules.UntaggedCodeBlockRule` (``_FENCE_OPEN_RE``)
         so both stay in sync on what counts as an opening/closing fence.
         """
-        from zenzic.core.ast import FenceTracker
+        from zenzic.core.ast import BlockTracker
 
         blocks: list[tuple[int, str, str]] = []
-        fence = FenceTracker()
+        fence = BlockTracker()
         start_line = 0
         lang = ""
         code_lines: list[str] = []

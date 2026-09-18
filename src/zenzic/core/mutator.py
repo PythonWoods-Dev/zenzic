@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from zenzic.core import regex
-from zenzic.core.ast import CodeSpanNode, FenceTracker, LinkNode, Node, TextNode
+from zenzic.core.ast import BlockTracker, CodeSpanNode, LinkNode, Node, TextNode
 
 
 _FENCE_OPEN_RE = regex.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
@@ -73,7 +73,7 @@ class UntaggedCodeBlockMutation:
             lines = text.splitlines(keepends=True)
             new_lines = []
             mutated = False
-            _fence = FenceTracker()
+            _fence = BlockTracker()
 
             for line in lines:
                 line_clean = line.rstrip("\r\n")

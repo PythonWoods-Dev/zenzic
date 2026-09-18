@@ -770,3 +770,25 @@ def test_placeholder_partial_files_word_count_skipped() -> None:
     assert any(f.rule_id == "Z502" for f in findings_reg)
     findings_partial = rule.check(Path("_partial.md"), "Short page.")
     assert not any(f.rule_id == "Z502" for f in findings_partial)
+
+
+def test_rule_engine_factory_is_not_cached() -> None:
+    """`_build_rule_engine` must return a fresh engine on every call.
+
+    The engine carries a per-run `ResolutionContext` and binds it onto each
+    rule before `check()`. Caching the factory would let a second run read the
+    first project's adapter-declared facts — silently, and worst in the LSP,
+    where two documents are analysed in one process.
+
+    The property held by accident until 2026-09-18: nothing declared it, so
+    nothing protected it, and adding `@lru_cache` for a performance reason
+    would have been a reasonable-looking change that broke correctness.
+    """
+    from zenzic.core import scanner
+
+    fn = scanner._build_rule_engine
+    for attr in ("cache_info", "cache_clear", "__wrapped__"):
+        assert not hasattr(fn, attr), (
+            f"_build_rule_engine carries {attr!r}, so it is memoised: two runs "
+            "would share one engine and therefore one ResolutionContext"
+        )

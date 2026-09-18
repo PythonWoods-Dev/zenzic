@@ -72,7 +72,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
-from zenzic.core.ast import FenceTracker
+from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.resolver import href_resolution_base, page_url_depth, traversal_intent
@@ -124,6 +124,17 @@ class ResolutionContext:
     #: that happened to resolve at the root was silently accepted.  Empty means
     #: the project has no locales, and the fallback must not fire at all.
     locale_names: frozenset[str] = frozenset()
+    #: The container-opening pattern for this project, resolved **once** from
+    #: the adapter's declared extensions (`core/extensions.py`). It rides the
+    #: context rather than each rule's signature: `get_output_dirs()` and
+    #: `get_metadata_files()` reach their consumers through a route built for
+    #: them, and a third declaration with no route would mean a fourth builds
+    #: its own. One parameter carries this fact and the next one.
+    #:
+    #: ``None`` means "use the default vocabulary", which is what an engine
+    #: with no configuration to read gets -- measured, not empty: emptiness
+    #: reads 1,112 lines of our own corpus as indented code.
+    containers: Any = None
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -352,6 +363,16 @@ class BaseRule(ABC):
     leave :meth:`check_vsm` as the default no-op.
     """
 
+    #: Set by :class:`AdaptiveRuleEngine` before each :meth:`check` call, so a
+    #: rule can reach adapter-declared facts without the signature changing.
+    #: `check()` is the SDK's public contract -- a third positional parameter
+    #: would break every third-party rule implementing `check(self, file_path,
+    #: text)` -- so the context arrives beside the call rather than inside it.
+    #:
+    #: ``None`` for a rule invoked outside the engine, and every consumer must
+    #: read that as "use the defaults", never as an error.
+    _context: ResolutionContext | None = None
+
     @property
     @abstractmethod
     def rule_id(self) -> str:
@@ -565,10 +586,11 @@ class AdaptiveRuleEngine:
         PluginContractError: If any rule fails the eager pickle validation.
     """
 
-    def __init__(self, rules: Sequence[BaseRule]) -> None:
+    def __init__(self, rules: Sequence[BaseRule], context: ResolutionContext | None = None) -> None:
         for rule in rules:
             _assert_pickleable(rule)
         self._rules = rules
+        self._context = context
 
     def __bool__(self) -> bool:
         """Return ``True`` when the engine has at least one rule."""
@@ -592,6 +614,11 @@ class AdaptiveRuleEngine:
         findings: list[RuleFinding] = []
         for rule in self._rules:
             try:
+                # Core rules read the context from the engine rather than
+                # from `check()`'s signature: that signature is the SDK's
+                # public contract, and a third positional would break every
+                # third-party rule implementing `check(self, file_path, text)`.
+                rule._context = self._context  # noqa: SLF001
                 findings.extend(rule.check(file_path, text))
             except ZenzicRuleTimeout as exc:
                 findings.append(
@@ -756,7 +783,7 @@ def count_inline_suppressions(text: str) -> int:
     suppression regex is applied on each prose line.
     """
     total = 0
-    fence = FenceTracker()
+    fence = BlockTracker()
     for line in text.splitlines():
         if fence.feed(line):
             continue
@@ -880,7 +907,7 @@ class UntaggedCodeBlockRule(BaseRule):
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
-        _fence = FenceTracker()
+        _fence = BlockTracker()
 
         for line_no, line in enumerate(text.splitlines(), start=1):
             # `opens()` answers only from the outside -- it returns None while the
@@ -1026,9 +1053,9 @@ class BrandObsolescenceRule(BaseRule):
         findings: list[RuleFinding] = []
         # Fence-tracking state — body lines inside code blocks are not brand
         # claims and must not trigger Z601 (CEO-152).
-        _fence = FenceTracker()
+        _fence = BlockTracker()
         for line_no, line in enumerate(text.splitlines(), start=1):
-            if _fence.feed(line):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
             for m in self._union_pattern.finditer(line):
                 findings.append(
@@ -1143,14 +1170,14 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     from zenzic.core.validator import PolyglotExtractor
 
     results: list[tuple[str, int, str]] = []
-    _fence = FenceTracker()
+    _fence = BlockTracker()
     # _mask_comments blanks HTML and MDX comments with spaces of equal length
     # and preserves newlines, so line numbers and caret columns below are
     # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
     _extractor = PolyglotExtractor()
     text_masked = _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
     for lineno, line in enumerate(text_masked.splitlines(), start=1):
-        if _fence.feed(line):
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
@@ -1359,9 +1386,9 @@ class PlaceholderRule(BaseRule):
         if not self.patterns or not self._combined_re:
             return []
         findings = []
-        _fence = FenceTracker()
+        _fence = BlockTracker()
         for i, line in enumerate(text.splitlines(), start=1):
-            if _fence.feed(line):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             if not self._combined_re.search(line):

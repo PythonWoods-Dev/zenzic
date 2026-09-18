@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Literal
 
 import pathspec.gitignore
 
+from zenzic.core.extensions import DEFAULT_EXTENSIONS, EnabledExtensions
+
 
 if TYPE_CHECKING:
     from zenzic.models.vsm import RouteStatus, VirtualSiteMap
@@ -101,6 +103,30 @@ class BaseAdapter(ABC):
     @abstractmethod
     def get_metadata_files(self) -> frozenset[str]:
         """Return engine-owned config filenames excluded from quality findings."""
+
+    def get_enabled_extensions(self) -> EnabledExtensions:
+        """Return the Markdown extensions this project enables.
+
+        The adapter answers **which extensions are on**, because that is a fact
+        about the project. What each one brings is `core/extensions.py`'s, because
+        that is a fact about Markdown. MkDocs does not define ``!!!``; it enables
+        `admonition`, and only when the project lists it.
+
+        **The default is not the empty set, and this differs from**
+        :meth:`get_output_dirs` **on purpose.** There, an engine declaring no
+        output directory returns nothing rather than guessing, because a wrong
+        guess excludes real content. Here the opposite is measured: an empty
+        vocabulary makes the block tracker read **1,112 lines of our own corpus
+        and 1,068 of `zensical/docs`** as indented code, which every rule that
+        opts into `in_indented_code` then skips. Emptiness is the expensive
+        answer, so an engine with no configuration to read inherits
+        `DEFAULT_EXTENSIONS` instead.
+
+        Measured 2026-09-18: on both corpora the default and the real reading
+        produce the identical result, because both enable all four relevant
+        extensions.
+        """
+        return EnabledExtensions(names=DEFAULT_EXTENSIONS)
 
     def get_output_dirs(self) -> frozenset[str]:
         """Return repo-relative directories this engine writes its built site to.

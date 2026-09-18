@@ -34,6 +34,7 @@ from zenzic.core.adapters._utils import (
     validate_pathspec_value,
 )
 from zenzic.core.exceptions import ZenzicConfigError
+from zenzic.core.extensions import EnabledExtensions
 from zenzic.models.config import BuildContext
 
 
@@ -672,6 +673,28 @@ class MkDocsAdapter(BaseAdapter):
         scenario where the adapter has no nav or i18n information to contribute.
         """
         return self._config_file_found or bool(self._locale_dirs)
+
+    def get_enabled_extensions(self) -> EnabledExtensions:
+        """Read ``markdown_extensions`` from the project's own MkDocs config.
+
+        Uses the same permissive loader the nav already goes through: a real
+        ``mkdocs.yml`` carries ``!!python/name:`` tags that ``yaml.safe_load``
+        refuses outright, and both measured corpora have them.
+
+        That loader does not resolve those tags -- it yields the empty string
+        for a bare one, and drops the name from an entry that carries options.
+        So an extension *declared by tag* is invisible here, by measurement
+        rather than by assumption, and `EnabledExtensions.unreadable` counts
+        those entries instead of inventing names from their option keys.
+        """
+        if self._repo_root is None:
+            # No repository root means no config to read, which is the same
+            # position an engine with no configuration is in: the default set,
+            # not emptiness. Emptiness reads 1,112 lines of our own corpus as
+            # indented code.
+            return super().get_enabled_extensions()
+        config = _load_doc_config(self._repo_root)
+        return EnabledExtensions.from_declaration(config.get("markdown_extensions"))
 
     def get_metadata_files(self) -> frozenset[str]:
         """MkDocs configuration files — excluded from Z405/Z903."""

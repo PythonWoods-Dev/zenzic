@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
-from zenzic.core.ast import FenceTracker
+from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import code_severity, exit_contract_severity
 from zenzic.core.credentials import (
     SecurityFinding,
@@ -876,7 +876,7 @@ def _iter_content_lines(
     Yields:
         ``(1-based line number, raw line string)`` for every content line.
     """
-    fence = FenceTracker()
+    fence = BlockTracker()
 
     with file_path.open(encoding="utf-8") as fh:
         for lineno, line in _skip_frontmatter(fh):
@@ -893,7 +893,7 @@ def _iter_content_lines_text(
     text: str,
 ) -> Generator[tuple[int, str], None, None]:
     """In-memory variant of :func:`_iter_content_lines` — no file I/O."""
-    fence = FenceTracker()
+    fence = BlockTracker()
     for lineno, line in _skip_frontmatter(text.splitlines(keepends=True)):
         if fence.feed(line):
             continue
@@ -958,9 +958,9 @@ class ReferenceScanner:
             secret_line_nos.add(finding.line_no)
 
         content_events: list[HarvestEvent] = []
-        _fence = FenceTracker()
+        _fence = BlockTracker()
         for lineno, line in _skip_frontmatter(lines):
-            if _fence.feed(line):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             def_match = _RE_REF_DEF.match(line)
@@ -1682,6 +1682,15 @@ def _run_vsm_and_urp_pass(
                 )
 
 
+# MUST NOT BE CACHED, and this is a correctness constraint rather than a
+# preference. `AdaptiveRuleEngine` carries the per-run `ResolutionContext`, and
+# the engine binds it onto each rule before calling `check()`. A cached factory
+# would hand two runs the same engine, so the second would read the first
+# project's adapter-declared facts -- silently, and worst in the LSP, where two
+# documents are analysed in one process.
+#
+# `test_rule_engine_factory_is_not_cached` asserts it, because the property
+# held by accident until 2026-09-18: nothing said it, so nothing protected it.
 def _build_rule_engine(
     config: ZenzicConfig,
     anchors_out: dict[Path, set[str]] | None = None,

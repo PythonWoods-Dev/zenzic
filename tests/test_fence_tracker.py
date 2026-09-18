@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""FenceTracker against CommonMark 0.31.2 §4.5.
+"""BlockTracker against CommonMark 0.31.2 §4.5.
 
 Derived from the specification's clauses, not from the defects that prompted
 the rewrite. That is the point: the previous model was built case by case from
@@ -14,12 +14,12 @@ from __future__ import annotations
 
 import pytest
 
-from zenzic.core.ast import FenceTracker
+from zenzic.core.ast import BlockTracker
 
 
 def content_lines(text: str) -> list[str]:
     """Every line the tracker says is real content."""
-    t = FenceTracker()
+    t = BlockTracker()
     return [ln for ln in text.split("\n") if not t.feed(ln)]
 
 
@@ -95,7 +95,7 @@ def test_an_unclosed_fence_runs_to_end_of_document() -> None:
 
 
 def test_the_tracker_reports_being_inside_after_an_unclosed_fence() -> None:
-    t = FenceTracker()
+    t = BlockTracker()
     for ln in "a\n```\nb".split("\n"):
         t.feed(ln)
     assert t.inside is True

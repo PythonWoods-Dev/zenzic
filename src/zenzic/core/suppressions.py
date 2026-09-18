@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from zenzic.core import regex as re
-from zenzic.core.ast import FenceTracker
+from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import (
     NON_INLINE_SUPPRESSIBLE_CODES,
     NON_SUPPRESSIBLE_CODES,
@@ -161,7 +161,7 @@ class SuppressionTracker:
         self._parse(text)
 
     def _parse(self, text: str) -> None:
-        fence = FenceTracker()
+        fence = BlockTracker()
         for i, line in enumerate(text.splitlines(), start=1):
             if fence.feed(line):
                 continue
