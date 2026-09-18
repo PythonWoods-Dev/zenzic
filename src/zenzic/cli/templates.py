@@ -48,6 +48,12 @@ def _activation_block() -> str:
         "#\n",
         "# Generated from the code registry (src/zenzic/core/codes.py). Adding a\n",
         "# gated code there changes this block; it is not maintained by hand.\n",
+        "#\n",
+        "# Only the gated codes appear below, because only they have a key you can\n",
+        "# set. The on-by-default codes -- the majority -- take no configuration and\n",
+        "# are therefore absent from this file: their absence is not an off switch.\n",
+        "# Every code, what triggers it, and how to suppress it:\n",
+        "#   https://zenzic.dev/reference/finding-codes/\n",
         "\n",
         "# -- opt-in: set to true to enable --\n",
     ]
