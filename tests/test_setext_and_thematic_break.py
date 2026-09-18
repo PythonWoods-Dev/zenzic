@@ -154,3 +154,61 @@ def test_the_finding_points_at_the_text_line_not_the_underline(tmp_path) -> None
     findings = check_multiple_h1_headings(tmp_path / "d.md", doc, containers=None)
     assert len(findings) == 1
     assert findings[0].line_no == 5
+
+
+# ── §5.1: a block quote is not a paragraph ───────────────────────────────────
+
+
+def test_an_underline_outside_a_quote_does_not_close_a_paragraph_inside_it() -> None:
+    """The regression this component introduced on the day it learned setext.
+
+    `> **Bold note**` followed by a line of dashes read as an `H2` whose text was
+    the whole block quote, marker included — and `Z512` then reported it as a
+    heading section with no body. Measured against this file's parent commit:
+    the same input produced nothing there, so the defect was mine and new.
+
+    CommonMark §5.1: `>` opens a block quote. A setext underline outside it
+    cannot close a paragraph inside it.
+    """
+    assert _setexts("> **Scope Clarification — a bold note**\n---\n") == []
+
+
+def test_a_setext_heading_inside_a_quote_is_recognised_without_its_marker() -> None:
+    """Both lines quoted: a real setext heading, and its text is the content."""
+    assert _setexts("> Titolo citato\n> ---\n") == [(2, "Titolo citato")]
+
+
+def test_an_underline_inside_a_quote_does_not_close_a_paragraph_outside_it() -> None:
+    """The mirror of the first: the levels must agree in both directions."""
+    assert _setexts("Testo non citato\n> ---\n") == []
+
+
+# ── The message quotes a heading, not an essay ───────────────────────────────
+
+
+def test_a_long_heading_is_bounded_in_the_message(tmp_path) -> None:
+    """A heading is a line; a message that quotes one must not print a paragraph.
+
+    The bound was added because the defect above printed an entire block quote
+    as a title. The defect is fixed; the bound stays, because a legitimately
+    long heading should not do the same to a terminal.
+    """
+    from zenzic.core.content import check_empty_sections
+
+    long_title = "Un titolo legittimo ma molto molto lungo che supera abbondantemente la soglia"
+    doc = f"# T\n\ntesto\n\n## {long_title}\n\n## Altra\n\ncorpo\n"
+    findings = check_empty_sections(tmp_path / "d.md", doc, containers=None)
+    assert len(findings) == 1
+    assert long_title not in findings[0].message
+    assert "…" in findings[0].message
+
+
+def test_a_short_heading_is_quoted_whole(tmp_path) -> None:
+    """The positive control: the bound must not truncate what fits."""
+    from zenzic.core.content import check_empty_sections
+
+    doc = "# T\n\ntesto\n\n## Breve\n\n## Altra\n\ncorpo\n"
+    findings = check_empty_sections(tmp_path / "d.md", doc, containers=None)
+    assert len(findings) == 1
+    assert "'Breve'" in findings[0].message
+    assert "…" not in findings[0].message

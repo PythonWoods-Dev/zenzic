@@ -360,7 +360,8 @@ def check_empty_sections(
                         severity=code_severity("Z512"),
                         file_path=file_path,
                         line_no=current_heading_line,
-                        message=f"Heading section '{current_heading}' contains no body content before next section or EOF.",
+                        message=f"Heading section '{_short_heading(current_heading)}' contains no body content "
+                        "before next section or EOF.",
                         match_text=current_heading,
                         col_start=_col_of(lines[current_heading_line - 1], current_heading),
                     )
@@ -384,7 +385,8 @@ def check_empty_sections(
                 severity=code_severity("Z512"),
                 file_path=file_path,
                 line_no=current_heading_line,
-                message=f"Heading section '{current_heading}' contains no body content before next section or EOF.",
+                message=f"Heading section '{_short_heading(current_heading)}' contains no body content "
+                "before next section or EOF.",
                 match_text=current_heading,
                 col_start=_col_of(lines[current_heading_line - 1], current_heading),
             )
@@ -394,6 +396,22 @@ def check_empty_sections(
 
 
 # ─── Z513, Z514, Z515, Z516, Z517 ─────────────────────────────────────────────
+
+
+#: A heading is a line, not a paragraph, so a message that quotes one should not
+#: be able to print an essay. The bound exists because a defect in the heading
+#: recogniser printed an entire block quote as a title -- the message made the
+#: defect obvious, which is worth keeping, but a legitimately long heading
+#: should not do the same to a terminal.
+_HEADING_QUOTE_MAX = 60
+
+
+def _short_heading(title: str) -> str:
+    """The heading text as a message should quote it: one line, bounded."""
+    collapsed = " ".join(title.split())
+    if len(collapsed) <= _HEADING_QUOTE_MAX:
+        return collapsed
+    return collapsed[: _HEADING_QUOTE_MAX - 1].rstrip() + "…"
 
 
 def _heading_here(
@@ -572,7 +590,8 @@ def check_duplicate_headings(
                         severity=code_severity("Z513"),
                         file_path=file_path,
                         line_no=_hline,
-                        message=f"Duplicate heading '{clean_title}' found (first occurrence at line {first_line}).",
+                        message=f"Duplicate heading '{_short_heading(clean_title)}' found "
+                        f"(first occurrence at line {first_line}).",
                         match_text=clean_title,
                         col_start=_col_of(_hraw, clean_title),
                         matched_line=_hraw,
@@ -760,7 +779,7 @@ def check_multiple_h1_headings(
                         file_path=file_path,
                         line_no=_hline,
                         message=(
-                            f"Multiple H1 headings detected in document ('{clean_title}'). "
+                            f"Multiple H1 headings detected in document ('{_short_heading(clean_title)}'). "
                             "Documents must have exactly one H1 title."
                         ),
                         match_text=clean_title,
@@ -948,7 +967,7 @@ def check_all_heading_rules(
                             file_path=file_path,
                             line_no=_hline,
                             message=(
-                                f"Multiple H1 headings detected in document ('{clean_title}'). "
+                                f"Multiple H1 headings detected in document ('{_short_heading(clean_title)}'). "
                                 "Documents must have exactly one H1 title."
                             ),
                             match_text=clean_title,

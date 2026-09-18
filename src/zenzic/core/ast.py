@@ -236,6 +236,12 @@ _FENCE_RE = _re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<info>[^\n]*)")
 #: why matching it is necessary and not sufficient.
 _SETEXT_UNDERLINE_RE = _re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
 
+#: A block-quote line (CommonMark 5.1): `>` after at most three spaces. The
+#: marker repeats on every line of the quote, which is why a block quote is not
+#: expressed in `_container_stack` -- that stack models a marker written once
+#: with indented content under it, and a quote is not that shape.
+_BLOCKQUOTE_RE = _re.compile(r"^ {0,3}>")
+
 
 def _default_containers() -> RegexPattern:
     """The pattern for an engine with no configuration to read.
@@ -285,6 +291,7 @@ class BlockTracker:
         "_len",
         "_line_no",
         "_paragraph_open",
+        "_paragraph_quoted",
         "_paragraph_text",
         "in_frontmatter",
         "in_indented_code",
@@ -313,6 +320,13 @@ class BlockTracker:
         #: *is* that text, so a consumer needs it rather than the underline it
         #: just read.
         self._paragraph_text: str = ""
+        #: Whether the paragraph above opened inside a block quote. CommonMark
+        #: 5.1: `>` opens a quote, and a setext underline outside it cannot
+        #: close a paragraph inside it. Without this, `> **Bold note**` followed
+        #: by a line of dashes read as an H2 whose text was the whole blockquote,
+        #: marker included -- a regression this component introduced on the day
+        #: it learned setext, measured against its own parent commit.
+        self._paragraph_quoted: bool = False
         #: 0, or 1 / 2 when the line just fed is a setext underline and the
         #: heading it closes is an H1 / H2. A **third question**, opt-in like
         #: `in_indented_code`: `feed()`'s verdict stays about fences.
@@ -426,8 +440,14 @@ class BlockTracker:
         # `---` after a blank line is a break, the same characters under a line
         # of text are an H2 underline. `_paragraph_open` already carried that
         # bit for indented code, which is why this needed no new state machine.
-        if self._paragraph_open and _SETEXT_UNDERLINE_RE.match(line):
-            self.setext_level = 1 if stripped[0] == "=" else 2
+        quoted = bool(_BLOCKQUOTE_RE.match(line))
+        if (
+            self._paragraph_open
+            and quoted == self._paragraph_quoted
+            and _SETEXT_UNDERLINE_RE.match(line if not quoted else stripped.lstrip("> "))
+        ):
+            underline = stripped.lstrip("> ") if quoted else stripped
+            self.setext_level = 1 if underline[0] == "=" else 2
             self._paragraph_open = False
             self.in_indented_code = False
             return
@@ -479,7 +499,11 @@ class BlockTracker:
         else:
             self.in_indented_code = False
             self._paragraph_open = True
-            self._paragraph_text = stripped
+            self._paragraph_quoted = bool(_BLOCKQUOTE_RE.match(line))
+            # A quoted paragraph's text is the quote's content, not the marker.
+            self._paragraph_text = (
+                stripped.lstrip("> ").strip() if self._paragraph_quoted else stripped
+            )
 
     def opens(self, line: str) -> tuple[str, str] | None:
         """Return ``(fence, info)`` if *line* opens a fence from the outside.
