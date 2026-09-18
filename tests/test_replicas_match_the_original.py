@@ -12,8 +12,8 @@ A test is not the core. `pymdown-extensions` is declared in the `test`
 dependency group for exactly this file, so the divergence surfaces here rather
 than as a wrong finding on a user's corpus.
 
-There is no `importorskip` on purpose: a check that disappears with its subject
-is not a check (Rule 31). If this import fails, the dependency declaration is
+There is no `importorskip` on purpose: a check that disappears together with
+its subject is not a check. If this import fails, the dependency declaration is
 what needs fixing.
 """
 

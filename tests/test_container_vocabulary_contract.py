@@ -60,7 +60,7 @@ def _functions_building_a_tracker() -> list[ast.FunctionDef]:
 
 
 def test_the_instrument_finds_something() -> None:
-    """Rule 39: the sweep below is not evidence until it has found something."""
+    """The sweep below is not evidence until the instrument has found something."""
     names = [f.name for f in _functions_building_a_tracker()]
     assert len(names) == 13, f"expected 13 tracker-building functions, found {names}"
 
