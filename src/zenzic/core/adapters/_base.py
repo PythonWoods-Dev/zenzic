@@ -104,6 +104,32 @@ class BaseAdapter(ABC):
     def get_metadata_files(self) -> frozenset[str]:
         """Return engine-owned config filenames excluded from quality findings."""
 
+    def declared_sources(self) -> set[str] | None:
+        """Return the source paths this adapter's routing table **declares**, or
+        ``None`` when routes are derived from the filesystem instead.
+
+        Only a declarative adapter can be stale, and the distinction is the
+        whole point of this method. ``standalone`` computes each URL from the
+        path it has just read: there is no second copy to fall behind, so drift
+        is not a state it can reach and a drift finding there would be one no
+        user could act on. ``prebuilt`` reads ``.zenzic-vsm.json``, written by
+        a separate tool at a separate time, and that copy goes stale the moment
+        someone adds a page without re-running the generator.
+
+        Measured before this method existed: a source absent from the manifest
+        is routed ``IGNORED`` by :class:`PrebuiltVSMAdapter`, and a link whose
+        target is IGNORED is reported ``Z101 ... UNREACHABLE_LINK``. So adding
+        a page and linking to it produced an error on a link that was correct,
+        and the run named the link rather than the manifest. The engine held
+        both sets — what the manifest declares, what the scan read — and
+        compared them nowhere.
+
+        Returning ``None`` (the default) means "not a declarative table, never
+        stale", which is not the same as returning an empty set — that would
+        mean "declares nothing", i.e. total drift.
+        """
+        return None
+
     def get_enabled_extensions(self) -> EnabledExtensions:
         """Return the Markdown extensions this project enables.
 

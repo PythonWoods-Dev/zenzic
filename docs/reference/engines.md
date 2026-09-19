@@ -78,6 +78,12 @@ The `[build_context]` section in `.zenzic.toml` tells Zenzic which engine your p
     [same page](../how-to/configure-adapter.md#prebuilt-route-manifest) says what to do about
     it. Everything else reports accurately.
 
+    **And one thing to keep doing.** The manifest is a second copy of your routing, so it goes
+    stale the moment a page is added without re-running the generator that writes it. A page
+    the manifest does not list has no route, and every correct link pointing at it is reported
+    unreachable. [`Z115`](finding-codes.md#z115) names each such page so the cause is on screen
+    rather than inferred from a link that looks broken and is not.
+
 ```toml
 # .zenzic.toml
 [build_context]

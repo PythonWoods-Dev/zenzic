@@ -1627,6 +1627,21 @@ def init(
 
     enabled_keys: list[str] = []
     engine_reason = "manually specified via --engine"
+    # The source directory comes from the generator rather than from the
+    # default. Measured: `init` never wrote `docs_dir` -- it left a commented
+    # example, so the default `docs` applied, and an Astro repository has no
+    # `docs/`. The user then ran `check all` as the panel instructs and got
+    # "Audit skipped" with exit 0, over 2,604 unexamined sources.
+    _gen = detect_generator(repo_root)
+    generator_docs_dir: str | None = None
+    generator_name: str | None = None
+    if _gen:
+        generator_name, _candidate, _marker = _gen
+        # Verified to exist before it is written. A generated configuration
+        # pointing at a directory that is not there is the defect this closes,
+        # not a variant of it.
+        if (repo_root / _candidate).is_dir():
+            generator_docs_dir = _candidate
     if interactive:
         engine = _prompt_engine(repo_root, engine)
         engine_reason = "chosen at the prompt"
@@ -1664,6 +1679,8 @@ def init(
             engine_override=engine,
             engine_reason=engine_reason,
             enabled_keys=enabled_keys,
+            docs_dir=generator_docs_dir,
+            generator=generator_name,
         )
 
     # Local Sovereignty: always scaffold machine-local overlay.
@@ -1780,6 +1797,46 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
     )
 
 
+#: Generators Zenzic has no adapter for, keyed by what each leaves in a
+#: repository root, with the directory its sources live in.
+#:
+#: **Every entry is measured, not recalled.** Astro: `withastro/docs`
+#: cloned at `16fe0736` holds **2,604 of its 2,618** Markdown sources under
+#: `src/content/docs`, the remaining fourteen being root-level README and
+#: CONTRIBUTING files. Docusaurus: a `create-docusaurus` classic scaffold keeps
+#: its nine documentation sources under `docs`. Both artefacts were on disk and
+#: counted; the official Astro documentation was also fetched and returned 403,
+#: which is why the artefact is cited instead of a page.
+#:
+#: **Hugo is deliberately absent.** No Hugo artefact was available to measure,
+#: and writing its layout from memory is exactly what this table must not
+#: contain. A generator named here without measurement would be worse than one
+#: missing: it would send a user to a directory nobody checked.
+GENERATOR_MARKERS: dict[str, tuple[tuple[str, ...], str]] = {
+    "astro": (("astro.config.mjs", "astro.config.ts", "astro.config.js"), "src/content/docs"),
+    "docusaurus": (
+        ("docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs"),
+        "docs",
+    ),
+}
+
+
+def detect_generator(repo_root: Path) -> tuple[str, str, str] | None:
+    """Return ``(generator, docs_dir, marker_filename)`` when one is recognised.
+
+    A generator's own config file in the root is as strong a signal as
+    `mkdocs.yml`, and until 2026-09-19 nothing looked for one: `zenzic init` on
+    a cloned Astro repository printed "standalone (auto-detected)" with
+    `astro.config.ts` sitting beside it, and the word *auto-detected* told the
+    user detection had succeeded.
+    """
+    for generator, (markers, docs_dir) in GENERATOR_MARKERS.items():
+        for marker in markers:
+            if (repo_root / marker).is_file():
+                return generator, docs_dir, marker
+    return None
+
+
 def _detection_reason(repo_root: Path) -> str:
     """Name the file the engine detection rested on, or say there was none."""
     for marker, why in (
@@ -1790,7 +1847,11 @@ def _detection_reason(repo_root: Path) -> str:
     ):
         if (repo_root / marker).is_file():
             return f"{why} found"
-    return "no engine file found"
+    found = detect_generator(repo_root)
+    if found:
+        generator, _docs, marker = found
+        return f"{marker} found — this is {generator.capitalize()}"
+    return "nothing found to detect from"
 
 
 def _prompt_engine(repo_root: Path, override: str | None) -> str:
@@ -1802,7 +1863,15 @@ def _prompt_engine(repo_root: Path, override: str | None) -> str:
     """
     from zenzic.core.adapters._factory import list_adapter_engines
 
-    detected = override or _detect_init_engine(repo_root)
+    generator = None if override else detect_generator(repo_root)
+    if generator and _detect_init_engine(repo_root) == "standalone":
+        # A generator Zenzic has no adapter for is served by `prebuilt`, and
+        # proposing `standalone` here is proposing the worst answer available:
+        # measured on a real Astro tree, `standalone` gives an order of
+        # magnitude more findings than the documented configuration.
+        detected = "prebuilt"
+    else:
+        detected = override or _detect_init_engine(repo_root)
     reason = "given with --engine" if override else _detection_reason(repo_root)
     choices = list_adapter_engines()
     _shared.console.print(
@@ -1904,11 +1973,20 @@ def _supported_engines() -> str:
     return ", ".join(list_adapter_engines())
 
 
-def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) -> str:
-    """Build governance configuration template with didactic comments."""
+def _build_governance_ready_toml(
+    *, engine: str, discovered_name: str | None, docs_dir: str | None = None
+) -> str:
+    """Build governance configuration template with didactic comments.
+
+    *docs_dir* is written uncommented when a generator declared it. Left
+    commented, the default `docs` applies -- which on an Astro repository names
+    a directory that does not exist, and the scan then examined nothing and
+    exited 0.
+    """
     hint_name = discovered_name or "My Awesome App"
+    line = f'docs_dir = "{docs_dir}"\n' if docs_dir else '# docs_dir = "docs"\n'
     return GLOBAL_TOML_TEMPLATE.format(
-        engine=engine, engines=_supported_engines(), hint_name=hint_name
+        engine=engine, engines=_supported_engines(), hint_name=hint_name, docs_dir_line=line
     )
 
 
@@ -1918,6 +1996,8 @@ def _init_standalone(
     engine_override: str | None = None,
     engine_reason: str = "manually specified via --engine",
     enabled_keys: list[str] | None = None,
+    docs_dir: str | None = None,
+    generator: str | None = None,
 ) -> None:
     """Create a standalone ``.zenzic.toml`` configuration file."""
     config_path = repo_root / ".zenzic.toml"
@@ -1934,10 +2014,23 @@ def _init_standalone(
         if engine_override
         else f"[bold cyan]{detected_engine}[/] (auto-detected)."
     )
+    if generator and detected_engine == "standalone":
+        # "auto-detected" with no object is the word that made this defect
+        # invisible: it told the user detection had succeeded while
+        # `astro.config.ts` sat unread in the root. Name what was found, and
+        # name the engine that serves it -- without configuring `prebuilt`
+        # here, because `prebuilt` without a manifest degrades to `standalone`
+        # and would warn on every run of a project that has not written one.
+        engine_hint = (
+            f"[bold cyan]standalone[/] — but {generator.capitalize()} was detected, "
+            "and `prebuilt` serves it once a route manifest exists:\n"
+            "     https://zenzic.dev/how-to/configure-adapter/#prebuilt-route-manifest"
+        )
     discovered_name = _discover_project_name(repo_root)
     toml_content = _build_governance_ready_toml(
         engine=detected_engine,
         discovered_name=discovered_name,
+        docs_dir=docs_dir,
     )
     toml_content = _enable_flags(toml_content, enabled_keys or [])
 

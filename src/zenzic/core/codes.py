@@ -23,6 +23,7 @@ Z1xx — Link Integrity
     Z110  CONFIG_SYNTAX_ERROR  — malformed TOML syntax in configuration file; ConfigurationError before analysis
     Z111  CONFIG_SCHEMA_ERROR  — invalid schema structure or type in configuration file; ZenzicConfigError before analysis
     Z112  STALE_ALLOWLIST_ENTRY — stale absolute path allowlist entry declared in .zenzic.toml
+    Z115  STALE_ROUTE_MANIFEST — source file absent from the engine's declared routing table
     Z120  UNKNOWN_HTML_ATTRIBUTE — HTML attribute not in Safe-Core list (Polyglot Extractor — v0.17.0)
     Z121  MISSING_OR_EMPTY_HREF  — <a>/<img> tag has no href/src, or it is empty
     Z122  JUMP_LINK_DETECTED     — href="#" detected (placeholder or opaque JS anchor)
@@ -344,6 +345,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z110": CodeDefinition("error", 0.0, None),  # CONFIG_SYNTAX_ERROR — malformed TOML
     "Z111": CodeDefinition("error", 0.0, None),  # CONFIG_SCHEMA_ERROR — invalid schema/type
     "Z112": CodeDefinition("warning", 1.0, "structural"),  # STALE_ALLOWLIST_ENTRY
+    "Z115": CodeDefinition("warning", 1.0, "structural"),  # STALE_ROUTE_MANIFEST
     "Z620": CodeDefinition("warning", 1.0, "brand"),  # STALE_GLOBAL_SUPPRESSION
     # ── Z12x — HTML Integrity (Polyglot Extractor — v0.17.0) ──────────────────
     # Emitted by PolyglotExtractor for raw HTML <a>/<img>/<link> tags and JSX
@@ -586,6 +588,7 @@ CODE_NAMES: Final[dict[str, str]] = {
     "Z110": "CONFIG_SYNTAX_ERROR",
     "Z111": "CONFIG_SCHEMA_ERROR",
     "Z112": "STALE_ALLOWLIST_ENTRY",
+    "Z115": "STALE_ROUTE_MANIFEST",
     "Z620": "STALE_GLOBAL_SUPPRESSION",
     "Z120": "UNKNOWN_HTML_ATTRIBUTE",
     "Z121": "MISSING_OR_EMPTY_HREF",
@@ -664,6 +667,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z110": "Malformed TOML syntax in configuration file (.zenzic.toml)",
     "Z111": "Invalid schema structure or type in configuration file (.zenzic.toml)",
     "Z112": "Stale absolute_path_allowlist entry declared in configuration but never matched by any scanned link",
+    "Z115": "Source file present in the corpus but absent from the engine's declared route manifest",
     "Z620": "Global configuration rule was never used during the scan — remove the dead configuration",
     # Z12x — HTML Integrity (Polyglot Extractor — v0.17.0)
     "Z120": "HTML attribute not in Safe-Core list — declare intent or suppress with data-zenzic-ignore",

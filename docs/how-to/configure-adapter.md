@@ -147,16 +147,21 @@ Nothing ships to generate this file. Writing it is the cost of this approach.
     the manifest and once after, and read the *count*:
 
     - **It does not move at all.** `.zenzic-vsm.json` is not where Zenzic looked — it is read
-      from the **repository root**, not from `docs_dir`. Declaring `engine = "prebuilt"` with no
-      manifest present is not an error and produces no message: the run falls back to
-      `standalone` and reports exactly what `standalone` reports. Check the file is there before
-      looking for anything subtler.
+      from the **repository root**, not from `docs_dir`. The run says so: declaring
+      `engine = "prebuilt"` with no manifest present prints a notice naming the file it looked
+      for and the engine it used instead, then falls back to `standalone` and reports exactly
+      what `standalone` reports. Check the file is where the notice says it is not.
+    - **Some pages report `Z115`.** Those are the pages your manifest does not list, named one
+      by one. The manifest is behind the tree — regenerate it. Every link pointing at one of
+      them is reported unreachable until you do, which is where a good part of a stubbornly
+      high count comes from.
     - **It moves, but nowhere near tenfold.** The manifest's URLs are not the URLs your authors
       write. On an i18n site this is almost always the missing locale prefix — the keys are
       relative to `docs_dir` and lose the segment, the URLs must keep it.
     - **It drops, but `Z105` is most of what remains.** `absolute_path_allowlist` is missing.
     - **It goes up.** The manifest covers a smaller tree than `docs_dir` does — a one-locale
-      manifest pointed at every locale is the usual way in.
+      manifest pointed at every locale is the usual way in. `Z115` names every page in the gap,
+      so you do not have to guess which tree is short.
 
     A correct manifest moves the count by an order of magnitude. A small improvement is not a
     partial success here; it means the mapping is wrong and the findings that remain cannot

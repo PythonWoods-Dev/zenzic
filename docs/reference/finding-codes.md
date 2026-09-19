@@ -305,9 +305,12 @@ The `.zenzic.toml` (or `pyproject.toml`) workspace configuration file contains a
 
 The `.zenzic.toml` (or `pyproject.toml`) configuration file contains an invalid structure or a value of the wrong type (e.g. a string where an integer is required). An unknown key or section is not an error: it is reported as a warning that names it, and ignored. Zenzic halts document analysis before any Markdown file is read to protect workspace integrity.
 
+Since v0.31.0 this code also covers **a `docs_dir` that does not exist**. That case used to be `Z906` at exit `0`, which reported success over a directory Zenzic never read; a directory that exists and is merely empty keeps `Z906` and exit `0`. When a documentation generator is detected in the repository, the message names it and the directory that generator uses.
+
 **Fix:**
 
 1. Correct the configuration key name or value type in `.zenzic.toml` as indicated by the field error in the diagnostic message.
+2. For a missing `docs_dir`, point it at the directory holding your Markdown sources — `src/content/docs` for Astro/Starlight, `docs` for Docusaurus. `zenzic init` writes this line for you when it recognises the generator.
 
 ---
 
@@ -321,6 +324,22 @@ An entry in the `absolute_path_allowlist` configuration was never matched by any
 
 1. Open `.zenzic.toml` (or `pyproject.toml`) and locate `absolute_path_allowlist`.
 2. Remove the unused entry from the list.
+
+---
+
+### Z115: STALE_ROUTE_MANIFEST {#z115}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Rule Specification](../rules/Z115.md)
+
+A Markdown source in your documentation tree is not listed in the route manifest the `prebuilt` engine reads (`.zenzic-vsm.json`). Only an engine that reads a *declared* routing table can raise this: `standalone` derives each URL from the path it just read, so it has no second copy to fall behind.
+
+A source the manifest does not declare routes as `IGNORED`, which means every link pointing at it is reported unreachable — `Z101`, on a link that is correct. Z115 is what names the cause, so the fix you reach for is the right one.
+
+**Fix:**
+
+1. Re-run the generator that writes `.zenzic-vsm.json`, then commit the updated manifest.
+2. If the manifest is generated during your CI build rather than committed, make sure it is generated *before* `zenzic check` runs — a manifest written afterwards has no effect on that run.
+3. If no generator writes one, `prebuilt` is the wrong engine for the project. Use `standalone`, which cannot go stale.
 
 ---
 
@@ -1082,12 +1101,14 @@ Live-verified: the real elapsed wall-clock time before `zenzic check all` return
 
 **Severity:** `info` · **Penalty:** none · **Exit:** 0 · **Suppressible:** Yes (informational)
 
-No `.md` / `.md` files found in the resolved `docs_root` after all exclusion layers. Suppressed in machine-output formats (`json`, `sarif`, `gitlab-codequality`).
+The resolved `docs_root` **exists** and holds no `.md` / `.mdx` files after all exclusion layers. Suppressed in machine-output formats (`json`, `sarif`, `gitlab-codequality`).
+
+A `docs_dir` that does **not** exist is [`Z111`](#z111), not this, and exits `1`. Before v0.31.0 the two shared this finding and its exit `0`, which reported success over a directory Zenzic never read.
 
 **Fix:**
 
-1. Verify `docs_dir` in `.zenzic.toml` (or `--docs-dir`) points to the correct directory.
-2. If the directory is intentionally empty, Z906 can be safely ignored — it exits 0.
+1. If the directory is intentionally empty — a project in setup — `Z906` can be safely ignored; it exits 0.
+2. If you expected pages here, they are excluded rather than missing: check `excluded_dirs` and `excluded_file_patterns`, which can empty a directory that is full on disk.
 
 ---
 

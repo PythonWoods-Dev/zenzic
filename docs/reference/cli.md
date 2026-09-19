@@ -507,7 +507,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     ```
 
     ??? info "JSON Output Schema (`--json`)"
-        When `--json` is specified, `zenzic env` emits a single JSON object on `stdout` reporting the Zenzic version, Python executable path, Zenzic module path, current working directory, and resolved active configuration path.
+        When `--json` is specified, `zenzic env` emits a single JSON object on `stdout` reporting the Zenzic version, Python executable path, Zenzic module path, current working directory, resolved active configuration path, and what Zenzic takes this project to be.
 
         ```json
         {
@@ -515,9 +515,23 @@ Select a command tab to view its execution flags, default behaviors, and usage e
           "python_executable": "/usr/bin/python3",
           "zenzic_module_path": "/usr/lib/python3/site-packages/zenzic/__init__.py",
           "current_working_directory": "/workspace/my-project",
-          "active_config_path": "/workspace/my-project/.zenzic.toml"
+          "active_config_path": "/workspace/my-project/.zenzic.toml",
+          "engine": "standalone",
+          "engine_source": "auto-detected",
+          "generator": "astro"
         }
         ```
+
+        `engine` is the engine a scan actually runs — `auto` is already resolved, so this
+        field matches the engine named on the telemetry line of `zenzic check`.
+        `engine_source` says how it was chosen: `configured` (you set it), `auto-detected`
+        (a marker file did), or `default`. `generator` is the documentation generator
+        detected in the repository, or `null` when none was found.
+
+        The two can disagree, and reading them together is the point: a project reporting
+        `"engine": "standalone"` with `"generator": "astro"` is being analysed without the
+        route manifest Astro can provide, which is a working scan of a site map that is not
+        quite the site's. See [Configure your adapter](../how-to/configure-adapter.md).
 
 ---
 
@@ -1275,6 +1289,7 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
 | Z110 CONFIG_SYNTAX_ERROR | `Z110` | `error` |
 | Z111 CONFIG_SCHEMA_ERROR | `Z111` | `error` |
 | Z112 STALE_ALLOWLIST_ENTRY | `Z112` | `warning` |
+| Z115 STALE_ROUTE_MANIFEST | `Z115` | `warning` |
 | Z201 CREDENTIAL_SECRET | `Z201` | `error` |
 | Z202 PATH_TRAVERSAL | `Z202` | `error` |
 | Z203 PATH_TRAVERSAL_FATAL | `Z203` | `error` |

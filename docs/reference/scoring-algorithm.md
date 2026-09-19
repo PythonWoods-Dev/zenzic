@@ -96,7 +96,7 @@ If no Z2xx finding is detected, the engine calculates per-category scores using 
 | Tier | Category | Finding Codes | Weight | Bucket Cap |
 | :--- | :--- | :--- | ---: | ---: |
 | Security Gate | — | Z2xx | — | score = 0 |
-| Structural | `structural` | Z101–Z105, Z107–Z109, Z112, Z121, Z124, Z410, Z411 | 30% | 30 pts |
+| Structural | `structural` | Z101–Z105, Z107–Z109, Z112, Z115, Z121, Z124, Z410, Z411 | 30% | 30 pts |
 | Navigation | `navigation` | Z301–Z303, Z401, Z402, Z412 | 25% | 25 pts |
 | Content | `content` | Z120, Z122, Z403, Z501–Z503, Z505, Z506, Z510–Z523 | 20% | 20 pts |
 | Governance & Brand | `brand` | Z620, Z404–Z407, Z601, Z603, Z610–Z619 | 25% | 25 pts |
@@ -130,6 +130,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z110** | CONFIG_SYNTAX_ERROR | 0.0 pts | Configuration Guard | Fatal Guard |
 | **Z111** | CONFIG_SCHEMA_ERROR | 0.0 pts | Configuration Guard | Fatal Guard |
 | **Z112** | STALE_ALLOWLIST_ENTRY | 1.0 pt | Structural Integrity | Default |
+| **Z115** | STALE_ROUTE_MANIFEST | 1.0 pt | Structural Integrity | Default |
 | **Z120** | UNKNOWN_HTML_ATTRIBUTE | 1.0 pt | Content Excellence | Default |
 | **Z121** | MISSING_OR_EMPTY_HREF | 1.0 pt | Structural Integrity | Default |
 | **Z122** | JUMP_LINK_DETECTED | 1.0 pt | Content Excellence | Default |

@@ -128,6 +128,16 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z112-stale-allowlist",
         expected_pass=True,
     ),
+    "z115": _Act(
+        code="z115",
+        title="Stale Route Manifest",
+        description=(
+            "Z115 STALE_ROUTE_MANIFEST — a page on disk that .zenzic-vsm.json does "
+            "not declare; exit 1 (the drift also breaks a correct link)"
+        ),
+        example_dir="z115-stale-route-manifest",
+        expected_pass=False,
+    ),
     "z620": _Act(
         code="z620",
         title="Stale Global Suppression",

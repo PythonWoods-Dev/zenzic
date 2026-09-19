@@ -70,7 +70,14 @@ from zenzic.models.diagnostics import (
     Severity,
     ZenzicDiagnostic,
 )
-from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm, uri_to_path
+from zenzic.models.vsm import (
+    Route,
+    VirtualBufferOverlay,
+    VirtualSiteMap,
+    build_vsm,
+    stale_manifest_message,
+    uri_to_path,
+)
 
 
 if TYPE_CHECKING:
@@ -378,10 +385,36 @@ class IncrementalAnalysisEngine:
             vsm.clear()
             vsm.update(new_vsm)
             vsm.incoming_links = new_vsm.incoming_links
+            # Transferred explicitly, like incoming_links above: `update()`
+            # copies dict items and no attribute of the wrapper, so a drift
+            # computed in build_vsm would be dropped exactly here and the
+            # editor would be the one surface that never reports it.
+            vsm.undeclared_sources = new_vsm.undeclared_sources
         else:
             # O(K) in-place patch
             for path in files_to_process:
                 self._patch_vsm_route(vsm, path)
+            # Creating a file in the editor is precisely the incremental path,
+            # and it is the moment the manifest goes stale. Recomputing drift
+            # only on a full sync would put the finding in CI and not in the
+            # editor — the divergence this module already carries comments
+            # about for Z106 and Z411. The declared set is in memory, so this
+            # is a set difference over the files just touched, not a rebuild.
+            _declared_now = self.adapter.declared_sources()
+            if _declared_now is not None:
+                _drift = set(vsm.undeclared_sources)
+                for path in files_to_process:
+                    try:
+                        _rel = path.relative_to(self.docs_root).as_posix()
+                    except ValueError:
+                        continue
+                    if path not in self.md_contents_cache:
+                        _drift.discard(_rel)
+                    elif _rel not in _declared_now:
+                        _drift.add(_rel)
+                    else:
+                        _drift.discard(_rel)
+                vsm.undeclared_sources = sorted(_drift)
 
         # Update overlay's VSM reference
         overlay.vsm = vsm
@@ -762,6 +795,29 @@ class IncrementalAnalysisEngine:
                     "Z411",
                     f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
                     severity=code_severity("Z411"),
+                    matched_line="",
+                )
+            )
+
+        # Z115 STALE_ROUTE_MANIFEST — the same finding scanner.py emits on the CLI
+        # path, at the same granularity (one per undeclared source, line 1), so the
+        # editor and CI say the same thing about the same file.
+        try:
+            _rel_posix = path.relative_to(self.docs_root).as_posix()
+        except ValueError:
+            _rel_posix = ""
+        if (
+            _rel_posix
+            and _rel_posix in getattr(vsm, "undeclared_sources", ())
+            and not tracker.is_suppressed(1, "Z115")
+        ):
+            findings.append(
+                RuleFinding(
+                    path,
+                    1,
+                    "Z115",
+                    stale_manifest_message(_rel_posix),
+                    severity=code_severity("Z115"),
                     matched_line="",
                 )
             )

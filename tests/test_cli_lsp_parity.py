@@ -327,3 +327,32 @@ def test_both_paths_detect_the_same_cycle_even_though_only_one_may_show_it(
 
     # And the transported surfaces still agree, which is what the guard is for.
     _assert_parity(tmp_path, docs, monkeypatch)
+
+
+def test_parity_stale_route_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Z115 must reach the editor, not only CI.
+
+    The drift is computed in `build_vsm`, and the LSP receives the map through
+    `vsm.update()`, which copies dict items and no attribute of the wrapper.
+    Without the explicit transfer in `incremental.py` the finding exists on the
+    CLI path and silently not in the editor — the shape this module's own
+    comments record for Z106 and Z411.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    body = " ".join(["word"] * 55)
+    (docs / "index.md").write_text(f"# Home\n\n[New](new.md). {body}\n", encoding="utf-8")
+    (docs / "new.md").write_text(f"# New\n\n[Home](index.md). {body}\n", encoding="utf-8")
+    (tmp_path / ".zenzic-vsm.json").write_text(
+        '{"index.md": {"url": "/", "status": "REACHABLE"}}', encoding="utf-8"
+    )
+    (tmp_path / ".zenzic.toml").write_text(
+        'docs_dir = "docs"\n\n[build_context]\nengine = "prebuilt"\n', encoding="utf-8"
+    )
+
+    _assert_parity(tmp_path, docs, monkeypatch)
+
+    # Parity is satisfied by both sides being empty, so the finding is pinned
+    # separately: a parity test that passes on zero findings has not been shown
+    # to be able to fail, and proves nothing about this code.
+    assert "Z115" in _lsp_engine_rule_ids(tmp_path, docs)

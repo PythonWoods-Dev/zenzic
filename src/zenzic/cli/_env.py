@@ -43,6 +43,50 @@ def _find_active_config_path(cwd: Path) -> Path | None:
     return None
 
 
+def _project_identity(cwd: Path) -> tuple[str, str, str | None]:
+    """Return ``(engine, engine_source, generator)`` for the project at *cwd*.
+
+    ``engine`` is the **effective** engine — the one a scan actually runs, with
+    ``auto`` already resolved through ``discover_engine()``. Reporting the
+    declared value instead would make this command disagree with the telemetry
+    line a scan prints for the same project ("auto" here, "standalone" there),
+    which is two answers to one question and the shape of divergence this
+    codebase keeps paying for. ``engine_source`` keeps the distinction that
+    resolving would otherwise erase: whether a human chose it or a marker file
+    did.
+
+    ``generator`` is what the repository shows, read through the same
+    ``detect_generator`` registry ``zenzic init`` uses, so setup and
+    diagnostics cannot disagree about what this project is.
+
+    No lookup here may fail the command: ``env`` is what a user runs when
+    something else is already broken, and a diagnostics command that raises on
+    a malformed config is absent exactly when it is needed.
+    """
+    engine = "auto"
+    engine_source = "default"
+    generator: str | None = None
+    with contextlib.suppress(Exception):
+        from zenzic.models.config import ZenzicConfig
+
+        config, _ = ZenzicConfig.load(cwd)
+        engine = config.build_context.engine
+        engine_source = "configured" if engine != "auto" else "default"
+    if engine == "auto":
+        with contextlib.suppress(Exception):
+            from zenzic.core.adapters._factory import discover_engine
+
+            engine = discover_engine(cwd)
+            engine_source = "auto-detected"
+    with contextlib.suppress(Exception):
+        from zenzic.cli._standalone import detect_generator
+
+        found = detect_generator(cwd)
+        if found is not None:
+            generator = found[0]
+    return engine, engine_source, generator
+
+
 def env(
     json_output: Annotated[
         bool,
@@ -58,12 +102,23 @@ def env(
     zenzic_module = Path(zenzic.__file__).resolve()
     config_path = _find_active_config_path(cwd)
 
+    # What Zenzic thinks this project *is*, beside where Zenzic itself lives.
+    # Both were invisible outside a scan's telemetry line until 2026-09-19: an
+    # editor extension had no way to ask, and a user whose engine did not match
+    # their generator had to infer the mismatch from the findings. `engine` is
+    # configured and `generator` is detected, so the two can disagree — which is
+    # exactly the state worth being able to read.
+    engine, engine_source, generator = _project_identity(cwd)
+
     env_data: dict[str, Any] = {
         "zenzic_version": __version__,
         "python_executable": str(python_exec),
         "zenzic_module_path": str(zenzic_module),
         "current_working_directory": str(cwd),
         "active_config_path": str(config_path) if config_path else None,
+        "engine": engine,
+        "engine_source": engine_source,
+        "generator": generator,
     }
 
     if json_output:
@@ -80,3 +135,5 @@ def env(
         console.print(f"  [dim]Active Config:[/] {env_data['active_config_path']}")
     else:
         console.print("  [dim]Active Config:[/] [yellow]None (using built-in defaults)[/]")
+    console.print(f"  [dim]Engine:[/] {env_data['engine']} ({env_data['engine_source']})")
+    console.print(f"  [dim]Generator:[/] {env_data['generator'] or '[yellow]none detected[/]'}")

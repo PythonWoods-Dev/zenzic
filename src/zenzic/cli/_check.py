@@ -8,6 +8,7 @@ import json
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 import typer
@@ -27,6 +28,7 @@ from zenzic.core.codes import (
     exit_contract_severity,
     security_exit_code,
 )
+from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -95,6 +97,52 @@ def _validate_only_flag(only: str | None) -> None:
 # choke point closes: two independent authorities for Z201/Z204's severity,
 # one of which silently fell through to the wrong tier).
 _finding_severity = exit_contract_severity
+
+
+def _docs_dir_advice(repo_root: Path) -> str:
+    """Return the second half of the Z111 message: where this project's
+    sources actually are.
+
+    Offering a menu — "Astro keeps them here, Docusaurus there" — leaves the
+    reader to work out which sentence is about them, in a repository where the
+    answer is a marker file away. `GENERATOR_MARKERS` already holds the
+    convention for each generator, and `zenzic init` already writes it into the
+    config; this makes the error name the same directory that setup would have.
+    The menu remains for a project nothing detects, where it is the honest
+    answer rather than a hedge.
+    """
+    from zenzic.cli._standalone import detect_generator
+
+    found = detect_generator(repo_root)
+    if found is not None:
+        generator, docs_dir, marker = found
+        return (
+            f"  {marker} is present, so this is {generator.capitalize()}, "
+            f"which keeps Markdown sources under '{docs_dir}'.\n"
+            f'  Set docs_dir = "{docs_dir}" in your configuration.'
+        )
+    return (
+        "  Set docs_dir to the directory holding your Markdown sources. "
+        "Astro/Starlight keeps them under 'src/content/docs'; "
+        "Docusaurus under 'docs'."
+    )
+
+
+@lru_cache(maxsize=8)
+def _generator_label(repo_root: Path) -> str | None:
+    """Return the site generator detected in *repo_root*, or ``None``.
+
+    Cached because eight `check` subcommands each build a reporter and the
+    answer cannot change inside one process. The detection itself is a handful
+    of `is_file()` calls against the markers in `GENERATOR_MARKERS`, which is
+    the same registry `zenzic init` reads — one list, so the label on the
+    telemetry line and the advice at setup cannot disagree about what this
+    project is.
+    """
+    from zenzic.cli._standalone import detect_generator
+
+    found = detect_generator(repo_root)
+    return found[0].capitalize() if found else None
 
 
 # ── Check commands ────────────────────────────────────────────────────────────
@@ -284,7 +332,12 @@ def check_links(
                 _hint = str(docs_root)
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(
+        _shared.console,
+        docs_root,
+        docs_dir=str(config.docs_dir),
+        generator=_generator_label(repo_root),
+    )
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
@@ -428,7 +481,12 @@ def check_orphans(
                 _hint = str(docs_root)
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(
+        _shared.console,
+        docs_root,
+        docs_dir=str(config.docs_dir),
+        generator=_generator_label(repo_root),
+    )
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
@@ -562,7 +620,12 @@ def check_snippets(
                 _hint = str(docs_root)
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(
+        _shared.console,
+        docs_root,
+        docs_dir=str(config.docs_dir),
+        generator=_generator_label(repo_root),
+    )
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
@@ -777,7 +840,12 @@ def check_references(
                 _hint = str(docs_root)
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(
+        _shared.console,
+        docs_root,
+        docs_dir=str(config.docs_dir),
+        generator=_generator_label(repo_root),
+    )
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
@@ -910,7 +978,12 @@ def check_assets(
                 _hint = str(docs_root)
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(
+        _shared.console,
+        docs_root,
+        docs_dir=str(config.docs_dir),
+        generator=_generator_label(repo_root),
+    )
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
@@ -1061,7 +1134,12 @@ def check_placeholders(
                 _hint = str(docs_root)
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
-    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(
+        _shared.console,
+        docs_root,
+        docs_dir=str(config.docs_dir),
+        generator=_generator_label(repo_root),
+    )
     if quiet:
         errors, warnings = reporter.render_quiet(findings)
     else:
@@ -2126,7 +2204,12 @@ def check_all(
         return
 
     if quiet:
-        reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        reporter = ZenzicReporter(
+            _shared.console,
+            docs_root,
+            docs_dir=str(config.docs_dir),
+            generator=_generator_label(repo_root),
+        )
         errors, warnings = reporter.render_quiet(all_findings)
     else:
         docs_count, config_count, assets_count = _shared._count_docs_assets(
@@ -2142,10 +2225,37 @@ def check_all(
         # skipping the audit there reported exit 0 over a real breach, while
         # --quiet and --format json (which have no such shortcut) reported 2.
         # One corpus must not get three answers, so the shortcut yields whenever
-        # a non-suppressible finding exists and the normal path renders it.
-        _has_security = any(f.severity in _SECURITY_SEVERITIES for f in all_findings)
-        if docs_count == 0 and _single_file is None and not _has_security:
-            _target_display = _target_hint or "./"
+        # a finding exists and the normal path renders it. The guard read
+        # `_SECURITY_SEVERITIES` until 2026-09-19, which covered the corpus that
+        # motivated it and left the same shape open one severity down: a page
+        # count of zero with a warning in hand printed "Audit skipped" over it.
+        # A scan holding a finding examined something, whatever its severity.
+        if docs_count == 0 and _single_file is None and not all_findings:
+            # Two conditions, and until 2026-09-19 they were one answer.
+            #
+            # The directory is **missing**: the user named something that is
+            # not there, and a scan cannot succeed at examining it. Measured --
+            # `zenzic init` then `check all` on a cloned Astro repository
+            # printed "Audit skipped" and exited 0 over 2,604 unexamined
+            # sources, because Astro keeps them under `src/content/docs` and
+            # the default is `docs`. Exit 0 there is a green gate on an
+            # unexamined tree.
+            #
+            # The directory **exists and is empty**: a project in setup, and
+            # nothing is wrong with it. That half keeps Z906 and exit 0.
+            if not docs_root.is_dir():
+                _declared = "docs_dir" in getattr(config, "model_fields_set", set())
+                raise ZenzicConfigError(
+                    f"[Z111] docs_dir '{config.docs_dir}' does not exist "
+                    + (
+                        "(declared in your configuration).\n"
+                        if _declared
+                        else "(the default, which this project does not use).\n"
+                    )
+                    + f"  Looked in: {docs_root}\n"
+                    + _docs_dir_advice(repo_root)
+                )
+            _target_display = _target_hint or str(config.docs_dir)
             _shared.console.print(
                 f"[bold yellow]\u26a0 Z906 NO_FILES_FOUND[/bold yellow] — "
                 f"No Markdown sources found in [cyan]{_target_display}[/cyan]. "
@@ -2224,7 +2334,12 @@ def check_all(
             )
         _footer_lines.insert(0, _dqs_line)
 
-        reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        reporter = ZenzicReporter(
+            _shared.console,
+            docs_root,
+            docs_dir=str(config.docs_dir),
+            generator=_generator_label(repo_root),
+        )
         errors, warnings = reporter.render(
             all_findings,
             version=__version__,

@@ -63,7 +63,7 @@ def test_sarif_levels_are_valid_values() -> None:
 # Z106 CIRCULAR_LINK is informational within the Z1xx range because it reports
 # a topology signal, not a broken link.
 _Z1XX_NON_ERROR_EXCEPTIONS: frozenset[str] = frozenset(
-    {"Z106", "Z112", "Z620", "Z120", "Z122", "Z123"}
+    {"Z106", "Z112", "Z115", "Z620", "Z120", "Z122", "Z123"}
 )
 
 

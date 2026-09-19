@@ -146,11 +146,18 @@ class ReferenceFinding:
     Attributes:
         file_path: Source file where the issue was found.
         line_no: 1-based line number (0 if not applicable).
-        issue: Machine-readable issue type — one of:
-            ``"DANGLING"``       — link uses an undefined reference ID (Dangling Reference)
-            ``"DEAD_DEF"``       — definition never used by any link (Dead Definition)
-            ``"duplicate-def"``  — same ID defined more than once (first wins)
-            ``"missing-alt"``    — image has no alt text
+        issue: Machine-readable issue type — the finding code, one of:
+            ``"Z301"``  DANGLING_REF   — link uses an undefined reference ID
+            ``"Z302"``  DEAD_DEF       — definition never used by any link
+            ``"Z303"``  DUPLICATE_DEF  — same ID defined more than once (first wins)
+
+            This field carried symbolic names (``"DANGLING"``, ``"DEAD_DEF"``,
+            ``"duplicate-def"``, ``"missing-alt"``) before the codes existed,
+            and this docstring still listed them on 2026-09-19, after every
+            construction site had moved to Z-codes. The value is consumed by
+            ``exit_contract_severity()``, which returns ``"error"`` for an
+            unregistered string — so a symbolic name here does not merely read
+            oddly, it reclassifies a warning as an error.
         detail: Human-readable description.
         is_warning: ``True`` for a non-blocking (``--strict``-gated) finding.
             Every code the reference pipeline emits (Z301 DANGLING_REF, Z302

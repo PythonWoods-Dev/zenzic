@@ -187,10 +187,24 @@ def _strip_docs_prefix(rel_path: str, docs_dir: str) -> str:
 class ZenzicReporter:
     """Render check results as a Ruff-inspired grouped report."""
 
-    def __init__(self, console: Console, docs_root: Path, *, docs_dir: str = "docs") -> None:
+    def __init__(
+        self,
+        console: Console,
+        docs_root: Path,
+        *,
+        docs_dir: str = "docs",
+        generator: str | None = None,
+    ) -> None:
         self._con = console
         self._docs_root = docs_root
         self._docs_dir = docs_dir
+        # The site generator detected in the repository, or None when nothing
+        # was found. It rides on the telemetry line beside the engine because
+        # the two disagreeing is a real and previously invisible state: an
+        # Astro project analysed with `standalone` produces a scan that works
+        # and a site map that is not the site's. Naming both puts the mismatch
+        # on screen instead of leaving it to be inferred from the findings.
+        self._generator = generator
 
     def _full_rel(self, rel_path: str) -> str:
         """Return project-relative path as is."""
@@ -268,6 +282,8 @@ class ZenzicReporter:
         dot = emoji("dot")
         total = docs_count + config_count + assets_count
         parts = [engine]
+        if self._generator:
+            parts.append(self._generator)
         if target is not None:
             parts.append(target)
         if total:

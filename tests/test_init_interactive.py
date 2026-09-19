@@ -97,10 +97,38 @@ def test_engine_is_offered_from_the_registry_with_the_detection_stated(tmp_path:
 
 
 def test_no_engine_file_states_that_nothing_was_detected(tmp_path: Path) -> None:
+    """The wording changed on 2026-09-19 and the reason is the point.
+
+    It read "no engine file found", which is true and incomplete: detection now
+    also looks for a generator's own config, so the absence it reports is the
+    absence of *anything* to detect from. `astro.config.ts` sitting unread in a
+    root while the product said "auto-detected" is what made this matter.
+    """
     answers = "\n" + "\n" * len(FLAG_KEYS)
     _code, out, data = _init(tmp_path, "--interactive", answers=answers)
-    assert "no engine file" in out.lower()
+    assert "nothing found to detect from" in out.lower()
     assert data["build_context"]["engine"] == "standalone"
+
+
+def test_a_generator_config_in_the_root_is_detected_and_named(tmp_path: Path) -> None:
+    """`astro.config.ts` is as strong a signal as `mkdocs.yml`, and was ignored."""
+    (tmp_path / "astro.config.ts").write_text("export default {}\n", encoding="utf-8")
+    (tmp_path / "src" / "content" / "docs").mkdir(parents=True)
+    (tmp_path / "src" / "content" / "docs" / "i.mdx").write_text("# T\n", encoding="utf-8")
+    answers = "\n" + "\n" * len(FLAG_KEYS)
+    _code, out, data = _init(tmp_path, "--interactive", answers=answers)
+    assert "astro.config.ts found" in out.lower()
+    assert "astro" in out.lower()
+    # The source directory comes from the generator, not from the default.
+    assert data["docs_dir"] == "src/content/docs"
+
+
+def test_a_generator_docs_dir_is_not_written_when_it_does_not_exist(tmp_path: Path) -> None:
+    """The other direction: a generated config must not name a missing directory."""
+    (tmp_path / "astro.config.ts").write_text("export default {}\n", encoding="utf-8")
+    answers = "\n" + "\n" * len(FLAG_KEYS)
+    _code, out, data = _init(tmp_path, "--interactive", answers=answers)
+    assert "docs_dir" not in data
 
 
 def test_a_flag_gated_code_added_to_the_registry_appears_without_touching_init(

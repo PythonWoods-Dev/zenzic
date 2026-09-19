@@ -1380,7 +1380,7 @@ def _run_vsm_and_urp_pass(
         anchors_in_file,
         tab_anchors_in,
     )
-    from zenzic.models.vsm import build_vsm
+    from zenzic.models.vsm import build_vsm, stale_manifest_message
 
     if not rule_engine:
         # VSM-only engine: Z104 resolves links and consults no container
@@ -1442,6 +1442,7 @@ def _run_vsm_and_urp_pass(
         repo_root=repo_root,
         static_assets=static_assets,
     )
+    _undeclared: frozenset[str] = frozenset(vsm.undeclared_sources)
 
     orphaned_urls: set[str] = set()
     dead_end_urls: set[str] = set()
@@ -1625,6 +1626,27 @@ def _run_vsm_and_urp_pass(
         except ValueError:
             rel_posix = r.file_path.absolute().as_posix()
         canonical_url = next((route.url for route in vsm.values() if route.source == rel_posix), "")
+
+        # Z115 sits above the `if canonical_url:` block, not inside it, because
+        # the drift is a fact about the *source*, not about its URL. A source
+        # the manifest does not declare is routed IGNORED, and every correct
+        # link pointing at it is then reported `Z101 ... UNREACHABLE_LINK`.
+        # Before this finding existed the run named the link and never the
+        # manifest, so the fix it implied — edit the link — was the wrong one.
+        if rel_posix in _undeclared and (
+            r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(1, "Z115")
+        ):
+            r.rule_findings.append(
+                RuleFinding(
+                    r.file_path,
+                    1,
+                    "Z115",
+                    stale_manifest_message(rel_posix),
+                    severity=code_severity("Z115"),
+                    matched_line="",
+                )
+            )
+
         if canonical_url:
             if canonical_url in orphaned_urls:
                 if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(

@@ -21,7 +21,9 @@ engine could not see at all. Items 4, 6, 8, 9, 10, 13 and 22 remove findings, it
 both ways, item 5 changes the JSON payload, item 15 changes the wording of one, item 23 adds
 a notice without changing any finding, item 24 removes findings on MDX sites, item 25 removes one class of `Z107`, items 26 and 27
 remove findings by making a code opt-in and narrowing a default, and item 28 removes findings inside
-tab-indented code. The list ends
+tab-indented code. Items 29 and 30 change an exit code: a scan that examined nothing, or that held a
+finding it was not showing, used to exit `0`. Item 31 adds one finding, `Z115`, and only under the
+`prebuilt` engine. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -356,6 +358,34 @@ three columns still do not open a block. The direction of the old behaviour is w
 because it bounds the risk: the engine read **more** than it should, never less, so nothing was
 hidden and nothing appears now.
 
+**29. A scan that examined nothing no longer exits `0`.** A `docs_dir` that does not exist and
+a `docs_dir` that exists and holds no Markdown were one answer — `Z906 NO_FILES_FOUND`,
+"Audit skipped", exit `0`. They are two different situations and only one of them is fine.
+A **missing** directory is a configuration error: `zenzic init` followed by `check all` on a
+cloned Astro repository printed "Audit skipped" and exited `0` over 2,604 unexamined sources,
+because Astro keeps them under `src/content/docs` and the default is `docs`. That is now
+`Z111`, exit `1`, and when a generator is detected the message names it and the directory it
+uses rather than offering a menu. A directory that **exists and is empty** is a project in
+setup and keeps `Z906` and exit `0`, unchanged. **If a job of yours passes today over a
+`docs_dir` that is not there**, it will now fail — which is what it was always doing, said out
+loud.
+
+**30. A finding no longer disappears into "no files found".** The same presentation shortcut
+sat above any finding when the page count was zero: a corpus whose every page is excluded
+could hold a warning and still print "Audit skipped" over it. The shortcut yielded for the
+security tier already; it now yields for a finding of any severity, because a scan holding a
+finding examined something.
+
+**31. `Z115 STALE_ROUTE_MANIFEST` is new, and it names a cause that was previously invisible.**
+With the `prebuilt` engine, URLs come from `.zenzic-vsm.json`, written by your site generator.
+Add a page without re-running that generator and the page routes as `IGNORED`, so every
+correct link pointing at it was reported `Z101` as unreachable — an error on a link you wrote
+properly, about a page that is on disk, with nothing anywhere saying the manifest was the
+reason. `Z115` is a warning naming the file to regenerate; it reaches the CLI, `--quiet`'s
+counts, `--format json` and the editor's diagnostics alike. **It appears only under an engine
+that reads a declared routing table** — `standalone` derives each URL from the path it just
+read and cannot go stale.
+
 **Breaking changes that are not about findings** — each has its own entry below:
 
 - CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
@@ -368,6 +398,10 @@ hidden and nothing appears now.
 - Suppression debt counts the declared exceptions in use: a `directory_policies` pair that silences a finding now costs a point, and a suppression that silences nothing no longer does.
 
 ### Added
+
+- **`zenzic env` Reports What Zenzic Takes the Project to Be**: two new fields on both the table and `--json`. `engine` is the engine a scan actually runs — `auto` already resolved — so this command and the telemetry line of `zenzic check` cannot give two answers to one question; `engine_source` keeps the distinction resolving would erase (`configured`, `auto-detected`, `default`); `generator` is the documentation generator detected in the repository, or `null`. They can disagree, and reading them together is the point: `"engine": "standalone"` beside `"generator": "astro"` is a working scan of a site map derived from file paths rather than from Astro's own routing. No lookup here can fail the command — `env` is what a user runs when something else is already broken.
+
+- **The Telemetry Line Names the Detected Generator**: `standalone • Astro • 2606 files …`. The engine was on that line already; what was missing is what it is being pointed at. Detection reads the same `GENERATOR_MARKERS` registry `zenzic init` uses, so setup and every later scan cannot disagree about what the project is.
 
 - **`zenzic init --interactive`**: asks before it writes — the engine, offered from the adapter registry with the detected one and its reason stated, then each opt-in finding code one at a time, derived from the code registry rather than enumerated by hand, so a code added later appears in the prompt on its own. The data-gated codes are deliberately not asked: they are inert until their `[policies]` data is declared, and that is not a yes-or-no question. Without the flag nothing changes for scripts and CI; answering every prompt with its default produces the file the plain command writes.
 - **`just verify` Runs Its Tree-Deterministic Half Once per Tree**: `scripts/verdict_cache.py` records the green verdict of the stages that read nothing but the tree — release contracts, pinning, the docs build, the local gates, `pre-commit --all-files` and `pytest` with coverage — keyed on the tree's content (tracked files, untracked files and the gitignored local trees the gates read), and skips them when the pre-push hook meets the same tree it already verified. Measured before building: those stages took about 400 of the gate's 445 seconds and were paid twice on every compliant push. `pip-audit`, the structural audit and the score run every time, a failing stage records nothing, CI never caches, and `ZENZIC_VERDICT_CACHE=0` forces a full run.

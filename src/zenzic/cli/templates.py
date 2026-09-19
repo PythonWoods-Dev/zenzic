@@ -15,7 +15,8 @@ _SPDX = "SPDX-License-Identifier"
 # GLOBAL_TOML_TEMPLATE
 # ===========================================================================
 # Written to .zenzic.toml by `zenzic init`.
-# Dynamic placeholders: {engine}, {engines}, {hint_name}  (call .format() before write).
+# Dynamic placeholders: {engine}, {engines}, {hint_name}, {docs_dir_line}
+# (call .format() before write).
 #
 # {engines} is the live adapter registry, not a literal. It was a literal naming
 # three engines until 2026-09-19, while the same command's prompt offered five
@@ -107,7 +108,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "#\n"
     '# DEFAULT: "docs"\n'
     "#\n"
-    '# docs_dir = "docs"\n'
+    "{docs_dir_line}"
     "\n"
     "strict = true\n"
     "# ORTHOGONAL CONSTRAINTS (Flat-Cost Model):\n"

@@ -94,6 +94,7 @@ nav:
           - rules/Z110.md
           - rules/Z111.md
           - rules/Z112.md
+          - rules/Z115.md
           - rules/Z120.md
           - rules/Z121.md
           - rules/Z122.md
@@ -176,6 +177,7 @@ nav:
           - tutorials/examples/z1xx-links/z108-empty-link-text.md
           - tutorials/examples/z1xx-links/z109-external-link-broken.md
           - tutorials/examples/z1xx-links/z112-stale-allowlist.md
+          - tutorials/examples/z1xx-links/z115-stale-route-manifest.md
           - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
           - tutorials/examples/z1xx-links/z121-missing-href.md
           - tutorials/examples/z1xx-links/z122-jump-link.md

@@ -159,6 +159,22 @@ def _detect_collisions(routes: list[Route]) -> None:
 # ─── VSM builder (I/O boundary) ───────────────────────────────────────────────
 
 
+def stale_manifest_message(rel_posix: str) -> str:
+    """Return the one wording for ``Z115``, for every surface that reports it.
+
+    The CLI (``core/scanner.py``) and the editor (``core/incremental.py``)
+    construct this finding independently, because they analyse on different
+    paths. Two copies of a sentence is how the two paths start disagreeing —
+    this module already carries comments about a capability living in CI and
+    not in the editor. The sentence lives here; both callers import it.
+    """
+    return (
+        f"'{rel_posix}' is not declared in the route manifest "
+        "(.zenzic-vsm.json), so it routes as IGNORED and every link to it is "
+        "reported unreachable. Re-run the generator that writes the manifest."
+    )
+
+
 def build_vsm(
     adapter: BaseAdapter,
     docs_root: Path,
@@ -200,13 +216,20 @@ def build_vsm(
         static_assets:       Optional collection of non-Markdown static asset Paths.
 
     Returns:
-        ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
+        ``VSM`` mapping canonical URL → ``Route``. **Every** route is included,
+        IGNORED among them — this line claimed the opposite until 2026-09-19
+        while the comment above ``VSM`` (line ~127) stated the truth and the
+        code agreed with the comment. Inclusion is deliberate: a link pointing
+        at an ignored page must be reported as ``UNREACHABLE_LINK``, and an
+        omitted route would be reported as a missing file instead, naming the
+        wrong defect.
     """
 
     ac = anchors_cache or {}
     extra_mounts = build_content_mounts(list(extra_content_roots or []), repo_root=repo_root)
 
     routes: list[Route] = []
+    md_sources_seen: set[str] = set()
     for abs_path, _content in md_contents.items():
         # ── Resolve the logical rel and source label ────────────────────────
         # Files under docs_root use their ordinary relative path. Files under
@@ -226,6 +249,7 @@ def build_vsm(
             inner = abs_path.relative_to(root)
             rel = (Path(prefix) / inner) if prefix else inner
         rel_posix = rel.as_posix()
+        md_sources_seen.add(rel_posix)
 
         meta = adapter.get_route_info(rel)
         url = meta.canonical_url
@@ -288,6 +312,24 @@ def build_vsm(
     _detect_collisions(routes)
 
     vsm_instance = VirtualSiteMap({r.url: r for r in routes})
+
+    # Manifest drift, computed here because this is the one place that holds
+    # both sets: what the adapter declares and what the scan actually read.
+    # The undeclared page does get a route — with status IGNORED — so the
+    # symptom is `Z101 UNREACHABLE_LINK` on a correct link, not a missing file.
+    #
+    # Only the "on disk, undeclared" half is computed. The mirror half — a
+    # manifest entry whose source has been deleted — is *not* detected, and the
+    # blocker is that `md_contents` is already filtered by the user's
+    # exclusions, so `declared - seen` counts every deliberately excluded page
+    # as a deletion. Deciding it would need a stat per declared entry against a
+    # base path that is only correct for sources under `docs_root` (external
+    # content mounts carry a derived prefix), and a false "your manifest lists
+    # a page that no longer exists" is worse than the silence it replaces.
+    _declared = adapter.declared_sources()
+    if _declared is not None:
+        vsm_instance.undeclared_sources = sorted(md_sources_seen - _declared)
+
     from zenzic.core.validator import PolyglotExtractor
 
     extractor = PolyglotExtractor()
@@ -314,6 +356,10 @@ class VirtualSiteMap(dict[str, Route]):
         super().__init__(*args, **kwargs)
         self.incoming_links: dict[str, set[Path]] = {}
         self.outgoing_links: dict[str, list[str]] = {}
+        # Source paths present in the scanned corpus that the adapter's
+        # declared routing table does not list — see BaseAdapter.declared_sources().
+        # Always [] for an adapter that derives routes from the filesystem.
+        self.undeclared_sources: list[str] = []
 
     def remove_outgoing_links(self, path: Path, canonical_url: str = "") -> None:
         """Discard `path` from every entry in the reverse index and clear its outgoing links."""

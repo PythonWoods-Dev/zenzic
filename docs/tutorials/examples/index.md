@@ -47,6 +47,7 @@ uvx zenzic check all
 | Z110 | Malformed TOML syntax in configuration file (.zenzic.toml) | [z110-config-syntax-error](z0xx-core/z110-config-syntax-error/) |
 | Z111 | Invalid schema structure or type in configuration file (.ze… | [z111-config-schema-error](z0xx-core/z111-config-schema-error/) |
 | Z112 | Stale absolute_path_allowlist entry declared in configurati… | [z112-stale-allowlist](z1xx-links/z112-stale-allowlist/) |
+| Z115 | Source file present in the corpus but absent from the engi… | [z115-stale-route-manifest](z1xx-links/z115-stale-route-manifest/) |
 | Z120 | HTML attribute not in Safe-Core list — declare intent or su… | [z120-unknown-html-attr](z1xx-links/z120-unknown-html-attr/) |
 | Z121 | Tag `<a>` or `<img>` has no href/src attribute, or it is empty | [z121-missing-href](z1xx-links/z121-missing-href/) |
 | Z122 | href="#" detected — placeholder or opaque JS anchor; add de… | [z122-jump-link](z1xx-links/z122-jump-link/) |

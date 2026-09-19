@@ -229,6 +229,19 @@ location such as `website/` or `content/`.
 docs_dir = "."        # scan the entire repository (e.g. README-only projects)
 ```
 
+**If the directory does not exist**, the run stops with
+[`Z111`](finding-codes.md#z111) and exits `1`. This matters most when you have
+*not* set `docs_dir`: a project whose sources live elsewhere — Astro/Starlight
+keeps them under `src/content/docs`, Docusaurus under `docs` — inherits the
+`"docs"` default and gets nothing to scan. Before v0.31.0 that was `Z906` at
+exit `0`, so a gate passed over a tree nothing had read. A directory that
+exists and merely holds no Markdown is the other case and keeps `Z906` and
+exit `0`: it is a project in setup, and nothing is wrong with it.
+
+`zenzic init` writes this line for you when it recognises your generator, and
+`zenzic env` reports both the engine and the detected generator if you want to
+check what Zenzic resolved.
+
 ### `snippet_min_lines` {#snippet-min-lines}
 
 | | |

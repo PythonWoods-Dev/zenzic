@@ -47,6 +47,7 @@ Structural Integrity rules catch these breaks **before the build runs**:
 | [`Z107`](../reference/finding-codes.md#z107) | `CIRCULAR_ANCHOR` | Self-referential anchor links |
 | [`Z108`](../reference/finding-codes.md#z108) | `EMPTY_LINK_TEXT` | Empty or whitespace-only link labels |
 | [`Z112`](../reference/finding-codes.md#z112) | `STALE_ALLOWLIST_ENTRY` | Unused entries in absolute path allowlist |
+| [`Z115`](../reference/finding-codes.md#z115) | `STALE_ROUTE_MANIFEST` | A page on disk that the engine's route manifest does not declare |
 | [`Z401`](../reference/finding-codes.md#z401) | `MISSING_DIRECTORY_INDEX` | Directories without a reachable `index.md` |
 | [`Z402`](../reference/finding-codes.md#z402) | `ORPHAN_PAGE` | Files unreachable from any navigation path |
 | [`Z404`](../reference/finding-codes.md#z404) | `CONFIG_ASSET_MISSING` | Assets declared in config that do not exist on disk |

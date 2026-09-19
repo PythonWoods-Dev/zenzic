@@ -104,6 +104,17 @@ CANNOT_BE_RUN: dict[str, str] = {
         "a dead end needs somewhere to lead from; the fixture is four pages and the example "
         "page alone reports Z101 and Z620 instead"
     ),
+    # Measured 2026-09-19 (V031_GENERATOR_EXPERIENCE_FIXES): the harness writes the
+    # example's own file and nothing else, and this drift is a disagreement between
+    # three things -- a `prebuilt` engine, a manifest, and a page on disk the manifest
+    # omits. The manifest alone is a valid manifest of a site with one page.
+    "Z115": (
+        "the finding is a manifest disagreeing with the tree; the example is the "
+        "manifest, and a manifest on its own disagrees with nothing -- run alone it "
+        "emits nothing. The three-file form is the gallery fixture, "
+        "examples/z115-stale-route-manifest/, which is executed by "
+        "test_gallery_code_coverage.py"
+    ),
     "Z412": (
         "traceability needs its target namespace present; the fixture is three pages and the "
         "example page alone reports Z202 instead"

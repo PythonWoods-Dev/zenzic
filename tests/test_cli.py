@@ -611,7 +611,7 @@ def test_check_all_strict_fails_on_warnings_only(
     finding = ReferenceFinding(
         file_path=Path("docs/guide.md"),
         line_no=10,
-        issue="DEAD_DEF",
+        issue="Z302",  # the code the scanner actually emits; "DEAD_DEF" is its name
         detail="[unused]: never referenced",
         is_warning=True,
     )
@@ -640,7 +640,7 @@ def test_check_all_no_strict_passes_on_warnings_only(
     finding = ReferenceFinding(
         file_path=Path("docs/guide.md"),
         line_no=10,
-        issue="DEAD_DEF",
+        issue="Z302",  # the code the scanner actually emits; "DEAD_DEF" is its name
         detail="[unused]: never referenced",
         is_warning=True,
     )
@@ -2926,8 +2926,15 @@ def test_templates_root_keys_not_swallowed() -> None:
     for key in ["excluded_dirs", "forbidden_patterns", "plugins", "docs_dir"]:
         # Uncomment the key
         template = re.sub(rf"(?m)^#\s*({key}\s*=.*)", r"\1", GLOBAL_TOML_TEMPLATE)
+        # `docs_dir` is emitted by a placeholder since 2026-09-19 rather than
+        # sitting commented in the template, so it is passed uncommented here:
+        # what this test asserts is that a root key parses at the root, not
+        # that a particular line is commented.
         template = template.format(
-            engine="standalone", engines="mkdocs, standalone", hint_name="test"
+            engine="standalone",
+            engines="mkdocs, standalone",
+            hint_name="test",
+            docs_dir_line='docs_dir = "docs"\n',
         )
 
         data = tomllib.loads(template)
@@ -3158,7 +3165,12 @@ def test_pyproject_template_stays_a_pointer_not_a_catalogue() -> None:
 
     from zenzic.cli.templates import PYPROJECT_TOML_SECTION_TEMPLATE as template
 
-    rendered = template.format(engine="mkdocs", engines="mkdocs, standalone", hint_name="demo")
+    rendered = template.format(
+        engine="mkdocs",
+        engines="mkdocs, standalone",
+        hint_name="demo",
+        docs_dir_line='# docs_dir = "docs"\n',
+    )
 
     assert len(rendered.splitlines()) <= 60, (
         f"the pyproject section is {len(rendered.splitlines())} lines; it is a pointer, "

@@ -52,6 +52,20 @@ class PrebuiltVSMAdapter(StandaloneAdapter):
     def has_engine_config(self) -> bool:
         return self._has_config
 
+    def declared_sources(self) -> set[str] | None:
+        """Return the manifest's declared source paths, or ``None`` when there
+        is no manifest to be stale against.
+
+        The no-manifest case is deliberately ``None`` and not ``set()``. With
+        no ``.zenzic-vsm.json`` this adapter falls back to standalone routing
+        (`get_route_info` below returns REACHABLE rather than IGNORED), which
+        is its own defect and carries its own warning; reporting it a second
+        time as "every source is undeclared" would name the wrong fix.
+        """
+        if not self._has_config:
+            return None
+        return set(self._routes)
+
     def get_route_info(self, rel: Path) -> RouteMetadata:
         from zenzic.core.adapters._base import RouteMetadata
 
