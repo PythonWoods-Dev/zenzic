@@ -131,6 +131,50 @@ def test_the_unobservable_set_names_only_real_codes_with_real_fixtures() -> None
     assert not overlap, f"{overlap} claim both to have and not to have a fixture"
 
 
+#: What each fixture emits *besides* its own code, measured 2026-09-19 by running
+#: `check all --format json` in all 70 fixture directories.
+#:
+#: This closes an inventory that had been measured and left as a recommendation
+#: since 2026-09-15: ten fixtures then, thirteen now, and nobody would have seen
+#: the set move. A measurement nothing enforces drifts silently, which is the
+#: same failure shape as a rule with no mechanical check.
+#:
+#: An entry here is a claim that the extra code is *structurally unavoidable* for
+#: the thing the fixture demonstrates, and each carries its reason. Entries
+#: without one are the ones to clean up, not to keep -- this list exists to stop
+#: the set growing unnoticed, not to bless it. Adding a line is how a deliberate
+#: change is recorded; a new emission with no line is a failure.
+EXPECTED_COLLATERAL: dict[str, dict[str, str]] = {
+    # Structurally unavoidable: a link to an orphan page is itself an orphan link,
+    # and a page nothing links to is also unreachable in the graph. These four
+    # fixtures cannot demonstrate one without the other.
+    "Z103": {"Z402": "the page the orphan link points at is itself an orphan"},
+    "Z402": {"Z410": "an orphan page is unreachable in the graph by construction"},
+    "Z410": {"Z402": "the same page, seen from the other rule"},
+    "Z407": {
+        "Z402": "a malformed nav pattern leaves the page it meant to declare an orphan",
+        "Z410": "and therefore unreachable",
+    },
+    "Z411": {
+        "Z103": "the dead-end page is linked from a page nothing links to",
+        "Z402": "so that page is an orphan",
+        "Z410": "and unreachable",
+    },
+    # Structurally unavoidable: the finding *is* a broken link, seen by two rules.
+    "Z105": {"Z101": "a site-absolute path that resolves nowhere is also a broken link"},
+    "Z115": {"Z101": "a page missing from the manifest cannot resolve -- that is the point"},
+    # Intended by the fixture's own README.
+    "Z205": {"Z603": "the fixture declares a suppression that cannot silence a security code"},
+    # Not structural. These are fixtures whose sample page happens to trip a
+    # content rule, and they should be rewritten rather than kept here.
+    "Z120": {"Z101": "TO CLEAN: the sample link is also broken"},
+    "Z124": {"Z101": "TO CLEAN: the sample link is also broken"},
+    "Z506": {"Z512": "TO CLEAN: the short sample section reads as empty"},
+    "Z610": {"Z512": "TO CLEAN: the frontmatter sample has an empty section under it"},
+    "Z523": {"Z516": "TO CLEAN: the out-of-order sample carries two H1s"},
+}
+
+
 @pytest.mark.parametrize("code", sorted(c for c in _fixture_dirs() if c not in CANNOT_BE_OBSERVED))
 def test_each_fixture_actually_demonstrates_its_own_code(code: str) -> None:
     """The half a name comparison cannot do: run it and look."""
@@ -156,4 +200,16 @@ def test_each_fixture_actually_demonstrates_its_own_code(code: str) -> None:
         f"{fixture.name} is named for {code} and does not emit it. "
         f"It emits {sorted(emitted) or 'nothing'}. A fixture demonstrating the wrong "
         f"thing passes a name comparison and is worse than a missing one."
+    )
+
+    # The other half: what else does it emit? A fixture that demonstrates its own
+    # code *and* three unrelated ones teaches the reader the wrong lesson and
+    # makes `zenzic lab` output noisy. Declared collateral is allowed, with its
+    # reason; anything else is a failure here rather than a slow drift nobody
+    # measures.
+    undeclared = sorted(emitted - {code} - set(EXPECTED_COLLATERAL.get(code, {})))
+    assert not undeclared, (
+        f"{fixture.name} also emits {undeclared}, which is not declared in "
+        f"EXPECTED_COLLATERAL. Either the fixture grew a defect, or the extra code "
+        f"is structurally unavoidable -- in which case add it there with the reason."
     )
