@@ -210,7 +210,7 @@ class IncrementalAnalysisEngine:
             iter_security_scan_sources,
             walk_files,
         )
-        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.core.exclusion import build_exclusion_manager
         from zenzic.models.config import load_config_with_diagnostics
 
         # 0. Validate .zenzic.toml config
@@ -296,8 +296,12 @@ class IncrementalAnalysisEngine:
             changed_uris = None
             self._initialized = True
 
-        exclusion_manager = LayeredExclusionManager(
-            self.config, repo_root=self.repo_root, docs_root=self.docs_root
+        # Through the builder, with the adapter this engine already holds. It
+        # used to construct the manager directly and pass no adapter layer, so
+        # the editor did not exclude the engine's build output while the CLI
+        # did -- diagnostics on generated files that CI says nothing about.
+        exclusion_manager = build_exclusion_manager(
+            self.config, self.repo_root, self.docs_root, self.adapter
         )
         # User scoping never silences the security tier: a buffer excluded by
         # excluded_dirs/excluded_file_patterns skips quality analysis and the

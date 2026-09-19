@@ -26,6 +26,7 @@ Public API
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -465,3 +466,69 @@ class LayeredExclusionManager:
         fallback path).
         """
         return self._system_dirs | self._config_excluded_dirs | self._cli_exclude_dirs
+
+
+@dataclass(frozen=True)
+class AdapterLayers:
+    """The three adapter-derived exclusion layers, as one value.
+
+    A stand-in for an adapter, for the CLI commands that already hold the three
+    values separately -- several build an adapter for another reason and pass
+    its answers down. It exists so the builder below can take *one* argument
+    that carries all three: a caller supplying two of three is then a
+    TypeError rather than a silently narrower exclusion set, which is the
+    failure this whole arrangement is about.
+    """
+
+    metadata_files: frozenset[str] = frozenset()
+    output_dirs: frozenset[str] = frozenset()
+    excluded_docs: pathspec.gitignore.GitIgnoreSpec | None = None
+
+    def get_metadata_files(self) -> frozenset[str]:
+        return self.metadata_files
+
+    def get_output_dirs(self) -> frozenset[str]:
+        return self.output_dirs
+
+    def get_excluded_docs_spec(self) -> pathspec.gitignore.GitIgnoreSpec | None:
+        return self.excluded_docs
+
+
+def build_exclusion_manager(
+    config: ZenzicConfig,
+    repo_root: Path,
+    docs_root: Path,
+    adapter: Any,
+    *,
+    cli_exclude: list[str] | None = None,
+    cli_include: list[str] | None = None,
+) -> LayeredExclusionManager:
+    """Build the exclusion set for a run, with every adapter layer applied.
+
+    The adapter contributes three layers and they are easy to omit one at a
+    time, because omitting one is silence rather than an error. Seven sites
+    constructed the manager directly and four of them -- the LSP's three and the
+    incremental engine's one -- passed no adapter layer at all. Measured on an
+    MkDocs project carrying a built ``site/`` tree, scanning the repository
+    root: the CLI saw ``docs/index.md`` and the editor saw ``docs/index.md`` and
+    ``site/index.md``. So a user got diagnostics on generated output that CI
+    says nothing about, which is two products answering one question.
+
+    Taking the *adapter* rather than the three values is the point: a caller
+    cannot supply two of three here, and a fourth layer added to the adapter
+    protocol reaches every caller without any of them being edited.
+
+    ``cli_exclude``/``cli_include`` are the ``--exclude-dir``/``--include-dir``
+    flags. They are keyword-only and default to nothing, because every non-CLI
+    caller has no such flags and should not have to say so.
+    """
+    return LayeredExclusionManager(
+        config,
+        repo_root=repo_root,
+        docs_root=docs_root,
+        cli_exclude=cli_exclude,
+        cli_include=cli_include,
+        adapter_metadata_files=adapter.get_metadata_files(),
+        adapter_output_dirs=adapter.get_output_dirs(),
+        adapter_excluded_docs=adapter.get_excluded_docs_spec(),
+    )

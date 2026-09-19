@@ -17,7 +17,7 @@ from zenzic import __version__
 from zenzic.core import regex as re
 from zenzic.core.adapters import BaseAdapter, get_adapter, resolve_content_roots
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
-from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.exclusion import LayeredExclusionManager, build_exclusion_manager
 from zenzic.core.extensions import tab_anchor_style
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
@@ -231,6 +231,24 @@ class LanguageServer:
         if incremental_uris:
             self._sync_workspace_and_publish(incremental_uris)
 
+    def _ensure_adapter(
+        self, config: ZenzicConfig, repo_root: Path, docs_root: Path
+    ) -> BaseAdapter:
+        """The adapter for *docs_root*, built once and reused.
+
+        Hoisted out of the three places that used to build the exclusion manager
+        first and the adapter afterwards. That order was the defect: the manager
+        was constructed with no adapter layer at all, so the editor did not
+        exclude the engine's build output, its metadata files or its
+        `exclude_docs`/`draft_docs` patterns. Measured on an MkDocs project with
+        a built `site/` tree, scanning the repository root, the CLI saw
+        `docs/index.md` and this server saw `docs/index.md` and `site/index.md`
+        -- diagnostics on generated files that CI says nothing about.
+        """
+        if self.adapter is None:
+            self.adapter = get_adapter(config.build_context, docs_root, repo_root)
+        return self.adapter
+
     def _resolve_docs_root(self) -> Path:
         """Resolve docs_root with fallback to repo_root when docs/ doesn't exist.
 
@@ -287,8 +305,11 @@ class LanguageServer:
 
         docs_root = self._resolve_docs_root()
         if not self.exclusion_mgr:
-            self.exclusion_mgr = LayeredExclusionManager(
-                self.config, repo_root=self.repo_root, docs_root=docs_root
+            self.exclusion_mgr = build_exclusion_manager(
+                self.config,
+                self.repo_root,
+                docs_root,
+                self._ensure_adapter(self.config, self.repo_root, docs_root),
             )
 
         md_contents: dict[Path, str] = {}
@@ -313,9 +334,9 @@ class LanguageServer:
                     continue
                 static_assets.add(file_path.resolve())
 
-        self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
+        _adapter = self._ensure_adapter(self.config, self.repo_root, docs_root)
         self.vsm = build_vsm(
-            self.adapter,
+            _adapter,
             docs_root,
             md_contents,
             static_assets=static_assets,
@@ -324,9 +345,7 @@ class LanguageServer:
             self.vsm,
             # The editor must agree with the CLI about whether a link to a
             # content tab resolves; both read the style from the adapter.
-            tabs=tab_anchor_style(self.adapter.get_enabled_extensions())
-            if self.adapter is not None
-            else None,
+            tabs=tab_anchor_style(_adapter.get_enabled_extensions()),
         )
         # Populate overlay with currently open documents
         for uri, text in self.documents.documents.items():
@@ -337,7 +356,7 @@ class LanguageServer:
             self.engine = IncrementalAnalysisEngine(
                 config=self.config,
                 rule_engine=self.rule_engine,
-                adapter=self.adapter,
+                adapter=_adapter,
                 docs_root=docs_root,
                 repo_root=self.repo_root,
             )
@@ -384,8 +403,11 @@ class LanguageServer:
             docs_root = self._resolve_docs_root()
 
             if not self.exclusion_mgr:
-                self.exclusion_mgr = LayeredExclusionManager(
-                    self.config, repo_root=self.repo_root, docs_root=docs_root
+                self.exclusion_mgr = build_exclusion_manager(
+                    self.config,
+                    self.repo_root,
+                    docs_root,
+                    self._ensure_adapter(self.config, self.repo_root, docs_root),
                 )
 
             path = uri_to_path(uri).resolve()
@@ -849,12 +871,14 @@ class LanguageServer:
         docs_root = self._resolve_docs_root() if self.repo_root else Path("/_zenzic_virtual")
 
         if not self.exclusion_mgr and self.repo_root:
-            self.exclusion_mgr = LayeredExclusionManager(
-                self.config, repo_root=self.repo_root, docs_root=docs_root
+            self.exclusion_mgr = build_exclusion_manager(
+                self.config,
+                self.repo_root,
+                docs_root,
+                self._ensure_adapter(self.config, self.repo_root, docs_root),
             )
 
-        if not self.adapter:
-            self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
+        _adapter = self._ensure_adapter(self.config, repo_root, docs_root)
 
         if self.vsm is None:
             self.vsm = VirtualSiteMap()
@@ -878,7 +902,7 @@ class LanguageServer:
             self.engine = IncrementalAnalysisEngine(
                 config=self.config,
                 rule_engine=self.rule_engine,
-                adapter=self.adapter,
+                adapter=_adapter,
                 docs_root=docs_root,
                 repo_root=repo_root,
             )

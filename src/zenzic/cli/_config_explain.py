@@ -261,16 +261,15 @@ def explain(
     # manager; `excluded_dirs` flattens them, which is why this reads each one
     # rather than the union.
     from zenzic.core.adapters import get_adapter
-    from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.core.exclusion import build_exclusion_manager
 
     _docs_root = repo_root / config.docs_dir
     _adapter = get_adapter(config.build_context, _docs_root, repo_root)
-    _mgr = LayeredExclusionManager(
-        config,
-        repo_root=repo_root,
-        docs_root=_docs_root,
-        adapter_output_dirs=_adapter.get_output_dirs(),
-    )
+    # Through the builder, so this table is the set `check` actually applies.
+    # It used to pass `adapter_output_dirs` alone -- one layer of three -- so the
+    # command whose entire job is to print what a scan excludes was printing a
+    # different set from the one the scan used.
+    _mgr = build_exclusion_manager(config, repo_root, _docs_root, _adapter)
     excl_table = _make_table(f"{emoji('info')}  Exclusion layers")
     excl_table.add_column("Layer", style="bold", min_width=28, no_wrap=True)
     excl_table.add_column("Active Value", min_width=30)

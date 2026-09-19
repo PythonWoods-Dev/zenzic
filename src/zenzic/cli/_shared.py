@@ -30,7 +30,11 @@ from zenzic.core.codes import (
     get_sarif_name,
 )
 from zenzic.core.exceptions import ZenzicConfigError
-from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.exclusion import (
+    AdapterLayers,
+    LayeredExclusionManager,
+    build_exclusion_manager,
+)
 from zenzic.core.reporter import Finding, FooterNotice
 from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
 from zenzic.core.validator import repo_relative_label
@@ -938,15 +942,16 @@ def _build_exclusion_manager(
     escape the repository root via path traversal (``../``).
     """
     _validate_docs_root(repo_root, docs_root)
-    return LayeredExclusionManager(
+    # The three adapter layers arrive here already separated, because several CLI
+    # commands compute them from an adapter they built for another reason. Passed
+    # straight through to the one constructor in `core.exclusion`.
+    return build_exclusion_manager(
         config,
-        repo_root=repo_root,
-        docs_root=docs_root,
+        repo_root,
+        docs_root,
+        AdapterLayers(adapter_metadata_files, adapter_output_dirs, adapter_excluded_docs),
         cli_exclude=exclude_dirs,
         cli_include=include_dirs,
-        adapter_metadata_files=adapter_metadata_files,
-        adapter_output_dirs=adapter_output_dirs,
-        adapter_excluded_docs=adapter_excluded_docs,
     )
 
 

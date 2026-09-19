@@ -33,7 +33,8 @@ from zenzic.cli._shared import (
     get_ui,
 )
 from zenzic.cli._target_resolver import _apply_target
-from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.adapters import get_adapter
+from zenzic.core.exclusion import build_exclusion_manager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
@@ -708,7 +709,10 @@ def _run_act(act: _Act, examples_root: Path, show_all: bool = False) -> _ActResu
         config, _, _, target_hint = _apply_target(example_dir, config, act.docs_root_override)
 
     docs_root = (example_dir / config.docs_dir).resolve()
-    exclusion_mgr = LayeredExclusionManager(config, repo_root=example_dir, docs_root=docs_root)
+    # The lab runs the same pipeline the CLI runs, so it must exclude the same
+    # tree; it passed no adapter layer at all.
+    _lab_adapter = get_adapter(config.build_context, docs_root, example_dir)
+    exclusion_mgr = build_exclusion_manager(config, example_dir, docs_root, _lab_adapter)
 
     t0 = time.monotonic()
     results = _collect_all_results(
