@@ -212,7 +212,7 @@ reported as a governance finding even once they resolve.
     produced findings that were simply wrong — an `import` block read as a malformed
     list, an image inside a fence reported as missing alt text, a URL in a multi-line
     JSX attribute reported as bare prose. Those are closed. Measured on a 421-file
-    public Starlight site, correctly configured: **zero false findings**.
+    public Starlight site, correctly configured: **235 findings before, 93 after**.
 
     One class is still worth knowing about, because it is a limit rather than a defect.
     **`Z102` predicts anchors the way Python-Markdown's `toc` extension does**, which is

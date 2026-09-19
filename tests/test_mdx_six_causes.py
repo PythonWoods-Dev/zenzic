@@ -160,3 +160,34 @@ def test_a_type_inside_an_html_code_element_is_not_an_empty_link() -> None:
 def test_a_genuinely_empty_link_is_still_reported() -> None:
     doc = "# T\n\nSee []( ./x.md ) for details.\n"
     assert len(list(_extract_empty_link_texts(doc))) == 1
+
+
+# ── Follow-up: the heading's declared anchor ─────────────────────────────────
+
+
+def test_a_heading_that_declares_its_own_anchor_is_seen() -> None:
+    """`{#custom-id}` replaces the derived slug; it is not stripped from it.
+
+    `rules._slugify` produced `security-gate-{#security-gate}` -- an identifier
+    no renderer could mint -- so Z107's guard never matched inside such a
+    section. Measured at 368 affected headings in this repository, where the
+    rule was inert rather than wrong: it reported 0, which is why nothing
+    surfaced it.
+    """
+    doc = "## Security Gate {#security-gate}\n\nSee [security-gate](#security-gate) here.\n"
+    assert _anchors(doc) == [3]
+
+
+def test_the_declared_id_wins_over_the_derived_slug() -> None:
+    """Stripping the attr-list would give `the-integrity-filter`; the renderer
+    publishes `integrity-filter`, because the declared id replaces the slug."""
+    from zenzic.core.rules import _heading_anchor
+
+    assert _heading_anchor("The Integrity Filter {#integrity-filter}") == "integrity-filter"
+    assert _heading_anchor("Plain Heading") == "plain-heading"
+
+
+def test_a_cross_section_link_under_an_attr_list_heading_is_not_a_loop() -> None:
+    """The other direction: restoring coverage must not flag ordinary links."""
+    doc = "## Configuration {#configuration}\n\nSee [security gate](#security-gate) here.\n"
+    assert _anchors(doc) == []

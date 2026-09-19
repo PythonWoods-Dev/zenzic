@@ -84,14 +84,6 @@ CANNOT_BE_RUN: dict[str, str] = {
     ),
     "Z103": "needs a site navigation and an existing page absent from it; one page has neither",
     "Z106": "a cycle needs two pages, and the example shows both inside one block",
-    "Z107": (
-        "an example that produces the code would be reported on the card page itself: the "
-        "check reads this fenced example as live content, so the card cannot show a working one"
-    ),
-    "Z403": (
-        "the card escapes its example (`!\\[\\]`) because the check reads the fenced block as "
-        "live content and would report the card page itself; an escaped image is not an image"
-    ),
     "Z109": (
         "an unreachable external host is observed only under --strict with a real network "
         "request, which a test run must not depend on"

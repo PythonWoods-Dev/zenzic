@@ -844,12 +844,57 @@ def _is_suppressed(line: str, code: str) -> bool:
     return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
 
 
+#: A heading's trailing attr-list with an explicit id, `{#custom-id}`.
+#: Python-Markdown's `attr_list` extension and pymdownx both consume it and use
+#: the declared id *instead of* the derived slug, so a heading that carries one
+#: publishes at exactly that anchor under every renderer supporting the syntax.
+_HEADING_ATTR_ID_RE = re.compile(r"\{[^}\n]*#([A-Za-z][\w:.-]*)[^}\n]*\}\s*$")
+
+
+def _heading_anchor(text: str) -> str:
+    """The anchor a heading actually publishes at.
+
+    Separate from :func:`_slugify` because the two answer different questions:
+    a *link's text* never carries an attr-list, and a *heading* may. Folding
+    the attr-list into the slugifier would have produced
+    `the-integrity-filter` for `## The Integrity Filter {#integrity-filter}`,
+    where the renderer publishes `integrity-filter` -- the declared id replaces
+    the derived slug rather than being stripped from it.
+
+    Measured: **368** headings in this repository declare their own anchor, and
+    Z107's guard compared a mangled `security-gate-{#security-gate}` against a
+    clean fragment in every one of them, so the rule was inert there. The cost
+    was coverage, not noise -- Z107 reported 0 here, which is why nothing
+    surfaced it until a fixture was corrected for an unrelated reason.
+    """
+    declared = _HEADING_ATTR_ID_RE.search(text)
+    if declared:
+        return declared.group(1).lower()
+    return _slugify(text)
+
+
 def _slugify(text: str) -> str:
     """Return the GitHub-Markdown slug for heading *text*.
 
     Lowercases, strips leading/trailing whitespace, replaces internal spaces
     with hyphens. Does NOT strip punctuation — matches the minimal slug that
     Docusaurus and most renderers produce for same-page anchor links.
+
+    **Deliberately not `validator.slug_heading`.** That function predicts
+    Python-Markdown's ``toc``, which MkDocs and Zensical render with; this one
+    targets the minimal slug, and the divergence is a choice rather than drift.
+    Measured against ``markdown.Markdown(extensions=["toc", "attr_list"])``,
+    the two agree on a plain heading and part company on punctuation, which is
+    the difference the renderers themselves have.
+
+    **An attr-list is not that difference and is stripped first.** A heading
+    written ``## Security Gate {#security-gate}`` publishes at ``#security-gate``
+    under every renderer that supports the syntax; slugifying the braces
+    produced ``security-gate-{#security-gate}``, an identifier no renderer could
+    mint, so Z107's guard could never match inside such a section. Measured:
+    **368** headings in this repository declare their own anchor this way, and
+    the rule was inert in every one of them. The cost was coverage, not noise --
+    Z107 reported 0 here, which is why nothing surfaced it.
     """
     return text.lower().strip().replace(" ", "-")
 
@@ -888,7 +933,7 @@ class CircularAnchorRule(BaseRule):
                 continue
             heading_match = _HEADING_RE.match(line.strip())
             if heading_match:
-                current_heading_slug = _slugify(heading_match.group(2))
+                current_heading_slug = _heading_anchor(heading_match.group(2))
             if "(#" not in line:
                 continue
             for m in _ANCHOR_LINK_RE.finditer(line):
@@ -913,7 +958,8 @@ class CircularAnchorRule(BaseRule):
                             rule_id=self.rule_id,
                             message=(
                                 f"Self-referential anchor link: "
-                                f"'[{link_text}](#{fragment})' slugifies to its own fragment. "
+                                f"'[{link_text}](#{fragment})' sits inside the section it "
+                                "points at, so it takes the reader where they already are. "
                                 "Replace with a meaningful target or remove the link."
                             ),
                             severity=code_severity("Z107"),

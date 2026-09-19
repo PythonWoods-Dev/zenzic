@@ -19,7 +19,7 @@ that passes today fail after upgrading. Items 1-3 add findings, and the two secu
 constructs — a `...`-terminated frontmatter, a setext heading, an HTML block — whose content the
 engine could not see at all. Items 4, 6, 8, 9, 10, 13 and 22 remove findings, item 7 moves them
 both ways, item 5 changes the JSON payload, item 15 changes the wording of one, item 23 adds
-a notice without changing any finding, and item 24 removes findings on MDX sites. The list ends
+a notice without changing any finding, item 24 removes findings on MDX sites, and item 25 removes one class of `Z107`. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -309,10 +309,20 @@ anchor (`Z107`); an editor deep link such as `cursor://` or `vscode:` was resolv
 (`Z301`, `Z108`). A reference label containing a code span — ``[`i18n.locales`]`` — is also
 resolved now, where the inline-code mask used to destroy the identifier and report a reference
 that was defined *and used* as unused (`Z302`). **Measured on a 421-file public Starlight site,
-correctly configured: 235 findings before, 93 after, and none of the 93 is a false positive.**
+correctly configured: 235 findings before, 93 after.** Of the 93, reading every one of the 39 classified as real found **two** that are not: `Z501`'s default placeholder pattern `\btodo\b` matches the ordinary English of *"inboxes, social networks, todo lists"* and of a sentence about leaving TODO messages. The pattern list is configurable and documented, so the default is a policy rather than a defect, but it is named here because an earlier entry claimed zero false positives and verification falsified it.
 Real findings are unaffected in both directions, asserted per cause: a genuine fake list, an
 image in prose without alt text, a bare URL in prose, a true self-loop, a broken link, a real
 absolute path and a genuinely empty link are all still reported.
+
+**25. A link written before a page's first heading no longer reports `Z107`.** The rule is
+documented as a self-loop — a link that *"navigates the reader to exactly where they already are"* —
+and it checks that the link sits inside the section its fragment names. That check was written
+`current_heading_slug is not None`, so a link appearing before any heading skipped it and fell
+through to a bare comparison of the link's text against its fragment. **If your pages open with an
+orientation paragraph that links onward** — `See [configuration](#configuration) below.` above the
+first `##` — those findings disappear. They were never self-loops: nothing encloses them. A link
+that genuinely points at the section containing it still reports, and the rule card's example is
+now such a link rather than the case that no longer applies.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

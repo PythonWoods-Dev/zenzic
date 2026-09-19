@@ -268,6 +268,7 @@ nav:
       - Exclusion Design: explanation/exclusion-design.md
       - Structural Integrity: explanation/structural-integrity.md
       - Auto-Fix Philosophy: explanation/auto-fix-philosophy.md
+      - When a Finding Looks Wrong: explanation/when-a-finding-looks-wrong.md
       - Engine Migration Design: explanation/engine-migration-design.md
       - The Zenzic Trinity: explanation/the-zenzic-trinity.md
       - GitHub Action Internals: explanation/github-action-internals.md

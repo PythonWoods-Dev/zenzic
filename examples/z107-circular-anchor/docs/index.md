@@ -10,7 +10,7 @@ demonstrating **Z107 CIRCULAR_ANCHOR** detection.
 
 - [Guide](guide.md) — see the "Setup" section for the circular anchor example.
 
-A circular anchor is a link whose visible text slugifies to the exact same
+A circular anchor is a link written inside the section its fragment names, whose visible text slugifies to the exact same
 fragment identifier as the heading that already contains it, so clicking the
 link leaves the reader exactly where they started instead of navigating
 anywhere useful.

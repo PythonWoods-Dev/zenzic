@@ -9,6 +9,11 @@ description: "The Zenzic Suppression Policy — four governance levels, Technica
 
 Uncontrolled suppressions mask architectural decay. When engineering teams treat ignore comments as a quick workaround, documentation quality degrades silently until broken links and security breaches reach production.
 
+> **Before you suppress anything**, check which of three conditions you are in: the engine may be
+> wrong, the rule may be an opinion, or the rule may be right and you are choosing to live with it.
+> Only the third is a suppression, and the other two cost you nothing. See
+> [When a Finding Looks Wrong](../explanation/when-a-finding-looks-wrong.md).
+
 Zenzic replaces unmonitored ignore tags with a **Managed Technical Debt Governance Framework**. In Zenzic, a suppression is not an escape hatch — it is an explicit assumption of architectural responsibility. Every suppression is audited, costs Quality Score points, and is bounded by a strict **Suppression CAP**.
 
 ---

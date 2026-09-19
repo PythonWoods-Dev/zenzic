@@ -11,6 +11,10 @@ Every issue detected by Zenzic is tagged with a **canonical finding code** (`Zxx
 
 ---
 
+> **A finding you think is wrong?** There are three reasons that happens and three different
+> remedies — only one of them is a suppression, and the other two cost you nothing. See
+> [When a Finding Looks Wrong](../explanation/when-a-finding-looks-wrong.md).
+
 ## Tier Model
 
 Zenzic organises diagnostics into four operational tiers:

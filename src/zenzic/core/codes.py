@@ -656,7 +656,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z104": "Link target file missing from the filesystem",
     "Z105": "Absolute path detected — use a relative path for portability",
     "Z106": "Circular link chain detected between documentation pages",
-    "Z107": "Self-referential anchor link — slug(text) resolves to the same fragment",
+    "Z107": "Self-referential anchor link — a link inside the section its fragment names",
     "Z108": "Link label is empty or contains only whitespace",
     "Z109": "External URL returned an HTTP error or could not be reached",
     "Z110": "Malformed TOML syntax in configuration file (.zenzic.toml)",
@@ -957,8 +957,8 @@ CORE_SCANNERS: list[CoreScanner] = [
         codes="Z107",
         name="Circular Anchor Guard",
         capability=(
-            "Self-referential anchor links \u2014 detects [text](#fragment) "
-            "where slug(text) == fragment"
+            "Self-referential anchor links \u2014 detects [text](#fragment) written "
+            "inside the very section that fragment names, where slug(text) == fragment"
         ),
         primary_exit=1,
         non_suppressible=False,

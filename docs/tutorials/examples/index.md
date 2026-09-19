@@ -41,7 +41,7 @@ uvx zenzic check all
 | Z103 | Link target exists but is not reachable via site navigation | [z103-orphan-link](z1xx-links/z103-orphan-link/) |
 | Z104 | Link target file missing from the filesystem | [z104-file-not-found](z1xx-links/z104-file-not-found/) |
 | Z105 | Absolute path detected — use a relative path for portability | [z105-absolute-path](z1xx-links/z105-absolute-path/) |
-| Z107 | Self-referential anchor link — slug(text) resolves to the s… | [z107-circular-anchor](z1xx-links/z107-circular-anchor/) |
+| Z107 | Self-referential anchor link — a link inside the section its… | [z107-circular-anchor](z1xx-links/z107-circular-anchor/) |
 | Z108 | Link label is empty or contains only whitespace | [z108-empty-link-text](z1xx-links/z108-empty-link-text/) |
 | Z109 | External URL returned an HTTP error or could not be reached | [z109-external-link-broken](z1xx-links/z109-external-link-broken/) |
 | Z110 | Malformed TOML syntax in configuration file (.zenzic.toml) | [z110-config-syntax-error](z0xx-core/z110-config-syntax-error/) |
