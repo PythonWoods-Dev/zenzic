@@ -354,6 +354,12 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         # `nav_contract[]` held prose with no code in it and `orphans[]` and
         # `unused_assets[]` held bare paths. The schema sets
         # additionalProperties: false, so this key set is the contract.
+        #
+        # `engine` was added in v0.31.0 and is additive: a new key, with no
+        # existing one repurposed to carry it. It names the adapter the run
+        # asked for and the one it used, because those can differ and the only
+        # signal used to be a notice on stderr.
+        "engine",
         "findings",
         "security_breaches",
         "security_incidents",
@@ -362,6 +368,8 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "suppression_debt_pts",
         "debt_status",
     }
+    assert data["engine"]["resolved"] == "standalone"
+    assert data["engine"]["substituted"] is False
     assert data["findings"] == []
     assert data["security_breaches"] == 0
     assert data["security_incidents"] == 0

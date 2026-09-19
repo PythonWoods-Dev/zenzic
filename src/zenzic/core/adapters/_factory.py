@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import contextlib
 import threading
+from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Final, Literal, cast
@@ -59,6 +60,40 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
     "prebuilt": PrebuiltVSMAdapter,
     "vsm": PrebuiltVSMAdapter,
 }
+
+
+@dataclass(frozen=True)
+class EngineResolution:
+    """What engine the run asked for, what it got, and whether those differ.
+
+    The substitution notice has only ever reached stderr, and **stderr reaches
+    no CI consumer**: a pipeline reading `--format json` or uploading SARIF sees
+    a clean payload and no indication that the engine it declared was not the
+    engine that ran. Measured on 2,604 Astro pages, a declared `prebuilt` with
+    no manifest produced a run byte-identical to `standalone` -- same total,
+    same distribution, same exit code -- and the only signal was a line nobody
+    was reading.
+
+    Attached to the adapter the factory returns, so every surface that holds an
+    adapter can report it without the factory needing to know which surfaces
+    exist.
+    """
+
+    declared: str
+    resolved: str
+    substituted: bool
+    reason: str = ""
+
+    def as_payload(self) -> dict[str, object]:
+        """The shape both the JSON payload and the SARIF run property carry."""
+        out: dict[str, object] = {
+            "declared": self.declared,
+            "resolved": self.resolved,
+            "substituted": self.substituted,
+        }
+        if self.reason:
+            out["reason"] = self.reason
+        return out
 
 
 #: What each engine looks for, so the substitution notice can name the missing
@@ -381,6 +416,22 @@ def get_adapter(
                 f"StandaloneAdapter's, not {declared_engine!r}'s."
             )
         adapter = StandaloneAdapter()
+
+    # Recorded on the adapter, not only printed. Every surface that holds an
+    # adapter can now say what happened -- the JSON payload as a field, SARIF as
+    # a run property -- which is what stderr could never do for a CI consumer.
+    _resolution = EngineResolution(
+        declared=declared_engine,
+        resolved="standalone" if not has_config else context.engine,
+        substituted=not has_config and declared_engine not in ("standalone", "auto"),
+        reason=(
+            f"no {_SUBSTITUTION_HINTS.get(declared_engine, 'engine configuration')} found"
+            if not has_config and declared_engine not in ("standalone", "auto")
+            else ""
+        ),
+    )
+    with contextlib.suppress(Exception):
+        object.__setattr__(adapter, "zenzic_resolution", _resolution)
 
     if getattr(context, "offline_mode", False):
         messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")

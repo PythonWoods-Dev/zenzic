@@ -13,7 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import pathspec.gitignore
 import typer
@@ -341,6 +341,32 @@ def _output_json_findings(
     print(json.dumps(report, indent=2))
 
 
+def _engine_payload(repo_root: Path, docs_root: Path, config: ZenzicConfig) -> dict[str, object]:
+    """What engine this run asked for, what it used, and whether those differ.
+
+    Reads the record the adapter factory attaches rather than recomputing it, so
+    the payload cannot disagree with the notice printed on stderr. The adapter
+    is already built and cached by the time any payload is written, so asking
+    for it again costs nothing.
+
+    Falls back to the declared engine alone if the record is absent -- an
+    adapter from a third-party entry point may not carry one, and a missing
+    field is a better answer than a guessed one.
+    """
+    from zenzic.core.adapters import get_adapter
+
+    declared = getattr(config.build_context, "engine", "auto")
+    try:
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+    except Exception:
+        return {"declared": declared, "resolved": declared, "substituted": False}
+    resolution = getattr(adapter, "zenzic_resolution", None)
+    if resolution is None:
+        return {"declared": declared, "resolved": declared, "substituted": False}
+    payload: dict[str, object] = resolution.as_payload()
+    return payload
+
+
 def _output_check_all_json_findings(
     results: Any,
     all_findings: list[Finding],
@@ -395,7 +421,14 @@ def _output_check_all_json_findings(
     # nav_contract[] held pre-formatted prose with no code in it, and orphans[]
     # and unused_assets[] held bare paths -- so a consumer could not resolve a
     # finding to a file and a code from them at all.
-    report = {
+    report: dict[str, Any] = {
+        # `engine` first, because it qualifies everything under it. A consumer
+        # that reads `findings` without knowing which adapter produced them is
+        # reading an answer to a question it did not ask: a declared `prebuilt`
+        # with no manifest once produced a run byte-identical to `standalone`
+        # -- same total, same distribution, same exit -- and the only signal was
+        # a notice on stderr, where no CI consumer reads.
+        "engine": _engine_payload(repo_root, docs_root, config),
         "findings": [_finding_dict(f) for f in all_findings],
         "security_breaches": sum(1 for f in all_findings if f.severity == "security_breach"),
         "security_incidents": sum(1 for f in all_findings if f.severity == "security_incident"),
@@ -529,10 +562,22 @@ def _sarif_level(severity: str) -> str:
     }.get(severity, "note")
 
 
+#: GitHub Code Scanning's published limits for one SARIF upload: it rejects a
+#: file carrying more than 25,000 results, and of the results it accepts it
+#: **includes only the first 5,000**, ordered by severity. The rest are
+#: discarded without any message to the user. Verified at docs.github.com on
+#: 2026-09-19. Measured against a real run: this project's own Astro corpus
+#: produces 15,254 findings, so a consumer uploading it sees 5,000 and loses
+#: 10,254 with nothing saying so.
+GITHUB_SARIF_RESULT_LIMIT: Final[int] = 25_000
+GITHUB_SARIF_INCLUDED_LIMIT: Final[int] = 5_000
+
+
 def _output_sarif_findings(
     findings: list[Finding],
     version: str,
     rules_map: dict[str, Any] | None = None,
+    engine: dict[str, object] | None = None,
 ) -> None:
     """Serialize findings list to deterministic SARIF 2.1.0 JSON and print to stdout."""
     seen_rule_ids: set[str] = set()
@@ -691,6 +736,43 @@ def _output_sarif_findings(
         "columnKind": "unicodeCodePoints",
         "results": sarif_results,
     }
+
+    # The engine that produced these results, as a run-level property. GitHub
+    # ignores properties it does not know, so this costs a consumer nothing and
+    # gives one that reads it the thing stderr could never deliver: whether the
+    # adapter named in the configuration is the adapter that ran.
+    run_properties: dict[str, object] = {}
+    if engine is not None:
+        run_properties["engine"] = engine
+
+    # And what this file will lose on upload, decided here because this is the
+    # only place that knows the count before the file is written. Saying it is
+    # the whole point: a user who uploads 15,254 results and sees 5,000 has no
+    # way to tell a clean tail from a discarded one.
+    if len(sarif_results) > GITHUB_SARIF_INCLUDED_LIMIT:
+        truncation: dict[str, object] = {
+            "resultCount": len(sarif_results),
+            "githubIncludedLimit": GITHUB_SARIF_INCLUDED_LIMIT,
+            "githubRejectedAbove": GITHUB_SARIF_RESULT_LIMIT,
+            "githubWillDiscard": len(sarif_results) - GITHUB_SARIF_INCLUDED_LIMIT,
+            "githubWillReject": len(sarif_results) > GITHUB_SARIF_RESULT_LIMIT,
+        }
+        run_properties["githubTruncation"] = truncation
+        # Also on stderr, because a run property is read by whoever went looking
+        # and this is a fact the person running the command should not have to
+        # go looking for. stderr rather than stdout: stdout is the SARIF.
+        _over = len(sarif_results) - GITHUB_SARIF_INCLUDED_LIMIT
+        _note = (
+            f"NOTICE: this SARIF carries {len(sarif_results):,} results. "
+            f"GitHub Code Scanning includes only the first {GITHUB_SARIF_INCLUDED_LIMIT:,}, "
+            f"so {_over:,} would not appear there."
+        )
+        if len(sarif_results) > GITHUB_SARIF_RESULT_LIMIT:
+            _note += f" Above {GITHUB_SARIF_RESULT_LIMIT:,} the upload is rejected outright."
+        Console(stderr=True, no_color=True, highlight=False, markup=False).print(_note)
+
+    if run_properties:
+        run_obj["properties"] = run_properties
 
     execution_successful = True
     notifications = []

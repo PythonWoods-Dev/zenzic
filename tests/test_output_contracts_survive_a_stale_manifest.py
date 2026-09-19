@@ -115,20 +115,39 @@ def test_the_json_payload_is_the_shape_the_wrapper_reads(stale_manifest_project:
     assert {f["code"] for f in payload["findings"]} >= {"Z101", "Z115"}
 
 
-def test_the_payload_carries_no_engine_field_to_change_the_meaning_of() -> None:
-    """Recorded because the question was asked and the answer is 'there is none'.
+def test_the_engine_field_was_added_additively(stale_manifest_project: Path) -> None:
+    """The guard that was here fired, and this is the decision it asked for.
 
-    A consumer cannot break on a field's meaning changing if the field does not
-    exist. Adding `engine` later is a new key, which a consumer reading by name
-    tolerates; what would not be tolerable is reusing an existing key for it.
+    It used to assert that no `engine` key existed, with the message *"decide
+    whether it is additive before shipping it"*. `engine` shipped in v0.31.0,
+    and it is additive: a **new** top-level key, and no existing key changed
+    meaning to make room for it. A consumer reading by name is unaffected; one
+    that had been inferring the adapter from the findings can now stop.
+
+    Asserted on the emitted payload rather than on the source text, which is
+    what the earlier form could not do.
     """
-    from zenzic.cli import _shared
+    project = stale_manifest_project
+    payload = json.loads(_emit(project, "json"))
 
-    source = Path(_shared.__file__).read_text(encoding="utf-8")
-    assert '"engine"' not in source.split("def _output_json_findings", 1)[-1][:4000], (
-        "an `engine` key appeared in the JSON payload without this test being "
-        "updated — decide whether it is additive before shipping it"
-    )
+    engine = payload.get("engine")
+    assert isinstance(engine, dict), f"`engine` must be an object, got {engine!r}"
+    assert set(engine) >= {"declared", "resolved", "substituted"}, engine
+    assert isinstance(engine["substituted"], bool), engine
+
+    # The additive half: the keys that were there before are still there, with
+    # the same names. A key repurposed to carry the engine would be the change
+    # the original guard existed to prevent.
+    for key in (
+        "findings",
+        "security_breaches",
+        "security_incidents",
+        "suppression_count",
+        "suppression_cap",
+        "suppression_debt_pts",
+        "debt_status",
+    ):
+        assert key in payload, f"{key} disappeared from the payload"
 
 
 def test_the_metadata_engine_on_the_sarif_path_never_runs_a_rule(

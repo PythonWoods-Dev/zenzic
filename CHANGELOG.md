@@ -31,7 +31,8 @@ error, and items 37 and 38 change what the machine formats carry when a run fail
 configuration. Item 39 adds a flag and changes nothing until it is passed, but it is
 listed here because this project's own badge gate now passes it. Item 40 changes three printed
 paths on Windows only. Item 41 removes editor diagnostics on
-build output. The list ends
+build output. Items 42 and 43 add two machine-readable
+fields and change no finding. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -502,6 +503,22 @@ which mode produced it.
 *Why:* the exclusion set is built from the configuration **and** three layers the adapter contributes, and the adapter layers are easy to omit one at a time because omitting one is silence rather than an error. Seven sites constructed the manager directly; four of them — the language server's three and the incremental engine's one — passed **no adapter layer at all**. Measured on an MkDocs project carrying a built `site/` tree, scanning the repository root: the CLI saw `docs/index.md`, the editor saw `docs/index.md` and `site/index.md`. Items 24 and the `site_dir` change in this same release taught the CLI to skip that tree; without this, the editor would have kept squiggling on generated files that CI says nothing about — one product answering a question two ways.
 
 *What to do:* nothing. If you had learned to ignore editor diagnostics on generated output, they are gone. `build_exclusion_manager()` now takes the adapter itself rather than its three answers, so a caller cannot supply two of three, and a fourth layer added later reaches every caller without any of them being edited.
+
+**42. The JSON payload and the SARIF run now say which engine actually ran.**
+
+*What you will see:* a new top-level `engine` object in `check all --format json`, and the same object as a run-level property in `--format sarif`. It carries `declared`, `resolved`, `substituted` and — only when `substituted` is true — `reason`. Nothing was renamed or repurposed to make room for it; `zenzic-output.schema.json` declares it.
+
+*Why:* a declared engine that finds none of its own configuration is **replaced**, not defaulted, and the run then reports what the standalone adapter reports. Measured on 2,604 Astro pages, a declared `prebuilt` with no manifest produced a run byte-identical to declaring `standalone` outright — same total, same distribution, same exit code. The only signal was a notice on stderr, and **stderr reaches no CI consumer**: a pipeline saw a clean payload and no indication that the engine it configured was not the engine that ran.
+
+*What to do:* gate on it if your pipeline depends on the engine it configured — `jq -e '.engine.substituted | not'`. `substituted` is `false` on an ordinary run, `auto` included: auto resolution is discovery, not substitution.
+
+**43. A SARIF file larger than GitHub will show now says so.**
+
+*What you will see:* when a run produces more than 5,000 results, `runs[0].properties.githubTruncation` appears in the SARIF and a notice goes to stderr naming the exact loss. Below that count, neither appears and nothing changes.
+
+*Why:* GitHub Code Scanning rejects an upload above **25,000** results and, of what it accepts, **includes only the first 5,000**, ordered by severity — the rest are discarded with no message, so a clean tail and a truncated one look identical. This project's own Astro corpus produces 15,254 findings: a consumer uploading it sees 5,000 and loses 10,254 silently. Zenzic knows the count before it writes the file.
+
+*What to do:* nothing, unless you upload to Code Scanning and the notice appears. **The file is not truncated** — every result is emitted, and what to do about the limit is your decision: narrow the scan with `--only` or `[governance] directory_policies`, fix the largest class first, or consume the file with something else.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

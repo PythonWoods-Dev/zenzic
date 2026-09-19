@@ -275,7 +275,12 @@ def check_links(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
@@ -428,7 +433,12 @@ def check_orphans(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
             raise typer.Exit(1)
@@ -560,7 +570,12 @@ def check_snippets(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
         if errors_count > 0 or (strict and warnings_count > 0):
@@ -774,7 +789,12 @@ def check_references(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
@@ -908,7 +928,12 @@ def check_assets(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
             raise typer.Exit(1)
@@ -1057,7 +1082,12 @@ def check_placeholders(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         _evaluate_security_exit(findings)
         errors_count = sum(1 for f in findings if f.severity == "error")
         warnings_count = sum(1 for f in findings if f.severity == "warning")
@@ -2084,7 +2114,12 @@ def check_all(
         # here -- it is never read.
         _engine = _build_rule_engine(config, containers=None)
         _rules_map = {r.rule_id: r for r in _engine._rules} if _engine else None
-        _shared._output_sarif_findings(all_findings, __version__, rules_map=_rules_map)
+        _shared._output_sarif_findings(
+            all_findings,
+            __version__,
+            rules_map=_rules_map,
+            engine=_shared._engine_payload(repo_root, docs_root, config),
+        )
         _evaluate_security_exit(all_findings)
 
         if active_baseline is not None and not effective_exit_zero:

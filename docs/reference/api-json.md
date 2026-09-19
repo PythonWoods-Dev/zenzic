@@ -63,6 +63,37 @@ All contract outputs above include these fields, always:
 }
 ```
 
+### `engine` — which adapter actually produced these findings
+
+*Added in v0.31.0. A new key; nothing was repurposed to make room for it.*
+
+| Field | Type | Meaning |
+| :--- | :--- | :--- |
+| `declared` | string | The engine named in `.zenzic.toml`, or `auto` |
+| `resolved` | string | The engine whose adapter produced the findings below |
+| `substituted` | boolean | `true` when the two differ |
+| `reason` | string | Present only when `substituted` is `true`: what was looked for and not found |
+
+The two can differ, and that is why this field exists. **A declared engine that finds none
+of its own configuration is replaced rather than defaulted**: the run continues with the
+standalone adapter and reports what *that* adapter reports. On a site whose pages are
+addressed by route rather than by file path, that is an order of magnitude more findings —
+and until v0.31.0 the only signal was a notice on standard error, which no CI consumer
+reads.
+
+**Gate on `substituted`** if your pipeline depends on the engine it configured:
+
+```bash
+zenzic check all --format json | jq -e '.engine.substituted | not'
+```
+
+`substituted` is `false` on an ordinary run, including when `declared` is `auto` — auto
+resolution is discovery, not substitution. A declared `prebuilt` with no route manifest
+does not reach this field at all: since v0.31.0 that is a configuration error and the run
+stops before reading a page.
+
+The same object is carried by SARIF as a run-level property, described below.
+
 **`findings[]` is the array to read**, and since v0.31.0 it is the only one. It carries every
 finding the run produced, in one shape, with the code and the location as separate fields.
 
@@ -234,6 +265,56 @@ Each rule descriptor under `runs[0].tool.driver.rules` includes rich taxonomy an
 - **`properties.category`**: DQS taxonomy category (`structural`, `navigation`, `content`, `brand`, `governance`, `custom`, or `uncategorized` — the fallback for any registered code with no explicit category assigned).
 - **`properties.penalty`**: DQS penalty deduction cost per occurrence.
 - **`defaultConfiguration.level`**: OASIS SARIF level (`error`, `warning`, `note`).
+
+### Run-level properties
+
+*Added in v0.31.0.* `runs[0].properties` carries facts about the run rather than about a
+finding. GitHub ignores properties it does not recognise, so these cost a consumer nothing
+and give one that reads them something the terminal could not deliver.
+
+```json
+{
+  "engine": {
+    "declared": "mkdocs",
+    "resolved": "standalone",
+    "substituted": true,
+    "reason": "no mkdocs.yml (or mkdocs.yaml) found"
+  },
+  "githubTruncation": {
+    "resultCount": 15254,
+    "githubIncludedLimit": 5000,
+    "githubRejectedAbove": 25000,
+    "githubWillDiscard": 10254,
+    "githubWillReject": false
+  }
+}
+```
+
+- **`engine`** is the same object the JSON payload carries, described above.
+- **`githubTruncation`** is present **only when the file carries more results than GitHub
+  Code Scanning will include**, and is absent otherwise.
+
+#### What GitHub does with a large SARIF file
+
+GitHub rejects an upload carrying more than **25,000** results, and of the results it
+accepts it **includes only the first 5,000**, ordered by severity. The rest are discarded
+with no message to the user — a clean tail and a truncated one look identical in the
+interface.
+
+Zenzic knows the count before it writes the file, so it says so: the property above, and a
+notice on standard error.
+
+```text
+NOTICE: this SARIF carries 15,254 results. GitHub Code Scanning includes only
+the first 5,000, so 10,254 would not appear there.
+```
+
+Standard error rather than standard output, because standard output is the SARIF.
+
+**The file is not truncated.** Zenzic emits every result it found; what to do about the
+limit is your decision, not the tool's. The usual answers are to narrow the scan with
+`--only` or `[governance] directory_policies`, to fix the largest class first, or to
+consume the file with something other than Code Scanning.
 
 ---
 
