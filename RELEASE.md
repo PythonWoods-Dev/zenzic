@@ -44,7 +44,7 @@ Before tagging, every item must be green:
 
 - [ ] `just verify-full` — exits 0. **Use `verify-full` here, not `verify`**: it is everything `just verify` runs (the git-hook and release-contract checks, `docs-build`, the private gates, `pre-commit --all-files`, `pip-audit`, `pytest` with coverage, `zenzic check all --strict`, `zenzic score --stamp`) **plus the two on-demand gates** — documented commands and the control-plane scripts' own tests — which are too slow to run on every push and are paid for once, here. This checklist is the only thing that invokes them; a gate nobody invokes is an uninvoked mechanism. Roughly **3m** on a warm cache; budget more on a cold one. Note that the pre-push hook runs **none** of this: since 2026-09-18 it runs only the four irreversible checks (~13 s), because a full gate in the hook failed the push itself on a cold cache. See CONTRIBUTING.md, "Which gate runs where".
 - [ ] `zenzic lab all` — all gallery scenarios exit with expected code (`zenzic lab all` now exits non-zero if any scenario fails, so this check is enforceable in CI, not just visual — see CHANGELOG.md)
-- [ ] `zenzic score --stamp` committed — badge in README.md reflects current score
+- [ ] `zenzic score --stamp --no-external` committed — badge in README.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
 - [ ] `pyproject.toml` version matches the tag (`0.30.0`)
 - [ ] `CITATION.cff` version and date updated

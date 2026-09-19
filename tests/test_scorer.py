@@ -380,6 +380,7 @@ def _mock_all_checks_empty(
     config: object,
     exclusion_mgr: object,
     strict: bool,
+    check_external: bool = True,
 ) -> ScoreReport:
     return compute_score({})
 
@@ -390,6 +391,7 @@ def _mock_all_checks_with_issues(
     config: object,
     exclusion_mgr: object,
     strict: bool,
+    check_external: bool = True,
 ) -> ScoreReport:
     # structural: 2×8=16 → 30-16=14pts; nav: 1×4=4 → 25-4=21pts; content: 1×10+3×2=16 → 20-16=4pts; brand: 1×3=3 → 25-3=22pts → score=61
     return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z405": 1})

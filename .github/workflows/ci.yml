@@ -156,7 +156,16 @@ jobs:
           retention-days: 7
 
       - name: Verify Badge Freshness
-        run: uv run zenzic score --check-stamp --ci
+        # --no-external, for the same reason the Quality Gate above uses it, and
+        # because this step was left out of that decision when it was taken.
+        # Measured on run 35455833729, commit d99a008: this step computed 89/100
+        # on Ubuntu 3.10 while the other two legs computed 97 on the same commit,
+        # and a re-run of that identical commit produced 97 everywhere. The gap is
+        # exactly one Z104 (penalty 8.0) -- an external URL that did not answer
+        # from that runner. A badge gate that moves with third-party uptime fails
+        # a pull request that changed nothing, and stamps a number that is not the
+        # repository's. The external surface is swept on a schedule instead.
+        run: uv run zenzic score --check-stamp --ci --no-external
 
   # ── Interpreter determinism ────────────────────────────────────────────────
   # The same corpus must produce the same findings on every supported Python.

@@ -235,7 +235,7 @@ verify: _check-hooks
     @echo "==> [4/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [5/5] Score computation and badge stamp (zenzic score --stamp)..."
-    {{ runner }} zenzic score --stamp --ci --no-header
+    {{ runner }} zenzic score --stamp --ci --no-header --no-external
 
 # The tree-deterministic half of `verify`, run through the verdict cache above.
 _verify-deterministic: release-contracts check-pinning docs-build
@@ -256,7 +256,7 @@ _verify-deterministic: release-contracts check-pinning docs-build
 # Badge freshness gate for non-mutating CI pipelines
 check-badges: docs-build
     @echo "==> Validating badge freshness (zenzic score --check-stamp)..."
-    {{ runner }} zenzic score --check-stamp --ci --no-header
+    {{ runner }} zenzic score --check-stamp --ci --no-header --no-external
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
 # not a public Zenzic rule). Pre-commit `rev:` keys must be 40-char

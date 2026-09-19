@@ -28,7 +28,8 @@ statement the tool printed about its own configuration, and item 34 adds finding
 locale and content-root trees that were never checked at all. Item 35 changes what
 `zenzic audit` scans and when it fails. Item 36 turns a silent substitution into an
 error, and items 37 and 38 change what the machine formats carry when a run fails at
-configuration. The list ends
+configuration. Item 39 adds a flag and changes nothing until it is passed, but it is
+listed here because this project's own badge gate now passes it. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -464,6 +465,25 @@ notification stays for consumers that read it.
 hardcoded code, so a message reading `[Z111]` arrived with `"code": "Z001"` beside it — a
 contract contradicting itself, in the payload the action's wrapper parses. The identifier now
 matches the message; `tier` and `severity` are unchanged.
+
+**39. `zenzic score` gains `--no-external`, and this project's badge gate now uses it.**
+
+*What you will see:* nothing changes unless you pass the flag. With it, `zenzic score` skips
+HTTP validation of external URLs, so the number depends only on the repository.
+
+*Why:* the score had no way to avoid the network — `--strict` does not apply to it and there was
+no opt-out — while `zenzic check all` has had `--no-external` since nine github.com timeouts made
+a merge queue unmergeable. The gap showed itself on CI run `35455833729`: the badge-freshness step
+computed **89/100** on one leg and **97** on the other two for the same commit, and a re-run of
+that identical commit produced 97 everywhere. The difference is exactly one `Z104` (penalty 8.0) —
+one external host that did not answer from one runner. A badge gate that moves with third-party
+uptime fails a pull request that changed nothing, and stamps a number that is not the
+repository's.
+
+*What to do:* if you stamp a badge in CI, pass `--no-external` on both sides — stamping in one
+mode and verifying in the other disagrees the first time a remote host is slow. `zenzic diff` has
+no such flag, deliberately: it compares against a saved snapshot, and the snapshot does not record
+which mode produced it.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

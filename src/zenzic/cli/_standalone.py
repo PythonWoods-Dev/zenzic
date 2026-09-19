@@ -105,6 +105,7 @@ def _run_all_checks(
     config: ZenzicConfig,
     exclusion_mgr: LayeredExclusionManager,
     strict: bool,
+    check_external: bool = True,
 ) -> ScoreReport:
     """Run all checks and return a ScoreReport. Used by score and diff.
 
@@ -122,7 +123,7 @@ def _run_all_checks(
             config=config,
             exclusion_mgr=exclusion_mgr,
             strict=strict,
-            check_external=True,
+            check_external=check_external,
         )
         all_findings = _to_findings(results, docs_root, repo_root)
         filtered_findings = _apply_per_file_ignores(all_findings, config)
@@ -393,6 +394,15 @@ def score(
         "-q",
         help="Suppress output on successful score.",
     ),
+    no_external: bool = typer.Option(
+        False,
+        "--no-external",
+        help=(
+            "Skip HTTP validation of external URLs. The score then depends only on the "
+            "repository, which is what a badge gate needs: a third-party outage otherwise "
+            "moves the number and fails the check with no change to the tree."
+        ),
+    ),
     config_path: str | None = typer.Option(
         None,
         "--config",
@@ -461,7 +471,14 @@ def score(
         docs_root,
         adapter_output_dirs=_adapter.get_output_dirs(),
     )
-    report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
+    report = _run_all_checks(
+        repo_root,
+        docs_root,
+        config,
+        exclusion_mgr,
+        strict=config.strict,
+        check_external=not no_external,
+    )
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
     # Set here, not inside `if save:`. The threshold is what decided this run's

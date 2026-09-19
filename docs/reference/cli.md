@@ -102,6 +102,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--trend` | — | `false` | Shows the score series recorded in `.zenzic-history.jsonl` by previous `--save` runs, then exits. Prints a one-line summary plus the last ten entries; with `--format json`, emits the full series and a summary object. Reports "No score history yet" and exits `0` when the file is absent — an empty history is not an error. |
     | `--check-stamp` | — | `false` | Verifies that every file in `badge_stamp_files` carries the current score and audit badge URLs after its markers. Exits 1 when a badge is stale, when a declared file is missing, or when it carries no marker at all — a file the check cannot examine is named, never counted as current. A file with one marker of the two is checked on that one and the other is reported as skipped. The success line states how many badges were checked in how many files. |
     | `--quiet` | `-q` | `false` | Suppress output on successful score. |
+    | `--no-external` | — | `false` | Skip HTTP validation of external URLs while scoring. The score then depends only on the repository, which is what a badge gate needs — without it a third-party outage moves the number and fails the check on an unchanged tree. Stamp and verify in the same mode. |
     | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
     | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
@@ -116,11 +117,14 @@ Select a command tab to view its execution flags, default behaviors, and usage e
         contract. Neither `.zenzic-score.json` nor `.zenzic-baseline.json` changes
         shape, and existing consumers of either are unaffected.
 
-    !!! note "External link validation always runs"
-        `zenzic score` (and `zenzic diff`) always validate external HTTP/HTTPS links as
-        part of scoring — there is no `--strict` flag and no `--no-external` opt-out on
-        either command (unlike `zenzic check all`, which gates external validation
-        behind `--strict` and can skip it via `--no-external`).
+    !!! note "External link validation runs unless you turn it off"
+        `zenzic score` validates external HTTP/HTTPS links as part of scoring. There is no
+        `--strict` flag, but `--no-external` skips that validation, which is what a badge
+        gate wants: with it the score depends only on the repository, so a third-party
+        outage cannot move the number or fail a check on a tree nobody touched. Stamp and
+        verify in the same mode — `--stamp --no-external` here and `--check-stamp
+        --no-external` in CI — or the two disagree the first time a remote host is slow.
+        `zenzic diff` has no such opt-out and always validates.
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -132,6 +136,9 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Stamp status badge into README.md
     zenzic score --stamp
+
+    # Score the repository alone, with no HTTP request to any external host
+    zenzic score --no-external
 
     # Emit machine-readable JSON for programmatic consumers (editor integrations, scripts)
     zenzic score --json
@@ -218,8 +225,10 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
 
     !!! note "External link validation always runs"
-        Same as `zenzic score` — external HTTP/HTTPS link validation always runs on
-        `zenzic diff`; there is no `--strict` flag and no `--no-external` opt-out.
+        External HTTP/HTTPS link validation always runs on `zenzic diff`; there is no
+        `--strict` flag and no `--no-external` opt-out. Unlike `zenzic score`, which has
+        one: a comparison against a saved snapshot has to be computed the way the snapshot
+        was, and the snapshot does not record which mode produced it.
 
     | Argument | Description |
     | :--- | :--- |

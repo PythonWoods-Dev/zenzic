@@ -63,7 +63,7 @@ It is that documentation analysis can now express part of the contract that a pr
 
 A common modern instinct is to prompt an LLM to "review documentation quality" on every pull request. In production engineering, this approach fails on three fundamental axes:
 
-1. **Latency & Execution Speed**: Zenzic compiles and validates hundreds of Markdown files in under 15 milliseconds via a single-pass $O(N)$ AST and Virtual Site Map (VSM) topology. An LLM review takes 5 to 15 seconds per file, creating unacceptable CI pipeline bottlenecks.
+1. **Latency & Execution Speed**: Zenzic reads a corpus once, in a single-pass $O(N)$ AST and Virtual Site Map (VSM) topology, and the cost is bounded by the size of the repository rather than by a round trip per file. An LLM review pays network latency and model time for every file it looks at, which is the part that does not amortise as a documentation set grows.
 2. **Zero Inference Cost**: Zenzic runs locally, in pre-commit hooks, and in CI/CD with zero API keys, zero token fees, and zero external network calls.
 3. **Deterministic CI Contracts**: Static analysis produces reproducible, bit-exact exit codes (`0` for clean, `1` for quality, `2` for security leaks, `3` for traversal incidents) and a mathematically verified Documentation Quality Score (DQS). LLM evaluations are stochastic, non-reproducible, and prone to the very hallucinations they are tasked to detect.
 
@@ -248,6 +248,15 @@ The SDD rule suite is the most obvious functional addition, but it is not the on
 
 **LSP determinism for topological findings.** The release also formalizes how topological findings are handled by the Language Server Protocol integration. For findings that cannot meaningfully be suppressed with an inline comment, the LSP should not offer a misleading source edit — instead, it explains that suppression belongs in the appropriate configuration mechanisms. This is a small interaction detail, but it illustrates a broader principle: tooling should not offer an action that contradicts the semantics of the underlying rule.
 
+**And several changes that can make a passing repository fail.** A release note that lists only additions is the wrong shape for an upgrade, so these are named here rather than left to be discovered in a pipeline:
+
+- **The security tier no longer reads the quality tier's masked text.** Comments, inline math spans and everything after an unterminated code fence are now in security scope. A line that exited `0` can now exit `2`. A closed, well-formed code fence stays out of scope by design, and fencing is the remedy for a legitimate example.
+- **Six grouped arrays are gone from `check all --format json`.** `links[]`, `orphans[]`, `snippets[]`, `unused_assets[]`, `references[]` and `nav_contract[]` no longer exist in the payload. Read `findings[]`, which carries what they carried and carries it with `rel_path`, `line_no`, `code` and `severity` as separate fields — the six held pre-formatted prose and bare paths, so a CI could not resolve a finding to a file and a code from them at all.
+- **Several editorial-policy checks are now opt-in and report nothing until enabled**, among them circular links, missing directory indexes, sentence length and duplicate headings. The criterion is that a correctness check finds something *wrong* while a policy check finds something that *differs from a preference*. If your baseline contains those codes, they will vanish on upgrade; a suppression naming one of them becomes dead configuration and is reported as such.
+- **A declared `prebuilt` engine with no route manifest is a configuration error.** It used to fall back to `standalone` silently, which produced a run byte-identical to one nobody asked for. The run now stops before reading a page and names what is missing.
+
+The full list, with the remedy for each, is in the [changelog](https://github.com/PythonWoods-Dev/zenzic/blob/main/CHANGELOG.md). Run `zenzic check all` against your repository before you roll this into a gate.
+
 ---
 
 ## Ecosystem-Wide Parity & The 10-Target Mirror Law
@@ -300,7 +309,7 @@ The fastest way to see this on your own repository is the pre-commit hook — no
 ```yaml title=".pre-commit-config.yaml"
 repos:
   - repo: https://github.com/PythonWoods-Dev/zenzic
-    rev: v0.30.0
+    rev: v0.31.0
     hooks:
       - id: zenzic-guard
 ```
@@ -311,7 +320,7 @@ If you just want to point Zenzic at a repository for a one-off local test withou
 
 ```bash
 # One-off local test only — not the recommended default workflow
-uvx zenzic@0.30.0 check all
+uvx zenzic@0.31.0 check all
 ```
 
 Add your project's SDD policies to `.zenzic.toml`:

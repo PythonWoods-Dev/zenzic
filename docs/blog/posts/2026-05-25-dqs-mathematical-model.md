@@ -118,6 +118,14 @@ Three of the four received penalties in the migration:
 | Z403 | MISSING_ALT | 1.0 pt | Content | Image with missing `alt` attribute (`is_warning=True`) |
 | Z404 | CONFIG_ASSET_MISSING | 3.0 pts | Brand | Favicon or OG image declared in config but absent on disk |
 
+!!! note "Historical snapshot"
+    This table records what the migration assigned, and two of its rows have moved since.
+    `Z401` (`MISSING_DIRECTORY_INDEX`) is now opt-in behind `enable_directory_index_check`,
+    carries `note` severity and a penalty of 0.0, and reports nothing unless the check is
+    enabled. `Z602` (`I18N_PARITY`), discussed immediately below, no longer exists in the
+    registry at all, so neither `FROZEN_CODES` nor the pending-ADR question it describes
+    still applies. `Z403` and `Z404` are unchanged.
+
 The fourth — **Z602 (I18N_PARITY)** — remains frozen at 0.0 by architectural decision.
 I18N_PARITY acts as a governance gate: it enforces language parity between documentation
 trees and triggers Exit 1 when parity fails. Assigning it a DQS penalty would conflate
