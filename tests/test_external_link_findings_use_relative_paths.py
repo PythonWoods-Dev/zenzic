@@ -146,7 +146,12 @@ class TestTheSameConstructionElsewhere:
 
         (tmp_path / "docs").mkdir()
         (tmp_path / ".zenzic.toml").write_text(
-            'docs_dir = "docs"\nfail_under = 0\n\n[build_context]\nengine = "standalone"\n',
+            # Z503 is opt-in since 2026-09-19; a fixture that needs one must
+            # declare the flag, or it proves nothing -- which is what the
+            # assertion below exists to catch.
+            'docs_dir = "docs"\nfail_under = 0\n\n'
+            "[policies]\nenable_snippet_check = true\n\n"
+            '[build_context]\nengine = "standalone"\n',
             encoding="utf-8",
         )
         (tmp_path / "docs" / "index.md").write_text(

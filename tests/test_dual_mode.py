@@ -59,11 +59,21 @@ def test_check_placeholder_short_content() -> None:
 def test_check_placeholder_pattern_match() -> None:
     config = ZenzicConfig()
     rule = PlaceholderRule(config.placeholder_patterns_compiled)
+    # "This is a TODO section..." is a sentence, not a marker. Since 2026-09-19
+    # the default patterns describe a marker's shape -- it opens its line, or a
+    # colon follows it -- because `\btodo\b` matched ordinary English prose on a
+    # foreign corpus ("inboxes, social networks, todo lists").
     findings = rule.check(
         Path("page.md"),
-        "# Title\n\nThis is a TODO section that needs more content.\n" * 5,
+        "# Title\n\nTODO: this section needs more content.\n" * 5,
     )
     assert any(f.rule_id == "Z501" for f in findings)
+
+    prose = rule.check(
+        Path("page.md"),
+        "# Title\n\nInboxes, social networks, todo lists and native-like apps.\n" * 5,
+    )
+    assert not any(f.rule_id == "Z501" for f in prose)
 
 
 def test_check_placeholder_clean_page() -> None:

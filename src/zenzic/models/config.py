@@ -448,6 +448,17 @@ class PoliciesConfig(BaseModel):
             "Strictly opt-in."
         ),
     )
+    enable_snippet_check: bool = Field(
+        default=False,
+        description=(
+            "When True, parses every fenced JSON, YAML, TOML and Python block and "
+            "reports a syntax error (Z503 SNIPPET_ERROR). Strictly opt-in, and off by "
+            "default because documentation shows excerpts: on a 421-file public corpus, "
+            "9 of 27 findings were deliberate fragments of a larger file -- the parser "
+            "saying 'Extra data' about a snippet that was never meant to be whole. "
+            "Enable it for a corpus whose blocks are complete, runnable configuration."
+        ),
+    )
     enable_circular_link_check: bool = Field(
         default=False,
         description=(
@@ -823,16 +834,20 @@ class ZenzicConfig(BaseModel):
     )
     placeholder_patterns: list[str] = Field(
         default=[
-            r"\btodo\b",
-            r"\bfixme\b",
-            r"\bwip\b",
-            r"\btbd\b",
+            r"^[\s>*+\-]*(?:<!--\s*)?(?:todo|fixme|wip|tbd)\b",
+            r"\b(?:todo|fixme|wip|tbd)\s*:",
         ],
         description=(
             "RE2-compatible regex patterns matched case-insensitively against each line. "
             "A match flags the page as Z501 PLACEHOLDER. "
-            r"Use \b word boundaries to avoid substring false positives "
-            r"(e.g. r'\bwip\b' matches 'WIP' but not 'wipe')."
+            "The defaults describe the *shape* of a marker rather than the word alone: a "
+            "marker opens its line -- optionally behind a list bullet, a block quote or an "
+            "HTML comment -- or it is followed by a colon. A word boundary is not enough, "
+            "because the words are ordinary English: on a foreign corpus the previous "
+            r"default r'\btodo\b' matched 'inboxes, social networks, todo lists' and a "
+            "sentence about leaving TODO messages. "
+            r"Custom patterns still take \b word boundaries (e.g. r'\bwip\b' matches 'WIP' "
+            "but not 'wipe')."
         ),
     )
     excluded_assets: list[str] = Field(

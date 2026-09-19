@@ -2271,6 +2271,66 @@ def validate_links(
 _VALIDATABLE_LANGS = frozenset({"python", "py", "yaml", "yml", "json", "toml"})
 
 
+#: A trailing comma before a closing brace or bracket, which JSONC permits and
+#: strict JSON does not. Used only to *retry* a block that already failed, so an
+#: approximation here can only ever remove a finding, never add one.
+_JSONC_TRAILING_COMMA_RE: re.RegexPattern = re.compile(r",(\s*[}\]])")
+
+
+def _strip_jsonc_comments(snippet: str) -> str:
+    """Remove `//` comments, leaving `//` inside a string alone.
+
+    Scanned rather than matched, because the corpus case that motivated this is
+    `"httpUrl": "https://mcp.docs.astro.build/mcp",` on one line and
+    `"prettier-plugin-tailwindcss" // needs to be last` on another: a pattern
+    that cuts at the first `//` destroys the first to fix the second.
+    """
+    out: list[str] = []
+    for line in snippet.splitlines():
+        in_string = False
+        escaped = False
+        cut = len(line)
+        for i, ch in enumerate(line):
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\" and in_string:
+                escaped = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if not in_string and ch == "/" and line[i + 1 : i + 2] == "/":
+                cut = i
+                break
+        out.append(line[:cut])
+    return "\n".join(out)
+
+
+def _parses_as_jsonc(snippet: str) -> bool:
+    """True when *snippet* is valid JSONC even though it is not valid JSON.
+
+    `tsconfig.json`, `.prettierrc` and VS Code's `settings.json` are JSONC **by
+    specification**: comments and trailing commas are part of the format, and a
+    parser that rejects them is reporting a defect that does not exist. Measured
+    on a 421-file public corpus, roughly 7 of 27 `Z503` findings were this.
+
+    Keyed on content rather than on the fence's `title="..."`, because the title
+    is where the filename would be and **9 of those 27 blocks carried none**.
+    The trade-off is stated rather than hidden: a `package.json` example written
+    with a comment is also accepted, and `package.json` is strict JSON. That is
+    the direction worth erring in for documentation, where a block is an
+    illustration before it is a file.
+    """
+    stripped = _strip_jsonc_comments(snippet)
+    stripped = _JSONC_TRAILING_COMMA_RE.sub(r"\1", stripped)
+    try:
+        json.loads(stripped)
+    except (json.JSONDecodeError, ValueError):
+        return False
+    return True
+
+
 def _extract_code_blocks(text: str) -> list[tuple[str, str, int]]:
     """Return (lang, snippet, fence_line_no) triples for every validatable fenced block.
 
@@ -2410,13 +2470,14 @@ def check_snippet_content(
             try:
                 json.loads(snippet)
             except json.JSONDecodeError as exc:
-                errors.append(
-                    SnippetError(
-                        file_path=path,
-                        line_no=fence_line + exc.lineno,
-                        message=f"SyntaxError in JSON snippet — {exc.msg}",
+                if not _parses_as_jsonc(snippet):
+                    errors.append(
+                        SnippetError(
+                            file_path=path,
+                            line_no=fence_line + exc.lineno,
+                            message=f"SyntaxError in JSON snippet — {exc.msg}",
+                        )
                     )
-                )
 
         elif lang == "toml":
             try:
@@ -2576,6 +2637,12 @@ def validate_snippets(
     Returns:
         List of SnippetError objects detailing the issues.
     """
+    # Opt-in since 2026-09-19. Gated here rather than at the three call sites so
+    # every consumer inherits it, the Language Server included: a flag honoured
+    # by the CLI and not by the editor is two behaviours, not one.
+    if not getattr(config.policies, "enable_snippet_check", False):
+        return []
+
     errors: list[SnippetError] = []
 
     if not docs_root.exists() or not docs_root.is_dir():

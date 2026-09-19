@@ -19,7 +19,8 @@ that passes today fail after upgrading. Items 1-3 add findings, and the two secu
 constructs — a `...`-terminated frontmatter, a setext heading, an HTML block — whose content the
 engine could not see at all. Items 4, 6, 8, 9, 10, 13 and 22 remove findings, item 7 moves them
 both ways, item 5 changes the JSON payload, item 15 changes the wording of one, item 23 adds
-a notice without changing any finding, item 24 removes findings on MDX sites, and item 25 removes one class of `Z107`. The list ends
+a notice without changing any finding, item 24 removes findings on MDX sites, item 25 removes one class of `Z107`, and items 26 and 27
+remove findings by making a code opt-in and narrowing a default. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -323,6 +324,27 @@ orientation paragraph that links onward** — `See [configuration](#configuratio
 first `##` — those findings disappear. They were never self-loops: nothing encloses them. A link
 that genuinely points at the section containing it still reports, and the rule card's example is
 now such a link rather than the case that no longer applies.
+
+**26. `Z503` (`SNIPPET_ERROR`) is now opt-in and reports nothing by default.** If your baseline
+counts `Z503` findings, they disappear on upgrade; `[policies] enable_snippet_check = true` restores
+them, and `zenzic init` writes the key with the code named beside it. **Why it moved**: the rule
+parses fenced JSON, YAML, TOML and Python and reports a syntax error, and documentation shows
+excerpts. Measured on a 421-file public corpus: 27 findings, of which **nine** were deliberate
+fragments of a larger file — the parser saying *"Extra data"* about a snippet that was never whole.
+A maintainer would decline a pull request asking them to paste the rest of the file, which is the
+test that turned six other codes opt-in. **The remaining sub-case is a parser question, not a flag
+question**: roughly seven findings were JSONC — a `//` comment in a `.prettierrc`, a trailing comma
+in `tsconfig.json` — and a user who *enables* the flag should still not be told that `tsconfig.json`
+is invalid, because JSONC permits both by specification. That is tracked separately and is not
+covered by the flag.
+
+**27. The `Z501` placeholder patterns describe a marker's shape rather than its word.** The
+defaults were `\btodo\b`, `\bfixme\b`, `\bwip\b` and `\btbd\b`, and on someone else's
+documentation `\btodo\b` matched *"inboxes, social networks, todo lists"* and a sentence about
+leaving TODO messages. A marker now has to **open its line** — optionally behind a list bullet, a
+block quote or an HTML comment — or be **followed by a colon**. `TODO: write this`, `<!-- TODO -->`
+and `- TODO write the guide` still report; a `TODO` in the middle of a sentence no longer does.
+`placeholder_patterns` remains configurable, and a custom list is unaffected.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

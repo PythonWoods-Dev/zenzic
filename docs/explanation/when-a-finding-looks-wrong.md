@@ -38,10 +38,17 @@ The finding is accurate, and the rule expresses a preference your project does n
 
 **Remedy: the rule is opt-in and off by default.** You still write nothing.
 
-*What it looks like:* a threshold. `Z511` flags long sentences, and its limit was tuned on
-Zenzic's own prose. On a foreign corpus it produced 23 findings — every one of them a
-correct measurement of a sentence length that project was perfectly happy with. It became
-opt-in, and five other codes went with it.
+*What it looks like:* a threshold, or a policy that suits some corpora and not others.
+`Z511` flags long sentences, and its limit was tuned on Zenzic's own prose. Run against a
+foreign corpus it produced a steady stream of findings, every one a correct measurement of a
+sentence length that project was perfectly happy with. It became opt-in, and several codes
+went with it.
+
+`Z503` is the clearest example. It parses fenced JSON, YAML, TOML and Python and reports a
+syntax error — and documentation shows **excerpts**. A snippet that starts mid-file is not
+malformed; it is doing its job, and the parser calls it *"Extra data"*. A large minority of
+everything that rule reported on a public MDX corpus was of exactly that shape. It is opt-in
+now, and a handful of other codes are too, each for a reason of this kind.
 
 *The signal that separates this from the first case is a question:* **would the project's
 maintainer accept a pull request fixing it?** If the answer is no, the rule is too opinionated
@@ -55,18 +62,19 @@ ever.
 **Remedy: a declared suppression.** It costs one point of Technical Debt, the Suppression
 Audit counts it, and that is the mechanism working rather than failing.
 
-*What it looks like:* twelve `not_in_nav` pairs in this repository. Each one is a deliberate
-exemption with a written reason, each one costs a point, and the total is visible in every
-run.
+*What it looks like:* a page you have decided not to write yet, a link to a page that will
+exist next quarter, a heading you keep for historical reasons. Each exemption carries a
+written reason, each costs a point, and the total is visible in every run — which is what
+makes the decision reviewable later instead of forgotten.
 
 ---
 
 ## Why confusing them is expensive in both directions
 
 **Suppressing an engine defect** makes you pay for our mistake, and hides the measurement
-that would have told us the construct exists. Six such defects were closed in one day once a
-corpus made them visible; a project that had quietly suppressed them would have kept them
-forever.
+that would have told us the construct exists. A run of such defects was closed in a single
+day once a foreign corpus made them visible; a project that had quietly suppressed them
+would have kept them forever.
 
 **Waiting for a fix where the rule is right** leaves a real defect open in your
 documentation, indefinitely, while nothing is coming.

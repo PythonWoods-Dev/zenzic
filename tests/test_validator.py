@@ -24,7 +24,7 @@ from zenzic.core.validator import (
     validate_links_structured,
     validate_snippets,
 )
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import PoliciesConfig, ZenzicConfig
 
 
 def _ul(links: list) -> list[tuple[str, int]]:  # type: ignore[type-arg]
@@ -1316,7 +1316,11 @@ def test_validate_snippets_valid_and_invalid(tmp_path: Path) -> None:
     includes.mkdir()
     (includes / "inc.md").write_text("# Inc\n```python\ninvalid syntax here\n```\n")
 
-    config = ZenzicConfig(snippet_min_lines=2, excluded_dirs=["includes"])
+    config = ZenzicConfig(
+        policies=PoliciesConfig(enable_snippet_check=True),
+        snippet_min_lines=2,
+        excluded_dirs=["includes"],
+    )
     mgr = make_mgr(config, repo_root=repo)
     docs_root = repo / config.docs_dir
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1333,7 +1337,7 @@ def test_validate_snippets_python_indented(tmp_path: Path) -> None:
     (docs / "page.md").write_text(
         "    ```python\n    def add(a, b):\n        return a + b\n    ```\n"
     )
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
@@ -1343,14 +1347,14 @@ def test_validate_snippets_no_code_blocks(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("No code blocks here.")
-    config = ZenzicConfig()
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_docs_not_exist(tmp_path: Path) -> None:
-    config = ZenzicConfig()
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
@@ -1364,7 +1368,7 @@ def test_validate_snippets_symlink_skipped(tmp_path: Path) -> None:
     real_file = outside / "real.md"
     real_file.write_text("```python\ndef broken(\n```")
     (docs / "linked.md").symlink_to(real_file)
-    config = ZenzicConfig()
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=docs)
     assert validate_snippets(docs_root, mgr, config=config) == []
@@ -1374,7 +1378,7 @@ def test_validate_snippets_generic_exception_reported(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```python\nx = 1\n```")
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     with patch("zenzic.core.validator.compile", side_effect=MemoryError("oom")):
@@ -1390,7 +1394,7 @@ def test_validate_snippets_yaml_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yaml\nkey: value\nlist:\n  - a\n  - b\n```\n")
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
@@ -1402,7 +1406,7 @@ def test_validate_snippets_yaml_custom_tags(tmp_path: Path) -> None:
     (docs / "page.md").write_text(
         "```yaml\nkey: !ENV [VAR, default]\nanother: !custom {a: b}\n```\n"
     )
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
@@ -1412,7 +1416,7 @@ def test_validate_snippets_yaml_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yaml\nkey: [\nunclosed bracket\n```\n")
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1424,7 +1428,7 @@ def test_validate_snippets_yml_alias_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yml\n: bad mapping\n```\n")
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1439,17 +1443,23 @@ def test_validate_snippets_json_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text('```json\n{"key": "value", "num": 42}\n```\n')
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_json_invalid(tmp_path: Path) -> None:
+    """Malformed under JSON *and* JSONC.
+
+    The fixture was `{"key": "value",}` until 2026-09-19 -- a trailing comma,
+    which JSONC permits and the parser now retries for, so it stopped being an
+    error. A missing colon is malformed under both.
+    """
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "page.md").write_text('```json\n{"key": "value",}\n```\n')
-    config = ZenzicConfig(snippet_min_lines=1)
+    (docs / "page.md").write_text('```json\n{"key" "value"}\n```\n')
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1462,7 +1472,7 @@ def test_validate_snippets_json_line_number(tmp_path: Path) -> None:
     docs.mkdir()
     # fence opens at line 3 (two preceding lines), error is on line 2 of snippet
     (docs / "page.md").write_text("# Page\n\n```json\n{\n  bad\n}\n```\n")
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1478,7 +1488,7 @@ def test_validate_snippets_toml_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text('```toml\ntitle = "Zenzic"\nversion = "0.4.0"\n```\n')
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     assert validate_snippets(docs_root, mgr, config=config) == []
@@ -1488,7 +1498,7 @@ def test_validate_snippets_toml_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```toml\ntitle = Zenzic  # missing quotes\n```\n")
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1515,7 +1525,7 @@ key: value
 ```
 """
     (docs / "page.md").write_text(content)
-    config = ZenzicConfig(snippet_min_lines=1)
+    config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True), snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)
     errors = validate_snippets(docs_root, mgr, config=config)
@@ -1610,7 +1620,7 @@ class TestCircularLinkIntegration:
         (docs / "b.md").write_text("[go to a](a.md)\n")
         # Z106 is opt-in (a cycle is documentation's ordinary shape); these
         # tests exercise the capability, so they enable it explicitly.
-        config = ZenzicConfig()
+        config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
         config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
@@ -1626,7 +1636,7 @@ class TestCircularLinkIntegration:
         (docs / "c.md").write_text("# Terminus\n")
         # Z106 is opt-in (a cycle is documentation's ordinary shape); these
         # tests exercise the capability, so they enable it explicitly.
-        config = ZenzicConfig()
+        config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
         config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
@@ -1644,7 +1654,7 @@ class TestCircularLinkIntegration:
         (it_dir / "guide.md").write_text("[English version](../guide.md)\n")
         # Z106 is opt-in (a cycle is documentation's ordinary shape); these
         # tests exercise the capability, so they enable it explicitly.
-        config = ZenzicConfig()
+        config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
         config.policies.enable_circular_link_check = True
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
@@ -1666,7 +1676,7 @@ class TestCheckExternalFlag:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[External](https://example.com)\n")
-        config = ZenzicConfig()
+        config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
         mgr = make_mgr(config, repo_root=tmp_path)
 
         with patch(
@@ -1690,7 +1700,7 @@ class TestCheckExternalFlag:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[External](https://example.com)\n")
-        config = ZenzicConfig()
+        config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
         mgr = make_mgr(config, repo_root=tmp_path)
 
         with patch(
@@ -1730,7 +1740,7 @@ class TestCheckExternalFlag:
         md_file = docs / "secret.md"
         md_file.write_text(file_content)
         (tmp_path / ".zenzic.toml").write_text("[project]\n")
-        config = ZenzicConfig()
+        config = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=True))
         mgr = make_mgr(config, repo_root=tmp_path)
 
         # validate_links_structured with check_external=False must complete without error

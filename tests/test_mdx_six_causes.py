@@ -191,3 +191,40 @@ def test_a_cross_section_link_under_an_attr_list_heading_is_not_a_loop() -> None
     """The other direction: restoring coverage must not flag ordinary links."""
     doc = "## Configuration {#configuration}\n\nSee [security gate](#security-gate) here.\n"
     assert _anchors(doc) == []
+
+
+# ── Follow-up: JSONC in a `json` fence is JSONC ──────────────────────────────
+
+
+def _snips(tmp_path, body: str, *, flag: bool = True) -> list[str]:
+    from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.core.validator import validate_snippets
+    from zenzic.models.config import PoliciesConfig, ZenzicConfig
+
+    docs = tmp_path / "docs"
+    docs.mkdir(exist_ok=True)
+    (docs / "p.md").write_text(f"```json\n{body}\n```\n", encoding="utf-8")
+    cfg = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=flag), snippet_min_lines=1)
+    mgr = LayeredExclusionManager(
+        cfg, repo_root=tmp_path, docs_root=docs, adapter_output_dirs=frozenset()
+    )
+    return [e.message for e in validate_snippets(docs, mgr, config=cfg)]
+
+
+def test_a_comment_and_a_trailing_comma_are_jsonc_not_errors(tmp_path: Path) -> None:
+    """`tsconfig.json` and `.prettierrc` are JSONC by specification."""
+    assert _snips(tmp_path, '{"plugins": ["a"] // needs to be last\n}') == []
+
+
+def test_a_url_inside_a_string_survives_comment_stripping(tmp_path: Path) -> None:
+    """`//` in `https://` is not a comment; the scanner tracks strings."""
+    assert _snips(tmp_path, '{"httpUrl": "https://mcp.docs.astro.build/mcp"}') == []
+
+
+def test_genuinely_malformed_json_is_still_reported(tmp_path: Path) -> None:
+    assert len(_snips(tmp_path, '{"key" "value"}')) == 1
+
+
+def test_the_check_is_silent_when_the_flag_is_off(tmp_path: Path) -> None:
+    """Opt-in: the same malformed block reports nothing by default."""
+    assert _snips(tmp_path, '{"key" "value"}', flag=False) == []

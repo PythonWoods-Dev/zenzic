@@ -155,7 +155,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z412** | TRACEABILITY_BROKEN | 4.0 pts | Navigation Graph | **Opt-In** |
 | **Z501** | PLACEHOLDER | 2.0 pts | Content Excellence | Default |
 | **Z502** | SHORT_CONTENT | 1.0 pt | Content Excellence | **Opt-In** |
-| **Z503** | SNIPPET_ERROR | 10.0 pts | Content Excellence | Default |
+| **Z503** | SNIPPET_ERROR | 10.0 pts | Content Excellence | **Opt-In** |
 | **Z505** | UNTAGGED_CODE_BLOCK | 1.0 pt | Content Excellence | Default |
 | **Z506** | MALFORMED_FRONTMATTER | 5.0 pts | Content Excellence | Default |
 | **Z510** | HEADING_HIERARCHY | 1.0 pt | Content Excellence | Default |

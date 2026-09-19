@@ -121,7 +121,7 @@ A failing run in CI (`zenzic check all docs` on the four-file fixture in `tests/
   Action: Rotate this credential immediately and purge it from the repository
 history.
 
-mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.0s - 83 files/s
+mkdocs - ./docs/ - 4 files (2 pages, 1 config, 1 assets) - 0.0s - 129 files/s
 
 docs/assets/unused.png  !  [Z405]  File not referenced in any documentation
 page.

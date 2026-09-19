@@ -667,7 +667,7 @@ A page contains fewer than 50 words of rendered prose (frontmatter, Markdown com
 
 ### Z503: SNIPPET_ERROR {#z503}
 
-**Severity:** `warning` · **Penalty:** −10.0 pts (Content — highest single-occurrence penalty) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z503-snippet-error.md) · [↗ Rule Specification](../rules/Z503.md)
+**Severity:** `warning` · **Penalty:** −10.0 pts (Content — highest single-occurrence penalty) · **Exit:** 1 · **Suppressible:** Yes · **Opt-in:** set `[policies] enable_snippet_check = true` · [↗ Gallery](../tutorials/examples/z5xx-content/z503-snippet-error.md) · [↗ Rule Specification](../rules/Z503.md)
 
 The Snippet Guard identified a syntax error in a fenced code block marked with a language tag. The reported line number is **absolute** — relative to the source file, not to the start of the snippet.
 

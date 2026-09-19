@@ -398,7 +398,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z502": CodeDefinition(
         "warning", 1.0, "content", activation="flag", activation_key="enable_short_content_check"
     ),  # SHORT_CONTENT
-    "Z503": CodeDefinition("warning", 10.0, "content"),  # SNIPPET_ERROR
+    "Z503": CodeDefinition(
+        "warning", 10.0, "content", activation="flag", activation_key="enable_snippet_check"
+    ),  # SNIPPET_ERROR
     "Z505": CodeDefinition("warning", 1.0, "content", fixable=True),  # UNTAGGED_CODE_BLOCK
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
     "Z510": CodeDefinition("warning", 1.0, "content"),  # HEADING_HIERARCHY

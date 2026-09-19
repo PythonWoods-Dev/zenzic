@@ -4,7 +4,7 @@ Z101 LINK_BROKEN — file references that resolve to missing pages
 This scenario is designed to fail — the output below is the expected Z101
 detection, not a problem with your install.
 
-standalone • 1 file (1 pages, 0 assets) • 0.0s • 21 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 35 files/s
 
 docs/index.md:11:20  ✘  [Z101]  'missing.md' resolves to '/missing/' which is
 not in the Virtual Site Map — the target file may not exist
@@ -34,6 +34,6 @@ FAILED: Hard errors detected. Exit code 1 is mandatory.
 
 ✔ LAB RESULT
 
-1 file scanned • 0.05s • 21 files/s
+1 file scanned • 0.03s • 35 files/s
 
 ✔ Z101 — Link Integrity — expectation met.

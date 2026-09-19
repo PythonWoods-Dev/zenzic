@@ -4,7 +4,7 @@ Z405 UNREFERENCED_ASSET — image file exists on disk but is never linked
 This scenario is designed to fail — the output below is the expected Z405
 detection, not a problem with your install.
 
-standalone • 2 files (1 pages, 1 assets) • 0.1s • 33 files/s
+standalone • 2 files (1 pages, 1 assets) • 0.0s • 69 files/s
 
 docs/assets/banner.png  ⚠  [Z405]  File not referenced in any documentation
 page.
@@ -18,6 +18,6 @@ verified.
 
 ✔ LAB RESULT
 
-2 files scanned • 0.06s • 33 files/s
+2 files scanned • 0.03s • 69 files/s
 
 ✔ Z405 — Asset Integrity — expectation met.
