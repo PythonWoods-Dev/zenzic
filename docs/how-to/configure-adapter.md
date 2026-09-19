@@ -70,11 +70,15 @@ none of it is a broken link.
 `prebuilt` closes this without Zenzic learning anything about your generator. It reads
 `.zenzic-vsm.json` from the repository root: a map of source path to published URL.
 
-**Step 1 — build the site**, so the generator states its own routes:
+**Step 1 — decide whether you need a build.** The two generators differ here, and the difference
+is not cosmetic:
 
-```bash
-npx astro build        # or: npm run build
-```
+- **Docusaurus needs one.** Its routing is not derivable from filenames — a page carrying `slug:`
+  publishes somewhere its path does not predict — so the manifest has to come from what the build
+  emitted. Run `npm run build` first.
+- **Astro / Starlight does not.** Its routing is positional, so the manifest can be derived from
+  the source tree. Run `npm run build` if you want the built tree as the source of truth; the
+  Astro tab below gives both.
 
 **Step 2 — write `.zenzic-vsm.json`**. What it must contain is generator-neutral: a map from
 **source path relative to `docs_dir`** to the **URL that source publishes at, written the way
@@ -101,8 +105,62 @@ Nothing ships to generate this file. Writing it is the cost of this approach.
             for h in Path("dist").rglob("index.html")}
     ```
 
-    Starlight publishes docs at the site root, so source path and URL correspond directly
-    and there is no prefix to handle.
+    Starlight publishes docs at the site root, so on a **single-locale** site source path and
+    URL correspond directly. On an i18n site they do not: `src/content/docs/<locale>/…`
+    publishes under `/<locale>/…`, and that segment is part of every URL an author writes.
+
+    !!! tip "Astro content collections need no build"
+
+        A Starlight site routes **positionally**: `src/content/docs/<path>.mdx` publishes at
+        `/<path>/`, and `index.mdx` at the directory's own URL. So the manifest can be written
+        from the source tree alone, which is what makes this usable in a job that cannot run
+        `astro build`:
+
+        ```python
+        # `prefix` is "/" on a single-locale site, and "/<locale>/" when the site uses i18n.
+        # Getting it wrong is the one mistake that leaves the manifest resolving nothing.
+        docs, prefix = Path("src/content/docs/en"), "/en/"
+        routes = {}
+        for p in sorted(docs.rglob("*.mdx")):
+            rel = p.relative_to(docs).as_posix()
+            slug = rel.removesuffix(".mdx").removesuffix("/index")
+            routes[rel] = {"url": f"{prefix}{slug}/" if slug else prefix, "status": "REACHABLE"}
+        ```
+
+        The manifest **key** is the source path relative to `docs_dir`, so it does not carry
+        the locale segment. The **URL** must. Getting this backwards produces a manifest that
+        is complete, well-formed, and resolves nothing.
+
+    !!! success "The two settings are not alternatives, and neither works alone"
+
+        **Without a manifest**, internal links fail in bulk: the engine has no way to know what
+        URL a source file publishes at, so every absolute link is reported as pointing at a page
+        that does not exist.
+
+        **With the manifest but without `absolute_path_allowlist`**, you are no better off — and
+        on a site that links by route you may be worse. The links now resolve, and every one of
+        them is still reported as a governance finding for being an absolute path.
+
+        **With both**, the count falls by an order of magnitude and what remains is worth reading.
+
+    **Check you got it right before trusting the result.** Run `zenzic check all` once before
+    the manifest and once after, and read the *count*:
+
+    - **It does not move at all.** `.zenzic-vsm.json` is not where Zenzic looked — it is read
+      from the **repository root**, not from `docs_dir`. Declaring `engine = "prebuilt"` with no
+      manifest present is not an error and produces no message: the run falls back to
+      `standalone` and reports exactly what `standalone` reports. Check the file is there before
+      looking for anything subtler.
+    - **It moves, but nowhere near tenfold.** The manifest's URLs are not the URLs your authors
+      write. On an i18n site this is almost always the missing locale prefix — the keys are
+      relative to `docs_dir` and lose the segment, the URLs must keep it.
+    - **It drops, but `Z105` is most of what remains.** `absolute_path_allowlist` is missing.
+    - **It goes up.** The manifest covers a smaller tree than `docs_dir` does — a one-locale
+      manifest pointed at every locale is the usual way in.
+
+    A correct manifest moves the count by an order of magnitude. A small improvement is not a
+    partial success here; it means the mapping is wrong and the findings that remain cannot
+    be trusted either way.
 
 === "Docusaurus"
 
@@ -149,42 +207,29 @@ engine = "prebuilt"
 `absolute_path_allowlist` is what silences `Z105`; without it the absolute paths are still
 reported as a governance finding even once they resolve.
 
-!!! success "Measured on real scaffolded builds of both generators"
-    | Site | `standalone` | `prebuilt` + allowlist |
-    | :--- | ---: | ---: |
-    | Astro Starlight, 2 valid absolute links + 1 broken | 4 errors (3 `Z105` incl. **both valid links**, 1 `Z101`) | **1** — the broken link |
-    | Docusaurus classic, same three links | 8 errors (3 `Z101` incl. both valid, 4 `Z105`) | **1** `Z101` — the broken link (plus one unrelated `Z516` in Docusaurus's own scaffold) |
+!!! warning "MDX is not yet a surface Zenzic reports accurately, and this recipe cannot change that"
+    Configuring the adapter correctly makes the count drop by an order of magnitude, and what
+    survives is still not trustworthy on an MDX site. Zenzic reads Markdown; MDX adds constructs
+    it does not model, and the result is findings that are **wrong**, not merely noisy:
 
-!!! danger "The Docusaurus recipe holds for a single-locale, unversioned site — and not beyond it"
-    Both conventions were tested, and **both break it**. This replaces an earlier note that
-    expected them to work; the expectation was wrong.
+    | Code | What it reports | Why it is wrong on MDX |
+    | :--- | :--- | :--- |
+    | `Z520` | A malformed list | The `import … from '…';` block every MDX file opens with |
+    | `Z403` | An image with no alt text | The image is inside a fenced code block |
+    | `Z515` | A bare URL in prose | The URL is an attribute of a JSX element written across more than one line |
+    | `Z107` | A self-referential anchor | An ordinary cross-reference whose link text matches the heading it points at |
+    | `Z301`, `Z108` | An undefined or empty link reference | `[][]` inside an HTML `<code>` element is a type, not a link |
 
-    **i18n breaks it silently, and this is the serious one.** `.docusaurus/` is regenerated
-    per locale build, so after `npm run build` on a two-locale site the metadata describes
-    only the **last locale built**. Measured: **19 of 24 manifest entries claimed a `/fr/`
-    URL**, including pages that publish at `/docs/…` in English, and Zenzic then reported
-    **6 `Z101` on links that are perfectly valid**. The manifest looks complete, which is
-    what makes it dangerous.
+    Measured on a large public Starlight site after correct configuration, these accounted for
+    **about three findings in five**. Two further codes are not defects but still will not match
+    your site: `Z102` predicts anchors the way Python-Markdown does, and Astro and Docusaurus both
+    slugify differently; `Z503` parses fences labelled `json` as strict JSON, and much real-world
+    configuration in them is JSON5.
 
-    **Versioning inverts the mapping.** After `docusaurus docs:version 1.0`,
-    `versioned_docs/version-1.0/intro.mdx` publishes at `/docs/intro/` while the working
-    `docs/intro.mdx` moves to `/docs/next/intro/`. A source path no longer predicts its URL,
-    and `docs_dir = "."` — the alignment the recipe depends on — now points at the wrong
-    version.
-
-    **And the metadata is an undocumented internal.** The `source`/`permalink` pairs come
-    from `createData` plugin storage, in a directory whose own marker file is named
-    `DONT-EDIT-THIS-FOLDER`, under hash-suffixed filenames. Docusaurus documents
-    [`setGlobalData`/`useGlobalData`](https://docusaurus.io/docs/api/plugin-methods/lifecycle-apis)
-    as a public plugin API; it does not document these files, and nothing obliges them to
-    keep their shape.
-
-    **If your site uses either**, the documented route is a small inline plugin using the
-    [`postBuild`](https://docusaurus.io/docs/api/plugin-methods/lifecycle-apis) lifecycle,
-    which receives `routesPaths` and `outDir` on **each** locale build and can accumulate
-    across them. That uses public API rather than internals — and it is more work than the
-    script above, which is why it is named rather than presented as equivalent. **Zenzic has
-    not verified that approach**, and this page will not claim it works until it has.
+    **There is no subset of codes that is currently clean on MDX**, so this page does not offer a
+    `--only` list that would imply one. Use Zenzic on an MDX site to read findings by hand, not to
+    gate a pipeline, until these close. They are tracked as engine defects, and this warning will
+    be removed by the release that fixes them rather than by a reassurance.
 
 ---
 

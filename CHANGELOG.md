@@ -14,10 +14,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 The changes below alter what a corpus reports or what the tool emits, and several can make a corpus
 that passes today fail after upgrading. Items 1-3 add findings, and the two security-tier ones are
-**non-suppressible**; none is a regression — each closes a path by which a code was silenced. Item
-14 adds a finding too, for a configuration defect that used to pass in silence. Items 4, 6, 8, 9, 10
-and 13 remove findings, item 7 moves them both ways, item 5 changes the JSON payload, and item 15
-changes the wording of one. The list ends with the breaking changes that are not about findings.
+**non-suppressible**; none is a regression — each closes a path by which a code was silenced. Items
+14, 20 and 21 add findings too: a configuration defect that used to pass in silence, and three
+constructs — a `...`-terminated frontmatter, a setext heading, an HTML block — whose content the
+engine could not see at all. Items 4, 6, 8, 9, 10, 13 and 22 remove findings, item 7 moves them
+both ways, item 5 changes the JSON payload, item 15 changes the wording of one, and item 23 adds
+a notice without changing any finding. The list ends
+with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
 ```bash
@@ -272,6 +275,28 @@ merely *named* in backticks opened the same region, hiding everything after it. 
 add findings that were always due, and neither affects the security tier. The second is present in the
 published v0.30.0 and reaches anyone whose pages name HTML tags in prose, which is what documentation
 about HTML does; the first reaches anyone who wraps content in a `<div>` with a blank line inside it.
+
+**22. A tag named in backticks is prose to three more surfaces, so findings disappear.** Heading
+slugs, the multiple-`<h1>` check and link extraction each stripped HTML from a line without first
+protecting inline code, so a heading like `` ### `<Image />` `` slugified to the empty string, a
+`` `<h1>` `` named in prose counted as a real heading, and a `` `<a href="./x.md">` `` shown as an
+example was followed as a real link. The slug is now what Python-Markdown's `toc` extension
+produces, verified against the renderer itself on seven shapes. Measured on an external corpus:
+`Z102` 32 → 27 and `Z516` 1 → 0, with every other code unchanged. A fourth site,
+`slug_tab_title`, deliberately keeps the old behaviour: it is a byte-for-byte replica of
+`pymdownx.slugs`' own pattern, which does not mask either, and matching the renderer is the
+contract. Nothing here affects the security tier.
+
+**23. A declared engine that finds no configuration now says it was replaced.** `engine = "prebuilt"`
+with no `.zenzic-vsm.json` present silently became `standalone`, and the run reported what
+`standalone` reports — measured on a 421-file Starlight tree as **2,443 findings against 235**,
+byte-identical to declaring `standalone` outright. Three surfaces could have said so and none did:
+`check all` printed nothing, `doctor` found nothing, and `config explain` displayed the *declared*
+engine, which is worse than silence. A notice now names the engine, the file it looked for and the
+adapter actually used. It applies to every engine, not just `prebuilt` — an `mkdocs` project with
+no `mkdocs.yml` is the same substitution. **The notice is written to stderr**, so `--format json`
+and `--format sarif` payloads stay parseable; the pre-existing offline-mode notice shared that code
+path and was corrupting stdout, and is fixed by the same change.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
@@ -1112,6 +1137,7 @@ about HTML does; the first reaches anyone who wraps content in a `<div>` with a 
 
 ### Known Limitations
 
+- **MDX Is Read as Markdown, and MDX's Own Constructs Produce Findings That Are Wrong**: Zenzic analyses `.mdx` exactly as it analyses `.md`, which is what the documentation promises and is also the limitation. An MDX file's opening `import … from '…';` block is read as a malformed list (`Z520`); a JSX element written across more than one line leaves its attribute values exposed, so a URL in an `href` is reported as a bare URL in prose (`Z515`); `[][]` inside an HTML `<code>` element is read as a link reference (`Z301`, `Z108`). Measured on a 421-file public Starlight site after correct adapter configuration: **about three findings in five were false**. Two further codes are not defects but will not match such a site either — `Z102` predicts anchors the way Python-Markdown's `toc` does, where Astro and Docusaurus use github-slugger, and `Z503` parses fences labelled `json` as strict JSON. **There is no subset of codes that is currently clean on MDX**, so no `--only` list is offered as a workaround. Use Zenzic on an MDX site to read findings, not to gate a pipeline. Each cause is tracked individually.
 - **`Z403` and `Z107` Read the Contents of Fenced Code Blocks**: unlike the link checks, which skip a fenced block, these two report an image without alt text or a self-referential anchor link *shown inside a fence* as if it were live content. A page that documents either pattern has to escape or break its example to keep its own check clean.
 - **CLI/LSP Topology Model Divergence**: the CLI's `check_all` pipeline and the Language Server's `IncrementalAnalysisEngine` do not share a common analysis primitive. Most steps (file discovery, rule engine construction/execution, config loading, adapter resolution) genuinely are shared; the two areas that are not are per-file content caching within a single CLI run (partially addressed this release — see below) and, more significantly, orphan/topology detection: the CLI's `Z402` (nav-membership-based) and the LSP's `Z410`/`Z411` (VSM-graph-reachability-based) are two independent algorithms for related-but-not-identical concepts. Formally tracked as an open architectural decision, not silently accepted — see the forthcoming ADR in `docs/developers/explanation/adr-vault/`.
   - This release's caching fix: `_to_findings` no longer re-reads a file's content twice within a single call when that file appears in both `snippet_errors` and `reference_reports`. This addresses only the redundant read *inside* `_to_findings` — the eight independent sub-checks in `_collect_all_results` (`find_orphans`, `find_unused_assets`, `validate_snippets`, etc.) still walk and read files independently of each other; deduplicating across those would require `scanner.py`/`validator.py` to expose raw file content on their result objects, which is a larger change than this release's scope.
