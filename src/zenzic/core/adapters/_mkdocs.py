@@ -17,6 +17,7 @@ import pathspec.gitignore
 from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import (
+    MKDOCS_CONFIG_NAMES,
     _PermissiveYamlLoader as _PermissiveYamlLoader,  # noqa: F401
     find_mkdocs_config_file,
     load_mkdocs_config,
@@ -698,7 +699,9 @@ class MkDocsAdapter(BaseAdapter):
 
     def get_metadata_files(self) -> frozenset[str]:
         """MkDocs configuration files — excluded from Z405/Z903."""
-        names: set[str] = {"mkdocs.yml"}
+        # Both names: a project using `mkdocs.yaml` had its configuration
+        # file reported as an unused asset, because this set named one.
+        names: set[str] = set(MKDOCS_CONFIG_NAMES)
         plugin_names = {name for name, _ in _iter_plugins(self._doc_config)}
         if "awesome-pages" in plugin_names or "mkdocs-awesome-pages-plugin" in plugin_names:
             names.add(".pages")
@@ -736,7 +739,7 @@ class MkDocsAdapter(BaseAdapter):
     @property
     def watched_config_files(self) -> frozenset[str]:
         """Return MkDocs configuration filenames for LSP hot-reloading."""
-        return frozenset({"mkdocs.yml", "mkdocs.yaml"})
+        return frozenset(MKDOCS_CONFIG_NAMES)
 
     # ── VSM integration ────────────────────────────────────────────────────────
 

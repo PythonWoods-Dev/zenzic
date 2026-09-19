@@ -23,6 +23,9 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.adapters._mkdocs_config import (
+    MKDOCS_CONFIG_NAMES as _MKDOCS_CONFIG_NAMES,
+)
 from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import code_severity, exit_contract_severity
 from zenzic.core.credentials import (
@@ -227,7 +230,7 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
             (candidate / ".git").is_dir()
             or (candidate / ".zenzic.toml").is_file()
             or (candidate / "zensical.toml").is_file()
-            or (candidate / "mkdocs.yml").is_file()
+            or any((candidate / _n).is_file() for _n in _MKDOCS_CONFIG_NAMES)
         ):
             return candidate
 

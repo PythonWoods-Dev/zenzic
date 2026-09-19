@@ -38,6 +38,7 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Final, Literal, cast
 
+from zenzic.core.adapters._mkdocs_config import MKDOCS_CONFIG_NAMES
 from zenzic.core.exceptions import CheckError, ZenzicError
 from zenzic.models.config import BuildContext
 
@@ -80,7 +81,7 @@ NATIVE_GENERATOR_ENGINES: Final[frozenset[str]] = frozenset({"mkdocs", "zensical
 _SUBSTITUTION_HINTS = {
     "prebuilt": "route manifest (.zenzic-vsm.json, read from the repository root)",
     "vsm": "route manifest (.zenzic-vsm.json, read from the repository root)",
-    "mkdocs": "mkdocs.yml",
+    "mkdocs": "mkdocs.yml (or mkdocs.yaml)",
     "zensical": "zensical.toml",
 }
 
@@ -137,7 +138,7 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
         return "zensical"
 
     mkdocs_file: Path | None = None
-    for name in ("mkdocs.yml", "mkdocs.yaml"):
+    for name in MKDOCS_CONFIG_NAMES:
         candidate = repo_root / name
         if candidate.is_file():
             mkdocs_file = candidate

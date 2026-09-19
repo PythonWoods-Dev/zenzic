@@ -37,7 +37,11 @@ else:
 from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._base import BaseAdapter
-from zenzic.core.adapters._mkdocs_config import find_mkdocs_config_file, load_mkdocs_config
+from zenzic.core.adapters._mkdocs_config import (
+    MKDOCS_CONFIG_NAMES,
+    find_mkdocs_config_file,
+    load_mkdocs_config,
+)
 from zenzic.core.adapters._utils import (
     _extract_blog_dir,
     case_sensitive_exists,
@@ -352,7 +356,9 @@ class ZensicalAdapter(BaseAdapter):
 
     def get_metadata_files(self) -> frozenset[str]:
         """Engine configuration and infrastructure asset files excluded from Z405/Z903."""
-        names: set[str] = {"mkdocs.yml"} if self._config_source == "mkdocs" else {"zensical.toml"}
+        names: set[str] = (
+            set(MKDOCS_CONFIG_NAMES) if self._config_source == "mkdocs" else {"zensical.toml"}
+        )
         config_assets = _extract_config_declared_assets(self._zensical_config)
         names.update(config_assets)
         return frozenset(names)
@@ -374,7 +380,7 @@ class ZensicalAdapter(BaseAdapter):
     def watched_config_files(self) -> frozenset[str]:
         """Return Zensical configuration filenames for LSP hot-reloading."""
         if self._config_source == "mkdocs":
-            return frozenset({"mkdocs.yml", "mkdocs.yaml"})
+            return frozenset(MKDOCS_CONFIG_NAMES)
         return frozenset({"zensical.toml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────

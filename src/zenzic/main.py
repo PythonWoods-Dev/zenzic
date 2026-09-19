@@ -364,9 +364,12 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
         # One line, on stderr, carrying the same sentence the terminal shows:
         # an action that fails differently from the CLI for the same condition
         # is two products.
-        _stderr_console = Console(stderr=True, no_color=True, highlight=False)
-        _stderr_console.print(f"[{code}] {message.splitlines()[0].removeprefix(f'[{code}] ')}")
-        for _line in message.splitlines()[1:]:
+        # `markup=False`: the message carries `[Z111]`, which Rich would read as
+        # a style tag. Same reason the payload is scrubbed of markup before it
+        # is serialised — a string written for one renderer must not be handed
+        # to another unchanged.
+        _stderr_console = Console(stderr=True, no_color=True, highlight=False, markup=False)
+        for _line in message.splitlines():
             _stderr_console.print(_line)
 
     if output_format == "json":

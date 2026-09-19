@@ -30,6 +30,7 @@ from zenzic.core.rules import (
     VSMBrokenLinkRule,
     _extract_inline_links_with_lines,
 )
+from zenzic.core.validator import has_uri_scheme
 from zenzic.models.config import CustomRuleConfig, ProjectMetadata, ZenzicConfig
 from zenzic.models.vsm import Route
 
@@ -660,7 +661,6 @@ class TestAdaptiveRuleEngineTortureTest:
         subject across platforms or interpreters, which is exactly how the
         equivalent test in `test_resolver.py` failed before it was rewritten.
         """
-        skip = VSMBrokenLinkRule._SKIP_SCHEMES
         exts = (
             ".png",
             ".jpg",
@@ -679,7 +679,9 @@ class TestAdaptiveRuleEngineTortureTest:
         start = time.perf_counter()
         sink = 0
         for url, _lineno, _raw in _extract_inline_links_with_lines(text, containers=None):
-            if url == "#" or any(url.startswith(s) for s in skip):
+            # The rule's own predicate, not a copy of a list: `_SKIP_SCHEMES`
+            # was removed on 2026-09-19 as dead, and this was its only reader.
+            if url == "#" or has_uri_scheme(url):
                 continue
             clean = url.split("?")[0].split("#")[0].lower()
             if any(clean.endswith(ext) for ext in exts):

@@ -60,7 +60,16 @@ def _run(project: Path, fmt: str) -> str:
         check=False,
         env=env,
     )
-    return proc.stdout + proc.stderr
+    # The machine formats are read from stdout alone, the human one from both.
+    #
+    # The two streams were concatenated here unconditionally, which worked while
+    # this path wrote nothing to stderr. It is not silent any more: a
+    # configuration failure now also prints the human sentence to stderr, so the
+    # action's step log does not stay quiet while the CLI explains itself.
+    # Merging them handed `json.loads` a payload with prose after it -- which is
+    # exactly what a consumer doing `2>&1 | jq` gets, and the reason the streams
+    # are separate in the first place.
+    return proc.stdout if fmt in ("json", "sarif") else proc.stdout + proc.stderr
 
 
 def test_the_instrument_reaches_the_fatal_config_path(broken_project: Path) -> None:

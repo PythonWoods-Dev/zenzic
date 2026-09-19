@@ -1736,20 +1736,13 @@ class VSMBrokenLinkRule(BaseRule):
     Rule code: ``Z101``
     """
 
-    # Schemes we skip — not navigable internal links
-    _SKIP_SCHEMES = frozenset(
-        (
-            "http://",
-            "https://",
-            "mailto:",
-            "data:",
-            "ftp:",
-            "tel:",
-            "javascript:",
-            "irc:",
-            "xmpp://",
-        )
-    )
+    # `_SKIP_SCHEMES` lived here until 2026-09-19: a frozenset of nine schemes,
+    # documented, never referenced by this rule or any other, and read only by a
+    # performance test. The decision it looked like it made is made below by
+    # `has_uri_scheme()`, which reads the grammar instead of a list. It also
+    # spelled `xmpp://` where three other copies spelled `xmpp:`, so editing it
+    # would have changed nothing while looking authoritative — which is worse
+    # than a duplicate, because there is no failure to notice.
 
     @property
     def rule_id(self) -> str:
