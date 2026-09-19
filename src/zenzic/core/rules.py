@@ -77,7 +77,12 @@ from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.resolver import href_resolution_base, page_url_depth, traversal_intent
 from zenzic.core.sovereign_context import get_sovereign_context
-from zenzic.core.validator import JSX_URL_ATTRS, POLY_ATTRS_FRAGMENT, POLY_TAG_NAMES
+from zenzic.core.validator import (
+    JSX_URL_ATTRS,
+    POLY_ATTRS_FRAGMENT,
+    POLY_TAG_NAMES,
+    has_uri_scheme,
+)
 
 
 if TYPE_CHECKING:
@@ -872,7 +877,15 @@ class CircularAnchorRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
         current_heading_slug: str | None = None
+        # This rule read the contents of fenced code too -- declared in
+        # CHANGELOG.md's Known Limitations, and the tracker makes the note
+        # unnecessary rather than merely true.
+        _fence = BlockTracker(self._containers)
         for line_no, line in enumerate(text.splitlines(), start=1):
+            if _fence.feed(line) or _fence.in_indented_code or _fence.in_frontmatter:
+                continue
+            if _fence.inside:
+                continue
             heading_match = _HEADING_RE.match(line.strip())
             if heading_match:
                 current_heading_slug = _slugify(heading_match.group(2))
@@ -881,7 +894,16 @@ class CircularAnchorRule(BaseRule):
             for m in _ANCHOR_LINK_RE.finditer(line):
                 link_text = m.group(1)
                 fragment = m.group(2)
-                if current_heading_slug is not None and current_heading_slug != fragment.lower():
+                # A self-loop is a link *inside* the section its fragment
+                # names. Before the file's first heading there is no enclosing
+                # section, so the link cannot be one -- and until 2026-09-19
+                # the `is not None` clause let exactly that case through to a
+                # bare slug comparison. Measured at 4 false findings on a
+                # 421-file MDX corpus, every one an orientation link in the
+                # intro paragraph, which is where MDX documentation puts them.
+                if current_heading_slug is None:
+                    continue
+                if current_heading_slug != fragment.lower():
                     continue
                 if _slugify(link_text) == fragment.lower():
                     findings.append(
@@ -1314,7 +1336,18 @@ class MissingAltTextRule(BaseRule):
         from zenzic.core.scanner import _RE_HTML_ALT, _RE_HTML_IMG, _RE_IMAGE_INLINE
 
         findings = []
+        # An image shown inside a fence is an example, not content. This rule
+        # was the one image rule that did not ask -- its neighbours at 1068,
+        # 1187 and 1408 all construct a tracker, and 1408 is the rule directly
+        # after this one. Measured at 35 findings on a 421-file MDX corpus,
+        # across eight different info strings, which is the same defect eight
+        # times rather than eight defects.
+        _fence = BlockTracker(self._containers)
         for lineno, line in enumerate(text.splitlines(), start=1):
+            if _fence.feed(line) or _fence.in_indented_code or _fence.in_frontmatter:
+                continue
+            if _fence.inside:
+                continue
             if "![" not in line and "<img" not in line and "<IMG" not in line:
                 continue
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
@@ -1707,7 +1740,10 @@ class VSMBrokenLinkRule(BaseRule):
             text, containers=self._containers
         ):
             # Skip non-navigable schemes and bare fragments
-            if url == "#" or any(url.startswith(s) for s in self._SKIP_SCHEMES):
+            # `_SKIP_SCHEMES` is kept for the documented schemes it names;
+            # `has_uri_scheme` covers the rest, because nothing registers a
+            # scheme with us and a hardcoded list can only ever be behind.
+            if url == "#" or has_uri_scheme(url):
                 continue
             if url.startswith("#"):
                 continue  # same-page anchor — handled separately

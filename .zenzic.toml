@@ -94,7 +94,10 @@ suppression_cap = 4
 # began closing nested fences correctly: the placeholder words it suppressed are
 # inside a fenced CLI transcript, which is no longer scanned as prose, so the
 # suppression became dead configuration (Z620) rather than a needed exemption.
-"docs/tutorials/examples/z4xx-topology/z403-missing-alt.md" = ["Z403"]
+# z403's entry was removed on 2026-09-19 for the same reason z501's twin was:
+# the page quotes a CLI transcript, the `![](diagram.png)` inside it is fenced,
+# and Z403 now consults the fence tracker -- so the suppression stopped
+# silencing anything and became Z620 dead configuration.
 # These two pages quote the real CLI output for the rule they document, and that
 # output necessarily contains the payload the rule detects: z501's capture shows
 # the placeholder words it found, z403's shows the image tag missing its alt.

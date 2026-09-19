@@ -175,6 +175,46 @@ _SLUG_SPACES_RE = re.compile(r"\s+")
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
 
+#: Any RFC 3986 scheme, which is what makes a reference absolute rather than a
+#: path into this site. A hardcoded list is the wrong instrument for a property
+#: the grammar already decides: `cursor://`, `vscode:` and `raycast://` are
+#: editor deep links that no adapter can resolve, and they were reported as
+#: broken site paths only because they were not on the list. Nothing registers
+#: a scheme with us, so the list can only ever be behind.
+#:
+#: The scheme is required to be two characters or more. A single letter is legal
+#: in RFC 3986 and effectively unused, while `C:/Users/...` in a Windows path is
+#: not, and reading that as a scheme would silence a real finding.
+_URI_SCHEME_RE: re.RegexPattern = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]+:")
+
+
+def has_uri_scheme(url: str) -> bool:
+    """True when *url* carries a URI scheme and is therefore not a site path."""
+    return bool(_URI_SCHEME_RE.match(url))
+
+
+#: The content of an HTML `<code>` element. Backtick code spans were already
+#: masked wherever this matters; this is the same decision on the surface that
+#: mask does not reach. API reference tables write types there --
+#: `<code><a href="#routepart">RoutePart</a>[][]</code>` is a TypeScript type,
+#: and `[][]` was read as a reference link with an empty id, producing one Z301
+#: and one Z108 on the same line.
+_RE_HTML_CODE_EL: re.RegexPattern = re.compile(r"(?s)(<code\b[^>]*>)(.*?)(</code>)")
+
+
+def mask_html_code_elements(text: str) -> str:
+    """Blank the content of `<code>` elements, preserving offsets.
+
+    One implementation, used by both the reference pipeline and the empty-link
+    extractor, because the two previously each carried their own notion of what
+    is not content and the surface they both missed was the same one.
+    """
+    return _RE_HTML_CODE_EL.sub(
+        lambda m: m.group(1) + "".join("\n" if c == "\n" else " " for c in m.group(2)) + m.group(3),
+        text,
+    )
+
+
 # Matches Docusaurus highlighting comments within snippets
 _HIGHLIGHT_COMMENT_RE = re.compile(
     r"^\s*(?://|#|/\*|\*)\s*highlight-(?:start|end|next-line)(?:\s*\*/)?\s*$",
@@ -1396,6 +1436,7 @@ def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
             continue
 
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+        clean = mask_html_code_elements(clean)
         for pattern in (_EMPTY_INLINE_LINK_TEXT_RE, _EMPTY_REF_LINK_TEXT_RE):
             for m in pattern.finditer(clean):
                 # Skip image links (![](url)); those are covered by Z403.

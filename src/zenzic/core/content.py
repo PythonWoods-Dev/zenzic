@@ -761,6 +761,19 @@ def check_generic_image_alt_text(
     return findings
 
 
+#: A tag that opens on a line and does not close on it. RE2-safe: `[^>]*$` can
+#: only match to end of line and cannot backtrack.
+_UNTERMINATED_TAG_RE = re.compile(r"<[A-Za-z][\w.:-]*[^>]*$")
+
+#: One `attr="value"` pair, value captured so it can be blanked at equal length.
+_ATTR_PAIR_RE = re.compile(r'(\s*[A-Za-z_:][\w:.-]*\s*=\s*")([^"\n]*)(")')
+
+
+def _mask_attr_pairs(line: str) -> str:
+    """Blank the values of `attr="..."` pairs, preserving offsets."""
+    return _ATTR_PAIR_RE.sub(lambda m: m.group(1) + " " * len(m.group(2)) + m.group(3), line)
+
+
 def check_bare_urls(
     file_path: Path, text: str, *, containers: RegexPattern | None
 ) -> list[RuleFinding]:
@@ -771,6 +784,18 @@ def check_bare_urls(
     findings: list[RuleFinding] = []
     lines = text.splitlines()
     _fence = BlockTracker(containers)
+    # A JSX element written across several lines. `_HTML_TAG_RE` below masks a
+    # tag that opens *and closes* on one line, which is why a single-line
+    # `<LinkCard href="https://..." />` is silent and the identical element
+    # split over two lines was reported. Starlight writes `<LinkCard>` with a
+    # title and a URL on separate lines, which is the common form rather than
+    # the exception: 16 of 24 Z515 on a 421-file MDX corpus were this.
+    #
+    # The state is updated for *every* line the tracker lets through, before
+    # the `http` shortcut below, because the line that opens the element often
+    # carries no URL at all -- 5 of the 16 sat on a bare `href="..."`
+    # continuation line whose opening `<LinkCard` was a line earlier.
+    in_open_tag = False
 
     for i, line in enumerate(lines, start=1):
         prev_blank = i > 1 and not lines[i - 2].strip()
@@ -785,7 +810,19 @@ def check_bare_urls(
         if _fence.inside:
             continue
 
-        if "http://" not in line and "https://" not in line:
+        # Tag state first, so a line skipped below still advances it.
+        tag_line = line
+        if in_open_tag:
+            tag_line = _mask_attr_pairs(line)
+            if ">" in line:
+                in_open_tag = False
+        elif not line.strip():
+            in_open_tag = False
+        if _UNTERMINATED_TAG_RE.search(_HTML_TAG_RE.sub("", tag_line)):
+            tag_line = _mask_attr_pairs(tag_line)
+            in_open_tag = True
+
+        if "http://" not in tag_line and "https://" not in tag_line:
             continue
 
         if _MARKDOWN_REF_DEF_RE.match(line):
@@ -794,7 +831,7 @@ def check_bare_urls(
         if prev_blank and _INDENTED_CODE_RE.match(line):
             continue
 
-        masked = line
+        masked = tag_line
         masked = _HTML_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), masked)
         masked = _AUTOLINK_RE.sub(lambda m: " " * len(m.group(0)), masked)
         masked = _MARKDOWN_LINK_RE.sub(lambda m: " " * len(m.group(0)), masked)
@@ -1282,6 +1319,49 @@ def check_weasel_words(
 _LIST_MARKER_PREFIX_RE = re.compile(r"^(\*|-|\+|\d+\.|\d+\))\s+")
 _CONJUNCTION_START_RE = re.compile(r"^(and|or|but|nor|so|yet)\s+", re.IGNORECASE)
 
+#: An MDX ESM statement opening at the top level of a document. MDX is Markdown
+#: plus ESM: a file may carry `import` and `export` anywhere at the top level,
+#: and that is the format's definition rather than an edge case.
+#:
+#: The shapes are matched syntactically rather than by keyword, so that prose
+#: beginning with the word survives. "import statements are useful; they let
+#: you..." is a sentence, not an import, because no `from "..."` follows and no
+#: brace opens. Measured on the corpora before it was written.
+_MDX_ESM_OPEN_RE = re.compile(
+    r"^(?:"
+    r"import\s+[\w${}*,\s]*from\s*[\"']"  # import X from "y"
+    r"|import\s*[\"']"  # import "./side-effect.css"
+    r"|import\s*\{"  # import {
+    r"|export\s+(?:default|const|let|var|function|class|async)\b"
+    r"|export\s*\{"
+    r"|export\s*\*"
+    r")"
+)
+
+
+def _skip_mdx_esm(lines: list[str], start: int) -> int:
+    """Return the index just past the ESM statement opening at *start*.
+
+    The whole statement is consumed, not only its first line, because the lines
+    that trip Z520 are the statement's *body*: a Docusaurus scaffold reports at
+    `export const Highlight = ({children, color}) => (` plus three lines below
+    it, and the finding lands on `backgroundColor: color,`, not on the export.
+
+    Brackets are counted rather than parsed. That is enough for real MDX and
+    cannot backtrack: a statement ends where its `(`, `{` and `[` balance, and a
+    single-line `import X from "y";` balances on its own line.
+    """
+    depth = 0
+    i = start
+    while i < len(lines):
+        line = lines[i]
+        depth += line.count("(") + line.count("{") + line.count("[")
+        depth -= line.count(")") + line.count("}") + line.count("]")
+        i += 1
+        if depth <= 0:
+            break
+    return i
+
 
 def check_malformed_lists(
     file_path: Path, text: str, *, containers: RegexPattern | None
@@ -1310,6 +1390,12 @@ def check_malformed_lists(
 
         if _fence.inside or not stripped:
             i += 1
+            continue
+
+        # MDX's ESM is not prose. Skipped whole, because the lines that trip
+        # this rule are the statement's body rather than its first line.
+        if _MDX_ESM_OPEN_RE.match(stripped):
+            i = _skip_mdx_esm(lines, i)
             continue
 
         if "<script" in stripped.lower():

@@ -44,7 +44,12 @@ from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
 from zenzic.core.ui import format_elapsed_ms
-from zenzic.core.validator import _POLYGLOT_EXTRACTOR, LinkValidator, PolyglotExtractor
+from zenzic.core.validator import (
+    _POLYGLOT_EXTRACTOR,
+    LinkValidator,
+    PolyglotExtractor,
+    mask_html_code_elements,
+)
 from zenzic.models.config import (
     ZenzicConfig,
 )
@@ -127,6 +132,7 @@ _RE_REF_DEF = re.compile(r"^ {0,3}\[([^^\]][^\]]*)\]:\s+(\S+)")
 
 # Reference link usage: [text][id] or [text][] (collapsed reference).
 _RE_REF_LINK = re.compile(r"(\[([^\]]*)\]\[([^\]]*)\])")
+
 
 # Shortcut reference link: [text] with semantic filters applied in code to
 # exclude image refs and full/collapsed ref tails.
@@ -1007,12 +1013,27 @@ class ReferenceScanner:
             else _iter_content_lines(self.file_path)
         )
         for lineno, line in line_source:
-            # Blank out inline code to avoid false matches inside `[code][spans]`
+            # Blank out inline code to avoid false matches inside `[code][spans]`,
+            # and the HTML `<code>` element for the same reason on the surface
+            # the backtick mask does not reach. Both are length-preserving.
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+            clean = mask_html_code_elements(clean)
 
+            # Candidates are found in the masked text and their *identifiers*
+            # are read back from the original at the same offsets, which is
+            # sound because every mask above replaces a run with spaces of
+            # equal length.
+            #
+            # Why it matters: a reference label may legitimately contain a code
+            # span -- ``[`i18n.locales`]`` is a label CommonMark accepts and
+            # Astro's documentation uses. Reading the id from the masked text
+            # turned it into `[            ]`, which never resolved against the
+            # definition, so a reference that was defined *and used* was
+            # reported as defined and never used.
             for m in _RE_REF_LINK.finditer(clean):
-                text = m.group(2)
-                ref_id = m.group(3) if m.group(3) else text  # collapsed ref
+                text = line[m.start(2) : m.end(2)]
+                raw_id = line[m.start(3) : m.end(3)]
+                ref_id = raw_id if raw_id else text  # collapsed ref
                 url = self.ref_map.resolve(ref_id)
                 if url is None:
                     norm_id = ref_id.lower().strip()
@@ -1037,7 +1058,7 @@ class ReferenceScanner:
                     continue
                 if tail == ":" and clean[: m.start()].strip() == "":
                     continue
-                ref_id = m.group(1)
+                ref_id = line[m.start(1) : m.end(1)]
                 self.ref_map.resolve(ref_id)  # mark as used if defined
 
         return findings

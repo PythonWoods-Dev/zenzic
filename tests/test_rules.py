@@ -1854,47 +1854,53 @@ class TestCircularAnchorRule:
         return CircularAnchorRule()
 
     def test_z107_matches_simple_anchor(self) -> None:
-        """[Foo](#foo) → slug('Foo') == 'foo' → Z107."""
+        """`[Foo](#foo)` written inside `## Foo` → Z107."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Foo](#foo)\n")
+        # A self-loop needs an enclosing section: `docs/reference/finding-codes.md`
+        # defines Z107 as a link that takes the reader where they already are.
+        # These fixtures carried no heading at all until 2026-09-19, so they
+        # asserted the bare slug comparison the guard was meant to prevent --
+        # measured at 4 false findings on a real MDX corpus, all of them
+        # orientation links in an intro paragraph.
+        findings = rule.check(_ANCHOR_FILE, "## Foo\n\n[Foo](#foo)\n")
         assert len(findings) == 1
         assert findings[0].rule_id == "Z107"
-        assert findings[0].line_no == 1
+        assert findings[0].line_no == 3
         # "error" per codes.py's CODE_DEFINITIONS (the SSoT) -- this used to
         # assert "warning", locking in a hardcoded-severity bug (fixed in
         # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP).
         assert findings[0].severity == "error"
 
     def test_z107_matches_multi_word_anchor(self) -> None:
-        """[Foo Bar](#foo-bar) → slug('Foo Bar') == 'foo-bar' → Z107."""
+        """`[Foo Bar](#foo-bar)` written inside `## Foo Bar` → Z107."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Foo Bar](#foo-bar)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Foo Bar\n\n[Foo Bar](#foo-bar)\n")
         assert len(findings) == 1
         assert findings[0].rule_id == "Z107"
 
     def test_z107_no_match_different_target(self) -> None:
         """[Docs](#introduction) — slug('Docs')='docs' != 'introduction' → no finding."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Docs](#introduction)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Docs\n\n[Docs](#introduction)\n")
         assert findings == []
 
     def test_z107_ignores_cross_file_link(self) -> None:
         """[text](other.md#foo) is a cross-file link, not a same-page anchor → no finding."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[text](other.md#foo)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Text\n\n[text](other.md#foo)\n")
         assert findings == []
 
     def test_z107_ignores_external_url(self) -> None:
         """External URLs are never flagged by Z107."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Zenzic](https://zenzic.dev)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Zenzic\n\n[Zenzic](https://zenzic.dev)\n")
         assert findings == []
 
     def test_z107_col_start_correct(self) -> None:
         """col_start points to the opening '[' of the anchor link."""
         rule = self._rule()
         text = "See [Foo](#foo) for details.\n"
-        findings = rule.check(_ANCHOR_FILE, text)
+        findings = rule.check(_ANCHOR_FILE, "## Foo\n\n" + text)
         assert len(findings) == 1
         assert findings[0].col_start == text.index("[Foo]")
 

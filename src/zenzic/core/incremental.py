@@ -61,6 +61,7 @@ from zenzic.core.validator import (
     _decode_percent_encoding,
     anchors_in_file,
     check_snippet_content,
+    has_uri_scheme,
     is_allowlisted_absolute,
 )
 from zenzic.models.diagnostics import (
@@ -1354,6 +1355,17 @@ class IncrementalAnalysisEngine:
                         )
                         continue
                     continue
+
+            # A reference carrying a URI scheme is not a path into this site,
+            # so neither Z105 nor Z101 applies to it. Placed *after* the
+            # traversal decision above, which is evaluated unconditionally for
+            # every href and is not weakened by this: the security tier keeps
+            # seeing exactly what it saw. Measured at 6 findings on a 421-file
+            # MDX corpus -- `cursor://`, `vscode:` and `raycast://` editor deep
+            # links, which no adapter can resolve and none of which is a broken
+            # link.
+            elif has_uri_scheme(url):
+                continue
 
             # Z105 / Z203
             elif parsed.path.startswith("/") or decoded_path.startswith("/"):

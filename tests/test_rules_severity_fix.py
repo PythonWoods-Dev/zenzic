@@ -44,7 +44,12 @@ def test_z107_is_error_not_warning() -> None:
     """A Z107 finding must be error-level, matching codes.py's
     CodeDefinition("error", 1.0, "structural") -- not hardcoded as a warning."""
     rule = CircularAnchorRule()
-    text = "See [security-gate](#security-gate) below.\n\n## Security Gate {#security-gate}\n"
+    # The link must sit *inside* the section its fragment names; before the
+    # first heading there is no enclosing section and Z107 does not apply.
+    # Plain heading, not `## Security Gate {#security-gate}`: `_slugify` does
+    # not honour the attr-list, so the custom id never matches the fragment.
+    # Recorded as its own finding rather than worked around silently.
+    text = "## Security Gate\n\nSee [security-gate](#security-gate) below.\n"
     findings = rule.check(Path("docs/example.md"), text)
 
     z107_findings = [f for f in findings if f.rule_id == "Z107"]

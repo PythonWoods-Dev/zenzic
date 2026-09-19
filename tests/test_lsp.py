@@ -139,7 +139,11 @@ def test_publish_diagnostics() -> None:
         "method": "textDocument/didChange",
         "params": {
             "textDocument": {"uri": uri},
-            "contentChanges": [{"text": "Line 1\n[my heading](#my-heading)\nLine 3"}],
+            # The heading must precede the link: Z107 is a link *inside* the
+            # section its fragment names. Without it the document now
+            # reports Z102 instead -- the anchor genuinely does not exist --
+            # which is the right code but not what this test is about.
+            "contentChanges": [{"text": "## My Heading\n\n[my heading](#my-heading)\nLine 3"}],
         },
     }
     req2 = {"jsonrpc": "2.0", "method": "exit", "params": {}}
