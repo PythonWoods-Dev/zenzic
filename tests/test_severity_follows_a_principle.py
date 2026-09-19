@@ -65,6 +65,18 @@ TIER_B_CONFIGURATION_IS_STALE: dict[str, str] = {
 #: Tier N — informational by construction. `note`.
 TIER_N_INFORMATIONAL: dict[str, str] = {
     "Z123": "a non-HTTP scheme is a fact about a link, not a defect in it",
+    "Z106": (
+        "a link cycle is the normal shape of a cross-referenced manual, not a defect. "
+        "Recorded on 2026-09-19 as a contradiction of this principle -- 'a defect an "
+        "author should fix' -- and the measurement refuted that: enabled on this "
+        "repository it reports **823 findings across 244 pages**, concentrated on "
+        "`reference/finding-codes.md` (90), the gallery index (64) and `how-to/index.md` "
+        "(22). Those are hub pages, and a hub linking its children while the children "
+        "link back is required navigation in Di\u00e1taxis. The same check on a corpus of "
+        "comparable size reports 4. A rule measuring a shape nobody wants to correct is "
+        "an observation about the graph, which is what `note` is for, and opt-in for the "
+        "right reason"
+    ),
     "Z906": (
         "the documentation directory exists and holds no Markdown -- a project in setup. "
         "This became true only on 2026-09-19: until then the code also covered a directory "
@@ -79,13 +91,6 @@ TIER_S_SECURITY: frozenset[str] = frozenset({"Z201", "Z202", "Z203", "Z204", "Z2
 #: in that batch, each with why the fix is larger than a severity edit. Asserted
 #: in both directions below, so an entry cannot outlive the contradiction it names.
 CONTRADICTIONS_AWAITING_A_RELEASE_DECISION: dict[str, str] = {
-    "Z106": (
-        "CIRCULAR_LINK is a defect an author should fix, so Tier N is wrong for it and "
-        "`note` should be `warning`. It cannot be a severity edit alone: severity also "
-        "carries the default display threshold in this engine, so `note` is what keeps an "
-        "opt-in code quiet, and promoting it also requires giving it the category and "
-        "penalty it lacks (None/0.0 today), which moves DQS for every project that opted in"
-    ),
     "Z401": (
         "MISSING_DIRECTORY_INDEX is a defect an author should fix, so Tier N is wrong for "
         "it. Same coupling as Z106, plus it already sits in a scored category "

@@ -146,11 +146,13 @@ Nothing ships to generate this file. Writing it is the cost of this approach.
     **Check you got it right before trusting the result.** Run `zenzic check all` once before
     the manifest and once after, and read the *count*:
 
-    - **It does not move at all.** `.zenzic-vsm.json` is not where Zenzic looked — it is read
-      from the **repository root**, not from `docs_dir`. The run says so: declaring
-      `engine = "prebuilt"` with no manifest present prints a notice naming the file it looked
-      for and the engine it used instead, then falls back to `standalone` and reports exactly
-      what `standalone` reports. Check the file is where the notice says it is not.
+    - **The run refuses to start.** Declaring `engine = "prebuilt"` with no manifest is a
+      configuration error as of v0.31.0, not a silent fallback: the run stops before reading a
+      page and names the file it looked for, from the **repository root** — not from
+      `docs_dir`, which is where people put it. It used to analyse with `standalone` instead
+      and report findings derived from that substitution; measured on a 2,604-page site, those
+      were the same findings `standalone` reports, and nothing in the machine formats said the
+      engine had been replaced.
     - **Some pages report `Z115`.** Those are the pages your manifest does not list, named one
       by one. The manifest is behind the tree — regenerate it. Every link pointing at one of
       them is reported unreachable until you do, which is where a good part of a stubbornly

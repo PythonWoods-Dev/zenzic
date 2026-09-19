@@ -778,6 +778,20 @@ def _render_link_error(err: object, docs_root: Path) -> None:
 # ── Exclusion manager factory ─────────────────────────────────────────────────
 
 
+def _z111(message: str) -> ZenzicConfigError:
+    """Build a `Z111` that reports itself as one.
+
+    `ZenzicConfigError` hardcodes `code="Z001"`, so a `Z111` raised through it
+    reached the JSON payload as `"code": "Z001"` beside a message reading
+    `[Z111]` -- a contract contradicting itself, and the payload is what the
+    action's wrapper reads. `tier` and `severity` are pinned to the values that
+    path already produced, so this corrects the identifier and nothing else.
+    """
+    exc = ZenzicConfigError(message, context={"tier": "Core", "severity": "fatal"})
+    exc.code = "Z111"
+    return exc
+
+
 def docs_dir_missing_error(
     config: Any, docs_root: Path, repo_root: Path, *, because: str
 ) -> ZenzicConfigError:
@@ -800,7 +814,7 @@ def docs_dir_missing_error(
     statement and keeps its own, quieter answer at each call site.
     """
     declared = "docs_dir" in getattr(config, "model_fields_set", set())
-    return ZenzicConfigError(
+    return _z111(
         f"[Z111] docs_dir '{config.docs_dir}' does not exist "
         + (
             "(declared in your configuration).\n"
@@ -810,6 +824,68 @@ def docs_dir_missing_error(
         + f"  Looked in: {docs_root}\n"
         + f"  {because}\n"
         + _docs_dir_advice(repo_root)
+    )
+
+
+def manifest_missing_error(config: Any, repo_root: Path) -> ZenzicConfigError | None:
+    """Return the `Z111` for a declared `prebuilt` with no route manifest, or
+    ``None`` when the configuration is fine.
+
+    **The declaration has no effect without the artefact.** Measured on Astro's
+    own documentation, 2,604 pages, same commit: `prebuilt` with no manifest and
+    `standalone` declared outright produce the *same total, the same
+    distribution and the same exit code*. The engine the user asked for is not
+    the engine that ran, and the only signal was a notice on stderr, where no CI
+    consumer reads it — 98% of the 15,254 findings came from three codes, all
+    derived from routing that was never resolved.
+
+    That is the shape `Z111` closed for a missing `docs_dir` and `Z906` was
+    corrected on in the same week: a run that did not do what it was asked,
+    reporting as though it had.
+
+    The separation holds, as it does there. A manifest that **exists** and is
+    empty is a different statement — a generator that published nothing — and
+    is not this error; it produces `Z115` for every source instead, which names
+    the file to regenerate.
+
+    Returns the exception rather than raising, because the language server calls
+    this too and must turn it into a diagnostic: it has no channel to fail
+    through, and going dark would leave the author with nothing.
+    """
+    engine = getattr(getattr(config, "build_context", None), "engine", None)
+    if engine not in ("prebuilt", "vsm"):
+        return None
+    manifest = repo_root / ".zenzic-vsm.json"
+    if manifest.is_file():
+        return None
+
+    from zenzic.cli._standalone import detect_generator
+
+    found = detect_generator(repo_root)
+    if found is not None:
+        generator, _docs_dir, marker = found
+        how = f"  {marker} is present, so this is {generator.capitalize()}.\n" + (
+            "  Derive the manifest from the source tree — Astro's routing is "
+            "positional, so no build is needed.\n"
+            if generator == "astro"
+            else "  Generate the manifest from `npm run build`: Docusaurus routing "
+            "is not derivable from filenames.\n"
+        )
+    else:
+        how = (
+            "  The manifest maps each source path to the URL it publishes at, and "
+            "you generate it from your own build.\n"
+        )
+
+    return _z111(
+        f'[Z111] engine = "{engine}" is declared and .zenzic-vsm.json is not there.\n'
+        f"  Looked in: {manifest}\n"
+        "  Without it this run would analyse with 'standalone' instead — the same "
+        "findings, from a site map that is not your site's.\n"
+        + how
+        + "  How to write it: https://zenzic.dev/how-to/configure-adapter/"
+        "#prebuilt-route-manifest\n"
+        '  Or declare engine = "standalone" if this project has no manifest to give.'
     )
 
 

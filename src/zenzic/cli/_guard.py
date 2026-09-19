@@ -146,6 +146,10 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> tuple[l
                 resolved.extend(p for p in repo_markdown if _is_within(p, candidate))
         return sorted(set(resolved)), True
 
+    _manifest_error = _shared.manifest_missing_error(config, repo_root)
+    if _manifest_error is not None:
+        raise _manifest_error
+
     if not docs_root.is_dir():
         # The security gate is the one surface where silence is least
         # admissible, and this returned zero targets and exit 0 until

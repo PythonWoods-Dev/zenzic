@@ -358,6 +358,17 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
         else:
             tier = "Core"
 
+    if output_format in ("json", "sarif"):
+        # The payload goes to stdout, which the action captures to a file — so
+        # without this the step log said nothing at all while the run failed.
+        # One line, on stderr, carrying the same sentence the terminal shows:
+        # an action that fails differently from the CLI for the same condition
+        # is two products.
+        _stderr_console = Console(stderr=True, no_color=True, highlight=False)
+        _stderr_console.print(f"[{code}] {message.splitlines()[0].removeprefix(f'[{code}] ')}")
+        for _line in message.splitlines()[1:]:
+            _stderr_console.print(_line)
+
     if output_format == "json":
         report = {
             "file": filename,
@@ -389,7 +400,18 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
                             "name": "zenzic",
                             "version": __version__,
                             "informationUri": "https://zenzic.dev",
-                            "rules": [],
+                            # The rule is declared so the result below is
+                            # describable: a `ruleId` with no descriptor leaves
+                            # a consumer with a code it cannot render.
+                            "rules": [
+                                {
+                                    "id": code,
+                                    "name": code,
+                                    "shortDescription": {"text": f"{code} configuration error"},
+                                    "helpUri": "https://zenzic.dev/reference/finding-codes/",
+                                    "defaultConfiguration": {"level": sarif_level},
+                                }
+                            ],
                         }
                     },
                     "invocations": [
@@ -404,7 +426,37 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
                             ],
                         }
                     ],
-                    "results": [],
+                    # The same failure, twice, on purpose. The notification
+                    # above is the correct SARIF idiom for a tool-level error
+                    # and is what a general consumer should read -- but GitHub
+                    # code scanning surfaces only `result`, `location`,
+                    # `reportingDescriptor` and a handful of others, and
+                    # `toolExecutionNotifications` is not among them (verified
+                    # against GitHub's own SARIF support page, 2026-09-19).
+                    #
+                    # Emitting only the notification therefore produced a valid
+                    # file that GitHub renders as an empty analysis: the run
+                    # failed, nothing was scanned, and the pull request said
+                    # nothing at all. The result carries the same text, anchored
+                    # on the configuration file, which is where the defect is.
+                    "results": [
+                        {
+                            "ruleId": code,
+                            "level": sarif_level,
+                            "message": {"text": message},
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {
+                                            "uri": str(filename),
+                                            "uriBaseId": "%SRCROOT%",
+                                        },
+                                        "region": {"startLine": max(int(line), 1)},
+                                    }
+                                }
+                            ],
+                        }
+                    ],
                 }
             ],
         }

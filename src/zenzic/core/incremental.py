@@ -248,6 +248,28 @@ class IncrementalAnalysisEngine:
                     )
                 )
 
+        # A declared `prebuilt` with no manifest. The CLI refuses; the editor
+        # cannot, so it says so here and keeps analysing with what it has —
+        # which is exactly the substituted engine the CLI declines to use, so
+        # the diagnostic is also the warning that CI will not agree.
+        if self.config is not None and self.repo_root is not None:
+            from zenzic.cli._shared import manifest_missing_error
+
+            _manifest_error = manifest_missing_error(self.config, self.repo_root)
+            if _manifest_error is not None:
+                config_findings.append(
+                    RuleFinding(
+                        config_file,
+                        1,
+                        "Z111",
+                        str(_manifest_error).splitlines()[0]
+                        + " This editor session is analysing with 'standalone' instead;"
+                        " `zenzic check` stops on this, so CI will not agree.",
+                        severity=code_severity("Z111"),
+                        matched_line="",
+                    )
+                )
+
         if config_findings:
             cfg_text = cfg_override if cfg_override is not None else ""
             if not cfg_text:

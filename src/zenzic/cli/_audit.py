@@ -126,6 +126,11 @@ def audit(
     #    path-traversal guard. Constructed directly, this command excluded
     #    neither the engine's output directory nor its metadata files -- a built
     #    `site/` tree was audited as source -- and had no traversal guard at all.
+    # Same condition, same error, before the audit reads anything.
+    _manifest_error = _shared.manifest_missing_error(config, repo_root)
+    if _manifest_error is not None:
+        raise _manifest_error
+
     _adapter = get_adapter(config.build_context, docs_root, repo_root)
     exclusion_mgr = _shared._build_exclusion_manager(
         config,

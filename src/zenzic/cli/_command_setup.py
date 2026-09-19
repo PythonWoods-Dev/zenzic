@@ -57,6 +57,16 @@ def setup_command(
     config, loaded_from_file = ZenzicConfig.load(repo_root, config_file=config_file)
 
     config = _shared._apply_engine_override(config, engine_override)
+
+    # Before the adapter is built, not merely before the scan. A declared
+    # `prebuilt` with no manifest produced a run byte-identical to `standalone`
+    # -- measured on 2,604 Astro pages: same total, same distribution, same exit
+    # -- and the only signal was a notice on stderr. Checked here so the run
+    # does not first announce the substitution it is about to refuse to make.
+    _manifest_error = _shared.manifest_missing_error(config, repo_root)
+    if _manifest_error is not None:
+        raise _manifest_error
+
     if offline:
         config.build_context.offline_mode = True
     if exclude_url:

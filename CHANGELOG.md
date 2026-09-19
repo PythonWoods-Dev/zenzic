@@ -26,7 +26,9 @@ finding it was not showing, used to exit `0`. Item 31 adds one finding, `Z115`, 
 `prebuilt` engine. Item 32 turns one warning into an error, and item 33 removes a false
 statement the tool printed about its own configuration, and item 34 adds findings in
 locale and content-root trees that were never checked at all. Item 35 changes what
-`zenzic audit` scans and when it fails. The list ends
+`zenzic audit` scans and when it fails. Item 36 turns a silent substitution into an
+error, and items 37 and 38 change what the machine formats carry when a run fails at
+configuration. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -397,6 +399,14 @@ now exits `1` where it exited `0`. The DQS penalty is unchanged at `0.0`: there 
 score, the absence of the analysis is the finding. `zenzic inspect codes` shows `HALT` for it,
 as it already did. Both pinned corpora are unmoved — neither holds a rule that times out.
 
+**33b. `Z106` and `Z401` were reported on 2026-09-19 as contradicting the severity principle,
+and one of them did not.** Enabled on this repository, `Z106 CIRCULAR_LINK` reports **823
+findings across 244 pages**, concentrated on the reference index, the gallery index and the
+how-to index. A hub page linking its children while the children link back is required
+navigation, not a defect — so the rule measures a shape nobody wants to correct, which is an
+observation about the link graph rather than a finding. It stays `note`, stays opt-in, and the
+classification that called it a defect is corrected in the record. **No severity changed.**
+
 **33. The engine no longer announces a substitution that did not happen.** `zenzic check all`
 printed `NOTICE: engine 'mkdocs' found no mkdocs.yml, so this run used 'standalone' instead`
 on repositories whose `mkdocs.yml` was present and whose analysis was genuinely MkDocs. Two
@@ -428,6 +438,32 @@ neither the engine's output directory nor its metadata files (**a built `site/` 
 source**) and ran without the `docs_dir` path-traversal guard the factory applies. **If you run
 `zenzic audit` from a subdirectory, or over a project whose `docs_dir` is wrong**, its answers
 change — to the ones the rest of the CLI was already giving.
+
+**36. A declared `prebuilt` with no route manifest is now a configuration error.** It used to
+fall back to `standalone` and analyse anyway. Measured on Astro's own documentation — 2,604
+pages, one commit — that fallback produced **the same total, the same distribution and the same
+exit code** as declaring `standalone` outright: the engine you asked for did not run, and the
+only signal was a notice on stderr, which no CI consumer reads. 98% of those findings came from
+three codes, all derived from routing that was never resolved. **If you declare `engine =
+"prebuilt"`**, the run now stops before reading a page, names the generator it detected, says
+how that generator's manifest is derived, links the page that explains it, and names
+`standalone` as the way out. A manifest that **exists** and is empty is a different statement
+and is unaffected — that is `Z115` per source. The error is identical on `check`, `audit`,
+`guard scan` and the action's step log; the language server, which cannot exit, publishes it as
+a diagnostic on the configuration file and keeps analysing.
+
+**37. A configuration failure now reaches a SARIF consumer.** The run emitted the error as a
+`toolExecutionNotification` with `executionSuccessful: false` — correct SARIF, and invisible to
+GitHub code scanning, which surfaces only `result`, `location`, `reportingDescriptor` and a
+handful of others (verified against GitHub's own SARIF support page). A failed run therefore
+rendered as an empty analysis: nothing scanned, and the pull request said nothing. The same
+failure is now also a `result`, anchored on the configuration file, with its rule declared. The
+notification stays for consumers that read it.
+
+**38. A `Z111` reported itself as `Z001` in the JSON payload.** `ZenzicConfigError` carries a
+hardcoded code, so a message reading `[Z111]` arrived with `"code": "Z001"` beside it — a
+contract contradicting itself, in the payload the action's wrapper parses. The identifier now
+matches the message; `tier` and `severity` are unchanged.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
