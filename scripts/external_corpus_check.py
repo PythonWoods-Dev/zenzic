@@ -111,6 +111,96 @@ def _scan(root: Path) -> Counter[str]:
     return Counter(f.get("code") for f in payload.get("findings", []))
 
 
+def _prepare(root: Path, setup: dict[str, str] | None) -> None:
+    """Write the configuration a corpus needs before it can be scanned.
+
+    The first corpus needs none: `zensical/docs` carries its own `mkdocs.yml`
+    and Zenzic discovers it. A generator Zenzic has no adapter for needs the
+    `prebuilt` recipe written for it, and writing it here is what makes the
+    baseline reproducible rather than a number someone once took by hand.
+
+    The manifest is derived positionally from the source tree, which is what
+    Astro's content collections permit. The locale prefix is not optional and
+    is not cosmetic: without it the manifest is complete, well-formed, and
+    resolves nothing.
+    """
+    if not setup:
+        return
+    docs_rel = setup["docs_dir"]
+    docs = root / docs_rel
+    prefix = setup.get("url_prefix", "/")
+    routes: dict[str, dict[str, str]] = {}
+    for path in sorted(docs.rglob("*")):
+        if path.suffix not in {".md", ".mdx"}:
+            continue
+        rel = path.relative_to(docs).as_posix()
+        slug = rel[: -len(path.suffix)].removesuffix("/index")
+        routes[rel] = {"url": f"{prefix}{slug}/" if slug else prefix, "status": "REACHABLE"}
+    (root / ".zenzic-vsm.json").write_text(json.dumps(routes, indent=1), encoding="utf-8")
+    (root / ".zenzic.toml").write_text(
+        f'docs_dir = "{docs_rel}"\nabsolute_path_allowlist = ["/"]\n\n'
+        '[build_context]\nengine = "prebuilt"\n',
+        encoding="utf-8",
+    )
+
+
+def _count_sources_in(root: Path, docs_rel: str | None) -> int:
+    """Markdown sources, optionally restricted to the corpus's own docs tree."""
+    base = root / docs_rel if docs_rel else root
+    if not base.is_dir():
+        return 0
+    return sum(1 for p in base.rglob("*") if p.suffix in {".md", ".mdx"} and ".git" not in p.parts)
+
+
+def _one(pin: dict[str, object], *, update: bool) -> tuple[int, str]:
+    """Fetch, prepare and scan one corpus. Returns (exit code, one-line report)."""
+    raw_setup = pin.get("setup")
+    setup: dict[str, str] | None = raw_setup if isinstance(raw_setup, dict) else None
+    docs_rel = setup["docs_dir"] if setup else None
+    name = f"{pin['repository']} at {str(pin['commit'])[:8]}"
+    raw_counts = pin["counts"]
+    expected: dict[str, int] = dict(raw_counts) if isinstance(raw_counts, dict) else {}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "corpus"
+        _fetch(str(pin["repository"]), str(pin["commit"]), root)
+        _prepare(root, setup)
+        files = _count_sources_in(root, docs_rel)
+        actual = _scan(root)
+
+    if not update and files != pin["file_count"]:
+        return 1, (
+            f"FAILED: the pinned tree does not have the pinned number of sources.\n"
+            f"  {name}\n"
+            f"  pinned {pin['file_count']} markdown sources, measured {files}\n\n"
+            "  A commit fixes the tree, so this number cannot move on its own. Either the\n"
+            "  fetch is not the commit it claims, or this script no longer walks the corpus."
+        )
+
+    if update:
+        pin["counts"] = dict(sorted(actual.items()))
+        pin["file_count"] = files
+        return 0, f"{name}: {sum(actual.values())} findings across {len(actual)} codes"
+
+    problems = []
+    for code in sorted(set(expected) | set(actual)):
+        want, have = expected.get(code, 0), actual.get(code, 0)
+        if want != have:
+            verb = "appeared" if want == 0 else "disappeared" if have == 0 else "changed"
+            problems.append(f"  {code}: pinned {want}, measured {have} -- {verb}")
+    if problems:
+        return 1, (
+            f"FAILED: the external corpus reports different findings.\n  {name}\n"
+            + "\n".join(problems)
+            + "\n\n  An unexplained change is a regression. An explained one updates this pin\n"
+            "  with --update, in the same commit as the change that caused it."
+        )
+    return 0, (
+        f"{name}: {sum(actual.values())} findings across {len(actual)} codes "
+        f"over {files} sources, unchanged"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -120,55 +210,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    pin = json.loads(PIN_FILE.read_text(encoding="utf-8"))
-    expected: dict[str, int] = pin["counts"]
+    data = json.loads(PIN_FILE.read_text(encoding="utf-8"))
+    # One corpus was one object; two are a list under "corpora". The older shape
+    # is still read so the file can be rolled back without editing this script.
+    corpora: list[dict[str, object]] = data["corpora"] if "corpora" in data else [data]
 
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp) / "corpus"
-        _fetch(pin["repository"], pin["commit"], root)
-        files = _count_sources(root)
-        actual = _scan(root)
-
-    if not args.update and files != pin["file_count"]:
-        print(
-            f"FAILED: the pinned tree does not have the pinned number of sources.\n"
-            f"  {pin['repository']} at {pin['commit'][:8]}\n"
-            f"  pinned {pin['file_count']} markdown sources, measured {files}\n\n"
-            "  A commit fixes the tree, so this number cannot move on its own. Either the\n"
-            "  fetch is not the commit it claims, or this script no longer walks the corpus."
-        )
-        return 1
+    failed = 0
+    for pin in corpora:
+        code, line = _one(pin, update=args.update)
+        failed |= code
+        print(line)
 
     if args.update:
-        pin["counts"] = dict(sorted(actual.items()))
-        pin["file_count"] = files
-        PIN_FILE.write_text(json.dumps(pin, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        print(f"pin updated: {sum(actual.values())} findings across {len(actual)} codes")
-        return 0
-
-    problems: list[str] = []
-    for code in sorted(set(expected) | set(actual)):
-        want, have = expected.get(code, 0), actual.get(code, 0)
-        if want != have:
-            verb = "appeared" if want == 0 else "disappeared" if have == 0 else "changed"
-            problems.append(f"  {code}: pinned {want}, measured {have} -- {verb}")
-
-    if problems:
-        print(
-            f"FAILED: the external corpus reports different findings.\n"
-            f"  {pin['repository']} at {pin['commit'][:8]}\n"
-            + "\n".join(problems)
-            + "\n\n  An unexplained change is a regression. An explained one updates this pin\n"
-            "  with --update, in the same commit as the change that caused it."
-        )
-        return 1
-
-    total = sum(actual.values())
-    print(
-        f"external corpus: {total} findings across {len(actual)} codes "
-        f"over {files} sources, unchanged at {pin['commit'][:8]}"
-    )
-    return 0
+        PIN_FILE.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print("pins updated")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
