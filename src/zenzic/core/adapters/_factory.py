@@ -59,6 +59,16 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 }
 
 
+#: What each engine looks for, so the substitution notice can name the missing
+#: file rather than leaving the user to guess which one was wanted.
+_SUBSTITUTION_HINTS = {
+    "prebuilt": "route manifest (.zenzic-vsm.json, read from the repository root)",
+    "vsm": "route manifest (.zenzic-vsm.json, read from the repository root)",
+    "mkdocs": "mkdocs.yml",
+    "zensical": "zensical.toml",
+}
+
+
 def _is_zensical_theme(mkdocs_content: str) -> bool:
     """Inspect mkdocs.yml content for theme: zensical without full YAML parsing.
 
@@ -321,17 +331,39 @@ def get_adapter(
             f"Adapter for engine {context.engine!r} failed during has_engine_config(): {exc}",
             context={"engine": context.engine, "cause": str(exc)},
         ) from exc
+    messages = []
+
     if not has_config:
+        # A declared engine that finds none of its own configuration is replaced,
+        # not defaulted -- the run then reports what StandaloneAdapter reports,
+        # which on a site that links by route is an order of magnitude more
+        # findings. Measured on a 421-file Starlight tree: 235 with the manifest,
+        # 2,443 without it, and byte-identical to declaring "standalone" outright.
+        # Said through the same list the offline notice uses rather than through
+        # the logger, because the two defects this cycle found hidden behind an
+        # invisible notice were both log-only.
+        if context.engine not in ("standalone", "auto"):
+            hint = _SUBSTITUTION_HINTS.get(context.engine, "its own configuration file")
+            messages.append(
+                f"[bold yellow]NOTICE:[/bold yellow] engine {context.engine!r} found no "
+                f"{hint}, so this run used 'standalone' instead. Findings below are "
+                f"StandaloneAdapter's, not {context.engine!r}'s."
+            )
         adapter = StandaloneAdapter()
 
-    messages = []
     if getattr(context, "offline_mode", False):
         messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")
 
     if messages:
         from rich.console import Console
 
-        Console(highlight=False).print("\n" + "\n".join(messages))
+        # stderr, not stdout: `--format json` and `--format sarif` write a
+        # machine-read payload to stdout, and a notice printed there makes it
+        # unparseable. Adding the substitution notice on stdout broke exactly
+        # that and the control caught it; the offline notice had the same
+        # defect already, which is why `scripts/external_corpus_check.py`
+        # searches for the first '{' instead of parsing what it is given.
+        Console(highlight=False, stderr=True).print("\n" + "\n".join(messages))
 
     # Write under lock: prevents double-instantiation if a caller ever uses
     # threads to construct adapters concurrently.
