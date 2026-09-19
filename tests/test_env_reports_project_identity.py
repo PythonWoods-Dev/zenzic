@@ -120,10 +120,13 @@ def test_env_and_the_scan_name_the_same_engine(tmp_path: Path) -> None:
         env={**os.environ, "NO_COLOR": "1"},
     )
 
-    telemetry = next(
-        (ln for ln in scan.stdout.splitlines() if "files" in ln and "s" in ln and "•" in ln),
-        "",
-    )
+    # Matched on `files/s`, not on the bullet that separates the segments. The
+    # separator is `emoji("dot")`, which falls back to ASCII `-` when the output
+    # stream cannot encode `•` -- which is every CI runner here, and was none of
+    # the local ones. The first version of this test looked for the glyph and so
+    # asserted a decoration rather than the fact, passing on three developer
+    # machines and failing on all three runners.
+    telemetry = next((ln for ln in scan.stdout.splitlines() if "files/s" in ln), "")
     assert telemetry, f"no telemetry line in:\n{scan.stdout}"
     assert str(env_engine) in telemetry
 
