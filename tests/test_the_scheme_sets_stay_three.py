@@ -91,3 +91,43 @@ def test_no_scheme_is_spelled_two_ways_within_a_set() -> None:
     ):
         bare = {s.rstrip("/") for s in group}
         assert len(bare) == len(set(group)), f"{name} spells one scheme two ways: {sorted(group)}"
+
+
+def test_what_the_two_fragment_checks_actually_do(tmp_path) -> None:
+    """The `#` difference, pinned by execution rather than by description.
+
+    The resolver skips every fragment; the security loop skips only the bare
+    one. A first description of that said `#../../etc/passwd` "reaches the
+    traversal gate", which overstated it: measured, the URL does continue past
+    the bypass, and what it produces there is `Z102`, not `Z203`.
+
+    The bare `../../../../etc/passwd` case is the positive control -- it does
+    produce `Z203` -- so a silence in the rows above means the check ran and
+    found nothing, rather than that the check never ran.
+    """
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.incremental import IncrementalAnalysisEngine
+    from zenzic.models.config import ZenzicConfig
+    from zenzic.models.vsm import VirtualSiteMap
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# T\n", encoding="utf-8")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+    config, _ = ZenzicConfig.load(tmp_path)
+    adapter = get_adapter(config.build_context, docs, tmp_path)
+    engine = IncrementalAnalysisEngine(config, None, adapter, docs, tmp_path)
+
+    def codes(url: str) -> list[str]:
+        text = f"# T\n\nBody words here to fill the section out nicely.\n\n[a]({url})\n"
+        return sorted(
+            {f.rule_id for f in engine._run_urp_checks(VirtualSiteMap(), docs / "index.md", text)}
+        )  # noqa: SLF001
+
+    assert codes("../../../../etc/passwd") == ["Z203"], "the positive control must fire"
+    assert codes("#") == [], "the bare fragment is the one case the bypass skips"
+    assert codes("#../../../../etc/passwd") == ["Z102"], (
+        "a fragment carrying traversal syntax continues past the bypass and is "
+        "answered by the anchor rule, not by the traversal gate"
+    )

@@ -1315,10 +1315,18 @@ class IncrementalAnalysisEngine:
             raw_line = link.raw_text
 
             # `== "#"` rather than `startswith("#")`, and the difference is
-            # load-bearing: `#../../etc/passwd` is not a bare fragment and must
-            # reach the traversal gate below. The resolver's copy of this check
-            # skips every fragment, correctly, because a fragment cannot name a
-            # route -- but it is not deciding a security question.
+            # real: only the bare fragment is skipped, so `#../../etc/passwd`
+            # continues into the checks below where the resolver's copy would
+            # have dropped it. Measured 2026-09-19 through `_run_urp_checks`
+            # rather than read: it produces `Z102` there, not `Z203` -- a first
+            # description of this said "reaches the traversal gate", which
+            # overstated what the execution shows. The positive control in the
+            # same run is a bare `../../../../etc/passwd`, which does produce
+            # `Z203`, so the instrument can tell the two apart.
+            #
+            # The resolver's copy skips every fragment, correctly, because a
+            # fragment cannot name a route -- but it is not deciding a security
+            # question, and that is why the two checks stay separate.
             if url.startswith(SECURITY_BYPASS_SCHEMES) or url == "#":
                 continue
 
