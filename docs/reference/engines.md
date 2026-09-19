@@ -72,11 +72,11 @@ The `[build_context]` section in `.zenzic.toml` tells Zenzic which engine your p
     such link as `Z101` plus `Z105`, none of which is a broken link. See
     [Configure an adapter](../how-to/configure-adapter.md#prebuilt-route-manifest).
 
-    **This fixes the links and not the reporting.** Astro, Docusaurus and Next.js sites are
-    written in MDX, and Zenzic does not yet model MDX's own constructs — so a correctly
-    configured site still receives findings that are wrong. The
-    [same page](../how-to/configure-adapter.md#prebuilt-route-manifest) names which codes and
-    how large the share is. Read the findings; do not gate on them yet.
+    **One thing to know about the findings.** Astro, Docusaurus and Next.js sites are written
+    in MDX, and `Z102` predicts anchors the way Python-Markdown does where those generators use
+    github-slugger — so some `Z102` will name anchors that exist. The
+    [same page](../how-to/configure-adapter.md#prebuilt-route-manifest) says what to do about
+    it. Everything else reports accurately.
 
 ```toml
 # .zenzic.toml

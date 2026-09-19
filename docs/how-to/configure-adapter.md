@@ -207,29 +207,28 @@ engine = "prebuilt"
 `absolute_path_allowlist` is what silences `Z105`; without it the absolute paths are still
 reported as a governance finding even once they resolve.
 
-!!! warning "MDX is not yet a surface Zenzic reports accurately, and this recipe cannot change that"
-    Configuring the adapter correctly makes the count drop by an order of magnitude, and what
-    survives is still not trustworthy on an MDX site. Zenzic reads Markdown; MDX adds constructs
-    it does not model, and the result is findings that are **wrong**, not merely noisy:
+!!! info "What remains on an MDX site, and what it means"
+    MDX adds constructs Markdown does not have, and until 2026-09-19 six of them
+    produced findings that were simply wrong — an `import` block read as a malformed
+    list, an image inside a fence reported as missing alt text, a URL in a multi-line
+    JSX attribute reported as bare prose. Those are closed. Measured on a 421-file
+    public Starlight site, correctly configured: **zero false findings**.
 
-    | Code | What it reports | Why it is wrong on MDX |
-    | :--- | :--- | :--- |
-    | `Z520` | A malformed list | The `import … from '…';` block every MDX file opens with |
-    | `Z403` | An image with no alt text | The image is inside a fenced code block |
-    | `Z515` | A bare URL in prose | The URL is an attribute of a JSX element written across more than one line |
-    | `Z107` | A self-referential anchor | An ordinary cross-reference whose link text matches the heading it points at |
-    | `Z301`, `Z108` | An undefined or empty link reference | `[][]` inside an HTML `<code>` element is a type, not a link |
+    One class is still worth knowing about, because it is a limit rather than a defect.
+    **`Z102` predicts anchors the way Python-Markdown's `toc` extension does**, which is
+    what MkDocs and Zensical use. Astro and Docusaurus slugify with github-slugger, which
+    differs — most visibly in how it treats a trailing separator. On such a site some
+    `Z102` findings will name anchors that do exist. Until Zenzic models your renderer's
+    slugs, read `Z102` on MDX rather than gating on it. There is no flag to drop a
+    single code, so name the ones you want — `--only` takes the list:
 
-    Measured on a large public Starlight site after correct configuration, these accounted for
-    **about three findings in five**. Two further codes are not defects but still will not match
-    your site: `Z102` predicts anchors the way Python-Markdown does, and Astro and Docusaurus both
-    slugify differently; `Z503` parses fences labelled `json` as strict JSON, and much real-world
-    configuration in them is JSON5.
+    ```bash
+    zenzic check all --only Z101,Z105,Z107,Z302,Z501,Z505,Z510,Z515
+    ```
 
-    **There is no subset of codes that is currently clean on MDX**, so this page does not offer a
-    `--only` list that would imply one. Use Zenzic on an MDX site to read findings by hand, not to
-    gate a pipeline, until these close. They are tracked as engine defects, and this warning will
-    be removed by the release that fixes them rather than by a reassurance.
+    `Z503` is the other one to expect and it is not a defect either: it parses a fence
+    labelled `json` as strict JSON, and much real-world configuration shown in those
+    fences is JSON5 — comments and trailing commas included.
 
 ---
 

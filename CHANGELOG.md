@@ -18,8 +18,8 @@ that passes today fail after upgrading. Items 1-3 add findings, and the two secu
 14, 20 and 21 add findings too: a configuration defect that used to pass in silence, and three
 constructs — a `...`-terminated frontmatter, a setext heading, an HTML block — whose content the
 engine could not see at all. Items 4, 6, 8, 9, 10, 13 and 22 remove findings, item 7 moves them
-both ways, item 5 changes the JSON payload, item 15 changes the wording of one, and item 23 adds
-a notice without changing any finding. The list ends
+both ways, item 5 changes the JSON payload, item 15 changes the wording of one, item 23 adds
+a notice without changing any finding, and item 24 removes findings on MDX sites. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -297,6 +297,22 @@ adapter actually used. It applies to every engine, not just `prebuilt` — an `m
 no `mkdocs.yml` is the same substitution. **The notice is written to stderr**, so `--format json`
 and `--format sarif` payloads stay parseable; the pre-existing offline-mode notice shared that code
 path and was corrupting stdout, and is fixed by the same change.
+
+**24. Six MDX constructs no longer produce findings that are wrong.** Zenzic reads `.mdx`
+exactly as it reads `.md`, and six of MDX's own constructs were being read as prose: an
+`import`/`export` block at the top of a file became a malformed list (`Z520`); an image inside a
+fenced block was reported as missing alt text (`Z403`, a limitation this file previously only
+declared); a URL in a JSX element written across more than one line was reported as a bare URL
+(`Z515`); an orientation link before the file's first heading was reported as a self-referential
+anchor (`Z107`); an editor deep link such as `cursor://` or `vscode:` was resolved as a site path
+(`Z101`, `Z105`); and `[][]` inside an HTML `<code>` element was read as a link reference
+(`Z301`, `Z108`). A reference label containing a code span — ``[`i18n.locales`]`` — is also
+resolved now, where the inline-code mask used to destroy the identifier and report a reference
+that was defined *and used* as unused (`Z302`). **Measured on a 421-file public Starlight site,
+correctly configured: 235 findings before, 93 after, and none of the 93 is a false positive.**
+Real findings are unaffected in both directions, asserted per cause: a genuine fake list, an
+image in prose without alt text, a bare URL in prose, a true self-loop, a broken link, a real
+absolute path and a genuinely empty link are all still reported.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
@@ -1137,7 +1153,7 @@ path and was corrupting stdout, and is fixed by the same change.
 
 ### Known Limitations
 
-- **MDX Is Read as Markdown, and MDX's Own Constructs Produce Findings That Are Wrong**: Zenzic analyses `.mdx` exactly as it analyses `.md`, which is what the documentation promises and is also the limitation. An MDX file's opening `import … from '…';` block is read as a malformed list (`Z520`); a JSX element written across more than one line leaves its attribute values exposed, so a URL in an `href` is reported as a bare URL in prose (`Z515`); `[][]` inside an HTML `<code>` element is read as a link reference (`Z301`, `Z108`). Measured on a 421-file public Starlight site after correct adapter configuration: **about three findings in five were false**. Two further codes are not defects but will not match such a site either — `Z102` predicts anchors the way Python-Markdown's `toc` does, where Astro and Docusaurus use github-slugger, and `Z503` parses fences labelled `json` as strict JSON. **There is no subset of codes that is currently clean on MDX**, so no `--only` list is offered as a workaround. Use Zenzic on an MDX site to read findings, not to gate a pipeline. Each cause is tracked individually.
+- **`Z102` Predicts Python-Markdown's Anchors on Every Generator, Including Those That Use Another Slugger**: Zenzic models the `toc` extension's slugs, which is what MkDocs and Zensical render with. Astro and Docusaurus use github-slugger, which differs — most visibly in how it treats a trailing separator — so on such a site some `Z102` will name anchors that do exist. Measured on a 421-file public Starlight site: **27 of 93 findings**. There is no flag to drop a single code; name the ones you want with `--only`. `Z503` is the neighbouring case and is not a defect either: it parses a fence labelled `json` as strict JSON, and much configuration shown in those fences is JSON5.
 - **`Z403` and `Z107` Read the Contents of Fenced Code Blocks**: unlike the link checks, which skip a fenced block, these two report an image without alt text or a self-referential anchor link *shown inside a fence* as if it were live content. A page that documents either pattern has to escape or break its example to keep its own check clean.
 - **CLI/LSP Topology Model Divergence**: the CLI's `check_all` pipeline and the Language Server's `IncrementalAnalysisEngine` do not share a common analysis primitive. Most steps (file discovery, rule engine construction/execution, config loading, adapter resolution) genuinely are shared; the two areas that are not are per-file content caching within a single CLI run (partially addressed this release — see below) and, more significantly, orphan/topology detection: the CLI's `Z402` (nav-membership-based) and the LSP's `Z410`/`Z411` (VSM-graph-reachability-based) are two independent algorithms for related-but-not-identical concepts. Formally tracked as an open architectural decision, not silently accepted — see the forthcoming ADR in `docs/developers/explanation/adr-vault/`.
   - This release's caching fix: `_to_findings` no longer re-reads a file's content twice within a single call when that file appears in both `snippet_errors` and `reference_reports`. This addresses only the redundant read *inside* `_to_findings` — the eight independent sub-checks in `_collect_all_results` (`find_orphans`, `find_unused_assets`, `validate_snippets`, etc.) still walk and read files independently of each other; deduplicating across those would require `scanner.py`/`validator.py` to expose raw file content on their result objects, which is a larger change than this release's scope.
