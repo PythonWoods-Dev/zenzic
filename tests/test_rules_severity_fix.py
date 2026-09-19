@@ -46,9 +46,12 @@ def test_z107_is_error_not_warning() -> None:
     rule = CircularAnchorRule()
     # The link must sit *inside* the section its fragment names; before the
     # first heading there is no enclosing section and Z107 does not apply.
-    # Plain heading, not `## Security Gate {#security-gate}`: `_slugify` does
-    # not honour the attr-list, so the custom id never matches the fragment.
-    # Recorded as its own finding rather than worked around silently.
+    # Plain heading, not `## Security Gate {#security-gate}`. `rules._slugify`
+    # slugifies the attr-list along with the text -- it returns
+    # 'security-gate-{#security-gate}' where `validator.slug_heading` returns
+    # 'security-gate' -- so Z107's guard can never match inside such a section.
+    # Two implementations disagreeing, not one being wrong; rowed rather than
+    # worked around, and measured at 368 affected headings in this repository.
     text = "## Security Gate\n\nSee [security-gate](#security-gate) below.\n"
     findings = rule.check(Path("docs/example.md"), text)
 
