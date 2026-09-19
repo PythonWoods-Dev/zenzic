@@ -191,11 +191,21 @@ def test_publish_diagnostics() -> None:
     assert found
 
 
-def test_debounce_diagnostics() -> None:
-    """Verify that multiple rapid didChange events result in a single publishDiagnostics."""
+def test_debounce_diagnostics(tmp_path: Path) -> None:
+    """Verify that multiple rapid didChange events result in a single publishDiagnostics.
+
+    The document is a real path under `tmp_path`, not `file:///fake/path/doc.md`.
+    That literal is a valid POSIX path and not a valid Windows one, so on the
+    Windows runner the server published nothing for it — and the test passed
+    anyway, because it counted *every* `publishDiagnostics` in the session and
+    there was one for something else. Counting per document, which is what
+    debouncing is about, turned that into a visible zero.
+    """
     # We send 3 didChange events for the same file, then an exit.
     # We should only see 1 publishDiagnostics.
-    uri = "file:///fake/path/doc.md"
+    doc = tmp_path / "doc.md"
+    doc.write_text("", encoding="utf-8")
+    uri = doc.resolve().as_uri()
     req0 = {
         "jsonrpc": "2.0",
         "method": "textDocument/didOpen",
