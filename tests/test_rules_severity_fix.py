@@ -10,8 +10,10 @@ followed the ``_check.py`` fix (V031_SEVERITY_HARDCODE_ARCHITECTURAL_REMEDIATION
   ``codes.py:232`` classifies it ``error``.
 - ``Z902`` (``RULE_TIMEOUT``, emitted by ``AdaptiveRuleEngine.run()`` and
   ``run_vsm()`` when a rule raises ``ZenzicRuleTimeout``): hardcoded
-  ``severity="error"`` at both emission sites, but ``codes.py:318``
-  classifies it ``warning``.
+  ``severity="error"`` at both emission sites while ``codes.py`` classified it
+  ``warning``. (The registry was the one that moved, in the end: Z902 became
+  ``error`` on 2026-09-19 because a rule that timed out did not run. These
+  tests assert agreement with the registry, not its value.)
 
 Same bug shape as Z301/Z406/Z503, now confirmed in a second independent
 subsystem.
@@ -21,6 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule, CircularAnchorRule, RuleFinding
 
@@ -63,21 +66,30 @@ def test_z107_is_error_not_warning() -> None:
     )
 
 
-def test_z902_is_warning_not_error_in_run() -> None:
-    """A Z902 finding from AdaptiveRuleEngine.run() must be warning-level,
-    matching codes.py's CodeDefinition("warning", 0.0, None)."""
+def test_z902_severity_in_run_comes_from_the_registry() -> None:
+    """A Z902 finding from AdaptiveRuleEngine.run() must carry whatever
+    `codes.py` classifies Z902 as.
+
+    This asserted the literal `"warning"` until 2026-09-19, which made it a
+    second copy of the number it exists to protect: promoting Z902 to `error`
+    in the registry broke a test whose subject is *agreement with the
+    registry*, not the registry's value. The regression it guards -- a
+    hardcoded severity at the emission site -- is unchanged and still caught,
+    because a hardcoded literal cannot follow `code_severity()`.
+    """
     engine = AdaptiveRuleEngine([_TimeoutRule()], containers=None)
     findings = engine.run(Path("docs/example.md"), "# Example\n")
 
     z902_findings = [f for f in findings if f.rule_id == "Z902"]
     assert z902_findings, "Expected a Z902 finding when a rule raises ZenzicRuleTimeout"
-    assert all(f.severity == "warning" for f in z902_findings), (
-        f"Z902 findings must be severity='warning' per codes.py, got: "
+    expected = code_severity("Z902")
+    assert all(f.severity == expected for f in z902_findings), (
+        f"Z902 findings must carry codes.py's severity ({expected!r}), got: "
         f"{[f.severity for f in z902_findings]}"
     )
 
 
-def test_z902_is_warning_not_error_in_run_vsm() -> None:
+def test_z902_severity_in_run_vsm_comes_from_the_registry() -> None:
     """Same as above, for the run_vsm() code path specifically -- a
     separate emission site with its own duplicated exception handling."""
     engine = AdaptiveRuleEngine([_TimeoutRule()], containers=None)
@@ -87,7 +99,8 @@ def test_z902_is_warning_not_error_in_run_vsm() -> None:
     assert z902_findings, (
         "Expected a Z902 finding when a rule raises ZenzicRuleTimeout in check_vsm"
     )
-    assert all(f.severity == "warning" for f in z902_findings), (
-        f"Z902 findings must be severity='warning' per codes.py, got: "
+    expected = code_severity("Z902")
+    assert all(f.severity == expected for f in z902_findings), (
+        f"Z902 findings must carry codes.py's severity ({expected!r}), got: "
         f"{[f.severity for f in z902_findings]}"
     )

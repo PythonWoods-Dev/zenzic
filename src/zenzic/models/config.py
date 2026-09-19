@@ -812,6 +812,18 @@ class ZenzicConfig(BaseModel):
     docs_dir: Path = Field(
         default=Path("docs"), description="Path to docs directory relative to repo root."
     )
+    content_roots: list[Path] = Field(
+        default=[],
+        description=(
+            "Additional Markdown trees outside docs_dir, relative to the repository "
+            "root. Merged with whatever the engine adapter discovers on its own. "
+            "For a generator that publishes from more than one directory -- a "
+            "Docusaurus site's `blog/` beside its `docs/` -- this is how the second "
+            "tree is reached: docs_dir names one directory, and only the MkDocs "
+            "adapter derives extra roots from its own configuration, so before this "
+            "existed there was no configuration a user could write to reach it."
+        ),
+    )
     excluded_dirs: list[str] = Field(
         default=["includes", "stylesheets", "overrides"],
         description=(

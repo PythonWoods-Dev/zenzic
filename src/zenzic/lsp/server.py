@@ -15,7 +15,7 @@ from typing import Any, BinaryIO, TypedDict, cast
 
 from zenzic import __version__
 from zenzic.core import regex as re
-from zenzic.core.adapters import BaseAdapter, get_adapter
+from zenzic.core.adapters import BaseAdapter, get_adapter, resolve_content_roots
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.extensions import tab_anchor_style
@@ -307,7 +307,6 @@ class LanguageServer:
             self.adapter,
             docs_root,
             md_contents,
-            repo_root=self.repo_root,
             static_assets=static_assets,
         )
         self.overlay = VirtualBufferOverlay(
@@ -397,7 +396,7 @@ class LanguageServer:
                 self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
 
             if self.adapter:
-                extra_roots = self.adapter.get_extra_content_roots(self.repo_root)
+                extra_roots = resolve_content_roots(self.adapter, self.config, self.repo_root)
                 for extra_root in extra_roots:
                     if path.is_relative_to(extra_root.resolve()):
                         return True

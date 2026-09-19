@@ -32,6 +32,7 @@ the docs engine is not installed.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -263,6 +264,20 @@ def get_adapter(
     # repo_root for known engine config files.  Mutating context.engine here
     # propagates to the reporter (telemetry line) and _collect_all_results
     # (Z404 config-asset checks) without any additional wiring.
+    #
+    # What the user *declared* is recorded once, on the context itself, because
+    # the substitution notice below is a statement about a declaration and the
+    # mutation destroys it. Capturing it in a local would not do: one
+    # `BuildContext` is shared across every call in a run, so by the second call
+    # the field already holds the discovered engine and a local reads that.
+    # Reading `context.engine` in the guard made its own `"auto"` exclusion
+    # unreachable, and a project that declared nothing was told its declared
+    # engine had been replaced. Measured 2026-09-19 on this repository.
+    declared_engine = getattr(context, "_zenzic_declared_engine", None)
+    if declared_engine is None:
+        declared_engine = context.engine
+        with contextlib.suppress(Exception):
+            object.__setattr__(context, "_zenzic_declared_engine", declared_engine)
     if context.engine == "auto":
         context.engine = discover_engine(repo_root)
 
@@ -342,12 +357,12 @@ def get_adapter(
         # Said through the same list the offline notice uses rather than through
         # the logger, because the two defects this cycle found hidden behind an
         # invisible notice were both log-only.
-        if context.engine not in ("standalone", "auto"):
-            hint = _SUBSTITUTION_HINTS.get(context.engine, "its own configuration file")
+        if declared_engine not in ("standalone", "auto"):
+            hint = _SUBSTITUTION_HINTS.get(declared_engine, "its own configuration file")
             messages.append(
-                f"[bold yellow]NOTICE:[/bold yellow] engine {context.engine!r} found no "
+                f"[bold yellow]NOTICE:[/bold yellow] engine {declared_engine!r} found no "
                 f"{hint}, so this run used 'standalone' instead. Findings below are "
-                f"StandaloneAdapter's, not {context.engine!r}'s."
+                f"StandaloneAdapter's, not {declared_engine!r}'s."
             )
         adapter = StandaloneAdapter()
 

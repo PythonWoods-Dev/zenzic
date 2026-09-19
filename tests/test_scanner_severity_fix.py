@@ -10,7 +10,7 @@ exhibit the "hardcoded severity literal bypasses the SSoT" bug:
 
 - Z106 (CIRCULAR_LINK): codes.py says "note" (-> "info"), scanner.py's
   circular-cycle detection in _run_vsm_and_urp_pass() hardcoded "error".
-- Z902 (RULE_TIMEOUT): codes.py says "warning", scanner.py's
+- Z902 (RULE_TIMEOUT): codes.py's value, whatever it is, versus scanner.py's
   _make_timeout_report() hardcoded "error" -- a second, independent live
   site for the exact Z902 bug already fixed once before, in rules.py.
 
@@ -69,7 +69,7 @@ def test_z106_circular_link_severity_matches_codes_py(tmp_path: Path) -> None:
 
 
 def test_z902_timeout_report_severity_matches_codes_py(tmp_path: Path) -> None:
-    """Z902 is codes.py-classified as warning; must not surface as error.
+    """Z902's emission site must carry codes.py's severity, whatever it is.
 
     _make_timeout_report() is documented as a standalone pure function
     specifically so it can be tested directly (see its own docstring) --
@@ -82,10 +82,12 @@ def test_z902_timeout_report_severity_matches_codes_py(tmp_path: Path) -> None:
     assert len(report.rule_findings) == 1
     finding = report.rule_findings[0]
     assert finding.rule_id == "Z902"
-    assert code_severity("Z902") == "warning"
-    assert finding.severity == "warning", (
-        f"Z902 RuleFinding severity is {finding.severity!r}, expected 'warning' "
-        f"to match codes.py's CODE_DEFINITIONS['Z902']"
+    # Deliberately not asserting *which* severity: the subject is that the
+    # emission site reads the registry rather than carrying its own literal.
+    # Pinning the value here made this a second copy of it.
+    assert finding.severity == code_severity("Z902"), (
+        f"Z902 RuleFinding severity is {finding.severity!r}, expected "
+        f"{code_severity('Z902')!r} to match codes.py's CODE_DEFINITIONS['Z902']"
     )
 
 

@@ -341,7 +341,7 @@ def test_incremental_engine_honours_inline_suppression_of_cross_file_codes(
     contents = {p: p.read_text(encoding="utf-8") for p in sorted(docs_root.rglob("*.md"))}
     anchors = {p: anchors_in_file(t, tabs=None) for p, t in contents.items()}
     adapter = get_adapter(config.build_context, docs_root, corpus)
-    vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors, repo_root=corpus)
+    vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors)
 
     engine = IncrementalAnalysisEngine(
         config, _build_rule_engine(config, containers=None), adapter, docs_root, corpus
@@ -587,7 +587,7 @@ def test_every_directive_spelling_works_in_the_editor(tmp_path: Path, spelling: 
     contents = {p: p.read_text(encoding="utf-8") for p in sorted(docs_root.rglob("*.mdx"))}
     anchors = {p: anchors_in_file(t, tabs=None) for p, t in contents.items()}
     adapter = get_adapter(config.build_context, docs_root, corpus)
-    vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors, repo_root=corpus)
+    vsm = build_vsm(adapter, docs_root, contents, anchors_cache=anchors)
     engine = IncrementalAnalysisEngine(
         config, _build_rule_engine(config, containers=None), adapter, docs_root, corpus
     )

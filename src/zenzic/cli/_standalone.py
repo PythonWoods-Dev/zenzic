@@ -1015,18 +1015,11 @@ def diff(
     # called, so no Z0xx code can reach current.findings_counts — confirmed dead
     # branch, removed rather than left checking an unreachable prefix
     # (V031_CODE_BACKLOG_BATCH1_EXECUTION_AND_PROACTIVE_ADVISORY_CODIFICATION).
-    from zenzic.core.codes import CODE_DEFINITIONS
+    from zenzic.core.codes import is_pipeline_halt
 
     _fatal_codes = sorted(c for c in current.findings_counts if c.startswith("Z2"))
     has_fatal = bool(_fatal_codes) or current.security_override
-    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z902).
-    _halt_codes = sorted(
-        c
-        for c in current.findings_counts
-        if CODE_DEFINITIONS.get(c)
-        and CODE_DEFINITIONS[c].severity == "warning"
-        and CODE_DEFINITIONS[c].penalty == 0.0
-    )
+    _halt_codes = sorted(c for c in current.findings_counts if is_pipeline_halt(c))
     has_halt = bool(_halt_codes) and not has_fatal
 
     if output_format == "json":

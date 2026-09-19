@@ -341,6 +341,8 @@ A source the manifest does not declare routes as `IGNORED`, which means every li
 2. If the manifest is generated during your CI build rather than committed, make sure it is generated *before* `zenzic check` runs — a manifest written afterwards has no effect on that run.
 3. If no generator writes one, `prebuilt` is the wrong engine for the project. Use `standalone`, which cannot go stale.
 
+`Z115` covers one direction only: a page on disk that the manifest omits. A manifest entry whose source has been **deleted** is not reported, because by the time the site map is built an entry with no matching source cannot be told apart from one whose source your exclusions removed. Regenerate the manifest on deletions as well as additions. [Full explanation](../rules/Z115.md#what-this-code-does-not-catch).
+
 ---
 
 ### Z120: UNKNOWN_HTML_ATTRIBUTE {#z120}
@@ -1083,7 +1085,9 @@ An unhandled exception in a core rule or plugin. Zenzic's fail-visible principle
 
 ### Z902: RULE_TIMEOUT {#z902}
 
-**Severity:** `warning` · **Penalty:** none (system-level) · **Exit:** 1 · **Suppressible:** Yes
+**Severity:** `error` · **Penalty:** none (system-level) · **Exit:** 1 · **Suppressible:** Yes
+
+A rule that exceeded its time limit did not finish over that file, so the run did not produce the coverage it appears to have produced. That is what makes this an error rather than a warning as of v0.31.0: the partial results are untrustworthy, and a gate that passes over them reports success for analysis that never completed.
 
 In parallel scan mode (1000+ files), a file's worker process failed to complete within the timeout window (default 30s, `_WORKER_TIMEOUT_S`) — a **file-level** stall, not a per-rule one. `[[custom_rules]]` regex patterns cannot cause this: they compile with Google RE2 (ZRT-007), a DFA engine with no backtracking, so catastrophic-backtracking ReDoS is not possible for them. A stall is typically an I/O hang, a network stall, a worker process crash, or — for an installed Python plugin rule (`zenzic.rules` entry-point group, distinct from TOML regex rules) — genuinely slow or blocking code inside that plugin's `check()` method.
 

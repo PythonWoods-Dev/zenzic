@@ -320,7 +320,9 @@ class IncrementalAnalysisEngine:
             # Cover content roots (monorepo sub-projects) and locale roots too,
             # not just docs_root — a user-excluded file in one of those trees
             # must still get a security-only diagnostic, matching the CLI.
-            _sec_content_roots = self.adapter.get_extra_content_roots(self.repo_root)
+            from zenzic.core.adapters import resolve_content_roots
+
+            _sec_content_roots = resolve_content_roots(self.adapter, self.config, self.repo_root)
             _sec_locale_roots = self.adapter.get_locale_source_roots(self.repo_root)
             for sec_file in iter_security_scan_sources(
                 self.docs_root,
@@ -378,7 +380,6 @@ class IncrementalAnalysisEngine:
                 self.docs_root,
                 self.md_contents_cache,
                 anchors_cache=self.anchors_cache,
-                repo_root=self.repo_root,
                 static_assets=getattr(self, "static_assets_cache", None),
             )
             # Transfer topology into the provided VSM instance

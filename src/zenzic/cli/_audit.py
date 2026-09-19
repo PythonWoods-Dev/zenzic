@@ -31,8 +31,8 @@ from zenzic.cli._shared import (
 )
 from zenzic.core.adapters import get_adapter
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
-from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.scanner import _build_rule_engine
+from zenzic.core.exceptions import ZenzicConfigError
+from zenzic.core.scanner import _build_rule_engine, find_repo_root
 from zenzic.core.scorer import compute_score
 from zenzic.core.sovereign_context import sovereign_context
 from zenzic.core.ui import ZenzicPalette
@@ -91,7 +91,14 @@ def audit(
     ] = None,
 ) -> None:
     """Generate a formal compliance audit report detailing active policies, DQS score, technical debt, and architectural state."""
-    repo_root = Path.cwd()
+    # Three corrections on 2026-09-19, all of them the same shape: this command
+    # answered questions the rest of the CLI had already answered elsewhere.
+    #
+    # 1. The repository root is *searched for*, not assumed to be the working
+    #    directory. `zenzic audit` run from `docs/` used to treat `docs/` as the
+    #    repository, while `zenzic check all` from the same directory walked up
+    #    to the real one -- two commands, two repositories, one invocation.
+    repo_root = find_repo_root(fallback_to_cwd=True)
     _config_file_override = Path(config_path).resolve() if config_path else None
     config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
 
@@ -99,10 +106,36 @@ def audit(
         config.build_context.offline_mode = True
 
     docs_root = repo_root / config.docs_dir
+    # 2. A `docs_dir` that is not there is a configuration error, not an
+    #    invitation to audit the whole repository. This used to set
+    #    `docs_root = repo_root` in silence, so a project whose sources live
+    #    somewhere else -- an Astro tree under `src/content/docs`, with the
+    #    default `docs` -- got a DQS score and a compliance report for a corpus
+    #    nobody named, including whatever else the repository happens to hold.
+    #    `check all` raises Z111 here; so does this.
     if not docs_root.is_dir():
-        docs_root = repo_root
+        raise ZenzicConfigError(
+            f"[Z111] docs_dir '{config.docs_dir}' does not exist.\n"
+            f"  Looked in: {docs_root}\n"
+            "  An audit of a directory that is not there would report on a corpus "
+            "you did not name. Set docs_dir to the directory holding your Markdown "
+            "sources, or run `zenzic env` to see what Zenzic resolved."
+        )
 
-    exclusion_mgr = LayeredExclusionManager(config=config, repo_root=repo_root)
+    # 3. The exclusion manager comes from the single factory, which is what
+    #    supplies `docs_root`, the three adapter layers and the `docs_dir`
+    #    path-traversal guard. Constructed directly, this command excluded
+    #    neither the engine's output directory nor its metadata files -- a built
+    #    `site/` tree was audited as source -- and had no traversal guard at all.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_metadata_files=_adapter.get_metadata_files(),
+        adapter_output_dirs=_adapter.get_output_dirs(),
+        adapter_excluded_docs=_adapter.get_excluded_docs_spec(),
+    )
     effective_strict = strict or ci
 
     with sovereign_context(force_audit=False):

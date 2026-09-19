@@ -23,7 +23,10 @@ a notice without changing any finding, item 24 removes findings on MDX sites, it
 remove findings by making a code opt-in and narrowing a default, and item 28 removes findings inside
 tab-indented code. Items 29 and 30 change an exit code: a scan that examined nothing, or that held a
 finding it was not showing, used to exit `0`. Item 31 adds one finding, `Z115`, and only under the
-`prebuilt` engine. The list ends
+`prebuilt` engine. Item 32 turns one warning into an error, and item 33 removes a false
+statement the tool printed about its own configuration, and item 34 adds findings in
+locale and content-root trees that were never checked at all. Item 35 changes what
+`zenzic audit` scans and when it fails. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -386,6 +389,46 @@ counts, `--format json` and the editor's diagnostics alike. **It appears only un
 that reads a declared routing table** — `standalone` derives each URL from the path it just
 read and cannot go stale.
 
+**32. `Z902 RULE_TIMEOUT` is an error, not a warning.** A rule that exceeded its time limit
+did not finish over that file, so the run did not produce the coverage it appears to have
+produced — the reference page had already written that down ("Partial results are
+untrustworthy") while the severity said otherwise. **If a rule of yours times out**, the run
+now exits `1` where it exited `0`. The DQS penalty is unchanged at `0.0`: there is nothing to
+score, the absence of the analysis is the finding. `zenzic inspect codes` shows `HALT` for it,
+as it already did. Both pinned corpora are unmoved — neither holds a rule that times out.
+
+**33. The engine no longer announces a substitution that did not happen.** `zenzic check all`
+printed `NOTICE: engine 'mkdocs' found no mkdocs.yml, so this run used 'standalone' instead`
+on repositories whose `mkdocs.yml` was present and whose analysis was genuinely MkDocs. Two
+causes: `check all` did not pass the repository root into the scan, so the security-only pass
+built its adapter with the documentation directory in its place and looked for `mkdocs.yml`
+inside `docs/`; and the notice read the engine field *after* `auto` resolution had overwritten
+it, so a project that declared no engine at all was told its declared engine had been
+replaced. The notice still fires where it is true. Both pinned corpora report exactly what
+they reported before.
+
+**34. Links inside a locale tree or an extra content root were never checked.** A source that
+lives in one directory and is published from another — a locale tree, or a content root outside
+`docs_dir` — is read from its real path and routed under its logical one. The link pass built
+its resolution context from the real path, so every target landed outside `docs_dir`, matched no
+route, and was dropped **without a finding**. The file's content-tier findings appeared
+normally, which is what made it look like the file was being checked. Measured: a page reporting
+`Z101` under `docs/` reported nothing at all when mounted. **If you use i18n locale trees or
+monorepo content roots**, broken links in those trees now surface — they were always broken. A
+locale file's links still resolve inside its own locale tree with the adapter's sibling
+fallback; only the mounted-content case changed.
+
+**35. `zenzic audit` answered three questions differently from every other command.** It took the
+repository root to be the working directory instead of searching upward, so run from `docs/` it
+audited `docs/` as if it were the repository while `check all` from the same place found the real
+one. It silently set `docs_root = repo_root` when `docs_dir` did not exist, producing a DQS score
+and a compliance report for a corpus nobody named — now `Z111`, exit `1`, like `check all`. And it
+built its exclusion manager directly instead of through the CLI's single factory, so it excluded
+neither the engine's output directory nor its metadata files (**a built `site/` tree was audited as
+source**) and ran without the `docs_dir` path-traversal guard the factory applies. **If you run
+`zenzic audit` from a subdirectory, or over a project whose `docs_dir` is wrong**, its answers
+change — to the ones the rest of the CLI was already giving.
+
 **Breaking changes that are not about findings** — each has its own entry below:
 
 - CLI usage errors exit `1`, not `2`, which the Exit Code Contract reserves for security breaches.
@@ -398,6 +441,8 @@ read and cannot go stale.
 - Suppression debt counts the declared exceptions in use: a `directory_policies` pair that silences a finding now costs a point, and a suppression that silences nothing no longer does.
 
 ### Added
+
+- **`content_roots`: Reach a Second Documentation Tree from Configuration**: `docs_dir` names one directory, and only the MkDocs adapter derived extra roots from its own configuration — so a generator that publishes from two directories had one of them analysed by nothing, with no configuration a user could write to reach it. Measured on a `create-docusaurus` scaffold: `zenzic check all` read 9 of the repository's 15 Markdown sources, and 4 of the 6 it missed were `blog/`. `content_roots = ["blog"]` closes it, for any engine, without Zenzic learning anything about Docusaurus: the list is merged with whatever the adapter discovers on its own, in one place (`resolve_content_roots`) rather than the ten call sites that each asked the question before. Declaring a root does not widen what may be read — every read still resolves against the repository root, and a root outside it is reported and skipped.
 
 - **`zenzic env` Reports What Zenzic Takes the Project to Be**: two new fields on both the table and `--json`. `engine` is the engine a scan actually runs — `auto` already resolved — so this command and the telemetry line of `zenzic check` cannot give two answers to one question; `engine_source` keeps the distinction resolving would erase (`configured`, `auto-detected`, `default`); `generator` is the documentation generator detected in the repository, or `null`. They can disagree, and reading them together is the point: `"engine": "standalone"` beside `"generator": "astro"` is a working scan of a site map derived from file paths rather than from Astro's own routing. No lookup here can fail the command — `env` is what a user runs when something else is already broken.
 

@@ -9,7 +9,7 @@ from rich import box
 from rich.table import Table
 from rich.text import Text
 
-from zenzic.core.codes import CODE_DEFINITIONS, CODE_NAMES, CORE_SCANNERS
+from zenzic.core.codes import CODE_DEFINITIONS, CODE_NAMES, CORE_SCANNERS, is_pipeline_halt
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -257,14 +257,17 @@ def inspect_codes(
         # CLI-reachability, and 0.0 would misleadingly imply harmless.
         if code.startswith("Z0") or code.startswith("Z2") or code in ("Z110", "Z111"):
             return "[bold red]FATAL[/bold red]"
-        # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z902,
-        # Z902) — show HALT to signal CI exit rather than math cost.
-        # Z901 is the one error-severity exception: it also unconditionally
-        # blocks the pipeline (via the normal error path, not the
-        # governance-gate mechanism warnings need) and also carries a 0.0
-        # penalty (never reaches DQS scoring) — same practical HALT outcome,
-        # reached a different way.
-        if (defn.severity == "warning" and defn.penalty == 0.0) or code == "Z901":
+        # A 0.0 penalty above `note` means the finding costs no DQS points and
+        # stops the run anyway -- a governance gate for a warning, the ordinary
+        # error path for an error. HALT says that, where "0.0" would read as
+        # harmless.
+        #
+        # This used to read `(severity == "warning" and penalty == 0.0) or code
+        # == "Z901"`, naming the one error-severity member by hand. So when
+        # `Z902` was promoted to `error` on 2026-09-19 it silently left the
+        # bracket and rendered as an informational `0.0` -- the row changed
+        # meaning because a list of names did not. The properties decide now.
+        if is_pipeline_halt(code):
             return "[bold red]HALT[/bold red]"
         # note + 0.0 = genuinely informational; never blocks CI (Fail-Visible rule).
         if defn.penalty == 0.0:
@@ -411,7 +414,7 @@ def inspect_routes(
     import sys
     from pathlib import Path
 
-    from zenzic.core.adapters import get_adapter
+    from zenzic.core.adapters import get_adapter, resolve_content_roots
     from zenzic.core.discovery import (
         build_content_mounts,
         iter_extra_content_markdown_sources,
@@ -446,7 +449,7 @@ def inspect_routes(
             continue
 
     # ── Pass 1c: include extra content roots (blog/, etc.) ────────────────────
-    extra_content_roots = adapter.get_extra_content_roots(repo_root)
+    extra_content_roots = resolve_content_roots(adapter, config, repo_root)
     extra_content_mounts = build_content_mounts(extra_content_roots, repo_root=repo_root)
     for content_root, url_prefix in extra_content_mounts:
         for abs_path, _ in iter_extra_content_markdown_sources(
@@ -471,8 +474,7 @@ def inspect_routes(
         adapter,
         docs_root,
         md_contents,
-        extra_content_roots=extra_content_roots,
-        repo_root=repo_root,
+        extra_mounts=extra_content_mounts,
         static_assets=static_assets,
     )
 

@@ -935,7 +935,6 @@ class ReferenceScanner:
         self.file_path = file_path
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
-        self.suspicious_domains: list[ReferenceFinding] = []
 
     # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
@@ -1113,7 +1112,12 @@ class ReferenceScanner:
                 )
             )
 
-        findings.extend(self.suspicious_domains)
+        # A `suspicious_domains` list lived here from 2026-07-14 until
+        # 2026-09-19, initialised in __init__ and extended into every report.
+        # Nothing ever appended to it: enumerating every `ReferenceFinding(`
+        # construction site in the engine returns three, all in this file, all
+        # emitting Z301/Z302/Z303. The extend was a no-op on every run of the
+        # product's life, and the field advertised a check that did not exist.
 
         return IntegrityReport(
             file_path=self.file_path,
@@ -1360,8 +1364,27 @@ def _run_vsm_and_urp_pass(
     static_assets: set[Path] | None = None,
     preloaded_md_contents: dict[Path, str] | None = None,
     preloaded_anchors: dict[Path, set[str]] | None = None,
+    path_remap: dict[Path, Path] | None = None,
 ) -> None:
-    """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
+    """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files.
+
+    ``path_remap`` maps a file **on disk** to the logical path it is displayed
+    at, for the two trees whose sources live somewhere other than where they
+    are published: locale roots and extra content roots. Reports reach this
+    function carrying their real paths, so ``md_contents`` resolves; the VSM
+    route is keyed on the logical path, so the lookup below translates.
+
+    Both halves were wrong, in opposite directions, until 2026-09-19. The
+    parallel branch rewrote ``report.file_path`` to the logical path *before*
+    this ran, so the content lookup missed, ``is_file()`` failed on a path that
+    does not exist, and the file was skipped by ``continue``. The sequential
+    branch rewrote it *after*, so the route lookup fell through to an absolute
+    path that matches no route. Either way the result was the same: **every
+    link in a locale or content-root file went unchecked, in silence**, while
+    that file's content-tier findings appeared normally. Measured -- a file
+    reporting `Z101` under ``docs/`` reported nothing when mounted from
+    ``blog/``.
+    """
     from zenzic.core.adapter import get_adapter
     from zenzic.core.ast import ExtractedLink
     from zenzic.core.incremental import IncrementalAnalysisEngine
@@ -1438,8 +1461,7 @@ def _run_vsm_and_urp_pass(
         docs_root,
         md_contents,
         anchors_cache=anchors_cache,
-        extra_content_roots=content_roots,
-        repo_root=repo_root,
+        extra_mounts=build_content_mounts(list(content_roots or []), repo_root=repo_root),
         static_assets=static_assets,
     )
     _undeclared: frozenset[str] = frozenset(vsm.undeclared_sources)
@@ -1550,6 +1572,12 @@ def _run_vsm_and_urp_pass(
         if r.suppression_tracker is not None:
             r.suppression_tracker.global_tracker = parent_global_tracker
 
+        # A mounted source -- a locale tree or an extra content root -- lives at
+        # one path and is published at another. The file is read from the real
+        # path; everything about *where the page is on the site* uses the
+        # logical one.
+        _logical = path_remap.get(r.file_path, r.file_path) if path_remap else r.file_path
+
         text_opt = md_contents.get(r.file_path)
         if text_opt is None:
             if not r.file_path.is_file():
@@ -1567,7 +1595,12 @@ def _run_vsm_and_urp_pass(
             extracted_links = extractor.extract_all_links(text)
         context = ResolutionContext(
             docs_root=docs_root,
-            source_file=r.file_path,
+            # The logical path, not the real one: a link is written relative to
+            # where the page is *published*, and for a mounted source those are
+            # different directories. Resolving from the real path sent every
+            # target outside docs_root, where it matched no route and was
+            # dropped without a finding.
+            source_file=_logical,
             use_directory_urls=use_dir_urls,
             config=config,
             adapter=adapter,
@@ -1622,9 +1655,9 @@ def _run_vsm_and_urp_pass(
                     r.rule_findings.append(pf)
 
         try:
-            rel_posix = r.file_path.relative_to(docs_root).as_posix()
+            rel_posix = _logical.relative_to(docs_root).as_posix()
         except ValueError:
-            rel_posix = r.file_path.absolute().as_posix()
+            rel_posix = _logical.absolute().as_posix()
         canonical_url = next((route.url for route in vsm.values() if route.source == rel_posix), "")
 
         # Z115 sits above the `if canonical_url:` block, not inside it, because
@@ -2240,12 +2273,21 @@ def scan_docs_references(
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
+    # Content roots are remapped for display exactly like locale roots, and kept
+    # in a second dict as well, because only *they* may be used to resolve links.
+    # A locale file resolves its links inside its own locale tree, with the
+    # adapter's sibling fallback -- translating it to a logical path sends a
+    # correct cross-locale link to a route that does not exist. A content-root
+    # file has no such fallback: it is published at the logical path and nowhere
+    # else, so that is where its relative links point from. Measured both ways.
+    _content_path_remap: dict[Path, Path] = {}
     if content_roots:
         for content_root, url_prefix in build_content_mounts(content_roots):
             for abs_path, logical_rel in iter_extra_content_markdown_sources(
                 content_root, url_prefix, config, exclusion_manager
             ):
                 _locale_path_remap[abs_path] = docs_root / logical_rel
+                _content_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
     # Security-tier immunity: a file scoped out by excluded_dirs /
@@ -2271,7 +2313,21 @@ def scan_docs_references(
 
             # repo_root is optional on this entry point; the engine and the
             # adapter factory both require a real path.
-            _root = repo_root if repo_root is not None else docs_root
+            #
+            # The fallback searches upward rather than handing over `docs_root`,
+            # which is what it did until 2026-09-19. A comment ~500 lines above
+            # already argued against exactly this line -- "a docs directory is
+            # not a repo root … harmless only because that path is rarely
+            # reached" -- and it was reached: on any project with an excluded
+            # directory, this adapter looked for `mkdocs.yml` inside `docs/`,
+            # did not find it, and the run printed a notice saying the declared
+            # engine had been replaced while the file sat in the root. Naming a
+            # wrong line in a comment is not fixing it.
+            _root = (
+                repo_root
+                if repo_root is not None
+                else find_repo_root(fallback_to_cwd=True, search_from=docs_root)
+            )
             _sec_engine = IncrementalAnalysisEngine(
                 config,
                 # None is accepted here on purpose: `security_only` restricts the
@@ -2470,6 +2526,7 @@ def scan_docs_references(
                 locale_roots=locale_roots,
                 content_roots=content_roots,
                 static_assets=static_assets,
+                path_remap=_content_path_remap,
             )
             if progress and task_vsm is not None:
                 progress.update(
@@ -2634,6 +2691,7 @@ def scan_docs_references(
             static_assets=static_assets,
             preloaded_md_contents=md_contents_seq,
             preloaded_anchors=preloaded_anchors_seq,
+            path_remap=_content_path_remap,
         )
         if progress and task_vsm_seq is not None:
             progress.update(

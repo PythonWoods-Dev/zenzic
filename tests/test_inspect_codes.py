@@ -33,7 +33,13 @@ def test_z901_renders_as_halt_not_plain_zero() -> None:
 
 
 def test_z902_still_renders_as_halt() -> None:
-    """Regression guard: Z902 (warning+0.0) must remain HALT, unaffected by the Z901 fix."""
+    """Regression guard: Z902 carries a 0.0 penalty above `note`, so it must
+    render HALT rather than an informational `0.0`.
+
+    It read "(warning+0.0)" until 2026-09-19. The renderer keyed on that pair
+    plus the literal `"Z901"`, so promoting Z902 to `error` moved it out of the
+    bracket and it rendered as harmless. The renderer now reads the properties.
+    """
     result = runner.invoke(app, ["inspect", "codes"])
     assert result.exit_code == 0, result.output
 

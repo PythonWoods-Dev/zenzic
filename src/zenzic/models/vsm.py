@@ -25,7 +25,6 @@ from urllib.request import url2pathname
 
 from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
-from zenzic.core.discovery import build_content_mounts
 from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
@@ -181,15 +180,23 @@ def build_vsm(
     md_contents: dict[Path, str],
     *,
     anchors_cache: dict[Path, set[str]] | None = None,
-    extra_content_roots: list[Path] | None = None,
-    repo_root: Path | None = None,
+    extra_mounts: list[tuple[Path, str]] | None = None,
     static_assets: Iterable[Path] | set[Path] | list[Path] | None = None,
 ) -> VirtualSiteMap:
     """Build the Virtual Site Map from a pre-loaded file map.
 
-    This is the I/O boundary: all file content has already been loaded into
-    ``md_contents`` by the caller (``validate_links_async``).  No disk reads
-    occur here.
+    This function performs no I/O of any kind, and that is now true rather than
+    merely claimed. It said "No disk reads occur here" while taking
+    ``extra_content_roots`` and calling ``build_content_mounts()`` on them,
+    which calls ``Path.resolve()`` twice per root -- filesystem metadata
+    syscalls, and dependent on the process working directory for a relative
+    path. The claim held only for a project with no external content roots,
+    which is to say it held wherever nobody had looked.
+
+    Mounts are therefore computed by the caller now and passed in as
+    ``extra_mounts``: ``(resolved_root, url_prefix)`` pairs, from
+    ``build_content_mounts()``. Every caller already does I/O and already holds
+    ``repo_root``; this function does not, and no longer needs it.
 
      Routing strategy is strict metadata-driven: every file is dispatched via
      ``adapter.get_route_info(rel)``.
@@ -210,9 +217,9 @@ def build_vsm(
         md_contents:         Pre-loaded mapping of absolute ``Path`` → raw Markdown.
         anchors_cache:       Pre-computed ``Path`` → anchor slug set.  When
                              ``None``, anchors are left as empty sets.
-        extra_content_roots: Optional external markdown roots injected by caller.
-        repo_root:           Optional repository root used for stable prefix
-                     derivation when building external content mounts.
+        extra_mounts:        Optional ``(content_root, url_prefix)`` pairs for
+                     markdown trees outside ``docs_root``, already resolved by
+                     the caller via ``build_content_mounts()``.
         static_assets:       Optional collection of non-Markdown static asset Paths.
 
     Returns:
@@ -226,7 +233,7 @@ def build_vsm(
     """
 
     ac = anchors_cache or {}
-    extra_mounts = build_content_mounts(list(extra_content_roots or []), repo_root=repo_root)
+    extra_mounts = list(extra_mounts or [])
 
     routes: list[Route] = []
     md_sources_seen: set[str] = set()
@@ -318,14 +325,16 @@ def build_vsm(
     # The undeclared page does get a route — with status IGNORED — so the
     # symptom is `Z101 UNREACHABLE_LINK` on a correct link, not a missing file.
     #
-    # Only the "on disk, undeclared" half is computed. The mirror half — a
-    # manifest entry whose source has been deleted — is *not* detected, and the
-    # blocker is that `md_contents` is already filtered by the user's
-    # exclusions, so `declared - seen` counts every deliberately excluded page
-    # as a deletion. Deciding it would need a stat per declared entry against a
-    # base path that is only correct for sources under `docs_root` (external
-    # content mounts carry a derived prefix), and a false "your manifest lists
-    # a page that no longer exists" is worse than the silence it replaces.
+    # **Only the "on disk, undeclared" half is detected, and that is a decided
+    # limit rather than an open task.** The mirror case — a manifest entry whose
+    # source has been deleted — cannot be distinguished here from an entry whose
+    # source the user excluded, because `md_contents` arrives already filtered by
+    # the exclusion layers. Telling the two apart needs one of two things this
+    # function may not have: a `stat` per declared entry (this function performs
+    # no I/O, and that is enforced by tests/test_build_vsm_is_pure.py), or the
+    # unfiltered walk, which no caller retains. A false "your manifest lists a
+    # page that no longer exists" is worse than the silence it would replace,
+    # so the silence stands and is documented for users on the Z115 rule card.
     _declared = adapter.declared_sources()
     if _declared is not None:
         vsm_instance.undeclared_sources = sorted(md_sources_seen - _declared)
@@ -381,11 +390,27 @@ class VirtualSiteMap(dict[str, Route]):
     ) -> None:
         """Rebuild the reverse-index entries emitted by `path`."""
         if not canonical_url:
-            # Fallback O(N) lookup if not provided
+            # Fallback O(N) lookup if not provided.
+            #
+            # The mounts are consulted here, and were not until 2026-09-19. A
+            # file outside `docs_root` is a mounted source, and its route is
+            # recorded under the logical path the mount gives it -- so falling
+            # back to `path.absolute().as_posix()` compared an absolute path
+            # against `blog/post.md` and matched nothing, every time. It was
+            # also the last filesystem call left inside this module: `absolute()`
+            # reads the process working directory, which made the reverse index
+            # depend on where the command was run from.
             try:
                 rel_posix = path.relative_to(docs_root).as_posix()
             except ValueError:
-                rel_posix = path.absolute().as_posix()
+                rel_posix = path.as_posix()
+                for _root, _prefix in extra_mounts:
+                    if path.is_relative_to(_root):
+                        _inner = path.relative_to(_root)
+                        rel_posix = (
+                            (Path(_prefix) / _inner).as_posix() if _prefix else _inner.as_posix()
+                        )
+                        break
             canonical_url = next((url for url, r in self.items() if r.source == rel_posix), "")
 
         self.remove_outgoing_links(path, canonical_url=canonical_url)

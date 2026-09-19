@@ -14,7 +14,7 @@ from pathlib import Path
 import typer
 
 from zenzic import __version__
-from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters import get_adapter, resolve_content_roots
 from zenzic.core.adapters._mkdocs import (
     check_config_assets as _mkdocs_check_assets,
     check_engine_patterns as _mkdocs_check_patterns,
@@ -240,7 +240,7 @@ def check_links(
     # reaches -- every sibling subcommand passes these, and omitting them here
     # made one repository answer exit 2 under `check all` and exit 0 under
     # `check links`.
-    _content = adapter.get_extra_content_roots(repo_root)
+    _content = resolve_content_roots(adapter, config, repo_root)
     content_roots: list[Path] | None = _content if _content else None
 
     # Scan once, share the reports with validate_links_structured() (via its
@@ -725,7 +725,7 @@ def check_references(
     _locale_roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
 
-    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _content_roots = resolve_content_roots(adapter, config, repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     t0 = time.monotonic()
@@ -736,6 +736,7 @@ def check_references(
         validate_links=links,
         locale_roots=locale_roots,
         content_roots=content_roots,
+        repo_root=repo_root,
     )
     elapsed = time.monotonic() - t0
 
@@ -917,7 +918,7 @@ def check_assets(
     adapter_meta = adapter.get_metadata_files()
     _locale_roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
-    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _content_roots = resolve_content_roots(adapter, config, repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     def _rel(path: Path) -> str:
@@ -1057,7 +1058,7 @@ def check_placeholders(
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
-    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _content_roots = resolve_content_roots(adapter, config, repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     def _rel(path: Path) -> str:
@@ -1073,6 +1074,7 @@ def check_placeholders(
         config=config,
         locale_roots=locale_roots,
         content_roots=content_roots,
+        repo_root=repo_root,
     )
     elapsed = time.monotonic() - t0
 
@@ -1318,7 +1320,7 @@ def _collect_all_results(
     _locale_roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
 
-    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _content_roots = resolve_content_roots(adapter, config, repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     progress = None
@@ -1373,6 +1375,7 @@ def _collect_all_results(
             show_progress=show_progress,
             progress_instance=progress,
             rule_engine_target=rule_engine_target,
+            repo_root=repo_root,
         )
         security_events = sum(len(r.security_findings) for r in ref_reports)
 

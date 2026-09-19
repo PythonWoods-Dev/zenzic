@@ -242,6 +242,34 @@ exit `0`: it is a project in setup, and nothing is wrong with it.
 `zenzic env` reports both the engine and the detected generator if you want to
 check what Zenzic resolved.
 
+### `content_roots` {#content-roots}
+
+|  |  |
+| :--- | :--- |
+| **Type** | `list[Path]` |
+| **Default** | `[]` |
+
+Additional Markdown trees outside `docs_dir`, relative to the repository root.
+
+`docs_dir` names **one** directory. A generator that publishes from more than
+one — a Docusaurus site's `blog/` beside its `docs/` — leaves the second tree
+unreached: only the MkDocs adapter derives extra roots from its own
+configuration, so under `standalone` or `prebuilt` nothing looks there. List
+them here and they are scanned, routed and link-checked like any other source.
+
+```toml
+docs_dir = "docs"
+content_roots = ["blog"]
+```
+
+Each entry is mounted under a URL prefix derived from its directory name, so
+`blog/post.md` publishes at `/blog/post/` and links resolve from there. Whatever
+your engine adapter discovers on its own is kept as well — this list adds to it
+rather than replacing it.
+
+Declaring a root here does not widen what Zenzic may read. Every read resolves
+against the repository root; a root outside it is reported and skipped.
+
 ### `snippet_min_lines` {#snippet-min-lines}
 
 | | |

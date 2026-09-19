@@ -184,8 +184,7 @@ def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
         docs_root,
         md_contents,
         anchors_cache={p: set() for p in md_contents},
-        extra_content_roots=[],
-        repo_root=repo_root,
+        extra_mounts=[],
         static_assets=set(),
     )
     overlay = VirtualBufferOverlay(vsm, tabs=None)
@@ -310,7 +309,6 @@ def test_both_paths_detect_the_same_cycle_even_though_only_one_may_show_it(
         docs,
         md_contents,
         anchors_cache={p: set() for p in md_contents},
-        repo_root=tmp_path,
     )
     engine = IncrementalAnalysisEngine(
         config=config,

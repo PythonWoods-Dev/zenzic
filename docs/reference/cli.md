@@ -1300,7 +1300,7 @@ corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
 | Z501–Z505 Content Quality | `Z501`–`Z505` | `warning` |
 | Z601 Governance | `Z601` | `warning` |
 | Z901 System | `Z901` | `error` |
-| Z902 System | `Z902` | `warning` |
+| Z902 System | `Z902` | `error` |
 | Z906 NO_FILES_FOUND | `Z906` | `note` |
 
 ### Example SARIF output

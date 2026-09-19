@@ -38,7 +38,6 @@ def test_a_source_absent_from_the_manifest_is_reported_as_drift(tmp_path: Path) 
         adapter,
         docs,
         {docs / "index.md": "# Home", docs / "new.md": "# Just added"},
-        repo_root=tmp_path,
     )
 
     assert vsm.undeclared_sources == ["new.md"]
@@ -59,7 +58,6 @@ def test_a_manifest_that_lists_every_source_reports_no_drift(tmp_path: Path) -> 
         adapter,
         docs,
         {docs / "index.md": "# Home", docs / "new.md": "# Just added"},
-        repo_root=tmp_path,
     )
 
     assert vsm.undeclared_sources == []
@@ -76,7 +74,7 @@ def test_an_adapter_that_derives_routes_from_disk_can_never_be_stale(tmp_path: P
     docs.mkdir()
     adapter = StandaloneAdapter()
 
-    vsm = build_vsm(adapter, docs, {docs / "a.md": "# A"}, repo_root=tmp_path)
+    vsm = build_vsm(adapter, docs, {docs / "a.md": "# A"})
 
     assert vsm.undeclared_sources == []
     assert adapter.declared_sources() is None
@@ -90,7 +88,7 @@ def test_an_empty_manifest_is_not_a_manifest(tmp_path: Path) -> None:
     docs.mkdir()
     adapter = PrebuiltVSMAdapter(BuildContext(), docs, repo_root=tmp_path)
 
-    vsm = build_vsm(adapter, docs, {docs / "a.md": "# A"}, repo_root=tmp_path)
+    vsm = build_vsm(adapter, docs, {docs / "a.md": "# A"})
 
     assert vsm.undeclared_sources == []
 
@@ -207,7 +205,7 @@ def test_adding_a_page_in_the_editor_reports_drift_without_a_full_rebuild(
     config, _ = ZenzicConfig.load(project)
     adapter = get_adapter(config.build_context, docs, project)
     md = {(docs / "index.md").resolve(): "# Home\n"}
-    vsm = build_vsm(adapter, docs, md, repo_root=project)
+    vsm = build_vsm(adapter, docs, md)
     assert vsm.undeclared_sources == []  # the manifest is current, to begin with
 
     engine = IncrementalAnalysisEngine(

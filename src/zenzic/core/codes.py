@@ -496,7 +496,14 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     ),  # MAX_DOCUMENT_COMPLEXITY (v0.30.0)
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("error", 0.0, None),  # RULE_ENGINE_ERROR — HALT gate
-    "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
+    # Tier A (see tests/test_severity_follows_a_principle.py): a rule that
+    # exceeded its time limit did not finish over that file, so the run did not
+    # produce the coverage it appears to. `warning` until 2026-09-19, which let a
+    # gate pass over analysis that never completed -- the same shape as Z906
+    # reporting exit 0 over a documentation directory that was not there. The
+    # reference page had already written the argument down ("Partial results are
+    # untrustworthy") while the severity said otherwise.
+    "Z902": CodeDefinition("error", 0.0, None),  # RULE_TIMEOUT
     "Z906": CodeDefinition("note", 0.0, None),  # NO_FILES_FOUND
 }
 
@@ -534,6 +541,36 @@ def code_severity(code: str) -> Literal["error", "warning", "info"]:
 #: skip-list can derive from this set instead of maintaining an independent
 #: copy that could silently drift out of sync.
 SECURITY_FINDING_CODES: frozenset[str] = frozenset({"Z201", "Z204"})
+
+
+def is_pipeline_halt(code: str) -> bool:
+    """Return ``True`` when *code* blocks the pipeline without costing DQS points.
+
+    A 0.0 penalty above ``note`` means exactly that: the finding is not scored
+    and the run stops anyway -- a governance gate for a warning, the ordinary
+    error path for an error. ``note`` + 0.0 is the informational case and never
+    halts.
+
+    This predicate lived in two places until 2026-09-19, each written as
+    ``severity == "warning" and penalty == 0.0`` with the error-severity member
+    named by hand (``or code == "Z901"``) in one of them and simply absent from
+    the other. So when ``Z902`` was promoted to ``error``, ``zenzic inspect
+    codes`` quietly rendered it as a harmless ``0.0`` and ``zenzic diff``
+    stopped blocking on it -- the same question, two answers, neither following
+    the registry it was derived from. It is one function now, and both callers
+    ask it.
+    """
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is None:
+        return False
+    # The security tier is excluded, not forgotten: it carries `error` and a 0.0
+    # penalty like a halt does, and it has its own gate -- FATAL, exit 2 or 3 --
+    # which outranks this one. The previous spelling excluded it by accident,
+    # through `severity == "warning"`; stated here, it survives the next time
+    # the predicate is widened.
+    if code in SECURITY_INCIDENT_CODES or code in SECURITY_BREACH_CODES:
+        return False
+    return defn.penalty == 0.0 and defn.severity in ("warning", "error")
 
 
 def exit_contract_severity(code: str) -> str:

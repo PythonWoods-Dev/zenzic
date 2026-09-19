@@ -197,6 +197,34 @@ def dedupe_roots(roots: list[Path]) -> list[Path]:
     return out
 
 
+def resolve_content_roots(adapter: Any, config: Any, repo_root: Path) -> list[Path]:
+    """Return every extra Markdown root: what the engine declares, plus what the
+    user does.
+
+    One question -- *which trees besides ``docs_dir`` hold Markdown?* -- and
+    until 2026-09-19 it was asked in ten places, each calling
+    ``adapter.get_extra_content_roots(repo_root)`` and none consulting the user.
+    Ten call sites that must agree are ten chances for one of them to stop.
+
+    The user half exists because only ``MkDocsAdapter`` derives extra roots
+    from its own configuration; ``standalone`` and ``prebuilt`` return nothing.
+    Measured on a `create-docusaurus` scaffold: ``docs_dir = "docs"`` reaches 9
+    of the repository's 15 Markdown sources, and 4 of the 6 it misses are
+    ``blog/`` -- Docusaurus's second content plugin. There was no configuration
+    a user could write to reach their own blog.
+
+    Declaring a root here does not let anything outside the repository be read.
+    Roots are *reported*; every read goes through ``discovery.walk_files``,
+    which resolves each file against the exclusion manager's repository root
+    and skips what falls outside it. That boundary is where it was.
+    """
+    roots = list(adapter.get_extra_content_roots(repo_root))
+    for declared in getattr(config, "content_roots", ()) or ():
+        candidate = Path(declared)
+        roots.append(candidate if candidate.is_absolute() else repo_root / candidate)
+    return dedupe_roots(roots)
+
+
 def case_sensitive_exists(path: Path) -> bool:
     """Return ``True`` only when *path* exists with an exact case-sensitive match.
 

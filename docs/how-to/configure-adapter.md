@@ -188,6 +188,16 @@ Nothing ships to generate this file. Writing it is the cost of this approach.
       published prefix. Without this the **absolute** links pass and the **relative** ones
       fail, because relative targets are mapped without the prefix.
 
+    - **The blog is a second tree.** Docusaurus publishes from two content plugins and
+      `docs_dir` names one directory, so `blog/` is reached by nothing — silently: it does
+      not appear in the file count and produces no findings either way. Add it with
+      [`content_roots`](../reference/configuration-reference.md#content-roots):
+
+        ```toml
+        docs_dir = "docs"
+        content_roots = ["blog"]
+        ```
+
 **Step 3 — declare the engine and allow the route prefix**:
 
 ```toml

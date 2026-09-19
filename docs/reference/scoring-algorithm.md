@@ -187,7 +187,7 @@ Every finding code is assigned a base penalty points value. Penalties are deduct
 | **Z619** | MAX_DOCUMENT_COMPLEXITY | 3.0 pts | Governance & Brand | **Opt-In** |
 | **Z620** | STALE_GLOBAL_SUPPRESSION | 1.0 pt | Governance & Brand | Default |
 | **Z901** | RULE_ENGINE_ERROR | 0.0 pts | Configuration Guard | HALT Gate |
-| **Z902** | RULE_TIMEOUT | 0.0 pts | *(uncategorized)* | Diagnostic — no DQS penalty |
+| **Z902** | RULE_TIMEOUT | 0.0 pts | *(uncategorized)* | The analysis did not finish — no DQS penalty, but an error |
 | **Z906** | NO_FILES_FOUND | 0.0 pts | *(uncategorized)* | Informational — no DQS penalty |
 
 ---

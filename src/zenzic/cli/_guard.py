@@ -11,7 +11,7 @@ from pathlib import Path
 import typer
 from rich.table import Table
 
-from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters import get_adapter, resolve_content_roots
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
@@ -153,7 +153,7 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> tuple[l
     # trees live outside docs_root, and a credential there must never be scoped
     # away from `guard scan`. Discover them the same way `check` does.
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _content_roots = resolve_content_roots(adapter, config, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
     return (
         sorted(
