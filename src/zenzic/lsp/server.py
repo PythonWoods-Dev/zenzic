@@ -235,9 +235,20 @@ class LanguageServer:
         """Resolve docs_root with fallback to repo_root when docs/ doesn't exist.
 
         Single Source of Truth for docs_root resolution across all LSP server
-        operations.  The fallback only triggers when the configured ``docs_dir``
-        does not exist on disk — an LSP-specific convenience for unconfigured
-        workspaces.
+        operations.  The fallback triggers when the configured ``docs_dir`` does
+        not exist on disk.
+
+        **This widening is deliberate and it is reported.** The CLI raises
+        ``Z111`` and stops in the same situation, because a scan that examined
+        nothing must not report success. An editor has no such channel: going
+        dark would leave the author with no diagnostics at all, which is worse
+        than diagnostics computed over a wider tree. So the server widens and
+        says so — ``IncrementalAnalysisEngine.process_changes`` publishes a
+        ``Z111`` diagnostic on the configuration file stating that this session
+        is analysing the whole repository and that CI will not agree.
+
+        It was silent until 2026-09-19, which made the editor and CI disagree
+        about the same project with nothing on screen to explain it.
         """
         if self.repo_root is None or self.config is None:
             raise RuntimeError("LSP server not initialized: repo_root or config is None")

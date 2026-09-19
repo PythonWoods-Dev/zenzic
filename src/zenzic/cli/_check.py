@@ -28,7 +28,6 @@ from zenzic.core.codes import (
     exit_contract_severity,
     security_exit_code,
 )
-from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -97,35 +96,6 @@ def _validate_only_flag(only: str | None) -> None:
 # choke point closes: two independent authorities for Z201/Z204's severity,
 # one of which silently fell through to the wrong tier).
 _finding_severity = exit_contract_severity
-
-
-def _docs_dir_advice(repo_root: Path) -> str:
-    """Return the second half of the Z111 message: where this project's
-    sources actually are.
-
-    Offering a menu — "Astro keeps them here, Docusaurus there" — leaves the
-    reader to work out which sentence is about them, in a repository where the
-    answer is a marker file away. `GENERATOR_MARKERS` already holds the
-    convention for each generator, and `zenzic init` already writes it into the
-    config; this makes the error name the same directory that setup would have.
-    The menu remains for a project nothing detects, where it is the honest
-    answer rather than a hedge.
-    """
-    from zenzic.cli._standalone import detect_generator
-
-    found = detect_generator(repo_root)
-    if found is not None:
-        generator, docs_dir, marker = found
-        return (
-            f"  {marker} is present, so this is {generator.capitalize()}, "
-            f"which keeps Markdown sources under '{docs_dir}'.\n"
-            f'  Set docs_dir = "{docs_dir}" in your configuration.'
-        )
-    return (
-        "  Set docs_dir to the directory holding your Markdown sources. "
-        "Astro/Starlight keeps them under 'src/content/docs'; "
-        "Docusaurus under 'docs'."
-    )
 
 
 @lru_cache(maxsize=8)
@@ -2247,16 +2217,11 @@ def check_all(
             # The directory **exists and is empty**: a project in setup, and
             # nothing is wrong with it. That half keeps Z906 and exit 0.
             if not docs_root.is_dir():
-                _declared = "docs_dir" in getattr(config, "model_fields_set", set())
-                raise ZenzicConfigError(
-                    f"[Z111] docs_dir '{config.docs_dir}' does not exist "
-                    + (
-                        "(declared in your configuration).\n"
-                        if _declared
-                        else "(the default, which this project does not use).\n"
-                    )
-                    + f"  Looked in: {docs_root}\n"
-                    + _docs_dir_advice(repo_root)
+                raise _shared.docs_dir_missing_error(
+                    config,
+                    docs_root,
+                    repo_root,
+                    because="A scan that examined nothing cannot report success.",
                 )
             _target_display = _target_hint or str(config.docs_dir)
             _shared.console.print(

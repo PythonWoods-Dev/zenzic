@@ -29,6 +29,7 @@ from zenzic.core.codes import (
     SECURITY_TIER_CODES,
     get_sarif_name,
 )
+from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, FooterNotice
 from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
@@ -775,6 +776,70 @@ def _render_link_error(err: object, docs_root: Path) -> None:
 
 
 # ── Exclusion manager factory ─────────────────────────────────────────────────
+
+
+def docs_dir_missing_error(
+    config: Any, docs_root: Path, repo_root: Path, *, because: str
+) -> ZenzicConfigError:
+    """Return the `Z111` raised when `docs_dir` names a directory that is not there.
+
+    One question -- *what does this command do when the documentation directory
+    is absent?* -- and until 2026-09-19 it had five answers across the CLI, of
+    which four said nothing about having chosen. `check all` raised; `audit`
+    rescoped to the whole repository and reported on a corpus nobody named;
+    **`guard scan` returned zero targets and exited 0, a passing secret scan
+    over a tree it never read**; the language server widened to the repository;
+    the telemetry counter reported zero pages.
+
+    The three that must fail now fail through this function, so the wording,
+    the generator-aware advice and the code cannot drift apart between them.
+    ``because`` is the one part that varies, because what is lost differs: an
+    analysis, an audit, or a credential scan.
+
+    A directory that **exists** and holds nothing scannable is a different
+    statement and keeps its own, quieter answer at each call site.
+    """
+    declared = "docs_dir" in getattr(config, "model_fields_set", set())
+    return ZenzicConfigError(
+        f"[Z111] docs_dir '{config.docs_dir}' does not exist "
+        + (
+            "(declared in your configuration).\n"
+            if declared
+            else "(the default, which this project does not use).\n"
+        )
+        + f"  Looked in: {docs_root}\n"
+        + f"  {because}\n"
+        + _docs_dir_advice(repo_root)
+    )
+
+
+def _docs_dir_advice(repo_root: Path) -> str:
+    """Return the second half of the Z111 message: where this project's
+    sources actually are.
+
+    Offering a menu -- "Astro keeps them here, Docusaurus there" -- leaves the
+    reader to work out which sentence is about them, in a repository where the
+    answer is a marker file away. ``GENERATOR_MARKERS`` already holds the
+    convention for each generator, and ``zenzic init`` already writes it into
+    the config; this makes the error name the same directory that setup would
+    have. The menu remains for a project nothing detects, where it is the
+    honest answer rather than a hedge.
+    """
+    from zenzic.cli._standalone import detect_generator
+
+    found = detect_generator(repo_root)
+    if found is not None:
+        generator, docs_dir, marker = found
+        return (
+            f"  {marker} is present, so this is {generator.capitalize()}, "
+            f"which keeps Markdown sources under '{docs_dir}'.\n"
+            f'  Set docs_dir = "{docs_dir}" in your configuration.'
+        )
+    return (
+        "  Set docs_dir to the directory holding your Markdown sources. "
+        "Astro/Starlight keeps them under 'src/content/docs'; "
+        "Docusaurus under 'docs'."
+    )
 
 
 def _build_exclusion_manager(

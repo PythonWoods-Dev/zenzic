@@ -31,7 +31,6 @@ from zenzic.cli._shared import (
 )
 from zenzic.core.adapters import get_adapter
 from zenzic.core.baseline import DEFAULT_BASELINE_FILE, BaselineManager
-from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.core.scanner import _build_rule_engine, find_repo_root
 from zenzic.core.scorer import compute_score
 from zenzic.core.sovereign_context import sovereign_context
@@ -114,12 +113,12 @@ def audit(
     #    nobody named, including whatever else the repository happens to hold.
     #    `check all` raises Z111 here; so does this.
     if not docs_root.is_dir():
-        raise ZenzicConfigError(
-            f"[Z111] docs_dir '{config.docs_dir}' does not exist.\n"
-            f"  Looked in: {docs_root}\n"
-            "  An audit of a directory that is not there would report on a corpus "
-            "you did not name. Set docs_dir to the directory holding your Markdown "
-            "sources, or run `zenzic env` to see what Zenzic resolved."
+        raise _shared.docs_dir_missing_error(
+            config,
+            docs_root,
+            repo_root,
+            because="An audit of a directory that is not there would report on a "
+            "corpus you did not name.",
         )
 
     # 3. The exclusion manager comes from the single factory, which is what

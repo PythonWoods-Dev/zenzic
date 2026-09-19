@@ -147,7 +147,24 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> tuple[l
         return sorted(set(resolved)), True
 
     if not docs_root.is_dir():
-        return [], True
+        # The security gate is the one surface where silence is least
+        # admissible, and this returned zero targets and exit 0 until
+        # 2026-09-19 -- a passing secret scan over a tree it never opened,
+        # byte-identical in its output to a clean run. The command already
+        # argues this exact point for the `--staged` path it cannot query
+        # ("nothing was scanned, so the result is inconclusive rather than
+        # clean"); a documentation directory that is not there is the same
+        # statement about the same run.
+        #
+        # A directory that *exists* and holds nothing scannable is different
+        # and keeps exit 0 with the "no targets found" message below: that is
+        # a project in setup, and the gate did read what there was.
+        raise _shared.docs_dir_missing_error(
+            config,
+            docs_root,
+            repo_root,
+            because="A credential scan that opened nothing is inconclusive, not clean.",
+        )
     # The secret gate must reach every tree the quality scan reaches, not just
     # docs_root: an MkDocs monorepo's included sub-project docs and i18n locale
     # trees live outside docs_root, and a credential there must never be scoped

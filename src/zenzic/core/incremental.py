@@ -223,6 +223,31 @@ class IncrementalAnalysisEngine:
         new_config, config_findings = load_config_with_diagnostics(
             self.repo_root, config_file=config_file, content_override=cfg_override
         )
+        # A `docs_dir` that is not there is reported, not silently widened. The
+        # server keeps analysing -- an editor has no failure channel and going
+        # dark would leave the author with no diagnostics at all -- but it
+        # widens to the repository root, so what is on screen is not what
+        # `zenzic check` will report in CI. Said here, on the configuration
+        # file, which is the editor's own way of saying it; the CLI raises the
+        # same code and stops, because it does have somewhere to fail.
+        if self.config is not None and self.repo_root is not None:
+            _declared_docs = self.repo_root / self.config.docs_dir
+            if not _declared_docs.is_dir():
+                config_findings.append(
+                    RuleFinding(
+                        config_file,
+                        1,
+                        "Z111",
+                        f"docs_dir '{self.config.docs_dir}' does not exist, so this "
+                        "editor session is analysing the whole repository instead. "
+                        "`zenzic check` stops on this rather than widening, so what "
+                        "you see here is not what CI will report. Set docs_dir to "
+                        "the directory holding your Markdown sources.",
+                        severity=code_severity("Z111"),
+                        matched_line="",
+                    )
+                )
+
         if config_findings:
             cfg_text = cfg_override if cfg_override is not None else ""
             if not cfg_text:
