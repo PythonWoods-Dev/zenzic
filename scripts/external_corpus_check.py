@@ -82,6 +82,18 @@ def _fetch(repo: str, commit: str, into: Path) -> None:
     _run(["git", "checkout", "-q", "FETCH_HEAD"], cwd=into)
 
 
+def _count_sources(root: Path) -> int:
+    """Markdown sources in the fetched tree.
+
+    The third leg of the pin. Batch 10 recorded a premise wrong in three ways --
+    repository, commit and file count -- and a pin that names only the first two
+    still cannot tell a corpus that shrank from an engine that stopped looking.
+    A commit fixes the tree, so this number is a constant; when it moves, either
+    the fetch is not what it claims or this script is walking somewhere else.
+    """
+    return sum(1 for p in root.rglob("*") if p.suffix in {".md", ".mdx"} and ".git" not in p.parts)
+
+
 def _scan(root: Path) -> Counter[str]:
     """Findings per code, from the JSON payload rather than the rendered text.
 
@@ -114,10 +126,22 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "corpus"
         _fetch(pin["repository"], pin["commit"], root)
+        files = _count_sources(root)
         actual = _scan(root)
+
+    if not args.update and files != pin["file_count"]:
+        print(
+            f"FAILED: the pinned tree does not have the pinned number of sources.\n"
+            f"  {pin['repository']} at {pin['commit'][:8]}\n"
+            f"  pinned {pin['file_count']} markdown sources, measured {files}\n\n"
+            "  A commit fixes the tree, so this number cannot move on its own. Either the\n"
+            "  fetch is not the commit it claims, or this script no longer walks the corpus."
+        )
+        return 1
 
     if args.update:
         pin["counts"] = dict(sorted(actual.items()))
+        pin["file_count"] = files
         PIN_FILE.write_text(json.dumps(pin, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"pin updated: {sum(actual.values())} findings across {len(actual)} codes")
         return 0
@@ -141,8 +165,8 @@ def main(argv: list[str] | None = None) -> int:
 
     total = sum(actual.values())
     print(
-        f"external corpus: {total} findings across {len(actual)} codes, "
-        f"unchanged at {pin['commit'][:8]}"
+        f"external corpus: {total} findings across {len(actual)} codes "
+        f"over {files} sources, unchanged at {pin['commit'][:8]}"
     )
     return 0
 
