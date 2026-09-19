@@ -46,6 +46,7 @@ from zenzic.core.validator import (
     LinkError,
     SnippetError,
     check_nav_contract,
+    repo_relative_label,
     validate_links_structured,
     validate_snippets,
 )
@@ -194,10 +195,7 @@ def check_links(
     )
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     t0 = time.monotonic()
 
@@ -296,10 +294,7 @@ def check_links(
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
     reporter = ZenzicReporter(
@@ -390,10 +385,7 @@ def check_orphans(
         _shared._print_no_config_hint(output_format)
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
@@ -445,10 +437,7 @@ def check_orphans(
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
     reporter = ZenzicReporter(
@@ -528,10 +517,7 @@ def check_snippets(
         _shared._print_no_config_hint(output_format)
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     t0 = time.monotonic()
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
@@ -584,10 +570,7 @@ def check_snippets(
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
     reporter = ZenzicReporter(
@@ -685,10 +668,7 @@ def check_references(
         _shared._print_no_config_hint(output_format)
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
@@ -805,10 +785,7 @@ def check_references(
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
     reporter = ZenzicReporter(
@@ -892,10 +869,7 @@ def check_assets(
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     t0 = time.monotonic()
     unused = find_unused_assets(
@@ -943,10 +917,7 @@ def check_assets(
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
     reporter = ZenzicReporter(
@@ -1032,10 +1003,7 @@ def check_placeholders(
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     t0 = time.monotonic()
     raw_findings, _ = scan_docs_references(
@@ -1100,10 +1068,7 @@ def check_placeholders(
     if not quiet and not no_header and output_format == "text":
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
 
     reporter = ZenzicReporter(
@@ -1562,10 +1527,7 @@ def _append_z620_findings(
     for stale in tracker.get_stale_findings(
         check_all=check_all, check_external_urls=check_external_urls
     ):
-        try:
-            rp = stale.file_path.relative_to(repo_root).as_posix()
-        except ValueError:
-            rp = stale.file_path.as_posix()
+        rp = repo_relative_label(stale.file_path, repo_root)
         findings.append(
             Finding(
                 rel_path=rp,
@@ -1602,10 +1564,7 @@ def _to_findings(
         return _content_cache[path]
 
     def _rel(path: Path) -> str:
-        try:
-            return path.relative_to(repo_root).as_posix()
-        except ValueError:
-            return path.as_posix()
+        return repo_relative_label(path, repo_root)
 
     for err in results.link_errors:
         findings.append(

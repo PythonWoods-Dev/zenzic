@@ -29,7 +29,8 @@ locale and content-root trees that were never checked at all. Item 35 changes wh
 `zenzic audit` scans and when it fails. Item 36 turns a silent substitution into an
 error, and items 37 and 38 change what the machine formats carry when a run fails at
 configuration. Item 39 adds a flag and changes nothing until it is passed, but it is
-listed here because this project's own badge gate now passes it. The list ends
+listed here because this project's own badge gate now passes it. Item 40 changes three printed
+paths on Windows only. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -484,6 +485,14 @@ repository's.
 mode and verifying in the other disagrees the first time a remote host is slow. `zenzic diff` has
 no such flag, deliberately: it compares against a saved snapshot, and the snapshot does not record
 which mode produced it.
+
+**40. On Windows, three surfaces printed a path with backslashes where every other one used forward slashes.**
+
+*What you will see:* only on Windows, and only in three places — the `Scanning:` line the CLI prints when you pass a path, and the two suppression-hotspot maps in the governance summary. `docs\guide\index.md` becomes `docs/guide/index.md`, matching what findings, JSON and SARIF have always emitted.
+
+*Why:* `repo_relative_label()` is the one function that answers "what do we print for this file", and its docstring gives the reason — an absolute or machine-shaped path makes the same finding on the same commit compare unequal between two machines, so no tool can diff two runs. Twenty-three sites answered it themselves instead, and while twenty-two agreed with the authority, the ones using `str()` rather than `.as_posix()` produced native separators. All twenty-three now call it.
+
+*What to do:* nothing, unless something downstream parsed the hotspot keys expecting `\`. On Linux and macOS nothing changes at all.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

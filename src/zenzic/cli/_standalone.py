@@ -41,6 +41,7 @@ from zenzic.core.scorer import (
     save_snapshot,
 )
 from zenzic.core.ui import ZenzicPalette, emoji
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -454,10 +455,7 @@ def score(
 
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scoring: {_hint}[/]")
         _shared.console.print()
 
@@ -1173,10 +1171,7 @@ def diff(
         if not no_header:
             _shared._ui.print_header(__version__)
             if path is not None:
-                try:
-                    _hint = str(docs_root.relative_to(Path.cwd()))
-                except ValueError:
-                    _hint = str(docs_root)
+                _hint = repo_relative_label(docs_root, Path.cwd())
                 _shared.console.print(f"[{ZenzicPalette.DIM}]  Comparing: {_hint}[/]")
             _shared.console.print()
         _shared.console.print(body)
@@ -1577,10 +1572,7 @@ def init(
     if path is not None:
         repo_root = Path(path).resolve()
         repo_root.mkdir(parents=True, exist_ok=True)
-        try:
-            _hint = str(repo_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(repo_root)
+        _hint = repo_relative_label(repo_root, Path.cwd())
         _shared.console.print(f"[{ZenzicPalette.DIM}]  Target: {_hint}[/]")
     else:
         repo_root = find_repo_root(fallback_to_cwd=True)

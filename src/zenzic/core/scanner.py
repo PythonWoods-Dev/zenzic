@@ -52,6 +52,7 @@ from zenzic.core.validator import (
     LinkValidator,
     PolyglotExtractor,
     mask_html_code_elements,
+    repo_relative_label,
 )
 from zenzic.models.config import (
     ZenzicConfig,
@@ -286,10 +287,7 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
         cannot silently disagree with any other caller about what these two
         codes' severity is.
     """
-    try:
-        rel = sf.file_path.relative_to(repo_root).as_posix()
-    except ValueError:
-        rel = sf.file_path.as_posix()
+    rel = repo_relative_label(sf.file_path, repo_root)
 
     if sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Categorical finding identifier
         code = "Z204"
@@ -1232,10 +1230,7 @@ def _scan_single_file(
         _dir_policy_patterns: set[str] = set()
         if getattr(config, "governance", None):
             repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
-            try:
-                rel_path = md_file.relative_to(repo_root).as_posix()
-            except ValueError:
-                rel_path = md_file.as_posix()
+            rel_path = repo_relative_label(md_file, repo_root)
 
             if config.governance.per_file_ignores:
                 import fnmatch

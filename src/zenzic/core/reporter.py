@@ -210,12 +210,6 @@ class ZenzicReporter:
         """Return project-relative path as is."""
         return rel_path
 
-    def _rel(self, path: Path) -> str:
-        try:
-            return str(path.relative_to(self._docs_root))
-        except ValueError:
-            return str(path)
-
     # ── Full report ───────────────────────────────────────────────────────────
 
     def render(

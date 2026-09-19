@@ -25,6 +25,7 @@ from zenzic.core.reporter import Finding
 from zenzic.core.sovereign_context import get_sovereign_context
 from zenzic.core.suppressions import count_inline_suppressions
 from zenzic.core.ui import ZenzicPalette, emoji
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -101,10 +102,7 @@ def collect_inline_suppression_stats(
         if count <= 0:
             continue
         total += count
-        try:
-            rel = str(md_file.relative_to(docs_root))
-        except ValueError:
-            rel = str(md_file)
+        rel = repo_relative_label(md_file, docs_root)
         hotspots[rel] = count
     return total, hotspots
 
@@ -161,10 +159,7 @@ def build_suppression_audit(
         if used <= 0:
             continue
         inline_total += used
-        try:
-            rel = str(report.file_path.relative_to(docs_root))
-        except ValueError:
-            rel = str(report.file_path)
+        rel = repo_relative_label(report.file_path, docs_root)
         hotspots[rel] = hotspots.get(rel, 0) + used
 
     per_file = _declared_pairs(config.governance.per_file_ignores)

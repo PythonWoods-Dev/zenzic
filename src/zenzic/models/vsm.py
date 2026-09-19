@@ -25,6 +25,7 @@ from urllib.request import url2pathname
 
 from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
@@ -400,10 +401,13 @@ class VirtualSiteMap(dict[str, Route]):
             # also the last filesystem call left inside this module: `absolute()`
             # reads the process working directory, which made the reverse index
             # depend on where the command was run from.
-            try:
-                rel_posix = path.relative_to(docs_root).as_posix()
-            except ValueError:
-                rel_posix = path.as_posix()
+            # `is_relative_to` rather than a `try`, because the label itself now
+            # comes from the authority and this branch is the *extra* work the
+            # fallback did: a mounted source is outside `docs_root` and takes the
+            # logical path its mount gives it. Both are pure computation -- no
+            # filesystem call is added here, which `build_vsm` does not permit.
+            rel_posix = repo_relative_label(path, docs_root)
+            if not path.is_relative_to(docs_root):
                 for _root, _prefix in extra_mounts:
                     if path.is_relative_to(_root):
                         _inner = path.relative_to(_root)
