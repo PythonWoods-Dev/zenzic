@@ -14,6 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import pathspec.gitignore
+
+from zenzic.core.extensions import DEFAULT_EXTENSIONS, EnabledExtensions
+
 
 if TYPE_CHECKING:
     from zenzic.models.vsm import RouteStatus, VirtualSiteMap
@@ -99,6 +103,89 @@ class BaseAdapter(ABC):
     @abstractmethod
     def get_metadata_files(self) -> frozenset[str]:
         """Return engine-owned config filenames excluded from quality findings."""
+
+    def declared_sources(self) -> set[str] | None:
+        """Return the source paths this adapter's routing table **declares**, or
+        ``None`` when routes are derived from the filesystem instead.
+
+        Only a declarative adapter can be stale, and the distinction is the
+        whole point of this method. ``standalone`` computes each URL from the
+        path it has just read: there is no second copy to fall behind, so drift
+        is not a state it can reach and a drift finding there would be one no
+        user could act on. ``prebuilt`` reads ``.zenzic-vsm.json``, written by
+        a separate tool at a separate time, and that copy goes stale the moment
+        someone adds a page without re-running the generator.
+
+        Measured before this method existed: a source absent from the manifest
+        is routed ``IGNORED`` by :class:`PrebuiltVSMAdapter`, and a link whose
+        target is IGNORED is reported ``Z101 ... UNREACHABLE_LINK``. So adding
+        a page and linking to it produced an error on a link that was correct,
+        and the run named the link rather than the manifest. The engine held
+        both sets — what the manifest declares, what the scan read — and
+        compared them nowhere.
+
+        Returning ``None`` (the default) means "not a declarative table, never
+        stale", which is not the same as returning an empty set — that would
+        mean "declares nothing", i.e. total drift.
+        """
+        return None
+
+    def get_enabled_extensions(self) -> EnabledExtensions:
+        """Return the Markdown extensions this project enables.
+
+        The adapter answers **which extensions are on**, because that is a fact
+        about the project. What each one brings is `core/extensions.py`'s, because
+        that is a fact about Markdown. MkDocs does not define ``!!!``; it enables
+        `admonition`, and only when the project lists it.
+
+        **The default is not the empty set, and this differs from**
+        :meth:`get_output_dirs` **on purpose.** There, an engine declaring no
+        output directory returns nothing rather than guessing, because a wrong
+        guess excludes real content. Here the opposite is measured: an empty
+        vocabulary makes the block tracker read **1,112 lines of our own corpus
+        and 1,068 of `zensical/docs`** as indented code, which every rule that
+        opts into `in_indented_code` then skips. Emptiness is the expensive
+        answer, so an engine with no configuration to read inherits
+        `DEFAULT_EXTENSIONS` instead.
+
+        Measured 2026-09-18: on both corpora the default and the real reading
+        produce the identical result, because both enable all four relevant
+        extensions.
+        """
+        return EnabledExtensions(names=DEFAULT_EXTENSIONS)
+
+    def get_output_dirs(self) -> frozenset[str]:
+        """Return repo-relative directories this engine writes its built site to.
+
+        Not abstract, and deliberately so: an engine that declares no output
+        directory returns the empty set rather than a guess. Only MkDocs
+        declares one (``site_dir``), so a default here keeps the other three
+        adapters honest instead of making them implement a stub that invents
+        ``"site"``.
+
+        Paths are **repo-relative POSIX strings**, matched against the walk's
+        ``rel_path`` rather than a basename. That distinction is the whole
+        point: a name-based exclusion of ``site`` also excluded a legitimate
+        ``docs/site/`` content directory, which measured as a `Z101` on a real
+        fixture. A declared output directory is one specific path.
+        """
+        return frozenset()
+
+    def get_excluded_docs_spec(self) -> pathspec.gitignore.GitIgnoreSpec | None:
+        """Return a matcher for pages this engine keeps out of the built site.
+
+        Not abstract, for the same reason as :meth:`get_output_dirs`: an engine
+        with no such concept returns ``None`` rather than implementing a stub.
+        Only MkDocs declares these (``exclude_docs``/``draft_docs``).
+
+        A **matcher**, not a list of paths, and deliberately so. Enumerating the
+        matches would mean walking the docs tree here, and every filesystem walk
+        in the engine goes through ``discovery`` — that is the check keeping a
+        config-derived root from reaching outside the repository. The exclusion
+        manager applies this spec to each ``rel_path`` during the walk it already
+        performs, exactly as it applies the VCS pathspec.
+        """
+        return None
 
     @abstractmethod
     def get_route_info(self, rel: Path) -> RouteMetadata:

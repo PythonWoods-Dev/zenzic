@@ -37,7 +37,11 @@ else:
 from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._base import BaseAdapter
-from zenzic.core.adapters._mkdocs_config import find_mkdocs_config_file, load_mkdocs_config
+from zenzic.core.adapters._mkdocs_config import (
+    MKDOCS_CONFIG_NAMES,
+    find_mkdocs_config_file,
+    load_mkdocs_config,
+)
 from zenzic.core.adapters._utils import (
     _extract_blog_dir,
     case_sensitive_exists,
@@ -49,16 +53,27 @@ from zenzic.models.config import BuildContext
 
 _log = logging.getLogger(__name__)
 
+# Zensical's own list of unsupported ``mkdocs.yml`` settings, as published in
+# its compatibility documentation (``compatibility/mkdocs/migration.md``,
+# "Unsupported settings", read at zensical/docs ``6346cfd``, 2026-09-13).
+#
+# It is six keys, not nine.  ``validation``, ``strict`` and ``watch`` were in
+# this set and are removed: Zensical documents all three as supported, in
+# ``mkdocs.yml`` form, in its own setup pages (``setup/validation.md`` for
+# ``validation:`` and ``strict: true``, ``setup/basics.md`` for ``watch:``).
+# Warning that they "will not affect the build" told users the opposite of what
+# the generator does.
+#
+# Upstream words it as "not *yet* supported" and tracks the gaps in its backlog
+# (``not_in_nav`` is issue 63, ``exclude_docs``/``draft_docs`` issue 65), so
+# this set is a snapshot of a moving target, not a permanent contract.
 _UNSUPPORTED_MKDOCS_KEYS = {
     "remote_branch",
     "remote_name",
     "exclude_docs",
     "draft_docs",
     "not_in_nav",
-    "validation",
-    "strict",
     "hooks",
-    "watch",
 }
 
 
@@ -97,13 +112,25 @@ def _extract_config_declared_assets(doc_config: dict[str, Any]) -> set[str]:
     """Extract theme favicon, logo, extra_css, extra_javascript relative asset paths."""
     assets: set[str] = set()
 
-    # Native zensical.toml format
+    # Native zensical.toml format. favicon/logo live under [project.theme];
+    # extra_css/extra_javascript live directly under [project] — two
+    # different nesting depths, both confirmed against Zensical's own
+    # current documentation (zensical.org/docs/setup/logo-and-icons/,
+    # zensical.org/docs/customization/).
     project = doc_config.get("project") or {}
     if isinstance(project, dict):
-        for key in ("favicon", "logo"):
-            val = project.get(key)
-            if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
-                assets.add(val.lstrip("/"))
+        project_theme = project.get("theme") or {}
+        if isinstance(project_theme, dict):
+            for key in ("favicon", "logo"):
+                val = project_theme.get(key)
+                if val and isinstance(val, str) and not val.startswith(("http://", "https://")):
+                    assets.add(val.lstrip("/"))
+        for key in ("extra_css", "extra_javascript"):
+            items = project.get(key) or []
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str) and not item.startswith(("http://", "https://")):
+                        assets.add(item.lstrip("/"))
 
     # mkdocs.yml format (compat mode)
     theme = doc_config.get("theme") or {}
@@ -150,7 +177,9 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
         project = cfg.get("project") or {}
         docs_dir = str(project.get("docs_dir") or "docs") if isinstance(project, dict) else "docs"
         docs_root = repo_root / docs_dir
-        theme_dict = project if isinstance(project, dict) else {}
+        theme_dict = project.get("theme") or {} if isinstance(project, dict) else {}
+        if not isinstance(theme_dict, dict):
+            theme_dict = {}
     else:
         docs_dir = str(cfg.get("docs_dir") or "docs")
         docs_root = repo_root / docs_dir
@@ -173,7 +202,7 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
                 (
                     rel,
                     f"{field_key} asset not found on disk: '{rel}' "
-                    f"(declared as {field_key}: '{value}') [Z404]",
+                    f"(declared as {field_key}: '{value}')",
                 )
             )
 
@@ -327,10 +356,20 @@ class ZensicalAdapter(BaseAdapter):
 
     def get_metadata_files(self) -> frozenset[str]:
         """Engine configuration and infrastructure asset files excluded from Z405/Z903."""
-        names: set[str] = {"mkdocs.yml"} if self._config_source == "mkdocs" else {"zensical.toml"}
+        names: set[str] = (
+            set(MKDOCS_CONFIG_NAMES) if self._config_source == "mkdocs" else {"zensical.toml"}
+        )
         config_assets = _extract_config_declared_assets(self._zensical_config)
         names.update(config_assets)
         return frozenset(names)
+
+    def get_output_dirs(self) -> frozenset[str]:
+        """Zensical declares no output directory -- neither ``zensical.toml``
+        nor the ``mkdocs.yml`` form it accepts carries one, so there is nothing
+        to report. Returning the empty set states that; returning ``{"site"}``
+        would be a guess about a convention this engine has not declared.
+        """
+        return frozenset()
 
     @property
     def use_directory_urls(self) -> bool:
@@ -341,7 +380,7 @@ class ZensicalAdapter(BaseAdapter):
     def watched_config_files(self) -> frozenset[str]:
         """Return Zensical configuration filenames for LSP hot-reloading."""
         if self._config_source == "mkdocs":
-            return frozenset({"mkdocs.yml", "mkdocs.yaml"})
+            return frozenset(MKDOCS_CONFIG_NAMES)
         return frozenset({"zensical.toml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────
@@ -388,6 +427,17 @@ class ZensicalAdapter(BaseAdapter):
         # 3. Root/directory index pages (index.md or README.md at root)
         if rel_posix in ("index.md", "README.md"):
             return "REACHABLE"
+
+        # 3b. A non-root README.md not listed in nav is never auto-promoted —
+        # mirrors MkDocsAdapter's identical, deliberate convention. README.md
+        # is a real per-directory index-page candidate at any nesting level
+        # (confirmed live against Zensical's own docs), but unlike index.md it
+        # is treated as a GitHub-convention overflow file, not a page expected
+        # to be explicitly navigable — flagging it as an orphan would be a
+        # false positive on correctly-structured content. This check runs
+        # before rule 4 so it applies even when no nav is declared at all.
+        if rel.name == "README.md" and rel_posix not in nav_paths:
+            return "IGNORED"
 
         # 4. Listed in nav or locale shadow
         if (
@@ -441,8 +491,14 @@ class ZensicalAdapter(BaseAdapter):
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when Zensical will serve an index page for this directory.
 
-        Zensical uses ``index.md`` as the canonical index file for a directory,
-        rendering it at the directory URL without a filename suffix.
+        Zensical treats a file as an index page if its basename is ``index.md``
+        or ``README.md`` (see zensical.org/docs/authoring/markdown/), applied
+        at any directory level, not just the docs root. Precedence when both
+        exist in the same directory is explicitly undefined upstream ("it is
+        better to avoid having both" — zensical/backlog#135), so this method
+        does not attempt to model one: it only answers whether *an* index
+        exists, which is true either way regardless of which file Zensical
+        would pick.
         It also recognizes dynamic directories managed by plugins.
 
         I/O is permitted here — this method is called once per directory during
@@ -452,10 +508,13 @@ class ZensicalAdapter(BaseAdapter):
             directory_path: Absolute path to the directory to inspect.
 
         Returns:
-            ``True`` if an ``index.md`` exists in the directory, or if the
-            directory is dynamically served by an active plugin.
+            ``True`` if an ``index.md`` or ``README.md`` exists in the
+            directory, or if the directory is dynamically served by an active
+            plugin.
         """
         if (directory_path / "index.md").exists():
+            return True
+        if (directory_path / "README.md").exists():
             return True
         return directory_path.resolve() in self.dynamic_directories
 

@@ -16,9 +16,9 @@ Zenzic is structured across three independent, dedicated repositories:
 
 | Repository | Purpose | Primary Stack |
 |:---|:---|:---|
-| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Python Core analysis engine & CLI (`src/zenzic`) | Python 3.10+, `uv`, `pytest`, `mypy` |
-| **[zenzic-vscode](https://github.com/PythonWoods/zenzic-vscode)** | Official VS Code Extension (LSP Thin Client) | TypeScript, Node.js 24+, VS Code API |
-| **[zenzic-action](https://github.com/PythonWoods/zenzic-action)** | Official GitHub Action CI/CD Wrapper | YAML, Bash, SARIF Upload |
+| **[zenzic](https://github.com/PythonWoods-Dev/zenzic)** (this repo) | Python Core analysis engine & CLI (`src/zenzic`) | Python 3.10+, `uv`, `pytest`, `mypy` |
+| **[zenzic-vscode](https://github.com/PythonWoods-Dev/zenzic-vscode)** | Official VS Code Extension (LSP Thin Client) | TypeScript, Node.js 24+, VS Code API |
+| **[zenzic-action](https://github.com/PythonWoods-Dev/zenzic-action)** | Official GitHub Action CI/CD Wrapper | YAML, Bash, SARIF Upload |
 
 **If you want to contribute to the core analysis engine** (new checks, adapters, bug fixes, CLI features, or performance improvements) — you are in the right place!
 
@@ -187,10 +187,11 @@ For extended developer guides, see [Writing Custom Rules](docs/developers/how-to
 To maintain security, architectural integrity, and legal compliance, all contributions must adhere to these guidelines:
 
 1. **Issue-First Policy**: No Pull Request will be reviewed or merged unless it is preceded by an Issue formally discussed and approved by maintainers. Link the approved Issue in your PR description.
-2. **Mandatory Cryptographic Commit Signatures**: Every commit must be cryptographically signed using GPG, SSH, or S/MIME keypairs (appearing as **Verified** on GitHub). Unsigned commits will be rejected by branch rulesets.
-3. **No AI Slop Clause**: We enforce a strict policy against unverified AI-generated code. Contributors must fully understand, explain, and architecturally justify every single line of code proposed in a PR. Proposing code that you cannot explain will lead to immediate rejection.
-4. **Developer Certificate of Origin (DCO)**: All commits must include a `Signed-off-by:` line (using `git commit -s`) certifying compliance with the DCO.
-5. **Conventional Commits**: Commit messages must strictly follow the Conventional Commits specification (e.g., `feat(core): add block anchor support (#123)`).
+2. **Mandatory Cryptographic Commit Signatures**: Every commit must be cryptographically signed using GPG, SSH, or S/MIME keypairs (appearing as **Verified** on GitHub). Unsigned commits will be rejected by branch rulesets. An official tool can remove this property while reporting success — GitHub's own `gh pr update-branch --rebase` re-creates commits server-side and the result verifies as `unsigned`, so re-do such an update locally with signing configured.
+3. **Linear History — No Merge Commits**: the default branch ruleset enforces a linear history, so a merge commit on a branch targeting it is **rejected at push time** with `GH013: ... This branch must not contain merge commits`. Bring a branch up to date with `git rebase origin/main`, never `git merge origin/main`; if you have already made the merge, reset to the commit before it and rebase instead. This is stated here because the rule is enforced by the platform and was, until 2026-09-12, documented nowhere — a contributor met it only by being refused. Every requirement in this list is imposed by this repository's **ruleset**. The older per-branch protection API declares nothing here and is not used anywhere in this ecosystem. To see exactly which rules apply to you, run `gh api repos/PythonWoods-Dev/zenzic/rules/branches/main`.
+4. **No AI Slop Clause**: We enforce a strict policy against unverified AI-generated code. Contributors must fully understand, explain, and architecturally justify every single line of code proposed in a PR. Proposing code that you cannot explain will lead to immediate rejection.
+5. **Developer Certificate of Origin (DCO)**: All commits must include a `Signed-off-by:` line (using `git commit -s`) certifying compliance with the DCO.
+6. **Conventional Commits**: Commit messages must strictly follow the Conventional Commits specification (e.g., `feat(core): add block anchor support (#123)`).
 
 ---
 
@@ -207,7 +208,7 @@ To maintain security, architectural integrity, and legal compliance, all contrib
 ## First-Time Setup
 
 ```bash
-git clone git@github.com:PythonWoods/zenzic.git
+git clone git@github.com:PythonWoods-Dev/zenzic.git
 cd zenzic
 just sync
 ```
@@ -218,7 +219,7 @@ Install pre-commit and pre-push hooks immediately after sync (mandatory):
 
 ```bash
 uv run --active pre-commit install              # commit-stage: light hooks (ruff, format, hygiene, guard)
-uv run --active pre-commit install -t pre-push  # push-stage: Final Guard (just verify before pushing)
+uv run --active pre-commit install -t pre-push  # push-stage: the irreversible checks (~13 s), not the full gate
 ```
 
 Configure SSH commit signing (required — all commits must appear **Verified** on GitHub):
@@ -238,18 +239,60 @@ Run the full verification gate before pushing:
 just verify
 ```
 
-`just verify` is the canonical entry point: pre-commit on all files → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`.
+`just verify` is the canonical entry point, and the table below lists what it runs. The stages that read nothing but the tree run once per tree: `scripts/verdict_cache.py` records their green verdict under `.zenzic_cache/verdicts/` keyed on the tree's content, so the pre-push hook does not repeat what you already ran on an unchanged tree. Anything that reaches outside the tree (`pip-audit`, the structural audit's external-link probes) runs every time; a failing stage records nothing; CI never caches; `ZENZIC_VERDICT_CACHE=0 just verify` forces a full run. `zenzic score --check-stamp` is **not** part of it — that is `just check-badges`, a separate recipe for pipelines that must not write the badge. Both the stamp and the check run `--no-external`, so the badge is a statement about this repository and not about third-party uptime; the external surface is swept on a schedule by `external-link-sweep.yml`. The two must stay in step: stamping with one mode and checking with the other would fail the gate on a tree nobody touched.
 
 ---
 
 ## The 4-Lifecycle-Gates Model
 
-| Stage | Trigger | What runs | Speed |
+| Stage | Trigger | What runs | Scope |
 |:---|:---|:---|:---|
-| **TDD inner loop** | `just test` | `pytest -n auto` (parallel, no coverage) | ⚡ instant |
-| **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
-| **Final Guard** | `just verify` (manual/CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp` | < 60 s |
-| **CI** | GitHub Actions | `just verify` (identical) | matches local |
+| **TDD inner loop** | `just test` | `pytest -n auto` (parallel, no coverage) | the whole suite, fastest path |
+| **Commit** | `git commit` | Light hooks on **staged files only** (ruff, format, file hygiene, type check, secret guard) | what you are about to commit |
+| **Final Guard** | `just verify` | git-hook check → *[tree-deterministic, verdict cached per tree: release-contract checks → docs build → local gates → `pre-commit --all-files` → `pytest` with coverage]* → `pip-audit` → `zenzic check all --strict` → `zenzic score --stamp` | the whole tree |
+| **Pre-push** | `git push` | the four irreversible checks only, ~13 s (see below) | what a later run cannot undo |
+| **CI** | GitHub Actions | the test matrix on three platform/interpreter pairs, plus CodeQL, secret scanning, compliance and a mutation gate | things a single machine cannot check |
+
+### Which gate runs where
+
+**Pre-push is deliberately small — about thirteen seconds — and this is why.** git opens the SSH
+connection to the remote in order to hand the hook its ref list, and holds it open while the hook
+runs; GitHub closes a connection left idle for a few minutes. A pre-push hook running the full
+gate took 388 s on a cold cache and so *failed the push itself*: `Connection to github.com closed
+by remote host`, exit 141, nothing transferred. The gate was the cause of the hang, not a victim
+of it. If your push feels fast, that is the reason.
+
+| Runs at | What | Why there |
+|:---|:---|:---|
+| **Pre-push** | disclosure, private-tree secrets, commit identity, AI-attribution trailers | A push publishes and a pushed commit is not rewritten. No later run undoes any of these. |
+| **`just verify`** (before a commit, on demand) | pre-commit hooks on every file, the suite with coverage, `pip-audit`, the structural audit, the score stamp, and the repository-coherence checks | A failure here costs a follow-up commit and nothing more. Run it when you have finished a change, not before every push. |
+| **`just verify-full`** (before a release) | everything in `just verify`, plus the two on-demand gates: documented commands and the control-plane scripts' own tests | Both are slow and neither has caught anything since its first run, so they are paid for at release time. |
+| **CI** (every push) | the same suite and audit on three platform/interpreter pairs, plus CodeQL, secret scanning, compliance and the mutation gate | Four of `just verify`'s five stages are exact duplicates of a CI step, on fewer interpreters and one operating system. CI is the broader instrument, and it is free to the developer. |
+
+**The measured basis.** Across the v0.31.0 cycle's eighteen defects, five were reachable only in
+CI or only on Windows, three were found by a local gate — two of which CI would also have caught —
+and eleven were reachable by no gate at all, having been found by reading real output or using the
+product. The full local gate found **one** defect CI would not have, and it was a private recipe
+that reaches no user.
+
+**Who runs `just verify-full`, and when.** The release checklist does, before a tag; it is a step
+in `docs/developers/how-to/release-governance-protocol.md`, not a habit anyone has to remember. A
+gate nobody invokes is an uninvoked mechanism, which this project has found seventeen times, so
+the two gates moved there are named in that checklist rather than left to discipline.
+
+The stages are ordered by breadth, not by speed: each one sees more than the last.
+`just test` is the fastest because it skips coverage and checks nothing outside the
+suite; `just verify` is the slowest because it is the only stage that reads the
+whole tree. **CI is not "the same as local"** — it runs the matrix and the mutation
+gate, neither of which `just verify` does, and its runners are slower than a
+developer machine: the one-module mutation gate measured 137 s locally against
+262 s in CI, on identical inputs.
+
+Times are deliberately absent from the table. They depend on your machine, your
+cache state and your core count, so a number here is true for whoever wrote it and
+misleading for everyone else — and a contributor who sees 17 s where a document
+promises "instant" goes looking for a defect that does not exist. Where this
+project states a duration it states the conditions with it, as in `RELEASE.md`.
 
 ---
 
@@ -262,9 +305,89 @@ just verify
 | Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
 | Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage JSON |
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
-| **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** |
+| **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** — its test stage runs `pytest -n auto` (adopted 2026-09-17 on measurement: 256 s serial → ~140 s; CI stays serial) |
 | Show version | `just version` | — | Print current version from bump-my-version |
+| Show engine versions | `just engines` | — | The declared engine versions and where each is checked |
+| Bump an engine version | `just bump-engine "<engine>" <version>` | — | Update the compatibility matrix when a documentation engine releases |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
+| Hero screenshot | `just screenshot-hero` | — | Run the "Power Triad" sandbox (`tests/sandboxes/hero_specimen/`) for a manual landing-page terminal screenshot — exits 3 by design, capture the output rather than treating it as a failure |
+| Circular-link screenshot | `just screenshot-circular` | — | Run the circular-link sandbox (`tests/sandboxes/screenshot_circular/`) for a manual terminal screenshot demonstrating `Z106` `CIRCULAR_LINK` |
+
+### When a documentation engine releases
+
+`just version` bumps Zenzic's own version. A documentation engine's version is a
+different thing and lives in three files that must agree: the tested version in
+`docs/reference/compatibility.md`, the dependency pin in `pyproject.toml`, and
+whatever `uv.lock` resolves that pin to.
+
+`just bump-engine "MkDocs" 1.6.2` updates the matrix and stamps today's date.
+For an engine that is a pip dependency it **refuses** a version the lock does not
+carry — bump the pin, run `uv lock`, then bump the matrix. For an engine that is
+not a dependency (Zensical is parsed as data and never installed) there is
+nothing to check against, and the date records a manual review rather than a
+lock. Either way, re-read the verification-method cell afterwards: a new version
+may have changed how it is tested, and the date alone does not say that.
+
+---
+
+## Type Checking: `mypy` Is Authoritative
+
+**`mypy` is the project's authoritative type-checker.** It is the one actually run by the
+gates — `nox -s typecheck` and the `mypy` `pre-commit` hook, both running `mypy src/` — so its
+verdict is deterministic and reproducible for every contributor and in CI, independent of
+which editor anyone happens to use. Configuration lives in one place, `[tool.mypy]` in
+`pyproject.toml` (`strict = true`, `python_version = "3.10"`).
+
+Pylance (or Pyright, or any other in-editor checker) is a useful interactive aid, but it is
+**not** the gating standard, and it does not always agree with `mypy` — the two implement
+different inference and reachability rules. Practical consequences:
+
+- **Do not "fix" a line that `mypy` accepts** because your editor underlines it. If the
+  gate is green, the code is correct by this project's standard. If you want the squiggle
+  gone, prefer a change `mypy` also considers an improvement (a real annotation) over a
+  suppression comment.
+- **Do not add a `# type: ignore` that `mypy` does not need.** `strict = true` enables
+  `warn_unused_ignores`, so an unnecessary suppression is itself reported as an error —
+  an ignore added purely to satisfy an editor will fail the gate.
+- **Pin the error code** when a suppression is genuinely required: write
+  `# type: ignore[union-attr]`, not a bare `# type: ignore`. A wrongly-coded ignore
+  suppresses nothing and is reported as unused, which is exactly how a real defect once
+  hid in this repository — a test helper annotated `-> object` produced `attr-defined`
+  errors that the `[union-attr]` ignores on those lines never covered, so both the errors
+  and the dead comments sat unnoticed.
+
+`tests/` is not yet covered by the gate (the gates run `mypy src/`). Contributions to
+`tests/` are still expected to be annotated in good faith, and the remaining known errors
+there are tracked for burndown before the gate is extended.
+
+---
+
+## Editor Tooling vs the Gate
+
+The same principle extends beyond type checking: **the gate — pre-commit, `just verify`,
+CI — is the authority on every finding, and the editor is an interactive aid.** Where a
+VS Code extension can be pointed at the exact tool version the gate runs, this repository
+does so in the committed `.vscode/settings.json`:
+
+- **mypy** — `"mypy-type-checker.importStrategy": "fromEnvironment"` makes the mypy
+  extension run the `.venv`'s mypy, the same binary the pre-commit hook invokes via
+  `uv run mypy src/`. Without it the extension falls back to the mypy it bundles, which
+  is generally a different version producing genuinely different analysis.
+- **Ruff** — `"ruff.importStrategy": "fromEnvironment"` makes the Ruff extension use the
+  `.venv`'s ruff, the same pinned version the pre-commit gate runs, and Ruff is set as
+  the workspace's Python formatter. The gate formats with `ruff format`; do not enable a
+  second Python formatter (e.g. Black) — it can only disagree with the gate.
+
+One asymmetry cannot be closed: **markdownlint**. The gate pins `markdownlint-cli`
+(exact SHA-pinned version in `.pre-commit-config.yaml`), while the VS Code markdownlint
+extension bundles its own engine (`markdownlint-cli2`) and exposes no setting that points
+it at another version — its settings control rule configuration, not the engine. Both
+sides read the same `.markdownlint.json`, but engine versions differ, so behaviour can
+diverge in either direction — mostly the editor flagging findings the gate's older engine
+does not have (`.markdownlint.json` sets `default: true`, so a newer engine's new rules
+switch themselves on), occasionally the reverse where a rule was relaxed upstream. When
+they disagree, the gate is right by definition: a squiggle the gate does not report needs
+no code change, and a clean editor does not excuse a red `just verify`.
 
 ---
 
@@ -277,6 +400,25 @@ When working with file paths in any contribution, use `pathlib.Path` throughout 
 - Test fixtures that construct paths must use `tmp_path / "subdir"`, not `"/tmp/subdir"`.
 
 ---
+
+## Continuous Integration
+
+CI runs the **whole matrix on every pull request**, with nothing to opt into.
+
+- **The matrix** is `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on 3.10.
+  Three jobs; all three must pass. You can also run it on demand from the Actions tab
+  (**Zenzic Core CI → Run workflow**), which uses the `workflow_dispatch` trigger.
+- **`fail-fast` is off deliberately**, so a failure on one platform does not hide the
+  result on another — a cross-platform problem should be diagnosable from one run.
+
+Windows is in on evidence rather than symmetry: two failures in the v0.31.0 cycle were
+Windows-only and invisible on Linux — a hand-built subprocess environment that dropped
+`SystemRoot`, and `text=True` with no explicit codec failing to decode cp1252. Both were in
+test scaffolding, so both would have merged under a Linux-only gate.
+
+The cost, measured rather than estimated: the three jobs take 124 s, 171 s and 214 s and
+run in parallel, so waiting goes from 124 s to 214 s — **90 seconds** — measured on
+GitHub's `ubuntu-latest` and `windows-latest` runners in September 2026.
 
 ## 📖 Documentation & Support
 

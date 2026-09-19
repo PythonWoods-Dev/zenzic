@@ -12,22 +12,30 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pathspec.gitignore
+
 from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import (
+    MKDOCS_CONFIG_NAMES,
     _PermissiveYamlLoader as _PermissiveYamlLoader,  # noqa: F401
     find_mkdocs_config_file,
     load_mkdocs_config,
     load_mkdocs_config_file,
 )
 from zenzic.core.adapters._utils import (
+    PATHSPEC_KEYS,
     _extract_blog_dir,
+    _extract_excluded_docs_spec,
+    _extract_not_in_nav_spec,
     _iter_plugins,
     case_sensitive_exists,
     dedupe_roots,
     remap_to_default_locale,
+    validate_pathspec_value,
 )
 from zenzic.core.exceptions import ZenzicConfigError
+from zenzic.core.extensions import EnabledExtensions
 from zenzic.models.config import BuildContext
 
 
@@ -57,6 +65,40 @@ def _iter_path_like_values(value: Any) -> list[str]:
     return out
 
 
+def _collect_nav_includes(node: Any, out: list[str]) -> None:
+    """Collect ``!include`` targets from a nav tree, at any depth.
+
+    The plugin's own documented spelling puts the directive in the *value* of a
+    titled entry (``- Sub: '!include ./sub/mkdocs.yml'``). The previous version
+    read bare string items and dicts keyed on ``!include``, and never looked at
+    a value, so the canonical form matched nothing and the sub-project's
+    ``docs_dir`` was never discovered — which is a security reach gap, because
+    these roots are what ``iter_security_scan_sources`` walks.
+
+    Nav is a tree, so this recurses: an include can sit inside a section, and a
+    matcher that only reads the top level would be the same defect one level
+    down.
+    """
+    if isinstance(node, str):
+        if node.startswith("!include"):
+            parts = node.split(maxsplit=1)
+            if len(parts) == 2 and parts[1].strip():
+                out.append(parts[1].strip())
+        return
+    if isinstance(node, list):
+        for item in node:
+            _collect_nav_includes(item, out)
+        return
+    if isinstance(node, dict):
+        for key, value in node.items():
+            # A dict keyed on the directive carries a bare path as its value;
+            # every other key is a section title whose value may itself be one.
+            if key == "!include" and isinstance(value, str) and value.strip():
+                out.append(value.strip())
+            else:
+                _collect_nav_includes(value, out)
+
+
 def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
     """Extract include-config paths from monorepo-style MkDocs plugins."""
     includes: list[str] = []
@@ -68,18 +110,7 @@ def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
                 continue
             includes.extend(_iter_path_like_values(plugin_cfg[key]))
 
-    nav = doc_config.get("nav")
-    if isinstance(nav, list):
-        for item in nav:
-            if isinstance(item, str) and item.startswith("!include"):
-                parts = item.split(maxsplit=1)
-                if len(parts) == 2 and parts[1].strip():
-                    includes.append(parts[1].strip())
-            elif isinstance(item, dict):
-                include_val = item.get("!include")
-                if isinstance(include_val, str) and include_val.strip():
-                    includes.append(include_val.strip())
-
+    _collect_nav_includes(doc_config.get("nav"), includes)
     return includes
 
 
@@ -142,6 +173,48 @@ def _load_doc_config(repo_root: Path) -> dict[str, Any]:
 _IMAGE_EXT_RE_MKDOCS = re.compile(r"\.(png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
 
 
+def check_engine_patterns(repo_root: Path) -> list[tuple[str, str]]:
+    """Report ``mkdocs.yml`` pattern keys whose value cannot be parsed (Z407).
+
+    MkDocs refuses to build on these: ``Invalid git pattern``, ``Aborted with a
+    configuration error!``.  Zenzic cannot follow it there — an analyser that
+    aborts denies the reader every other finding in the repository — so the
+    pattern is reported and the scan continues.  What it must not do is stay
+    silent, which is what happened before this check existed: the declaration
+    had no effect and the only trace was the finding the author expected to be
+    suppressed, still firing, with nothing saying why.
+
+    Returns:
+        List of ``(rel_path, message)`` tuples, one per unusable key. Empty when
+        every declared pattern parses or none is declared.
+    """
+    config_file = find_mkdocs_config_file(repo_root)
+    if config_file is None:
+        return []
+    doc_config = _load_doc_config(repo_root)
+    if not doc_config:
+        return []
+    try:
+        rel = config_file.relative_to(repo_root).as_posix()
+    except ValueError:
+        rel = config_file.name
+
+    issues: list[tuple[str, str]] = []
+    for key in PATHSPEC_KEYS:
+        if key not in doc_config:
+            continue
+        reason = validate_pathspec_value(doc_config[key])
+        if reason is not None:
+            issues.append(
+                (
+                    rel,
+                    f"'{key}' declares a pattern that cannot be parsed and has no effect: "
+                    f"{reason}. MkDocs refuses to build with it.",
+                )
+            )
+    return issues
+
+
 def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
     """Check that theme assets declared in ``mkdocs.yml`` exist on disk.
 
@@ -188,7 +261,7 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
                 (
                     rel,
                     f"{field_key} asset not found on disk: '{rel}' "
-                    f"(declared as {config_key}: '{value}' in mkdocs.yml) [Z404]",
+                    f"(declared as {config_key}: '{value}' in mkdocs.yml)",
                 )
             )
 
@@ -471,6 +544,16 @@ class MkDocsAdapter(BaseAdapter):
                 nav_paths.add(f"{p}index.md")
         self._nav_paths: frozenset[str] = frozenset(nav_paths)
 
+        # MkDocs' ``not_in_nav``: pages the author declared as deliberately
+        # absent from the nav.  Upstream still builds and serves them; the key
+        # only exempts them from the nav-omission diagnostic.  Precomputed once
+        # here for the same reason as ``_nav_paths`` — ``_classify_route`` runs
+        # per file.
+        self._not_in_nav_spec = _extract_not_in_nav_spec(self._doc_config)
+
+        # exclude_docs / draft_docs: pages absent from the built site.
+        self._excluded_docs_spec = _extract_excluded_docs_spec(self._doc_config)
+
         # Emit a UX hint when the config is redundant: reconfigure_material
         # auto-generates the switcher, so extra.alternate is both unnecessary
         # and harmful (it competes with the plugin and can hide the switcher).
@@ -592,13 +675,59 @@ class MkDocsAdapter(BaseAdapter):
         """
         return self._config_file_found or bool(self._locale_dirs)
 
+    def get_enabled_extensions(self) -> EnabledExtensions:
+        """Read ``markdown_extensions`` from the project's own MkDocs config.
+
+        Uses the same permissive loader the nav already goes through: a real
+        ``mkdocs.yml`` carries ``!!python/name:`` tags that ``yaml.safe_load``
+        refuses outright, and both measured corpora have them.
+
+        That loader does not resolve those tags -- it yields the empty string
+        for a bare one, and drops the name from an entry that carries options.
+        So an extension *declared by tag* is invisible here, by measurement
+        rather than by assumption, and `EnabledExtensions.unreadable` counts
+        those entries instead of inventing names from their option keys.
+        """
+        if self._repo_root is None:
+            # No repository root means no config to read, which is the same
+            # position an engine with no configuration is in: the default set,
+            # not emptiness. Emptiness reads 1,112 lines of our own corpus as
+            # indented code.
+            return super().get_enabled_extensions()
+        config = _load_doc_config(self._repo_root)
+        return EnabledExtensions.from_declaration(config.get("markdown_extensions"))
+
     def get_metadata_files(self) -> frozenset[str]:
         """MkDocs configuration files — excluded from Z405/Z903."""
-        names: set[str] = {"mkdocs.yml"}
+        # Both names: a project using `mkdocs.yaml` had its configuration
+        # file reported as an unused asset, because this set named one.
+        names: set[str] = set(MKDOCS_CONFIG_NAMES)
         plugin_names = {name for name, _ in _iter_plugins(self._doc_config)}
         if "awesome-pages" in plugin_names or "mkdocs-awesome-pages-plugin" in plugin_names:
             names.add(".pages")
         return frozenset(names)
+
+    def get_output_dirs(self) -> frozenset[str]:
+        """The directory MkDocs builds into, from ``site_dir`` (default ``site``).
+
+        Read from the same parsed config the adapter already uses for
+        ``docs_dir``. The value comes out of a file the *scanned project*
+        writes, so it is resolved against the repository root and dropped
+        unless it stays inside it -- an absolute path or a ``../`` escape
+        declares nothing about this repository and must not prune a directory
+        outside it. Mirrors the bound applied in ``discovery.walk_files``.
+        """
+        if self._repo_root is None:
+            return frozenset()
+        raw = self._doc_config.get("site_dir")
+        site_dir = str(raw).strip() if raw is not None else "site"
+        if not site_dir:
+            return frozenset()
+        repo_root = self._repo_root.resolve(strict=False)
+        candidate = (repo_root / site_dir).resolve(strict=False)
+        if candidate == repo_root or not candidate.is_relative_to(repo_root):
+            return frozenset()
+        return frozenset({candidate.relative_to(repo_root).as_posix()})
 
     @property
     def use_directory_urls(self) -> bool:
@@ -610,7 +739,7 @@ class MkDocsAdapter(BaseAdapter):
     @property
     def watched_config_files(self) -> frozenset[str]:
         """Return MkDocs configuration filenames for LSP hot-reloading."""
-        return frozenset({"mkdocs.yml", "mkdocs.yaml"})
+        return frozenset(MKDOCS_CONFIG_NAMES)
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
@@ -729,7 +858,22 @@ class MkDocsAdapter(BaseAdapter):
         if self._blog_posts_prefix and rel_posix.startswith(f"{self._blog_posts_prefix}/"):
             return "REACHABLE"
 
+        # not_in_nav: the author declared this page as deliberately absent from
+        # the nav.  MkDocs matches the same gitignore spec against the same
+        # docs-root-relative path (``structure/files.py``'s ``set_exclusions``
+        # against ``file.src_uri``) and marks it NOT_IN_NAV — still built, still
+        # served, merely exempt from the nav-omission diagnostic.  A declared
+        # page is therefore reachable by intent, not an orphan.  This runs after
+        # the nav-membership check so a page that is both listed and declared
+        # stays REACHABLE for the ordinary reason.
+        if self._not_in_nav_spec is not None and self._not_in_nav_spec.match_file(rel_posix):
+            return "REACHABLE"
+
         return "ORPHAN_BUT_EXISTING"
+
+    def get_excluded_docs_spec(self) -> pathspec.gitignore.GitIgnoreSpec | None:
+        """``exclude_docs``/``draft_docs`` as one matcher, or ``None`` if unset."""
+        return self._excluded_docs_spec
 
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return unified routing metadata for a MkDocs source file.

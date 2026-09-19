@@ -8,8 +8,6 @@ description: "Analysis of the z405-unused-assets fixture."
 
 **Z-Code:** `Z405 UNUSED_ASSET` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z405UnusedAssets />
-
 ---
 
 ## The Fixture
@@ -30,20 +28,21 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 2 files (1 docs, 1 assets) - 0.0s - 129 files/s
+standalone • 2 files (1 pages, 1 assets) • 0.0s • 70 files/s
 
-docs/assets/banner.png  !  [Z405]  File not referenced in any documentation
+docs/assets/banner.png  ⚠  [Z405]  File not referenced in any documentation
 page.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 97/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`
@@ -70,4 +69,4 @@ Exit code 1. Delete the unused asset file from the repository, or add it to the 
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

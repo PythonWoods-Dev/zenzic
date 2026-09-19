@@ -12,6 +12,9 @@
     },
     {
       "$ref": "#/$defs/capExceededReport"
+    },
+    {
+      "$ref": "#/$defs/perCheckReport"
     }
   ],
   "$defs": {
@@ -27,71 +30,25 @@
     "checkAllReport": {
       "type": "object",
       "required": [
-        "links",
-        "orphans",
-        "snippets",
-        "unused_assets",
-        "nav_contract",
-        "references",
         "suppression_count",
         "suppression_cap",
         "suppression_debt_pts",
-        "debt_status"
+        "debt_status",
+        "findings"
       ],
       "properties": {
-        "links": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "engine": {
+          "$ref": "#/$defs/engineResolution"
         },
-        "orphans": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "security_breaches": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run \u2014 never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
         },
-        "snippets": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "file",
-              "line",
-              "message"
-            ],
-            "properties": {
-              "file": {
-                "type": "string"
-              },
-              "line": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "message": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "unused_assets": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "nav_contract": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "references": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "security_incidents": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run \u2014 never suppressible, Exit 3."
         },
         "suppression_count": {
           "type": "integer",
@@ -107,6 +64,13 @@
         },
         "debt_status": {
           "$ref": "#/$defs/debtStatus"
+        },
+        "findings": {
+          "type": "array",
+          "description": "Every finding this run reported, structured. Added alongside the grouped arrays above rather than replacing them: those are the original contract and consumers parse them today, but they are not machine-readable -- references[] carries the location and code inside an English string and links[] carries neither, so a link finding could not be resolved to a file from this payload at all.",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
         }
       },
       "additionalProperties": false
@@ -226,6 +190,51 @@
         },
         "debt_status": {
           "$ref": "#/$defs/debtStatus"
+        },
+        "baseline_status": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "absent"
+          ],
+          "description": "Freshness of the saved score snapshot (.zenzic-score.json) at the time of this run. 'absent' when no snapshot exists yet."
+        },
+        "baseline_age_days": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Age of the saved score snapshot in days, or null when baseline_status is 'absent'."
+        },
+        "score_trend": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Delta against the saved snapshot, or null when no snapshot exists or it cannot be parsed.",
+          "required": [
+            "baseline_score",
+            "current_score",
+            "delta"
+          ],
+          "properties": {
+            "baseline_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "current_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "delta": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -279,7 +288,8 @@
             "configured_global_cap",
             "excess_debt",
             "inline_ignores",
-            "per_file_ignores"
+            "per_file_ignores",
+            "directory_policies"
           ],
           "properties": {
             "active_suppressions": {
@@ -299,6 +309,10 @@
               "minimum": 0
             },
             "per_file_ignores": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "directory_policies": {
               "type": "integer",
               "minimum": 0
             }
@@ -338,6 +352,138 @@
         }
       },
       "additionalProperties": false
+    },
+    "finding": {
+      "description": "One finding, in the shape every --format json payload uses. Defined once and referenced, because the aggregate and per-check payloads must resolve the same finding to the same file, line and code.",
+      "type": "object",
+      "required": [
+        "rel_path",
+        "line_no",
+        "code",
+        "severity",
+        "message"
+      ],
+      "properties": {
+        "rel_path": {
+          "type": "string",
+          "description": "Path relative to the repository root."
+        },
+        "line_no": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line; 0 means the finding is about the file itself."
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^Z[0-9]{3}$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "security_breach",
+            "security_incident"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "col_start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based column, matching the engine's own offset and the caret the text output draws. 0 means no column was determined, not column zero. SARIF's startColumn is this value plus one, since SARIF columns are 1-based."
+        },
+        "fixable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "perCheckReport": {
+      "type": "object",
+      "description": "What every `zenzic check <subcommand>` emits with `--format json`: the six subcommands (links, orphans, snippets, references, assets, placeholders) all produce this one shape. Declared in v0.31.0 -- it was emitted by every one of them and matched no branch of this schema's `oneOf`, so a consumer validating against the published contract would have rejected the tool's own output. Unlike `checkAllReport` it carries no grouped legacy arrays: the per-check commands were built after `findings[]` existed and never had them.",
+      "required": [
+        "findings",
+        "summary"
+      ],
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "errors",
+            "warnings",
+            "info",
+            "security_incidents",
+            "security_breaches",
+            "elapsed_seconds"
+          ],
+          "properties": {
+            "errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warnings": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "info": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security_incidents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security_breaches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "elapsed_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Wall-clock seconds for this check. Informational: it varies per run and per machine, so nothing should gate on it."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "engineResolution": {
+      "type": "object",
+      "description": "Which build-engine adapter this run asked for and which one it used. Present because the two can differ: a declared engine that finds none of its own configuration is replaced by the standalone adapter, and before v0.31.0 the only signal was a notice on stderr, which no CI consumer reads. A consumer gating on `substituted` is asking whether the findings below describe the engine it configured.",
+      "required": [
+        "declared",
+        "resolved",
+        "substituted"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "type": "string",
+          "description": "The engine named in configuration, or 'auto'."
+        },
+        "resolved": {
+          "type": "string",
+          "description": "The engine whose adapter actually produced these findings."
+        },
+        "substituted": {
+          "type": "boolean",
+          "description": "True when `resolved` differs from `declared` because the declared engine found no configuration."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Present only when `substituted` is true: what was looked for and not found."
+        }
+      }
     }
   }
 }

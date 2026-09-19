@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,7 @@ from zenzic.core.reporter import Finding
 from zenzic.core.sovereign_context import get_sovereign_context
 from zenzic.core.suppressions import count_inline_suppressions
 from zenzic.core.ui import ZenzicPalette, emoji
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -37,10 +40,11 @@ class SuppressionAudit:
     per_file_count: int
     cap: int
     inline_hotspots: dict[str, int] = field(default_factory=dict)
+    directory_policy_count: int = 0
 
     @property
     def total(self) -> int:
-        return self.inline_count + self.per_file_count
+        return self.inline_count + self.per_file_count + self.directory_policy_count
 
     @property
     def excess(self) -> int:
@@ -75,6 +79,8 @@ class SuppressionAudit:
         )
         if self.per_file_count > 0:
             rows.append((".zenzic.toml [per-file]", self.per_file_count))
+        if self.directory_policy_count > 0:
+            rows.append((".zenzic.toml [directory-policy]", self.directory_policy_count))
         rows.sort(key=lambda item: item[1], reverse=True)
         return rows[:limit]
 
@@ -96,10 +102,7 @@ def collect_inline_suppression_stats(
         if count <= 0:
             continue
         total += count
-        try:
-            rel = str(md_file.relative_to(docs_root))
-        except ValueError:
-            rel = str(md_file)
+        rel = repo_relative_label(md_file, docs_root)
         hotspots[rel] = count
     return total, hotspots
 
@@ -119,6 +122,61 @@ def count_per_file_ignores(config: ZenzicConfig) -> int:
     return total
 
 
+def _declared_pairs(table: dict[str, Any]) -> set[tuple[str, str]]:
+    """(pattern, code) pairs a governance table declares, normalised as the usage ledger stores them."""
+    pairs: set[tuple[str, str]] = set()
+    for pattern, codes in table.items():
+        if not isinstance(codes, list):
+            continue
+        for code in codes:
+            normalized = str(code).strip().upper()
+            if normalized.startswith("Z"):
+                pairs.add((pattern, normalized))
+    return pairs
+
+
+def build_suppression_audit(
+    reports: Iterable[Any], config: ZenzicConfig, docs_root: Path
+) -> SuppressionAudit:
+    """Count the declared exceptions this run used -- every kind, and only those.
+
+    A suppression is one declared decision to look away, and it costs one point. So the
+    count is taken after the scan, from what was actually consumed: an inline directive
+    that silenced a finding (its tracker marked it consumed), and a per-file or
+    directory-policy pair that silenced one (the usage ledger no longer lists it unused).
+    A declaration that silenced nothing costs nothing here; it is reported as dead
+    configuration instead (``Z603``, ``Z620``).
+
+    Without a usage ledger nothing is known to be unused, so every declared pair counts.
+    """
+    inline_total = 0
+    hotspots: dict[str, int] = {}
+    for report in reports:
+        tracker = getattr(report, "suppression_tracker", None)
+        if tracker is None:
+            continue
+        used = sum(1 for directive in tracker.directives if directive.consumed)
+        if used <= 0:
+            continue
+        inline_total += used
+        rel = repo_relative_label(report.file_path, docs_root)
+        hotspots[rel] = hotspots.get(rel, 0) + used
+
+    per_file = _declared_pairs(config.governance.per_file_ignores)
+    directory = _declared_pairs(config.governance.directory_policies)
+    usage = getattr(config, "_global_tracker", None)
+    if usage is not None:
+        per_file -= usage.unused_per_file_ignores
+        directory -= usage.unused_dir_policies
+    return SuppressionAudit(
+        inline_count=inline_total,
+        per_file_count=len(per_file),
+        cap=config.governance.suppression_cap,
+        inline_hotspots=hotspots,
+        directory_policy_count=len(directory),
+    )
+
+
 def suppression_remediation_steps() -> list[str]:
     """Canonical remediation steps for suppression CAP governance failures."""
     return [
@@ -133,8 +191,19 @@ def print_suppression_audit_footer(
     *,
     cap_exceeded: bool = False,
     audit_mode: bool = False,
+    scoped_to_single_file: bool = False,
 ) -> None:
-    """Print suppression audit footer in a consistent compact format."""
+    """Print suppression audit footer in a consistent compact format.
+
+    Args:
+        scoped_to_single_file: When ``True``, the caller is running a
+            single-file ``check <file>`` scan — the DQS score line above
+            this footer is file-scoped, but the suppression CAP is
+            deliberately a project-level governance ceiling, not a per-file
+            concept, so the number printed here always stays project-wide.
+            Setting this appends an explicit "(project-wide)" label so the
+            two adjacent lines never present unstated, mismatched scopes.
+    """
     tags: list[str] = []
     if suppression_audit.extended_debt:
         tags.append("[yellow][EXTENDED DEBT][/yellow]")
@@ -143,17 +212,40 @@ def print_suppression_audit_footer(
     if cap_exceeded:
         tags.append(f"[{ZenzicPalette.ERROR}][CAP_EXCEEDED][/]")
     suffix = f" {' '.join(tags)}" if tags else ""
+    scope_label = f" [{ZenzicPalette.DIM}](project-wide)[/]" if scoped_to_single_file else ""
+    # The status tags follow the ratio rather than the breakdown: at 80 columns the
+    # breakdown can wrap, and a tag split across two lines ("[EXTENDED" / "DEBT]") is
+    # the part a reader scans for.
     _shared.console.print(
         f"{emoji('lock')} [{ZenzicPalette.DIM}]Suppression Audit:[/] "
-        f"{suppression_audit.total}/{suppression_audit.cap} "
-        f"(inline: {suppression_audit.inline_count}, per-file: {suppression_audit.per_file_count})"
-        f"{suffix}"
+        f"{suppression_audit.total}/{suppression_audit.cap}"
+        f"{suffix} "
+        f"(inline: {suppression_audit.inline_count}, per-file: {suppression_audit.per_file_count}, "
+        f"directory: {suppression_audit.directory_policy_count})"
+        f"{scope_label}"
     )
+    # The default view removes exempted findings before display, so a reader of
+    # this footer sees the count of policies in use but never what they took out.
+    # Name the route to the detail rather than reprinting the findings here: the
+    # exemptions exist to keep them out of this view, and --audit already shows
+    # each one with a [POLICY_EXEMPTION] label.
+    if suppression_audit.directory_policy_count and not audit_mode:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]   {suppression_audit.directory_policy_count} directory "
+            f"{'policy' if suppression_audit.directory_policy_count == 1 else 'policies'} "
+            f"removed findings from this report — run with --audit to see them.[/]"
+        )
     if audit_mode:
+        # The count alone leaves the reader to infer what happened to the score.
+        # They usually infer wrongly: a run that scores 96 normally and 59 here
+        # looks like the flag made something worse, when the two numbers answer
+        # different questions -- one with the project's declared exemptions, one
+        # without. Say so on the same line as the count.
         _shared.console.print(
             f"[{ZenzicPalette.DIM}]Sovereign Audit Mode:[/] "
             f"ignored {suppression_audit.total} active suppression directives "
-            "(inline + per-file)."
+            "(inline + per-file + directory policy). The score above is computed "
+            "without them, so it is not comparable with a normal run's."
         )
 
 
@@ -196,6 +288,7 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
         Text.from_markup(f"[bold {ZenzicPalette.BRAND}][BREAKDOWN][/]"),
         _metric_number("Inline Ignores (zenzic:ignore):", suppression_audit.inline_count),
         _metric_number("Per-File Ignores (config):", suppression_audit.per_file_count),
+        _metric_number("Directory Policies (config):", suppression_audit.directory_policy_count),
         Text(),
         Text.from_markup(f"[bold {ZenzicPalette.BRAND}][HOTSPOTS - Top Offenders][/]"),
     ]
@@ -280,6 +373,7 @@ def build_cap_exceeded_json_payload(suppression_audit: SuppressionAudit) -> dict
             "excess_debt": suppression_audit.excess,
             "inline_ignores": suppression_audit.inline_count,
             "per_file_ignores": suppression_audit.per_file_count,
+            "directory_policies": suppression_audit.directory_policy_count,
         },
         "hotspots": [
             {"path": path, "count": count}
@@ -288,6 +382,41 @@ def build_cap_exceeded_json_payload(suppression_audit: SuppressionAudit) -> dict
         "remediation": suppression_remediation_steps(),
         "playbook": "https://zenzic.dev/developers/how-to/release-governance-protocol",
     }
+
+
+def build_cap_exceeded_codequality_payload(
+    suppression_audit: SuppressionAudit,
+) -> list[dict[str, Any]]:
+    """Build a GitLab Code Quality report for a suppression-cap failure.
+
+    The cap breach aborts the run before any finding exists, so this is the one
+    Code Quality report Zenzic emits that is not derived from findings. It still
+    has to be a valid one: an empty or absent artifact is displayed by GitLab as
+    "no code quality issues", which would show a clean merge request for a
+    pipeline that failed. A single ``blocker`` violation says the opposite,
+    loudly, in the place a reviewer is already looking.
+
+    Anchored to ``.zenzic.toml`` line 1 -- the same location the SARIF payload
+    uses -- because that is where the cap is configured and where the remedy is
+    applied. The fingerprint is a constant: there is only ever one of these per
+    report, and a stable value lets GitLab recognise it as the same unresolved
+    breach across commits rather than a new one each pipeline.
+    """
+    message = (
+        f"Suppression cap exceeded: {suppression_audit.total}/{suppression_audit.cap} "
+        f"({suppression_audit.excess} over). Architectural debt limit reached. "
+        "Remediation: "
+        + " ".join(f"{i}. {step}" for i, step in enumerate(suppression_remediation_steps(), 1))
+    )
+    return [
+        {
+            "description": message,
+            "check_name": "SUPPRESSION_CAP_EXCEEDED",
+            "fingerprint": hashlib.sha256(b"zenzic:SUPPRESSION_CAP_EXCEEDED").hexdigest(),
+            "severity": "blocker",
+            "location": {"path": ".zenzic.toml", "lines": {"begin": 1}},
+        }
+    ]
 
 
 def build_cap_exceeded_sarif_payload(
@@ -352,6 +481,7 @@ def build_cap_exceeded_sarif_payload(
                                 "excess_debt": suppression_audit.excess,
                                 "inline_ignores": suppression_audit.inline_count,
                                 "per_file_ignores": suppression_audit.per_file_count,
+                                "directory_policies": suppression_audit.directory_policy_count,
                                 "hotspots": [
                                     {"path": path, "count": count}
                                     for path, count in suppression_audit.top_offenders(limit=5)

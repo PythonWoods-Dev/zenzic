@@ -17,6 +17,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pathspec.gitignore
+
 from zenzic.core import regex as re
 
 
@@ -45,6 +47,123 @@ def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]
             normalized.append((name, cfg if isinstance(cfg, dict) else {}))
 
     return normalized
+
+
+#: MkDocs keys whose value is a ``config_options.PathSpec`` — gitignore-style
+#: patterns in one multiline string.  All three share a parser, so one
+#: validator covers them and a fourth key costs a list entry.
+PATHSPEC_KEYS: tuple[str, ...] = ("not_in_nav", "exclude_docs", "draft_docs")
+
+
+def validate_pathspec_value(raw: object) -> str | None:
+    """Return why ``raw`` cannot be used as a MkDocs PathSpec, or ``None``.
+
+    Only genuinely unparseable input is reported.  ``pathspec`` raises two
+    unrelated families — ``GitIgnorePatternError`` (a ``ValueError``) for ``!``
+    and ``\\``, and a bare ``re2._re2.Error`` for a bad character class such as
+    ``[[:bad:]`` — so the guard catches ``Exception`` and is narrowed by scope:
+    only the parse is inside the ``try``.
+
+    A pattern that parses and matches nothing is **not** reported.
+    ``docs/[orphan.md`` compiles to a literal that no file will ever equal, and
+    from the outside that is indistinguishable from a pattern whose targets were
+    all fixed — which is the ordinary, correct end state of an exemption.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        return f"expected a multiline string, got {type(raw).__name__}"
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    try:
+        pathspec.gitignore.GitIgnoreSpec.from_lines(lines)
+    except Exception as exc:  # two unrelated families; see the docstring
+        return str(exc)
+    return None
+
+
+def _extract_excluded_docs_spec(
+    doc_config: dict[str, Any],
+) -> pathspec.gitignore.GitIgnoreSpec | None:
+    """Build a matcher for pages MkDocs will not put in the built site.
+
+    Covers ``exclude_docs`` and ``draft_docs`` together, because the question
+    Zenzic asks is the same for both: *will a reader be able to reach this page
+    on the published site?*
+
+    Upstream, the two differ by one level. ``exclude_docs`` marks a file
+    ``InclusionLevel.EXCLUDED`` — never built, never served. ``draft_docs``
+    marks it ``DRAFT``, and ``commands/build.py`` picks the set with
+    ``inclusion = is_in_serve if serve_url else is_included``: ``mkdocs serve``
+    renders a draft, ``mkdocs build`` omits it.
+
+    **Zenzic adopts build semantics**, and that is a choice rather than an
+    oversight. This tool analyses a repository, not a running command; it cannot
+    know whether the next invocation will be ``serve`` or ``build``, and the
+    published site is what a reader gets. A draft page is therefore out of
+    quality scope, exactly like an excluded one.
+
+    Malformed patterns are not this function's business — they are reported as
+    ``Z407`` — so an unparseable value simply declares nothing here.
+    """
+    specs: list[str] = []
+    for key in ("exclude_docs", "draft_docs"):
+        raw = doc_config.get(key)
+        if not isinstance(raw, str):
+            continue
+        specs.extend(ln for ln in raw.splitlines() if ln.strip())
+    if not specs:
+        return None
+    try:
+        return pathspec.gitignore.GitIgnoreSpec.from_lines(specs)
+    except Exception:  # two unrelated families; see validate_pathspec_value
+        return None
+
+
+def _extract_not_in_nav_spec(
+    doc_config: dict[str, Any],
+) -> pathspec.gitignore.GitIgnoreSpec | None:
+    """Build MkDocs' ``not_in_nav`` matcher from an engine config, or ``None``.
+
+    Upstream semantics, read from MkDocs 1.6.1 rather than inferred: the key is
+    a ``config_options.PathSpec``, i.e. **gitignore-style patterns in a single
+    multiline string**.  ``set_exclusions`` (``structure/files.py``) matches it
+    against ``file.src_uri`` — the docs-root-relative POSIX path — and marks a
+    hit ``InclusionLevel.NOT_IN_NAV``.  Such a page is still built and served;
+    it is only exempt from the nav-omission diagnostic
+    (``validation.nav.omitted_files``).  Excluding a page from the *site* is
+    ``exclude_docs``/``draft_docs``, which are different keys.
+
+    A non-string value returns ``None`` deliberately.  MkDocs raises
+    *"Expected a multiline string, but a <class 'list'> was given"* and aborts
+    the build, so honouring a list here would invent a semantic upstream
+    rejects and attribute it to the generator's key.  Declaring nothing leaves
+    the page an orphan, which is the finding that tells the author their
+    configuration is wrong.
+    """
+    raw = doc_config.get("not_in_nav")
+    if not isinstance(raw, str):
+        return None
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    try:
+        return pathspec.gitignore.GitIgnoreSpec.from_lines(lines)
+    except Exception:
+        # A malformed pattern is the author's to fix; it must not take the scan
+        # down, and it must not silently behave as "everything is declared".
+        #
+        # Caught broadly on purpose, and narrowed by scope instead of by type:
+        # only ``from_lines`` is inside the ``try``.  ``pathspec`` raises two
+        # unrelated families — ``GitIgnorePatternError`` (a ``ValueError``) for
+        # ``!`` and ``\``, and a bare ``re2._re2.Error`` for a bad character
+        # class such as ``[[:bad:]``, because it compiles gitignore syntax with
+        # ``re2`` directly.  That second one is not a ``ValueError`` and not
+        # ``zenzic.core.regex.error`` either: the shim translating RE2 failures
+        # only covers compiles routed through it.  Listing types here let the
+        # character-class case abort the whole scan.
+        return None
 
 
 def _extract_blog_dir(doc_config: dict[str, Any]) -> str | None:
@@ -76,6 +195,34 @@ def dedupe_roots(roots: list[Path]) -> list[Path]:
         seen.add(key)
         out.append(resolved)
     return out
+
+
+def resolve_content_roots(adapter: Any, config: Any, repo_root: Path) -> list[Path]:
+    """Return every extra Markdown root: what the engine declares, plus what the
+    user does.
+
+    One question -- *which trees besides ``docs_dir`` hold Markdown?* -- and
+    until 2026-09-19 it was asked in ten places, each calling
+    ``adapter.get_extra_content_roots(repo_root)`` and none consulting the user.
+    Ten call sites that must agree are ten chances for one of them to stop.
+
+    The user half exists because only ``MkDocsAdapter`` derives extra roots
+    from its own configuration; ``standalone`` and ``prebuilt`` return nothing.
+    Measured on a `create-docusaurus` scaffold: ``docs_dir = "docs"`` reaches 9
+    of the repository's 15 Markdown sources, and 4 of the 6 it misses are
+    ``blog/`` -- Docusaurus's second content plugin. There was no configuration
+    a user could write to reach their own blog.
+
+    Declaring a root here does not let anything outside the repository be read.
+    Roots are *reported*; every read goes through ``discovery.walk_files``,
+    which resolves each file against the exclusion manager's repository root
+    and skips what falls outside it. That boundary is where it was.
+    """
+    roots = list(adapter.get_extra_content_roots(repo_root))
+    for declared in getattr(config, "content_roots", ()) or ():
+        candidate = Path(declared)
+        roots.append(candidate if candidate.is_absolute() else repo_root / candidate)
+    return dedupe_roots(roots)
 
 
 def case_sensitive_exists(path: Path) -> bool:
@@ -179,7 +326,9 @@ def extract_frontmatter_slug(content: str) -> str | None:
     returned as-is (may be absolute ``/custom`` or relative ``custom``).
 
     This function is **engine-agnostic** — it works identically for
-    MkDocs, Docusaurus, Zensical, and Standalone.
+    MkDocs, Zensical, and Standalone (or any engine that reads a ``slug``
+    frontmatter field), since it only parses raw YAML text and has no
+    engine-specific logic.
 
     Args:
         content: Raw Markdown/MDX source text.

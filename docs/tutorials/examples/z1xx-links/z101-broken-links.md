@@ -8,8 +8,6 @@ description: "Walk through the z101-broken-links fixture: two internal link targ
 
 **Z-Code:** `Z101 LINK_BROKEN` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z101BrokenLinks />
-
 ---
 
 ## The Fixture
@@ -47,36 +45,32 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 65 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 39 files/s
 
-docs/index.md:11:2  x  [Z104]  'missing.md' not found in docs
+docs/index.md:11  ✘  [Z101]  'missing.md' resolves to '/missing/' which is not
+in the Virtual Site Map — the target file may not exist
 
      9  │  ## Broken References
     10  │
     11  ❱  - [Getting Started](missing.md) — this file does not exist → **Z101**
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    12  │  - [Setup Guide](guide/setup.md) — this directory does not exist →
-**Z101**
+    12  │  - [Setup Guide](guide/setup.md) — this directory does not exist → **…
     13  │
 
-docs/index.md:12:2  x  [Z104]  'guide/setup.md' not found in docs
+docs/index.md:12  ✘  [Z101]  'guide/setup.md' resolves to '/guide/setup/' which
+is not in the Virtual Site Map — the target file may not exist
 
     10  │
     11  │  - [Getting Started](missing.md) — this file does not exist → **Z101**
-    12  ❱  - [Setup Guide](guide/setup.md) — this directory does not exist →
-**Z101**
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    12  ❱  - [Setup Guide](guide/setup.md) — this directory does not exist → **…
     13  │
     14  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 2 errors  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 2 errors  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
-'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`
@@ -103,8 +97,8 @@ Exit code 1 is triggered in CI pipeline gates when broken links are detected to 
 
 ## See Also
 
-- [z102 — Anchor Missing](z102-anchor-missing) — the fragment-level variant of link integrity:
+- [z102 — Anchor Missing](../z102-anchor-missing/) — the fragment-level variant of link integrity:
   the target file exists, but the heading anchor does not.
-- [z103 — Orphan Link](z103-orphan-link) — link targets that exist on disk but are absent from
+- [z103 — Orphan Link](../z103-orphan-link/) — link targets that exist on disk but are absent from
   the site navigation (zensical engine required).
-- [Checks Reference — Z101](../../../reference/checks) — full rule specification.
+- [Checks Reference — Z101](../../../../reference/checks/) — full rule specification.

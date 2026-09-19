@@ -23,15 +23,39 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
+from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
-from zenzic.core.discovery import build_content_mounts
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
-def _uri_to_path(uri: str) -> Path:
-    """Convert a file:// URI to a cross-platform pathlib.Path."""
-    parsed = urlsplit(uri)
-    return Path(url2pathname(parsed.path))
+_ENCODED_DRIVE = re.compile(r"^/([A-Za-z])%3[Aa](/|$)")
+
+
+def uri_to_path(uri: str) -> Path:
+    """Convert a ``file://`` URI to a cross-platform :class:`Path`.
+
+    The single implementation. Three private copies of this function existed
+    -- here, in ``core.incremental`` and in ``lsp.server`` -- and all three
+    carried the same Windows defect, so fixing one left the engine crashing
+    on the next request. A structural test now asserts ``url2pathname`` is
+    called from exactly one module under ``src/``.
+
+    VS Code spells a Windows drive as ``file:///d%3A/...`` -- lowercase letter,
+    percent-encoded colon. ``url2pathname`` on Windows splits on the colon
+    *before* unquoting, so the encoded form hides the drive and the result is
+    a bogus rooted path (``\\d:\\a\\...``) that ``Path.as_uri()`` later
+    rejects as relative. Only the drive colon is decoded here; everything else
+    is left to ``url2pathname`` so ordinary escapes are not decoded twice.
+    """
+    path = urlsplit(uri).path
+    m = _ENCODED_DRIVE.match(path)
+    if m:
+        path = f"/{m.group(1).upper()}:{m.group(2)}{path[m.end() :]}"
+    return Path(url2pathname(path))
+
+
+_uri_to_path = uri_to_path  # local callers below
 
 
 _log = logging.getLogger(__name__)
@@ -135,21 +159,45 @@ def _detect_collisions(routes: list[Route]) -> None:
 # ─── VSM builder (I/O boundary) ───────────────────────────────────────────────
 
 
+def stale_manifest_message(rel_posix: str) -> str:
+    """Return the one wording for ``Z115``, for every surface that reports it.
+
+    The CLI (``core/scanner.py``) and the editor (``core/incremental.py``)
+    construct this finding independently, because they analyse on different
+    paths. Two copies of a sentence is how the two paths start disagreeing —
+    this module already carries comments about a capability living in CI and
+    not in the editor. The sentence lives here; both callers import it.
+    """
+    return (
+        f"'{rel_posix}' is not declared in the route manifest "
+        "(.zenzic-vsm.json), so it routes as IGNORED and every link to it is "
+        "reported unreachable. Re-run the generator that writes the manifest."
+    )
+
+
 def build_vsm(
     adapter: BaseAdapter,
     docs_root: Path,
     md_contents: dict[Path, str],
     *,
     anchors_cache: dict[Path, set[str]] | None = None,
-    extra_content_roots: list[Path] | None = None,
-    repo_root: Path | None = None,
+    extra_mounts: list[tuple[Path, str]] | None = None,
     static_assets: Iterable[Path] | set[Path] | list[Path] | None = None,
 ) -> VirtualSiteMap:
     """Build the Virtual Site Map from a pre-loaded file map.
 
-    This is the I/O boundary: all file content has already been loaded into
-    ``md_contents`` by the caller (``validate_links_async``).  No disk reads
-    occur here.
+    This function performs no I/O of any kind, and that is now true rather than
+    merely claimed. It said "No disk reads occur here" while taking
+    ``extra_content_roots`` and calling ``build_content_mounts()`` on them,
+    which calls ``Path.resolve()`` twice per root -- filesystem metadata
+    syscalls, and dependent on the process working directory for a relative
+    path. The claim held only for a project with no external content roots,
+    which is to say it held wherever nobody had looked.
+
+    Mounts are therefore computed by the caller now and passed in as
+    ``extra_mounts``: ``(resolved_root, url_prefix)`` pairs, from
+    ``build_content_mounts()``. Every caller already does I/O and already holds
+    ``repo_root``; this function does not, and no longer needs it.
 
      Routing strategy is strict metadata-driven: every file is dispatched via
      ``adapter.get_route_info(rel)``.
@@ -170,19 +218,26 @@ def build_vsm(
         md_contents:         Pre-loaded mapping of absolute ``Path`` → raw Markdown.
         anchors_cache:       Pre-computed ``Path`` → anchor slug set.  When
                              ``None``, anchors are left as empty sets.
-        extra_content_roots: Optional external markdown roots injected by caller.
-        repo_root:           Optional repository root used for stable prefix
-                     derivation when building external content mounts.
+        extra_mounts:        Optional ``(content_root, url_prefix)`` pairs for
+                     markdown trees outside ``docs_root``, already resolved by
+                     the caller via ``build_content_mounts()``.
         static_assets:       Optional collection of non-Markdown static asset Paths.
 
     Returns:
-        ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
+        ``VSM`` mapping canonical URL → ``Route``. **Every** route is included,
+        IGNORED among them — this line claimed the opposite until 2026-09-19
+        while the comment above ``VSM`` (line ~127) stated the truth and the
+        code agreed with the comment. Inclusion is deliberate: a link pointing
+        at an ignored page must be reported as ``UNREACHABLE_LINK``, and an
+        omitted route would be reported as a missing file instead, naming the
+        wrong defect.
     """
 
     ac = anchors_cache or {}
-    extra_mounts = build_content_mounts(list(extra_content_roots or []), repo_root=repo_root)
+    extra_mounts = list(extra_mounts or [])
 
     routes: list[Route] = []
+    md_sources_seen: set[str] = set()
     for abs_path, _content in md_contents.items():
         # ── Resolve the logical rel and source label ────────────────────────
         # Files under docs_root use their ordinary relative path. Files under
@@ -202,6 +257,7 @@ def build_vsm(
             inner = abs_path.relative_to(root)
             rel = (Path(prefix) / inner) if prefix else inner
         rel_posix = rel.as_posix()
+        md_sources_seen.add(rel_posix)
 
         meta = adapter.get_route_info(rel)
         url = meta.canonical_url
@@ -264,6 +320,26 @@ def build_vsm(
     _detect_collisions(routes)
 
     vsm_instance = VirtualSiteMap({r.url: r for r in routes})
+
+    # Manifest drift, computed here because this is the one place that holds
+    # both sets: what the adapter declares and what the scan actually read.
+    # The undeclared page does get a route — with status IGNORED — so the
+    # symptom is `Z101 UNREACHABLE_LINK` on a correct link, not a missing file.
+    #
+    # **Only the "on disk, undeclared" half is detected, and that is a decided
+    # limit rather than an open task.** The mirror case — a manifest entry whose
+    # source has been deleted — cannot be distinguished here from an entry whose
+    # source the user excluded, because `md_contents` arrives already filtered by
+    # the exclusion layers. Telling the two apart needs one of two things this
+    # function may not have: a `stat` per declared entry (this function performs
+    # no I/O, and that is enforced by tests/test_build_vsm_is_pure.py), or the
+    # unfiltered walk, which no caller retains. A false "your manifest lists a
+    # page that no longer exists" is worse than the silence it would replace,
+    # so the silence stands and is documented for users on the Z115 rule card.
+    _declared = adapter.declared_sources()
+    if _declared is not None:
+        vsm_instance.undeclared_sources = sorted(md_sources_seen - _declared)
+
     from zenzic.core.validator import PolyglotExtractor
 
     extractor = PolyglotExtractor()
@@ -290,6 +366,10 @@ class VirtualSiteMap(dict[str, Route]):
         super().__init__(*args, **kwargs)
         self.incoming_links: dict[str, set[Path]] = {}
         self.outgoing_links: dict[str, list[str]] = {}
+        # Source paths present in the scanned corpus that the adapter's
+        # declared routing table does not list — see BaseAdapter.declared_sources().
+        # Always [] for an adapter that derives routes from the filesystem.
+        self.undeclared_sources: list[str] = []
 
     def remove_outgoing_links(self, path: Path, canonical_url: str = "") -> None:
         """Discard `path` from every entry in the reverse index and clear its outgoing links."""
@@ -311,11 +391,30 @@ class VirtualSiteMap(dict[str, Route]):
     ) -> None:
         """Rebuild the reverse-index entries emitted by `path`."""
         if not canonical_url:
-            # Fallback O(N) lookup if not provided
-            try:
-                rel_posix = path.relative_to(docs_root).as_posix()
-            except ValueError:
-                rel_posix = path.absolute().as_posix()
+            # Fallback O(N) lookup if not provided.
+            #
+            # The mounts are consulted here, and were not until 2026-09-19. A
+            # file outside `docs_root` is a mounted source, and its route is
+            # recorded under the logical path the mount gives it -- so falling
+            # back to `path.absolute().as_posix()` compared an absolute path
+            # against `blog/post.md` and matched nothing, every time. It was
+            # also the last filesystem call left inside this module: `absolute()`
+            # reads the process working directory, which made the reverse index
+            # depend on where the command was run from.
+            # `is_relative_to` rather than a `try`, because the label itself now
+            # comes from the authority and this branch is the *extra* work the
+            # fallback did: a mounted source is outside `docs_root` and takes the
+            # logical path its mount gives it. Both are pure computation -- no
+            # filesystem call is added here, which `build_vsm` does not permit.
+            rel_posix = repo_relative_label(path, docs_root)
+            if not path.is_relative_to(docs_root):
+                for _root, _prefix in extra_mounts:
+                    if path.is_relative_to(_root):
+                        _inner = path.relative_to(_root)
+                        rel_posix = (
+                            (Path(_prefix) / _inner).as_posix() if _prefix else _inner.as_posix()
+                        )
+                        break
             canonical_url = next((url for url, r in self.items() if r.source == rel_posix), "")
 
         self.remove_outgoing_links(path, canonical_url=canonical_url)
@@ -360,20 +459,15 @@ def resolve_link_to_canonical(
     extra_mounts: list[tuple[Path, str]],
     adapter: BaseAdapter,
 ) -> str | None:
-    import os
     from urllib.parse import unquote, urlsplit
 
-    _bypass_schemes = (
-        "mailto:",
-        "tel:",
-        "javascript:",
-        "data:",
-        "irc:",
-        "xmpp:",
-        "http://",
-        "https://",
-    )
-    if url.startswith(_bypass_schemes) or url == "#" or url.startswith("#"):
+    from zenzic.core.validator import LINK_BYPASS_SCHEMES
+
+    # `startswith("#")` rather than `== "#"`, which is the one place this differs
+    # from the security tier's otherwise identical check. Here a fragment can
+    # never name a route, so skipping every fragment is right. There it is not:
+    # see `SECURITY_BYPASS_SCHEMES`.
+    if url.startswith(LINK_BYPASS_SCHEMES) or url.startswith("#"):
         return None
 
     parsed = urlsplit(url)
@@ -381,18 +475,22 @@ def resolve_link_to_canonical(
     if not path_part:
         return None
 
-    # Resolve relative to source_file parent or docs_root
-    if path_part.startswith("/"):
-        target_path = docs_root / path_part.lstrip("/")
-    elif path_part.startswith("@site/docs/"):
-        target_path = docs_root / path_part[len("@site/docs/") :]
-    elif path_part.startswith("@site/"):
-        target_path = docs_root.parent / path_part[len("@site/") :]
-    else:
-        target_path = source_file.parent / path_part
+    # The alias rules (`/`, `@site/docs/`, `@site/`, else page-relative) and the
+    # directory-URL depth boundary are defined once in
+    # `zenzic.core.resolver.resolve_href_target`.  This used to be a fourth
+    # independent copy of them, and the copies did not agree.
+    from zenzic.core.resolver import resolve_href_target
 
-    # Clean up target_path (collapse segments)
-    target_path = Path(os.path.normpath(str(target_path)))
+    use_dir_urls = bool(getattr(adapter, "use_directory_urls", True))
+    target_path = Path(
+        resolve_href_target(
+            source_file,
+            path_part,
+            str(docs_root),
+            str(docs_root.parent),
+            use_directory_urls=use_dir_urls,
+        )
+    )
 
     # Determine the relative path used by the adapter
     if target_path.is_relative_to(docs_root):
@@ -409,6 +507,28 @@ def resolve_link_to_canonical(
         inner = target_path.relative_to(root)
         rel = (Path(prefix) / inner) if prefix else inner
 
+    # `rel` is a resolved *href target*, and that is not always a source file.
+    # A link written in the form the site serves -- `./page/`, `../section/` --
+    # resolves to a URL-shaped path carrying no document suffix, and
+    # `get_route_info` is specified over source files: its adapters correctly read
+    # a suffix-less path as a static asset and return it verbatim, giving
+    # `/section/page` where the route table keys the page at `/section/page/`. The
+    # VSM then failed to find a page it was itself routing and dropped the edge --
+    # 235 occurrences on this project's own corpus, and 234 of 797 reverse-index
+    # entries pointing at a target that was not a route key.
+    #
+    # So the URL for a URL-shaped target is formed here rather than by asking the
+    # source-file mapper a question it is not defined for. This is deliberately the
+    # only place it happens: the adapters' contract is left intact, and a target
+    # that *does* carry a suffix -- `feed.xml`, `rss.xsl`, an image -- still goes
+    # through the adapter and still resolves to no route, which is correct because
+    # it is not a page.
+    if use_dir_urls and not rel.suffix:
+        slug = rel.as_posix().strip("/")
+        if slug in ("", "."):
+            return "/"
+        return f"/{slug}/"
+
     meta = adapter.get_route_info(rel)
     return meta.canonical_url
 
@@ -420,10 +540,15 @@ class VirtualBufferOverlay:
     bypassing L1-L4 filesystem discovery.
     """
 
-    def __init__(self, vsm: VirtualSiteMap) -> None:
+    def __init__(self, vsm: VirtualSiteMap, *, tabs: str | None) -> None:
         self.vsm: VirtualSiteMap = vsm
         self.buffers: dict[str, str] = {}
         self.anchors_cache: dict[Path, set[str]] = {}
+        #: The project's content-tab anchor style. Required rather than
+        #: defaulted: this overlay feeds the editor's anchor resolution, and a
+        #: default would make the editor disagree with the CLI about whether a
+        #: link to a content tab resolves.
+        self._tabs = tabs
 
     # ── Buffer management ─────────────────────────────────────────────────────
 
@@ -435,7 +560,7 @@ class VirtualBufferOverlay:
         self.buffers[uri] = content
         if uri.startswith("file://"):
             path = _uri_to_path(uri).resolve()
-            self.anchors_cache[path] = anchors_in_file(content)
+            self.anchors_cache[path] = anchors_in_file(content, tabs=self._tabs)
 
     def register_file_links(self, path: Path, content: str) -> None:
         """No-op. Reverse index is managed by VirtualSiteMap during build_vsm."""

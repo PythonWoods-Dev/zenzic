@@ -19,3 +19,7 @@ zenzic lab z405
 # or directly:
 zenzic check assets
 ```
+
+Unreferenced assets accumulate over time as pages are rewritten and old
+screenshots or diagrams are swapped out without anyone deleting the files
+they replaced, quietly bloating the published site.

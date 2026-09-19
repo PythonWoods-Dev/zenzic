@@ -10,3 +10,15 @@ title: Security & Gatekeeper Scenarios (Z2xx)
 Interactive lab scenarios and test fixtures for security gatekeeper rules (`Z2xx`). These fixtures demonstrate hardcoded credential detection (`Z201`), path traversal guards (`Z202`/`Z203`), privacy gate forbidden terms (`Z204`), and forbidden URL schemes (`Z205`).
 
 Run `zenzic lab z201` to test these scenarios interactively, or return to the [Lab Gallery Overview](../index.md).
+
+The scenario carries its own fixture, so nothing has to be set up first:
+
+```text
+--8<-- "snippets/lab-z2xx.txt"
+```
+
+The scenario is designed to fail: the breach block is the expected `Z201`
+detection, not a problem with the install. `zenzic lab` itself exits `0` when a
+scenario meets its expectation — the `Exit code 2 is mandatory` line inside the
+report is the contract the *scenario* demonstrates, not the exit code of `lab`.
+The key is masked in the report because that output lands in CI logs.

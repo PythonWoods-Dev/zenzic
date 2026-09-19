@@ -7,8 +7,6 @@ description: "ADR 022: English-Only Governance & Deprecation of Bilingual Invari
 
 # ADR 022: English-Only Governance & Deprecation of Bilingual Invariant
 
-This section details the specifications and guidelines for ADR 022: English-Only Governance & Deprecation of Bilingual Invariant within the Zenzic ecosystem.
-
 ---
 
 ## Context

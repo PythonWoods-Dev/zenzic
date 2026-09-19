@@ -27,17 +27,21 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | :--- | :--- |
     | `zenzic check links` | Check for broken internal links and enforce strict warning policy. |
     | `zenzic check orphans` | Detect `.md` files not listed in the nav. |
-    | `zenzic check snippets` | Validate Python code blocks in documentation Markdown files. |
+    | `zenzic check snippets` | Validate Python, YAML, JSON and TOML code blocks in documentation Markdown files. |
     | `zenzic check references` | Run the Three-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan. |
     | `zenzic check assets` | Detect unused images and assets in the documentation. |
-    | `zenzic check placeholders` | Detect pages with < 50 words or containing TODOs/stubs. |
-    | `zenzic check all` | Run all checks: links, orphans, snippets, placeholders, assets, references. |
+    | `zenzic check placeholders` | Detect pages containing TODOs or stubs, and — with `[policies] enable_short_content_check = true` — pages with fewer than 50 words. |
+    | `zenzic check all` | Run every check above, plus 4 checks with no standalone sub-command: nav contract (`Z406`), unparseable engine patterns (`Z407`), directory indices (`Z401`, opt-in via `[policies] enable_directory_index_check`), and config-referenced assets (`Z404`, distinct from `check assets`' unused-asset detection). |
+
+    Every `check` sub-command, including `check all`, also accepts an optional `PATH`
+    positional argument to scope the check to a single Markdown file or a specific directory
+    instead of the whole docs tree.
 
     **Flags available on all `check` sub-commands:**
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--format` | `-f` | `text` | Output format: `text`, `json`, or `sarif`. |
+    | `--format` | `-f` | `text` | Output format: `text`, `json`, or `sarif`. `check all` and `check links` also accept `github-annotations`; `check all` additionally accepts `gitlab-codequality`. |
     | `--ci` | — | `false` | Run in CI mode (forces `github-annotations` output format and `--strict`). |
     | `--only` | — | — | Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded. |
     | `--show-info` | — | `false` | Show info-level findings (e.g. circular links) in the report. |
@@ -46,7 +50,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--strict` | `-s` | `false` | Treats warnings as errors (exit non-zero on any warning). On `check links` and `check all`, also activates external HTTP link validation (Z109). Combine with `--no-external` to promote warnings without performing network I/O. |
+    | `--strict` | `-s` | `false` | Treats warnings as errors (exit non-zero on any warning). On `check links` and `check all`, also activates external HTTP link validation (failures emit `Z101`). Combine with `--no-external` to promote warnings without performing network I/O. |
     | `--exit-zero` | — | `false` | Always exit 0; report issues without failing. |
     | `--quiet` | `-q` | `false` | Minimal one-line output for pre-commit hooks. |
     | `--engine` | — | auto | Override the build engine adapter (e.g. `mkdocs`, `zensical`). Auto-detected from `.zenzic.toml` when omitted. |
@@ -54,6 +58,11 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
     | `--offline` | — | `false` | Force flat URL resolution for offline builds. |
     | `--no-external` | — | `false` | Skip HTTP validation of external URLs (Pass 3). Credential scanner (Z201) always active regardless. |
+    | `--audit` | — | `false` | Sovereign truth-seeking mode: ignore all suppressible bypasses (inline `zenzic:ignore` and `governance.per_file_ignores`). Restored findings carry a `[POLICY_EXEMPTION]` label. **The DQS is recomputed without the exemptions, so the two scores are not comparable** — a lower number under `--audit` is what the exemptions cost, not a regression. |
+    | `--no-header` | — | `false` | Suppress the Zenzic ASCII art header. |
+    | `--update-baseline` | — | `false` | Generate or overwrite the baseline snapshot file (`.zenzic-baseline.json`). |
+    | `--baseline` | — | — | Path to a baseline snapshot file to consume (defaults to `.zenzic-baseline.json` if present in the workspace root). |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
 
     **Additional flags on `check references`:**
 
@@ -79,20 +88,43 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
 === "zenzic score"
 
-    Compute the weighted Document Quality Score (DQS 0–100) and category breakdown:
+    Compute the weighted Documentation Quality Score (DQS 0–100) and category breakdown:
 
-    | Flag | Short | Default | Description |
+    | Argument / Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
+    | `path` | — | configured docs directory | Repository root or docs directory to score. |
     | `--fail-under` | — | `0` | Minimum required score. Fails quality gate (Exit 1) if score falls below threshold. |
     | `--stamp` | — | `false` | Updates README.md status badge with the newly computed DQS score. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
     | `--json` | — | `false` | Shorthand for `--format json`. Suppresses all rich/text output and emits a single JSON object on `stdout`. Preferred for programmatic consumers (e.g., editor integrations, shell scripts). |
-    | `--strict` | `-s` | `false` | Includes external HTTP link validation in score calculation. |
     | `--breakdown` | — | `false` | Expands category breakdown showing individual Z-Codes and transparent penalty math. |
     | `--save` | — | `false` | Saves score snapshot to `.zenzic-score.json` for use with `zenzic diff`. |
-    | `--check-stamp` | — | `false` | Verifies badge stamp files contain the current score URL. Exits 1 if any badge is stale. |
+    | `--trend` | — | `false` | Shows the score series recorded in `.zenzic-history.jsonl` by previous `--save` runs, then exits. Prints a one-line summary plus the last ten entries; with `--format json`, emits the full series and a summary object. Reports "No score history yet" and exits `0` when the file is absent — an empty history is not an error. |
+    | `--check-stamp` | — | `false` | Verifies that every file in `badge_stamp_files` carries the current score and audit badge URLs after its markers. Exits 1 when a badge is stale, when a declared file is missing, or when it carries no marker at all — a file the check cannot examine is named, never counted as current. A file with one marker of the two is checked on that one and the other is reported as skipped. The success line states how many badges were checked in how many files. |
+    | `--quiet` | `-q` | `false` | Suppress output on successful score. |
+    | `--no-external` | — | `false` | Skip HTTP validation of external URLs while scoring. The score then depends only on the repository, which is what a badge gate needs — without it a third-party outage moves the number and fails the check on an unchanged tree. Stamp and verify in the same mode. |
     | `--no-header` | — | `false` | Suppresses the Zenzic banner (set automatically by `--ci`). |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
+
+    !!! info "Where the series is stored"
+        `--save` appends one JSON object per run to `.zenzic-history.jsonl` in the
+        repository root, alongside the snapshot it already writes. The file is
+        append-only and capped at 500 entries, oldest dropped first. It is separate
+        from `.zenzic-baseline.json` by design: the baseline holds one snapshot and a
+        finding-signature set for suppression matching, and its schema forbids
+        additional properties, so a series could not live there without changing that
+        contract. Neither `.zenzic-score.json` nor `.zenzic-baseline.json` changes
+        shape, and existing consumers of either are unaffected.
+
+    !!! note "External link validation runs unless you turn it off"
+        `zenzic score` validates external HTTP/HTTPS links as part of scoring. There is no
+        `--strict` flag, but `--no-external` skips that validation, which is what a badge
+        gate wants: with it the score depends only on the repository, so a third-party
+        outage cannot move the number or fail a check on a tree nobody touched. Stamp and
+        verify in the same mode — `--stamp --no-external` here and `--check-stamp
+        --no-external` in CI — or the two disagree the first time a remote host is slow.
+        `zenzic diff` has no such opt-out and always validates.
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -104,6 +136,9 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Stamp status badge into README.md
     zenzic score --stamp
+
+    # Score the repository alone, with no HTTP request to any external host
+    zenzic score --no-external
 
     # Emit machine-readable JSON for programmatic consumers (editor integrations, scripts)
     zenzic score --json
@@ -157,6 +192,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--only` | — | — | Comma-separated list of Z-Codes to include in audit findings. |
     | `--baseline` | — | — | Path to custom baseline snapshot file. |
     | `--ci` | — | `false` | Run in CI mode (non-interactive, explicit exit codes). |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
 
     **Audit Report & Determinism:**
 
@@ -181,12 +217,18 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     | Flag | Short | Default | Description |
     | :--- | :---: | :---: | :--- |
-    | `--strict` | `-s` | `false` | Treat warnings as errors. The score gate is controlled exclusively by `--fail-under`. |
     | `--format` | `-f` | `text` | Output format: `text` or `json`. |
     | `--threshold` | — | `0` | Exit non-zero only if score dropped by more than this many points (0 = any drop). |
     | `--base` | — | — | Path to a JSON report file to use as baseline instead of the saved snapshot. |
     | `--no-header` | — | `false` | Suppress the Zenzic banner. |
     | `--ci` | — | `false` | CI shorthand: sets `--no-header`. |
+    | `--config` | — | — | Explicit path to a Zenzic TOML config file, bypassing `.zenzic.toml`/`pyproject.toml` discovery. Does not have to live under the repository root. |
+
+    !!! note "External link validation always runs"
+        External HTTP/HTTPS link validation always runs on `zenzic diff`; there is no
+        `--strict` flag and no `--no-external` opt-out. Unlike `zenzic score`, which has
+        one: a comparison against a saved snapshot has to be computed the way the snapshot
+        was, and the snapshot does not record which mode produced it.
 
     | Argument | Description |
     | :--- | :--- |
@@ -233,12 +275,16 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--force` / `-f` | `false` | Overwrite an existing plugin scaffold when used with `--plugin`. Not supported for configuration initialization. |
     | `--pyproject` | `false` | Write configuration into `pyproject.toml` instead of `.zenzic.toml`. |
     | `--local` | `false` | Create only `.zenzic.local.toml` (machine-local overlay, gitignored). Use this when cloning a repo that already has `.zenzic.toml` committed. |
-    | `--engine ENGINE` | auto | Override the build engine adapter (`mkdocs`, `zensical`, `standalone`). Auto-detected from project files when omitted. |
+    | `--engine ENGINE` | auto | Override the build engine adapter (`mkdocs`, `prebuilt`, `standalone`, `vsm`, `zensical` — the option's own help derives this list from the adapter registry). Auto-detected from project files when omitted; on an Astro or Docusaurus repository the detected generator is named and `prebuilt` proposed. |
+    | `--interactive` / `-i` | `false` | Ask before writing: the engine, offered from the adapter registry with the detected one and its reason stated; then each opt-in finding code, one at a time, derived from the code registry. Data-gated codes are not asked — they run once their `[policies]` data is declared. Without the flag nothing about codes is asked, so scripts and CI keep the current behaviour. |
 
     **Usage Examples:**
     ```bash title="Terminal"
     # Bootstrap configuration scaffold
     zenzic init
+
+    # Choose the engine and the opt-in codes at the prompt
+    zenzic init --interactive
 
     # Write config into pyproject.toml
     zenzic init --pyproject
@@ -258,6 +304,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | :--- | :---: | :--- |
     | `PATH` | docs root | Markdown file or directory to auto-fix. |
     | `--dry-run` (default) / `--apply` | `--dry-run` | Show unified diff without saving changes (`--dry-run`, default). Apply fixes directly to files (`--apply`). |
+    | `--rename OLD NEW` | — | Repair inbound relative links pointing at `OLD` to point at `NEW` instead, across the docs tree. Same `--dry-run`/`--apply` gate. |
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -266,6 +313,9 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     # Apply fixes directly to files
     zenzic fix --apply
+
+    # Repair inbound links after a rename
+    zenzic fix --rename docs/old.md docs/new.md --apply
     ```
 
 === "zenzic clean"
@@ -277,6 +327,18 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | Sub-command | Description |
     | :--- | :--- |
     | `zenzic clean assets` | Delete unused images and assets from the documentation. |
+
+    **`zenzic clean assets` flags:**
+
+    | Argument / Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `path` | — | full docs directory | Limit the asset scan to a specific directory. |
+    | `--yes` | `-y` | `false` | Skip interactive confirmation and delete immediately. |
+    | `--dry-run` | — | `false` | Show which files would be deleted without actually deleting them. |
+    | `--quiet` | `-q` | `false` | Minimal one-line output for pre-commit hooks. |
+    | `--engine` | — | auto | Override the build engine adapter (e.g. `mkdocs`, `zensical`). Auto-detected from `.zenzic.toml` when omitted. |
+    | `--exclude-dir` | — | — | Additional directories to exclude from scanning (repeatable). |
+    | `--include-dir` | — | — | Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails. |
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -296,10 +358,13 @@ Select a command tab to view its execution flags, default behaviors, and usage e
 
     **`zenzic guard scan` flags:**
 
-    | Flag | Default | Description |
+    | Argument / Flag | Default | Description |
     | :--- | :---: | :--- |
+    | `paths` | docs scope from config | Optional file/directory targets. If omitted, scans the configured docs scope; with `--staged`, scans staged Markdown/MDX files only. |
     | `--staged` | `false` | Scan only staged Markdown/MDX files from git index (pre-commit fast path). |
     | `--format` / `-f` | `text` | Output format: `text` or `json`. |
+    | `--quiet` / `-q` | `false` | Suppress output except for detected secrets. |
+    | `--no-header` | `false` | Suppress the Zenzic startup banner. |
 
     **`zenzic guard init` flags:**
 
@@ -319,6 +384,81 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     zenzic guard init
     ```
 
+=== "zenzic doctor"
+
+    Check the repository's own conventions rather than its documentation content:
+    that every cited decision record exists, that the redirects file is structurally
+    intact, and that the configuration loads.
+
+    Complements `zenzic check`, which analyses pages. These checks are repository-level,
+    so none of them is per-page.
+
+    | Argument | Default | Description |
+    | :--- | :---: | :--- |
+    | `path` | `.` (current directory) | Repository root to inspect. |
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--format` | `-f` | `text` | Output format: `text` or `json`. |
+    | `--quiet` | `-q` | `false` | Suppress output when the repository is healthy. |
+    | `--no-header` | — | `false` | Suppresses the Zenzic banner. |
+
+    | Check | What it reports |
+    | :--- | :--- |
+    | `config-schema` | Configuration load failures (`Z110` syntax, `Z111` schema). |
+    | `adr-citations` | Citations naming a decision record that does not exist. |
+    | `redirects` | Malformed redirect lines, and unexplained blank-line drift. |
+
+    Exits `1` when any check reports a finding, `0` when all pass.
+
+    Configured under [`[doctor]`](./configuration-reference.md#doctor-settings). All paths
+    resolve inside the published tree — `doctor` reads public repository content only and
+    cannot be pointed at a gitignored directory.
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Check the current repository
+    zenzic doctor
+
+    # Machine-readable, for CI
+    zenzic doctor --format json
+    ```
+
+=== "zenzic adr"
+
+    Manage architectural decision records.
+
+    `zenzic adr` is a command group with the following sub-command:
+
+    | Sub-command | Description |
+    | :--- | :--- |
+    | `zenzic adr new` | Allocate the next free ADR number and scaffold its record. |
+
+    **`zenzic adr new` arguments and flags:**
+
+    | Argument | Description |
+    | :--- | :--- |
+    | `title` | Title of the decision, e.g. `'Adopt RE2 for matching'`. Required. |
+
+    | Flag | Default | Description |
+    | :--- | :---: | :--- |
+    | `--path` | `.` (current directory) | Repository root. |
+
+    The number is allocated as one past the highest identifier present, never by counting
+    records: the vault has real gaps, and reusing one would silently repoint every existing
+    citation of that number at a different decision. Creating a second record with a number
+    already in use is refused.
+
+    The scaffold writes the five canonical sections — Context, Decision, Rationale,
+    Invariants, Consequences — with an SPDX header. Registering the record in the vault
+    index remains a manual editorial step.
+
+    **Usage Examples:**
+    ```bash title="Terminal"
+    # Scaffold the next record
+    zenzic adr new "Adopt RE2 for pattern matching"
+    ```
+
 === "zenzic config"
 
     Inspect the active Zenzic configuration and the origin of each value.
@@ -328,6 +468,12 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | Sub-command | Description |
     | :--- | :--- |
     | `zenzic config explain` | Show the active configuration and the origin of every value. |
+
+    **`zenzic config explain` flags:**
+
+    | Flag | Short | Default | Description |
+    | :--- | :---: | :---: | :--- |
+    | `--path` | `-p` | `.` (current directory) | Repository root to inspect. |
 
     **Usage Examples:**
     ```bash title="Terminal"
@@ -370,7 +516,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     ```
 
     ??? info "JSON Output Schema (`--json`)"
-        When `--json` is specified, `zenzic env` emits a single JSON object on `stdout` reporting the Zenzic version, Python executable path, Zenzic module path, current working directory, and resolved active configuration path.
+        When `--json` is specified, `zenzic env` emits a single JSON object on `stdout` reporting the Zenzic version, Python executable path, Zenzic module path, current working directory, resolved active configuration path, and what Zenzic takes this project to be.
 
         ```json
         {
@@ -378,15 +524,55 @@ Select a command tab to view its execution flags, default behaviors, and usage e
           "python_executable": "/usr/bin/python3",
           "zenzic_module_path": "/usr/lib/python3/site-packages/zenzic/__init__.py",
           "current_working_directory": "/workspace/my-project",
-          "active_config_path": "/workspace/my-project/.zenzic.toml"
+          "active_config_path": "/workspace/my-project/.zenzic.toml",
+          "engine": "standalone",
+          "engine_source": "auto-detected",
+          "generator": "astro",
+          "generator_applies": true
         }
         ```
+
+        `engine` is the engine a scan actually runs — `auto` is already resolved, so this
+        field matches the engine named on the telemetry line of `zenzic check`.
+        `engine_source` says how it was chosen: `configured` (you set it), `auto-detected`
+        (a marker file did), or `default`. `generator` is the documentation generator
+        detected in the repository, or `null` when none was found. **Two are detected
+        today — Astro/Starlight (from `astro.config.mjs`/`.ts`/`.js`) and Docusaurus
+        (from `docusaurus.config.js`/`.ts`/`.mjs`)** — because both were measured against
+        real repositories. A generator Zenzic has not been run against is not detected,
+        rather than guessed at; `"generator": "astro"` above is one sample, not the set.
+        `generator_applies` distinguishes the two ways that `null` happens: it is `false`
+        for an engine with a native adapter — MkDocs, Zensical — which has already
+        answered the question by reading that generator's own configuration, so nothing
+        was looked for. On those projects "none detected" would read as a detection that
+        failed.
+
+        The two can disagree, and reading them together is the point: a project reporting
+        `"engine": "standalone"` with `"generator": "astro"` is being analysed without the
+        route manifest Astro can provide, which is a working scan of a site map that is not
+        quite the site's. See [Configure your adapter](../how-to/configure-adapter.md).
 
 ---
 
 ## Shared Execution Flags
 
-This section details the specifications and guidelines for Shared Execution Flags within the Zenzic ecosystem.
+`--strict` and `--offline` are not universal — each is only available on the commands that
+have a real use for it. Verified against every command's own `--help` output:
+
+| Command | `--strict` | `--offline` |
+| :--- | :---: | :---: |
+| `check all` | ✅ | ✅ |
+| `check links` | ✅ | ✅ |
+| `check orphans` | — | ✅ |
+| `check snippets` | ✅ | — |
+| `check references` | ✅ | — |
+| `check assets` | — | — |
+| `check placeholders` | ✅ | — |
+| `score` | — | — |
+| `diff` | — | — |
+| `audit` | ✅ | ✅ |
+| `guard scan` | — | — |
+| `clean assets` | — | — |
 
 ---
 
@@ -410,12 +596,14 @@ otherwise be non-blocking.
 
 | Command | Effect |
 | :--- | :--- |
-| `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (Z109) |
-| `check all --strict` | Activates external URL validation (Z109) + promotes warnings to errors |
+| `check links --strict` | Activates Pass 3: concurrent HTTP HEAD validation of external URLs (failures emit `Z101`) |
+| `check all --strict` | Activates external URL validation (failures emit `Z101`) + promotes warnings to errors |
 | `check references --strict` | Treats Dead Definitions (unused reference links) as hard errors |
-| `score --strict` / `diff --strict` | Runs link check in strict mode |
 
-The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting Z109 on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
+`zenzic score` and `zenzic diff` do not have a `--strict` flag — external HTTP/HTTPS link
+validation always runs unconditionally on both commands, with no opt-out.
+
+The `--strict` flag enforces rigorous validation: for link checking, it validates external HTTP/HTTPS links via active network requests (which are disabled by default for performance, emitting `Z101` on failure); for references, it treats Dead Definitions as fatal errors instead of warnings.
 
 !!! tip "Air-Gapped CI Environments"
     Combine `--strict` with `--no-external` to retain strict warning promotion while **disabling
@@ -428,7 +616,7 @@ The `--strict` flag enforces rigorous validation: for link checking, it validate
     ```
 
     This keeps Pass 1 (filesystem resolution) and Pass 2 (internal link graph) fully active.
-    Only Pass 3 (Z109 external HTTP validation) is suppressed.
+    Only Pass 3 (external HTTP validation) is suppressed.
 
 You can also set `strict = true` in `.zenzic.toml` to make it the permanent default.
 
@@ -488,8 +676,10 @@ zenzic check all --show-info
 
 ### `--quiet`
 
-`--quiet` is available on `zenzic check all` and is designed for silent builders
-(pre-commit and CI hooks) that need minimal output.
+`--quiet` (`-q`) is available on `zenzic check all`, `zenzic score`, `zenzic guard scan`, and
+`zenzic clean assets`, and is designed for silent builders (pre-commit and CI hooks) that need
+minimal output. Its exact effect is command-specific — on `check all` it suppresses the rich
+analysis panel and per-file verbose report:
 
 - Suppresses the rich analysis panel and per-file verbose report.
 - Prints a compact one-line summary for error/warning totals.
@@ -597,7 +787,8 @@ in `.zenzic.toml` — the two mechanisms co-exist and accumulate.
 
 ### `--exclude-dir` / `--include-dir`
 
-Available on `zenzic check all` (and individual sub-commands). These flags provide
+Available on `zenzic check all` and `zenzic clean assets` only — not on the individual
+`check` sub-commands (`check links`, `check orphans`, etc.). These flags provide
 one-shot directory scope overrides **per invocation** without touching `.zenzic.toml`:
 
 | Flag | Effect |
@@ -614,6 +805,16 @@ zenzic check all --exclude-dir build/ --exclude-dir .cache/
 
 # Force-include a directory that was excluded in .zenzic.toml
 zenzic check all --include-dir legacy-docs/
+```
+
+### `--no-header`
+
+Suppresses the Zenzic ASCII art startup banner. Available on `zenzic check all`,
+`zenzic score`, `zenzic diff`, and `zenzic guard scan`. On `score` and `diff`, `--ci` is a
+shorthand that sets it automatically.
+
+```bash
+zenzic check all --no-header
 ```
 
 ### `--no-color` / `--force-color` {#output-flags}
@@ -640,15 +841,15 @@ stdout is a terminal; they are stripped automatically when piped or redirected �
 
 ```bash
 # Strip color: CI log aggregators, plain-text files
-zenzic check all --no-color
+zenzic --no-color check all
 NO_COLOR=1 zenzic check all
 
 # Force color: CI systems that support ANSI but do not report a TTY
-zenzic check all --force-color
+zenzic --force-color check all
 FORCE_COLOR=1 zenzic check all
 
 # Pair with --format json for fully machine-readable output
-zenzic check all --no-color --format json > report.json
+zenzic --no-color check all --format json > report.json
 ```
 
 ---
@@ -715,7 +916,7 @@ default_locale = "en"
 release_name = "MyRelease"
 
 [governance]
-# Maximum allowed architectural debt (inline + per-file suppressions).
+# Maximum suppressions in use (inline + per-file + directory policy).
 # Default: 30. Build fails if exceeded.
 suppression_cap = 30
 suppression_cap_fail_hard = true
@@ -726,14 +927,15 @@ brand_obsolescence = ["OldProduct", "LegacyTerm"]
 # Governance Playbook:
 # /developers/how-to/release-governance-protocol
 
-# --- I18N PARITY (Optional) ---
-# [i18n]
-# enabled = true
-# base_lang = "en"
-# base_source = "docs"
-# strict_parity = true
-# [i18n.targets]
-# it = "docs-it"
+# --- LOCALES ---
+# There is no [i18n] section. This block previously showed one as an optional
+# setting; no such section exists in the configuration model, and one written
+# into .zenzic.toml is discarded (as of v0.31.0, now with a warning naming it).
+# The real settings are default_locale and locales, and they live in
+# [build_context]:
+# [build_context]
+# default_locale = "en"
+# locales = ["en", "it"]
 
 # --- GATE 4: CI/CD (GitHub Actions, Optional) ---
 # Add this workflow snippet to .github/workflows/zenzic.yml
@@ -766,25 +968,34 @@ the GitHub Actions job summary renders:
 workstation overrides. This file is never intended for commit and is
 automatically protected via `.gitignore` in Git repositories.
 
-```toml
-# --- ZENZIC LOCAL OVERRIDES ---
-# This file is machine-local and must stay in .gitignore.
-# Values declared here override shared config for your workstation only.
+The generated file is heavily commented and is its own reference; this is its shape, with
+the explanatory comments removed. Root-level keys come first, before any section, as the TOML
+parser requires:
 
-[core]
+```toml
+# ===========================================================================
+# ZENZIC LOCAL OVERRIDES (.zenzic.local.toml)
+# ===========================================================================
+
 # docs_dir = "my/custom/path/to/docs"
 
-# Z204 Privacy Gate (local secret terms, literal and case-insensitive).
-# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]
+# forbidden_patterns = ["openai", "Project Titan", "internal-api.corp"]
 forbidden_patterns = []
+
+[build_context]
+# engine = "zensical"
+# base_url = "/"
+# default_locale = "en"
+
+[project_metadata]
+# release_name = "v0.8.0"
 
 [governance]
 # suppression_cap = 100
 # suppression_cap_fail_hard = false
 
 [secrets]
-# Store API tokens here (never in shared .zenzic.toml).
-# github_pat = "YOUR_GITHUB_PAT"
+# github_pat = "<your-token>"
 
 [debug]
 # log_level = "DEBUG"
@@ -792,6 +1003,12 @@ forbidden_patterns = []
 [env]
 # ZENZIC_FORCE_COLOR = "true"
 ```
+
+Its header states the merge semantics the overlay follows: `forbidden_patterns`,
+`brand_obsolescence`, `excluded_dirs`, `excluded_file_patterns` and `custom_rules` are
+**additive** — the local list extends the shared one — while `governance` (except
+`brand_obsolescence`), `build_context` and `project_metadata` **replace** the shared section
+outright.
 
 ### Best practice
 
@@ -828,11 +1045,46 @@ Currently, `zenzic fix` supports auto-fixing:
 
 - **Z108 (EMPTY_LINK_TEXT):** Injects a placeholder label for empty link text.
 - **Z505 (UNTAGGED_CODE_BLOCK):** Injects default `text` language specifier for untagged fenced code blocks.
+- **Z515 (BARE_URL):** Injects angle brackets around bare URLs in prose.
+- **Z517 (HEADING_PUNCTUATION):** Strips trailing punctuation (`.`, `:`, `;`) from headings.
+- **Z520 (MALFORMED_LIST):** Transforms fake/malformed paragraph lists into valid Markdown bullet lists.
 - **Z603 (DEAD_SUPPRESSION):** Cleanly extracts dead/unused inline suppression comments (`<!-- zenzic:ignore: Zxxx -->`) and `data-zenzic-ignore` HTML attributes without corrupting the surrounding text.
 
 `zenzic clean assets` respects `excluded_assets`, `excluded_dirs`, and
 `excluded_build_artifacts` from `.zenzic.toml` — it will never delete files that match these
 patterns.
+
+### Repairing links after a rename
+
+```bash
+zenzic fix --rename docs/old.md docs/new.md            # Preview inbound-link repairs (dry-run)
+zenzic fix --rename docs/old.md docs/new.md --apply    # Apply them
+```
+
+`--rename OLD NEW` scans the docs tree for relative links pointing at `OLD` and rewrites them
+to point at `NEW` — the CLI/batch counterpart to the editor's [auto-repair-on-rename LSP
+feature](../editor/vscode.md#auto-repair-links-on-rename), for scripted workflows (`git mv
+docs/old.md docs/new.md && zenzic fix --rename docs/old.md docs/new.md`). `OLD` does not need
+to still exist on disk. Same `--dry-run`/`--apply` gate as the default mode, and every affected
+file is reported individually, not as a single opaque batch result.
+
+Docs-root-relative (a leading `/`) and `@site/...` alias links are always left untouched, since
+reconstructing the correct alias form is ambiguous. A file with an active inline suppression at
+the affected location is also left untouched rather than overriding it.
+
+A link that names the file in a different letter case — `[target](./casetarget.md)` for
+`CaseTarget.md`, which a case-insensitive filesystem resolves — is repaired too, provided no
+other discovered page folds equal to `OLD`. Where such a page does exist (possible on a
+case-sensitive filesystem, or left behind by an earlier move), the link belongs to that page and
+this command leaves it alone rather than guessing. This matches the editor's
+[auto-repair-on-rename](../editor/vscode.md#auto-repair-links-on-rename), so a rename repaired
+one way is repaired the same way the other.
+
+The comparison is Unicode case folding over the pages this command has already discovered — it
+never probes the filesystem — so the same rename produces the same result on Linux, macOS and
+Windows. One consequence follows from that and is worth knowing: a page excluded by
+`.zenzic.toml` is not in the discovered set and therefore cannot be seen as a case-collision.
+The editor's auto-repair has the same boundary, which is why the two agree.
 
 ---
 
@@ -842,39 +1094,111 @@ patterns.
 | :---: | :--- |
 | `0` | All selected checks passed (or `--exit-zero` was set) |
 | `1` | One or more checks reported issues |
-| **`2`** | **SECURITY CRITICAL — credential scanner detected a leaked credential** |
-| **`3`** | **SECURITY INCIDENT — Path Traversal Guard: link targets an OS system directory** |
+| **`2`** | **SECURITY CRITICAL — a leaked credential (`Z201`), a forbidden term (`Z204`), or a forbidden URL scheme (`Z205`)** |
+| **`3`** | **SECURITY INCIDENT — Path Traversal Guard: link targets an OS system directory (`Z203`)** |
 
 !!! danger "Exit code 2 is reserved for security events"
-    Exit code 2 is issued by `zenzic check references` and `zenzic check all` when the credential scanner detects a
-    known credential pattern embedded in a reference URL. It is never used for ordinary check
-    failures. If you receive exit code 2, treat it as a build-blocking security incident and
-    **rotate the exposed credential immediately**.
+    Exit code 2 is issued by `zenzic check references`, `zenzic check links`, and `zenzic check all`
+    whenever `Z201`, `Z204`, or `Z205` is detected, in every output format (text, JSON, SARIF,
+    GitHub annotations). It is never used for ordinary check failures. The exit code is decided by
+    the finding's **code**, not by its rendered severity — the two can differ, because severity is
+    set by whichever subsystem produced the finding.
+
+    **The remedy depends on which code fired, and only one of them involves rotation:**
+
+    - `Z201` — a real credential is in the corpus. **Rotate it immediately** and purge it from the
+      repository history.
+    - `Z204` — a forbidden term. Remove it before committing. Nothing needs rotating.
+    - `Z205` — a forbidden URL scheme such as `javascript:`. Replace the link target with an
+      `https:` URL or a relative path. Nothing needs rotating, and the URL is deliberately shown
+      **in full** rather than masked: masking exists to keep a secret out of logs, and a scheme is
+      not a secret — hiding it would hide the thing you have to edit.
+
+!!! danger "Exit code 3 is a separate outcome, not a louder 2"
+    `Z203` — a link escaping to an OS system directory — exits **3**, not 2. Any gate that tests
+    for equality with `2` will read a traversal as a pass. Test for a non-zero exit, or for
+    `2` **or** `3` explicitly. Note that `Z202`, the ordinary docs-root-boundary traversal, is
+    non-suppressible but reports at exit `1`: it is deliberately not escalated.
 
 !!! danger "Exit code 3 — Path Traversal Guard Incident"
     Exit code 3 is issued when the path traversal guard detects a link that resolves to an OS
-    system directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). Unlike exit
+    system directory — `/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`, `/bin/`,
+    `/sbin/`, `/boot/`, `/dev/`, or a Windows system location (`windows`, `winnt`,
+    `system32`, `programdata`). Unlike exit
     code 1, this is a security incident and takes priority over all other exit codes. It is
     never suppressed by `--exit-zero`. See
-    [Checks: Path Traversal Guard](./checks#path-traversal-guard) for details.
+    [Checks: Path Traversal Guard](../checks/#path-traversal-guard) for details.
 
 Each exit code has a distinct visual signature in the Zenzic Report:
 
-### Exit 0 — Zenzic Audit Badge
+### Exit 0 — clean run
 
-This section details the specifications and guidelines for Exit 0 — Zenzic Audit Badge within the Zenzic ecosystem.
+No errors, no security findings. Warnings may still be present (they only block the
+run under `--strict`) — the summary line makes the distinction explicit:
 
-<!-- Terminal output: run `uvx zenzic check all` -->
+```text
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 2 info  • 2 files with findings
 
-### Exit 1 — Quality findings
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 98/100 (Gate Passed)
+```
 
-This section details the specifications and guidelines for Exit 1 — Quality findings within the Zenzic ecosystem.
+### Exit 1 — quality findings
 
-<!-- Terminal output: run `uvx zenzic check all` -->
+At least one `error`-severity finding (e.g. a broken link) with no security
+breach or path-traversal incident present. The report ends with an explicit
+`FAILED` line naming the exit code:
+
+```text
+docs/index.md:3  ✘  [Z101]  'missing-page.md' resolves to '/missing-page/' which
+is not in the Virtual Site Map — the target file may not exist
+
+Summary:  ✘ 1 error  ⚠ 1 warning  💡 0 info  • 1 file with findings
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 91/100 (Gate Failed)
+```
 
 ### Exit 2 — credential scanner security breach
 
-<!-- Terminal output: run `uvx zenzic check all` -->
+A leaked credential or forbidden term (`Z201`/`Z204`/`Z205`). Rendered as a
+dedicated `SECURITY BREACH DETECTED` panel — visually distinct from ordinary
+findings — and the DQS score is forced to 0 regardless of the rest of the scan:
+
+```text
+✘ SECURITY BREACH DETECTED  [LIKELY PLACEHOLDER]
+  ✘ Finding:    Secret detected (aws-access-key) — rotate immediately.
+  ✘ Location:   docs/index.md:6
+  ✘ Credential:  AKIA************MPLE
+
+  Action: Rotate this credential immediately and purge it from the repository
+history.
+
+Summary:  ✘ 1 security breach  • 1 file impacted  ✘ 0 errors  ⚠ 2 warnings  💡 0
+info  • 1 file with findings
+
+FAILED: Security breaches detected. Exit code 2 is mandatory.
+DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+```
+
+### Exit 3 — path traversal fatal incident
+
+A link resolves outside every authorised root, or to an OS system directory
+(`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`, `/bin/`, `/sbin/`, `/boot/`,
+`/dev/`, or a Windows system location). Takes priority over
+every other exit code and is never suppressed by `--exit-zero`:
+
+```text
+docs/index.md:3  ✘  [Z203]  '../../../../etc/passwd' resolves outside the docs
+directory
+
+Summary:  ✘ 1 security incident  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file
+with findings
+
+FAILED: Security incidents detected. Exit code 3 is mandatory.
+DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+```
 
 ---
 
@@ -884,22 +1208,18 @@ All concrete check subcommands support `--format json` for machine-readable outp
 
 ### `check all`
 
-The aggregated report groups findings by check:
+The aggregated report carries every finding in one `findings` array:
 
 ```bash
-zenzic check all --format json | jq '.orphans'
+zenzic check all --format json | jq '.findings[] | select(.code == "Z402")'
 zenzic check all --format json > report.json
 ```
 
 ```json
 {
-  "links":         [],
-  "orphans":       [],
-  "snippets":      [],
-  "placeholders":  [],
-  "unused_assets": [],
-  "references":    [],
-  "nav_contract":  [],
+  "findings": [],
+  "security_breaches": 0,
+  "security_incidents": 0,
   "suppression_count": 0,
   "suppression_cap": 30,
   "suppression_debt_pts": 0,
@@ -907,12 +1227,13 @@ zenzic check all --format json > report.json
 }
 ```
 
-Each key holds a list of issue strings or objects. An empty list means the check passed.
-`nav_contract` validates `extra.alternate` links in `mkdocs.yml` against the Virtual Site Map
-— always empty for non-MkDocs projects.
+Each entry in `findings` carries `rel_path`, `line_no`, `code`, `severity` and `message`, and an
+empty array means every check passed. `security_breaches` and `security_incidents` are integer counts, so a JSON
+consumer can detect a `Z2xx` security breach or `Z203` path-traversal incident without parsing
+message text or relying solely on the process exit code.
 
 For the authoritative machine contract (including `score --format json` and CAP fail-hard payloads),
-see [API JSON Contract](./api-json).
+see [API JSON Contract](../api-json/).
 
 ### Individual commands
 
@@ -932,7 +1253,8 @@ zenzic check references --format json --strict
       "line_no": 42,
       "code": "Z104",
       "severity": "error",
-      "message": "guides/setup.md:42: 'install.md' not found in docs"
+      "message": "guides/setup.md:42: 'install.md' not found in docs",
+      "fixable": false
     }
   ],
   "summary": {
@@ -948,7 +1270,7 @@ zenzic check references --format json --strict
 
 Exit codes are preserved in JSON mode: exit 0 when only warnings are found,
 exit 1 on errors (or warnings under `--strict`), exit 2 on credential scanner breaches,
-exit 3 on path traversal guard path traversal — the same contract as text output.
+exit 3 on a fatal path traversal incident — the same contract as text output.
 
 ---
 
@@ -970,8 +1292,8 @@ zenzic check all --format sarif > zenzic-results.sarif
 
 Every Zenzic finding maps verbatim: the `Zxxx` code becomes the `ruleId`. The
 `tool.driver.rules` array is populated dynamically — only codes that produced at least one
-result in the run are declared. Each rule entry carries a `helpUri` pointing to the anchor
-in this reference page.
+result in the run are declared. Each rule entry carries a `helpUri` pointing to the
+corresponding anchor on the [Finding Codes Encyclopedia](finding-codes.md).
 
 | Finding | `ruleId` | SARIF `level` |
 | :--- | :---: | :---: |
@@ -983,19 +1305,21 @@ in this reference page.
 | Z106 CIRCULAR_LINK | `Z106` | `note` |
 | Z107 CIRCULAR_ANCHOR | `Z107` | `error` |
 | Z108 EMPTY_LINK_TEXT | `Z108` | `error` |
-| Z110 STALE_ALLOWLIST_ENTRY | `Z110` | `warning` |
-| Z111 VIRTUAL_ROUTE_BROKEN | `Z111` | `error` |
-| Z113 AUTHOR_KEY_COLLISION | `Z113` | `error` |
-| Z114 LARGE_PAGINATION_SET | `Z114` | `note` |
+| Z110 CONFIG_SYNTAX_ERROR | `Z110` | `error` |
+| Z111 CONFIG_SCHEMA_ERROR | `Z111` | `error` |
+| Z112 STALE_ALLOWLIST_ENTRY | `Z112` | `warning` |
+| Z115 STALE_ROUTE_MANIFEST | `Z115` | `warning` |
 | Z201 CREDENTIAL_SECRET | `Z201` | `error` |
 | Z202 PATH_TRAVERSAL | `Z202` | `error` |
 | Z203 PATH_TRAVERSAL_FATAL | `Z203` | `error` |
 | Z204 FORBIDDEN_TERM | `Z204` | `error` |
 | Z301–Z303 Reference Integrity | `Z301`–`Z303` | `warning` |
-| Z401–Z406 Structure | `Z401`–`Z406` | `warning` |
+| Z401 Structure | `Z401` | `note` |
+| Z402–Z407 Structure | `Z402`–`Z407` | `warning` |
 | Z501–Z505 Content Quality | `Z501`–`Z505` | `warning` |
 | Z601 Governance | `Z601` | `warning` |
-| Z901–Z902 System | `Z901`–`Z902` | `warning` |
+| Z901 System | `Z901` | `error` |
+| Z902 System | `Z902` | `error` |
 | Z906 NO_FILES_FOUND | `Z906` | `note` |
 
 ### Example SARIF output
@@ -1014,17 +1338,21 @@ in this reference page.
           "rules": [
             {
               "id": "Z104",
-              "name": "FILE_NOT_FOUND",
-              "shortDescription": { "text": "File not found" },
+              "name": "FileNotFound",
+              "shortDescription": { "text": "Link target file missing from the filesystem" },
+              "fullDescription": { "text": "Link target file missing from the filesystem" },
               "defaultConfiguration": { "level": "error" },
-              "helpUri": "./finding-codes.md#z104"
+              "helpUri": "https://zenzic.dev/reference/finding-codes/#z104",
+              "properties": { "category": "structural", "penalty": 8.0, "fixable": false }
             },
             {
               "id": "Z201",
-              "name": "CREDENTIAL_SECRET",
-              "shortDescription": { "text": "Credential detected" },
+              "name": "CredentialSecret",
+              "shortDescription": { "text": "Potential credential or secret detected in documentation content" },
+              "fullDescription": { "text": "Potential credential or secret detected in documentation content" },
               "defaultConfiguration": { "level": "error" },
-              "helpUri": "./finding-codes.md#z201"
+              "helpUri": "https://zenzic.dev/reference/finding-codes/#z201",
+              "properties": { "category": "uncategorized", "penalty": 0.0, "fixable": false }
             }
           ]
         }
@@ -1044,7 +1372,11 @@ in this reference page.
                 "region": { "startLine": 42 }
               }
             }
-          ]
+          ],
+          "partialFingerprints": {
+            "zenzicFindingV1": "9c5823ba6f738113c039e3f1c714fa01bd3012b51b583d7f098d8a20bcb3936c",
+            "primaryLocationLineHash": "5d11cd16693fcee53745413004a6968e653b674db57a468fd923892ce40df72f"
+          }
         }
       ]
     }
@@ -1052,12 +1384,89 @@ in this reference page.
 }
 ```
 
+### `partialFingerprints` — how an alert keeps its history {#sarif-partial-fingerprints}
+
+GitHub Code Scanning decides whether two results across commits are the *same* alert
+from this object. Zenzic emits two keys:
+
+| Key | Present on | Built from |
+| --- | --- | --- |
+| `zenzicFindingV1` | **every** result | Relative path, code, message, match text and occurrence index — the line number deliberately absent, so the identity survives the finding moving. Byte-identical to the `fingerprint` field in `--format gitlab-codequality`. |
+| `primaryLocationLineHash` | results that have a source line | SHA-256 of the stripped source line. GitHub's own documented key. |
+
+`primaryLocationLineHash` is **omitted, not emitted empty**, for a file-level finding
+with no excerpt (`Z502` `SHORT_CONTENT`, `Z411` `DEAD_END_NODE`). A hash over an empty
+string would give every such finding one identity, and GitHub would merge unrelated
+alerts rather than simply fail to track one.
+
 For automated upload to GitHub Code Scanning, use the
-[Zenzic GitHub Action](../how-to/configure-ci-cd#github-actions-zenzic-credential-gate) —
+[Zenzic GitHub Action](../../how-to/configure-ci-cd/#github-actions-zenzic-credential-gate) —
 it validates SARIF integrity before upload (truncation guard) and surfaces findings as
 inline PR annotations.
 
 ---
+
+## GitLab Code Quality output {#gitlab-codequality-output}
+
+`check all` supports `--format gitlab-codequality`, which emits GitLab's Code Quality report
+schema so findings appear inline on a merge request instead of only as a downloadable file.
+
+```bash
+zenzic check all --format gitlab-codequality > gl-code-quality-report.json
+```
+
+Declare it under `artifacts.reports.codequality` in `.gitlab-ci.yml` — see
+[Configure CI/CD](../how-to/configure-ci-cd.md).
+
+The output is a single JSON array. Each element carries exactly the fields the schema
+requires:
+
+| Field | Value |
+| :--- | :--- |
+| `description` | The finding's human-readable message. |
+| `check_name` | The finding code (`Z101`, `Z201`, …) — the stable identifier GitLab groups and filters on. |
+| `fingerprint` | SHA-256 digest identifying this violation across commits. |
+| `severity` | One of `info`, `minor`, `major`, `critical`, `blocker`. |
+| `location.path` | Path relative to the repository root, never prefixed with `./`. |
+| `location.lines.begin` | Integer line number. File-level findings report line `1`. |
+
+### Severity mapping
+
+GitLab's severity vocabulary differs from Zenzic's, so the two are mapped explicitly:
+
+| Zenzic severity | GitLab severity |
+| :--- | :--- |
+| `security_breach` | `blocker` |
+| `security_incident` | `critical` |
+| `error` | `major` |
+| `warning` | `minor` |
+| `info` | `info` |
+
+A severity outside Zenzic's own set — possible from a plugin rule — maps to `minor` rather
+than being passed through. An unrecognised value would make the entire report unparseable,
+taking every other finding in the run with it.
+
+### Fingerprint stability
+
+The fingerprint deliberately **excludes** the line number. GitLab uses it to recognise the
+same violation across commits; including the line would report every finding below an
+inserted paragraph as newly introduced. Two identical findings in one file are instead
+distinguished by their order within the file, so fingerprints stay unique without becoming
+volatile.
+
+For a credential finding, the matched text contributes to the digest but is never emitted —
+the report contains the hash, not the secret.
+
+### Suppression cap failures
+
+When `governance.suppression_cap_fail_hard` aborts the run, the report contains a single
+`blocker` violation named `SUPPRESSION_CAP_EXCEEDED`, anchored to `.zenzic.toml`. An empty
+report would be displayed by GitLab as "no code quality issues" — a clean merge request for
+a failed pipeline.
+
+!!! note "Machine Silence — Rule R20"
+    As with `json` and `sarif`, all Rich banners and informational panels are suppressed on
+    `stdout` when this format is active.
 
 ## Engine override
 
@@ -1070,13 +1479,12 @@ zenzic check all --engine zensical
 zenzic check all --engine standalone    # disable orphan check regardless of config
 ```
 
-If you pass an engine name with no registered adapter, Zenzic lists available adapters and
+If you pass `--engine` a name with no registered adapter, Zenzic lists available adapters and
 exits with code 1:
 
 ```text
 ERROR: Unknown engine adapter 'hugo'.
-Installed adapters: mkdocs, standalone, zensical
-Install a third-party adapter or choose from the list above.
+Installed adapters: mkdocs, prebuilt, standalone, vsm, zensical
 ```
 
 Third-party adapters are discovered automatically once installed — no Zenzic update required.
@@ -1107,19 +1515,25 @@ zenzic diff [PATH]             # Diff a remote project against its saved baselin
 
 ### How the score is computed
 
-Each check category carries a fixed weight that reflects its impact on the reader experience:
+Findings are grouped into four weighted categories, each with a point cap:
 
-| Category | Weight | Rationale |
-| :--- | ---: | :--- |
-| links | 35 % | A broken link is an immediate dead end for the reader |
-| orphans | 20 % | Unreachable pages are invisible — they might as well not exist |
-| snippets | 20 % | Invalid code examples actively mislead developers |
-| placeholders | 15 % | Placeholder content signals an unfinished or abandoned page |
-| assets | 10 % | Unused assets are waste, but they do not block the reader |
+| Category | Weight | Bucket Cap |
+| :--- | ---: | ---: |
+| structural | 30 % | 30 pts |
+| navigation | 25 % | 25 pts |
+| content | 20 % | 20 pts |
+| brand (governance) | 25 % | 25 pts |
 
-Within each category, the score decays linearly: the first issue costs 20 % of the category
-weight, the second costs another 20 %, floored at zero. A category with five or more issues
-contributes nothing to the total. The weighted contributions are summed and rounded to an integer.
+Each finding code has a fixed per-occurrence point penalty (see the [Finding Codes
+Catalog](./finding-codes.md)). A category's raw penalty is the sum of `penalty × count` for every
+code in that category found in the project, capped at the category's bucket cap — a category can
+never contribute a negative score, only reduce its own bucket toward zero. Governance (`Z6xx`)
+findings beyond 10 total occurrences receive an exponential amplifier (doubling every 5 excess
+findings) before the cap is applied. If the brand bucket is fully zeroed, the total score is capped
+at 70 regardless of the other three categories (the Gravity Cap). Active suppressions each cost a
+flat 1 point, subtracted after the category penalties. The final score is `100 - Σ(category
+penalties) - suppression debt`, rounded to an integer. See [Scoring
+Algorithm](./scoring-algorithm.md) for the complete formulas and per-code penalty table.
 
 ### Regression tracking
 
@@ -1177,7 +1591,9 @@ zenzic score                   # show score for visibility
 
 ### Detailed score breakdown (`--breakdown`)
 
-Use the `--breakdown` flag to output a detailed category breakdown of occurred Z-Codes (including informational or zero-point codes like `Z106` or `Z401`) and the transparent DQS mathematical formula calculations:
+Use the `--breakdown` flag to output a detailed category breakdown of occurred Z-Codes (including informational or zero-point codes like `Z106` or `Z401`) and the transparent DQS mathematical formula calculations.
+
+The example below shows a `Z106` row. `Z106` is **opt-in** and produces nothing unless `[policies] enable_circular_link_check = true` is set, so a default project sees none. It appears under **UNCATEGORIZED FINDINGS** rather than under a weighted category: `Z106` carries no DQS penalty and belongs to no scoring bucket, so no bucket's arithmetic accounts for it. A code is grouped by the category the registry gives it, never by its numeric band — `Z106` is a `Z1xx` code that `Structural` does not score.
 
 ```bash
 zenzic score --breakdown
@@ -1188,8 +1604,9 @@ Example output:
 ```text
 DETAILED CATEGORY BREAKDOWN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 STRUCTURAL CATEGORY (Weight: 30%, Max: 30.0 pts)
-  ✗ Z106 (CIRCULAR_LINK): 24 occurrence(s) x -0.0 pts = -0.0 pts
+  ✓ No issues detected
   Category Raw Penalty:  0.0 pts
   Category Net Score:    30.0 / 30.0 pts
 
@@ -1207,20 +1624,23 @@ BRAND CATEGORY (Weight: 25%, Max: 25.0 pts)
   ✓ No issues detected
   Category Raw Penalty:  0.0 pts
   Category Net Score:    25.0 / 25.0 pts
+
+UNCATEGORIZED FINDINGS
+  ! Z106 (CIRCULAR_LINK): 2 occurrence(s) (no DQS penalty)
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DQS MATHEMATICAL TRANSPARENCY
   Base Score:                100.0 pts
-  + Structural Contribution:   +30.0 pts (max 30.0)
-  + Navigation Contribution:   +25.0 pts (max 25.0)
-  + Content Contribution:   +20.0 pts (max 20.0)
-  + Brand Contribution:   +25.0 pts (max 25.0)
+  - Structural Penalty:        -0.0 pts
+  - Navigation Penalty:        -0.0 pts
+  - Content Penalty:        -0.0 pts
+  - Brand Penalty:        -0.0 pts
   ─────────────────────────────────────
-  Category Subtotal:          100.0 / 100.0 pts
-  - Gravity Cap Loss:           -0.0 pts (Brand bucket zeroed cap)
+  Total Category Penalties:   -0.0 pts
+  - Gravity Cap Loss:           -0.0 pts (not triggered)
   - Technical Debt Penalty:     -0.0 pts (0 suppression(s) x -1.0 pt)
   ─────────────────────────────────────
-  Final Quality Score:        100 / 100
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Final Score: 100 - 0.0 = 100.0
 ```
 
 ---
@@ -1233,9 +1653,10 @@ zenzic inspect capabilities   # Show all built-in scanners, plugin rules, and en
 
 `zenzic inspect capabilities` shows Zenzic's complete scanner arsenal in two sections:
 
-**Section A — Core Scanners (Built-in):** scanners compiled into Zenzic itself from the canonical registry. The credential scanner
-(Z201) and path traversal guard (Z202–203) use dedicated exit codes (2 and 3 respectively) that are never
-suppressible with `--exit-zero`.
+**Section A — Core Scanners (Built-in):** 16 scanners compiled into Zenzic itself from the canonical registry. The credential
+scanner (Z201) exits with code 2; the path traversal guard's fatal check (Z203, OS system directories) exits with
+code 3. Z202 (ordinary docs-root-boundary traversal) is also non-suppressible but stays at plain Exit 1 — it is
+deliberately not escalated to Exit 3. None of these four are suppressible with `--exit-zero`.
 
 **Section B — Extensible Rules (Plugin System):** rules registered via the `zenzic.rules`
 entry-point group from any installed third-party package.
@@ -1318,11 +1739,14 @@ If `--kind` is invalid, the command exits `1` and emits the error to stderr when
 ## Interactive Lab {#lab}
 
 ```bash
-zenzic lab [CODE] [--list]
+zenzic lab [CODE] [--list] [--all]
 ```
 
 `zenzic lab` is an interactive showcase that runs bundled Z-code gallery scenarios against
-Zenzic and reports whether each scenario met its expected outcome.
+Zenzic and reports whether each scenario met its expected outcome. The gallery currently
+covers 60+ scenarios spanning link integrity, security, topology, editorial style, and
+Specification-Driven Development rules — see `zenzic lab --list` for the full, current index
+rather than relying on a fixed count here.
 
 ### Scenario selection
 
@@ -1330,17 +1754,15 @@ Zenzic and reports whether each scenario met its expected outcome.
 | :--- | :--- |
 | `zenzic lab` | Display the gallery menu |
 | `zenzic lab z101` | Run a single Z-code scenario |
-| `zenzic lab all` | Run all 5 gallery scenarios in sequence |
+| `zenzic lab --all` | Run every gallery scenario in sequence |
 | `zenzic lab --list` | Print the gallery index without running |
+| `zenzic lab z101 --all` | Show every finding for the scenario, not just its own code — by default, output is filtered to the code the scenario demonstrates |
 
-### Gallery
+### Exit code
 
-| Z-Code | Title | Expects |
-| :---: | :--- | :---: |
-| `Z101` | Link Integrity | FAIL |
-| `Z201` | Credential Scanner | BREACH |
-| `Z405` | Asset Integrity | FAIL |
-| `Z601` | Brand Obsolescence | FAIL |
+`zenzic lab` exits `0` when every requested scenario meets its expectation, and `1` if any
+scenario does not — this makes `zenzic lab --all` usable as a regression gate (e.g. in CI),
+not only as an interactive demo.
 
 ### Outcome labels
 
@@ -1349,11 +1771,14 @@ the expectation was met:
 
 | Label | Meaning |
 | :--- | :--- |
-| `PASS ✓` | Expected clean run — zero findings |
-| `EXPECTED FAIL ✓` | Expected errors were found |
-| `BREACH ✓` | Expected credential scanner detection |
-| `FAIL (unexpected)` | Scenario expected to pass but errors found |
+| `BREACH ✓` | Expected credential scanner detection was produced |
 | `BREACH expected — not triggered` | Expected credential scanner hit was not produced |
+| `INCIDENT ✓` | Expected path-traversal security incident was produced |
+| `INCIDENT expected — not triggered` | Expected path-traversal incident was not produced |
+| `PASS ✓` | Expected clean run — zero findings |
+| `FAIL (unexpected)` | Scenario expected to pass but errors found |
+| `EXPECTED FAIL ✓` | Expected errors or warnings were found |
+| `EXPECTED FAIL — nothing found` | Expected errors or warnings were not produced |
 
 ### Examples
 
@@ -1362,10 +1787,13 @@ the expectation was met:
 zenzic lab z201
 
 # Run the full gallery
-zenzic lab all
+zenzic lab --all
 
 # Run a single Z-code scenario
 zenzic lab z101
+
+# Show the complete, unfiltered finding list for one scenario
+zenzic lab z521 --all
 
 # Print the gallery index without running
 zenzic lab --list
@@ -1379,6 +1807,7 @@ zenzic lab --list
 | :--- | :--- | :--- |
 | `uvx zenzic ...` | Downloads and runs in an **isolated, ephemeral** environment | One-off jobs, pre-commit hooks, CI with no project install phase |
 | `uvx --from zenzic zenzic ...` | Runs via `uvx` with explicit package source | When you want explicit package resolution while staying outside project env |
+| `uv run zenzic ...` | Runs the project's own declared dependency (Track 2) inside its managed venv | A project that lists `zenzic` in `pyproject.toml`, where local runs should match CI exactly |
 | `zenzic ...` (bare) | Requires Zenzic on `$PATH` | Developer machines with a global install |
 
 !!! tip "CI recommendation"

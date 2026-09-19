@@ -67,13 +67,35 @@ class StandaloneAdapter(BaseAdapter):
         """StandaloneAdapter has no engine config file."""
         return frozenset()
 
+    def get_output_dirs(self) -> frozenset[str]:
+        """Standalone mode has no engine and builds nothing, so it declares no
+        output directory. ``PrebuiltVSMAdapter`` inherits this for the same
+        reason: it consumes a VSM someone else produced.
+        """
+        return frozenset()
+
     @property
     def use_directory_urls(self) -> bool:
         """Standalone mode defaults to directory-style canonical URLs."""
         return True
 
     def _map_url(self, rel: Path) -> str:
-        """Filesystem-derived clean URL — same rule as Zensical."""
+        """Filesystem-derived clean URL — same rule as Zensical.
+
+        This **replicates** Zensical's URL derivation rather than calling it:
+        `standalone` exists precisely for projects with no build engine, so
+        there is nothing to ask. Characterised from Zensical's observable output
+        during the adapter work, against **no recorded version** — unlike the
+        two slug replicas in `core/validator.py`, which name the package version
+        they were characterised against and are compared to the original on
+        every test run.
+
+        It is the weakest instance of that class and the honest statement is
+        that nothing here would notice if Zensical changed the rule: Zensical is
+        not a test dependency, and this path is exercised only against Zenzic's
+        own expectations. Closing it means either pinning a version by
+        measurement or making Zensical a test dependency and comparing.
+        """
         from zenzic.core.discovery import DOC_SUFFIXES
 
         if rel.suffix.lower() not in DOC_SUFFIXES:

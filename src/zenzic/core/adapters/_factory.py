@@ -32,11 +32,15 @@ the docs engine is not installed.
 
 from __future__ import annotations
 
+import contextlib
 import threading
+from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Final, Literal, cast
 
+from zenzic.core.adapters._mkdocs_config import MKDOCS_CONFIG_NAMES
+from zenzic.core.exceptions import CheckError, ZenzicError
 from zenzic.models.config import BuildContext
 
 from ._base import BaseAdapter
@@ -58,6 +62,98 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 }
 
 
+@dataclass(frozen=True)
+class EngineResolution:
+    """What engine the run asked for, what it got, and whether those differ.
+
+    The substitution notice has only ever reached stderr, and **stderr reaches
+    no CI consumer**: a pipeline reading `--format json` or uploading SARIF sees
+    a clean payload and no indication that the engine it declared was not the
+    engine that ran. Measured on 2,604 Astro pages, a declared `prebuilt` with
+    no manifest produced a run byte-identical to `standalone` -- same total,
+    same distribution, same exit code -- and the only signal was a line nobody
+    was reading.
+
+    Attached to the adapter the factory returns, so every surface that holds an
+    adapter can report it without the factory needing to know which surfaces
+    exist.
+    """
+
+    declared: str
+    resolved: str
+    substituted: bool
+    reason: str = ""
+
+    def as_payload(self) -> dict[str, object]:
+        """The shape both the JSON payload and the SARIF run property carry."""
+        out: dict[str, object] = {
+            "declared": self.declared,
+            "resolved": self.resolved,
+            "substituted": self.substituted,
+        }
+        if self.reason:
+            out["reason"] = self.reason
+        return out
+
+
+#: What each engine looks for, so the substitution notice can name the missing
+#: file rather than leaving the user to guess which one was wanted.
+#: Engines whose adapter reads the documentation generator's **own**
+#: configuration, rather than a routing table Zenzic is handed.
+#:
+#: For these, "which documentation generator is this?" is a question the engine
+#: has already answered, and the marker-file detection in
+#: ``cli/_standalone.py`` does not apply. Reporting "none detected" there reads
+#: as a detection that failed, when nothing was looked for -- which is what a
+#: user saw on an MkDocs project until 2026-09-19.
+#:
+#: ``prebuilt`` and ``vsm`` are deliberately absent: they read a manifest and
+#: know nothing about what produced it, so a generator beside them is real
+#: information (an Astro site served by ``prebuilt``). ``standalone`` is absent
+#: for the same reason.
+NATIVE_GENERATOR_ENGINES: Final[frozenset[str]] = frozenset({"mkdocs", "zensical"})
+
+_SUBSTITUTION_HINTS = {
+    "prebuilt": "route manifest (.zenzic-vsm.json, read from the repository root)",
+    "vsm": "route manifest (.zenzic-vsm.json, read from the repository root)",
+    "mkdocs": "mkdocs.yml (or mkdocs.yaml)",
+    "zensical": "zensical.toml",
+}
+
+
+def _is_zensical_theme(mkdocs_content: str) -> bool:
+    """Inspect mkdocs.yml content for theme: zensical without full YAML parsing.
+
+    Robust against false positives in comments, nav items, or plugins.
+    """
+    lines = mkdocs_content.splitlines()
+    in_theme_block = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if not line.startswith((" ", "\t")):
+            if line.startswith("theme:"):
+                remainder = line[6:].strip()
+                remainder_clean = remainder.split("#", 1)[0].strip().strip("\"'")
+                if remainder_clean == "zensical":
+                    return True
+                in_theme_block = True
+                continue
+            else:
+                in_theme_block = False
+        elif in_theme_block:
+            clean_indented = stripped.split("#", 1)[0].strip()
+            if clean_indented.startswith("name:"):
+                val = clean_indented[5:].strip().strip("\"'")
+                if val == "zensical":
+                    return True
+            elif clean_indented.strip("\"'") == "zensical":
+                return True
+    return False
+
+
 def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical", "standalone"]:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
@@ -65,18 +161,33 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
 
     1. ``.zenzic-vsm.json``   → ``"prebuilt"``
     2. ``zensical.toml``      → ``"zensical"``
-    3. ``mkdocs.yml``         → ``"mkdocs"``
-    4. No marker found        → ``"standalone"`` (universal fallback mode)
+    3. ``mkdocs.yml`` / ``mkdocs.yaml`` with theme: zensical → ``"zensical"`` (compat input)
+    4. ``mkdocs.yml`` / ``mkdocs.yaml`` → ``"mkdocs"``
+    5. No marker found        → ``"standalone"`` (universal fallback mode)
 
-    This function is called when ``BuildContext.engine == "auto"`` (the default),
-    replacing the previous implicit assumption that the engine was MkDocs.
+    This function is called when ``BuildContext.engine == "auto"`` (the default).
     """
     if (repo_root / ".zenzic-vsm.json").is_file():
         return "prebuilt"
     if (repo_root / "zensical.toml").is_file():
         return "zensical"
-    if (repo_root / "mkdocs.yml").is_file():
+
+    mkdocs_file: Path | None = None
+    for name in MKDOCS_CONFIG_NAMES:
+        candidate = repo_root / name
+        if candidate.is_file():
+            mkdocs_file = candidate
+            break
+
+    if mkdocs_file is not None:
+        try:
+            content = mkdocs_file.read_text(encoding="utf-8", errors="replace")
+            if _is_zensical_theme(content):
+                return "zensical"
+        except OSError:
+            pass
         return "mkdocs"
+
     return "standalone"
 
 
@@ -96,9 +207,18 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
 
 
 def list_adapter_engines() -> list[str]:
-    """Return sorted list of engine names registered in ``zenzic.adapters``."""
+    """Return every engine name a user can actually select.
+
+    Union of the ``zenzic.adapters`` entry-point group and the built-in
+    registry, matching exactly what :func:`_load_adapter_class` will resolve.
+    Entry points alone under-reported: ``prebuilt`` and ``vsm`` are built-in
+    only, so ``--engine prebuilt`` was rejected as an "Unknown engine adapter"
+    even though the same engine works via ``[build_context] engine`` in config
+    and is chosen automatically by :func:`discover_engine` when
+    ``.zenzic-vsm.json`` is present. The gate, not the adapter, was the gap.
+    """
     eps = entry_points(group="zenzic.adapters")
-    return sorted(ep.name for ep in eps)
+    return sorted({ep.name for ep in eps} | set(_BUILTIN_ADAPTERS))
 
 
 # ── Adapter cache ────────────────────────────────────────────────────────────
@@ -108,8 +228,39 @@ def list_adapter_engines() -> list[str]:
 # execution model uses ProcessPoolExecutor (each worker has its own cache).
 # This eliminates the risk of double-instantiation if a future caller uses
 # ThreadPoolExecutor without requiring a code-level change here.
-_adapter_cache: dict[tuple[str, Path, Path], BaseAdapter] = {}
+#: (filename, mtime_ns, size) per watched config file; -1/-1 when absent.
+_ConfigFingerprint = tuple[tuple[str, int, int], ...]
+
+#: Cached adapter plus the fingerprint of the config files it was built from.
+_adapter_cache: dict[tuple[str, Path, Path], tuple[BaseAdapter, _ConfigFingerprint]] = {}
 _adapter_cache_lock: threading.Lock = threading.Lock()
+
+
+def _config_fingerprint(adapter: BaseAdapter, repo_root: Path) -> _ConfigFingerprint:
+    """Fingerprint the engine config files *adapter* declares it depends on.
+
+    The cache key is ``(engine, docs_root, repo_root)`` — none of which change
+    when the *contents* of ``mkdocs.yml`` change. Without this, staying correct
+    was every consumer's own responsibility: each long-running process had to
+    remember to call :func:`clear_adapter_cache` at the right trigger. The LSP
+    did; ``zenzic-mcp`` did not, and served a stale adapter after a real config
+    edit. Fingerprinting makes the cache safe by construction instead.
+
+    Uses ``(mtime_ns, size)`` rather than hashing file contents: it is two
+    ``stat()`` calls at most, versus reading every config file on every cache
+    hit, and it is what the already-approved design specified. A missing file
+    records a distinct sentinel, so deleting a config invalidates rather than
+    silently reusing the adapter built when it was present.
+    """
+    entries: list[tuple[str, int, int]] = []
+    for name in sorted(adapter.watched_config_files):
+        try:
+            stat = (repo_root / name).stat()
+        except OSError:
+            entries.append((name, -1, -1))
+        else:
+            entries.append((name, stat.st_mtime_ns, stat.st_size))
+    return tuple(entries)
 
 
 def clear_adapter_cache() -> None:
@@ -164,13 +315,33 @@ def get_adapter(
     # repo_root for known engine config files.  Mutating context.engine here
     # propagates to the reporter (telemetry line) and _collect_all_results
     # (Z404 config-asset checks) without any additional wiring.
+    #
+    # What the user *declared* is recorded once, on the context itself, because
+    # the substitution notice below is a statement about a declaration and the
+    # mutation destroys it. Capturing it in a local would not do: one
+    # `BuildContext` is shared across every call in a run, so by the second call
+    # the field already holds the discovered engine and a local reads that.
+    # Reading `context.engine` in the guard made its own `"auto"` exclusion
+    # unreachable, and a project that declared nothing was told its declared
+    # engine had been replaced. Measured 2026-09-19 on this repository.
+    declared_engine = getattr(context, "_zenzic_declared_engine", None)
+    if declared_engine is None:
+        declared_engine = context.engine
+        with contextlib.suppress(Exception):
+            object.__setattr__(context, "_zenzic_declared_engine", declared_engine)
     if context.engine == "auto":
         context.engine = discover_engine(repo_root)
 
     key = (context.engine, docs_root.resolve(), repo_root.resolve())
-    # Fast path: read without lock (dict reads are atomic under the GIL).
-    if key in _adapter_cache:
-        return _adapter_cache[key]
+    # Fast path: read without lock (dict reads are atomic under the GIL), but
+    # only reuse the entry while the config it was built from is unchanged.
+    cached = _adapter_cache.get(key)
+    if cached is not None:
+        cached_adapter, cached_fingerprint = cached
+        if _config_fingerprint(cached_adapter, repo_root.resolve()) == cached_fingerprint:
+            return cached_adapter
+        with _adapter_cache_lock:
+            _adapter_cache.pop(key, None)
 
     adapter_class = _load_adapter_class(context.engine)
 
@@ -189,11 +360,26 @@ def get_adapter(
 
     if adapter_class is None or adapter_class is StandaloneAdapter:
         adapter: BaseAdapter = StandaloneAdapter()
-    elif hasattr(adapter_class, "from_repo"):
-        # Prefer the richer from_repo constructor when available.
-        adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
     else:
-        adapter = cast(Any, adapter_class)(context, docs_root)
+        # A third-party or built-in adapter's constructor/from_repo can raise
+        # anything. A ZenzicError subclass is already well-typed (e.g. the
+        # real ZensicalAdapter raising ConfigurationError when zensical.toml
+        # is absent) and must propagate unchanged. Anything else is an
+        # unexpected adapter bug — wrap it as CheckError so cli_main()'s
+        # top-level handler renders a clean error instead of a raw traceback.
+        try:
+            if hasattr(adapter_class, "from_repo"):
+                # Prefer the richer from_repo constructor when available.
+                adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
+            else:
+                adapter = cast(Any, adapter_class)(context, docs_root)
+        except ZenzicError:
+            raise
+        except Exception as exc:
+            raise CheckError(
+                f"Adapter for engine {context.engine!r} failed to initialize: {exc}",
+                context={"engine": context.engine, "cause": str(exc)},
+            ) from exc
 
     if not isinstance(adapter, BaseAdapter):
         raise TypeError(
@@ -202,22 +388,69 @@ def get_adapter(
 
     # If the adapter found no engine config and no locale information, fall
     # back to StandaloneAdapter so nav-dependent checks are skipped cleanly.
-    if not adapter.has_engine_config():
+    try:
+        has_config = adapter.has_engine_config()
+    except ZenzicError:
+        raise
+    except Exception as exc:
+        raise CheckError(
+            f"Adapter for engine {context.engine!r} failed during has_engine_config(): {exc}",
+            context={"engine": context.engine, "cause": str(exc)},
+        ) from exc
+    messages = []
+
+    if not has_config:
+        # A declared engine that finds none of its own configuration is replaced,
+        # not defaulted -- the run then reports what StandaloneAdapter reports,
+        # which on a site that links by route is an order of magnitude more
+        # findings. Measured on a 421-file Starlight tree: 235 with the manifest,
+        # 2,443 without it, and byte-identical to declaring "standalone" outright.
+        # Said through the same list the offline notice uses rather than through
+        # the logger, because the two defects this cycle found hidden behind an
+        # invisible notice were both log-only.
+        if declared_engine not in ("standalone", "auto"):
+            hint = _SUBSTITUTION_HINTS.get(declared_engine, "its own configuration file")
+            messages.append(
+                f"[bold yellow]NOTICE:[/bold yellow] engine {declared_engine!r} found no "
+                f"{hint}, so this run used 'standalone' instead. Findings below are "
+                f"StandaloneAdapter's, not {declared_engine!r}'s."
+            )
         adapter = StandaloneAdapter()
 
-    messages = []
+    # Recorded on the adapter, not only printed. Every surface that holds an
+    # adapter can now say what happened -- the JSON payload as a field, SARIF as
+    # a run property -- which is what stderr could never do for a CI consumer.
+    _resolution = EngineResolution(
+        declared=declared_engine,
+        resolved="standalone" if not has_config else context.engine,
+        substituted=not has_config and declared_engine not in ("standalone", "auto"),
+        reason=(
+            f"no {_SUBSTITUTION_HINTS.get(declared_engine, 'engine configuration')} found"
+            if not has_config and declared_engine not in ("standalone", "auto")
+            else ""
+        ),
+    )
+    with contextlib.suppress(Exception):
+        object.__setattr__(adapter, "zenzic_resolution", _resolution)
+
     if getattr(context, "offline_mode", False):
         messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")
 
     if messages:
         from rich.console import Console
 
-        Console(highlight=False).print("\n" + "\n".join(messages))
+        # stderr, not stdout: `--format json` and `--format sarif` write a
+        # machine-read payload to stdout, and a notice printed there makes it
+        # unparseable. Adding the substitution notice on stdout broke exactly
+        # that and the control caught it; the offline notice had the same
+        # defect already, which is why `scripts/external_corpus_check.py`
+        # searches for the first '{' instead of parsing what it is given.
+        Console(highlight=False, stderr=True).print("\n" + "\n".join(messages))
 
     # Write under lock: prevents double-instantiation if a caller ever uses
     # threads to construct adapters concurrently.
     with _adapter_cache_lock:
         # Re-check after acquiring the lock (double-checked locking pattern).
         if key not in _adapter_cache:
-            _adapter_cache[key] = adapter
-    return _adapter_cache[key]
+            _adapter_cache[key] = (adapter, _config_fingerprint(adapter, repo_root.resolve()))
+    return _adapter_cache[key][0]

@@ -12,3 +12,9 @@
 ## Suppressed jump link
 
 <a href="#" data-zenzic-ignore>Intentional placeholder (suppressed)</a>
+
+## Why this matters
+
+A jump link that always points to `#` without an id target never actually
+navigates anywhere, which misleads readers who expect it to jump to a
+specific section instead of staying put.

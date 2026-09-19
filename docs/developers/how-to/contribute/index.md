@@ -62,7 +62,23 @@ In this section, we guide you through our processes.
 
     :material-arrow-right: [Request a change][request a change]
 
+- :material-shape-outline: &nbsp;
+
+    __Spotted a flaw Zenzic doesn't catch?__
+
+    ---
+
+    Propose a new Z-Code rule, with failing/passing Markdown examples.
+
+    ---
+
+    :material-arrow-right: [Propose a custom rule][propose a custom rule]
+
 </div>
+
+Looking for something easy to start with instead? Browse issues labeled
+[`good first issue`](https://github.com/PythonWoods-Dev/zenzic/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+and claim one via the __Good First Issue__ template.
 
 ---
 
@@ -87,6 +103,7 @@ In this section, we guide you through our processes.
   [report a bug]: report-a-bug.md
   [report a docs issue]: report-a-docs-issue.md
   [request a change]: request-a-change.md
+  [propose a custom rule]: propose-a-custom-rule.md
   [make a pull request]: pull-requests.md
 
 ---
@@ -108,7 +125,7 @@ community.
 
     Please note that everything you write is permanent and will remain for
     everyone to read – forever. Therefore, we kindly ask you to always be
-    nice and constructive, complying with our [Code of Conduct](https://github.com/PythonWoods/zenzic/blob/main/CODE_OF_CONDUCT.md).
+    nice and constructive, complying with our [Code of Conduct](https://github.com/PythonWoods-Dev/zenzic/blob/main/CODE_OF_CONDUCT.md).
 
 ### Before creating an issue
 
@@ -178,7 +195,7 @@ We further *reserve the right to immediately close issues that are reopened
 without providing new information*.
 
   [reaction]: https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/
-  [issue tracker]: https://github.com/PythonWoods/zenzic/issues
+  [issue tracker]: https://github.com/PythonWoods-Dev/zenzic/issues
   [bug reports]: report-a-bug.md
   [documentation issues]: report-a-docs-issue.md
   [change requests]: request-a-change.md
