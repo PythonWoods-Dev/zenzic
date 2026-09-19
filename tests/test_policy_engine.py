@@ -449,7 +449,9 @@ def test_init_template_includes_policies_section() -> None:
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE
 
-    rendered = GLOBAL_TOML_TEMPLATE.format(engine="mkdocs", hint_name="test-project")
+    rendered = GLOBAL_TOML_TEMPLATE.format(
+        engine="mkdocs", engines="mkdocs, standalone", hint_name="test-project"
+    )
     parsed = tomllib.loads(rendered)
 
     assert "policies" in parsed

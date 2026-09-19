@@ -15,7 +15,14 @@ _SPDX = "SPDX-License-Identifier"
 # GLOBAL_TOML_TEMPLATE
 # ===========================================================================
 # Written to .zenzic.toml by `zenzic init`.
-# Dynamic placeholders: {engine}, {hint_name}  (call .format() before write).
+# Dynamic placeholders: {engine}, {engines}, {hint_name}  (call .format() before write).
+#
+# {engines} is the live adapter registry, not a literal. It was a literal naming
+# three engines until 2026-09-19, while the same command's prompt offered five
+# from `list_adapter_engines()` -- so choosing `prebuilt` wrote
+# `engine = "prebuilt" # Supported: mkdocs, zensical, standalone`, a comment that
+# did not list the value it annotated. A third-party adapter had the same problem
+# and worse: it could never appear here at all.
 # All literal curly braces in the TOML content must be doubled: {{ }}.
 # ===========================================================================
 def _activation_block() -> str:
@@ -165,7 +172,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# rather than silently ignored. Zensical supports none of the three.\n"
     "[build_context]\n"
     'engine         = "{engine}"'
-    " # Supported: mkdocs, zensical, standalone\n"
+    " # Supported: {engines}\n"
     'base_url       = "/"\n'
     'default_locale = "en"\n'
     "\n"
@@ -497,7 +504,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "[tool.zenzic.build_context]\n"
     "# engine — auto-detected from project files; override with --engine.\n"
-    "#   Supported: mkdocs, zensical, standalone\n"
+    "#   Supported: {engines}\n"
     'engine         = "{engine}"\n'
     'base_url       = "/"\n'
     'default_locale = "en"\n'

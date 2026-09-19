@@ -1884,10 +1884,24 @@ def _discover_project_name(repo_root: Path) -> str | None:
     return None
 
 
+def _supported_engines() -> str:
+    """The engines the generated file may legitimately name.
+
+    Read from the adapter registry, which is the same source the interactive
+    prompt offers from -- so a third-party adapter appears here without this
+    file changing, and the comment can never again omit the value it annotates.
+    """
+    from zenzic.core.adapters import list_adapter_engines
+
+    return ", ".join(list_adapter_engines())
+
+
 def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) -> str:
     """Build governance configuration template with didactic comments."""
     hint_name = discovered_name or "My Awesome App"
-    return GLOBAL_TOML_TEMPLATE.format(engine=engine, hint_name=hint_name)
+    return GLOBAL_TOML_TEMPLATE.format(
+        engine=engine, engines=_supported_engines(), hint_name=hint_name
+    )
 
 
 def _init_standalone(
@@ -1969,6 +1983,7 @@ def _init_pyproject(
 
     section = PYPROJECT_TOML_SECTION_TEMPLATE.format(
         engine=detected_engine,
+        engines=_supported_engines(),
         hint_name=discovered_name or "your-project",
     )
     if enabled_keys:

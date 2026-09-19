@@ -2926,7 +2926,9 @@ def test_templates_root_keys_not_swallowed() -> None:
     for key in ["excluded_dirs", "forbidden_patterns", "plugins", "docs_dir"]:
         # Uncomment the key
         template = re.sub(rf"(?m)^#\s*({key}\s*=.*)", r"\1", GLOBAL_TOML_TEMPLATE)
-        template = template.format(engine="standalone", hint_name="test")
+        template = template.format(
+            engine="standalone", engines="mkdocs, standalone", hint_name="test"
+        )
 
         data = tomllib.loads(template)
         assert key in data, f"'{key}' was swallowed by a table in GLOBAL_TOML_TEMPLATE!"
@@ -3156,7 +3158,7 @@ def test_pyproject_template_stays_a_pointer_not_a_catalogue() -> None:
 
     from zenzic.cli.templates import PYPROJECT_TOML_SECTION_TEMPLATE as template
 
-    rendered = template.format(engine="mkdocs", hint_name="demo")
+    rendered = template.format(engine="mkdocs", engines="mkdocs, standalone", hint_name="demo")
 
     assert len(rendered.splitlines()) <= 60, (
         f"the pyproject section is {len(rendered.splitlines())} lines; it is a pointer, "
