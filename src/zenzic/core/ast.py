@@ -263,6 +263,41 @@ _CONTAINER_CONTENT_INDENT = 4
 _LIST_MARKER_RE = _re.compile(r"^[ \t]*(?:[-+*]|\d{1,9}[.)])[ \t]+")
 
 
+#: CommonMark §2.2: a tab advances to the next four-column stop rather than
+#: counting as one character, so `\t` at the start of a line is four columns of
+#: indentation and opens an indented code block exactly as four spaces do.
+#:
+#: Measured before it was written: `in_indented_code` was the **only**
+#: indentation decision that diverged. Fences, list continuations and
+#: frontmatter delimiters already treated a tab and four spaces identically,
+#: which is why this is one function at one call site and not a rewrite.
+_TAB_STOP = 4
+
+
+def _indent_columns(line: str) -> int:
+    """Return the column at which *line*'s first non-whitespace character sits.
+
+    Counts columns rather than characters. A partial tab counts to the next
+    stop, so `\t`, `  \t` and `    ` are all four columns -- which is what
+    §2.2 says and what a renderer does.
+
+    Stated limit: the container branch below still uses `marker.end()`, a
+    character offset on the original line. The two coincide for any line whose
+    list marker is not itself preceded by a tab, which is every line in both
+    pinned corpora; a tab before a list marker would put the two a column
+    apart, and that case is recorded rather than handled.
+    """
+    col = 0
+    for ch in line:
+        if ch == " ":
+            col += 1
+        elif ch == "\t":
+            col += _TAB_STOP - (col % _TAB_STOP)
+        else:
+            break
+    return col
+
+
 class BlockTracker:
     """Line-by-line block state: fenced code (§4.5) and indented code (§4.4).
 
@@ -460,7 +495,7 @@ class BlockTracker:
             self.in_indented_code = False
             return
 
-        indent = len(line) - len(line.lstrip(" \t"))
+        indent = _indent_columns(line)
 
         if self._containers.match(line):
             # A marker opens a container whose content sits four columns in,

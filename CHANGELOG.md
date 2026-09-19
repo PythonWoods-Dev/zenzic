@@ -19,8 +19,9 @@ that passes today fail after upgrading. Items 1-3 add findings, and the two secu
 constructs — a `...`-terminated frontmatter, a setext heading, an HTML block — whose content the
 engine could not see at all. Items 4, 6, 8, 9, 10, 13 and 22 remove findings, item 7 moves them
 both ways, item 5 changes the JSON payload, item 15 changes the wording of one, item 23 adds
-a notice without changing any finding, item 24 removes findings on MDX sites, item 25 removes one class of `Z107`, and items 26 and 27
-remove findings by making a code opt-in and narrowing a default. The list ends
+a notice without changing any finding, item 24 removes findings on MDX sites, item 25 removes one class of `Z107`, items 26 and 27
+remove findings by making a code opt-in and narrowing a default, and item 28 removes findings inside
+tab-indented code. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -345,6 +346,15 @@ leaving TODO messages. A marker now has to **open its line** — optionally behi
 block quote or an HTML comment — or be **followed by a colon**. `TODO: write this`, `<!-- TODO -->`
 and `- TODO write the guide` still report; a `TODO` in the middle of a sentence no longer does.
 `placeholder_patterns` remains configurable, and a custom list is unaffected.
+
+**28. A tab now opens an indented code block, so findings inside tab-indented code disappear.**
+CommonMark §2.2 expands a tab to the next four-column stop, so a line beginning with a tab is four
+columns of indentation and is indented code. Zenzic counted characters instead, so `\t` was one
+column and the line was read as prose. **If your Markdown indents code with tabs**, findings
+reported inside it stop appearing — they were never due. Two spaces followed by a tab count to four the same way, and
+three columns still do not open a block. The direction of the old behaviour is worth stating
+because it bounds the risk: the engine read **more** than it should, never less, so nothing was
+hidden and nothing appears now.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
@@ -1185,8 +1195,7 @@ and `- TODO write the guide` still report; a `TODO` in the middle of a sentence 
 
 ### Known Limitations
 
-- **A Tab Does Not Open an Indented Code Block, Where Four Spaces Does**: CommonMark §2.2 expands a tab to the next four-column stop, so a line beginning with a tab is indented code and should be skipped by the content rules. Zenzic treats it as prose. The direction is worth knowing: the engine reads **more** than it should, never less, so nothing is hidden — on a 421-file public corpus, 557 lines are affected and none of them currently produces a finding. If your Markdown indents with tabs, a future rule could report on content you consider code; indent code blocks with four spaces, or fence them, to be certain.
-- **A Fenced Block Inside a Block Quote Is Not Tracked**: `> ```python` opens a fence under CommonMark §5.1, and Zenzic does not follow it, so the quoted block's contents are read as prose. Reproducible in four lines and measured at zero occurrences across both pinned corpora — recorded because it is real, not because it is common.
+- **A Fenced Block Inside a Block Quote Is Not Tracked**: `> ```python` opens a fence under CommonMark §5.1, and Zenzic does not follow it, so the quoted block's contents are read as prose and may collect findings that belong to code. **Every other way of quoting a code sample works**, measured: a Docusaurus-style `:::note` block, a Material `!!! note` with its fence indented beneath, and a plain fence all report nothing. The block quote is the only form affected, because `>` is a per-line prefix rather than an indentation — the one shape neither the fence tracker nor the container vocabulary follows. Measured at **zero** occurrences across four sources (this repository, `withastro/docs`, `zensical/docs`, a `create-docusaurus` scaffold) while the forms that work are used hundreds of times. The direction is noise rather than hidden content, so nothing is lost by it.
 - **`Z102` Predicts Python-Markdown's Anchors on Every Generator, Including Those That Use Another Slugger**: Zenzic models the `toc` extension's slugs, which is what MkDocs and Zensical render with. Astro and Docusaurus use github-slugger, which differs — most visibly in how it treats a trailing separator — so on such a site some `Z102` will name anchors that do exist. Measured on a 421-file public Starlight site: **27 of 93 findings**. There is no flag to drop a single code; name the ones you want with `--only`. `Z503` is the neighbouring case and is not a defect either: it parses a fence labelled `json` as strict JSON, and much configuration shown in those fences is JSON5.
 - **`Z403` and `Z107` Read the Contents of Fenced Code Blocks**: unlike the link checks, which skip a fenced block, these two report an image without alt text or a self-referential anchor link *shown inside a fence* as if it were live content. A page that documents either pattern has to escape or break its example to keep its own check clean.
 - **CLI/LSP Topology Model Divergence**: the CLI's `check_all` pipeline and the Language Server's `IncrementalAnalysisEngine` do not share a common analysis primitive. Most steps (file discovery, rule engine construction/execution, config loading, adapter resolution) genuinely are shared; the two areas that are not are per-file content caching within a single CLI run (partially addressed this release — see below) and, more significantly, orphan/topology detection: the CLI's `Z402` (nav-membership-based) and the LSP's `Z410`/`Z411` (VSM-graph-reachability-based) are two independent algorithms for related-but-not-identical concepts. Formally tracked as an open architectural decision, not silently accepted — see the forthcoming ADR in `docs/developers/explanation/adr-vault/`.

@@ -228,3 +228,52 @@ def test_genuinely_malformed_json_is_still_reported(tmp_path: Path) -> None:
 def test_the_check_is_silent_when_the_flag_is_off(tmp_path: Path) -> None:
     """Opt-in: the same malformed block reports nothing by default."""
     assert _snips(tmp_path, '{"key" "value"}', flag=False) == []
+
+
+# ── CommonMark §2.2: a tab is four columns of indentation ───────────────────
+
+
+def _indented(lines: list[str]) -> list[bool]:
+    from zenzic.core.ast import BlockTracker
+
+    tracker = BlockTracker()
+    out = []
+    for line in lines:
+        tracker.feed(line)
+        out.append(tracker.in_indented_code)
+    return out
+
+
+def test_a_tab_opens_an_indented_code_block() -> None:
+    """§2.2: a tab advances to the next four-column stop."""
+    assert _indented(["Prose.", "", "\tcode"]) == [False, False, True]
+
+
+def test_four_spaces_still_open_one() -> None:
+    """The control: the behaviour a tab is being made to match."""
+    assert _indented(["Prose.", "", "    code"]) == [False, False, True]
+
+
+def test_a_partial_tab_counts_to_the_next_stop() -> None:
+    """Two spaces then a tab is four columns, not five and not two."""
+    assert _indented(["Prose.", "", "  \tcode"]) == [False, False, True]
+
+
+def test_three_columns_do_not_open_one() -> None:
+    """The near-miss, which is the half a one-directional test would lose."""
+    assert _indented(["Prose.", "", "   almost"]) == [False, False, False]
+
+
+def test_a_tab_does_not_interrupt_an_open_paragraph() -> None:
+    """§4.4: an indented block cannot interrupt a paragraph, tab or not."""
+    assert _indented(["Prose.", "\tlazy continuation"]) == [False, False]
+
+
+def test_the_column_helper_counts_columns_not_characters() -> None:
+    from zenzic.core.ast import _indent_columns
+
+    assert _indent_columns("\tx") == 4
+    assert _indent_columns("  \tx") == 4
+    assert _indent_columns(" \t x") == 5
+    assert _indent_columns("   x") == 3
+    assert _indent_columns("x") == 0
