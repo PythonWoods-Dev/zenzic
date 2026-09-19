@@ -76,7 +76,6 @@ from zenzic.core.ast import BlockTracker
 from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.resolver import href_resolution_base, page_url_depth, traversal_intent
-from zenzic.core.sovereign_context import get_sovereign_context
 from zenzic.core.validator import (
     JSX_URL_ATTRS,
     POLY_ATTRS_FRAGMENT,
@@ -778,70 +777,26 @@ _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 # imported, not redeclared. All three were duplicated here byte-for-byte from
 # `suppressions.py`, which owns the protocol: the fence tracker and the
 # inline-code stripper decide whether a directive is *seen*, and the directive
-# pattern decides what one *is*. Widening the MDX spelling in one copy and not the
-# other would have left `_is_suppressed` accepting a form the audit counter could
-# not count -- the parser and the counter reading different rules about the same
-# text. Re-exported under the same names so this module's callers are unchanged.
-# `as` on each name is the explicit re-export form: this module is the import
-# path three callers already use (`sdk/rules.py` among them), so the names must
-# stay public here while the definitions live in one place.
+# pattern decides what one *is*. Re-exported under the same names so this
+# module's callers are unchanged. `as` on each name is the explicit re-export
+# form: this module is the import path three callers already use (`sdk/rules.py`
+# among them), so the names must stay public here while the definitions live in
+# one place.
+#
+# The consolidation stopped at the patterns until 2026-09-19. The two functions
+# built on them -- a second `count_inline_suppressions` and a second
+# `_is_suppressed` -- stayed here with no production caller, and they disagreed
+# with the real ones: the copy lacked the ADR-093 non-inline guard, directory
+# policies and the `data-zenzic-ignore` pass. Two test modules asserted the
+# suppression protocol against them, including the CEO-152 Inviolability Law,
+# so the suite's account of what silences a finding described code the product
+# never ran. Both are removed and those assertions now drive
+# `SuppressionTracker`.
 from zenzic.core.suppressions import (  # noqa: E402
     _FENCE_OPEN_RE as _FENCE_OPEN_RE,
     _INLINE_CODE_STRIP_RE as _INLINE_CODE_STRIP_RE,
     _SUPPRESS_RE as _SUPPRESS_RE,
 )
-
-
-def count_inline_suppressions(text: str) -> int:
-    """Count suppression directives declared in Markdown/MDX source text.
-
-    Fence-aware: lines inside triple-backtick/tilde fenced code blocks are
-    skipped entirely.  Backtick inline code spans are stripped before the
-    suppression regex is applied on each prose line.
-    """
-    total = 0
-    fence = BlockTracker()
-    for line in text.splitlines():
-        if fence.feed(line):
-            continue
-        stripped = _INLINE_CODE_STRIP_RE.sub("", line)
-        total += sum(1 for _ in _SUPPRESS_RE.finditer(stripped))
-    return total
-
-
-def _is_suppressed(line: str, code: str) -> bool:
-    """Return ``True`` if *line* carries a suppression comment for *code*.
-
-    **Format-aware suppression (CEO-143 — Polymorphic Suppression Protocol):**
-
-    In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
-
-        v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 - historical reference -->
-
-    In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
-    for the Docusaurus/React parser)::
-
-        v0.6.x was the previous codename. {/* zenzic:ignore: Z601 - historical reference */}
-
-    Each suppression comment silences **only** the specified diagnostic code
-    on the tagged line.  To suppress multiple codes, add multiple comments.
-
-    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203, Z204,
-    Z205) always return ``False`` unconditionally.  Security findings are facts,
-    not suggestions — a credential leak cannot be declared a false positive.
-    """
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
-
-    if get_sovereign_context().force_audit:
-        return False
-
-    if code in NON_SUPPRESSIBLE_CODES:
-        return False
-
-    if "zenzic" not in line:
-        return False
-
-    return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
 
 
 #: A heading's trailing attr-list with an explicit id, `{#custom-id}`.
@@ -1782,6 +1737,8 @@ class VSMBrokenLinkRule(BaseRule):
             List of :class:`Violation` for every link whose target is absent
             from the VSM or not ``REACHABLE``.
         """
+        from zenzic.core.discovery import DOC_SUFFIXES
+
         violations: list[Violation] = []
 
         for url, lineno, raw_line in _extract_inline_links_with_lines(
@@ -1959,7 +1916,7 @@ class VSMBrokenLinkRule(BaseRule):
                 )
 
             elif route.status == "ORPHAN_BUT_EXISTING":
-                if Path(route.source).suffix.lower() in (".md", ".mdx"):
+                if Path(route.source).suffix.lower() in DOC_SUFFIXES:
                     violations.append(
                         Violation(
                             file_path=file_path,

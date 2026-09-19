@@ -1011,12 +1011,12 @@ def _count_docs_assets(
     translation trees (e.g. MkDocs or Zensical ``docs-it/``) count as pages too.
     ``config_count`` covers the engine/config files discovered alongside them.
     """
-    from zenzic.core.discovery import walk_files
+    from zenzic.core.discovery import DOC_SUFFIXES, walk_files
     from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
 
     _INERT = {".css", ".js"}
     _CONFIG = {".yml", ".yaml", ".toml"}
-    _DOC_EXT = {".md", ".mdx"}
+    _DOC_EXT = DOC_SUFFIXES
     if not docs_root.is_dir():
         return 0, 0, 0
     pages_count = sum(

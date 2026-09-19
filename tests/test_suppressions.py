@@ -2,9 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 """Strict suppression-parser contract tests (ADR-063).
 
-Verifies that _is_suppressed accepts only the exact ``zenzic:ignore:``
+Verifies that the suppression parser accepts only the exact ``zenzic:ignore:``
 directive — for both HTML (Markdown) and JSX (MDX) comment formats — and
 rejects all syntactic deviations without exception.
+
+**These assertions used to run against ``rules._is_suppressed``, which the
+product never called.** Every real site goes through
+``SuppressionTracker.is_suppressed``, and the two disagreed: the ``rules.py``
+copy had no ADR-093 non-inline guard, no directory policies and no
+``data-zenzic-ignore`` pass. So the suite's account of "what suppresses a
+finding" was written against the copy nobody runs, and would have kept passing
+while the real parser drifted. The dead copy is gone (D7) and these now drive
+the tracker, one directive per single-line document — which is what the strict
+cases are about anyway.
 
 Also covers the Z603 DEAD_SUPPRESSION lifecycle (SuppressionTracker) with
 three mandatory TDD scenarios mandated by the Architecture Governance Board:
@@ -20,8 +30,19 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from zenzic.core.rules import _is_suppressed
 from zenzic.core.suppressions import SuppressionTracker
+
+
+_FILE = Path("docs/page.md")
+
+
+def _suppresses(line: str, code: str) -> bool:
+    """Ask the real parser whether *line* suppresses *code*.
+
+    A one-line document, so the directive's line number is 1. This is the
+    predicate the scanner calls for every finding it produces.
+    """
+    return SuppressionTracker(_FILE, line).is_suppressed(line_no=1, code=code)
 
 
 # ---------------------------------------------------------------------------
@@ -32,22 +53,22 @@ from zenzic.core.suppressions import SuppressionTracker
 class TestHtmlSuppressionStrictness:
     def test_positive_strict_match(self) -> None:
         line = "OldBrand was the codename. <!-- zenzic:ignore: Z601 - historical -->"
-        assert _is_suppressed(line, "Z601") is True
+        assert _suppresses(line, "Z601") is True
 
     def test_negative_hyphen_fallacy(self) -> None:
         """zenzic-ignore (hyphen) must NOT be recognised as a suppression."""
         line = "OldBrand was the codename. <!-- zenzic-ignore: Z601 - historical -->"
-        assert _is_suppressed(line, "Z601") is False
+        assert _suppresses(line, "Z601") is False
 
     def test_negative_missing_colon_after_ignore(self) -> None:
         """Omitting the colon after 'ignore' must NOT suppress."""
         line = "OldBrand was the codename. <!-- zenzic:ignore Z601 -->"
-        assert _is_suppressed(line, "Z601") is False
+        assert _suppresses(line, "Z601") is False
 
     def test_negative_typo_in_keyword(self) -> None:
         """A typo in the directive keyword must NOT suppress."""
         line = "OldBrand was the codename. <!-- zenzic:ignor: Z601 -->"
-        assert _is_suppressed(line, "Z601") is False
+        assert _suppresses(line, "Z601") is False
 
 
 # ---------------------------------------------------------------------------
@@ -55,40 +76,55 @@ class TestHtmlSuppressionStrictness:
 # ---------------------------------------------------------------------------
 
 
-def test_is_suppressed_docstring_lists_all_security_codes() -> None:
-    """CEO-152 docstring must list every security-classified non-suppressible code.
+def test_the_security_codes_cannot_be_suppressed_by_a_valid_directive() -> None:
+    """CEO-152 Inviolability Law, asserted as behaviour rather than as prose.
 
-    `NON_SUPPRESSIBLE_CODES` also includes Z110/Z111 (config-syntax/schema
-    errors) -- those are deliberately excluded from this "Security findings"
-    framing since they are not security findings, only non-suppressible for
-    an unrelated reason (config integrity).
+    This replaces a test that read the docstring of ``rules._is_suppressed`` and
+    checked the five codes were *mentioned* in it. That function had no
+    production caller, so the law was being enforced against a description of
+    code nobody ran — it would have stayed green with the real parser suppressing
+    every one of them. The law is now asked of the parser the scanner calls, with
+    a syntactically perfect directive for each code, which is the only form of
+    the question that can fail for the right reason.
+
+    ``NON_SUPPRESSIBLE_CODES`` also holds `Z110`/`Z111` — config-syntax and schema
+    errors, non-suppressible for an unrelated reason — so they are not part of
+    this security framing and are not asserted here.
     """
-    from zenzic.core.rules import _is_suppressed
-
-    doc = _is_suppressed.__doc__ or ""
     for code in ("Z201", "Z202", "Z203", "Z204", "Z205"):
-        assert code in doc, f"CEO-152 docstring must list {code} as a security finding"
+        line = f"a secret is here <!-- zenzic:ignore: {code} - please no -->"
+        assert _suppresses(line, code) is False, (
+            f"{code} is a security finding and a directive must not silence it"
+        )
+
+
+def test_the_security_codes_are_declared_non_suppressible_in_the_registry() -> None:
+    """And the behaviour above traces to the SSoT, not to a second list."""
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    for code in ("Z201", "Z202", "Z203", "Z204", "Z205"):
+        assert code in NON_SUPPRESSIBLE_CODES, f"{code} must be declared non-suppressible"
 
 
 class TestJsxSuppressionStrictness:
     def test_positive_strict_match(self) -> None:
         line = "OldBrand was the codename. {/* zenzic:ignore: Z601 - historical */}"
-        assert _is_suppressed(line, "Z601") is True
+        assert _suppresses(line, "Z601") is True
 
     def test_negative_hyphen_fallacy(self) -> None:
         """zenzic-ignore (hyphen) inside JSX wrapper must NOT suppress."""
         line = "OldBrand was the codename. {/* zenzic-ignore: Z601 - historical */}"
-        assert _is_suppressed(line, "Z601") is False
+        assert _suppresses(line, "Z601") is False
 
     def test_negative_wrong_comment_type(self) -> None:
         """Single-line JSX comment ({// ...}) must NOT suppress."""
         line = "OldBrand was the codename. {// zenzic:ignore: Z601 }"
-        assert _is_suppressed(line, "Z601") is False
+        assert _suppresses(line, "Z601") is False
 
     def test_negative_malformed_closing(self) -> None:
         """Malformed closing (*} instead of */}) must NOT suppress."""
         line = "OldBrand was the codename. {/* zenzic:ignore: Z601 *}"
-        assert _is_suppressed(line, "Z601") is False
+        assert _suppresses(line, "Z601") is False
 
 
 # ---------------------------------------------------------------------------
@@ -99,8 +135,6 @@ class TestJsxSuppressionStrictness:
 # They exercise the full suppression lifecycle:
 #   parse → is_suppressed (consume) → get_dead_suppressions (Z603)
 # ---------------------------------------------------------------------------
-
-_FILE = Path("docs/page.md")
 
 
 class TestZ603DeadSuppression:

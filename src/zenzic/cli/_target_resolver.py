@@ -14,6 +14,7 @@ from pathlib import Path
 
 import typer
 
+from zenzic.core.discovery import DOC_SUFFIXES
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -35,7 +36,7 @@ def _resolve_target(repo_root: Path, config: ZenzicConfig, raw: str) -> Path:
         if candidate.is_dir():
             return candidate.resolve()
         if candidate.is_file():
-            if candidate.suffix.lower() not in (".md", ".mdx"):
+            if candidate.suffix.lower() not in DOC_SUFFIXES:
                 _shared.console.print(
                     f"[red]ERROR:[/] [bold]{raw}[/] is not a Markdown file "
                     f"(expected .md or .mdx, got '{candidate.suffix}')."

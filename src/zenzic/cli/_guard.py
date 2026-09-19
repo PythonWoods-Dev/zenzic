@@ -17,7 +17,7 @@ from zenzic.core.credentials import (
     scan_line_for_forbidden_terms,
     scan_lines_with_lookback,
 )
-from zenzic.core.discovery import iter_security_scan_sources
+from zenzic.core.discovery import DOC_SUFFIXES, iter_security_scan_sources
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -33,7 +33,7 @@ guard_app = _shared.create_app(
 
 
 def _is_doc_source(path: Path) -> bool:
-    return path.suffix.lower() in {".md", ".mdx"}
+    return path.suffix.lower() in DOC_SUFFIXES
 
 
 def _scan_file_for_secrets(

@@ -45,6 +45,14 @@ if TYPE_CHECKING:
 # Extensions recognised as documentation source files (not assets).
 DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
 
+# The same set where order is observable -- an `endswith` argument, a filename
+# probed until one exists. A frozenset has no order, and iterating one into a
+# position a user can see would make the same tree answer differently between
+# two runs, which Tier-0 forbids. Sorted once here rather than at each site,
+# because `tuple(sorted(DOC_SUFFIXES))` written in six places is the duplication
+# this constant exists to end.
+DOC_SUFFIXES_ORDERED: tuple[str, ...] = tuple(sorted(DOC_SUFFIXES))
+
 
 def derive_content_root_prefix(content_root: Path, repo_root: Path | None = None) -> str:
     """Derive a stable logical URL prefix for an external content root.

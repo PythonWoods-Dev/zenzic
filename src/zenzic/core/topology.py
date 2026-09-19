@@ -8,6 +8,8 @@ from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from zenzic.core.discovery import DOC_SUFFIXES_ORDERED
+
 
 if TYPE_CHECKING:
     from zenzic.models.vsm import VirtualSiteMap
@@ -54,7 +56,7 @@ def detect_orphans(vsm: VirtualSiteMap, entry_points: list[str]) -> list[str]:
             continue
 
         lower_source = route.source.lower()
-        if not (lower_source.endswith(".md") or lower_source.endswith(".mdx")):
+        if not lower_source.endswith(DOC_SUFFIXES_ORDERED):
             continue
 
         if url not in reachable:
@@ -77,7 +79,7 @@ def detect_dead_ends(vsm: VirtualSiteMap) -> list[str]:
             continue
 
         lower_source = route.source.lower()
-        if not (lower_source.endswith(".md") or lower_source.endswith(".mdx")):
+        if not lower_source.endswith(DOC_SUFFIXES_ORDERED):
             continue
 
         outgoing = vsm.outgoing_links.get(url, [])
@@ -110,7 +112,7 @@ def detect_traceability_violations(
             continue
 
         lower_source = route.source.lower()
-        if not (lower_source.endswith(".md") or lower_source.endswith(".mdx")):
+        if not lower_source.endswith(DOC_SUFFIXES_ORDERED):
             continue
 
         rel_source = route.source.replace("\\", "/")
