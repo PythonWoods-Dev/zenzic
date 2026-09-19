@@ -231,13 +231,37 @@ Standard SARIF v2.1.0: 1-indexed line/column ranges, a quality category and poin
 
 ## Framework Adapters
 
-Documentation frameworks slugify anchors and resolve asset paths differently, so Zenzic ships adapters rather than assuming one convention:
+Documentation frameworks slugify anchors and resolve asset paths differently, so Zenzic ships adapters rather than assuming one convention.
+
+**Two adapters read your framework's own configuration:**
 
 - **MkDocs & Material for MkDocs** — parses `mkdocs.yml` and the nav tree, matches Material's anchor slugification, without invoking the Python build.
 - **Zensical** — validates multi-language document hierarchies and configuration trees.
-- **Standalone Markdown** — universal link/asset resolution for any directory structure, no build framework required.
 
-Tested versions and verification method per adapter: [Compatibility Matrix](https://zenzic.dev/reference/compatibility/).
+**One needs no framework at all:**
+
+- **Standalone Markdown** — derives every URL from the path it reads. Works on any directory of Markdown, and cannot fall out of step with a build, because there is nothing for it to agree with.
+
+**And one serves the frameworks Zenzic has no adapter for:**
+
+- **Prebuilt (route manifest)** — reads `.zenzic-vsm.json`, a map from source path to published URL that you generate from your own build. Zenzic then resolves links the way your site does, without knowing anything about the generator that produced it.
+
+### Does it work with my stack?
+
+| Your generator | What to use | Notes |
+| :--- | :--- | :--- |
+| MkDocs / Material | `mkdocs` | Detected automatically from `mkdocs.yml`. |
+| Zensical | `zensical` | Detected automatically from `zensical.toml`. |
+| **Astro / Starlight** | `prebuilt` | Measured on Astro's own documentation. `zenzic init` recognises `astro.config.*` and writes `docs_dir = "src/content/docs"` for you. The manifest is derived from the source tree — Astro's routing is positional. |
+| **Docusaurus** | `prebuilt` | Measured on a `create-docusaurus` site. `zenzic init` recognises `docusaurus.config.*`. Generate the manifest from `npm run build`: Docusaurus routing is not derivable from filenames. Its `blog/` is a second content tree — add it with `content_roots`. |
+| Anything else | `standalone`, or `prebuilt` with a manifest | `standalone` works immediately; `prebuilt` is worth the manifest on a site that links by route. |
+
+Astro and Docusaurus are named here because both were measured against real
+repositories, not because a table said they should work. A generator Zenzic has
+not been run against is not listed.
+
+[How to configure an adapter](https://zenzic.dev/how-to/configure-adapter/) ·
+[Tested versions and verification method](https://zenzic.dev/reference/compatibility/)
 
 ---
 

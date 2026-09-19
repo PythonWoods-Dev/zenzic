@@ -36,7 +36,7 @@ import contextlib
 import threading
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Final, Literal, cast
 
 from zenzic.core.exceptions import CheckError, ZenzicError
 from zenzic.models.config import BuildContext
@@ -62,6 +62,21 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 
 #: What each engine looks for, so the substitution notice can name the missing
 #: file rather than leaving the user to guess which one was wanted.
+#: Engines whose adapter reads the documentation generator's **own**
+#: configuration, rather than a routing table Zenzic is handed.
+#:
+#: For these, "which documentation generator is this?" is a question the engine
+#: has already answered, and the marker-file detection in
+#: ``cli/_standalone.py`` does not apply. Reporting "none detected" there reads
+#: as a detection that failed, when nothing was looked for -- which is what a
+#: user saw on an MkDocs project until 2026-09-19.
+#:
+#: ``prebuilt`` and ``vsm`` are deliberately absent: they read a manifest and
+#: know nothing about what produced it, so a generator beside them is real
+#: information (an Astro site served by ``prebuilt``). ``standalone`` is absent
+#: for the same reason.
+NATIVE_GENERATOR_ENGINES: Final[frozenset[str]] = frozenset({"mkdocs", "zensical"})
+
 _SUBSTITUTION_HINTS = {
     "prebuilt": "route manifest (.zenzic-vsm.json, read from the repository root)",
     "vsm": "route manifest (.zenzic-vsm.json, read from the repository root)",

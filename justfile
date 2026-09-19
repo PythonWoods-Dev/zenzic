@@ -273,6 +273,11 @@ check-pinning:
         exit 1
     fi
     echo "✓ ADR-089: all pre-commit hooks pinned to immutable commit hashes."
+    # The other five pins. A declared pin whose file moved, whose value changed
+    # shape, or whose bump command is not a recipe, fails here rather than the
+    # next time somebody needs to move it.
+    {{ runner }} python scripts/declared_pins.py --self-test
+    {{ runner }} python scripts/bump_engine_version.py --self-test
 
 # Blocking gate, not a warning. A pre-commit hook that is merely declared in
 # .pre-commit-config.yaml runs nothing: the hook has to be installed into
@@ -426,6 +431,35 @@ lab-blocks *args:
 
 audit-release:
     @{{ runner }} python scripts/audit_release.py
+
+# Every declared pin in the ecosystem, its current value, and what moves it
+#
+# `just bump-engine` moves one of six. Until this recipe, nothing enumerated
+# the rest: "which files carry a pin" was answered from memory, and a pin whose
+# bump command nobody remembers is a pin that goes stale. The script's
+# self-test (run by `just verify`) checks that each file still exists, that the
+# value is still readable in it, and that a `just` recipe named here is a
+# recipe that exists.
+pins:
+    @{{ runner }} python scripts/declared_pins.py
+
+# Show the declared engine versions and where each is checked
+engines:
+    @{{ runner }} python scripts/bump_engine_version.py --list
+
+# Bump a declared engine version in the compatibility matrix.
+#
+# `just version` bumps *Zenzic's* version. This is the other one: what a
+# contributor does when MkDocs 2 ships. The matrix is a user-facing claim that
+# a version was tested, so for an engine that is a pip dependency the script
+# refuses a version `uv.lock` does not carry -- a "tested version" nobody
+# tested is the thing that table exists to prevent. For an engine that is not a
+# dependency (Zensical is parsed as data, never installed) it says there is
+# nothing to check against, rather than implying there was.
+#
+# Usage: just bump-engine "Material for MkDocs" 9.7.8
+bump-engine engine version:
+    @{{ runner }} python scripts/bump_engine_version.py "{{ engine }}" "{{ version }}"
 
 # Show the current project version
 version:

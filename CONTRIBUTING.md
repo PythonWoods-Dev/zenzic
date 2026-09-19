@@ -307,9 +307,26 @@ project states a duration it states the conditions with it, as in `RELEASE.md`.
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | **Final Guard** | **`just verify`** | — | **Full pre-push quality gate** — its test stage runs `pytest -n auto` (adopted 2026-09-17 on measurement: 256 s serial → ~140 s; CI stays serial) |
 | Show version | `just version` | — | Print current version from bump-my-version |
+| Show engine versions | `just engines` | — | The declared engine versions and where each is checked |
+| Bump an engine version | `just bump-engine "<engine>" <version>` | — | Update the compatibility matrix when a documentation engine releases |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Hero screenshot | `just screenshot-hero` | — | Run the "Power Triad" sandbox (`tests/sandboxes/hero_specimen/`) for a manual landing-page terminal screenshot — exits 3 by design, capture the output rather than treating it as a failure |
 | Circular-link screenshot | `just screenshot-circular` | — | Run the circular-link sandbox (`tests/sandboxes/screenshot_circular/`) for a manual terminal screenshot demonstrating `Z106` `CIRCULAR_LINK` |
+
+### When a documentation engine releases
+
+`just version` bumps Zenzic's own version. A documentation engine's version is a
+different thing and lives in three files that must agree: the tested version in
+`docs/reference/compatibility.md`, the dependency pin in `pyproject.toml`, and
+whatever `uv.lock` resolves that pin to.
+
+`just bump-engine "MkDocs" 1.6.2` updates the matrix and stamps today's date.
+For an engine that is a pip dependency it **refuses** a version the lock does not
+carry — bump the pin, run `uv lock`, then bump the matrix. For an engine that is
+not a dependency (Zensical is parsed as data and never installed) there is
+nothing to check against, and the date records a manual review rather than a
+lock. Either way, re-read the verification-method cell afterwards: a new version
+may have changed how it is tested, and the date alone does not say that.
 
 ---
 

@@ -342,7 +342,7 @@ def check_orphans(
     engine: str | None = typer.Option(
         None,
         "--engine",
-        help="Override the build engine adapter (e.g. mkdocs, zensical). "
+        help="Override the build engine adapter (e.g. mkdocs, zensical, prebuilt). "
         "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
@@ -1780,7 +1780,7 @@ def check_all(
     engine: str | None = typer.Option(
         None,
         "--engine",
-        help="Override the build engine adapter (e.g. mkdocs, zensical). "
+        help="Override the build engine adapter (e.g. mkdocs, zensical, prebuilt). "
         "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),

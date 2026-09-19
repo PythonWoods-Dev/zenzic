@@ -110,6 +110,16 @@ def env(
     # exactly the state worth being able to read.
     engine, engine_source, generator = _project_identity(cwd)
 
+    # Whether "which documentation generator is this?" is a question that
+    # applies at all. An engine with a native adapter has already answered it
+    # by reading that generator's own configuration, so nothing was looked for
+    # -- and reporting "none detected" there reads as a detection that failed.
+    # Exposed as a field rather than re-derived per surface, so the CLI and the
+    # editor extension cannot disagree about which engines are native.
+    from zenzic.core.adapters._factory import NATIVE_GENERATOR_ENGINES
+
+    generator_applies = engine not in NATIVE_GENERATOR_ENGINES
+
     env_data: dict[str, Any] = {
         "zenzic_version": __version__,
         "python_executable": str(python_exec),
@@ -119,6 +129,7 @@ def env(
         "engine": engine,
         "engine_source": engine_source,
         "generator": generator,
+        "generator_applies": generator_applies,
     }
 
     if json_output:
@@ -136,4 +147,13 @@ def env(
     else:
         console.print("  [dim]Active Config:[/] [yellow]None (using built-in defaults)[/]")
     console.print(f"  [dim]Engine:[/] {env_data['engine']} ({env_data['engine_source']})")
-    console.print(f"  [dim]Generator:[/] {env_data['generator'] or '[yellow]none detected[/]'}")
+    if generator:
+        _generator_line = str(generator)
+    elif generator_applies:
+        _generator_line = "[yellow]none detected[/]"
+    else:
+        # "none detected" on an MkDocs project reads as a detection that failed.
+        # Nothing was looked for: the engine reads its generator's own
+        # configuration, so the question does not arise.
+        _generator_line = f"[dim]not applicable — {engine} has its own adapter[/]"
+    console.print(f"  [dim]Generator:[/] {_generator_line}")

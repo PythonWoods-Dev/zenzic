@@ -266,7 +266,7 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `--force` / `-f` | `false` | Overwrite an existing plugin scaffold when used with `--plugin`. Not supported for configuration initialization. |
     | `--pyproject` | `false` | Write configuration into `pyproject.toml` instead of `.zenzic.toml`. |
     | `--local` | `false` | Create only `.zenzic.local.toml` (machine-local overlay, gitignored). Use this when cloning a repo that already has `.zenzic.toml` committed. |
-    | `--engine ENGINE` | auto | Override the build engine adapter (`mkdocs`, `zensical`, `standalone`). Auto-detected from project files when omitted. |
+    | `--engine ENGINE` | auto | Override the build engine adapter (`mkdocs`, `prebuilt`, `standalone`, `vsm`, `zensical` — the option's own help derives this list from the adapter registry). Auto-detected from project files when omitted; on an Astro or Docusaurus repository the detected generator is named and `prebuilt` proposed. |
     | `--interactive` / `-i` | `false` | Ask before writing: the engine, offered from the adapter registry with the detected one and its reason stated; then each opt-in finding code, one at a time, derived from the code registry. Data-gated codes are not asked — they run once their `[policies]` data is declared. Without the flag nothing about codes is asked, so scripts and CI keep the current behaviour. |
 
     **Usage Examples:**
@@ -518,7 +518,8 @@ Select a command tab to view its execution flags, default behaviors, and usage e
           "active_config_path": "/workspace/my-project/.zenzic.toml",
           "engine": "standalone",
           "engine_source": "auto-detected",
-          "generator": "astro"
+          "generator": "astro",
+          "generator_applies": true
         }
         ```
 
@@ -526,7 +527,16 @@ Select a command tab to view its execution flags, default behaviors, and usage e
         field matches the engine named on the telemetry line of `zenzic check`.
         `engine_source` says how it was chosen: `configured` (you set it), `auto-detected`
         (a marker file did), or `default`. `generator` is the documentation generator
-        detected in the repository, or `null` when none was found.
+        detected in the repository, or `null` when none was found. **Two are detected
+        today — Astro/Starlight (from `astro.config.mjs`/`.ts`/`.js`) and Docusaurus
+        (from `docusaurus.config.js`/`.ts`/`.mjs`)** — because both were measured against
+        real repositories. A generator Zenzic has not been run against is not detected,
+        rather than guessed at; `"generator": "astro"` above is one sample, not the set.
+        `generator_applies` distinguishes the two ways that `null` happens: it is `false`
+        for an engine with a native adapter — MkDocs, Zensical — which has already
+        answered the question by reading that generator's own configuration, so nothing
+        was looked for. On those projects "none detected" would read as a detection that
+        failed.
 
         The two can disagree, and reading them together is the point: a project reporting
         `"engine": "standalone"` with `"generator": "astro"` is being analysed without the

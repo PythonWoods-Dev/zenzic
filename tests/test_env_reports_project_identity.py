@@ -44,6 +44,31 @@ def test_a_detected_generator_is_named(tmp_path: Path) -> None:
     assert _env(_astro(tmp_path))["generator"] == "astro"
 
 
+def test_a_native_engine_reports_that_the_question_does_not_apply(tmp_path: Path) -> None:
+    """Three states, not two.
+
+    "none detected" on an MkDocs project reads as a detection that failed. The
+    engine reads its generator's own configuration, so nothing was looked for.
+    Reported as a field rather than re-derived per surface, so the CLI and the
+    editor extension cannot disagree about which engines are native.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Home\n", encoding="utf-8")
+    (tmp_path / "mkdocs.yml").write_text("site_name: Probe\n", encoding="utf-8")
+    (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"\n', encoding="utf-8")
+
+    env = _env(tmp_path)
+
+    assert env["engine"] == "mkdocs"
+    assert env["generator"] is None
+    assert env["generator_applies"] is False
+
+
+def test_a_generator_agnostic_engine_reports_that_it_does_apply(tmp_path: Path) -> None:
+    assert _env(_astro(tmp_path))["generator_applies"] is True
+
+
 def test_a_project_with_no_generator_says_so_rather_than_guessing(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     (tmp_path / ".zenzic.toml").touch()

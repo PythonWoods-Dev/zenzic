@@ -24,7 +24,7 @@ from rich.text import Text
 
 from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 from zenzic.core import regex as re
-from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters import get_adapter, list_adapter_engines
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.history import append_history_entry, read_history, summarize_trend
@@ -1507,7 +1507,12 @@ def init(
         None,
         "--engine",
         help=(
-            "Override the build engine adapter (mkdocs, zensical, standalone). "
+            # Derived, not listed: the registry has five members and this text
+            # named three, omitting `prebuilt` -- which is the one an Astro or
+            # Docusaurus user needs, and the only one `init` proposes when it
+            # detects their generator. A hand-written subset of a registry is a
+            # list that goes stale the first time the registry grows.
+            f"Override the build engine adapter ({', '.join(sorted(list_adapter_engines()))}). "
             "Auto-detected from project files when omitted."
         ),
         metavar="ENGINE",

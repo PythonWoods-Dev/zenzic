@@ -23,6 +23,9 @@ installed and exercised in CI."
 | Material for MkDocs | `9.7.7` (pinned `>=9.0.0,<10`) | Same as MkDocs above | 2026-08-29 |
 | Zensical | `0.0.62` (pre-1.0) | Manual schema review against Zensical's own documentation repository (`github.com/zensical/docs` at `6346cfd`) and its published releases — Zensical is not a pip dependency of this project (nothing to lock or CI-build against; `ZensicalAdapter` parses its config as data) | 2026-09-16 |
 | Standalone | — | Engine-agnostic; no external schema to track | — |
+| Prebuilt (route manifest) | — | Reads `.zenzic-vsm.json`, a schema this project defines; there is no third-party version to track. What is tracked is the *generators it serves*, below | — |
+| ↳ Astro / Starlight | — | `github.com/withastro/docs` pinned at `16fe0736`, re-scanned by `scripts/external_corpus_check.py`, which fails when the finding counts move. Astro is not a dependency; the pin is the version | 2026-09-19 |
+| ↳ Docusaurus | — | A `create-docusaurus` classic scaffold, walked by hand through `zenzic init` and `check all`. Not pinned in CI — the scaffold is generated, not a repository to fetch | 2026-09-19 |
 
 **What "verified" does not mean here**: there is no dedicated CI job that installs and tests
 against multiple versions of any engine — verification is `mkdocs build --strict` succeeding
@@ -58,6 +61,18 @@ supported", so these declarations have no effect under that engine and the
 `.zenzic.toml` exemption mechanisms remain the way to express the same intent.
 
 ---
+
+### The two generators have no version, and that is the point
+
+Astro and Docusaurus appear with a dash in the version column because Zenzic
+never reads their configuration and never runs their build. `prebuilt` reads a
+route manifest **you** generate, so what matters is not which version produced
+it but whether the manifest describes your site — and `Z115` reports it when it
+stops doing so.
+
+What is tracked instead is the artefact each claim was measured against. A
+generator that has not been run against a real repository is not listed here or
+anywhere else, which is why this table names two and not five.
 
 ## MkDocs 2.0 is a known, real, upcoming break — not hypothetical
 
