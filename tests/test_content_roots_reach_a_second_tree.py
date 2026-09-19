@@ -21,6 +21,7 @@ combined.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -56,8 +57,9 @@ def _codes(project: Path) -> set[str]:
         [sys.executable, "-m", "zenzic.main", "check", "all", "--format", "json"],
         cwd=project,
         capture_output=True,
-        text=True,
-        env={"NO_COLOR": "1", "PATH": "/usr/bin:/bin", "HOME": str(project)},
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "NO_COLOR": "1"},
     )
     start = out.stdout.find("{")
     assert start >= 0, f"no JSON payload:\n{out.stdout}\n{out.stderr}"
@@ -152,8 +154,9 @@ def test_a_root_outside_the_repository_is_reported_but_never_read(
         [sys.executable, "-m", "zenzic.main", "check", "all"],
         cwd=project,
         capture_output=True,
-        text=True,
-        env={"NO_COLOR": "1", "PATH": "/usr/bin:/bin", "HOME": str(project)},
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "NO_COLOR": "1"},
     )
 
     assert out.returncode != 2, (

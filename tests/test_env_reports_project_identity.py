@@ -12,6 +12,7 @@ answer `zenzic check` gives for the same project.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,8 @@ def _env(cwd: Path) -> dict[str, object]:
         [sys.executable, "-m", "zenzic.main", "env", "--json"],
         cwd=cwd,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     parsed: dict[str, object] = json.loads(out.stdout[out.stdout.find("{") :])
@@ -88,8 +90,9 @@ def test_env_and_the_scan_name_the_same_engine(tmp_path: Path) -> None:
         [sys.executable, "-m", "zenzic.main", "check", "all"],
         cwd=project,
         capture_output=True,
-        text=True,
-        env={"NO_COLOR": "1", "PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "NO_COLOR": "1"},
     )
 
     telemetry = next(

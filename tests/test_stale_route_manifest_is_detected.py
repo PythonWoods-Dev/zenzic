@@ -121,19 +121,30 @@ def test_the_cli_names_the_manifest_rather_than_only_the_broken_link(
     had not been regenerated. The run must now also say so, and name the file
     to regenerate.
     """
+    import os
     import subprocess
     import sys
 
     project = _project(tmp_path)
     subprocess.run(["git", "init", "-q", "."], cwd=project, check=True)  # noqa: S607
+    # `encoding`/`errors` explicitly: `text=True` alone decodes with the locale
+    # codec, which is cp1252 on the Windows runner and cannot read the box-drawing
+    # characters this output carries. The environment is inherited rather than
+    # constructed, for the reason recorded in
+    # tests/test_a_child_process_inherits_its_environment.py.
     out = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "zenzic.main", "check", "all"],
         cwd=project,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "NO_COLOR": "1"},
     )
 
-    assert "Z115" in out.stdout
+    assert "Z115" in (out.stdout or ""), (
+        f"no Z115 in stdout.\n  returncode={out.returncode}\n"
+        f"  stdout={out.stdout!r}\n  stderr={out.stderr!r}"
+    )
     assert "new.md" in out.stdout
     assert ".zenzic-vsm.json" in out.stdout
 

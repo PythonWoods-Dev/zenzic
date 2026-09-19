@@ -28,6 +28,7 @@ Two independent defects produced it, and each gets its own test here:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -76,8 +77,9 @@ def _run(project: Path) -> subprocess.CompletedProcess[str]:
         [sys.executable, "-m", "zenzic.main", "check", "all", "--no-header"],
         cwd=project,
         capture_output=True,
-        text=True,
-        env={"NO_COLOR": "1", "PATH": "/usr/bin:/bin", "HOME": str(project)},
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "NO_COLOR": "1"},
     )
 
 

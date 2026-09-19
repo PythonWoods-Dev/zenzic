@@ -127,8 +127,14 @@ def test_computing_the_mounts_is_what_touches_the_filesystem() -> None:
     """
     from zenzic.core.discovery import build_content_mounts
 
+    root = Path("/project/blog")
     with _recording_filesystem_calls() as seen:
-        mounts = build_content_mounts([Path("/project/blog")], repo_root=Path("/project"))
+        mounts = build_content_mounts([root], repo_root=Path("/project"))
 
     assert "resolve" in seen
-    assert mounts == [(Path("/project/blog"), "blog")]
+    # `root.resolve()`, not `root`: on Windows a rooted literal carries no drive
+    # letter and the resolved form does, so `Path("/project/blog")` and
+    # `WindowsPath('D:/project/blog')` are different paths. `Path` normalises
+    # separators, which is what makes this look portable; it does not supply a
+    # drive. Caught by the Windows runner, not by the local gate.
+    assert mounts == [(root.resolve(), "blog")]

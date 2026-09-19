@@ -20,6 +20,32 @@ with no `as_posix()` anywhere in the comparison.
 because `Path` normalises separators itself; URLs and route strings, which are
 not filesystem paths; and a path stringified to be *passed* somewhere rather
 than compared.
+
+**A limit this cannot close, stated rather than left silent.** A *third*
+instance of the platform-path class reached the Windows runner on 2026-09-19
+and this file did not catch it:
+
+    assert mounts == [(Path("/project/blog"), "blog")]
+    # WindowsPath('D:/project/blog') != WindowsPath('/project/blog')
+
+`Path` normalises separators. It does **not** supply a drive letter, and on
+Windows an absolute path is drive *plus* root — so a rooted literal and a
+resolved path are different paths, while on Linux they are the same one. The
+exclusion above is right about separators and was silent about this.
+
+It is stated here rather than implemented because the shape is not
+distinguishable at the comparison. Nine other assertions in this suite compare a
+computed value against a rooted `Path` literal — `result == Path("/docs/guide.md")`
+— and every one is correct, because nothing resolved the other side. What made
+the failing one wrong is what `build_content_mounts()` does *internally*, which
+no rule reading the assertion can see. Flagging the syntax would report nine
+false positives to catch one real defect, and a check with that ratio is
+switched off within the month.
+
+**What a reader must do instead**: when an assertion compares against a rooted
+`Path` literal, ask whether the other side has been through `resolve()` or
+`absolute()` anywhere in its history. If it has, compare against
+`Path("/x").resolve()` rather than `Path("/x")`.
 """
 
 from __future__ import annotations
