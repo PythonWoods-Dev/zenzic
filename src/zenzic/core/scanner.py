@@ -447,12 +447,27 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     # Z405), against the source tree, where source-tree arithmetic is the
     # question being asked.
 
+    # One question, asked five times below and answered once here: is this
+    # asset reference somewhere other than the source tree? A remote URL, an
+    # inline `data:` payload and a bare fragment are all "not a file we can
+    # look for", and the five passes -- frontmatter image, Markdown image,
+    # HTML `src`, `srcset`, inline link -- must agree, or the same page's
+    # references land in the set through one pass and not another.
+    #
+    # Deliberately NOT the same constant as `validator._SKIP_SCHEMES` or the
+    # resolver's bypass list. Those answer "does this URL address a page in
+    # the site?", which admits `mailto:`, `tel:`, `xmpp:` and the rest. Here
+    # the question is narrower and a `mailto:` is correctly absent: it is not
+    # an asset reference either way, and widening this set to match theirs
+    # would change what Z404/Z405 see.
+    _REMOTE_OR_INLINE = ("http://", "https://", "data:", "#")
+
     # 0. Frontmatter `image` key (e.g. social card / OG image references —
     #    see docs/how-to/configure-social-metadata.md) — not a markdown-body
     #    link, so invisible to the AST/HTML/inline-link passes below.
     frontmatter = _parse_frontmatter_dict(text)
     fm_image = frontmatter.get("image")
-    if fm_image and not fm_image.startswith(("http://", "https://", "data:", "#")):
+    if fm_image and not fm_image.startswith(_REMOTE_OR_INLINE):
         clean_url = unquote(fm_image.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."
         normalized = posixpath.normpath(posixpath.join(base, clean_url))
@@ -462,7 +477,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     # 1. AST Reference Link Definitions ([label]: dest) from PolyglotExtractor
     for ref_node in extractor.extract_ref_defs(text):
         url = ref_node.dest
-        if not url or url.startswith(("http://", "https://", "data:", "#")):
+        if not url or url.startswith(_REMOTE_OR_INLINE):
             continue
         clean_url = unquote(url.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."
@@ -473,7 +488,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     # 2. Native HTML tags (<a>, <img>) from PolyglotExtractor
     for html_node in extractor.extract(text):
         html_url: str | None = html_node.href
-        if not html_url or html_url.startswith(("http://", "https://", "data:", "#")):
+        if not html_url or html_url.startswith(_REMOTE_OR_INLINE):
             continue
         clean_url = unquote(html_url.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."
@@ -490,7 +505,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     for srcset_match in _SRCSET_ATTR_RE.finditer(masked):
         srcset_value = srcset_match.group(1) or srcset_match.group(2) or ""
         for srcset_url in _srcset_candidate_urls(srcset_value):
-            if srcset_url.startswith(("http://", "https://", "data:", "#")):
+            if srcset_url.startswith(_REMOTE_OR_INLINE):
                 continue
             clean_url = unquote(srcset_url.split("?")[0].split("#")[0])
             base = page_dir if page_dir else "."
@@ -501,7 +516,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     # 3. Standard inline markdown links [text](url)
     for match in _MARKDOWN_ASSET_LINK_RE.finditer(text):
         url = match.group(1) or match.group(2) or match.group(3)
-        if not url or url.startswith(("http://", "https://", "data:", "#")):
+        if not url or url.startswith(_REMOTE_OR_INLINE):
             continue
         clean_url = unquote(url.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."

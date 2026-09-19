@@ -1284,16 +1284,7 @@ class IncrementalAnalysisEngine:
         _security_links = PolyglotExtractor().extract_security_links(text)
 
         local_anchors = self.anchors_cache.get(path, set())
-        _bypass_schemes = (
-            "mailto:",
-            "tel:",
-            "javascript:",
-            "data:",
-            "irc:",
-            "xmpp:",
-            "http://",
-            "https://",
-        )
+        from zenzic.core.validator import SECURITY_BYPASS_SCHEMES
 
         # One loop, two scopes. Z202/Z203 are security-tier and must see links
         # the quality mask blanked (comments, math spans, unterminated-fence
@@ -1323,7 +1314,12 @@ class IncrementalAnalysisEngine:
             lineno = link.line_no
             raw_line = link.raw_text
 
-            if url.startswith(_bypass_schemes) or url == "#":
+            # `== "#"` rather than `startswith("#")`, and the difference is
+            # load-bearing: `#../../etc/passwd` is not a bare fragment and must
+            # reach the traversal gate below. The resolver's copy of this check
+            # skips every fragment, correctly, because a fragment cannot name a
+            # route -- but it is not deciding a security question.
+            if url.startswith(SECURITY_BYPASS_SCHEMES) or url == "#":
                 continue
 
             parsed = urlsplit(url)

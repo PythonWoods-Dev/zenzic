@@ -461,17 +461,13 @@ def resolve_link_to_canonical(
 ) -> str | None:
     from urllib.parse import unquote, urlsplit
 
-    _bypass_schemes = (
-        "mailto:",
-        "tel:",
-        "javascript:",
-        "data:",
-        "irc:",
-        "xmpp:",
-        "http://",
-        "https://",
-    )
-    if url.startswith(_bypass_schemes) or url == "#" or url.startswith("#"):
+    from zenzic.core.validator import LINK_BYPASS_SCHEMES
+
+    # `startswith("#")` rather than `== "#"`, which is the one place this differs
+    # from the security tier's otherwise identical check. Here a fragment can
+    # never name a route, so skipping every fragment is right. There it is not:
+    # see `SECURITY_BYPASS_SCHEMES`.
+    if url.startswith(LINK_BYPASS_SCHEMES) or url.startswith("#"):
         return None
 
     parsed = urlsplit(url)

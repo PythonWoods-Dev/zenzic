@@ -172,8 +172,59 @@ _TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
 _SLUG_NONWORD_RE = re.compile(r"[^\w\s-]")
 _SLUG_SPACES_RE = re.compile(r"\s+")
 
-# URL schemes that are valid syntax but point to non-HTTP targets we skip.
-_SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
+# ── Three scheme sets, and why they are three ────────────────────────────────
+#
+# All three answer a variant of "should this URL be skipped?", and they are
+# deliberately NOT one constant. `has_uri_scheme()` below is the authority for
+# the general question -- a hardcoded list is the wrong instrument for a
+# property the grammar decides -- and these three exist where a *specific* tier
+# needs a specific answer.
+#
+# Measured 2026-09-19 rather than inferred. `resolve_link_to_canonical()` turns
+# `ftp://example.com/f.txt` into the site path `/f.txt` and `ftp:example.com/f.txt`
+# into `/example.com/f.txt`, while every other scheme here returns `None` -- so
+# the resolver's set omitting `ftp:` is a real asymmetry, currently masked
+# because `rules.py` bypasses the link through `has_uri_scheme()` before the
+# resolver is ever asked.
+#
+# The reason they must stay three: the security set is the one the Z202/Z203
+# loop consults, and **anything added to it stops reaching the path-traversal
+# gate**. Collapsing the three into one would mean that a future widening made
+# for resolution correctness -- adding `ftp:` so the resolver stops inventing a
+# route -- silently also widened a security bypass. That is not a hypothetical
+# shape: it is the one this project has already paid for elsewhere.
+
+#: Schemes that do not address a page in this site, so a link carrying one never
+#: resolves to a route. `http://`/`https://` are absent on purpose: they are
+#: external links, tested separately by the pass that probes them.
+NON_NAVIGABLE_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
+
+#: The resolver's bypass: the above **without** `ftp:` and **with** the two HTTP
+#: schemes, because the resolver is asked about every link rather than only the
+#: internal ones. The `ftp:` omission is the asymmetry measured above; correcting
+#: it is a change to resolution behaviour and belongs to its own diff.
+LINK_BYPASS_SCHEMES = (
+    "mailto:",
+    "tel:",
+    "javascript:",
+    "data:",
+    "irc:",
+    "xmpp:",
+    "http://",
+    "https://",
+)
+
+#: The security tier's bypass, consulted inside the Z202/Z203 loop. Identical in
+#: membership to :data:`LINK_BYPASS_SCHEMES` today, and separate on purpose:
+#: **a scheme added here stops reaching the path-traversal gate.** Widening this
+#: removes a check; widening the resolver's does not. The two are compared by
+#: `tests/test_the_scheme_sets_stay_three.py`, which asserts the relationship
+#: rather than sameness, so a deliberate divergence is a one-line edit there and
+#: an accidental one is a failure.
+SECURITY_BYPASS_SCHEMES = LINK_BYPASS_SCHEMES
+
+#: Kept as the historical name the call sites already import.
+_SKIP_SCHEMES = NON_NAVIGABLE_SCHEMES
 
 #: Any RFC 3986 scheme, which is what makes a reference absolute rather than a
 #: path into this site. A hardcoded list is the wrong instrument for a property
