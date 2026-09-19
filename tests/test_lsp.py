@@ -256,7 +256,15 @@ def test_debounce_diagnostics() -> None:
                 import json
 
                 resp = json.loads(body_str.decode("utf-8"))
-                if resp.get("method") == "textDocument/publishDiagnostics":
+                if resp.get("method") != "textDocument/publishDiagnostics":
+                    continue
+                # Counted for *this document*, not for the session. The subject
+                # is debouncing: three rapid didChange events must collapse into
+                # one publish for the file being typed in. A publish for another
+                # URI is a different statement -- the configuration diagnostic
+                # added on 2026-09-19 is one, and counting it here made this test
+                # fail for a reason that has nothing to do with debouncing.
+                if resp.get("params", {}).get("uri") == uri:
                     publish_count += 1
             except json.JSONDecodeError:
                 pass

@@ -169,10 +169,20 @@ def test_resolve_targets_explicit_directory(tmp_path: Path) -> None:
 
 
 def test_resolve_targets_default_docs_root_missing(tmp_path: Path) -> None:
-    """When docs_root doesn't exist, returns empty list."""
-    # No docs/ directory exists, no .zenzic.toml
-    result, _queried = _resolve_targets(tmp_path, [], staged=False)
-    assert result == []
+    """When docs_root does not exist, the scan refuses rather than reporting none.
+
+    This asserted `result == []` until 2026-09-19, which is what the caller
+    turned into exit 0 — a passing secret scan over a tree it never opened,
+    byte-identical in its output to a clean run. Zero targets and no targets to
+    find are the same value and different facts, and only one of them may pass
+    a security gate.
+    """
+    import pytest
+
+    from zenzic.core.exceptions import ZenzicConfigError
+
+    with pytest.raises(ZenzicConfigError, match=r"\[Z111\]"):
+        _resolve_targets(tmp_path, [], staged=False)
 
 
 def test_resolve_targets_default_docs_root_scans_dir(tmp_path: Path) -> None:
