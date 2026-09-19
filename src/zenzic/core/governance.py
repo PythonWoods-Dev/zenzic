@@ -962,6 +962,12 @@ def _extract_links(content: str) -> list[str]:
     # path feeds the policy codes (Z611, Z614-Z616), so without the mask an
     # escaped example in documentation is judged against a domain allowlist it
     # was never part of.
+    # An `<a href>` written inside backticks is prose about HTML: without this,
+    # documentation showing a link tag had its example URL judged against the
+    # domain allowlists (Z611, Z614-Z616). Same shape as the slugifier defect.
+    from zenzic.core.content import _CODE_SPAN_RE
+
+    content = _CODE_SPAN_RE.sub(lambda m: " " * len(m.group(0)), content)
     content = mask_backslash_escapes(content)
 
     for url in _MD_LINK_RE.findall(content):

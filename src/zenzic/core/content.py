@@ -874,7 +874,9 @@ def check_multiple_h1_headings(
         if _h is not None:
             continue
 
-        m_html = _HTML_H1_RE.search(line)
+        # A `<h1>` named inside backticks is prose about HTML, not a heading.
+        # Same shape as the tag-in-a-code-span defect closed in the slugifier.
+        m_html = _HTML_H1_RE.search(_CODE_SPAN_RE.sub(lambda mm: " " * len(mm.group(0)), line))
         if m_html:
             h1_count += 1
             html_title = m_html.group(1).strip()
@@ -1078,8 +1080,10 @@ def check_all_heading_rules(
                 )
 
         else:
-            # Z516: HTML <h1> tags
-            m_html = _HTML_H1_RE.search(line)
+            # Z516: HTML <h1> tags. A `<h1>` named inside backticks is prose
+            # about HTML, not a heading -- same shape as the tag-in-a-code-span
+            # defect closed in the slugifier.
+            m_html = _HTML_H1_RE.search(_CODE_SPAN_RE.sub(lambda mm: " " * len(mm.group(0)), line))
             if m_html:
                 h1_count += 1
                 html_title = m_html.group(1).strip()

@@ -1411,6 +1411,11 @@ def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
     return results
 
 
+#: An inline code span, capturing its content. Double backticks first, so that
+#: ``` ``a `b` c`` ``` is one span rather than two.
+_CODE_SPAN_TEXT_RE = re.compile(r"``([^`\n]+)``|`([^`\n]+)`")
+
+
 def slug_heading(heading: str) -> str:
     """Convert heading text to a URL-safe anchor slug (GitHub / MkDocs compatible).
 
@@ -1437,7 +1442,30 @@ def slug_heading(heading: str) -> str:
     if explicit:
         return explicit.group(1).lower()
     heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
+    # An inline code span's content is **text**, not markup, so the tag strip
+    # below must not reach it. Python-Markdown renders `` `<Image />` `` to a
+    # `<code>` element whose text is the literal `<Image />`, and slugifies that
+    # -- giving `image`. Stripping the span's content as a tag left only the
+    # backticks, the non-word strip removed those, and the slug was the **empty
+    # string**: no anchor collected at all, and every link to that heading
+    # reported Z102. Measured at 32 findings on a real MDX corpus.
+    #
+    # Third site of one shape -- a tag inside backticks read as a tag -- after
+    # `_mask_html_blocks` and the heading recogniser, both closed 2026-09-18.
+    # The remedy was applied to two of three, which is the class this cycle
+    # keeps closing.
+    protected: list[str] = []
+
+    def _park(match: Any) -> str:
+        # Two alternatives, so the double-backtick group is None when the
+        # single-backtick one matched.
+        protected.append(match.group(1) or match.group(2))
+        return f"\x00{len(protected) - 1}\x00"
+
+    heading_clean = _CODE_SPAN_TEXT_RE.sub(_park, heading_clean)
     slug = _HTML_TAG_RE.sub("", heading_clean).strip()
+    for index, text in enumerate(protected):
+        slug = slug.replace(f"\x00{index}\x00", text)
     # Decompose accented characters and drop combining marks so that e.g.
     # "Integrità" → "integrita". This **replicates** `markdown.extensions.toc`'s
     # default `slugify`; the core does not import it (ADR-075).
