@@ -874,11 +874,20 @@ def _heading_anchor(text: str) -> str:
 
 
 def _slugify(text: str) -> str:
-    """Return the GitHub-Markdown slug for heading *text*.
+    """Lowercase *text*, trim it, and replace internal spaces with hyphens.
 
-    Lowercases, strips leading/trailing whitespace, replaces internal spaces
-    with hyphens. Does NOT strip punctuation — matches the minimal slug that
-    Docusaurus and most renderers produce for same-page anchor links.
+    **This is not a renderer's slug and the docstring used to claim it was.**
+    It read "the GitHub-Markdown slug ... matches the minimal slug that
+    Docusaurus and most renderers produce", and measured against github-slugger
+    on nine heading/anchor pairs taken from a real Astro site it agreed on
+    **none of them**: it keeps backticks, so ``` `<Image />` ``` becomes
+    ``` `<image-/>` ``` where the site publishes ``image-``. A declared target
+    that is false is worse than no target, because the next reader builds on it.
+
+    What it actually is: a **minimal normalisation**, used by Z107 to compare a
+    link's visible text against its own fragment. Both sides of that comparison
+    go through it, so the rule works whenever the two agree -- which is why the
+    false claim survived without producing a wrong finding.
 
     **Deliberately not `validator.slug_heading`.** That function predicts
     Python-Markdown's ``toc``, which MkDocs and Zensical render with; this one

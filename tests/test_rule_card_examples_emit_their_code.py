@@ -330,6 +330,37 @@ def test_the_exemption_list_names_only_real_examples() -> None:
 
 @pytest.mark.parametrize(
     "example",
+    [e for e in EXAMPLES_FOUND if e.card in CANNOT_BE_RUN],
+    ids=lambda e: e.card,
+)
+def test_each_exempt_example_still_cannot_be_run(example: CardExample, tmp_path: Path) -> None:
+    """An exemption expires when the condition it describes stops happening.
+
+    The list was asserted in one direction only -- an entry had to name a card
+    that really has a labelled failing example -- and nothing asked whether its
+    *reason* still held. `Z107` and `Z403` sat here excused because "the check
+    reads this fenced example as live content", and both rules gained a fence
+    tracker on the same morning. The reasons became false and the entries
+    survived, still hiding two cards whose examples did not emit their code.
+
+    This is the other direction: an exempt example that *does* emit its code no
+    longer needs excusing, and the failure says so rather than leaving the list
+    to be audited by hand.
+    """
+    if not ZENZIC.exists():
+        pytest.fail(f"no zenzic console script at {ZENZIC}")
+    _build_project(example, tmp_path)
+    emitted = _emitted(tmp_path)
+    assert example.code not in emitted, (
+        f"docs/rules/{example.card}.md is on CANNOT_BE_RUN because "
+        f"{CANNOT_BE_RUN[example.card]!r}, and its example now emits "
+        f"{example.code} anyway. The reason has expired: remove the entry so the "
+        "example is checked like every other one."
+    )
+
+
+@pytest.mark.parametrize(
+    "example",
     [e for e in EXAMPLES_FOUND if e.card not in CANNOT_BE_RUN],
     ids=lambda e: e.card,
 )

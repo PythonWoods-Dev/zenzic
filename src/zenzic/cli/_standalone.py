@@ -1765,7 +1765,15 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
             )
             + gitignore_line
             + "\nEdit local overrides safely: this file wins over shared config "
-            "only on your machine.",
+            "only on your machine.\n"
+            # The panel is where a user meets this file for the first time, and
+            # it used to name it without saying what it may contain. Thirteen
+            # sections are accepted and `[policies]` is not among them, so an
+            # opt-in code cannot be enabled here -- a fact worth meeting now
+            # rather than discovering through a [LOCAL-TOML-STRICT] failure.
+            "It accepts thirteen sections and rejects the rest, so an opt-in code "
+            "cannot be enabled from here:\n"
+            "https://zenzic.dev/reference/configuration-reference/#local-sanctuary-scope",
             title=f"[bold]{discovered_name or 'Zenzic'} Local Sandbox[/]",
             border_style="cyan",
         )

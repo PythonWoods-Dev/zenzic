@@ -71,7 +71,29 @@ must remain private on your workstation.
 
 - It is loaded after shared config (`.zenzic.toml` or `[tool.zenzic]`) and therefore wins locally.
 - It is intended for machine-specific paths, temporary cleanup knobs, diagnostics, and private secrets.
-- It is never a team policy file.
+- It is never a team policy file — and that is **enforced**, not merely advised.
+
+### What this file may contain {#local-sanctuary-scope}
+
+Thirteen top-level sections are accepted:
+
+`core` · `build_context` · `project_metadata` · `governance` · `i18n` ·
+`forbidden_patterns` · `excluded_dirs` · `excluded_file_patterns` · `custom_rules` ·
+`secrets` · `debug` · `env`
+
+Anything else stops the run with `[LOCAL-TOML-STRICT]`, naming the key and this file. The
+error is deliberate: a section silently ignored here would be worse than one rejected, because
+you would believe it applied.
+
+!!! warning "`[policies]` is not on the list, and this is the point"
+    Opt-in codes are enabled in `[policies]`, and `[policies]` cannot be set here. A code your
+    project has not enabled cannot be enabled on one machine.
+
+    Otherwise a contributor would see findings nobody else sees, and their gate would pass or
+    fail differently from CI for a reason no one could inspect from the repository. Enabling a
+    code is a project decision, so it lives in the file the project commits. See
+    [When a Finding Looks Wrong](../explanation/when-a-finding-looks-wrong.md) for which of
+    those decisions is yours to make and which is ours.
 
 When `zenzic init` runs in a Git repository, it enforces `.zenzic.local.toml` inside
 `.gitignore` (creating or updating `.gitignore` safely, without destructive edits).
