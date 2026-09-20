@@ -29,15 +29,24 @@ Three assertions, in increasing strictness:
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
-import tomllib
 from typer.testing import CliRunner
 
 from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
 
+
+# `tomllib` is stdlib from 3.11; the tested matrix still carries 3.10, where the
+# backport is the same parser under another name. The rest of the suite already
+# does this -- importing it unconditionally passed locally on 3.14 and broke both
+# 3.10 legs in CI.
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover
+    import tomli as tomllib
 
 runner = CliRunner()
 
