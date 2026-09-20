@@ -17,13 +17,11 @@ in local development, as a pre-commit hook, in CI pipelines, or for one-off audi
 
 To guarantee deterministic quality without environment contamination or dependency collisions, Zenzic recommends three distinct distribution tracks in order of priority:
 
-```text
-  ┌────────────────────────────────────────────────────────────────────────┐
-  │  Track 1: Pre-commit (Recommended)  ──> Isolated, Pinned, Zero-Drift   │
-  │  Track 2: Project Dependency        ──> Docs-as-Code, uv/pip lockfile │
-  │  Track 3: Global / Ephemeral         ──> One-Off Audits, Non-Python   │
-  └────────────────────────────────────────────────────────────────────────┘
-```
+| Track | | Properties |
+| :--- | :--- | :--- |
+| **Track 1: Pre-commit** | *(Recommended)* | Isolated, Pinned, Zero-Drift |
+| **Track 2: Project Dependency** | | Docs-as-Code, uv/pip lockfile |
+| **Track 3: Global / Ephemeral** | | One-Off Audits, Non-Python |
 
 ---
 
@@ -174,12 +172,12 @@ fields you need.
 Run Zenzic without a `.zenzic.toml` and it falls back to built-in defaults, printing a Helpful
 Hint panel that suggests `zenzic init`:
 
-```text
-╭─ 💡 Zenzic Tip ─────────────────────────────────────────────────────╮
-│ Using built-in defaults — no .zenzic.toml found.                      │
-│ Run zenzic init to create a project configuration file.              │
+```text title="Terminal"
+╭────────────────────────────── 💡 Zenzic Tip ──────────────────────────────╮
+│ Using built-in defaults — no .zenzic.toml found.                          │
+│ Run zenzic init to create a project configuration file.                   │
 │ Customise docs directory, excluded paths, engine adapter, and lint rules. │
-╰──────────────────────────────────────────────────────────────────────╯
+╰───────────────────────────────────────────────────────────────────────────╯
 ```
 
 ### 2. Config — tune to your project {#config}
