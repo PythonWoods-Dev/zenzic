@@ -908,7 +908,7 @@ fail_under = 100
 # --- ENGINE CONTEXT ---
 [build_context]
 engine         = "zensical" # Supported: mkdocs, zensical, standalone
-base_url       = "/"
+# base_url = "/docs/"   # the path your docs are served under, when not the root
 default_locale = "en"
 
 # --- BRAND INTEGRITY ---
@@ -984,7 +984,7 @@ forbidden_patterns = []
 
 [build_context]
 # engine = "zensical"
-# base_url = "/"
+# base_url = "/docs/"
 # default_locale = "en"
 
 [project_metadata]

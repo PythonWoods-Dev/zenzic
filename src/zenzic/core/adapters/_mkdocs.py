@@ -953,10 +953,6 @@ class MkDocsAdapter(BaseAdapter):
         """MkDocs locale files are scanned inside docs_root; no external locale roots."""
         return []
 
-    def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
-        """MkDocs is single-instance and exports no absolute URL prefixes."""
-        return []
-
     def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
         """Return canonical URLs serving as root entry points from nav configuration."""
         nav_paths = self.get_nav_paths()

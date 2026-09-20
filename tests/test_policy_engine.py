@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from zenzic.cli._standalone import _base_url_line
 from zenzic.core.governance import (
     PolicyEvaluator,
     _extract_links,
@@ -454,6 +455,7 @@ def test_init_template_includes_policies_section() -> None:
         engines="mkdocs, standalone",
         hint_name="test-project",
         docs_dir_line='# docs_dir = "docs"\n',
+        base_url_line=_base_url_line("mkdocs"),
     )
     parsed = tomllib.loads(rendered)
 

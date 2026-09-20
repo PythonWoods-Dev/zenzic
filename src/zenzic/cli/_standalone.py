@@ -1605,7 +1605,15 @@ def init(
         _shared.print_footer_hint("init")
         return
 
-    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "standalone"}
+    # Derived from the adapter registry, not restated. The literal here read
+    # `{"mkdocs", "zensical", "standalone"}` until 2026-09-20 while this same
+    # command's `--help`, and the `# Supported:` comment it writes into the
+    # generated file, both came from `list_adapter_engines()` -- so `prebuilt`
+    # and `vsm` were advertised in two places and refused in the third. Both
+    # build: auto-detection already writes `engine = "prebuilt"` on a repository
+    # carrying `.zenzic-vsm.json`, and `vsm` resolves to the same adapter. A
+    # third-party adapter now reaches this gate without this line changing.
+    _INIT_VALID_ENGINES = set(list_adapter_engines())
     if engine is not None and engine not in _INIT_VALID_ENGINES:
         _shared.console.print(
             f"[red]✘ ERROR:[/] Unknown engine [bold]{engine!r}[/]. "
@@ -1980,6 +1988,32 @@ def _supported_engines() -> str:
     return ", ".join(list_adapter_engines())
 
 
+def _base_url_line(engine: str) -> str:
+    """The `[build_context] base_url` line, or the reason there is not one.
+
+    Conditional on the chosen engine for the same reason `docs_dir_line` is
+    conditional on what the generator declared: a template that offers a setting
+    the project's own state rejects is a defect, not a convenience. `prebuilt`
+    takes its routes from `.zenzic-vsm.json`, which already carries the prefix the
+    real build produced, so `base_url` on top would apply it twice -- the adapter
+    refuses it at construction, and this keeps a reader from meeting that refusal
+    by following our own generated file.
+    """
+    if engine == "prebuilt":
+        return (
+            "# base_url is not offered here: routes come from .zenzic-vsm.json, which\n"
+            "# already carries the prefix your build produced. Setting it is an error.\n"
+        )
+    # No finding code is named here on purpose: the pyproject section is a pointer,
+    # not a catalogue, and a test enforces that it enumerates none.
+    return (
+        "# base_url — the path your docs are served under, when it is not the root\n"
+        '#   (e.g. "/docs/"). Absolute links written against it then resolve, instead\n'
+        "#   of being reported as broken and as non-portable absolute paths.\n"
+        '# base_url = "/docs/"\n'
+    )
+
+
 def _build_governance_ready_toml(
     *, engine: str, discovered_name: str | None, docs_dir: str | None = None
 ) -> str:
@@ -1993,7 +2027,11 @@ def _build_governance_ready_toml(
     hint_name = discovered_name or "My Awesome App"
     line = f'docs_dir = "{docs_dir}"\n' if docs_dir else '# docs_dir = "docs"\n'
     return GLOBAL_TOML_TEMPLATE.format(
-        engine=engine, engines=_supported_engines(), hint_name=hint_name, docs_dir_line=line
+        engine=engine,
+        engines=_supported_engines(),
+        hint_name=hint_name,
+        docs_dir_line=line,
+        base_url_line=_base_url_line(engine),
     )
 
 
@@ -2093,6 +2131,7 @@ def _init_pyproject(
         engine=detected_engine,
         engines=_supported_engines(),
         hint_name=discovered_name or "your-project",
+        base_url_line=_base_url_line(detected_engine),
     )
     if enabled_keys:
         # The pyproject section is the pointer, not the catalogue: a chosen

@@ -614,12 +614,22 @@ locales = ["it", "fr", "de"]
 | **Type** | `str` |
 | **Default** | `""` |
 
-Site base URL (e.g. `"/"` or `"/docs/"`). When set, the adapter uses this value instead of attempting static extraction from the build tool's config file. Recommended when the config file uses dynamic patterns that cannot be parsed statically.
+The path your documentation is served under, when it is not the site root — for example `"/docs/"` on a site published at `https://example.com/docs/`. Leave it unset (or `"/"`) for a site served from the root; both mean "no prefix".
+
+**What it changes.** Absolute links written against the deployed path resolve instead of being reported. On a site based at `/docs/`, a link to `/docs/reference/page/` is re-based to `/reference/page/` before it is matched against the route map, so it stops raising [`Z101`](finding-codes.md#z101); the prefix is also treated as project-owned, so it stops raising [`Z105`](finding-codes.md#z105). Both come from one value, so the two checks cannot disagree about where the site starts.
 
 ```toml
 [build_context]
 base_url = "/docs/"
 ```
+
+!!! warning "Not available with the `prebuilt` engine"
+
+    `prebuilt` takes its routes from `.zenzic-vsm.json`, which already carries the
+    prefix your build produced. Setting `base_url` as well would apply it twice, so
+    the combination is rejected with a configuration error rather than ignored. Emit
+    the manifest with the URLs you want instead. `zenzic init` does not offer the
+    setting when it writes a `prebuilt` configuration.
 
 ### `fallback_to_default` {#fallback-to-default}
 

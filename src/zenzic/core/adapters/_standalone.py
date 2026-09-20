@@ -156,10 +156,6 @@ class StandaloneAdapter(BaseAdapter):
         """Standalone projects do not define locale source trees."""
         return []
 
-    def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
-        """Standalone mode owns no absolute URL prefixes."""
-        return []
-
     def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
         """Standalone mode has no nav tree; all routes are entry points."""
         return list(vsm.keys())

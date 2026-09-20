@@ -530,10 +530,6 @@ class ZensicalAdapter(BaseAdapter):
         """Zensical locale roots are currently declared inside docs_dir."""
         return []
 
-    def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
-        """Zensical is single-instance and exports no absolute URL prefixes."""
-        return []
-
     def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
         """Return canonical URLs serving as root entry points from nav configuration."""
         if not self._has_explicit_nav:

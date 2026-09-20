@@ -34,8 +34,9 @@ paths on Windows only. Item 41 removes editor diagnostics on
 build output. Items 42 and 43 add two machine-readable
 fields and change no finding. Items 44 and 45 change the landing page only, item 46 the rendering of 99 list
 items across the documentation, item 47 the size of the stylesheet and one unparseable
-config example, and item 48 removes an opt-in finding from the editor that the CLI already
-suppressed. The list ends
+config example, item 48 removes an opt-in finding from the editor that the CLI already
+suppressed, items 49 and 50 change a generated comment and a code comment, and items 51 and 52 make a
+configuration field and a CLI flag do what they already said they did. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -562,6 +563,42 @@ which mode produced it.
 *Why:* item 26 made `Z503` opt-in and put the gate inside `validate_snippets`, "rather than at its three call sites, so the Language Server inherits it". It did not. The server drives `IncrementalAnalysisEngine`, which calls the `check_snippet_content` primitive directly and never passes through that wrapper, so the flag was honoured by `zenzic check` and ignored by the editor and by `zenzic-mcp`. The gate now sits in the primitive, which is the one point every consumer passes through. Measured across all **nine** flag-gated codes on a corpus that triggers each: `Z503` was the only one that leaked, and the other eight are gated where the rule engine is assembled — a function both pipelines share.
 
 *What to do:* nothing, unless you relied on the editor showing snippet errors without the flag. Set `enable_snippet_check = true` to restore it.
+
+**49. `zenzic init` offered a `[governance]` value its own schema refuses.**
+
+*What you will see:* the generated `.zenzic.toml` no longer reads `# suppression_cap_scope = "all"  # Options: all, per-file`. It states that `"all"` is the only supported value and that the cap counts the whole corpus.
+
+*Why:* the field is typed `Literal["all"]`, so a reader who uncommented that line and took the second option got `literal_error: Input should be 'all'` on the next run — verified end to end before the fix, `zenzic check all` refused to start. There is no per-file counterpart in `scorer.py`, so the comment offered a scope that does not exist rather than one not yet wired. The reference page was already correct. A new structural test walks everything `init` writes — live lines and commented ones, including every value named in an enumerating comment — and asserts the schema accepts it; the same form had been wrong once before, an engine list that omitted the engine it annotated.
+
+*What to do:* nothing, unless you had uncommented that line and set `per-file`, in which case the tool has been refusing to run and `"all"` fixes it.
+
+**50. Two opt-in codes stay outside the rule engine, and the reason is now in the code.**
+
+*What you will see:* no behaviour change. `Z106` and `Z411` report exactly as before.
+
+*Why:* item 48's fix put `Z503`'s gate in the one primitive every consumer calls. `Z106` and `Z411` cannot take that shape, and the reason is specific rather than a cost judgement. Each has **one** algorithm already — `_find_cycles_iterative` and `detect_dead_ends` have a single definition apiece, shared by both pipelines — but each pipeline gates where its own graph exists, and the two graphs are different on purpose: `scanner.py` builds its link graph so that a reference definition counts as a navigable edge, which the VSM's reverse index does not do. A rule-engine member would read the VSM and so would change which cycles and which dead ends exist, rather than relocating the check. `run_vsm` also runs once per file, so a whole-graph walk inside it would be N traversals where there is now one. Both gates now carry that reason, and `tests/test_activation_ssot_structural.py` fails CI if they drift apart.
+
+*What to do:* nothing; it is a comment and a test.
+
+**51. `[build_context] base_url` now does what its documentation has always said.**
+
+*What you will see:* on a site served under a path — `base_url = "/docs/"` — an absolute link written against the deployed path resolves instead of being reported. `[Ref](/docs/reference/page/)` stops raising `Z101` (it is re-based to `/reference/page/` before matching the route map) **and** stops raising `Z105` (the prefix is project-owned). Unset, nothing changes.
+
+*Why:* the field was declared, written into every generated config, and read by nothing. The reference page told readers *"the adapter uses this value instead of attempting static extraction from the build tool's config file"* — and no adapter read it or performed that extraction, so a project set it and got silence: no error, no warning, no effect. Both codes now read **one** authority, `adapter.get_absolute_url_prefixes()`, so they cannot disagree about where the site starts. Wiring only the allowlist was measured and rejected: `absolute_path_allowlist` already cleared `Z105` alone and left every such link reported broken, which looks like a working feature and is not one.
+
+**`"/"` means no prefix, and so does leaving it unset.** Stated because it is a deliberate choice that will look like a bug later: every `.zenzic.toml` this tool has generated carried an uncommented `base_url = "/"`, written while the field did nothing. Honouring that as a declared base would re-base every absolute link in every existing project the moment the field started working. The generated template now offers the setting commented out instead of writing a live no-op.
+
+**Not available with `prebuilt`.** Its routes come from `.zenzic-vsm.json`, which already carries the prefix your build produced, so a second one would be applied twice. The combination raises a configuration error rather than being ignored, and `zenzic init` does not offer the setting when it writes a `prebuilt` config — a template that offers what the chosen engine rejects is the defect item 49 closed.
+
+*What to do:* nothing, unless you serve docs under a path and have been writing absolute links. Set `base_url` and they will resolve.
+
+**52. `zenzic init --engine prebuilt` was refused while `--help` listed it.**
+
+*What you will see:* `--engine` accepts every engine the adapter registry offers — `mkdocs`, `prebuilt`, `standalone`, `vsm`, `zensical`.
+
+*Why:* the accepted set was a hardcoded `{"mkdocs", "zensical", "standalone"}` while the same command's help text, and the `# Supported:` comment it writes into the generated file, were both derived from `list_adapter_engines()`. So two surfaces advertised `prebuilt` and `vsm` and the third refused them, which reads as a broken tool rather than an unfinished feature. Both build — auto-detection already selected `prebuilt` on a repository carrying `.zenzic-vsm.json`. The set is now derived, so a third-party adapter reaches the gate without that line changing.
+
+*What to do:* nothing.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

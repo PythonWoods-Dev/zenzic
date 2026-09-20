@@ -207,9 +207,22 @@ class BaseAdapter(ABC):
     def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:
         """Return locale source roots as ``(root_path, locale_label)`` pairs."""
 
-    @abstractmethod
     def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
-        """Return project-owned absolute URL prefixes (for Z105 allowlisting)."""
+        """Return project-owned absolute URL prefixes.
+
+        **One authority, two consumers.** `Z105` allowlists what this returns and
+        `VSMBrokenLinkRule` re-bases against the same list, so the two cannot
+        disagree about where the site starts. Wiring only the first was measured
+        on 2026-09-20 and rejected: `absolute_path_allowlist = ["/docs/"]` already
+        cleared `Z105` alone and left every such link reported broken by `Z101`,
+        which looks like a working feature and is not one.
+
+        The list is set by `get_adapter` from `[build_context] base_url`, so an
+        adapter that wants no prefix declares nothing rather than overriding. The
+        one exception is `PrebuiltVSMAdapter`, whose routes already carry the real
+        build's prefix; it refuses `base_url` at construction instead.
+        """
+        return list(getattr(self, "_zenzic_base_prefixes", ()))
 
     @property
     def dynamic_directories(self) -> set[Path]:

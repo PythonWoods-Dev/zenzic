@@ -1494,6 +1494,16 @@ def _run_vsm_and_urp_pass(
         # Z411 is opt-in: a licence page, a changelog and a glossary are dead
         # ends by design. Leaving the set empty is exactly what "no dead ends"
         # already means downstream, so no consumer needs to learn a new state.
+        # Why this gate is here and not inside a rule-engine member, measured
+        # 2026-09-20: a rule receives the VSM through `run_vsm`, so it would read the
+        # URL-keyed graph -- and `link_graph` below is deliberately built from
+        # `_graph_link_infos` instead, because a reference definition is a navigable
+        # edge there and must not be a separate finding in `links_cache`. The two
+        # graphs encode different edge semantics on purpose, so moving this check
+        # onto the VSM would change which dead ends exist. `run_vsm` also runs once
+        # per file, so a whole-graph walk inside it is N traversals where this is
+        # one. The gate is duplicated across the two pipelines on purpose; what
+        # stops it drifting is tests/test_activation_ssot_structural.py.
         dead_end_urls = (
             set(detect_dead_ends(vsm)) if config.policies.enable_dead_end_check else set()
         )
@@ -1547,6 +1557,16 @@ def _run_vsm_and_urp_pass(
         _graph_link_infos(md_contents), resolver, frozenset(md_contents.keys())
     )
 
+    # Why this gate is here and not inside a rule-engine member, measured
+    # 2026-09-20: a rule receives the VSM through `run_vsm`, so it would read the
+    # URL-keyed graph -- and `link_graph` below is deliberately built from
+    # `_graph_link_infos` instead, because a reference definition is a navigable
+    # edge there and must not be a separate finding in `links_cache`. The two
+    # graphs encode different edge semantics on purpose, so moving this check
+    # onto the VSM would change which cycles exist. `run_vsm` also runs once
+    # per file, so a whole-graph walk inside it is N traversals where this is
+    # one. The gate is duplicated across the two pipelines on purpose; what
+    # stops it drifting is tests/test_activation_ssot_structural.py.
     # Z106 is opt-in: a cycle is documentation's ordinary shape, not a defect
     # signal. Left on by default it reported 704 findings across 238 of ~300
     # pages of this repository -- index<->record pairs and an interlinked

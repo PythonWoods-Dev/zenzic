@@ -433,6 +433,28 @@ def get_adapter(
     with contextlib.suppress(Exception):
         object.__setattr__(adapter, "zenzic_resolution", _resolution)
 
+    # `[build_context] base_url` reaches the engine here and nowhere else, so the
+    # normalisation exists once. It was declared, written into every generated
+    # config and documented as something "the adapter uses ... instead of
+    # attempting static extraction" -- and read by nothing, so a project served
+    # under `/docs/` set it and got silence rather than an effect.
+    #
+    # `PrebuiltVSMAdapter` refuses it at construction rather than reaching this
+    # line: its routes come from `.zenzic-vsm.json`, which already carries the
+    # prefix the real build produced, so a second one would double it.
+    # `"/"` is read as *no prefix*, deliberately and for a reason that will not be
+    # obvious later: every `.zenzic.toml` this tool has ever generated carried an
+    # uncommented `base_url = "/"`, written while nothing read the field. Treating
+    # that as a declared base would re-base every absolute link in every existing
+    # project the moment the field started working. So `""` and `"/"` both mean the
+    # site is served from the root, and the generated template now offers the
+    # setting commented out instead of writing a live no-op.
+    _declared_base = str(getattr(context, "base_url", "") or "").strip()
+    if _declared_base and _declared_base != "/":
+        _prefix = "/" + _declared_base.strip("/") + "/"
+        with contextlib.suppress(Exception):
+            object.__setattr__(adapter, "_zenzic_base_prefixes", [_prefix])
+
     if getattr(context, "offline_mode", False):
         messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")
 

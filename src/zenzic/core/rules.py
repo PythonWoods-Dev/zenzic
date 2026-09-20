@@ -1838,6 +1838,11 @@ class VSMBrokenLinkRule(BaseRule):
                 source_dir=_source_dir,
                 docs_root=context.docs_root if context else None,
                 use_directory_urls=context.use_directory_urls if context else True,
+                base_prefixes=(
+                    context.adapter.get_absolute_url_prefixes()
+                    if context is not None and context.adapter is not None
+                    else ()
+                ),
             )
             if target_url is None:
                 continue
@@ -1967,6 +1972,7 @@ class VSMBrokenLinkRule(BaseRule):
         source_dir: Path | None = None,
         docs_root: Path | None = None,
         use_directory_urls: bool = True,
+        base_prefixes: Sequence[str] = (),
     ) -> str | None:
         """Convert a relative Markdown href to a canonical URL string.
 
@@ -2006,6 +2012,26 @@ class VSMBrokenLinkRule(BaseRule):
             path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
         if not path:
             return None
+
+        # Re-base an absolute href against the declared site base. The VSM is
+        # keyed root-relative, so on a site based at `/docs/` the link
+        # `/docs/ref/page/` must lose that prefix before it can match `/ref/page/`.
+        # *base_prefixes* is `adapter.get_absolute_url_prefixes()` -- the same list
+        # Z105 allowlists against, so the two codes cannot disagree about where the
+        # site starts. Allowlisting alone was measured and rejected: it cleared
+        # Z105 and left Z101 reporting every such link broken.
+        #
+        # Safe against traversal by construction: the result is still absolute and
+        # still root-relative, and the `docs_root` escape check below guards the
+        # *relative* branch, which this does not enter.
+        if base_prefixes and path.startswith("/"):
+            for _prefix in sorted(base_prefixes, key=len, reverse=True):
+                _prefix = "/" + _prefix.strip("/") + "/"
+                if _prefix == "/":
+                    continue
+                if path == _prefix.rstrip("/") or path.startswith(_prefix):
+                    path = "/" + path[len(_prefix) :].lstrip("/")
+                    break
 
         # ZRT-004 / LSP-FIX-001: context-aware relative resolution
         # When source_dir + docs_root are provided and the href is relative (does not start

@@ -15,6 +15,7 @@ from unittest.mock import ANY, patch
 import pytest
 from typer.testing import CliRunner
 
+from zenzic.cli._standalone import _base_url_line
 from zenzic.core.validator import LinkError, SnippetError
 from zenzic.main import app, cli_main
 from zenzic.models.config import ZenzicConfig
@@ -2946,6 +2947,7 @@ def test_templates_root_keys_not_swallowed() -> None:
             engines="mkdocs, standalone",
             hint_name="test",
             docs_dir_line='docs_dir = "docs"\n',
+            base_url_line=_base_url_line("standalone"),
         )
 
         data = tomllib.loads(template)
@@ -3181,6 +3183,7 @@ def test_pyproject_template_stays_a_pointer_not_a_catalogue() -> None:
         engines="mkdocs, standalone",
         hint_name="demo",
         docs_dir_line='# docs_dir = "docs"\n',
+        base_url_line=_base_url_line("mkdocs"),
     )
 
     assert len(rendered.splitlines()) <= 60, (

@@ -30,6 +30,20 @@ class PrebuiltVSMAdapter(StandaloneAdapter):
         self._routes: dict[str, dict[str, str]] = {}
         self._has_config = False
 
+        # Loud rather than silent. The manifest below already carries whatever
+        # prefix the real build produced, so a `base_url` on top would double it
+        # or contradict it. Ignoring it here would be the same defect this field
+        # was fixed for -- a setting that is accepted and does nothing -- moved
+        # one adapter to the left. `zenzic init` does not offer `base_url` when
+        # it writes a prebuilt config, so this is a backstop, not the usual path.
+        if str(getattr(context, "base_url", "") or "").strip() not in ("", "/"):
+            raise ZenzicConfigError(
+                "base_url is set while engine = 'prebuilt'. Routes come from "
+                ".zenzic-vsm.json, which already carries the prefix the build "
+                "produced, so a second one would be applied twice. Remove "
+                "base_url, or emit the manifest with the URLs you want."
+            )
+
         root = repo_root if repo_root else docs_root.parent
         vsm_file = root / ".zenzic-vsm.json"
 

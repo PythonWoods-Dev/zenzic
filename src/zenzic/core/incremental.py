@@ -483,6 +483,14 @@ class IncrementalAnalysisEngine:
             # Same gate as the CLI path in scanner.py. Gating one side only is
             # how this codebase has repeatedly produced a capability that exists
             # in CI and not in the editor, or the reverse.
+            # It stays outside the rule engine for the reason recorded at the
+            # matching gate in scanner.py: the two pipelines hold their graphs
+            # under different keys and encode different edge semantics, so a
+            # rule-engine member reading the VSM would change which findings
+            # exist rather than relocate them. The duplication is the gate, not
+            # the algorithm -- `detect_dead_ends` has one definition, and
+            # tests/test_activation_ssot_structural.py is what keeps the two
+            # gates from drifting apart.
             self._dead_end_urls = (
                 set(detect_dead_ends(vsm)) if self.config.policies.enable_dead_end_check else set()
             )
@@ -498,6 +506,14 @@ class IncrementalAnalysisEngine:
         # what makes sharing the algorithm honest rather than merely convenient. Gated
         # on the same opt-in flag, so a project that has not asked for cycle detection
         # pays neither the findings nor the pass.
+        # It stays outside the rule engine for the reason recorded at the
+        # matching gate in scanner.py: the two pipelines hold their graphs
+        # under different keys and encode different edge semantics, so a
+        # rule-engine member reading the VSM would change which findings
+        # exist rather than relocate them. The duplication is the gate, not
+        # the algorithm -- `_find_cycles_iterative` has one definition, and
+        # tests/test_activation_ssot_structural.py is what keeps the two
+        # gates from drifting apart.
         self._cycle_urls: set[str] = set()
         if getattr(self.config.policies, "enable_circular_link_check", False):
             from zenzic.core.validator import _find_cycles_iterative

@@ -15,7 +15,8 @@ _SPDX = "SPDX-License-Identifier"
 # GLOBAL_TOML_TEMPLATE
 # ===========================================================================
 # Written to .zenzic.toml by `zenzic init`.
-# Dynamic placeholders: {engine}, {engines}, {hint_name}, {docs_dir_line}
+# Dynamic placeholders: {engine}, {engines}, {hint_name}, {docs_dir_line},
+# {base_url_line}
 # (call .format() before write).
 #
 # {engines} is the live adapter registry, not a literal. It was a literal naming
@@ -174,7 +175,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "[build_context]\n"
     'engine         = "{engine}"'
     " # Supported: {engines}\n"
-    'base_url       = "/"\n'
+    "{base_url_line}"
     'default_locale = "en"\n'
     "\n"
     "# --- BRAND INTEGRITY ---\n"
@@ -202,7 +203,12 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# Terms that should no longer appear in your documentation.\n"
     "# Keep empty until your governance policy defines deprecated brand terms.\n"
     "brand_obsolescence = []\n"
-    '# suppression_cap_scope = "all"  # Options: all, per-file\n'
+    # `Options: all, per-file` shipped here until 2026-09-20 while the field is
+    # typed `Literal["all"]`, so a reader who uncommented this line and took the
+    # second option got `literal_error` on the next run. The cap in `scorer.py` is
+    # counted over the whole corpus and there is no per-file counterpart, so the
+    # comment offered a scope that does not exist rather than one not yet wired.
+    '# suppression_cap_scope = "all"  # Only supported value: the cap counts the whole corpus\n'
     "\n"
     "# ---------------------------------------------------------------------------\n"
     "# per_file_ignores\n"
@@ -444,7 +450,7 @@ LOCAL_TOML_TEMPLATE: str = (
 # PYPROJECT_TOML_SECTION_TEMPLATE
 # ===========================================================================
 # Appended to pyproject.toml by `zenzic init --pyproject`.
-# Dynamic placeholders: {engine}, {hint_name}
+# Dynamic placeholders: {engine}, {hint_name}, {base_url_line}
 #
 # THIS IS A POINTER, NOT A CATALOGUE, AND THAT IS THE POINT.
 #
@@ -507,7 +513,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# engine — auto-detected from project files; override with --engine.\n"
     "#   Supported: {engines}\n"
     'engine         = "{engine}"\n'
-    'base_url       = "/"\n'
+    "{base_url_line}"
     'default_locale = "en"\n'
     "\n"
     "[tool.zenzic.project_metadata]\n"
