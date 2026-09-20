@@ -80,6 +80,15 @@
 [data-md-color-scheme="slate"] .md-header__button.md-logo img,
 [data-md-color-scheme="default"] .md-header__button.md-logo img {
   content: url('../brand/svg/zenzic-icon.svg');
+  /* Declared, not inherited. This rule already replaces the logo's *source*,
+     and until 2026-09-20 it left the *size* to whatever the theme's default
+     happened to be -- so a Material upgrade could resize a swapped icon with
+     no edit here and nothing measuring it. Measured before fixing: 24px in a
+     48px bar (50%), beside a 20px wordmark (ratio 1.20). Both ordinary, so
+     the value is unchanged and only its provenance is: 1.2rem is now a
+     decision rather than a leftover. */
+  height: 1.2rem;
+  width: 1.2rem;
 }
 
 /* ── Navigation: sidebar active state ────────────────────────────────────── */
