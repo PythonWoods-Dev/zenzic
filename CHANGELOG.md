@@ -32,8 +32,9 @@ configuration. Item 39 adds a flag and changes nothing until it is passed, but i
 listed here because this project's own badge gate now passes it. Item 40 changes three printed
 paths on Windows only. Item 41 removes editor diagnostics on
 build output. Items 42 and 43 add two machine-readable
-fields and change no finding. Items 44 and 45 change the landing page only, and item 46 the rendering of 99 list
-items across the documentation. The list ends
+fields and change no finding. Items 44 and 45 change the landing page only, item 46 the rendering of 99 list
+items across the documentation, and item 47 the size of the stylesheet and one unparseable
+config example. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -544,6 +545,14 @@ which mode produced it.
 *Why:* Python-Markdown needs **four** spaces to keep a paragraph inside a list item across a blank line. Two spaces reads as correct in the source and renders as three elements — the list closes, the continuation becomes a loose top-level paragraph, and a second list opens. The Markdown stays valid, so `markdownlint` passed all 99, the oldest traced to `v0.15.1`. Each was repaired by the shape it actually had: 91 wrapped sentences were rejoined, 8 deliberate paragraphs were indented to four. A gate now holds it — `scripts/check_list_continuation.py`, wired into `just docs-build`, with `--self-test` to check the instrument.
 
 *What to do:* nothing; it is documentation.
+
+**47. `minify_css: true` had been doing nothing, and `Z111`'s config example did not parse.**
+
+*What you will see:* `zenzic.dev` now serves `extra.min.css` at 17,921 bytes instead of `extra.css` at 38,055 — 52.9% off the stylesheet on every page load. And `docs/rules/Z111.md` no longer shows a `.zenzic.toml` example that a reader cannot use.
+
+*Why:* `mkdocs-minify-plugin` skips every `extra_css` entry not named in `css_files`, so the flag enabled the minifier and the loop never reached a file. `css_files` now names `assets/css/extra.css` and deliberately **not** `zenzic-tailwind.min.css`, which the Tailwind CLI already minified and which `csscompressor` makes 49 bytes *larger*. Renaming the built file broke the legacy `/static/assets/css/extra.css` redirect; `check_redirect_destinations.py` caught it and the rule now points at `extra.min.css`. Separately, `Z111`'s "how to fix" block declared `docs_dir` twice in one TOML document — `Cannot overwrite a value` — which is the one unparseable block among **295** TOML fences in `docs/`. It is now two fences, one per generator, each valid on its own.
+
+*What to do:* nothing; it is documentation and a build setting.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 

@@ -446,6 +446,18 @@ plugins:
       minify_html: true
       minify_css: true
       minify_js: false
+      # `minify_css: true` alone does nothing: the plugin skips every extra_css
+      # entry not named here (`_minify_extra_config`, `if file_path not in
+      # files_to_minify: continue`). Measured 2026-09-20 -- extra.css goes from
+      # 38,055 to 17,921 bytes, 52.9% off every page load.
+      css_files:
+        - assets/css/extra.css
+      # zenzic-tailwind.min.css is deliberately NOT listed. The Tailwind CLI
+      # already minified it, and csscompressor makes it 49 bytes *larger*.
+      # Turning this on renames the built file, which broke the legacy
+      # /static/assets/css/extra.css redirect -- caught by
+      # check_redirect_destinations.py and repointed at extra.min.css. If this
+      # list is ever emptied, that rule has to go back to extra.css.
 
 # MkDocs strict-mode link validation.
 # tutorials/examples/ pages intentionally contain extensionless/malformed links

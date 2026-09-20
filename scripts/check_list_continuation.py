@@ -98,7 +98,12 @@ def orphaned_continuations(text: str) -> list[tuple[int, str]]:
 
 
 def self_test() -> list[str]:
-    """Prove the instrument finds the defect and spares both correct forms (Rule 39)."""
+    """Prove the instrument finds the defect and spares both correct forms.
+
+    A zero from the sweep below means nothing until this passes: an instrument
+    that matches nothing reports a clean corpus in exactly the same words as one
+    that works.
+    """
     cases = [
         ("- **A** - half\n\n  rest.\n", 1, "two-space continuation is the defect"),
         ("- **A** - half\n\n    rest.\n", 0, "four spaces keeps it in the item"),
