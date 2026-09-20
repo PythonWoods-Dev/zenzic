@@ -566,6 +566,39 @@
  * corrupting MkDocs Material's global header proportions. */
 .zz-tailwind-root {
   font-size: 16px !important;
+
+  /* `font-size: 16px` above governs `em`, not `rem`, so on its own it never
+     reached a single Tailwind utility -- every one of them is `rem`-based and
+     `rem` resolves against `html`, which Material sets to 125% (20px). The
+     comment above states the intent correctly and the mechanism could not
+     deliver it; measured 2026-09-20, every spacing and width utility on this
+     page was rendering 25% larger than designed:
+
+         py-24      6rem    designed   96px   rendered  120px
+         py-12      3rem    designed   48px   rendered   60px
+         px-6     1.5rem    designed   24px   rendered   30px
+         max-w-5xl 64rem    designed 1024px   rendered 1280px
+         max-w-3xl 48rem    designed  768px   rendered  960px
+
+     `max-w-5xl` at 1280px is the one with a visible threshold: below a 1280px
+     viewport the container stops fitting, `mx-auto` centres nothing, and the
+     page reads flush to the edges -- the same page laying out two different
+     ways depending on window width.
+
+     This build is Tailwind v4, where utilities read CSS custom properties
+     (`calc(var(--spacing) * 6)`, `var(--container-5xl)`) rather than baking in
+     literals. So the scale can be restated in absolute units *here*, scoped to
+     this wrapper, and every utility inside recomputes. Nothing global moves:
+     `html` keeps 125%, the rest of the documentation is untouched, and the
+     `rem`-valued `!important` overrides tuned against 20px stay valid because
+     `rem` itself has not changed. */
+  --spacing: 4px;
+  --container-sm: 384px;
+  --container-xl: 576px;
+  --container-2xl: 672px;
+  --container-3xl: 768px;
+  --container-4xl: 896px;
+  --container-5xl: 1024px;
 }
 
 /* Hide GitHub stats widget on the Landing Page to reduce visual noise */
