@@ -48,6 +48,33 @@
   border-bottom: 1px solid var(--zz-border-subtle);
 }
 
+/* ── Direction A, light branch: the tab bar ──────────────────────────────── */
+/* The audit named "the light-mode header bar" as the largest remaining indigo
+   surface. Measured in the cascade rather than in the token, and the claim was
+   wrong in its target: `.md-header` is already overridden above to
+   `--zz-surface-0`, so it has not been indigo for some time. What *is* indigo
+   in the light branch is `.md-tabs` -- the navigation bar directly beneath it,
+   full width, on every page -- because Material paints it with
+   `--md-primary-fg-color` and nothing here overrode that.
+
+   Neutralised to match `.md-header` exactly, so the two stacked bars read as
+   one surface instead of a neutral strip above an indigo one.
+
+   Text has to move with it: `--md-primary-bg-color` is `--zz-surface-0`
+   (#ffffff) in the light branch, which was legible on indigo and would be
+   invisible on white. Measured after the change:
+     light  #0f172a on #ffffff  17.85:1
+     dark   unchanged, #e2e8f0 on #0d1117  15.35:1
+
+   `--md-primary-fg-color` itself is deliberately NOT retargeted: it also
+   paints `.md-button--primary`, which is the call-to-action accent the
+   landing-page audit classified as intentional. Changing the token would have
+   neutralised the CTA too, which no measurement asked for. */
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: var(--zz-surface-0);
+  color: var(--zz-ink-100);
+}
+
 /* ── Navbar: text-only tabs ──────────────────────────────────────────────── */
 
 .md-tabs__link i,
