@@ -38,13 +38,9 @@ version. Before reporting an issue, ensure that you're running the
 
 Before creating a bug report, do some research:
 
-1. [Search our documentation](?q=) and look for sections
+1. [Search our documentation](?q=) and look for sections related to your problem.
 
-   related to your problem.
-
-2. [Search our issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues), as another user might already
-
-   have reported the same problem.
+2. [Search our issue tracker](https://github.com/PythonWoods-Dev/zenzic/issues), as another user might already have reported the same problem.
 
 __Keep track of all <u>search terms</u> and <u>relevant links</u>; you'll need
 them in the bug report.__

@@ -119,9 +119,7 @@ any preprocessing.
 `MkDocsAdapter` parses `mkdocs.yml` as **static data**. It does not execute the MkDocs
 build pipeline. This means:
 
-- **`!ENV` tags** — silently treated as `null`. If your nav relies on environment variable
-
-  interpolation at build time, the nav entries that depend on those values will be absent
+- **`!ENV` tags** — silently treated as `null`. If your nav relies on environment variable interpolation at build time, the nav entries that depend on those values will be absent
   from Zenzic's view.
 
 - **Plugin-generated nav** — plugins that mutate the nav at runtime (e.g. `mkdocs-awesome-nav`
@@ -134,7 +132,7 @@ build pipeline. This means:
 
 - **Macros** — `mkdocs-macros-plugin` (Jinja2 templates in Markdown) is not evaluated.
 
-  Links inside macro expressions are not validated.
+    Links inside macro expressions are not validated.
 
 For projects that rely heavily on dynamic nav generation, add the plugin-generated paths to
 `excluded_dirs` in `.zenzic.toml` to suppress false orphan reports until a native adapter
@@ -309,16 +307,12 @@ that is not in this set and is not a locale mirror is reported as an orphan.
 
 - **Plugin-generated nav** — Zensical plugins that mutate the nav at runtime are not evaluated.
 
-  Pages included only by such plugins may be reported as orphans. Add their paths to
+    Pages included only by such plugins may be reported as orphans. Add their paths to
   `excluded_dirs` in `.zenzic.toml` to suppress false reports.
 
-- **Dynamic content** — `zensical.toml` is parsed as static TOML. Template expressions or
+- **Dynamic content** — `zensical.toml` is parsed as static TOML. Template expressions or computed fields are not evaluated.
 
-  computed fields are not evaluated.
-
-- **Discovery scope** — `ZensicalAdapter` searches for `zensical.toml` (or the MkDocs bridge)
-
-  in the project root only. Nested workspace layouts require an explicit `docs_dir` in `.zenzic.toml`.
+- **Discovery scope** — `ZensicalAdapter` searches for `zensical.toml` (or the MkDocs bridge) in the project root only. Nested workspace layouts require an explicit `docs_dir` in `.zenzic.toml`.
 
 ---
 
@@ -358,17 +352,11 @@ does not use a supported SSG.
 
 ### When to use Standalone
 
-- **Static Markdown repositories** — wikis, ADR logs, plain-text documentation with no
+- **Static Markdown repositories** — wikis, ADR logs, plain-text documentation with no build pipeline.
 
-  build pipeline.
+- **Pre-migration validation** — run Zenzic on a project before choosing an SSG to catch broken links and credentials before a framework is introduced.
 
-- **Pre-migration validation** — run Zenzic on a project before choosing an SSG to catch
-
-  broken links and credentials before a framework is introduced.
-
-- **Custom SSG projects** — any generator not yet covered by a native adapter. Use
-
-  `excluded_dirs` to suppress false positives for generated output directories.
+- **Custom SSG projects** — any generator not yet covered by a native adapter. Use `excluded_dirs` to suppress false positives for generated output directories.
 
 ### Minimal configuration
 

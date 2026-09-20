@@ -85,27 +85,17 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
 
 - **Every line is scanned** — including lines inside fenced code blocks (labelled or unlabelled).
 
-  A credential committed in a `bash` example is still a committed credential.
+    A credential committed in a `bash` example is still a committed credential.
 
-- Detection is **non-suppressible** — `--exit-zero`, `exit_zero = true` in `.zenzic.toml`, and
+- Detection is **non-suppressible** — `--exit-zero`, `exit_zero = true` in `.zenzic.toml`, and `--strict` have no effect on credential scanner findings.
 
-  `--strict` have no effect on credential scanner findings.
+- Exit code 2 is reserved **exclusively** for credential scanner events. It is never used for ordinary check failures.
 
-- Exit code 2 is reserved **exclusively** for credential scanner events. It is never used for ordinary check
+- Exit code 3 is reserved for **path traversal guard** events — links that resolve to OS system directories. Like exit code 2, it is never suppressed.
 
-  failures.
+- Files with security findings are **excluded from link validation** — Zenzic does not ping URLs that may contain leaked credentials.
 
-- Exit code 3 is reserved for **path traversal guard** events — links that resolve to OS system
-
-  directories. Like exit code 2, it is never suppressed.
-
-- Files with security findings are **excluded from link validation** — Zenzic does not ping URLs
-
-  that may contain leaked credentials.
-
-- **Code block link isolation** — while the credential scanner scans inside fenced blocks, the link and
-
-  reference validators do not. Example URLs inside code blocks (e.g. `https://api.example.com`)
+- **Code block link isolation** — while the credential scanner scans inside fenced blocks, the link and reference validators do not. Example URLs inside code blocks (e.g. `https://api.example.com`)
   never produce false-positive link errors.
 
 !!! danger "If you receive exit code 2"
@@ -150,9 +140,7 @@ validates what it can validate purely in Python.
 `zenzic check references` also flags images that lack meaningful alt text:
 
 - **Markdown inline images** — `![](url)` or `![   ](url)` (blank alt string)
-- **HTML `<img>` tags** — `<img src="...">` with no `alt` attribute, or `alt=""` with no
-
-  content
+- **HTML `<img>` tags** — `<img src="...">` with no `alt` attribute, or `alt=""` with no content
 
 An explicitly empty `alt=""` is treated as intentionally decorative and is **not** flagged.
 A completely absent `alt` attribute, or whitespace-only alt text, is flagged as a warning.
@@ -279,18 +267,12 @@ Rules are validated for pickle-serializability at engine construction time
 (**eager validation**).  A non-serialisable rule raises `PluginContractError`
 immediately — before any file is scanned.
 
-- **Rules must be defined at module level.**  A class defined inside a function
+- **Rules must be defined at module level.**  A class defined inside a function or lambda cannot be pickled and will be rejected at load time.
 
-  or lambda cannot be pickled and will be rejected at load time.
-
-- **All instance attributes must be pickleable.**  Pre-compiled `re.compile()`
-
-  patterns, strings, and numbers are always safe.  File handles, database
+- **All instance attributes must be pickleable.**  Pre-compiled `re.compile()` patterns, strings, and numbers are always safe.  File handles, database
   connections, and lambda closures are not.
 
-- **No mutable global state.**  Workers receive independent copies of the rule
-
-  engine (via pickle).  A global counter mutated inside `check()` will be
+- **No mutable global state.**  Workers receive independent copies of the rule engine (via pickle).  A global counter mutated inside `check()` will be
   local to each worker process and discarded on completion — results will differ
   from sequential mode silently.  Return all state as `RuleFinding` objects.
 
@@ -303,13 +285,9 @@ examples, and packaging instructions.
 
 The harvester and cross-checker both skip content that should never trigger findings:
 
-- **YAML frontmatter** — the leading `---` block (first line only) is skipped in its entirety,
+- **YAML frontmatter** — the leading `---` block (first line only) is skipped in its entirety, including any reference-like syntax it might contain.
 
-  including any reference-like syntax it might contain.
-
-- **Fenced code blocks** — lines inside ` ``` ` or `~~~` fences are ignored. URLs in code
-
-  examples never produce false positives.
+- **Fenced code blocks** — lines inside ` ``` ` or `~~~` fences are ignored. URLs in code examples never produce false positives.
 
 This exclusion is applied consistently in both Pass 1 and Pass 2.
 
@@ -342,9 +320,7 @@ When a build-engine config (`mkdocs.yml`) is present, Zenzic constructs a **Virt
 Map (VSM)** before running link validation.  The VSM maps every `.md` source file to:
 
 - its **canonical URL** (e.g. `docs/guide/installation.md` → `/guide/installation/`)
-- its **routing status** — one of `REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, or
-
-  `CONFLICT`
+- its **routing status** — one of `REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, or `CONFLICT`
 
 A file is `REACHABLE` if it appears in the `nav:` section of `mkdocs.yml`.  A file is
 `ORPHAN_BUT_EXISTING` if it lives on disk but has no nav entry — the engine copies it to
@@ -427,19 +403,13 @@ This rule applies to any path segment starting with `_`:
 When your project uses [MkDocs i18n](https://github.com/ultrabug/mkdocs-static-i18n) or
 Zensical's locale system, Zenzic adapts automatically:
 
-- **Locale directories suppressed from orphan detection** — files under `docs/it/`, `docs/fr/`,
-
-  etc. are not reported as orphans. The adapter detects locale directories from the engine's
+- **Locale directories suppressed from orphan detection** — files under `docs/it/`, `docs/fr/`, etc. are not reported as orphans. The adapter detects locale directories from the engine's
   i18n configuration.
 
-- **Cross-locale link resolution** — the engine adapters resolve links that cross
-
-  locale boundaries (e.g. a link from `docs/it/page.md` to `docs/en/page.md`) without false
+- **Cross-locale link resolution** — the engine adapters resolve links that cross locale boundaries (e.g. a link from `docs/it/page.md` to `docs/en/page.md`) without false
   positives.
 
-- **Standalone mode skips orphan check entirely** — when no build-engine config is present, every
-
-  file would appear as an orphan. Zenzic skips the check rather than report noise.
+- **Standalone mode skips orphan check entirely** — when no build-engine config is present, every file would appear as an orphan. Zenzic skips the check rather than report noise.
 
 !!! tip "Force Standalone mode to suppress orphan check"
 

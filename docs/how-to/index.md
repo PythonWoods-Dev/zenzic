@@ -15,7 +15,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-rocket-launch:{ .lg .middle style="color: #6366f1;" } **[Installation & Environment](install.md)**
+- **[Installation & Environment](install.md)**
 
     ---
 
@@ -23,7 +23,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](install.md)
 
-- :material-tune:{ .lg .middle style="color: #6366f1;" } **[Initialize Configuration](initialize-configuration.md)**
+- **[Initialize Configuration](initialize-configuration.md)**
 
     ---
 
@@ -31,7 +31,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](initialize-configuration.md)
 
-- :material-microsoft-visual-studio-code:{ .lg .middle style="color: #6366f1;" } **[Editor & VS Code Setup](editor-integrations.md)**
+- **[Editor & VS Code Setup](editor-integrations.md)**
 
     ---
 
@@ -47,7 +47,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-pipe:{ .lg .middle style="color: #0284c7;" } **[CI/CD Quality Gates](configure-ci-cd.md)**
+- **[CI/CD Quality Gates](configure-ci-cd.md)**
 
     ---
 
@@ -55,7 +55,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-ci-cd.md)
 
-- :material-shield-badge-outline:{ .lg .middle style="color: #0284c7;" } **[DQS Status Badges](add-badges.md)**
+- **[DQS Status Badges](add-badges.md)**
 
     ---
 
@@ -71,7 +71,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-scale-balance:{ .lg .middle style="color: #10b981;" } **[Managing Technical Debt](handle-technical-debt.md)**
+- **[Managing Technical Debt](handle-technical-debt.md)**
 
     ---
 
@@ -79,7 +79,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](handle-technical-debt.md)
 
-- :material-shield-key-outline:{ .lg .middle style="color: #10b981;" } **[Zero-Network Privacy Gate](configure-privacy-gate.md)**
+- **[Zero-Network Privacy Gate](configure-privacy-gate.md)**
 
     ---
 
@@ -87,7 +87,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-privacy-gate.md)
 
-- :material-format-letter-case:{ .lg .middle style="color: #10b981;" } **[Integrate Vale and Zenzic](integrate-vale-and-zenzic.md)**
+- **[Integrate Vale and Zenzic](integrate-vale-and-zenzic.md)**
 
     ---
 
@@ -95,7 +95,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](integrate-vale-and-zenzic.md)
 
-- :material-link-variant:{ .lg .middle style="color: #10b981;" } **[Cross-Site & Remote Links](manage-cross-site-links.md)**
+- **[Cross-Site & Remote Links](manage-cross-site-links.md)**
 
     ---
 
@@ -103,7 +103,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](manage-cross-site-links.md)
 
-- :material-share-variant-outline:{ .lg .middle style="color: #10b981;" } **[Social Metadata & SEO](configure-social-metadata.md)**
+- **[Social Metadata & SEO](configure-social-metadata.md)**
 
     ---
 
@@ -119,7 +119,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-puzzle-outline:{ .lg .middle style="color: #f59e0b;" } **[Custom Rule Plugins](add-custom-rules.md)**
+- **[Custom Rule Plugins](add-custom-rules.md)**
 
     ---
 
@@ -127,7 +127,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](add-custom-rules.md)
 
-- :material-swap-horizontal:{ .lg .middle style="color: #f59e0b;" } **[Engine Migration Guide](migrate-engines.md)**
+- **[Engine Migration Guide](migrate-engines.md)**
 
     ---
 
@@ -135,7 +135,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](migrate-engines.md)
 
-- :material-lifebuoy:{ .lg .middle style="color: #f59e0b;" } **[Diagnostic Troubleshooting](troubleshooting.md)**
+- **[Diagnostic Troubleshooting](troubleshooting.md)**
 
     ---
 

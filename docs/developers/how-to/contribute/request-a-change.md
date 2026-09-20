@@ -75,9 +75,7 @@ routes the request to the right reviewer.
 What gap does this fill? What currently breaks or is missing? Focus on the
 problem, not the solution yet.
 
-- **Explain the <u>what</u>, not the <u>why</u>** — describe the gap
-
-  precisely; broader motivation belongs in this same field but stays brief.
+- **Explain the <u>what</u>, not the <u>why</u>** — describe the gap precisely; broader motivation belongs in this same field but stays brief.
 
 - **One idea at a time** — open separate requests for unrelated ideas.
 

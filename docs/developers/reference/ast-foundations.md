@@ -17,7 +17,7 @@ Zenzic replaces text matching with a **Lossless Abstract Syntax Tree (AST) Compi
 
 <div class="grid cards" markdown>
 
-- :material-text-search:{ .lg .middle } **Unstructured Text Linter**
+- **Unstructured Text Linter**
 
     ---
 
@@ -26,7 +26,7 @@ Zenzic replaces text matching with a **Lossless Abstract Syntax Tree (AST) Compi
   - Fails to track directory indexes or navigation topology
   - Produces false positives and non-reproducible runs
 
-- :material-graph-outline:{ .lg .middle } **Zenzic Topological Graph Engine**
+- **Zenzic Topological Graph Engine**
 
     ---
 

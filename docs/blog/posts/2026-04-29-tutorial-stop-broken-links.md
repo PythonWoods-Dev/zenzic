@@ -72,17 +72,15 @@ are caught before they reach `main`.
 
 ## Why Zenzic
 
-- **Fast** — Zenzic is fast because it's lightweight. No build step, no Node.js,
-
-  no browser launch. Analysis happens directly on your Markdown source files.
+- **Fast** — Zenzic is fast because it's lightweight. No build step, no Node.js, no browser launch. Analysis happens directly on your Markdown source files.
 
 - **Safe** — Zenzic is secure because it doesn't touch your system files.
 
-  Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes.
+    Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes.
 
 - **Universal** — Works with MkDocs, Zensical, or any plain Markdown folder.
 
-  Point it at your `docs/` directory and it figures out the rest.
+    Point it at your `docs/` directory and it figures out the rest.
 
 ---
 

@@ -25,9 +25,7 @@ In this section, we guide you through our processes.
 
 <div class="grid cards" markdown>
 
-- :material-bug-outline: &nbsp;
-
-    __Something is not working?__
+- __Something is not working?__
 
     ---
 
@@ -37,9 +35,7 @@ In this section, we guide you through our processes.
 
     :material-arrow-right: [Report a bug][report a bug]
 
-- :material-file-document-edit-outline: &nbsp;
-
-    __Missing information in our docs?__
+- __Missing information in our docs?__
 
     ---
 
@@ -50,9 +46,7 @@ In this section, we guide you through our processes.
 
     :material-arrow-right: [Report a docs issue][report a docs issue]
 
-- :material-sparkles: &nbsp;
-
-    __Want to submit an idea?__
+- __Want to submit an idea?__
 
     ---
 
@@ -62,9 +56,7 @@ In this section, we guide you through our processes.
 
     :material-arrow-right: [Request a change][request a change]
 
-- :material-shape-outline: &nbsp;
-
-    __Spotted a flaw Zenzic doesn't catch?__
+- __Spotted a flaw Zenzic doesn't catch?__
 
     ---
 
@@ -86,9 +78,7 @@ and claim one via the __Good First Issue__ template.
 
 <div class="grid cards" markdown>
 
-- :octicons-git-pull-request-16: &nbsp;
-
-    __Want to contribute to the code?__
+- __Want to contribute to the code?__
 
     ---
 
@@ -129,27 +119,17 @@ community.
 
 ### Before creating an issue
 
-- Are you using the appropriate issue template, or is there another one that
+- Are you using the appropriate issue template, or is there another one that better fits the context of your request?
 
-  better fits the context of your request?
+- Have you checked if a similar bug report or change request has already been created, or have you stumbled upon something that might be related?
 
-- Have you checked if a similar bug report or change request has already been
-
-  created, or have you stumbled upon something that might be related?
-
-- Did you fill out every field as requested, and did you provide all additional
-
-  information I need to comprehend your request?
+- Did you fill out every field as requested, and did you provide all additional information I need to comprehend your request?
 
 ### Before commenting
 
-- Is your comment relevant to the topic of the current issue, or is it a better
+- Is your comment relevant to the topic of the current issue, or is it a better idea to create a new issue, as it's not or only loosely related?
 
-  idea to create a new issue, as it's not or only loosely related?
-
-- Does your comment add value to the conversation? Is it constructive and
-
-  respectful to the project? Could you just use a
+- Does your comment add value to the conversation? Is it constructive and respectful to the project? Could you just use a
   [reaction] instead?
 
 ---

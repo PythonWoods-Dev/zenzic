@@ -71,9 +71,7 @@ class NoDraftRule(BaseRule):
 `check()` and `check_vsm()` must:
 
 - **Never** open files, make network requests, or call subprocesses.
-- **Always** return the same output for the same input — no randomness, no
-
-  dependency on mutable global state.
+- **Always** return the same output for the same input — no randomness, no dependency on mutable global state.
 
 - **Not** mutate their arguments (`file_path`, `text`, `vsm`, `anchors_cache`).
 

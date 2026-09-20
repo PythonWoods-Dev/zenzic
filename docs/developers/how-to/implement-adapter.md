@@ -366,35 +366,25 @@ Most engines return `frozenset()`. An engine might use custom link schemes to by
 Your adapter must satisfy these invariants, or Zenzic's scanner may produce
 incorrect results:
 
-1. `get_route_info()` must return a `RouteMetadata` with a `canonical_url`
+1. `get_route_info()` must return a `RouteMetadata` with a `canonical_url` that starts and ends with `/`.
 
-   that starts and ends with `/`.
-
-2. `get_route_info()` must set `status` to one of `REACHABLE`,
-
-   `ORPHAN_BUT_EXISTING`, or `IGNORED`.  Never return `CONFLICT` — that
+2. `get_route_info()` must set `status` to one of `REACHABLE`, `ORPHAN_BUT_EXISTING`, or `IGNORED`.  Never return `CONFLICT` — that
    status is assigned later by `_detect_collisions()`.
 
-3. `get_nav_paths()` returns paths **relative to `docs_root`**, using forward
+3. `get_nav_paths()` returns paths **relative to `docs_root`**, using forward slashes, with no leading `/`.
 
-   slashes, with no leading `/`.
+4. `get_nav_paths()` returns only `.md` files (other extensions are ignored by the orphan checker).
 
-4. `get_nav_paths()` returns only `.md` files (other extensions are ignored by
-
-   the orphan checker).
-
-5. `is_locale_dir()` must return `False` for the **default** locale.  Only
-
-   non-default locale directories should return `True`.
+5. `is_locale_dir()` must return `False` for the **default** locale.  Only non-default locale directories should return `True`.
 
 6. All methods must be **pure**: same inputs always produce the same outputs.
 
-   No I/O, no global-state mutation.
+    No I/O, no global-state mutation.
 
 7. `resolve_asset()` must never raise — return `None` on any failure.
 8. `resolve_anchor()` must never raise — return `False` on any failure.
 
-   The `anchors_cache` argument is read-only; do not mutate it.
+    The `anchors_cache` argument is read-only; do not mutate it.
 
 9. `has_engine_config()` must never raise — return `False` on any failure.
 10. `provides_index(directory_path)` **is the only method permitted to do I/O**.

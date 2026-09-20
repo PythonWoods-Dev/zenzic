@@ -170,14 +170,9 @@ readable and traceable by design, even where the metadata schema is still conver
 
 Together, the deterministic rule surface and the ADR corpus form a **transparent context layer**:
 
-- **For humans:** a clear, predictable path from philosophy to implementation — no archaeology
+- **For humans:** a clear, predictable path from philosophy to implementation — no archaeology required.
 
-  required.
+- **For automation systems:** a structured, unambiguous context that keeps generated suggestions aligned with the project's fundamental invariants.
 
-- **For automation systems:** a structured, unambiguous context that keeps generated
-
-  suggestions aligned with the project's fundamental invariants.
-
-!!! info The Exclusion Zone is a Sovereign Knowledge System
-    Zenzic is not just a tool you use. It is an ecosystem you can trust — because its rules,
-    decisions, and structure are always legible, always synchronized, and always honest.
+Zenzic is not just a tool you use. It is an ecosystem you can trust — because its rules,
+decisions, and structure are always legible, always synchronized, and always honest.

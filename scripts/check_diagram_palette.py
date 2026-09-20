@@ -132,6 +132,78 @@ def declared_variables() -> set[str]:
     return set(re.findall(r"(--zz-[a-z-]+)\s*:", css))
 
 
+#: **The discriminator, stated because it is the whole design of this rule:** a
+#: hex is in scope when it sits inside a `style="…"` attribute as the value of
+#: `color`, `fill` or `background`. Nothing else. Not "a hex in the file", not
+#: "a hex outside a table" -- the attribute is the criterion, and it is
+#: mechanical: the regex cannot match text that is not in one.
+#:
+#: That matters because the same value appears legitimately as *data*.
+#: `docs/how-to/add-badges.md:55` and `docs/reference/cli.md:1578` both carry
+#: `| Red | \`ef4444\` | Score < fail_under |` -- a shields.io colour code a
+#: reader types into a URL, in a table cell, inside backticks, with no style
+#: attribute anywhere near it. It is not a declaration about this theme and
+#: never becomes one, so it is out of scope by construction rather than by an
+#: exemption someone has to maintain -- there is no exemption list in this file
+#: and there is nothing to keep in step.
+#:
+#: `self_test()` below plants both shapes against this regex and asserts it
+#: matches one and not the other. Without that pair the paragraph above would be
+#: a claim; with it, it is a property the gate re-proves on every run.
+INLINE_STYLE = re.compile(r'style="[^"]*?(?:color|fill|background(?:-color)?):\s*(?P<value>[^;"]+)')
+
+
+def _colour_sources() -> list[Path]:
+    """Every surface where a colour can be *declared*, not merely mentioned.
+
+    Widened 2026-09-20. This check read `docs/rules/` alone, so the retired
+    `#ef4444` survived in `docs/reference/finding-codes.md` -- a severity icon
+    in a table, one directory outside the only place anyone was looking -- along
+    with ten other literals in the same file and one in an `overrides/` partial.
+    The gate reported clean the whole time, correctly, about a question it was
+    never asked.
+    """
+    out = list((ROOT / "docs").rglob("*.md"))
+    overrides = ROOT / "overrides"
+    if overrides.is_dir():
+        out += list(overrides.rglob("*.html"))
+    return sorted(out)
+
+
+def check_inline_colours() -> list[str]:
+    """No colour declared as a literal outside the stylesheet's token block."""
+    palette = dark_palette() | light_palette()
+    variables = declared_variables()
+    problems: list[str] = []
+    for path in _colour_sources():
+        rel = path.relative_to(ROOT)
+        for n, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+        ):
+            for m in INLINE_STYLE.finditer(line):
+                value = m.group("value").strip()
+                ref = VAR_REF.fullmatch(value)
+                if ref:
+                    if ref.group(1) not in variables:
+                        problems.append(
+                            f"{rel}:{n}: {value} names a variable the stylesheet does not define"
+                        )
+                    continue
+                low = value.lower()
+                if low == RETIRED:
+                    problems.append(
+                        f"{rel}:{n}: {RETIRED} is retired — the theme declares no such value"
+                    )
+                elif low.startswith("#"):
+                    hint = (
+                        "use a var(--zz-*)"
+                        if low in palette
+                        else "and the theme declares no such value"
+                    )
+                    problems.append(f"{rel}:{n}: {value} is a literal colour — {hint}")
+    return problems
+
+
 def check_cards() -> list[str]:
     """Card icon colours: a declared variable, or a value the theme declares."""
     cards = ROOT / "docs" / "rules"
@@ -201,9 +273,30 @@ def self_test() -> list[str]:
         ("the retired value is caught", RETIRED, True),
     ]
     failed = [name for name, value, expected in cases if judge(value) is not expected]
+
+    # The scope rule, proven rather than described: the same hex is in scope
+    # inside a style attribute and out of scope as table data. If this ever
+    # reduces to "any hex", the second line starts failing and says so.
+    scope = [
+        (
+            "a style attribute is in scope",
+            ':material-shield-alert:{ style="color: #ef4444;" }',
+            True,
+        ),
+        (
+            "a shields.io code in a table is not",
+            "| Red | `ef4444` | Score < `fail_under` or security override |",
+            False,
+        ),
+        ("a bare hex in prose is not", "The badge turns #ef4444 when the gate fails.", False),
+    ]
+    failed += [
+        name for name, line, expected in scope if bool(INLINE_STYLE.search(line)) is not expected
+    ]
+
     if failed:
         return ["SELF-TEST FAILED: " + "; ".join(failed)]
-    print(f"self-test passed: {len(cases)} case(s), both directions")
+    print(f"self-test passed: {len(cases) + len(scope)} case(s), both directions")
     return []
 
 
@@ -213,7 +306,7 @@ def main() -> int:
         for f in failures:
             print(f)
         return 1
-    problems = check() + check_cards()
+    problems = check() + check_cards() + check_inline_colours()
     if problems:
         print(f"diagram palette: {len(problems)} divergence(s)")
         for p in problems:

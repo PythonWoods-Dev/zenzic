@@ -32,7 +32,8 @@ configuration. Item 39 adds a flag and changes nothing until it is passed, but i
 listed here because this project's own badge gate now passes it. Item 40 changes three printed
 paths on Windows only. Item 41 removes editor diagnostics on
 build output. Items 42 and 43 add two machine-readable
-fields and change no finding. Items 44 and 45 change the landing page only. The list ends
+fields and change no finding. Items 44 and 45 change the landing page only, and item 46 the rendering of 99 list
+items across the documentation. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -533,6 +534,14 @@ which mode produced it.
 *What you will see:* a fourth engine panel on `zenzic.dev`, beside MkDocs, Zensical and standalone: generators that publish a route manifest, naming **Astro** and **Docusaurus**, the `prebuilt` engine and `.zenzic-vsm.json`.
 
 *Why:* the page carried **zero** mentions of `prebuilt`, Astro, Docusaurus or the manifest — measured — while being the surface where someone decides whether the tool serves their stack. The claim is only true now that a declared `prebuilt` without a manifest fails as a configuration error rather than quietly analysing something else, which is item 36 in this same release.
+
+*What to do:* nothing; it is documentation.
+
+**46. 99 list items on the published docs stopped mid-sentence, and 19 of them restarted their numbering.**
+
+*What you will see:* bullets and numbered items that read as one thought again. Most visibly, `developers/how-to/implement-adapter` presented its eight adapter-contract invariants as seven separate lists each numbered "1."; it is now one list numbered 1 to 8.
+
+*Why:* Python-Markdown needs **four** spaces to keep a paragraph inside a list item across a blank line. Two spaces reads as correct in the source and renders as three elements — the list closes, the continuation becomes a loose top-level paragraph, and a second list opens. The Markdown stays valid, so `markdownlint` passed all 99, the oldest traced to `v0.15.1`. Each was repaired by the shape it actually had: 91 wrapped sentences were rejoined, 8 deliberate paragraphs were indented to four. A gate now holds it — `scripts/check_list_continuation.py`, wired into `just docs-build`, with `--self-test` to check the instrument.
 
 *What to do:* nothing; it is documentation.
 

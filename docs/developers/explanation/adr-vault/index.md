@@ -89,29 +89,19 @@ The site is built with MkDocs today.
 
 Each ADR follows a consistent structure:
 
-- **Context** — the problem that existed before the decision was made. Reading
+- **Context** — the problem that existed before the decision was made. Reading the Context of an ADR tells you what pain the decision was eliminating.
 
-  the Context of an ADR tells you what pain the decision was eliminating.
-
-- **Decision** — the choice that was made, stated precisely and without
-
-  ambiguity. If you ever wonder "why does Zenzic do X?", the Decision section
+- **Decision** — the choice that was made, stated precisely and without ambiguity. If you ever wonder "why does Zenzic do X?", the Decision section
   of the relevant ADR is the answer.
 
-- **Rationale** — the engineering reasoning behind the decision. This section
-
-  is the "why not the alternative?" — it records the rejected approaches and
+- **Rationale** — the engineering reasoning behind the decision. This section is the "why not the alternative?" — it records the rejected approaches and
   explains why they were insufficient.
 
-- **Invariants** — the constraints that must never be violated as a consequence
-
-  of the decision. These are permanent. They do not expire with version
+- **Invariants** — the constraints that must never be violated as a consequence of the decision. These are permanent. They do not expire with version
   increments. A PR that violates an invariant listed in an ADR is an automatic
   revert candidate, regardless of its other merits.
 
-- **Consequences** — the known trade-offs and capabilities that the decision
-
-  enables or forecloses. Reading Consequences helps contributors understand the
+- **Consequences** — the known trade-offs and capabilities that the decision enables or forecloses. Reading Consequences helps contributors understand the
   boundaries of what Zenzic can and cannot do by design.
 
 ---

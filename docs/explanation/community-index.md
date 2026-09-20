@@ -18,7 +18,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
 <div class="grid cards" markdown>
 
-- :material-lightbulb-outline: &nbsp; __Philosophy__
+- __Philosophy__
 
     ---
 
@@ -26,7 +26,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     [:material-arrow-right: Read](../explanation/why-zenzic.md)
 
-- :material-scale-balance: &nbsp; __License__
+- __License__
 
     ---
 
@@ -34,7 +34,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     [:material-arrow-right: Read](#license)
 
-- :octicons-mark-github-16: &nbsp; __Repository__
+- __Repository__
 
     ---
 
@@ -42,7 +42,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     [:material-arrow-right: Open](https://github.com/PythonWoods-Dev/zenzic)
 
-- :material-history: &nbsp; __Changelog__
+- __Changelog__
 
     ---
 

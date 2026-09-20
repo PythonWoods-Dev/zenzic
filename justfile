@@ -510,6 +510,14 @@ docs-build:
 	# governance one, so it lives here rather than in .justfile.local: CI runs
 	# `just verify`, and this ships to users.
 	uv run python3 scripts/check_built_site_links.py site
+	# Every list item keeps its continuation. Python-Markdown needs four spaces
+	# across a blank line -- two reads as correct and renders as three elements,
+	# so a bullet stops mid-sentence and its other half becomes a loose paragraph.
+	# The Markdown stays valid, which is why markdownlint passed 99 instances --
+	# the oldest traced to v0.15.1 -- including eight adapter-contract invariants
+	# that each rendered as a fresh list numbered "1.". Run with --self-test to
+	# check the instrument.
+	uv run python3 scripts/check_list_continuation.py
 
 # Report which staggered-publication blog links are ready to paste back in
 # (target now live) vs still pending (target still draft). Always exits 0 --

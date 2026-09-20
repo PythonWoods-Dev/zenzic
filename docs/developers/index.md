@@ -25,7 +25,7 @@ Operational governance and release troubleshooting start here:
 
 <div class="grid cards" markdown>
 
-- :material-puzzle-edit-outline:{ .lg .middle style="color: #6366f1;" } **[Writing Plugin Rules](how-to/write-plugin.md)**
+- **[Writing Plugin Rules](how-to/write-plugin.md)**
 
     ---
 
@@ -33,7 +33,7 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Read Guide](how-to/write-plugin.md)
 
-- :material-transit-connection-variant:{ .lg .middle style="color: #0284c7;" } **[Writing an Adapter](how-to/implement-adapter.md)**
+- **[Writing an Adapter](how-to/implement-adapter.md)**
 
     ---
 
@@ -41,7 +41,7 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Read Guide](how-to/implement-adapter.md)
 
-- :material-folder-play-outline:{ .lg .middle style="color: #10b981;" } **[Z-Code Gallery](../tutorials/examples/index.md)**
+- **[Z-Code Gallery](../tutorials/examples/index.md)**
 
     ---
 
@@ -49,7 +49,7 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Explore the Gallery](../tutorials/examples/index.md)
 
-- :material-shield-lock-open-outline:{ .lg .middle style="color: #f59e0b;" } **[Governance Playbook](how-to/release-governance-protocol.md)**
+- **[Governance Playbook](how-to/release-governance-protocol.md)**
 
     ---
 
@@ -57,7 +57,7 @@ Operational governance and release troubleshooting start here:
 
     [:material-arrow-right: Read Playbook](how-to/release-governance-protocol.md)
 
-- :material-server-security:{ .lg .middle style="color: #e11d48;" } **[Sovereign Verification Model](explanation/sovereign-verification-model.md)**
+- **[Sovereign Verification Model](explanation/sovereign-verification-model.md)**
 
     ---
 

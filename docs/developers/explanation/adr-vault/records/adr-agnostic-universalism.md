@@ -96,11 +96,7 @@ accounting as all other findings.
 ## Consequences
 
 - MkDocs and Zensical users gain asset integrity validation without any config change.
-- Adding a new engine adapter requires implementing `check_config_assets()` — the
-
-  protocol now enforces this explicitly (a `NotImplementedError` is raised for
+- Adding a new engine adapter requires implementing `check_config_assets()` — the protocol now enforces this explicitly (a `NotImplementedError` is raised for
   adapters that skip it).
 
-- Z404 is now classified as a **universal quality check**, not an engine-specific
-
-  feature, in `reference/finding-codes.md`.
+- Z404 is now classified as a **universal quality check**, not an engine-specific feature, in `reference/finding-codes.md`.

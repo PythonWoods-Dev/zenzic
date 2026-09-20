@@ -82,7 +82,7 @@ This is an **unconditional early return** — no flags, no configuration options
 
 When the Security Override fires, `ScoreReport` returns `security_override=True` and `security_findings=N` (total Z2xx count).
 
-!!! danger Security Codes Are Non-Suppressible
+!!! danger "Security Codes Are Non-Suppressible"
     No inline `<!-- zenzic:ignore -->`, no `per_file_ignores`, and no `excluded_dirs` can suppress a Z2xx finding.
 
 ---

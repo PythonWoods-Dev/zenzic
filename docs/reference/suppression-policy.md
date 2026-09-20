@@ -22,7 +22,7 @@ Zenzic replaces unmonitored ignore tags with a **Managed Technical Debt Governan
 
 <div class="grid cards" markdown>
 
-- :material-shield-check:{ .lg .middle } **Managed Technical Debt (Clean/Bounded)**
+- **Managed Technical Debt (Clean/Bounded)**
 
     ---
 
@@ -31,7 +31,7 @@ Zenzic replaces unmonitored ignore tags with a **Managed Technical Debt Governan
   - Emits `[MANAGED DEBT]` audit status in CLI & CI
   - Deducts Quality Score points to reflect true visibility
 
-- :material-alert-decagram:{ .lg .middle } **Uncontrolled Architectural Drift**
+- **Uncontrolled Architectural Drift**
 
     ---
 
@@ -137,7 +137,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
 <div class="grid cards" markdown>
 
-- :material-code-tags:{ .lg .middle } **Level 1: Inline Comment**
+- **Level 1: Inline Comment**
 
     ---
 
@@ -145,7 +145,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     **Cost**: `1 Debt Point` per directive that silences a finding
 
-- :material-file-document-outline:{ .lg .middle } **Level 2: Per-File Ignore**
+- **Level 2: Per-File Ignore**
 
     ---
 
@@ -153,7 +153,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     **Cost**: `1 Debt Point` per pattern–code pair that silences a finding
 
-- :material-folder-remove-outline:{ .lg .middle } **Level 3: Exclusion Zone**
+- **Level 3: Exclusion Zone**
 
     ---
 
@@ -161,7 +161,7 @@ Zenzic provides four distinct suppression levels designed for specific architect
 
     **Cost**: `0 Debt Points` (Not audited)
 
-- :material-shield-home-outline:{ .lg .middle } **Level 4: Directory Policy**
+- **Level 4: Directory Policy**
 
     ---
 

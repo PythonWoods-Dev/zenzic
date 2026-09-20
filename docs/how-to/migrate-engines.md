@@ -30,14 +30,10 @@ Zensical reads `mkdocs.yml` natively. Many projects can switch the build binary 
 touching a single documentation file. From Zenzic's perspective:
 
 - The `docs/` directory layout is unchanged.
-- `mkdocs.yml` remains valid as the primary navigation and configuration source; Zensical
-
-  reads it directly.
+- `mkdocs.yml` remains valid as the primary navigation and configuration source; Zensical reads it directly.
 
 - i18n folder-mode and suffix-mode conventions are structurally identical.
-- `[build_context]` in `.zenzic.toml` can stay as `engine = "mkdocs"` until you are ready
-
-  to create `zensical.toml`.
+- `[build_context]` in `.zenzic.toml` can stay as `engine = "mkdocs"` until you are ready to create `zensical.toml`.
 
 ---
 

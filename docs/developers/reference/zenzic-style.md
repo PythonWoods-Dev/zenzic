@@ -25,15 +25,29 @@ Navigation cards orient. They do **not** replace the sidebar.
 
 Every card in a `<div class="grid cards" markdown>` block must have exactly:
 
-1. An **icon** (`:material-*: / :octicons-*:` — see §3).
-2. A **bold title**.
-3. A **description** of at most two lines.
-4. A **single action link** using the arrow prefix.
+1. A **bold title**.
+2. A **description** of at most two lines.
+3. A **single action link** using the arrow prefix.
+
+**Card headers carry no icon, changed 2026-09-20.** They did until then, and this
+page required one — but the requirement had already split into two conventions
+that nobody reconciled. The canonical form below was the original, from the
+2026-03-29 initial release; a `.lg .middle` variant with a hardcoded colour
+arrived with the 2026-07-25 IA refactor and spread through five more pages,
+including one commit titled *"harmonize … cards"* that added the newer form
+without converting the older. Two forms on one surface, and this page declaring
+only one of them.
+
+Measured before removing: **44 header icons across seven pages**, rendering at
+32px against 16px body text — a 2.0× ratio — with five different hardcoded hex
+values between them. The arrow on the action link stays: it is part of the link
+text rather than decoration on the heading, it carries no modifier, and it
+inherits the neutral link colour.
 
 ### Canonical example
 
 ```markdown
-- :material-play: &nbsp; **User Guide**
+- **User Guide**
 
     Everything you need to install, configure, and integrate Zenzic into
     your CI/CD workflow.
@@ -50,6 +64,7 @@ Every card in a `<div class="grid cards" markdown>` block must have exactly:
 | Nested `<li>` lists inside a card | Breaks card height uniformity |
 | `---` separators inside a card | Adds visual noise without information gain |
 | Cards with zero action links | Dead-end; the user has nowhere to go |
+| An icon before the card title | Removed 2026-09-20 — see above. Two conventions had drifted apart, and at 32px against 16px text the icon dominated the heading it was meant to label |
 
 ---
 
@@ -158,6 +173,42 @@ accessibility tools and syntax highlighters.
 **Gutter specificity:** for CLI output shown inside `:::info` blocks,
 always use the `text` tag to prevent the syntax highlighter from generating
 random colours on log strings or file paths.
+
+---
+
+## 5b. List Continuation Rule {#list-continuation}
+
+A paragraph that continues a list item across a blank line **must** be indented
+**four spaces**, whatever the marker:
+
+| Source | Renders |
+| :--- | :--- |
+| item, blank line, **2-space** continuation | ✗ the list closes, the text becomes a loose paragraph, a new list opens |
+| item, blank line, **4-space** continuation | ✓ a second paragraph inside the item |
+| item, **no blank line**, any indent | ✓ one paragraph, the wrapped sentence |
+
+Four is the requirement, not the marker's content column: a `-` bullet and a `1.`
+number behave identically, because Python-Markdown uses a flat `tab_length`.
+
+**Why this has its own rule.** The two-space form reads as correct and the
+Markdown stays valid, so `markdownlint` passes it — which is how **99** instances
+survived until 2026-09-20, the oldest traced to `v0.15.1`. Every one shipped a
+list item that stops mid-sentence with its other half orphaned below. In the 19
+ordered-list cases the break also **restarted the numbering**:
+`developers/how-to/implement-adapter` rendered its eight adapter-contract
+invariants as seven lists each numbered "1.".
+
+**Choose the repair by what the item is**, not by which one is quicker. A wrapped
+sentence — the item ends mid-clause — is rejoined onto one line. A deliberate
+second paragraph — the item ends on a full stop and the continuation opens a new
+thought — is indented to four, which keeps the break the author meant. 91 of the
+99 were the first kind.
+
+**Enforced by** `scripts/check_list_continuation.py`, run in `just docs-build`.
+Its `--self-test` proves the instrument still finds the defect before trusting a
+zero. It scans `docs/` and the syndication drafts; four spaces is the one indent
+that renders correctly under Python-Markdown, Redcarpet (dev.to) and CommonMark
+alike, so the same rule holds off-site.
 
 ---
 

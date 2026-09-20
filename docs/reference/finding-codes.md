@@ -45,14 +45,14 @@ The code registry is governed by immutable contract surfaces:
 
 | **Category** | **Range** | **Purpose** | **Default Severity** | **Suppressible?** |
 |---|---|---|---|:---:|
-| **Z0xx** | Configuration Guard | Invalid `.zenzic.toml`/`pyproject.toml` structure, raised before any file is scanned | :material-alert-circle:{ style="color: #e11d48;" } `error` | ❌ No (fatal abort) |
-| **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | :material-alert-circle:{ style="color: #e11d48;" } `error` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes (except Z110/Z111, never) |
-| **Z2xx** | Security Surface | Secret detection; path traversal; security breaches | :material-shield-alert:{ style="color: #ef4444;" } `fatal` (Exit 2, or Exit 3 for Z203 only — Z202 stays Exit 1) | 🔒 **Never** |
-| **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
-| **Z4xx** | Topology & Structure | Directory indexes, orphan pages, config assets | :material-information:{ style="color: #0284c7;" } `info` / :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
-| **Z5xx** | Content Quality | Placeholders, short content, snippet validation | :material-alert:{ style="color: #f59e0b;" } `warning` / :material-alert-circle:{ style="color: #e11d48;" } `error` | ✅ Yes |
-| **Z6xx** | Governance | Brand obsolescence, dead suppressions, domain policies | :material-alert:{ style="color: #f59e0b;" } `warning` | ✅ Yes |
-| **Z9xx** | Engine & System | Rule execution errors, timeouts, system faults | :material-alert-circle:{ style="color: #e11d48;" } `error` | ✅ Yes |
+| **Z0xx** | Configuration Guard | Invalid `.zenzic.toml`/`pyproject.toml` structure, raised before any file is scanned | :material-alert-circle:{ style="color: var(--zz-error);" } `error` | ❌ No (fatal abort) |
+| **Z1xx** | Link Integrity | Broken, empty, circular links; orphaned pages; path issues | :material-alert-circle:{ style="color: var(--zz-error);" } `error` / :material-alert:{ style="color: var(--zz-warning);" } `warning` | ✅ Yes (except Z110/Z111, never) |
+| **Z2xx** | Security Surface | Secret detection; path traversal; security breaches | :material-shield-alert:{ style="color: var(--zz-error);" } `fatal` (Exit 2, or Exit 3 for Z203 only — Z202 stays Exit 1) | 🔒 **Never** |
+| **Z3xx** | Reference Integrity | Dangling/duplicate reference definitions | :material-alert:{ style="color: var(--zz-warning);" } `warning` | ✅ Yes |
+| **Z4xx** | Topology & Structure | Directory indexes, orphan pages, config assets | :material-information:{ style="color: var(--zz-info);" } `info` / :material-alert:{ style="color: var(--zz-warning);" } `warning` | ✅ Yes |
+| **Z5xx** | Content Quality | Placeholders, short content, snippet validation | :material-alert:{ style="color: var(--zz-warning);" } `warning` / :material-alert-circle:{ style="color: var(--zz-error);" } `error` | ✅ Yes |
+| **Z6xx** | Governance | Brand obsolescence, dead suppressions, domain policies | :material-alert:{ style="color: var(--zz-warning);" } `warning` | ✅ Yes |
+| **Z9xx** | Engine & System | Rule execution errors, timeouts, system faults | :material-alert-circle:{ style="color: var(--zz-error);" } `error` | ✅ Yes |
 
 !!! info "Per-line suppression syntax"
     **Markdown (.md):** `<!-- zenzic:ignore: Zxxx -->`\

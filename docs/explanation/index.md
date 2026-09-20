@@ -15,7 +15,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
 <div class="grid cards" markdown>
 
-- :material-sitemap:{ .lg .middle style="color: #6366f1;" } **[Architecture Deep Dive](architecture.md)**
+- **[Architecture Deep Dive](architecture.md)**
 
     ---
 
@@ -23,7 +23,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Explore Architecture](architecture.md)
 
-- :material-cpu-64-bit:{ .lg .middle style="color: #6366f1;" } **[Core Execution Mechanics](core-mechanics.md)**
+- **[Core Execution Mechanics](core-mechanics.md)**
 
     ---
 
@@ -31,7 +31,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Read Mechanics](core-mechanics.md)
 
-- :material-magnify-scan:{ .lg .middle style="color: #6366f1;" } **[Discovery Engine](discovery.md)**
+- **[Discovery Engine](discovery.md)**
 
     ---
 
@@ -39,7 +39,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Read Discovery](discovery.md)
 
-- :material-vector-polyline:{ .lg .middle style="color: #6366f1;" } **[Structural Integrity](structural-integrity.md)**
+- **[Structural Integrity](structural-integrity.md)**
 
     ---
 
@@ -55,7 +55,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
 <div class="grid cards" markdown>
 
-- :material-calculator:{ .lg .middle style="color: #10b981;" } **[Documentation Quality Score (DQS)](scoring-system.md)**
+- **[Documentation Quality Score (DQS)](scoring-system.md)**
 
     ---
 
@@ -63,7 +63,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Explore Scoring](scoring-system.md)
 
-- :material-scale-balance:{ .lg .middle style="color: #10b981;" } **[Managed Technical Debt](exclusion-design.md)**
+- **[Managed Technical Debt](exclusion-design.md)**
 
     ---
 
@@ -71,7 +71,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Read Governance](exclusion-design.md)
 
-- :material-history:{ .lg .middle style="color: #10b981;" } **[Baseline Regression Tracking](baseline-tracking.md)**
+- **[Baseline Regression Tracking](baseline-tracking.md)**
 
     ---
 
@@ -79,7 +79,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Read Baseline](baseline-tracking.md)
 
-- :material-shield-lock:{ .lg .middle style="color: #10b981;" } **[Zero-Network Privacy Gate](privacy-gate.md)**
+- **[Zero-Network Privacy Gate](privacy-gate.md)**
 
     ---
 
@@ -95,7 +95,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
 <div class="grid cards" markdown>
 
-- :material-magic-staff:{ .lg .middle style="color: #0284c7;" } **[Auto-Fix Philosophy](auto-fix-philosophy.md)**
+- **[Auto-Fix Philosophy](auto-fix-philosophy.md)**
 
     ---
 
@@ -103,7 +103,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Read Auto-Fix](auto-fix-philosophy.md)
 
-- :material-code-json:{ .lg .middle style="color: #0284c7;" } **[Language Server Architecture](language-server-architecture.md)**
+- **[Language Server Architecture](language-server-architecture.md)**
 
     ---
 
@@ -111,7 +111,7 @@ Deep dives into the architectural foundation, mathematical models, security boun
 
     [:material-arrow-right: Read LSP Design](language-server-architecture.md)
 
-- :material-github:{ .lg .middle style="color: #0284c7;" } **[GitHub Action Internals](github-action-internals.md)**
+- **[GitHub Action Internals](github-action-internals.md)**
 
     ---
 
