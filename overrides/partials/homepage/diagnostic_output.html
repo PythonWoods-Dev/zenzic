@@ -80,5 +80,30 @@ uvx zenzic check all docs/
         </div>
       </div>
     </div>
+    <div class="grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-8 md:gap-12 py-12 border-t dark:border-zinc-800/60 border-zinc-200 items-start">
+      <div>
+        <span class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 block uppercase">04</span>
+        <h3 class="text-lg font-semibold dark:text-white text-zinc-900 mb-3 leading-snug">Generators That Publish a Route Manifest</h3>
+        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">A site whose structure is decided at build time is read through the routes its own build writes, not through a re-implementation of its routing. Declare the <code>prebuilt</code> engine and point it at a <code>.zenzic-vsm.json</code> your generator emits. Verified against <strong>Astro</strong> and <strong>Docusaurus</strong>; the manifest is required, and a declared <code>prebuilt</code> without one stops with a configuration error rather than quietly analysing something else.</p>
+      </div>
+      <div class="md:-mr-8 lg:-mr-16">
+        <div class="rounded-xl overflow-hidden border dark:border-zinc-800/60 border-zinc-200 dark:bg-zinc-900/20 bg-zinc-50 backdrop-blur-md font-mono text-[12px] leading-relaxed shadow-lg">
+          <div class="flex items-center gap-2 px-4 py-2.5 border-b dark:border-zinc-800/40 border-zinc-200 dark:bg-zinc-900/40 bg-zinc-100/60">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80" aria-hidden="true"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80" aria-hidden="true"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80" aria-hidden="true"></span>
+            <span class="ml-2 dark:text-zinc-400 text-zinc-500 text-[11px] tracking-wide">.zenzic-vsm.json · prebuilt run</span>
+          </div>
+          <div class="px-5 py-4 dark:text-zinc-400 text-zinc-600 overflow-x-auto">
+            <pre class="m-0 bg-transparent whitespace-pre"><code># .zenzic.toml
+[build_context]
+engine = "prebuilt"
+
+# Your build writes .zenzic-vsm.json
+uvx zenzic check all</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>

@@ -32,7 +32,7 @@ configuration. Item 39 adds a flag and changes nothing until it is passed, but i
 listed here because this project's own badge gate now passes it. Item 40 changes three printed
 paths on Windows only. Item 41 removes editor diagnostics on
 build output. Items 42 and 43 add two machine-readable
-fields and change no finding. The list ends
+fields and change no finding. Items 44 and 45 change the landing page only. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -519,6 +519,22 @@ which mode produced it.
 *Why:* GitHub Code Scanning rejects an upload above **25,000** results and, of what it accepts, **includes only the first 5,000**, ordered by severity — the rest are discarded with no message, so a clean tail and a truncated one look identical. This project's own Astro corpus produces 15,254 findings: a consumer uploading it sees 5,000 and loses 10,254 silently. Zenzic knows the count before it writes the file.
 
 *What to do:* nothing, unless you upload to Code Scanning and the notice appears. **The file is not truncated** — every result is emitted, and what to do about the limit is your decision: narrow the scan with `--only` or `[governance] directory_policies`, fix the largest class first, or consume the file with something else.
+
+**44. The landing page presented two opt-in codes as things Zenzic reports by default.**
+
+*What you will see:* on `zenzic.dev`, the fourteen-code panel now marks `Z401` (missing directory index) and `Z502` (short content) as **opt-in**. Nothing about the engine changed.
+
+*Why:* both became opt-in in this release and the panel was not updated, so a visitor reading it concluded Zenzic checks those by default. Measured on one corpus: with default configuration the run reports **nothing**; with `enable_directory_index_check` and `enable_short_content_check` declared, it reports `Z401` and `Z502`. The other twelve were re-verified against `CODE_DEFINITIONS` in the same pass and are correct, including the three whose labels named the wrong code entirely when this was last audited.
+
+*What to do:* nothing. If you assumed either check was running, declare it under `[policies]`.
+
+**45. The landing page now says which generators Zenzic reads, and how.**
+
+*What you will see:* a fourth engine panel on `zenzic.dev`, beside MkDocs, Zensical and standalone: generators that publish a route manifest, naming **Astro** and **Docusaurus**, the `prebuilt` engine and `.zenzic-vsm.json`.
+
+*Why:* the page carried **zero** mentions of `prebuilt`, Astro, Docusaurus or the manifest — measured — while being the surface where someone decides whether the tool serves their stack. The claim is only true now that a declared `prebuilt` without a manifest fails as a configuration error rather than quietly analysing something else, which is item 36 in this same release.
+
+*What to do:* nothing; it is documentation.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
