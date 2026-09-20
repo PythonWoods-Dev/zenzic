@@ -2454,6 +2454,18 @@ def check_snippet_content(
     if config is None:
         config = ZenzicConfig()
 
+    # Opt-in since 2026-09-19 (`b70a0e6`), and gated *here* rather than only in
+    # `validate_snippets` because that is the wrapper the CLI happens to use.
+    # `IncrementalAnalysisEngine` -- the Language Server's engine, and
+    # `zenzic-mcp`'s -- calls this primitive directly, so a gate one layer up
+    # left the editor reporting a code the CLI suppressed. That is how
+    # `docs/rules/Z111.md` shipped a TOML example declaring the same key twice:
+    # the editor said so and nothing else did. The flag is read at the one point
+    # every consumer passes through, which is what the original change said it
+    # was doing.
+    if not getattr(config.policies, "enable_snippet_check", False):
+        return []
+
     path = Path(file_path)
     errors: list[SnippetError] = []
 

@@ -39,10 +39,27 @@ from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap
 
 def _make_engine(
     tmp_path: Path,
+    *,
+    policies: dict[str, bool] | None = None,
 ) -> tuple[IncrementalAnalysisEngine, VirtualSiteMap, VirtualBufferOverlay]:
+    """Build the engine the Language Server drives.
+
+    *policies* declares any opt-in flag the fixture depends on. A fixture that
+    asserts an opt-in code without declaring its flag is asserting a bypass, not
+    a behaviour -- which is what this module did for `Z503` until 2026-09-20.
+
+    The flag is written to `.zenzic.toml` rather than set on the config object,
+    because `process_changes` re-reads the file on every run so the editor picks
+    up a configuration edit. An in-memory flag is discarded on the first pass.
+    """
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(exist_ok=True)
-    config = ZenzicConfig(docs_dir=Path("docs"))
+    lines = ['docs_dir = "docs"']
+    if policies:
+        lines.append("\n[policies]")
+        lines += [f"{k} = {str(v).lower()}" for k, v in policies.items()]
+    (tmp_path / ".zenzic.toml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    config, _ = ZenzicConfig.load(tmp_path)
     rule_engine = _build_rule_engine(config, containers=None)
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_dir, tmp_path)
@@ -114,7 +131,7 @@ def test_z503_snippet_error_severity_matches_codes_py(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    engine, vsm, overlay = _make_engine(tmp_path)
+    engine, vsm, overlay = _make_engine(tmp_path, policies={"enable_snippet_check": True})
     results = engine.process_changes(vsm, overlay)
     all_diags = [d for diags in results.values() for d in diags]
 

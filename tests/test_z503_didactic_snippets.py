@@ -7,13 +7,21 @@ from __future__ import annotations
 from pathlib import Path
 
 from zenzic.core.validator import check_snippet_content
+from zenzic.models.config import ZenzicConfig
 
 
 P = Path("t.md")
 
 
+# `Z503` is opt-in, and the gate lives in `check_snippet_content` so every
+# consumer inherits it -- the Language Server included. A fixture named for a
+# code must declare that code's flag or it demonstrates nothing, which is the
+# rule `b70a0e6` applied to `lab z503` for the same reason.
+SNIPPETS_ON = ZenzicConfig.model_validate({"policies": {"enable_snippet_check": True}})
+
+
 def _codes(md: str) -> list[str]:
-    return [e.message for e in check_snippet_content(md, P)]
+    return [e.message for e in check_snippet_content(md, P, SNIPPETS_ON)]
 
 
 # --- Population A: placeholder KEY in TOML (didactic) -> silent

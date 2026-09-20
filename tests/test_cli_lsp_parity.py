@@ -354,3 +354,43 @@ def test_parity_stale_route_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyP
     # separately: a parity test that passes on zero findings has not been shown
     # to be able to fail, and proves nothing about this code.
     assert "Z115" in _lsp_engine_rule_ids(tmp_path, docs)
+
+
+def test_opt_in_snippet_check_is_inherited_by_the_editor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Z503` stays silent on the LSP path while `enable_snippet_check` is off.
+
+    `b70a0e6` made the code opt-in and stated the arrangement in its own message:
+    the flag is read inside `validate_snippets` "rather than at its three call
+    sites, so the Language Server inherits it: a flag the CLI honours and the
+    editor does not is two behaviours." The editor did not inherit it. The server
+    drives `IncrementalAnalysisEngine`, which calls `check_snippet_content`
+    directly and never passes through the wrapper holding the gate, so a TOML
+    block declaring the same key twice was reported in the editor and by nothing
+    else. It is how `docs/rules/Z111.md` shipped an example no parser accepts.
+
+    Both directions: silent while the flag is off, reported once it is on.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    body = " ".join(["word"] * 55)
+    (docs / "index.md").write_text(f"# Home\n\n[Snip](snip.md). {body}\n", encoding="utf-8")
+    (docs / "snip.md").write_text(
+        f'# Snip\n\n[Home](index.md). {body}\n\n```toml\na = "x"\na = "y"\n```\n',
+        encoding="utf-8",
+    )
+    config_path = tmp_path / ".zenzic.toml"
+
+    config_path.write_text('docs_dir = "docs"\n', encoding="utf-8")
+    assert "Z503" not in _lsp_engine_rule_ids(tmp_path, docs), (
+        "the editor reported an opt-in code the CLI suppresses"
+    )
+    _assert_parity(tmp_path, docs, monkeypatch)
+
+    config_path.write_text(
+        'docs_dir = "docs"\n\n[policies]\nenable_snippet_check = true\n', encoding="utf-8"
+    )
+    assert "Z503" in _lsp_engine_rule_ids(tmp_path, docs), (
+        "a test that cannot report the finding has not been shown to be able to fail"
+    )

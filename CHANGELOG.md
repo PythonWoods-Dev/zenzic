@@ -33,8 +33,9 @@ listed here because this project's own badge gate now passes it. Item 40 changes
 paths on Windows only. Item 41 removes editor diagnostics on
 build output. Items 42 and 43 add two machine-readable
 fields and change no finding. Items 44 and 45 change the landing page only, item 46 the rendering of 99 list
-items across the documentation, and item 47 the size of the stylesheet and one unparseable
-config example. The list ends
+items across the documentation, item 47 the size of the stylesheet and one unparseable
+config example, and item 48 removes an opt-in finding from the editor that the CLI already
+suppressed. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -553,6 +554,14 @@ which mode produced it.
 *Why:* `mkdocs-minify-plugin` skips every `extra_css` entry not named in `css_files`, so the flag enabled the minifier and the loop never reached a file. `css_files` now names `assets/css/extra.css` and deliberately **not** `zenzic-tailwind.min.css`, which the Tailwind CLI already minified and which `csscompressor` makes 49 bytes *larger*. Renaming the built file broke the legacy `/static/assets/css/extra.css` redirect; `check_redirect_destinations.py` caught it and the rule now points at `extra.min.css`. Separately, `Z111`'s "how to fix" block declared `docs_dir` twice in one TOML document — `Cannot overwrite a value` — which is the one unparseable block among **295** TOML fences in `docs/`. It is now two fences, one per generator, each valid on its own.
 
 *What to do:* nothing; it is documentation and a build setting.
+
+**48. The editor reported `Z503` while the CLI suppressed it, so item 26 was only half true.**
+
+*What you will see:* your editor stops underlining fenced JSON, YAML, TOML and Python blocks unless `[policies] enable_snippet_check = true` is set — which is what item 26 announced. Turn the flag on and both surfaces report it, as before.
+
+*Why:* item 26 made `Z503` opt-in and put the gate inside `validate_snippets`, "rather than at its three call sites, so the Language Server inherits it". It did not. The server drives `IncrementalAnalysisEngine`, which calls the `check_snippet_content` primitive directly and never passes through that wrapper, so the flag was honoured by `zenzic check` and ignored by the editor and by `zenzic-mcp`. The gate now sits in the primitive, which is the one point every consumer passes through. Measured across all **nine** flag-gated codes on a corpus that triggers each: `Z503` was the only one that leaked, and the other eight are gated where the rule engine is assembled — a function both pipelines share.
+
+*What to do:* nothing, unless you relied on the editor showing snippet errors without the flag. Set `enable_snippet_check = true` to restore it.
 
 **Breaking changes that are not about findings** — each has its own entry below:
 
