@@ -1,5 +1,11 @@
 {# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> #}
 {# SPDX-License-Identifier: Apache-2.0 #}
+{# // DIAGNOSTIC_OUTPUT — the engine's construction, not what it analyses. #}
+{# Until 2026-09-20 this section held four engine demos under the heading #}
+{# "Three invariants enforced on every commit": panels 01 and 02 paired an #}
+{# invariant title with a terminal showing an adapter run, which demonstrates #}
+{# nothing about subprocesses or lockfiles. The engines moved to #}
+{# engine_surface.html; what stays here is what the heading actually claims. #}
 <section class="py-16 md:py-24">
   <div class="max-w-5xl mx-auto px-6">
     <div class="mb-4 max-w-3xl">
@@ -7,102 +13,21 @@
       <h2 class="text-3xl md:text-4xl font-semibold tracking-tight dark:text-white text-zinc-900 mb-4">Three invariants enforced on every commit. <span class="dark:text-zinc-400 text-zinc-500">No exceptions. No shortcuts.</span></h2>
       <p class="dark:text-zinc-400 text-zinc-500 text-base">These are not aspirations — they are gates. Every release of Zenzic ships only when all three pass.</p>
     </div>
-    <div class="grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-8 md:gap-12 py-12 border-t dark:border-zinc-800/60 border-zinc-200 items-start">
+    <div class="grid md:grid-cols-3 gap-8 md:gap-10 py-12 border-t dark:border-zinc-800/60 border-zinc-200 items-start">
       <div>
         <span class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 block uppercase">01</span>
         <h3 class="text-lg font-semibold dark:text-white text-zinc-900 mb-3 leading-snug">Subprocess-Free Analysis</h3>
-        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">Production-grade tools do not shell out during analysis. No subprocess.run(), no os.system() inside per-item loops. Zenzic validates your documentation stack without executing it.</p>
+        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">Production-grade tools do not shell out during analysis. No <code>subprocess.run()</code>, no <code>os.system()</code> inside per-item loops. Zenzic validates your documentation stack without executing it — your build system is read as data, never run.</p>
       </div>
-      <div class="md:-mr-8 lg:-mr-16">
-        <div class="rounded-xl overflow-hidden border dark:border-zinc-800/60 border-zinc-200 dark:bg-zinc-900/20 bg-zinc-50 backdrop-blur-md font-mono text-[12px] leading-relaxed shadow-lg">
-          <div class="flex items-center gap-2 px-4 py-2.5 border-b dark:border-zinc-800/40 border-zinc-200 dark:bg-zinc-900/40 bg-zinc-100/60">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80" aria-hidden="true"></span>
-            <span class="ml-2 dark:text-zinc-400 text-zinc-500 text-[11px] tracking-wide">mkdocs.yml · adapter run</span>
-          </div>
-          <div class="px-5 py-4 dark:text-zinc-400 text-zinc-600 overflow-x-auto">
-            <pre class="m-0 bg-transparent whitespace-pre"><code># MkDocs project
-uvx zenzic check all .
-
-# Outcome
-# exit 0 -&gt; no blocking findings
-# exit 1 -&gt; quality gate blocks merge</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-8 md:gap-12 py-12 border-t dark:border-zinc-800/60 border-zinc-200 items-start">
       <div>
         <span class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 block uppercase">02</span>
         <h3 class="text-lg font-semibold dark:text-white text-zinc-900 mb-3 leading-snug">Deterministic Dependency Graph</h3>
-        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">Every dependency is pinned in a lockfile, audited by Dependabot, and scanned for SPDX licence compatibility. No transitive surprises at release time. uv lock and reuse lint run on every commit.</p>
+        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">Every dependency is pinned in a lockfile, audited by Dependabot, and scanned for SPDX licence compatibility. No transitive surprises at release time.</p>
       </div>
-      <div class="md:-mr-8 lg:-mr-16">
-        <div class="rounded-xl overflow-hidden border dark:border-zinc-800/60 border-zinc-200 dark:bg-zinc-900/20 bg-zinc-50 backdrop-blur-md font-mono text-[12px] leading-relaxed shadow-lg">
-          <div class="flex items-center gap-2 px-4 py-2.5 border-b dark:border-zinc-800/40 border-zinc-200 dark:bg-zinc-900/40 bg-zinc-100/60">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80" aria-hidden="true"></span>
-            <span class="ml-2 dark:text-zinc-400 text-zinc-500 text-[11px] tracking-wide">zensical.toml · adapter run</span>
-          </div>
-          <div class="px-5 py-4 dark:text-zinc-400 text-zinc-600 overflow-x-auto">
-            <pre class="m-0 bg-transparent whitespace-pre"><code># Zensical project
-uvx zenzic check all .
-
-# Output is machine-readable and human-readable
-# for CI and local review</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-8 md:gap-12 py-12 border-t dark:border-zinc-800/60 border-zinc-200 items-start">
       <div>
         <span class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 block uppercase">03</span>
-        <h3 class="text-lg font-semibold dark:text-white text-zinc-900 mb-3 leading-snug">Standalone Markdown Repositories</h3>
-        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">Runs on repositories without a framework-specific adapter by validating Markdown files and internal references directly.</p>
-      </div>
-      <div class="md:-mr-8 lg:-mr-16">
-        <div class="rounded-xl overflow-hidden border dark:border-zinc-800/60 border-zinc-200 dark:bg-zinc-900/20 bg-zinc-50 backdrop-blur-md font-mono text-[12px] leading-relaxed shadow-lg">
-          <div class="flex items-center gap-2 px-4 py-2.5 border-b dark:border-zinc-800/40 border-zinc-200 dark:bg-zinc-900/40 bg-zinc-100/60">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80" aria-hidden="true"></span>
-            <span class="ml-2 dark:text-zinc-400 text-zinc-500 text-[11px] tracking-wide">standalone repository · adapter run</span>
-          </div>
-          <div class="px-5 py-4 dark:text-zinc-400 text-zinc-600 overflow-x-auto">
-            <pre class="m-0 bg-transparent whitespace-pre"><code># Plain Markdown repository
-uvx zenzic check all docs/
-
-# Use in CI, pre-commit, or local checks
-# without changing repository structure</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-8 md:gap-12 py-12 border-t dark:border-zinc-800/60 border-zinc-200 items-start">
-      <div>
-        <span class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 block uppercase">04</span>
-        <h3 class="text-lg font-semibold dark:text-white text-zinc-900 mb-3 leading-snug">Generators That Publish a Route Manifest</h3>
-        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">A site whose structure is decided at build time is read through the routes its own build writes, not through a re-implementation of its routing. Declare the <code>prebuilt</code> engine and point it at a <code>.zenzic-vsm.json</code> your generator emits. Verified against <strong>Astro</strong> and <strong>Docusaurus</strong>; the manifest is required, and a declared <code>prebuilt</code> without one stops with a configuration error rather than quietly analysing something else.</p>
-      </div>
-      <div class="md:-mr-8 lg:-mr-16">
-        <div class="rounded-xl overflow-hidden border dark:border-zinc-800/60 border-zinc-200 dark:bg-zinc-900/20 bg-zinc-50 backdrop-blur-md font-mono text-[12px] leading-relaxed shadow-lg">
-          <div class="flex items-center gap-2 px-4 py-2.5 border-b dark:border-zinc-800/40 border-zinc-200 dark:bg-zinc-900/40 bg-zinc-100/60">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80" aria-hidden="true"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80" aria-hidden="true"></span>
-            <span class="ml-2 dark:text-zinc-400 text-zinc-500 text-[11px] tracking-wide">.zenzic-vsm.json · prebuilt run</span>
-          </div>
-          <div class="px-5 py-4 dark:text-zinc-400 text-zinc-600 overflow-x-auto">
-            <pre class="m-0 bg-transparent whitespace-pre"><code># .zenzic.toml
-[build_context]
-engine = "prebuilt"
-
-# Your build writes .zenzic-vsm.json
-uvx zenzic check all</code></pre>
-          </div>
-        </div>
+        <h3 class="text-lg font-semibold dark:text-white text-zinc-900 mb-3 leading-snug">Same Answer on Every Interpreter</h3>
+        <p class="dark:text-zinc-400 text-zinc-500 text-sm leading-relaxed">The same repository yields the same findings on every supported Python. A dedicated CI job compares the two interpreter legs digest by digest, because a difference that only one of them sees is a difference nobody reads.</p>
       </div>
     </div>
   </div>

@@ -721,6 +721,37 @@ html:has(.zz-tailwind-root) .md-header__source {
      text-amber-500 → var(--zz-warning)   [same rationale]
    ══════════════════════════════════════════════════════════════════════════════ */
 
+/* ── Code-index panel (the fourteen finding codes on the landing page) ───── */
+/* Batch 15's method, applied to the one hand-built panel that sat outside it. */
+/* The panel is not inside .zz-terminal or .zz-showcase-card, so the Tailwind  */
+/* mappings above never reached it and `text-indigo-500` stayed a raw value.   */
+/*                                                                             */
+/* Measured 2026-09-20 against --zz-canvas in each branch, not estimated:      */
+/*   text-indigo-500 #6366f1 on #09090b (dark)  → 4.45:1  FAIL AA              */
+/*   text-indigo-500 #6366f1 on #f8fafc (light) → 4.27:1  FAIL AA              */
+/* Every other pair in the panel already passed, which is why only this one is */
+/* remapped -- an override that touches what already works is a second place   */
+/* for the value to drift.                                                     */
+/*                                                                             */
+/* The token differs by branch and that is the point: --zz-brand-light is      */
+/* #818cf8 dark (6.67:1) and #6366f1 light (4.27:1, the same failing value),   */
+/* so the light branch takes --zz-brand #4f46e5 (6.01:1) instead. One token    */
+/* for both branches would have kept the light-mode failure.                   */
+[data-md-color-scheme="slate"] .zz-code-index .group-hover\:text-indigo-500,
+[data-md-color-scheme="slate"] .zz-code-index .group:hover .group-hover\:text-indigo-500 {
+  color: var(--zz-brand-light) !important;
+}
+[data-md-color-scheme="default"] .zz-code-index .group-hover\:text-indigo-500,
+[data-md-color-scheme="default"] .zz-code-index .group:hover .group-hover\:text-indigo-500 {
+  color: var(--zz-brand) !important;
+}
+.zz-code-index .text-indigo-500 {
+  color: var(--zz-brand-light);
+}
+[data-md-color-scheme="default"] .zz-code-index .text-indigo-500 {
+  color: var(--zz-brand);
+}
+
 /* ── Zinc overrides (metadata, muted, secondary text) ────────────────────── */
 /* Context: dark terminal mock backgrounds (#0d1117).                          */
 /* text-zinc-400 (#a1a1aa) on #0d1117 → contrast ~3.2:1 (FAIL)                */
