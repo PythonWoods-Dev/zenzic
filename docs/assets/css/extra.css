@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> */
 /* SPDX-License-Identifier: Apache-2.0 */
-[data-md-color-scheme="slate"]{--zz-canvas:#09090b;--zz-surface-0:#0d1117;--zz-surface-1:#111827;--zz-surface-2:#1f2937;--zz-surface-3:#374151;--zz-brand:#4f46e5;--zz-brand-light:#818cf8;--zz-brand-muted:#3730a3;--zz-ink-100:#f1f5f9;--zz-ink-200:#e2e8f0;--zz-ink-400:#94a3b8;--zz-ink-600:#64748b;--zz-border:#1e293b;--zz-border-subtle:#30363d;--zz-rule:rgba(255,255,255,0.06);--zz-error:#f43f5e;--zz-fatal:#be123c;--zz-warning:#f59e0b;--zz-success:#10b981;--zz-info:#38bdf8;--zz-hero-gradient-mid:#0f1320;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#818cf8;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-surface-0);--md-primary-fg-color--light:#161b22;--md-primary-fg-color--dark:#010409;--md-primary-bg-color:var(--zz-ink-200);--md-default-bg-color:var(--zz-surface-0);--md-default-bg-color--light:var(--zz-surface-1);--md-default-bg-color--lighter:var(--zz-surface-2);--md-default-bg-color--lightest:var(--zz-surface-3);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(129,140,248,0.1);--md-typeset-a-color:var(--zz-info);--md-code-bg-color:var(--zz-surface-1)}
-[data-md-color-scheme="default"]{--zz-canvas:#f8fafc;--zz-surface-0:#ffffff;--zz-surface-1:#f1f5f9;--zz-surface-2:#e2e8f0;--zz-surface-3:#cbd5e1;--zz-brand:#4f46e5;--zz-brand-light:#6366f1;--zz-brand-muted:#3730a3;--zz-ink-100:#0f172a;--zz-ink-200:#1e293b;--zz-ink-400:#475569;--zz-ink-600:#94a3b8;--zz-border:#e2e8f0;--zz-border-subtle:#e2e8f0;--zz-rule:rgba(0,0,0,0.07);--zz-error:#e11d48;--zz-fatal:#9f1239;--zz-warning:#d97706;--zz-success:#059669;--zz-info:#0284c7;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#6366f1;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-brand);--md-primary-fg-color--light:var(--zz-brand-light);--md-primary-fg-color--dark:var(--zz-brand-muted);--md-primary-bg-color:var(--zz-surface-0);--md-default-bg-color:var(--zz-canvas);--md-default-bg-color--light:var(--zz-surface-0);--md-default-bg-color--lighter:var(--zz-surface-1);--md-default-bg-color--lightest:var(--zz-surface-2);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(99,102,241,0.1);--md-typeset-a-color:var(--zz-brand);--md-code-bg-color:var(--zz-surface-2)}
+[data-md-color-scheme="slate"]{--zz-canvas:#09090b;--zz-surface-0:#0d1117;--zz-surface-1:#111827;--zz-surface-2:#1f2937;--zz-surface-3:#374151;--zz-brand:#4f46e5;--zz-brand-light:#818cf8;--zz-brand-muted:#3730a3;--zz-ink-100:#f1f5f9;--zz-ink-200:#e2e8f0;--zz-ink-400:#94a3b8;--zz-ink-600:#64748b;--zz-border:#1e293b;--zz-border-subtle:#30363d;--zz-rule:rgba(255,255,255,0.06);--zz-error:#f43f5e;--zz-fatal:#be123c;--zz-warning:#f59e0b;--zz-success:#10b981;--zz-info:#38bdf8;--zz-hero-gradient-mid:#0f1320;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#818cf8;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-surface-0);--md-primary-fg-color--light:#161b22;--md-primary-fg-color--dark:#010409;--md-primary-bg-color:var(--zz-ink-200);--md-default-bg-color:var(--zz-surface-0);--md-default-bg-color--light:var(--zz-surface-1);--md-default-bg-color--lighter:var(--zz-surface-2);--md-default-bg-color--lightest:var(--zz-surface-3);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(129,140,248,0.1);--md-typeset-a-color:var(--zz-ink-100);--md-code-bg-color:var(--zz-surface-1)}
+[data-md-color-scheme="default"]{--zz-canvas:#f8fafc;--zz-surface-0:#ffffff;--zz-surface-1:#f1f5f9;--zz-surface-2:#e2e8f0;--zz-surface-3:#cbd5e1;--zz-brand:#4f46e5;--zz-brand-light:#6366f1;--zz-brand-muted:#3730a3;--zz-ink-100:#0f172a;--zz-ink-200:#1e293b;--zz-ink-400:#475569;--zz-ink-600:#94a3b8;--zz-border:#e2e8f0;--zz-border-subtle:#e2e8f0;--zz-rule:rgba(0,0,0,0.07);--zz-error:#e11d48;--zz-fatal:#9f1239;--zz-warning:#d97706;--zz-success:#059669;--zz-info:#0284c7;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#6366f1;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-brand);--md-primary-fg-color--light:var(--zz-brand-light);--md-primary-fg-color--dark:var(--zz-brand-muted);--md-primary-bg-color:var(--zz-surface-0);--md-default-bg-color:var(--zz-canvas);--md-default-bg-color--light:var(--zz-surface-0);--md-default-bg-color--lighter:var(--zz-surface-1);--md-default-bg-color--lightest:var(--zz-surface-2);--md-accent-fg-color:var(--zz-brand);--md-accent-fg-color--transparent:rgba(99,102,241,0.1);--md-typeset-a-color:var(--zz-ink-100);--md-code-bg-color:var(--zz-surface-2)}
 
 /* ── Breadcrumb (navigation.path) ────────────────────────────────────────── */
 
@@ -74,6 +74,66 @@
   -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.11 0-2 .89-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42M5.5 7c-.83 0-1.5-.67-1.5-1.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>');
   mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.11 0-2 .89-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42M5.5 7c-.83 0-1.5-.67-1.5-1.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>');
 }
+
+/* ── Accent, light branch: corrected 2026-09-20 ──────────────────────────── */
+/* `--md-accent-fg-color` was `--zz-brand-light` in both branches. Measured
+   after neutralising the link colour, because that is when it started
+   mattering: #6366f1 on the light canvas is **4.27:1, below AA**, and Material
+   consumes this token in 50 rules -- link hover and focus among them. With
+   colour no longer the primary link signal, hover is a secondary one, and a
+   secondary signal below AA is still a signal nobody can see.
+
+   The dark branch keeps `--zz-brand-light` (#818cf8, 6.34:1); only the light
+   branch moves, to `--zz-brand` (#4f46e5, 6.01:1). Same asymmetry, and the
+   same two values, as the code-index panel needed the day before -- that rule
+   existed *because* this token was wrong, and this is the root the panel was
+   working around. */
+
+/* ── Reading comfort: line-height and link affordance ────────────────────── */
+
+/* Body leading, measured 2026-09-20 against three documentation sites whose
+   CSS was fetched and read rather than described:
+
+     Zenzic        16px / 1.60  = 25.6px
+     Tailwind docs 14px / 2.00  = 28.0px   (tailwindcss.com/docs)
+     Astro docs    16px / 1.75  = 28.0px   (--sl-line-height, docs.astro.build)
+     MDN           16px / 1.75  = 28.0px   (--font-line-content)
+
+   All three land on 28px of leading; Tailwind gets there by shrinking the type
+   rather than tightening the lines, which is what identifies leading as the
+   property that mattered to them. Font size and column width are NOT changed:
+   ours are 16px and 736px, inside the range those three occupy (14-16px,
+   576-768px), so the measurement gave no basis for touching either. */
+.md-typeset {
+  line-height: 1.75;
+}
+
+/* Links are neutral now, so the underline is the affordance -- not decoration.
+   `--md-typeset-a-color` was `--zz-brand` (indigo) in light and `--zz-info`
+   (sky) in dark: two different answers to one question, and in light mode the
+   same indigo as the whole header bar. Both now resolve to `--zz-ink-100`,
+   following Tailwind's `--prose-link-color: var(--color-gray-950)`.
+
+   **The underline is permanent, and that is a requirement rather than a style
+   choice.** WCAG 2.1 SC 1.4.1 forbids colour as the only means of conveying
+   information; with colour neutralised, nothing else distinguishes a link from
+   the prose around it. Hover-only underlining would leave the link invisible
+   to anyone not already pointing at it, and invisible entirely on touch.
+
+   Measured after the change, both themes, against the real content background:
+     dark   #f1f5f9 on #0d1117  17.27:1
+     light  #0f172a on #f8fafc  17.06:1
+   Both far above AA, and both *higher* than the body text they sit in, which
+   is the second distinction Tailwind uses: link ink is a step darker (or
+   lighter) than body ink, and underlined. */
+.md-typeset a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  text-decoration-thickness: from-font;
+}
+
+/* The hover accent stays: colour is no longer the *only* signal, so using it
+   as a secondary one is what SC 1.4.1 permits and expects. */
 
 /* ── Navbar logo swap ─────────────────────────────────────────────────────── */
 
