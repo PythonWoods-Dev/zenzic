@@ -606,11 +606,20 @@ html:has(.zz-tailwind-root) .md-header__source {
   display: none !important;
 }
 
-/* Aggressive Typography Override for Hero Metrics */
-.zz-tailwind-root .text-3xl,
-.zz-tailwind-root .md\:text-4xl {
+/* Hero metric numbers only -- scoped by `tabular-nums`, which nothing else on
+   the page uses.
+
+   This selector read `.zz-tailwind-root .text-3xl, .zz-tailwind-root
+   .md\:text-4xl` until 2026-09-21, and its own comment says it was meant for the
+   metrics. But those utility classes are carried by seven other elements: the
+   hero `h1` and six section `h2`s. With `!important` it beat every responsive
+   size they declare, so `lg:text-6xl` on the title was inert and the heading
+   rendered at exactly 2rem = 40px with a 48px line box -- the two numbers that
+   were measured on the rendered page before this was found.
+
+   A rule written for four numbers, scoped by a class eleven elements share. */
+.zz-tailwind-root .tabular-nums {
   font-size: 2rem !important;
-  /* Force smaller metric numbers */
   line-height: 1.2 !important;
 }
 
@@ -965,6 +974,6 @@ html:has(.zz-tailwind-root) .md-header__source {
    instances is a pattern, and the disposition belongs to an audit of which
    extra.css and Material rules the Tailwind bundle now supersedes. */
 .zz-tailwind-root h1 {
-  font-size: clamp(2rem, 1.1rem + 3.2vw, 3.75rem);
+  font-size: clamp(1.75rem, 3.2vw, 2.25rem);
   line-height: 1.05;
 }
