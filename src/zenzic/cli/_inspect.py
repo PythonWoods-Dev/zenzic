@@ -247,12 +247,17 @@ def inspect_codes(
         # score=0.0 report and return early, the same practical "nothing else
         # gets scanned" outcome), just numbered in the "Z1xx" range for
         # historical reasons. They are LSP-diagnostic-only in practice —
-        # load_config_with_diagnostics() (models/config.py), their sole
-        # construction site, is only reached by incremental.py's LSP flow;
-        # every zenzic check * command pre-loads config and always passes it
+        # They have two construction sites, both on the editor path and neither
+        # reachable from the CLI. (1) load_config_with_diagnostics()
+        # (models/config.py:1858, :1886), reached only by incremental.py's LSP
+        # flow: every zenzic check * command pre-loads config and passes it
         # non-None into scan_docs_references(), so its config-is-None branch
-        # (the only place Z110/Z111 are ever built) never executes there —
-        # they cannot fire via any CLI command today. Shown as FATAL anyway:
+        # never executes there. (2) incremental.py:240, added 2026-09-19, which
+        # raises Z111 directly when a declared docs_dir does not exist and the
+        # editor widens to the repository. This comment read "their sole
+        # construction site" until 2026-09-21 and had simply not been updated
+        # when the second one was added; the conclusion it supports is
+        # unchanged — they cannot fire via any CLI command today. Shown as FATAL anyway:
         # zenzic inspect codes is a general code reference, not scoped to
         # CLI-reachability, and 0.0 would misleadingly imply harmless.
         if code.startswith("Z0") or code.startswith("Z2") or code in ("Z110", "Z111"):

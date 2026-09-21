@@ -51,7 +51,7 @@ _SEVERITY_STYLE: dict[str, str] = {
 }
 
 
-def _obfuscate_secret(raw: str) -> str:
+def _obfuscate_secret(raw: str, *, preserve_length: bool = True) -> str:
     """Partially redact a secret for safe display in logs and CI output.
 
     Preserves the first four and last four characters so reviewers can
@@ -60,6 +60,21 @@ def _obfuscate_secret(raw: str) -> str:
 
     This function is the only place where raw secret material is allowed
     to be formatted for human consumption.  It **must never** be bypassed.
+    `zenzic guard scan` bypassed it from 2026-08-14 to 2026-09-21 with a second
+    implementation, `cli/_guard.py`'s `_mask_secret` -- added four months *after*
+    this docstring already forbade it, inside a squashed release commit stating no
+    reason for not reusing this one. Accidental duplication, and the untested half.
+
+    *preserve_length* selects the rendering, never the disclosure: both forms show
+    the same four characters at each end and nothing else. ``True`` (default) pads
+    with one asterisk per hidden character, which the mutation-killing tests pin
+    deliberately (`test_total_length_preserved`, `test_star_count_is_length_minus_8`);
+    a functional reason for it was looked for and not found -- the gutter caret is
+    sized from `len(match_text)` against the source line, not from this string --
+    so the default is left exactly as it was. ``False`` renders a fixed-width form
+    for surfaces with no alignment constraint, so the length is not encoded at all;
+    it is strictly stronger than the `_mask_secret` it replaced, which revealed the
+    length of any secret of eight characters or fewer.
 
     Args:
         raw: The raw matched secret string from the credential scanner.
@@ -68,7 +83,9 @@ def _obfuscate_secret(raw: str) -> str:
         A partially-redacted string safe for log output.
     """
     if len(raw) <= 8:  # too short to redact partially — hide the whole thing
-        return "*" * len(raw)
+        return "*" * len(raw) if preserve_length else "[redacted]"
+    if not preserve_length:
+        return f"{raw[:4]}...{raw[-4:]}"
     return raw[:4] + "*" * (len(raw) - 8) + raw[-4:]
 
 

@@ -939,7 +939,9 @@ def manifest_missing_error(config: Any, repo_root: Path) -> ZenzicConfigError | 
     through, and going dark would leave the author with nothing.
     """
     engine = getattr(getattr(config, "build_context", None), "engine", None)
-    if engine not in ("prebuilt", "vsm"):
+    from zenzic.core.adapters._factory import manifest_driven_engines
+
+    if engine not in manifest_driven_engines():
         return None
     manifest = repo_root / ".zenzic-vsm.json"
     if manifest.is_file():

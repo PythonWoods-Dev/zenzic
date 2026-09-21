@@ -18,6 +18,7 @@ from zenzic.core.credentials import (
     scan_lines_with_lookback,
 )
 from zenzic.core.discovery import DOC_SUFFIXES, iter_security_scan_sources
+from zenzic.core.reporter import _obfuscate_secret
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -190,13 +191,13 @@ def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> tuple[l
     )
 
 
-def _mask_secret(secret: str) -> str:
-    """Mask sensitive secret values to prevent cleartext exposure in logs/terminal (CWE-312 / CWE-532)."""
-    if not secret:
-        return ""
-    if len(secret) <= 8:
-        return "*" * len(secret)
-    return f"{secret[:4]}...{secret[-4:]}"
+# Redaction is `core.reporter._obfuscate_secret` and nowhere else. This module
+# carried its own `_mask_secret` until 2026-09-21, which is precisely the bypass
+# the authority's docstring forbids -- "it **must never** be bypassed". Neither
+# leaked the secret body (both revealed four characters at each end), but they
+# disagreed on the rest and only one of them was tested: `_obfuscate_secret` is
+# pinned by the mutation-killing tests in `test_redteam_remediation.py` down to
+# `_obfuscate_secret("X") == "*"`, while `_mask_secret` had no test at all.
 
 
 @guard_app.command(name="scan")
@@ -290,8 +291,8 @@ def scan(
                     "file": str(f.file_path),
                     "line": f.line_no,
                     "type": str(f.secret_type),
-                    "match": _mask_secret(f.match_text),
-                    "context": _mask_secret(f.url) if f.url else "",
+                    "match": _obfuscate_secret(f.match_text, preserve_length=False),
+                    "context": _obfuscate_secret(f.url, preserve_length=False) if f.url else "",
                 }
             )
         payload = {
@@ -330,7 +331,7 @@ def scan(
                 file_cell,
                 str(finding.line_no),
                 finding.secret_type,
-                _mask_secret(finding.match_text),
+                _obfuscate_secret(finding.match_text, preserve_length=False),
             )
         _shared.console.print(table)
         _shared.console.print(

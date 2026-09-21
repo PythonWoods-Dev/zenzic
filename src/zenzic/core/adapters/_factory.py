@@ -35,6 +35,7 @@ from __future__ import annotations
 import contextlib
 import threading
 from dataclasses import dataclass
+from functools import lru_cache
 from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Final, Literal, cast
@@ -189,6 +190,45 @@ def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical"
         return "mkdocs"
 
     return "standalone"
+
+
+def manifest_driven_engines() -> frozenset[str]:
+    """Engine names whose adapter reads a route manifest instead of a generator config.
+
+    Derived from the registry, never restated. `cli/_shared.py` spelled this as
+    the literal ``("prebuilt", "vsm")`` until 2026-09-21, which is the same shape
+    as two defects already closed here: ``_INIT_VALID_ENGINES``, where ``--engine``
+    refused two engines its own help text advertised, and ``Z503``, where a gate
+    covered one call path and not the other.
+
+    The failure mode a literal has here is specific. Register a third adapter that
+    reads ``.zenzic-vsm.json`` and the "declared but no manifest" check skips it in
+    silence: the project is analysed as something else rather than stopped. The
+    registry already holds the fact -- the manifest-driven engines are exactly
+    those resolving to :class:`PrebuiltVSMAdapter` -- so an entry-point adapter
+    reaches the gate without this module changing.
+    """
+    # Cached on a fingerprint of the built-in registry rather than unconditionally.
+    # Deriving costs ~35 ms -- `list_adapter_engines()` calls `entry_points()`,
+    # which scans installed distributions -- and this gate sits on the incremental
+    # path. Uncached it pushed `test_engine_latency_benchmark` from under 50 ms to
+    # 89.6 ms, which is how the regression was caught rather than shipped.
+    #
+    # The fingerprint is the built-in registry's keys, so a test that registers a
+    # third manifest-driven adapter invalidates the cache and the derivation runs
+    # again. Entry points cannot change within a process, so they need no key.
+    return _manifest_driven_engines(tuple(sorted(_BUILTIN_ADAPTERS)))
+
+
+@lru_cache(maxsize=8)
+def _manifest_driven_engines(_registry_fingerprint: tuple[str, ...]) -> frozenset[str]:
+    """Compute :func:`manifest_driven_engines`; keyed so the registry can change."""
+    found = set()
+    for name in list_adapter_engines():
+        cls = _load_adapter_class(name)
+        if cls is not None and isinstance(cls, type) and issubclass(cls, PrebuiltVSMAdapter):
+            found.add(name)
+    return frozenset(found)
 
 
 def _load_adapter_class(engine: str) -> type[Any] | None:
