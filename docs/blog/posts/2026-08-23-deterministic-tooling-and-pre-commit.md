@@ -107,18 +107,28 @@ This is why deterministic tooling cannot be reduced to version pinning alone. Ve
 
 A useful way to reason about tooling is to identify where the executable crosses into the development workflow. There are three practical boundaries.
 
-```text
-                 Stronger repository control
-                         ↑
-                         │
-        Commit boundary  │  Pre-commit
-                         │
-        Project boundary │  Lockfile / project environment
-                         │
-        User boundary    │  Global installation
-                         │
-                         ↓
-                 Greater local autonomy
+```mermaid
+flowchart TD
+    A["Stronger repository control"]
+    B["Commit boundary — Pre-commit"]
+    C["Project boundary — Lockfile / project environment"]
+    D["User boundary — Global installation"]
+    E["Greater local autonomy"]
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A entry
+    class B gate
+    class C data
+    class D data
+    class E ok
 ```
 
 These are not mutually exclusive installation methods. They are different enforcement models.
