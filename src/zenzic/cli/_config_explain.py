@@ -263,7 +263,12 @@ def explain(
     from zenzic.core.adapters import get_adapter
     from zenzic.core.exclusion import build_exclusion_manager
 
-    _docs_root = repo_root / config.docs_dir
+    # `.resolve()` because thirteen other sites spell it that way and `docs_dir`
+    # accepts `../docs` and `docs/../docs` -- verified against the schema, not
+    # assumed. No divergence is demonstrable today, which is why this is a
+    # latent inconsistency rather than a reported defect; it costs two words to
+    # stop it becoming one the moment a path comparison is added downstream.
+    _docs_root = (repo_root / config.docs_dir).resolve()
     _adapter = get_adapter(config.build_context, _docs_root, repo_root)
     # Through the builder, so this table is the set `check` actually applies.
     # It used to pass `adapter_output_dirs` alone -- one layer of three -- so the

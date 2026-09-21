@@ -17,14 +17,23 @@ For day-to-day usage (copy-paste YAML, input reference), see the [CI/CD Integrat
 
 `zenzic-action` is a **composite GitHub Action** built on a strict two-layer architecture:
 
-```text
-action.yml            ← public contract (inputs, outputs, env injection)
-    │
-    ├─▶  uv tool install --isolated --force --quiet zenzic   ← provisioned once per run
-    │
-    └─▶  zenzic-action-wrapper.sh   ← enforcement layer (security, exit codes, SARIF)
-              │
-              └─▶  zenzic check all       ← Zenzic Core (analysis engine, invoked from PATH)
+```mermaid
+flowchart TD
+    A["action.yml — public contract (inputs, outputs, env injection)"] --> B
+    A --> C
+    B["uv tool install --isolated --force --quiet zenzic — provisioned once per run"]
+    C["zenzic-action-wrapper.sh — enforcement layer (security, exit codes, SARIF)"] --> D
+    D["zenzic check all — Zenzic Core (analysis engine, invoked from PATH)"]
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A entry
+    class B data
+    class C gate
+    class D ok
 ```
 
 `action.yml` injects caller-supplied values as environment variables. The wrapper validates, sanitises, and orchestrates the execution. It **never trusts raw inputs** — every path is guarded before it reaches the filesystem or the CLI.

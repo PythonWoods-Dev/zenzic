@@ -35,8 +35,9 @@ build output. Items 42 and 43 add two machine-readable
 fields and change no finding. Items 44 and 45 change the landing page only, item 46 the rendering of 99 list
 items across the documentation, item 47 the size of the stylesheet and one unparseable
 config example, item 48 removes an opt-in finding from the editor that the CLI already
-suppressed, items 49 and 50 change a generated comment and a code comment, and items 51 and 52 make a
-configuration field and a CLI flag do what they already said they did. The list ends
+suppressed, items 49 and 50 change a generated comment and a code comment, items 51 and 52 make a
+configuration field and a CLI flag do what they already said they did, and item 53 changes
+three diagrams and two path spellings. The list ends
 with the breaking changes that are not about findings.
 Run the check against your repository before you roll the new version into a gate:
 
@@ -597,6 +598,14 @@ which mode produced it.
 *What you will see:* `--engine` accepts every engine the adapter registry offers — `mkdocs`, `prebuilt`, `standalone`, `vsm`, `zensical`.
 
 *Why:* the accepted set was a hardcoded `{"mkdocs", "zensical", "standalone"}` while the same command's help text, and the `# Supported:` comment it writes into the generated file, were both derived from `list_adapter_engines()`. So two surfaces advertised `prebuilt` and `vsm` and the third refused them, which reads as a broken tool rather than an unfinished feature. Both build — auto-detection already selected `prebuilt` on a repository carrying `.zenzic-vsm.json`. The set is now derived, so a third-party adapter reaches the gate without that line changing.
+
+*What to do:* nothing.
+
+**53. Three hand-drawn diagrams are now Mermaid, and two `docs_root` sites resolve like the other thirteen.**
+
+*What you will see:* the remediation lifecycle on `auto-fix-philosophy`, the action's invocation chain on `github-action-internals`, and the gate logic on `zenzic-action` render as diagrams in the same visual language as the site's other twelve — same five palette classes, same arrow style. No wording changed.
+
+*Why:* they were drawn in Unicode box characters. The census that found them also found 63 fences whose box characters are the tool's real output — the gutter bar and caret underline `zenzic check` prints, verified by running it — and those are untouched, because stripping them would make the documentation a false reproduction. `advanced-features`' directory tree stays as text for the same reason: Mermaid represents a filesystem layout worse than a tree does. Separately, `zenzic audit` and `zenzic config explain` built `docs_root` without `.resolve()` while thirteen other sites used it; `docs_dir` accepts `../docs` and `docs/../docs`, so the two spellings could disagree. No divergence was demonstrable, which is why this is recorded as a latent inconsistency closed cheaply rather than as a defect.
 
 *What to do:* nothing.
 

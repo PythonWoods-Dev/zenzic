@@ -104,7 +104,12 @@ def audit(
     if offline and config.build_context.offline_mode is not True:
         config.build_context.offline_mode = True
 
-    docs_root = repo_root / config.docs_dir
+    # `.resolve()` because thirteen other sites spell it that way and `docs_dir`
+    # accepts `../docs` and `docs/../docs` -- verified against the schema, not
+    # assumed. No divergence is demonstrable today, which is why this is a
+    # latent inconsistency rather than a reported defect; it costs two words to
+    # stop it becoming one the moment a path comparison is added downstream.
+    docs_root = (repo_root / config.docs_dir).resolve()
     # 2. A `docs_dir` that is not there is a configuration error, not an
     #    invitation to audit the whole repository. This used to set
     #    `docs_root = repo_root` in silence, so a project whose sources live

@@ -68,13 +68,29 @@ The Zenzic Quality Gate is the recommended PR enforcement setup. It combines str
 
 ### Gate Logic
 
-```text
-PR opened
-  └─ zenzic check all → exit 0/1/2/3 (findings)
-  └─ zenzic score → exit 0/1 (fail_under + suppression_cap)
-  └─ zenzic score --check-stamp (default: true) → exit 0/1 (freshness)
-  └─ zenzic diff --base <main-baseline>
-       ├─ score stable or improved → exit 0 ✅ PR can merge
+```mermaid
+flowchart TD
+    A["PR opened"] --> B
+    A --> C
+    A --> D
+    A --> E
+    B["zenzic check all → exit 0/1/2/3 (findings)"]
+    C["zenzic score → exit 0/1 (fail_under + suppression_cap)"]
+    D["zenzic score --check-stamp (default: true) → exit 0/1 (freshness)"]
+    E["zenzic diff --base main-baseline"] --> F
+    F["score stable or improved → exit 0 — PR can merge"]
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A entry
+    class B gate
+    class C gate
+    class D gate
+    class E data
+    class F ok
 ```
 
 The suppression debt is included in the score used for comparison. A PR that adds suppressions to hide findings will show a lower score. Security exits (2/3) remain non-suppressible and always fail the run.
