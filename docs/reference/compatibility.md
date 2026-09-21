@@ -33,6 +33,40 @@ against whatever version `uv.lock` currently resolves, not a genuine multi-versi
 
 ---
 
+## Libraries Zenzic reproduces rather than imports
+
+The matrix above answers *which generator versions were tested*. This answers a different
+question: **where Zenzic reproduces another library's behaviour instead of calling it, and
+which version of that library the reproduction was measured against.**
+
+It reproduces rather than imports because the core takes no runtime dependency on a
+documentation toolchain — the analyser must read a project it is not installed beside. A
+reproduction is only as good as the version it was characterised against, so the version is
+part of the contract.
+
+| What is reproduced | Where | Characterised against | Verification method | Last verified |
+| :--- | :--- | :--- | :--- | :--- |
+| `markdown.extensions.toc`'s default `slugify` | `core/validator.py` — `slug_heading()` | `Markdown` `3.10.3` | `tests/test_replicas_match_the_original.py` imports the real `toc_slugify` and asserts equality on every run — a comparison, not a reading | 2026-09-18 |
+| `pymdownx.slugs.slugify(case="lower")` | `core/validator.py` — `slug_tab_title()` | `pymdown-extensions` `11.0.1` (with `Markdown` `3.10.3`) | Same test, same shape: the real `slugify` is imported and compared. Deliberately without `importorskip` — a check that disappears with its subject is not a check | 2026-09-18 |
+| CommonMark block structure (§4.5 fences, §4.6 HTML blocks, §4.2/4.3 headings) | `core/ast.py` — `BlockTracker` | CommonMark `0.31.2` | Test suites derived from the specification's own sections rather than from the cases found in the wild | 2026-09-20 |
+
+Both slug reproductions are covered, and the versions above are the ones currently resolved
+in `uv.lock` — the characterisation and the installed library agree today. **If they stop
+agreeing, the parity test is what says so**, because it compares against whatever is
+installed rather than against a recorded expectation.
+
+!!! info "Two functions named `_slugify` are not on this list, deliberately"
+
+    `core/rules.py` and `core/doctor.py` each define a `_slugify`, and neither reproduces a
+    renderer. `rules.py`'s is a minimal normalisation used by `Z107` to compare a link's
+    visible text against its own fragment — both sides pass through it, so it works by
+    agreeing with itself; its docstring records that an earlier version of it **claimed** to
+    be a renderer slug and was measured against `github-slugger` on nine real heading/anchor
+    pairs, agreeing on none. `doctor.py`'s turns an ADR title into a filename. Neither needs
+    a declared version, and listing them here would be the mistake that docstring corrects.
+
+---
+
 ## Engine configuration keys: honoured, declined, unhandled
 
 Three states, not two. A key Zenzic reads and acts on is not the same as a key it

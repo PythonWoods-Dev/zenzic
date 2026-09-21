@@ -328,6 +328,42 @@ nothing to check against, and the date records a manual review rather than a
 lock. Either way, re-read the verification-method cell afterwards: a new version
 may have changed how it is tested, and the date alone does not say that.
 
+### When a library Zenzic *reproduces* releases
+
+A documentation engine's version is one thing; a library whose behaviour the core
+**reproduces rather than imports** is another, and it does not appear in the matrix above.
+The core takes no runtime dependency on a documentation toolchain — it has to read a
+project it is not installed beside — so two functions reimplement someone else's slug:
+
+| Function | Reproduces | Characterised against |
+| :--- | :--- | :--- |
+| `core/validator.py` — `slug_heading()` | `markdown.extensions.toc`'s default `slugify` | `Markdown` `3.10.3` |
+| `core/validator.py` — `slug_tab_title()` | `pymdownx.slugs.slugify(case="lower")` | `pymdown-extensions` `11.0.1` |
+
+**There is no `just` recipe for these, and there does not need to be.**
+`tests/test_replicas_match_the_original.py` imports the real functions and asserts equality
+on every run, so it compares against **whatever the lock currently resolves** rather than
+against a recorded expectation. Bump the dependency and the test either passes — the
+reproduction still agrees — or fails with the input it disagreed on. That is the recipe:
+run the suite, and if it fails, fix the reproduction and update the version in the table on
+[`docs/reference/compatibility.md`](docs/reference/compatibility.md) with the date.
+
+There is deliberately no `importorskip` on that test: a check that disappears together with
+its subject is not a check. If the import fails, the dependency declaration is what is
+wrong.
+
+**What the comparison does not cover, and it is worth knowing before you trust a green
+run**: a project configuring `toc` with a *custom* slugify. The test exercises the default
+and the common `pymdownx` one, which is what the adapters can detect; a custom callable is
+outside what Zenzic can see from the configuration.
+
+**Two functions named `_slugify` are not on this list.** `core/rules.py`'s is a minimal
+normalisation used by `Z107` to compare a link's visible text against its own fragment —
+both sides pass through it, so it works by agreeing with itself, and its docstring records
+that it once *claimed* to be a renderer slug and was measured against `github-slugger` on
+nine real pairs, agreeing on none. `core/doctor.py`'s turns an ADR title into a filename.
+Neither reproduces anything external, so neither carries a version.
+
 ---
 
 ## Type Checking: `mypy` Is Authoritative
