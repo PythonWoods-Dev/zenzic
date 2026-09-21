@@ -947,3 +947,24 @@ html:has(.zz-tailwind-root) .md-header__source {
 .md-typeset .grid.cards.zz-pattern-pair {
   grid-template-columns: 1fr;
 }
+
+/* The hero title's four responsive size classes are all dead, and the reason is
+   specificity rather than load order: Material ships `.md-typeset h1 {font-size:
+   2em}` at 0-1-1, and a Tailwind utility is a single class at 0-1-0, so Material
+   wins wherever the landing page sits inside `.md-typeset`. Measured at 1424px:
+   the title rendered 40px while `lg:text-6xl` asks for 75px. The dimmed tone came
+   from the same rule -- `--md-default-fg-color--light` carries 82% alpha, which is
+   why the heading read as greyer than the paragraph beneath it.
+
+   Fluid rather than four breakpoint copies: restating Tailwind's scale here would
+   put the same numbers in two files, which is the duplication this codebase keeps
+   finding. `clamp()` expresses the intent once and needs no media query.
+
+   Six `h2` elements on the same page have the same conflict (40px against the 45px
+   their `md:text-4xl` asks for). They are deliberately NOT fixed here: seven
+   instances is a pattern, and the disposition belongs to an audit of which
+   extra.css and Material rules the Tailwind bundle now supersedes. */
+.zz-tailwind-root h1 {
+  font-size: clamp(2rem, 1.1rem + 3.2vw, 3.75rem);
+  line-height: 1.05;
+}
