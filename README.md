@@ -299,7 +299,7 @@ The same rule engine and finding codes run across every touchpoint, with one tra
 
 - **[Quick Start Tutorial](https://zenzic.dev/tutorials/first-audit/)**: Step-by-step introduction.
 - **[Finding Codes Catalog](https://zenzic.dev/reference/finding-codes/)**: Complete reference for every finding code, `Z0xx` through `Z9xx`.
-- **[Policy-as-Code Guide](https://zenzic.dev/how-to/configuration-strategy/)**: Enforce repository standards.
+- **[Policy-as-Code Settings](https://zenzic.dev/reference/configuration-reference/#policies-settings)**: Enforce repository standards.
 - **[Custom Rule SDK](https://zenzic.dev/developers/how-to/write-ast-rule/)**: Author deterministic, typed Python linting plugins.
 - **[CI/CD Configuration](https://zenzic.dev/how-to/configure-ci-cd/)**: Set up automated GitHub Actions pipelines.
 

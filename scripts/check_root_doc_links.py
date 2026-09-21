@@ -42,8 +42,12 @@ WHAT IT CANNOT
    not model that. It reports how many it skipped so the number is visible.
 2. **Whether the destination says what the link promises.** A 200 is a page that
    exists.
-3. **A third-party outage from a broken page.** This is why it is not in the
-   merge gate: measured on run 34860816951, nine github.com links timed out from
+3. **A third-party outage, or a host that refuses robots, from a broken page.**
+   Only `404` and `410` fail this check. Every other 4xx/5xx is reported as
+   *declined* and does not fail: measured, `opensource.org` answers `403` to
+   every programmatic client including one sending a browser User-Agent, and a
+   gate that stays red on something no edit can change is a gate people learn to
+   skip. This is also why it is not in the merge gate: measured on run 34860816951, nine github.com links timed out from
    a runner and left `#233` unmergeable. External checking is scheduled work
    here, triaged rather than blocking, and this runs beside
    `zenzic check links --strict` in `external-link-sweep.yml`.
@@ -57,6 +61,7 @@ import argparse
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -71,6 +76,34 @@ REPOSITORIES = ("zenzic", "zenzic-vscode", "zenzic-action", "zenzic-mcp")
 
 _LINK_RE = re.compile(r"\[[^\]]*\]\((https?://[^)\s]+)\)")
 _TIMEOUT = 15
+
+#: The site this project serves, and whose redirect table it owns.
+_OWN_SITE = "zenzic.dev"
+
+
+def _own_redirect_sources(root: Path) -> frozenset[str]:
+    """Source paths declared in this project's own `docs/_redirects`.
+
+    A redirect is not a defect, and a redirect this project can rewrite is not
+    the same risk as one somebody else can withdraw. The distinction is
+    available from evidence rather than from ownership of the host: a
+    `zenzic.dev` URL that moved *and* has an explicit entry in this file moved
+    because this repository said so.
+
+    Returns an empty set when the file is absent -- every redirect is then
+    reported as externally controlled, which is the safe direction: it
+    over-reports rather than declaring something controlled that is not.
+    """
+    path = root / "zenzic" / "docs" / "_redirects"
+    if not path.is_file():
+        return frozenset()
+    sources: set[str] = set()
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        sources.add(stripped.split()[0])
+    return frozenset(sources)
 
 
 def _urls_in(text: str) -> list[tuple[int, str]]:
@@ -105,7 +138,8 @@ def _status(url: str) -> tuple[int | None, str]:
             # only evidence it happened is that the final URL moved. Counting
             # `300 <= status < 400` could never fire -- a field that cannot vary
             # is not data.
-            return response.status, "" if response.geturl() == url else " (redirected)"
+            final = response.geturl()
+            return response.status, "" if final == url else f" (redirected -> {final})"
     except urllib.error.HTTPError as exc:
         # Some hosts refuse HEAD and serve GET, and they do not agree on which
         # status to refuse with. Measured 2026-09-21: the VS Code Marketplace
@@ -174,8 +208,11 @@ def main() -> int:
     root = Path(args.root).resolve() if args.root else here.parent
 
     broken: list[str] = []
-    checked = skipped_relative = redirected = 0
+    refused: list[str] = []
+    external_redirects: list[str] = []
+    checked = skipped_relative = own_redirects = 0
     scanned: list[str] = []
+    own_sources = _own_redirect_sources(root)
 
     for repo in REPOSITORIES:
         for name in ROOT_DOCS:
@@ -188,29 +225,73 @@ def main() -> int:
             for lineno, url in _urls_in(text):
                 checked += 1
                 status, note = _status(url)
-                if "(redirected)" in note:
-                    redirected += 1
+                if "(redirected" in note:
+                    parsed = urllib.parse.urlparse(url)
+                    if parsed.netloc == _OWN_SITE and parsed.path in own_sources:
+                        own_redirects += 1
+                    else:
+                        external_redirects.append(f"{repo}/{name}:{lineno}: {url}{note}")
                 if status is None:
-                    broken.append(f"{repo}/{name}:{lineno}: {url} -- unreachable{note}")
-                elif status >= 400:
+                    refused.append(f"{repo}/{name}:{lineno}: {url} -- unreachable{note}")
+                elif status in (404, 410):
+                    # The page is not there. Everything else in the 4xx/5xx
+                    # range is the host declining to answer *us*, which no edit
+                    # to this repository can fix. Measured 2026-09-21:
+                    # `opensource.org/licenses/Apache-2.0` answers 403 to every
+                    # programmatic client, browser User-Agent included. Failing
+                    # on it forever would teach a reader to ignore this gate,
+                    # which is the failure mode the codebase argues against
+                    # wherever a red that cannot be actioned appears.
                     broken.append(f"{repo}/{name}:{lineno}: {url} -- HTTP {status}{note}")
+                elif status >= 400:
+                    refused.append(f"{repo}/{name}:{lineno}: {url} -- HTTP {status}{note}")
 
     if not scanned:
         print(f"FAILED: no root documents found under {root} -- nothing was checked")
         return 1
 
+    # The redirect classification is printed whether or not something is broken.
+    # It was behind the early return, so a single unresolvable link hid the
+    # dependency picture for every other link in the sweep -- a report that
+    # tells you less the more there is wrong with it.
+    def _report_soft() -> None:
+        if refused:
+            print(f"  {len(refused)} link(s) the host declined to answer (not a missing page):")
+            for line in refused:
+                print(f"    {line}")
+
+    def _report_redirects() -> None:
+        print(
+            f"  {own_redirects} reach their page through a redirect this project declares in "
+            f"docs/_redirects ({len(own_sources)} entries) -- rewritable here if one breaks"
+        )
+        if external_redirects:
+            # Reported, not failed. A redirect that works is not a break; it is
+            # a dependency on somebody else continuing to serve it, which is the
+            # standing risk this repository already tracks for its renamed
+            # GitHub namespace. Naming them is what lets that row be measured
+            # instead of argued.
+            print(
+                f"  {len(external_redirects)} depend on a redirect this project does not control:"
+            )
+            for line in external_redirects:
+                print(f"    {line}")
+
     if broken:
         print(f"FAILED: {len(broken)} unresolvable link(s) in root documentation:")
         for line in broken:
             print(f"  {line}")
+        _report_soft()
+        _report_redirects()
         return 1
 
     print(
         f"root doc links: {checked} external link(s) across {len(scanned)} document(s) "
-        f"in {len(REPOSITORIES)} repositories, all resolve "
-        f"({redirected} of them only via a redirect); "
+        f"in {len(REPOSITORIES)} repositories, all resolve; "
         f"{skipped_relative} relative link(s) not checked"
     )
+    _report_soft()
+    _report_redirects()
     return 0
 
 
