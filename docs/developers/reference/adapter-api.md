@@ -120,9 +120,15 @@ documentation root. Used to detect orphan pages.
 
 #### `has_engine_config(self) -> bool`
 
-Returns `True` when a build-engine config was found and loaded. When `False`, the
-orphan check is skipped — with no nav information there is no reference set to
-compare the file list against.
+Returns `True` when a build-engine config was found and loaded.
+
+**Since v0.31.0 this answer is load-bearing.** `False` for an engine the user
+declared in `.zenzic.toml` raises [`Z111`](../../rules/Z111.md) from
+`get_adapter()` and the run stops; it previously substituted `StandaloneAdapter`
+and continued. `standalone` and `auto` are unaffected — nothing was declared.
+
+When `True`, the orphan check runs — with nav information there is a reference
+set to compare the file list against.
 
 #### `get_metadata_files(self) -> frozenset[str]`
 

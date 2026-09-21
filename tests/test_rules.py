@@ -433,9 +433,16 @@ def test_custom_rules_fire_regardless_of_engine(
     else:
         config = base_config
 
-    # For zensical engine, a zensical.toml must exist (factory enforcement contract).
+    # A declared engine must have its own configuration (factory enforcement
+    # contract). `zensical` was written this way from the start because its
+    # adapter always raised; `mkdocs` was not, because until 2026-09-21 the
+    # factory substituted StandaloneAdapter for it in silence -- so this
+    # parametrisation claimed three adapters and exercised two, running `auto`
+    # twice. Both are declared now, and the `mkdocs` leg tests MkdocsAdapter.
     if engine == "zensical":
         (repo / "zensical.toml").write_text("[site]\nname = 'Test'\n")
+    elif engine == "mkdocs":
+        (repo / "mkdocs.yml").write_text("site_name: Test\n")
 
     docs_root = repo / config.docs_dir
     mgr = make_mgr(config, repo_root=repo)

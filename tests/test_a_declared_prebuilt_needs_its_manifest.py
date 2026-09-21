@@ -155,26 +155,46 @@ def test_a_manifest_that_exists_is_not_this_error(tmp_path: Path) -> None:
 
 
 def test_the_editor_says_it_and_keeps_working(astro_without_manifest: Path) -> None:
-    """The language server has no channel to fail through."""
-    from zenzic.core.adapter import get_adapter
-    from zenzic.core.incremental import IncrementalAnalysisEngine
-    from zenzic.core.scanner import _build_rule_engine
-    from zenzic.models.config import ZenzicConfig
-    from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap
+    """The language server has no channel to fail through.
+
+    Driven through `LanguageServer`, not `IncrementalAnalysisEngine`.
+
+    It built the engine directly until 2026-09-21, and that is why it could not
+    see the defect it is written to cover. The server resolves the container
+    vocabulary *before* the engine exists, and that resolution builds an
+    adapter too: a declared `zensical` with no `zensical.toml` raised there and
+    the session published nothing at all, while this test went green against an
+    engine handed a working adapter. An editor test that never starts the
+    editor asserts the half that was never in doubt.
+
+    It reads what was published rather than the site map, because the
+    configuration diagnostic is attached to `.zenzic.toml`, which is not a
+    route.
+    """
+    import io
+    import json
+
+    from zenzic.lsp.server import LanguageServer
 
     project = astro_without_manifest
-    config, _ = ZenzicConfig.load(project)
-    docs_root = project / config.docs_dir
+    server = LanguageServer()
+    server.stdout = io.BytesIO()
+    server.repo_root = project
+    server._sync_workspace_and_publish()
 
-    engine = IncrementalAnalysisEngine(
-        config=config,
-        rule_engine=_build_rule_engine(config, containers=None),
-        adapter=get_adapter(config.build_context, docs_root, project),
-        docs_root=docs_root,
-        repo_root=project,
-    )
-    vsm = VirtualSiteMap()
-    results = engine.process_changes(vsm, VirtualBufferOverlay(vsm, tabs=None))
+    raw = server.stdout.getvalue().decode("utf-8")
+    codes: set[str] = set()
+    while True:
+        head = raw.find("\r\n\r\n")
+        if head == -1:
+            break
+        length = 0
+        for line in raw[:head].split("\r\n"):
+            if line.lower().startswith("content-length:"):
+                length = int(line.split(":", 1)[1])
+        message = json.loads(raw[head + 4 : head + 4 + length])
+        raw = raw[head + 4 + length :]
+        if message.get("method") == "textDocument/publishDiagnostics":
+            codes.update(d["code"] for d in message["params"]["diagnostics"])
 
-    codes = {d.code for diags in results.values() for d in diags}
     assert "Z111" in codes, f"the editor stayed silent; codes were {sorted(codes)}"

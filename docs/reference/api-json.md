@@ -71,26 +71,17 @@ All contract outputs above include these fields, always:
 | :--- | :--- | :--- |
 | `declared` | string | The engine named in `.zenzic.toml`, or `auto` |
 | `resolved` | string | The engine whose adapter produced the findings below |
-| `substituted` | boolean | `true` when the two differ |
-| `reason` | string | Present only when `substituted` is `true`: what was looked for and not found |
 
-The two can differ, and that is why this field exists. **A declared engine that finds none
-of its own configuration is replaced rather than defaulted**: the run continues with the
-standalone adapter and reports what *that* adapter reports. On a site whose pages are
-addressed by route rather than by file path, that is an order of magnitude more findings —
-and until v0.31.0 the only signal was a notice on standard error, which no CI consumer
-reads.
+The two differ only when you declared `auto`, which is discovery rather than substitution:
+`declared` is `auto` and `resolved` is whatever was found in the repository.
 
-**Gate on `substituted`** if your pipeline depends on the engine it configured:
+**A declared engine that finds none of its own configuration is a configuration error.**
+The run stops with [`Z111`](../rules/Z111.md) and exits `1` before reading a page, so there
+is nothing to gate on in the payload — the exit code is the gate:
 
 ```bash
-zenzic check all --format json | jq -e '.engine.substituted | not'
+zenzic check all --format json   # exit 1 and a Z111 payload if the engine is not there
 ```
-
-`substituted` is `false` on an ordinary run, including when `declared` is `auto` — auto
-resolution is discovery, not substitution. A declared `prebuilt` with no route manifest
-does not reach this field at all: since v0.31.0 that is a configuration error and the run
-stops before reading a page.
 
 The same object is carried by SARIF as a run-level property, described below.
 
@@ -275,10 +266,8 @@ and give one that reads them something the terminal could not deliver.
 ```json
 {
   "engine": {
-    "declared": "mkdocs",
-    "resolved": "standalone",
-    "substituted": true,
-    "reason": "no mkdocs.yml (or mkdocs.yaml) found"
+    "declared": "auto",
+    "resolved": "mkdocs"
   },
   "githubTruncation": {
     "resultCount": 15254,

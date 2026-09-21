@@ -370,7 +370,6 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "debt_status",
     }
     assert data["engine"]["resolved"] == "standalone"
-    assert data["engine"]["substituted"] is False
     assert data["findings"] == []
     assert data["security_breaches"] == 0
     assert data["security_incidents"] == 0

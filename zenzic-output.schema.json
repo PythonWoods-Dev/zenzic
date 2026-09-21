@@ -43,12 +43,12 @@
         "security_breaches": {
           "type": "integer",
           "minimum": 0,
-          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run \u2014 never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
+          "description": "Count of Z2xx security_breach-severity findings (Z201, Z204, Z205) in this run — never suppressible, Exit 2. Present so a JSON consumer can detect a breach without parsing link-error message text or relying solely on the process exit code."
         },
         "security_incidents": {
           "type": "integer",
           "minimum": 0,
-          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run \u2014 never suppressible, Exit 3."
+          "description": "Count of security_incident-severity findings (Z203 path traversal) in this run — never suppressible, Exit 3."
         },
         "suppression_count": {
           "type": "integer",
@@ -459,11 +459,10 @@
     },
     "engineResolution": {
       "type": "object",
-      "description": "Which build-engine adapter this run asked for and which one it used. Present because the two can differ: a declared engine that finds none of its own configuration is replaced by the standalone adapter, and before v0.31.0 the only signal was a notice on stderr, which no CI consumer reads. A consumer gating on `substituted` is asking whether the findings below describe the engine it configured.",
+      "description": "Which build-engine adapter this run asked for and which one it used. The two differ when `declared` is `auto`, which is discovery: `resolved` names what was found in the repository. A declared engine that finds none of its own configuration is a `Z111` configuration error and the run stops, so it is not reported here.",
       "required": [
         "declared",
-        "resolved",
-        "substituted"
+        "resolved"
       ],
       "additionalProperties": false,
       "properties": {
@@ -474,14 +473,6 @@
         "resolved": {
           "type": "string",
           "description": "The engine whose adapter actually produced these findings."
-        },
-        "substituted": {
-          "type": "boolean",
-          "description": "True when `resolved` differs from `declared` because the declared engine found no configuration."
-        },
-        "reason": {
-          "type": "string",
-          "description": "Present only when `substituted` is true: what was looked for and not found."
         }
       }
     }

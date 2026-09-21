@@ -40,7 +40,7 @@ An adapter answers questions for each docs tree through a single API surface:
 | `is_shadow_of_nav_page(rel, nav_paths)` | Is this file a locale mirror of a nav-listed page? |
 | `get_ignored_patterns()` | Which filename globs should the orphan check skip? |
 | `get_nav_paths()` | Which `.md` paths are listed in this engine's nav config? |
-| `has_engine_config()` | Was a build-engine config file found on disk? (Controls orphan check activation.) |
+| `has_engine_config()` | Was a build-engine config file found on disk? (**Returning `False` for a declared engine stops the run with `Z111`** — see below.) |
 | `provides_index(directory_path)` | Does this directory have an engine-provided landing page? (Controls `MISSING_DIRECTORY_INDEX` emission.) |
 
 ### URL Routing Mode (`use_directory_urls`)
@@ -123,8 +123,18 @@ class MyEngineAdapter(BaseAdapter):
     def has_engine_config(self) -> bool:
         """Return True when a build-engine config was found and loaded.
 
-        When False, the orphan check is skipped — with no nav information
-        there is no reference set to compare the file list against.
+        **This answer decides whether the run happens at all.** Since Zenzic
+        v0.31.0, returning False for an engine the user *declared* in
+        `.zenzic.toml` is a `Z111` configuration error: the run stops before
+        reading a page and names the file to create. It used to substitute
+        `StandaloneAdapter` and print a notice on stderr, which meant a user
+        got a full report from an engine they had not asked for.
+
+        Nothing is stopped when the user declared `standalone` or `auto`,
+        because nothing was declared to be broken.
+
+        When True, the orphan check runs: with nav information there is a
+        reference set to compare the file list against.
 
         Return True if your adapter successfully loaded a config file.
         Return False only if no engine config exists (bare/standalone mode).
@@ -386,7 +396,15 @@ incorrect results:
 
     The `anchors_cache` argument is read-only; do not mutate it.
 
-9. `has_engine_config()` must never raise — return `False` on any failure.
+9. `has_engine_config()` must never raise.
+
+    **Do not return `False` to swallow a transient failure.** Since v0.31.0 a
+    `False` from a declared engine stops the run with `Z111`, so an unreadable
+    file or a momentary I/O error reported that way becomes a hard failure the
+    user cannot distinguish from a missing configuration. Answer the question
+    the method asks — *is the engine configuration present?* — and let a genuine
+    parse failure raise `ZenzicConfigError`, which the factory propagates
+    unchanged with its own message.
 10. `provides_index(directory_path)` **is the only method permitted to do I/O**.
 
     It is called once per directory during the discovery phase — never inside

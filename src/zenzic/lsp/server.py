@@ -17,9 +17,11 @@ from zenzic import __version__
 from zenzic.core import regex as re
 from zenzic.core.adapters import BaseAdapter, get_adapter, resolve_content_roots
 from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
+from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.core.exclusion import LayeredExclusionManager, build_exclusion_manager
 from zenzic.core.extensions import tab_anchor_style
 from zenzic.core.incremental import IncrementalAnalysisEngine
+from zenzic.core.regex import RegexPattern
 from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.scanner import _build_rule_engine, resolve_container_vocabulary
 from zenzic.lsp.documents import DocumentManager
@@ -246,8 +248,86 @@ class LanguageServer:
         -- diagnostics on generated files that CI says nothing about.
         """
         if self.adapter is None:
-            self.adapter = get_adapter(config.build_context, docs_root, repo_root)
+            try:
+                self.adapter = get_adapter(config.build_context, docs_root, repo_root)
+            except ZenzicConfigError:
+                # The other construction point, and the same decision as
+                # `_resolve_containers`: a declared `zensical`/`mkdocs` whose
+                # configuration file is absent raises here too, and an
+                # exception escaping this method takes the session dark. The
+                # substitution is what the CLI declines to make and reports;
+                # here it is what keeps the author's diagnostics on screen
+                # while `Z111` says the run is not the one they asked for.
+                from zenzic.core.adapters._standalone import StandaloneAdapter
+
+                self.adapter = StandaloneAdapter()
         return self.adapter
+
+    def _load_config(self, repo_root: Path) -> ZenzicConfig:
+        """This session's configuration, or the built-in defaults.
+
+        The third construction point, hoisted for the same reason as
+        `_ensure_adapter` and `_resolve_containers`: five sites loaded the
+        configuration and every one of them let `ZenzicConfigError` escape.
+
+        A file that will not parse is where the CLI stops, correctly -- there
+        is nothing to run with. The editor has no such channel, and measured
+        2026-09-21 the exception escaped into ``serve()``'s handler and the
+        session published **zero** diagnostics, on a repository whose
+        `docs/page.md` held an `AKIA` credential. A security-tier finding, gone
+        from the screen because a bracket was missing in `pyproject.toml`.
+
+        `test_lsp_protocol_robustness.TestAConfigErrorDoesNotBlankTheWorkspace`
+        has asserted the opposite since it was written. It builds
+        `IncrementalAnalysisEngine` directly and hands it a default
+        `ZenzicConfig()`, so the configuration error never reached the code
+        that blanks the workspace -- the same reason the engine-level test for
+        a missing manifest could not see the declared-engine defect.
+
+        The defaults are not silent: `IncrementalAnalysisEngine` reports the
+        unparseable file as `Z110`, which is how the session says that what is
+        on screen is not what CI will read.
+        """
+        try:
+            config, _ = ZenzicConfig.load(repo_root)
+        except ZenzicConfigError:
+            return ZenzicConfig()
+        return config
+
+    def _resolve_containers(self) -> RegexPattern | None:
+        """The container vocabulary for this session, or the declared default.
+
+        The editor must agree with the CLI about what is inside a container: a
+        vocabulary resolved differently here would make a diagnostic appear in
+        one and not the other. Hoisted out of the three places that spelled
+        this out identically, comment included.
+
+        ``None`` -- the declared default -- in two cases, both reached by an
+        explicit branch rather than by an exception escaping:
+
+        * No workspace. ``_resolve_docs_root()`` raises without one, and a file
+          opened outside any project has no ``markdown_extensions`` to read.
+
+        * A declared config-driven engine whose configuration file is absent.
+          ``resolve_container_vocabulary`` builds the adapter to read those
+          extensions, and `zensical`/`mkdocs` raise there rather than
+          substituting. The CLI wants that and exits 1; this has no channel to
+          fail through, and before 2026-09-21 the exception escaped into
+          ``serve()``'s handler and the session published nothing at all --
+          measured, zero diagnostics on a file the CLI flags, one ``ZLS Error``
+          line on stderr. The session continues on the declared default and
+          ``IncrementalAnalysisEngine`` reports the configuration error as
+          ``Z111``, which is where the same decision is already made for a
+          missing ``docs_dir`` and a missing route manifest.
+        """
+        if self.repo_root is None or self.config is None:
+            return None
+        try:
+            return resolve_container_vocabulary(
+                self.config, self._resolve_docs_root(), self.repo_root
+            )
+        except ZenzicConfigError:
+            return None
 
     def _resolve_docs_root(self) -> Path:
         """Resolve docs_root with fallback to repo_root when docs/ doesn't exist.
@@ -281,26 +361,12 @@ class LanguageServer:
             return
 
         if not self.config:
-            self.config, _ = ZenzicConfig.load(self.repo_root)
+            self.config = self._load_config(self.repo_root)
 
         if not self.rule_engine:
             self.rule_engine = _build_rule_engine(
                 self.config,
-                # The editor must agree with the CLI about what is inside a
-                # container: a vocabulary resolved differently here would make
-                # a diagnostic appear in one and not the other.
-                #
-                # `None` when there is no workspace: `_resolve_docs_root()`
-                # raises without one, and a file opened outside any project has
-                # no `markdown_extensions` to read. The declared default is the
-                # only answer, and it is reached by an explicit branch.
-                containers=(
-                    resolve_container_vocabulary(
-                        self.config, self._resolve_docs_root(), self.repo_root
-                    )
-                    if self.repo_root is not None and self.config is not None
-                    else None
-                ),
+                containers=self._resolve_containers(),
             )
 
         docs_root = self._resolve_docs_root()
@@ -398,7 +464,7 @@ class LanguageServer:
 
         try:
             if not self.config:
-                self.config, _ = ZenzicConfig.load(self.repo_root)
+                self.config = self._load_config(self.repo_root)
 
             docs_root = self._resolve_docs_root()
 
@@ -527,7 +593,7 @@ class LanguageServer:
 
             clear_adapter_cache()
             if self.repo_root:
-                self.config, _ = ZenzicConfig.load(self.repo_root)
+                self.config = self._load_config(self.repo_root)
             else:
                 self.config = ZenzicConfig()
             self.exclusion_mgr = None
@@ -665,24 +731,10 @@ class LanguageServer:
 
             # Eagerly initialize configuration and engine on 'initialize'
             if self.repo_root and not self.config:
-                self.config, _ = ZenzicConfig.load(self.repo_root)
+                self.config = self._load_config(self.repo_root)
                 self.rule_engine = _build_rule_engine(
                     self.config,
-                    # The editor must agree with the CLI about what is inside a
-                    # container: a vocabulary resolved differently here would make
-                    # a diagnostic appear in one and not the other.
-                    #
-                    # `None` when there is no workspace: `_resolve_docs_root()`
-                    # raises without one, and a file opened outside any project has
-                    # no `markdown_extensions` to read. The declared default is the
-                    # only answer, and it is reached by an explicit branch.
-                    containers=(
-                        resolve_container_vocabulary(
-                            self.config, self._resolve_docs_root(), self.repo_root
-                        )
-                        if self.repo_root is not None and self.config is not None
-                        else None
-                    ),
+                    containers=self._resolve_containers(),
                 )
 
         elif method == "initialized":
@@ -845,27 +897,13 @@ class LanguageServer:
 
         if not self.config:
             if self.repo_root:
-                self.config, _ = ZenzicConfig.load(self.repo_root)
+                self.config = self._load_config(self.repo_root)
             else:
                 self.config = ZenzicConfig()
         if not self.rule_engine:
             self.rule_engine = _build_rule_engine(
                 self.config,
-                # The editor must agree with the CLI about what is inside a
-                # container: a vocabulary resolved differently here would make
-                # a diagnostic appear in one and not the other.
-                #
-                # `None` when there is no workspace: `_resolve_docs_root()`
-                # raises without one, and a file opened outside any project has
-                # no `markdown_extensions` to read. The declared default is the
-                # only answer, and it is reached by an explicit branch.
-                containers=(
-                    resolve_container_vocabulary(
-                        self.config, self._resolve_docs_root(), self.repo_root
-                    )
-                    if self.repo_root is not None and self.config is not None
-                    else None
-                ),
+                containers=self._resolve_containers(),
             )
 
         docs_root = self._resolve_docs_root() if self.repo_root else Path("/_zenzic_virtual")

@@ -18,7 +18,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 from zenzic.core.adapters._factory import clear_adapter_cache, get_adapter
+from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.models.config import BuildContext
 
 
@@ -78,11 +81,17 @@ def test_deleting_a_watched_config_file_invalidates(tmp_path: Path) -> None:
     clear_adapter_cache()
     repo_root, docs_root = _make_repo(tmp_path, use_directory_urls=True)
 
-    first = get_adapter(BuildContext(engine="mkdocs"), docs_root, repo_root)
+    get_adapter(BuildContext(engine="mkdocs"), docs_root, repo_root)
     (repo_root / "mkdocs.yml").unlink()
 
-    second = get_adapter(BuildContext(engine="mkdocs"), docs_root, repo_root)
-    assert second is not first
+    # The cache noticing the deletion is what this covers, and since 2026-09-21
+    # the way it says so changed: a declared engine with no configuration is a
+    # `Z111` rather than a substituted StandaloneAdapter, so the evidence of
+    # invalidation is the raise. A *cached* adapter would have been returned
+    # without one.
+    with pytest.raises(ZenzicConfigError) as excinfo:
+        get_adapter(BuildContext(engine="mkdocs"), docs_root, repo_root)
+    assert excinfo.value.code == "Z111"
 
 
 def test_adapter_with_no_watched_files_is_still_cached(tmp_path: Path) -> None:

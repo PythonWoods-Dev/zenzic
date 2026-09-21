@@ -58,10 +58,6 @@ CORPUS = (
     "z503-snippet-error",  # snippets[]
     "z406-nav-contract",  # nav_contract[]
     "z120-unknown-html-attr",  # the example the original test used
-    # `engine.reason` is emitted only when an engine is substituted, so
-    # without a fixture in that state the schema declares a field the corpus
-    # never produces -- which is what this test reported when `engine` shipped.
-    "engine-substitution",  # engine.declared/resolved/substituted/reason
 )
 
 #: A security fixture, for the `score` fields that only appear when there is a

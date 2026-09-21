@@ -27,7 +27,8 @@ finding it was not showing, used to exit `0`. Item 31 adds one finding, `Z115`, 
 statement the tool printed about its own configuration, and item 34 adds findings in
 locale and content-root trees that were never checked at all. Item 35 changes what
 `zenzic audit` scans and when it fails. Item 36 turns a silent substitution into an
-error, and items 37 and 38 change what the machine formats carry when a run fails at
+error for **every** declared engine, which is the item most likely to fail a corpus that
+passes today, and items 37 and 38 change what the machine formats carry when a run fails at
 configuration. Item 39 adds a flag and changes nothing until it is passed, but it is
 listed here because this project's own badge gate now passes it. Item 40 changes three printed
 paths on Windows only. Item 41 removes editor diagnostics on
@@ -448,7 +449,8 @@ source**) and ran without the `docs_dir` path-traversal guard the factory applie
 `zenzic audit` from a subdirectory, or over a project whose `docs_dir` is wrong**, its answers
 change — to the ones the rest of the CLI was already giving.
 
-**36. A declared `prebuilt` with no route manifest is now a configuration error.** It used to
+**36. A declared engine that cannot find its own configuration is now a configuration error —
+`prebuilt`, `vsm`, `mkdocs` and `zensical` alike.** It used to
 fall back to `standalone` and analyse anyway. Measured on Astro's own documentation — 2,604
 pages, one commit — that fallback produced **the same total, the same distribution and the same
 exit code** as declaring `standalone` outright: the engine you asked for did not run, and the
@@ -457,9 +459,23 @@ three codes, all derived from routing that was never resolved. **If you declare 
 "prebuilt"`**, the run now stops before reading a page, names the generator it detected, says
 how that generator's manifest is derived, links the page that explains it, and names
 `standalone` as the way out. A manifest that **exists** and is empty is a different statement
-and is unaffected — that is `Z115` per source. The error is identical on `check`, `audit`,
-`guard scan` and the action's step log; the language server, which cannot exit, publishes it as
-a diagnostic on the configuration file and keeps analysing.
+and is unaffected — that is `Z115` per source.
+
+**The same now holds for every declared engine, and `mkdocs` is the one most likely to affect
+you.** `engine = "mkdocs"` with no `mkdocs.yml` or `mkdocs.yaml` beside it used to substitute
+the standalone adapter and print the same unread stderr notice; it now stops and names the file
+to create. `zensical` already stopped, but reported itself as the generic `Z001` in the JSON
+payload — it is `Z111` now, which is the code its own reference page documents. **If a project
+of yours declares an engine whose configuration file is not in the repository, it passes today
+and will exit `1` after upgrading.** Either add the file, or declare `engine = "standalone"`,
+which is what that run was already doing.
+
+`engine = "auto"` and `engine = "standalone"` are unaffected: nothing was declared, so falling
+back is the answer you asked for.
+
+The error is identical on `check`, `audit`, `guard scan`, `inspect routes`, `clean assets`,
+`config explain`, `score` and the action's step log; the language server, which cannot exit,
+publishes it as a diagnostic on the configuration file and keeps analysing.
 
 **37. A configuration failure now reaches a SARIF consumer.** The run emitted the error as a
 `toolExecutionNotification` with `executionSuccessful: false` — correct SARIF, and invisible to
@@ -511,11 +527,11 @@ which mode produced it.
 
 **42. The JSON payload and the SARIF run now say which engine actually ran.**
 
-*What you will see:* a new top-level `engine` object in `check all --format json`, and the same object as a run-level property in `--format sarif`. It carries `declared`, `resolved`, `substituted` and — only when `substituted` is true — `reason`. Nothing was renamed or repurposed to make room for it; `zenzic-output.schema.json` declares it.
+*What you will see:* a new top-level `engine` object in `check all --format json`, and the same object as a run-level property in `--format sarif`. It carries `declared` and `resolved`. Nothing was renamed or repurposed to make room for it; `zenzic-output.schema.json` declares it.
 
-*Why:* a declared engine that finds none of its own configuration is **replaced**, not defaulted, and the run then reports what the standalone adapter reports. Measured on 2,604 Astro pages, a declared `prebuilt` with no manifest produced a run byte-identical to declaring `standalone` outright — same total, same distribution, same exit code. The only signal was a notice on stderr, and **stderr reaches no CI consumer**: a pipeline saw a clean payload and no indication that the engine it configured was not the engine that ran.
+*Why:* a run should say which adapter produced its findings. `declared` and `resolved` differ when you declare `auto`, which is discovery: `resolved` names what was found in the repository.
 
-*What to do:* gate on it if your pipeline depends on the engine it configured — `jq -e '.engine.substituted | not'`. `substituted` is `false` on an ordinary run, `auto` included: auto resolution is discovery, not substitution.
+*What to do:* nothing. If the engine you declared cannot be built, the run stops with `Z111` and exits `1` (item 36), so there is no payload state to gate on — the exit code is the gate.
 
 **43. A SARIF file larger than GitHub will show now says so.**
 
@@ -797,6 +813,16 @@ which mode produced it.
   - Both pages read in full and classified as internal design-system/marketing material (a CSS-token consumption contract for the site's own components, an "A/B Palette Profile" cosmetic toggle, a lexicon/posture style guide, logo-symbolism prose, a palette-design-rationale essay) — zero operational content a third-party user or contributor would actually need. Real external comparables fetched before deciding: `eslint.org/branding/` and HashiCorp's product-logo brand page are both pure trademark/logo-usage references (naming convention, logo sizing, reference-only hex values) — no posture narrative, no symbolic-meaning essay, no design-token consumption guide; Prometheus, ruff, and ffmpeg have no dedicated brand page at all. Both pages deleted; `mkdocs.yml` nav entries removed; `how-to/index.md`'s "Brand Governance System" card removed (its own description — "Configure brand term dictionaries and eradicate obsolete product naming conventions" — didn't even match the real page content, a further confirmation the card had drifted from reality); `community-index.md`'s "Philosophy" card retargeted from `brand-philosophy.md` to `explanation/why-zenzic.md`, a real page that actually covers Zenzic's design philosophy and direction. `docs/_redirects`: 4 existing historical-variant lines for `use-brand-system` retargeted to `/how-to/add-badges/` — the real, already-existing, complete "add a build/score badge to your README" page, since `use-brand-system.md` never contained any badge-related content to begin with; 4 existing historical-variant lines for `brand-philosophy` retargeted to `/explanation/why-zenzic/`; 2 new bare-canonical-URL lines added for each deleted page. **Second-order consequence found and fixed in the same pass**: `use-brand-system.md`'s own text described its font/logo/favicon link list as existing specifically to keep those real, CSS/template-consumed theme assets out of `Z405` (`UNUSED_ASSET`) — deleting the page surfaced exactly the 30 `Z405` findings its own text predicted, live-confirmed via `zenzic check all --show-info` before the fix. Added `excluded_asset_dirs = ["overrides", "brand", "fonts"]` (preserving the pre-existing `"overrides"` default, which a bare list reassignment would otherwise have silently dropped) and `excluded_assets = ["favicon.ico"]` to the root `.zenzic.toml`, replacing the deleted page's incidental markdown-link-anchoring with the same real exclusion mechanism `configure-social-metadata.md` already documents for the same class of problem. `just check` (98/100, 0 new) and `mkdocs build --strict` both clean after the fix. Full `pytest tests/` suite unaffected (2118 passed).
 
 ### Fixed
+
+- **A configuration file that will not parse no longer blanks the editor — including its credential findings.** `ZenzicConfig.load()` raises on malformed TOML, which is what `zenzic check` wants: there is nothing to run with. The language server loaded the configuration at **five** sites and let that exception escape at every one. Measured 2026-09-21 on a repository whose `pyproject.toml` was missing a bracket, with an `AKIA` credential in `docs/page.md`: the session published **zero** diagnostics. A security-tier finding, off the screen because of a typo in a file that is not the one being edited. The session now keeps the built-in defaults, reports the credential, and publishes `Z110` on the file that will not parse — so the author knows the run is not the one CI will make. The same holds when the file is broken *while* the editor is open: the hot-reload path is one of the five.
+
+    **The test that was meant to cover this was green throughout.** `TestAConfigErrorDoesNotBlankTheWorkspace` built `IncrementalAnalysisEngine` directly and handed it a default `ZenzicConfig()`, so the configuration error never reached the code that blanks a workspace. It is renamed to what it actually covers, and the workspace claim now drives the server.
+
+- **The editor no longer goes dark when a declared `zensical` has no `zensical.toml`.** `mkdocs` and `zensical` are config-driven: their adapter raises when its configuration file is absent, which is what `zenzic check` wants — it exits `1` and names the file. The language server calls the same factory through `resolve_container_vocabulary`, *upstream of the analysis engine*, and inherited a failure it has no channel for. Measured on a repository declaring `engine = "zensical"` with no `zensical.toml`: the server answered `initialize` and then published **zero diagnostics** for a file the CLI flags, its only trace one `ZLS Error` line on stderr. The session now degrades to `standalone`, publishes the author's diagnostics, and reports the configuration error as `Z111` against `.zenzic.toml` — the same decision already made for a missing `docs_dir` and a missing route manifest, and the one `_resolve_docs_root` documents as the editor's rule.
+
+    **The engine-level test for the manifest case could not have caught it.** It constructs `IncrementalAnalysisEngine` directly; the exception was raised while the *rule engine* was being built, before any analysis engine existed. The new tests drive the server.
+
+    **The editor's `Z111` was printed twice, and that was older than this change.** `manifest_missing_error` carries the `[Z111]` marker in its message because the CLI shows the raw text and has nowhere else to name the code, and `RuleFinding` prepends the code as well — so the editor read `[Z111] [Z111] engine = ...`, on `HEAD` before any of this. The message keeps its marker for the CLI and the structured consumer drops it. The same diagnostic also carried `ZenzicError`'s context dict, which put an absolute repository path into a message attached to that repository's own configuration file.
 
 - **Prose inside an HTML block is scanned again when a blank line separates it from the tag.** CommonMark §4.6 ends a type-6 HTML block at the **first blank line**; the engine ended it at the matching close tag, so everything between the two was hidden from the sentence-length rule. Measured on this repository's own documentation: **139 of 141 HTML blocks** have that shape, and the fix makes **3,620 lines across 85 files** visible again with **zero** newly hidden. `pre`, `script`, `style` and `textarea` keep running to their closing tag — §4.6's own exception, because a blank line inside one means nothing.
 

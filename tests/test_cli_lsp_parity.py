@@ -26,8 +26,9 @@ from typer.testing import CliRunner
 
 from zenzic.core.adapters import get_adapter
 from zenzic.core.codes import CODE_DEFINITIONS, code_severity
+from zenzic.core.extensions import tab_anchor_style
 from zenzic.core.incremental import IncrementalAnalysisEngine
-from zenzic.core.scanner import _build_rule_engine
+from zenzic.core.scanner import _build_rule_engine, resolve_container_vocabulary
 from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.vsm import VirtualBufferOverlay, build_vsm
@@ -166,7 +167,20 @@ def _cli_sarif_rule_ids(repo_root: Path) -> list[str]:
 def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
     """Run the IncrementalAnalysisEngine path (LSP/zenzic-mcp's shared primitive) directly."""
     config, _ = ZenzicConfig.load(repo_root)
-    rule_engine = _build_rule_engine(config, containers=None)
+    # The container vocabulary the way the language server resolves it
+    # (`LanguageServer._resolve_containers`), not the declared default.
+    #
+    # The VSM below was corrected for exactly this reason and this input was
+    # left behind. `containers=None` is `_default_containers()`, which is the
+    # pattern for all four container-bearing extensions; the server passes what
+    # *this project* enables. Measured 2026-09-21: a project enabling only
+    # `admonition` resolves a 43-character pattern where the default is 97, so
+    # a harness passing `None` compares the CLI against a configuration the
+    # editor never has. No output divergence was reproducible with the rules
+    # available that day -- this closes the input, before one becomes so.
+    rule_engine = _build_rule_engine(
+        config, containers=resolve_container_vocabulary(config, docs_root, repo_root)
+    )
     assert rule_engine is not None
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     # Build the VSM the way the language server does (server.py:288). A bare
@@ -187,7 +201,10 @@ def _lsp_engine_rule_ids(repo_root: Path, docs_root: Path) -> list[str]:
         extra_mounts=[],
         static_assets=set(),
     )
-    overlay = VirtualBufferOverlay(vsm, tabs=None)
+    # And the tab style the same way (`server.py`'s overlay construction): both
+    # read it from the adapter, because whether a link to a content tab
+    # resolves is decided by it.
+    overlay = VirtualBufferOverlay(vsm, tabs=tab_anchor_style(adapter.get_enabled_extensions()))
     engine = IncrementalAnalysisEngine(
         config=config,
         rule_engine=rule_engine,
@@ -312,12 +329,16 @@ def test_both_paths_detect_the_same_cycle_even_though_only_one_may_show_it(
     )
     engine = IncrementalAnalysisEngine(
         config=config,
-        rule_engine=_build_rule_engine(config, containers=None),
+        rule_engine=_build_rule_engine(
+            config, containers=resolve_container_vocabulary(config, docs, tmp_path)
+        ),
         adapter=adapter,
         docs_root=docs,
         repo_root=tmp_path,
     )
-    engine.process_changes(vsm, VirtualBufferOverlay(vsm, tabs=None))
+    engine.process_changes(
+        vsm, VirtualBufferOverlay(vsm, tabs=tab_anchor_style(adapter.get_enabled_extensions()))
+    )
     assert getattr(engine, "_cycle_urls", set()) == {"/", "/other/"}, (
         "the editor path did not detect the cycle the CLI reports: "
         f"{getattr(engine, '_cycle_urls', None)}"

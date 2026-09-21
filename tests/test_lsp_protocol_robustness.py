@@ -165,7 +165,23 @@ class TestEveryRequestIsAnswered:
         assert _frames(out) == []
 
 
-class TestAConfigErrorDoesNotBlankTheWorkspace:
+class TestTheEngineKeepsAnalysingOnDefaults:
+    """What `IncrementalAnalysisEngine` does when handed the built-in defaults.
+
+    It was `TestAConfigErrorDoesNotBlankTheWorkspace`, and that name claimed
+    more than the test does. It constructs the engine directly and gives it a
+    default `ZenzicConfig()` -- so the configuration error never reaches the
+    code that blanks a workspace, which is `LanguageServer`, five load sites
+    up. Measured 2026-09-21: on this very fixture the real server raised out of
+    `ZenzicConfig.load()` and published **zero** diagnostics, credential
+    included, while this test was green.
+
+    What it covers is real and worth keeping: given the defaults, the engine
+    still reports. The workspace claim now lives where it can be falsified, in
+    `test_a_broken_config_does_not_blank_the_editor.py`, which drives the
+    server.
+    """
+
     def test_a_credential_still_reports_while_the_config_is_broken(self, tmp_path: Path) -> None:
         from zenzic.core.adapters import get_adapter
         from zenzic.core.incremental import IncrementalAnalysisEngine

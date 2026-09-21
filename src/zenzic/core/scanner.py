@@ -1856,14 +1856,25 @@ def resolve_container_vocabulary(
         if repo_root is not None
         else find_repo_root(fallback_to_cwd=True, search_from=docs_root)
     )
-    # No guard around this call. Measured 2026-09-18 on a repository declaring
-    # `engine = "zensical"` with no `zensical.toml`: the error surfaces before
-    # this line on every path. Each CLI entry point builds its own adapter first
-    # (`_check.py`, `_audit.py`, `_guard.py`, `_inspect.py`, `_clean.py`) and
-    # reports it there -- exit 1, no traceback. The library path raises from the
-    # pre-existing `get_adapter` in `_run_vsm_and_urp_pass`, and did so before
-    # this resolution existed. A `try/except` here would have been a branch no
-    # measured path can reach.
+    # No guard around this call, and the caller decides what that means.
+    #
+    # On the CLI it is correct to raise: `_check`, `_audit`, `_guard`,
+    # `_inspect`, `_clean`, `config explain` and `lab` each build their own
+    # adapter first and report the configuration error there -- exit 1, no
+    # traceback -- and the library path raises from the pre-existing
+    # `get_adapter` in `_run_vsm_and_urp_pass`.
+    #
+    # It said "on every path" until 2026-09-21, and it was wrong: the language
+    # server calls this from three places and has no channel to fail through.
+    # Measured on a repository declaring `engine = "zensical"` with no
+    # `zensical.toml`, the exception escaped into `serve()`'s handler and the
+    # session published zero diagnostics for a file the CLI flags. The guard is
+    # at that caller -- `LanguageServer._resolve_containers` -- because it is
+    # the caller whose answer differs, not this resolution.
+    #
+    # The enumeration was also short by two entry points at the time it was
+    # written. Both errors are the same one: a claim about every caller,
+    # checked against the callers that came to mind.
     enabled = get_adapter(config.build_context, docs_root, root).get_enabled_extensions()
     return container_pattern(enabled)
 

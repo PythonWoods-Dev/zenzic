@@ -1,6 +1,17 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""The engine-substitution notice must describe the run it is printed in.
+"""What a run says about its own engine must describe the run it says it in.
+
+**The notice this file was written against no longer exists.** On 2026-09-21 a
+declared engine with no configuration became a `Z111` error rather than a
+substitution with a notice, so the assertions here read `Z111` where they read
+the notice text. The two defects below are what the file is *for*, and both are
+still reachable: the first through the adapter a security-only pass builds, the
+second through `_zenzic_declared_engine`. The control at the bottom is what
+kept the other two from becoming vacuous when the notice went away.
+
+Original heading, kept because the measurement is the reason the file exists:
+The engine-substitution notice must describe the run it is printed in.
 
 Measured on this repository on 2026-09-19: `zenzic check all` printed
 
@@ -89,8 +100,9 @@ def test_a_declared_engine_whose_config_is_present_is_not_announced_as_replaced(
     """`mkdocs.yml` is in the root and the engine is declared. Nothing was replaced."""
     out = _run(_project(tmp_path, engine="mkdocs", mkdocs_yml=True))
 
-    assert "found no mkdocs.yml" not in out.stderr, (
-        f"the run announced a substitution that did not happen:\n{out.stderr}"
+    assert "Z111" not in out.stdout + out.stderr, (
+        f"the run reported a configuration error against a configuration that is there:"
+        f"\n{out.stdout}\n{out.stderr}"
     )
 
 
@@ -103,21 +115,30 @@ def test_an_undeclared_engine_is_never_announced_as_replaced(tmp_path: Path) -> 
     """
     out = _run(_project(tmp_path, engine=None, mkdocs_yml=True))
 
-    assert "found no" not in out.stderr, (
-        f"a project that declared no engine was told its engine was replaced:\n{out.stderr}"
+    assert "Z111" not in out.stdout + out.stderr, (
+        f"a project that declared no engine was refused for not having one:"
+        f"\n{out.stdout}\n{out.stderr}"
     )
 
 
-def test_a_declared_engine_with_no_configuration_is_still_announced(tmp_path: Path) -> None:
-    """The control: the notice must still fire where it is true.
+def test_a_declared_engine_with_no_configuration_is_still_refused(tmp_path: Path) -> None:
+    """The control: the run must still stop where the declaration is unmet.
 
-    Without this, the two tests above pass by deleting the notice entirely.
+    Without this, the two tests above pass by saying nothing at all -- and on
+    2026-09-21 that is exactly what happened. The notice they were written
+    against was deleted, deliberately, when a declared engine with no
+    configuration became a `Z111` error rather than a substitution. This test
+    was the only thing standing between that change and two assertions that
+    hold vacuously; it is re-pointed at the error, and it keeps that job.
     """
     out = _run(_project(tmp_path, engine="mkdocs", mkdocs_yml=False))
 
-    assert "found no mkdocs.yml" in out.stderr, (
-        f"a declared engine with no configuration was replaced in silence:\n{out.stderr}"
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert "Z111" in out.stdout + out.stderr, (
+        f"a declared engine with no configuration was accepted in silence:"
+        f"\n{out.stdout}\n{out.stderr}"
     )
+    assert "mkdocs.yml" in out.stdout + out.stderr, "the error does not name the file to create"
 
 
 def test_the_declaration_survives_the_auto_resolution(tmp_path: Path) -> None:

@@ -47,7 +47,7 @@ from zenzic.core.adapters._utils import (
     case_sensitive_exists,
     remap_to_default_locale,
 )
-from zenzic.core.exceptions import ZenzicConfigError
+from zenzic.core.exceptions import config_error_z111
 from zenzic.models.config import BuildContext
 
 
@@ -585,8 +585,8 @@ class ZensicalAdapter(BaseAdapter):
                 config_source="mkdocs",
             )
 
-        raise ZenzicConfigError(
-            "engine 'zensical' declared in .zenzic.toml but no configuration file was found",
+        raise config_error_z111(
+            "[Z111] engine 'zensical' declared in .zenzic.toml but no configuration file was found",
             context={
                 "repo_root": str(repo_root),
                 "hint": "create zensical.toml (or provide mkdocs.yml as compat input)",

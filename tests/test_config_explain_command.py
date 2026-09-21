@@ -35,6 +35,11 @@ def test_explain_global_override_shows_global_source(tmp_path: Path) -> None:
         'docs_dir = "documentation"\nfail_under = 90\n\n[build_context]\nengine = "mkdocs"\n',
         encoding="utf-8",
     )
+    # Declared, so it must be there: since 2026-09-21 `config explain` builds
+    # the adapter to print the exclusion layers, and a declared engine with no
+    # configuration is a `Z111` before any table is rendered. This test is
+    # about where a value came from, not about the engine.
+    (tmp_path / "mkdocs.yml").write_text("site_name: Fixture\n", encoding="utf-8")
 
     result = runner.invoke(app, ["config", "explain", "--path", str(tmp_path)])
 

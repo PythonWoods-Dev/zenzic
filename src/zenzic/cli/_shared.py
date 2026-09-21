@@ -359,10 +359,10 @@ def _engine_payload(repo_root: Path, docs_root: Path, config: ZenzicConfig) -> d
     try:
         adapter = get_adapter(config.build_context, docs_root, repo_root)
     except Exception:
-        return {"declared": declared, "resolved": declared, "substituted": False}
+        return {"declared": declared, "resolved": declared}
     resolution = getattr(adapter, "zenzic_resolution", None)
     if resolution is None:
-        return {"declared": declared, "resolved": declared, "substituted": False}
+        return {"declared": declared, "resolved": declared}
     payload: dict[str, object] = resolution.as_payload()
     return payload
 
@@ -873,9 +873,9 @@ def _z111(message: str) -> ZenzicConfigError:
     action's wrapper reads. `tier` and `severity` are pinned to the values that
     path already produced, so this corrects the identifier and nothing else.
     """
-    exc = ZenzicConfigError(message, context={"tier": "Core", "severity": "fatal"})
-    exc.code = "Z111"
-    return exc
+    from zenzic.core.exceptions import config_error_z111
+
+    return config_error_z111(message)
 
 
 def docs_dir_missing_error(
@@ -975,6 +975,76 @@ def manifest_missing_error(config: Any, repo_root: Path) -> ZenzicConfigError | 
         "#prebuilt-route-manifest\n"
         '  Or declare engine = "standalone" if this project has no manifest to give.'
     )
+
+
+def config_syntax_error(repo_root: Path) -> ZenzicConfigError | None:
+    """Return the `Z110` for a configuration file that will not parse, or
+    ``None`` when it loads.
+
+    The third of the family, and the one that reaches furthest: its two
+    siblings are about what the configuration *says*, this one is about the
+    configuration being readable at all. `ZenzicConfig.load` raises, which the
+    CLI wants -- there is nothing to run with.
+
+    The language server has nowhere to fail, and before 2026-09-21 this
+    exception escaped through `_sync_workspace_and_publish` and the session
+    published nothing. Measured on a repository whose `pyproject.toml` was
+    missing a bracket, holding a page with an `AKIA` credential in it: zero
+    diagnostics, including the security-tier one. `test_lsp_protocol_robustness`
+    has asserted the opposite since it was written, from a class named
+    `TestAConfigErrorDoesNotBlankTheWorkspace` -- against the analysis engine,
+    handed a default `ZenzicConfig()`, so the error never reached the code that
+    blanks it.
+
+    Returns rather than raises, for the reason its siblings give.
+    """
+    from zenzic.models.config import ZenzicConfig
+
+    try:
+        ZenzicConfig.load(repo_root)
+    except ZenzicConfigError as exc:
+        exc.code = "Z110"
+        return exc
+    return None
+
+
+def engine_config_buildable_error(
+    config: Any, docs_root: Path, repo_root: Path
+) -> ZenzicConfigError | None:
+    """Return the configuration error a declared *config-driven* engine raises
+    when its configuration file is absent, or ``None`` when it builds.
+
+    The sibling of :func:`manifest_missing_error`, and it exists for the same
+    reason with the roles reversed. `prebuilt` and `vsm` are manifest-driven:
+    their adapter builds without the artefact, so the missing artefact needs an
+    explicit check. `mkdocs` and `zensical` are config-driven: their adapter
+    *raises* when the file is absent, which is what the CLI wants -- and what
+    the language server cannot use.
+
+    Measured 2026-09-21 on a repository declaring `engine = "zensical"` with no
+    `zensical.toml`: the server answered `initialize` and then published zero
+    diagnostics for a file `zenzic check` flags, its only trace one `ZLS Error`
+    line on stderr. That is the going-dark `_resolve_docs_root` names as worse
+    than widening -- reached here through `resolve_container_vocabulary`,
+    upstream of the engine, which is why the engine-level test for the
+    manifest case did not see it.
+
+    Returns the exception rather than raising, for exactly the reason its
+    sibling gives: the language server calls this too and must turn it into a
+    diagnostic, because it has no channel to fail through.
+
+    Asking the factory rather than restating each adapter's condition, so a
+    third-party adapter that raises `ZenzicConfigError` from `from_repo` is
+    covered without being enumerated here. `get_adapter` is memoised, so the
+    call the caller makes next is the same object, not a second build.
+    """
+    from zenzic.core.adapters import get_adapter
+
+    try:
+        get_adapter(config.build_context, docs_root, repo_root)
+    except ZenzicConfigError as exc:
+        return exc
+    return None
 
 
 def _docs_dir_advice(repo_root: Path) -> str:

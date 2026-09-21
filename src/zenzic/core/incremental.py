@@ -34,6 +34,7 @@ import contextlib
 import html
 import os
 import posixpath
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
@@ -82,6 +83,7 @@ from zenzic.models.vsm import (
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import BaseAdapter
+    from zenzic.core.exceptions import ZenzicConfigError
     from zenzic.models.config import ZenzicConfig
 
 
@@ -223,6 +225,38 @@ class IncrementalAnalysisEngine:
         new_config, config_findings = load_config_with_diagnostics(
             self.repo_root, config_file=config_file, content_override=cfg_override
         )
+
+        def _editor_sentence(exc: Exception, code: str) -> str:
+            """The first line of *exc*, without the code marker or the context.
+
+            Two corrections, both measured 2026-09-21 against what the editor
+            actually published:
+
+            * `RuleFinding` renders `[Z111] ` in front of the message, and
+              these errors carry `[Z111] ` in the message because the CLI shows
+              the raw message and has no other way to name the code. The editor
+              therefore said `[Z111] [Z111] engine = ...`. Present on `HEAD`
+              before this change, shipped with the manifest work. The message
+              keeps its marker and the structured consumer drops it -- only one
+              of the two prepends, and it is the one that has nowhere else to
+              put it.
+
+              Matched against *code* exactly rather than against any `[Z...]`
+              prefix, so a message that legitimately opens with a different
+              code is left alone.
+
+            * `ZenzicError.__str__` appends the context dict, so the editor
+              message ended `[tier=Core, severity=fatal, repo_root=/tmp/...]`
+              -- a repository-absolute path, in a diagnostic attached to that
+              repository's own configuration file.
+            """
+            text = (getattr(exc, "message", None) or str(exc)).splitlines()[0]
+            marker = f"[{code}] "
+            text = text[len(marker) :] if text.startswith(marker) else text
+            # The two detectors' messages do not agree on ending in a full
+            # stop, and the caller appends a sentence to whatever comes back.
+            return text if text.endswith((".", "!", "?")) else text + "."
+
         # A `docs_dir` that is not there is reported, not silently widened. The
         # server keeps analysing -- an editor has no failure channel and going
         # dark would leave the author with no diagnostics at all -- but it
@@ -248,27 +282,63 @@ class IncrementalAnalysisEngine:
                     )
                 )
 
-        # A declared `prebuilt` with no manifest. The CLI refuses; the editor
-        # cannot, so it says so here and keeps analysing with what it has —
-        # which is exactly the substituted engine the CLI declines to use, so
-        # the diagnostic is also the warning that CI will not agree.
+        # A declared engine whose artefact is not there. Two detectors, and at
+        # most one finding.
+        #
+        # They overlap by construction: since 2026-09-21 the factory raises for
+        # any declared engine whose `has_engine_config()` is false, and for
+        # `prebuilt` that is the same fact the manifest detector reports --
+        # measured, two `Z111`s on line 1 of the same file, differing only in
+        # how they spelled ".zenzic-vsm.json is not there". Ordered rather than
+        # guarded on each other: a third detector is one more tuple entry, not
+        # a condition that has to know about the two before it.
+        #
+        # The manifest detector is first because its message names the
+        # generator and how to derive the manifest; the factory's is the
+        # general case.
+        #
+        # The CLI refuses; the editor cannot, so it says so here and keeps
+        # analysing with what it has -- which is exactly the substituted engine
+        # the CLI declines to use, so the diagnostic is also the warning that
+        # CI will not agree.
         if self.config is not None and self.repo_root is not None:
-            from zenzic.cli._shared import manifest_missing_error
+            from zenzic.cli._shared import (
+                config_syntax_error,
+                engine_config_buildable_error,
+                manifest_missing_error,
+            )
 
-            _manifest_error = manifest_missing_error(self.config, self.repo_root)
-            if _manifest_error is not None:
+            # `Z110` first: a file that will not parse makes every statement
+            # the other two read unavailable, so what they would report is the
+            # built-in defaults dressed as the author's configuration.
+            _detectors: tuple[tuple[str, Callable[[], ZenzicConfigError | None]], ...] = (
+                ("Z110", lambda: config_syntax_error(self.repo_root)),
+                ("Z111", lambda: manifest_missing_error(self.config, self.repo_root)),
+                (
+                    "Z111",
+                    lambda: engine_config_buildable_error(
+                        self.config, self.docs_root, self.repo_root
+                    ),
+                ),
+            )
+            for _code, _detect in _detectors:
+                _error = _detect()
+                if _error is None:
+                    continue
+                _substitute = "built-in defaults" if _code == "Z110" else "'standalone'"
                 config_findings.append(
                     RuleFinding(
                         config_file,
                         1,
-                        "Z111",
-                        str(_manifest_error).splitlines()[0]
-                        + " This editor session is analysing with 'standalone' instead;"
+                        _code,
+                        _editor_sentence(_error, _code)
+                        + f" This editor session is analysing with {_substitute} instead;"
                         " `zenzic check` stops on this, so CI will not agree.",
-                        severity=code_severity("Z111"),
+                        severity=code_severity(_code),
                         matched_line="",
                     )
                 )
+                break
 
         if config_findings:
             cfg_text = cfg_override if cfg_override is not None else ""

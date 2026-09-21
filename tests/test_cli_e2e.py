@@ -47,7 +47,13 @@ def _make_sandbox(tmp_path: Path, files: dict[str, str]) -> Path:
             docs_dir = "docs"
 
             [build_context]
-            engine = "mkdocs"
+            # `standalone`, and it always was: this declared `mkdocs` with no
+            # `mkdocs.yml` beside it, so the factory substituted the standalone
+            # adapter and these tests have only ever run on that. Since
+            # 2026-09-21 a declared engine with no configuration is a `Z111`
+            # error, which would fail thirty-two tests about path traversal,
+            # credentials and exit codes for a reason none of them is about.
+            engine = "standalone"
 
             # Opt-in since V031_OPT_IN_CODES; these fixtures rely on it firing.
             [policies]

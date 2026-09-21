@@ -210,9 +210,16 @@ class BaseAdapter(ABC):
     def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
         """Return project-owned absolute URL prefixes.
 
-        **One authority, two consumers.** `Z105` allowlists what this returns and
-        `VSMBrokenLinkRule` re-bases against the same list, so the two cannot
-        disagree about where the site starts. Wiring only the first was measured
+        **One authority, three consumers.** `Z105` allowlists what this returns
+        (`rules.py`), `VSMBrokenLinkRule` re-bases against the same list so the
+        two cannot disagree about where the site starts, and the path-traversal
+        guard reads it on the incremental path (`incremental.py`) to decide
+        whether a site-absolute link is exempt before `Z202`/`Z203` classify it.
+
+        That third one was omitted when this said "two consumers", written the
+        same day the method was introduced: the author looked in `rules.py` and
+        not in `incremental.py`. It is the security-tier reader, so it is the one
+        that most needed naming. Wiring only the first was measured
         on 2026-09-20 and rejected: `absolute_path_allowlist = ["/docs/"]` already
         cleared `Z105` alone and left every such link reported broken by `Z101`,
         which looks like a working feature and is not one.

@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any, Final, Literal, cast
 
 from zenzic.core.adapters._mkdocs_config import MKDOCS_CONFIG_NAMES
-from zenzic.core.exceptions import CheckError, ZenzicError
+from zenzic.core.exceptions import CheckError, ZenzicError, config_error_z111
 from zenzic.models.config import BuildContext
 
 from ._base import BaseAdapter
@@ -67,34 +67,30 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 class EngineResolution:
     """What engine the run asked for, what it got, and whether those differ.
 
-    The substitution notice has only ever reached stderr, and **stderr reaches
-    no CI consumer**: a pipeline reading `--format json` or uploading SARIF sees
-    a clean payload and no indication that the engine it declared was not the
-    engine that ran. Measured on 2,604 Astro pages, a declared `prebuilt` with
-    no manifest produced a run byte-identical to `standalone` -- same total,
-    same distribution, same exit code -- and the only signal was a line nobody
-    was reading.
-
     Attached to the adapter the factory returns, so every surface that holds an
     adapter can report it without the factory needing to know which surfaces
     exist.
+
+    **It carried `substituted` and `reason` until 2026-09-21, and they are
+    gone.** They existed because a declared engine with no configuration was
+    replaced rather than refused, and the replacement reached CI only as a line
+    on stderr that nobody read -- measured on 2,604 Astro pages, where a
+    declared `prebuilt` with no manifest ran byte-identically to `standalone`.
+    Since the factory raises for that case instead, `substituted` could only
+    ever be `false` and `reason` could never be emitted: a field that cannot
+    vary is not data. Both were added earlier in this same unreleased cycle and
+    never shipped, so nothing downstream could depend on them.
+
+    `declared` and `resolved` stay, and still differ: `auto` declares nothing
+    and resolves to whatever discovery found.
     """
 
     declared: str
     resolved: str
-    substituted: bool
-    reason: str = ""
 
     def as_payload(self) -> dict[str, object]:
         """The shape both the JSON payload and the SARIF run property carry."""
-        out: dict[str, object] = {
-            "declared": self.declared,
-            "resolved": self.resolved,
-            "substituted": self.substituted,
-        }
-        if self.reason:
-            out["reason"] = self.reason
-        return out
+        return {"declared": self.declared, "resolved": self.resolved}
 
 
 #: What each engine looks for, so the substitution notice can name the missing
@@ -440,20 +436,39 @@ def get_adapter(
     messages = []
 
     if not has_config:
-        # A declared engine that finds none of its own configuration is replaced,
-        # not defaulted -- the run then reports what StandaloneAdapter reports,
-        # which on a site that links by route is an order of magnitude more
-        # findings. Measured on a 421-file Starlight tree: 235 with the manifest,
-        # 2,443 without it, and byte-identical to declaring "standalone" outright.
-        # Said through the same list the offline notice uses rather than through
-        # the logger, because the two defects this cycle found hidden behind an
-        # invisible notice were both log-only.
+        # A declared engine that finds none of its own configuration is an
+        # error, not a substitution.
+        #
+        # It was a substitution with a notice until 2026-09-21, and the notice
+        # was the whole problem. The run then reports what StandaloneAdapter
+        # reports, which on a site that links by route is an order of magnitude
+        # more findings -- measured on a 421-file Starlight tree: 235 with the
+        # manifest, 2,443 without it, and byte-identical to declaring
+        # "standalone" outright. `manifest_missing_error` had already closed
+        # that for `prebuilt`/`vsm`, on the finding that "the only signal was a
+        # notice on stderr, where no CI consumer reads it". The same sentence
+        # was still true here for every other declared engine, `mkdocs` above
+        # all: measured, `zenzic check all` on a repository declaring
+        # `engine = "mkdocs"` with no `mkdocs.yml` analysed the tree and exited
+        # 1 on findings from an engine the user never asked for.
+        #
+        # `standalone` and `auto` are excluded because nothing was declared:
+        # falling back is the answer they asked for.
+        #
+        # `prebuilt` and `vsm` reach `manifest_missing_error` first on `check`,
+        # `audit` and `guard`, which says which generator this is and how to
+        # produce the manifest. This raise is what the commands that never call
+        # it -- `inspect`, `clean`, `score`, `config explain` -- now get instead
+        # of silence.
         if declared_engine not in ("standalone", "auto"):
             hint = _SUBSTITUTION_HINTS.get(declared_engine, "its own configuration file")
-            messages.append(
-                f"[bold yellow]NOTICE:[/bold yellow] engine {declared_engine!r} found no "
-                f"{hint}, so this run used 'standalone' instead. Findings below are "
-                f"StandaloneAdapter's, not {declared_engine!r}'s."
+            raise config_error_z111(
+                f'[Z111] engine = "{declared_engine}" is declared and no {hint} is there.\n'
+                "  Without it this run would analyse with 'standalone' instead -- the same "
+                "findings, from a site map that is not your site's.\n"
+                "  How to configure it: https://zenzic.dev/how-to/configure-adapter/\n"
+                f'  Or declare engine = "standalone" if this project has no {hint} to give.',
+                {"declared_engine": declared_engine, "repo_root": str(repo_root)},
             )
         adapter = StandaloneAdapter()
 
@@ -463,12 +478,6 @@ def get_adapter(
     _resolution = EngineResolution(
         declared=declared_engine,
         resolved="standalone" if not has_config else context.engine,
-        substituted=not has_config and declared_engine not in ("standalone", "auto"),
-        reason=(
-            f"no {_SUBSTITUTION_HINTS.get(declared_engine, 'engine configuration')} found"
-            if not has_config and declared_engine not in ("standalone", "auto")
-            else ""
-        ),
     )
     with contextlib.suppress(Exception):
         object.__setattr__(adapter, "zenzic_resolution", _resolution)

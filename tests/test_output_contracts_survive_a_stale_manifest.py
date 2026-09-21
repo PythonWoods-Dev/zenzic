@@ -132,8 +132,7 @@ def test_the_engine_field_was_added_additively(stale_manifest_project: Path) -> 
 
     engine = payload.get("engine")
     assert isinstance(engine, dict), f"`engine` must be an object, got {engine!r}"
-    assert set(engine) >= {"declared", "resolved", "substituted"}, engine
-    assert isinstance(engine["substituted"], bool), engine
+    assert set(engine) >= {"declared", "resolved"}, engine
 
     # The additive half: the keys that were there before are still there, with
     # the same names. A key repurposed to carry the engine would be the change
