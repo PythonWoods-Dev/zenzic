@@ -1202,10 +1202,43 @@ def _count_docs_assets(
         from zenzic.core.adapters import get_adapter
 
         adapter = get_adapter(config.build_context, docs_root, repo_root)
+        _counted = {docs_root.resolve()}
         for locale_root, _ in adapter.get_locale_source_roots(repo_root):
+            _counted.add(locale_root.resolve())
             pages_count += sum(
                 1
                 for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+                if p.suffix.lower() in _DOC_EXT
+            )
+        # And the content roots, which are the third mechanism by which a run
+        # reads a tree `docs_dir` does not name.
+        #
+        # The how-to tells a Docusaurus user that their `blog/` "does not appear
+        # in the file count and produces no findings either way", and to add it
+        # with `content_roots`. Measured 2026-09-21: adding it made the tree
+        # produce findings and left the count unchanged -- so the one
+        # confirmation the instruction offers did not arrive, and the reader had
+        # no way to tell a working setting from a typo in it.
+        #
+        # The scale this matters at, from the source: `facebook/docusaurus`
+        # @ `b52c2c1` publishes 94 sources from `website/docs` and 1,067 more
+        # from `website/versioned_docs`, plus `blog/`, `community/` and
+        # `_dogfooding/` -- 1,333 in all, of which `docs_dir` names 94.
+        #
+        # De-duplicated against what is already counted, because a content root
+        # that repeats `docs_dir` or a locale tree would otherwise be counted
+        # twice, and an overcount is the worse direction: it tells a reader the
+        # run covered more than it opened.
+        from zenzic.core.adapters import resolve_content_roots
+
+        for extra_root in resolve_content_roots(adapter, config, repo_root):
+            resolved = extra_root.resolve()
+            if resolved in _counted or not resolved.is_dir():
+                continue
+            _counted.add(resolved)
+            pages_count += sum(
+                1
+                for p in walk_files(resolved, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
                 if p.suffix.lower() in _DOC_EXT
             )
     return pages_count, config_count, assets_count

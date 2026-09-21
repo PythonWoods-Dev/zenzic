@@ -190,15 +190,34 @@ Nothing ships to generate this file. Writing it is the cost of this approach.
       published prefix. Without this the **absolute** links pass and the **relative** ones
       fail, because relative targets are mapped without the prefix.
 
-    - **The blog is a second tree.** Docusaurus publishes from two content plugins and
-      `docs_dir` names one directory, so `blog/` is reached by nothing — silently: it does
-      not appear in the file count and produces no findings either way. Add it with
+    - **The blog is a second tree, and versioned docs are a third.** Docusaurus publishes
+      from more than one content plugin while `docs_dir` names one directory, so every
+      other tree is reached by nothing — silently: it produces no findings either way.
+      Add each one with
       [`content_roots`](../reference/configuration-reference.md#content-roots):
 
         ```toml
-        docs_dir = "docs"
-        content_roots = ["blog"]
+        docs_dir = "website/docs"
+        content_roots = ["website/versioned_docs", "website/blog", "website/community"]
         ```
+
+        **Versioned docs are where this gets large.** Measured on Docusaurus's own site
+        (`facebook/docusaurus` at `b52c2c1`): `website/docs` holds **94** sources and
+        `website/versioned_docs` holds **1,067** across twelve `version-*` directories,
+        with `blog/` and `community/` adding 35 more. Pointing `docs_dir` at
+        `website/docs` alone reads **94 of 1,196** — the run reports success over the
+        other 92%, and every cross-version link in them is unchecked.
+
+        Whether you *want* them checked is a real decision: a frozen version is a
+        historical record, and a broken link in it may be accurate history. Declare the
+        trees you still maintain.
+
+    !!! tip "Confirming a content root took effect"
+
+        The file count on the telemetry line includes declared content roots, so adding
+        one is visible: `94 pages` becomes `1,196 pages` on the example above. It did
+        **not** until v0.31.0 — the trees were scanned and not counted, so the one
+        confirmation this instruction offers did not arrive.
 
 **Step 3 — declare the engine and allow the route prefix**:
 
