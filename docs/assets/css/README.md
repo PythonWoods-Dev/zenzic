@@ -28,6 +28,12 @@ npm install                 # installs @tailwindcss/cli at the locked version
 npm run build:css           # -i tailwind-input.css -o docs/assets/css/zenzic-tailwind.min.css --minify
 ```
 
+**The generated file carries no SPDX header.** The bundle committed before
+2026-09-21 had one, added by hand after generation and recorded nowhere; the CLI
+does not emit it and a rebuild drops it. `reuse lint` passes regardless, because
+`REUSE.toml`'s `docs/assets/**` block covers it. Do not re-add it by hand: that is
+the manual post-step which made the artifact irreproducible in the first place.
+
 **Why the version is pinned.** The committed bundle declares its own builder in
 its first comment — `tailwindcss v4.3.1` — and nothing else recorded it, so
 `npx @tailwindcss/cli` would have resolved to whatever was current and produced a
