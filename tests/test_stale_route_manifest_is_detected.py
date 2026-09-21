@@ -152,8 +152,8 @@ def test_the_cli_names_the_manifest_rather_than_only_the_broken_link(
 
 def test_the_engine_reports_drift_even_when_handed_a_bare_site_map(tmp_path: Path) -> None:
     """Engine-level on purpose, and it says so since 2026-09-21: it was named
-    `test_the_editor_…` while never starting the editor (Rule 51). The server's
-    agreement is asserted separately, below.
+    `test_the_editor_…` while never starting the editor. The server's agreement
+    is asserted separately, below.
 
     `server.py` has a fallback that hands `process_changes()` a bare
     `VirtualSiteMap()` (server.py:~850) rather than one `build_vsm` produced.
@@ -257,7 +257,8 @@ def test_the_editor_reports_drift_on_its_own_incremental_path(tmp_path: Path) ->
     `process_changes` with a changed-URI set — by constructing them. Measured
     2026-09-21, the real server reaches the same answer on both. But neither
     would notice if the server stopped taking those paths: they build the
-    arguments themselves, which is the whole of Rule 51.
+    arguments themselves, and a test that chooses its own inputs cannot find a
+    defect in the choosing.
 
     So this one drives `LanguageServer` and asserts the sequence an author
     actually performs: open a project whose manifest is current, add a page, and

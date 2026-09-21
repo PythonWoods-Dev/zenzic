@@ -66,7 +66,8 @@ def test_the_link_graph_survives_the_transfer(tmp_path: Path) -> None:
     """Driven through the server, because the transfer is on the path it takes.
 
     A test that built the site map itself would hold the rebuilt instance and
-    never see the copy — which is the whole of Rule 51, and how this survived.
+    never see the copy. That is how this survived: the transfer is only on the
+    path the server takes.
     """
     server = _served(_project(tmp_path))
 
