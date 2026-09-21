@@ -16,6 +16,7 @@ surfaces that report it.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from zenzic.core.adapters._prebuilt import PrebuiltVSMAdapter
@@ -149,8 +150,12 @@ def test_the_cli_names_the_manifest_rather_than_only_the_broken_link(
     assert ".zenzic-vsm.json" in out.stdout
 
 
-def test_the_editor_reports_drift_even_when_handed_a_bare_site_map(tmp_path: Path) -> None:
-    """`server.py` has a fallback that hands `process_changes()` a bare
+def test_the_engine_reports_drift_even_when_handed_a_bare_site_map(tmp_path: Path) -> None:
+    """Engine-level on purpose, and it says so since 2026-09-21: it was named
+    `test_the_editor_…` while never starting the editor (Rule 51). The server's
+    agreement is asserted separately, below.
+
+    `server.py` has a fallback that hands `process_changes()` a bare
     `VirtualSiteMap()` (server.py:~850) rather than one `build_vsm` produced.
 
     `vsm.update(new_vsm)` copies dict items and no attribute of the wrapper, so
@@ -185,10 +190,14 @@ def test_the_editor_reports_drift_even_when_handed_a_bare_site_map(tmp_path: Pat
     assert "Z115" in codes
 
 
-def test_adding_a_page_in_the_editor_reports_drift_without_a_full_rebuild(
+def test_adding_a_page_reports_drift_without_a_full_rebuild(
     tmp_path: Path,
 ) -> None:
-    """Creating a file is the incremental path, and it is the exact moment the
+    """The engine's incremental API, driven directly. Renamed 2026-09-21 for the
+    same reason as the test above; the server's own incremental path is asserted
+    below.
+
+    Creating a file is the incremental path, and it is the exact moment the
     manifest goes stale.
 
     `process_changes(changed_uris={...})` patches routes in place and does not
@@ -239,3 +248,72 @@ def test_adding_a_page_in_the_editor_reports_drift_without_a_full_rebuild(
     codes = {d.code for diags in results.values() for d in diags}
     assert "Z115" in codes
     assert isinstance(vsm, VirtualSiteMap)
+
+
+def test_the_editor_reports_drift_on_its_own_incremental_path(tmp_path: Path) -> None:
+    """The two tests above are faithful, and this is what keeps them faithful.
+
+    They reproduce shapes the server uses — a bare `VirtualSiteMap()`, and
+    `process_changes` with a changed-URI set — by constructing them. Measured
+    2026-09-21, the real server reaches the same answer on both. But neither
+    would notice if the server stopped taking those paths: they build the
+    arguments themselves, which is the whole of Rule 51.
+
+    So this one drives `LanguageServer` and asserts the sequence an author
+    actually performs: open a project whose manifest is current, add a page, and
+    see the drift without restarting. `Z115` must be absent on the first sync
+    and present on the second — the absence matters as much, because a test that
+    only asserts the presence passes against a run that reports drift always.
+    """
+    import io
+
+    from zenzic.lsp.server import LanguageServer
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Home\n", encoding="utf-8")
+    (tmp_path / ".zenzic-vsm.json").write_text(
+        json.dumps({"index.md": {"url": "/", "status": "REACHABLE"}}), encoding="utf-8"
+    )
+    (tmp_path / ".zenzic.toml").write_text(
+        'docs_dir = "docs"\n\n[build_context]\nengine = "prebuilt"\n', encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q", "."], cwd=tmp_path, check=True)  # noqa: S607
+
+    def _codes(server: LanguageServer) -> set[str]:
+        raw = server.stdout.getvalue().decode("utf-8")  # type: ignore[union-attr]
+        out: set[str] = set()
+        while True:
+            head = raw.find("\r\n\r\n")
+            if head == -1:
+                break
+            length = 0
+            for line in raw[:head].split("\r\n"):
+                if line.lower().startswith("content-length:"):
+                    length = int(line.split(":", 1)[1])
+            message = json.loads(raw[head + 4 : head + 4 + length])
+            raw = raw[head + 4 + length :]
+            if message.get("method") == "textDocument/publishDiagnostics":
+                out.update(d["code"] for d in message["params"]["diagnostics"])
+        return out
+
+    server = LanguageServer()
+    server.stdout = io.BytesIO()
+    server.repo_root = tmp_path
+    server._sync_workspace_and_publish()
+    assert "Z115" not in _codes(server), "the manifest is current and the session says it drifted"
+
+    added = docs / "new.md"
+    added.write_text("# Just added\n", encoding="utf-8")
+    uri = added.resolve().as_uri()
+    server.documents.documents[uri] = "# Just added\n"
+    if server.overlay is not None:
+        server.overlay.update(uri, "# Just added\n")
+
+    server.stdout = io.BytesIO()
+    server._sync_workspace_and_publish({uri})
+
+    assert "Z115" in _codes(server), (
+        "the author added a page and the session did not say the manifest is now "
+        "behind it -- the link they are about to write is the one CI will call broken"
+    )

@@ -512,6 +512,21 @@ class IncrementalAnalysisEngine:
             # computed in build_vsm would be dropped exactly here and the
             # editor would be the one surface that never reports it.
             vsm.undeclared_sources = new_vsm.undeclared_sources
+            # The third, and the same omission twice over: `outgoing_links` is
+            # the link graph `build_vsm` indexes, and it was dropped here while
+            # the two lines above were added one at a time after the same
+            # discovery. Measured 2026-09-21 driving the server: the
+            # transferred map held 0 nodes where the rebuilt one held 10, so
+            # `_find_cycles_iterative` ran over an empty graph on every full
+            # sync and `enable_circular_link_check` bought nothing.
+            #
+            # No finding was lost: `Z106` is `info` and the engine drops `info`
+            # before any transport reads it, so neither the editor nor
+            # `zenzic-mcp` would have shown a cycle either way. What this fixes
+            # is work computed and discarded, and a trap for the day that
+            # severity changes -- at which point the editor would report
+            # nothing and the severity change would take the blame.
+            vsm.outgoing_links = new_vsm.outgoing_links
         else:
             # O(K) in-place patch
             for path in files_to_process:

@@ -94,32 +94,81 @@ def test_the_message_names_the_generator_it_found(tmp_path: Path) -> None:
         assert "src/content/docs" in combined, f"{command}: {combined}"
 
 
-def test_the_editor_widens_and_says_so(tmp_path: Path) -> None:
+def _published(project: Path) -> dict[str, set[str]]:
+    """Codes per file name, from the JSON-RPC the server actually wrote."""
+    import io
+    import json
+
+    from zenzic.lsp.server import LanguageServer
+
+    server = LanguageServer()
+    server.stdout = io.BytesIO()
+    server.repo_root = project
+    server._sync_workspace_and_publish()
+
+    raw = server.stdout.getvalue().decode("utf-8")
+    out: dict[str, set[str]] = {}
+    while True:
+        head = raw.find("\r\n\r\n")
+        if head == -1:
+            break
+        length = 0
+        for line in raw[:head].split("\r\n"):
+            if line.lower().startswith("content-length:"):
+                length = int(line.split(":", 1)[1])
+        message = json.loads(raw[head + 4 : head + 4 + length])
+        raw = raw[head + 4 + length :]
+        if message.get("method") == "textDocument/publishDiagnostics":
+            name = message["params"]["uri"].rsplit("/", 1)[-1]
+            out.setdefault(name, set()).update(d["code"] for d in message["params"]["diagnostics"])
+    return out
+
+
+def test_the_editor_says_so(tmp_path: Path) -> None:
     """The language server has no channel to fail through, so it reports.
 
     Going dark would leave the author with no diagnostics at all; widening in
     silence made the editor and CI disagree with nothing on screen to explain
     it. It now publishes Z111 on the configuration file.
     """
-    from zenzic.core.adapter import get_adapter
-    from zenzic.core.incremental import IncrementalAnalysisEngine
-    from zenzic.core.scanner import _build_rule_engine
-    from zenzic.models.config import ZenzicConfig
-    from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap
-
     project = _project(tmp_path, make_docs=False)
-    config, _ = ZenzicConfig.load(project)
-    docs_root = project.resolve()  # what the server falls back to
 
-    engine = IncrementalAnalysisEngine(
-        config=config,
-        rule_engine=_build_rule_engine(config, containers=None),
-        adapter=get_adapter(config.build_context, docs_root, project),
-        docs_root=docs_root,
-        repo_root=project,
+    published = _published(project)
+
+    assert "Z111" in published.get(".zenzic.toml", set()), (
+        f"the editor widened in silence; it published {sorted(published)}"
     )
-    vsm = VirtualSiteMap()
-    results = engine.process_changes(vsm, VirtualBufferOverlay(vsm, tabs=None))
 
-    codes = {d.code for diags in results.values() for d in diags}
-    assert "Z111" in codes, f"the editor widened in silence; codes were {sorted(codes)}"
+
+def test_the_editor_widens(tmp_path: Path) -> None:
+    """The other half of the name, and nothing covered it until 2026-09-21.
+
+    This pair was one test that built `IncrementalAnalysisEngine` and handed it
+    `project.resolve()` with the comment *"what the server falls back to"* — the
+    widening was simulated, and only the `Z111` was asserted. Both halves then
+    survive removing the widening: `Z111` comes from `incremental.py`'s
+    `docs_dir` detector, which does not consult `_resolve_docs_root` at all.
+
+    Measured by planting that mutant: `_resolve_docs_root` returning the
+    declared `docs/` without falling back left the server publishing `Z111` and
+    **nothing else** — the author's own document never analysed — and the test
+    passed. So the assertion that matters is not the code, it is that the
+    sources are reached.
+    """
+    project = _project(tmp_path, make_docs=False)
+    source = project / "src" / "content" / "docs" / "index.md"
+    source.write_text(
+        source.read_text(encoding="utf-8") + "\nSee [broken](./missing.md).\n", encoding="utf-8"
+    )
+
+    published = _published(project)
+
+    assert "index.md" in published, (
+        "the server never analysed the sources: `docs/` does not exist, so without "
+        "the fallback to the repository root there is nothing to read. It published "
+        f"{sorted(published)}"
+    )
+    assert "Z101" in published["index.md"], (
+        f"the document was reached and its broken link was not reported; "
+        f"codes were {sorted(published['index.md'])}"
+    )
