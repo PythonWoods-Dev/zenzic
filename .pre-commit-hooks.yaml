@@ -6,7 +6,7 @@
 # Usage in your .pre-commit-config.yaml:
 #
 #   repos:
-#     - repo: https://github.com/PythonWoods/zenzic
+#     - repo: https://github.com/PythonWoods-Dev/zenzic
 #       rev: v0.30.0
 #       hooks:
 #         - id: zenzic-verify    # quality gate — corrisponde a `just verify` lato zenzic

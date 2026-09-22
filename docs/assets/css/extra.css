@@ -1,8 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> */
 /* SPDX-License-Identifier: Apache-2.0 */
-[data-md-color-scheme="slate"]{--zz-canvas:#09090b;--zz-surface-0:#0d1117;--zz-surface-1:#111827;--zz-surface-2:#1f2937;--zz-surface-3:#374151;--zz-brand:#4f46e5;--zz-brand-light:#818cf8;--zz-brand-muted:#3730a3;--zz-ink-100:#f1f5f9;--zz-ink-200:#e2e8f0;--zz-ink-400:#94a3b8;--zz-ink-600:#64748b;--zz-border:#1e293b;--zz-border-subtle:#30363d;--zz-rule:rgba(255,255,255,0.06);--zz-error:#f43f5e;--zz-fatal:#be123c;--zz-warning:#f59e0b;--zz-success:#10b981;--zz-info:#38bdf8;--zz-hero-gradient-mid:#0f1320;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#818cf8;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-surface-0);--md-primary-fg-color--light:#161b22;--md-primary-fg-color--dark:#010409;--md-primary-bg-color:var(--zz-ink-200);--md-default-bg-color:var(--zz-surface-0);--md-default-bg-color--light:var(--zz-surface-1);--md-default-bg-color--lighter:var(--zz-surface-2);--md-default-bg-color--lightest:var(--zz-surface-3);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(129,140,248,0.1);--md-typeset-a-color:var(--zz-info);--md-code-bg-color:var(--zz-surface-1)}
-[data-md-color-scheme="default"]{--zz-canvas:#f8fafc;--zz-surface-0:#ffffff;--zz-surface-1:#f1f5f9;--zz-surface-2:#e2e8f0;--zz-surface-3:#cbd5e1;--zz-brand:#4f46e5;--zz-brand-light:#6366f1;--zz-brand-muted:#3730a3;--zz-ink-100:#0f172a;--zz-ink-200:#1e293b;--zz-ink-400:#475569;--zz-ink-600:#94a3b8;--zz-border:#e2e8f0;--zz-border-subtle:#e2e8f0;--zz-rule:rgba(0,0,0,0.07);--zz-error:#e11d48;--zz-fatal:#9f1239;--zz-warning:#d97706;--zz-success:#059669;--zz-info:#0284c7;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#6366f1;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-brand);--md-primary-fg-color--light:var(--zz-brand-light);--md-primary-fg-color--dark:var(--zz-brand-muted);--md-primary-bg-color:var(--zz-surface-0);--md-default-bg-color:var(--zz-canvas);--md-default-bg-color--light:var(--zz-surface-0);--md-default-bg-color--lighter:var(--zz-surface-1);--md-default-bg-color--lightest:var(--zz-surface-2);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(99,102,241,0.1);--md-typeset-a-color:var(--zz-brand);--md-code-bg-color:var(--zz-surface-2)}
-
+[data-md-color-scheme="slate"]{--zz-canvas:#09090b;--zz-surface-0:#0d1117;--zz-surface-1:#111827;--zz-surface-2:#1f2937;--zz-surface-3:#374151;--zz-brand:#4f46e5;--zz-brand-light:#818cf8;--zz-brand-muted:#3730a3;--zz-ink-100:#f1f5f9;--zz-ink-200:#e2e8f0;--zz-ink-400:#94a3b8;--zz-ink-600:#64748b;--zz-border:#1e293b;--zz-border-subtle:#30363d;--zz-rule:rgba(255,255,255,0.06);--zz-error:#f43f5e;--zz-fatal:#be123c;--zz-warning:#f59e0b;--zz-success:#10b981;--zz-info:#38bdf8;--zz-hero-gradient-mid:#0f1320;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#818cf8;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-surface-0);--md-primary-fg-color--light:#161b22;--md-primary-fg-color--dark:#010409;--md-primary-bg-color:var(--zz-ink-200);--md-default-bg-color:var(--zz-surface-0);--md-default-bg-color--light:var(--zz-surface-1);--md-default-bg-color--lighter:var(--zz-surface-2);--md-default-bg-color--lightest:var(--zz-surface-3);--md-accent-fg-color:var(--zz-brand-light);--md-accent-fg-color--transparent:rgba(129,140,248,0.1);--md-typeset-a-color:var(--zz-ink-100);--md-code-bg-color:var(--zz-surface-1)}
+[data-md-color-scheme="default"]{--zz-canvas:#f8fafc;--zz-surface-0:#ffffff;--zz-surface-1:#f1f5f9;--zz-surface-2:#e2e8f0;--zz-surface-3:#cbd5e1;--zz-brand:#4f46e5;--zz-brand-light:#6366f1;--zz-brand-muted:#3730a3;--zz-ink-100:#0f172a;--zz-ink-200:#1e293b;--zz-ink-400:#475569;--zz-ink-600:#94a3b8;--zz-border:#e2e8f0;--zz-border-subtle:#e2e8f0;--zz-rule:rgba(0,0,0,0.07);--zz-error:#e11d48;--zz-fatal:#9f1239;--zz-warning:#d97706;--zz-success:#059669;--zz-info:#0284c7;--zz-terminal-bg:#0d1117;--zz-terminal-bar:#1c2128;--zz-terminal-border:#30363d;--zz-terminal-prompt:#6366f1;--zz-terminal-cmd:#e2e8f0;--zz-terminal-error:#f43f5e;--zz-terminal-fatal:#f59e0b;--zz-terminal-code:#818cf8;--zz-terminal-meta:#64748b;--zz-dot-red:#ff5f57;--zz-dot-yellow:#febc2e;--zz-dot-green:#28c840;--zz-muted-color:var(--zz-ink-400);--zz-muted-color-hover:var(--zz-ink-200);--zz-transition-fast:0.15s ease;--md-primary-fg-color:var(--zz-brand);--md-primary-fg-color--light:var(--zz-brand-light);--md-primary-fg-color--dark:var(--zz-brand-muted);--md-primary-bg-color:var(--zz-surface-0);--md-default-bg-color:var(--zz-canvas);--md-default-bg-color--light:var(--zz-surface-0);--md-default-bg-color--lighter:var(--zz-surface-1);--md-default-bg-color--lightest:var(--zz-surface-2);--md-accent-fg-color:var(--zz-brand);--md-accent-fg-color--transparent:rgba(99,102,241,0.1);--md-typeset-a-color:var(--zz-ink-100);--md-code-bg-color:var(--zz-surface-2)}
 
 /* ── Breadcrumb (navigation.path) ────────────────────────────────────────── */
 
@@ -49,6 +48,33 @@
   border-bottom: 1px solid var(--zz-border-subtle);
 }
 
+/* ── Direction A, light branch: the tab bar ──────────────────────────────── */
+/* The audit named "the light-mode header bar" as the largest remaining indigo
+   surface. Measured in the cascade rather than in the token, and the claim was
+   wrong in its target: `.md-header` is already overridden above to
+   `--zz-surface-0`, so it has not been indigo for some time. What *is* indigo
+   in the light branch is `.md-tabs` -- the navigation bar directly beneath it,
+   full width, on every page -- because Material paints it with
+   `--md-primary-fg-color` and nothing here overrode that.
+
+   Neutralised to match `.md-header` exactly, so the two stacked bars read as
+   one surface instead of a neutral strip above an indigo one.
+
+   Text has to move with it: `--md-primary-bg-color` is `--zz-surface-0`
+   (#ffffff) in the light branch, which was legible on indigo and would be
+   invisible on white. Measured after the change:
+     light  #0f172a on #ffffff  17.85:1
+     dark   unchanged, #e2e8f0 on #0d1117  15.35:1
+
+   `--md-primary-fg-color` itself is deliberately NOT retargeted: it also
+   paints `.md-button--primary`, which is the call-to-action accent the
+   landing-page audit classified as intentional. Changing the token would have
+   neutralised the CTA too, which no measurement asked for. */
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: var(--zz-surface-0);
+  color: var(--zz-ink-100);
+}
+
 /* ── Navbar: text-only tabs ──────────────────────────────────────────────── */
 
 .md-tabs__link i,
@@ -76,11 +102,80 @@
   mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.11 0-2 .89-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42M5.5 7c-.83 0-1.5-.67-1.5-1.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>');
 }
 
+/* ── Accent, light branch: corrected 2026-09-20 ──────────────────────────── */
+/* `--md-accent-fg-color` was `--zz-brand-light` in both branches. Measured
+   after neutralising the link colour, because that is when it started
+   mattering: #6366f1 on the light canvas is **4.27:1, below AA**, and Material
+   consumes this token in 50 rules -- link hover and focus among them. With
+   colour no longer the primary link signal, hover is a secondary one, and a
+   secondary signal below AA is still a signal nobody can see.
+
+   The dark branch keeps `--zz-brand-light` (#818cf8, 6.34:1); only the light
+   branch moves, to `--zz-brand` (#4f46e5, 6.01:1). Same asymmetry, and the
+   same two values, as the code-index panel needed the day before -- that rule
+   existed *because* this token was wrong, and this is the root the panel was
+   working around. */
+
+/* ── Reading comfort: line-height and link affordance ────────────────────── */
+
+/* Body leading, measured 2026-09-20 against three documentation sites whose
+   CSS was fetched and read rather than described:
+
+     Zenzic        16px / 1.60  = 25.6px
+     Tailwind docs 14px / 2.00  = 28.0px   (tailwindcss.com/docs)
+     Astro docs    16px / 1.75  = 28.0px   (--sl-line-height, docs.astro.build)
+     MDN           16px / 1.75  = 28.0px   (--font-line-content)
+
+   All three land on 28px of leading; Tailwind gets there by shrinking the type
+   rather than tightening the lines, which is what identifies leading as the
+   property that mattered to them. Font size and column width are NOT changed:
+   ours are 16px and 736px, inside the range those three occupy (14-16px,
+   576-768px), so the measurement gave no basis for touching either. */
+.md-typeset {
+  line-height: 1.75;
+}
+
+/* Links are neutral now, so the underline is the affordance -- not decoration.
+   `--md-typeset-a-color` was `--zz-brand` (indigo) in light and `--zz-info`
+   (sky) in dark: two different answers to one question, and in light mode the
+   same indigo as the whole header bar. Both now resolve to `--zz-ink-100`,
+   following Tailwind's `--prose-link-color: var(--color-gray-950)`.
+
+   **The underline is permanent, and that is a requirement rather than a style
+   choice.** WCAG 2.1 SC 1.4.1 forbids colour as the only means of conveying
+   information; with colour neutralised, nothing else distinguishes a link from
+   the prose around it. Hover-only underlining would leave the link invisible
+   to anyone not already pointing at it, and invisible entirely on touch.
+
+   Measured after the change, both themes, against the real content background:
+     dark   #f1f5f9 on #0d1117  17.27:1
+     light  #0f172a on #f8fafc  17.06:1
+   Both far above AA, and both *higher* than the body text they sit in, which
+   is the second distinction Tailwind uses: link ink is a step darker (or
+   lighter) than body ink, and underlined. */
+.md-typeset a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  text-decoration-thickness: from-font;
+}
+
+/* The hover accent stays: colour is no longer the *only* signal, so using it
+   as a secondary one is what SC 1.4.1 permits and expects. */
+
 /* ── Navbar logo swap ─────────────────────────────────────────────────────── */
 
 [data-md-color-scheme="slate"] .md-header__button.md-logo img,
 [data-md-color-scheme="default"] .md-header__button.md-logo img {
   content: url('../brand/svg/zenzic-icon.svg');
+  /* Declared, not inherited. This rule already replaces the logo's *source*,
+     and until 2026-09-20 it left the *size* to whatever the theme's default
+     happened to be -- so a Material upgrade could resize a swapped icon with
+     no edit here and nothing measuring it. Measured before fixing: 24px in a
+     48px bar (50%), beside a 20px wordmark (ratio 1.20). Both ordinary, so
+     the value is unchanged and only its provenance is: 1.2rem is now a
+     decision rather than a leftover. */
+  height: 1.2rem;
+  width: 1.2rem;
 }
 
 /* ── Navigation: sidebar active state ────────────────────────────────────── */
@@ -114,8 +209,6 @@
 [data-md-color-scheme="default"] .md-nav--secondary .md-nav__item--active>.md-nav__link {
   color: var(--zz-brand);
 }
-
-
 
 /* ── Navigation: hide site title from sidebar ─────────────────────────────── */
 
@@ -216,39 +309,9 @@
   border-bottom: 1px solid var(--zz-border-subtle);
 }
 
-.zz-hero__logo {
-  max-width: 400px;
-  width: 100%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-}
-
 /* pymdownx wraps the logo img in a <p> — strip its margin */
 .zz-hero p:has(.zz-hero__logo),
 .zz-hero p:first-child {
-  margin: 0;
-}
-
-.zz-hero__tagline {
-  font-size: 0.875rem;
-  line-height: 1.75;
-  color: var(--zz-ink-400);
-  margin: 0;
-  max-width: 520px;
-  font-weight: 400;
-}
-
-[data-md-color-scheme="default"] .zz-hero__tagline {
-  color: var(--zz-ink-600);
-}
-
-.zz-hero__actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: center;
-  /* pymdownx wraps links in a <p> — override paragraph margin */
   margin: 0;
 }
 
@@ -294,45 +357,6 @@
   background-color: rgba(0, 0, 0, 0.03);
 }
 
-/* Inline command box — replaces fenced code block */
-.zz-hero__cmd {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--zz-surface-1);
-  border: 1px solid var(--zz-border-subtle);
-  border-radius: 0.5rem;
-  padding: 0.6rem 1.1rem;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
-
-.zz-hero__cmd code {
-  background: none;
-  color: var(--zz-info);
-  padding: 0;
-  font-size: inherit;
-}
-
-.zz-hero__cmd-comment {
-  color: var(--zz-ink-600);
-  font-size: 0.8rem;
-}
-
-[data-md-color-scheme="default"] .zz-hero__cmd {
-  background: var(--zz-canvas);
-  border-color: var(--zz-border-subtle);
-}
-
-[data-md-color-scheme="default"] .zz-hero__cmd code {
-  color: var(--zz-brand);
-}
-
-[data-md-color-scheme="default"] .zz-hero__cmd-comment {
-  color: var(--zz-ink-600);
-}
-
 @media screen and (max-width: 59.9375em) {
   .zz-hero {
     padding: 2.5rem 1rem 2.5rem;
@@ -351,94 +375,6 @@
   margin: 0;
 }
 
-/* ── Terminal Mockup Component (.zz-terminal) ──────────────────────────────── */
-/* Stays dark in both light and dark modes for authentic terminal aesthetics.  */
-/* Uses --zz-terminal-* tokens defined in both [data-md-color-scheme] blocks.  */
-
-.zz-terminal {
-  background: var(--zz-terminal-bg);
-  border: 1px solid var(--zz-terminal-border);
-  border-radius: 0.5rem;
-  overflow: hidden;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.8125rem;   /* 13px */
-  line-height: 1.6;
-  max-width: 720px;
-  margin: 2rem auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-}
-
-/* Title bar with macOS-style traffic lights */
-.zz-terminal__bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  background: var(--zz-terminal-bar);
-  border-bottom: 1px solid var(--zz-terminal-border);
-}
-
-.zz-terminal__dot {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.zz-terminal__dot--red    { background: var(--zz-dot-red); }
-.zz-terminal__dot--yellow { background: var(--zz-dot-yellow); }
-.zz-terminal__dot--green  { background: var(--zz-dot-green); }
-
-.zz-terminal__title {
-  flex: 1;
-  text-align: center;
-  font-size: 0.7rem;
-  color: var(--zz-terminal-meta);
-  letter-spacing: 0.02em;
-}
-
-/* Output body */
-.zz-terminal__body {
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.zz-terminal__line {
-  display: flex;
-  gap: 0.75rem;
-  color: var(--zz-terminal-cmd);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.zz-terminal__line--error {
-  color: var(--zz-terminal-error);
-}
-
-.zz-terminal__line--fatal {
-  color: var(--zz-terminal-fatal);
-  font-weight: 600;
-  margin-top: 0.25rem;
-}
-
-.zz-terminal__prompt {
-  color: var(--zz-terminal-prompt);
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.zz-terminal__cmd {
-  color: var(--zz-terminal-cmd);
-}
-
-.zz-terminal__code {
-  color: var(--zz-terminal-code);
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
 /* Traffic light dots: force correct colors; not semantic, use raw hex         */
 /* These are literal UI affordances mimicking macOS — not brand palette tokens */
 /* zenzic:ignore:Z601 — intentional non-brand colors for platform affordance   */
@@ -450,15 +386,6 @@
   }
 }
 
-/* ── Feature Row (Zig-Zag Grid) ──────────────────────────────────────────── */
-.zz-feature-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4rem;
-  align-items: center;
-  margin: 5rem 0;
-}
-
 @media screen and (max-width: 768px) {
   .zz-feature-row {
     grid-template-columns: 1fr;
@@ -466,117 +393,10 @@
   }
 }
 
-.zz-feature-text h3 {
-  margin-top: 0;
-  color: var(--zz-ink-100);
-}
-
-.zz-feature-text p,
-.zz-feature-text ul {
-  color: var(--zz-ink-200);
-}
-
-/* ── Showcase Card (Surface Discipline) ──────────────────────────────────── */
-.zz-showcase-card {
-  background-color: var(--zz-surface-1);
-  border: 1px solid var(--zz-border-subtle);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-}
-
-/* Ensure inner code blocks don't bring unwanted Material backgrounds */
-.zz-showcase-card pre,
-.zz-showcase-card code {
-  background: transparent !important;
-  margin: 0;
-}
-
-
-.zz-features {
-  max-width: 960px;
-  margin: 3.5rem auto !important;
-  padding: 0 1.5rem;
-}
-
 /* Feature cards — 2-column grid for better breathing room */
 .zz-features.grid.cards,
 .zz-features .grid.cards {
   grid-template-columns: repeat(2, 1fr) !important;
-}
-
-/* Feature cards — individual card styling */
-.zz-features li {
-  background: var(--md-code-bg-color);
-  border: 1px solid transparent !important;
-  border-radius: 0.5rem;
-  padding: 1.25rem;
-  transition: transform var(--zz-transition-fast), border-color var(--zz-transition-fast), box-shadow var(--zz-transition-fast);
-  min-height: 120px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
-  /* Push code block to bottom via flex */
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-/* Reduce card text size — target p directly to beat Material specificity */
-.zz-features li p {
-  font-size: 0.78rem !important;
-  line-height: 1.6;
-  margin: 0.3rem 0;
-}
-
-/* Card title — subtle indigo tint, no bold */
-.zz-features li p:first-child strong {
-  color: var(--zz-brand-light);
-  font-weight: 500;
-}
-
-[data-md-color-scheme="default"] .zz-features li p:first-child strong {
-  color: var(--zz-brand-light);
-  opacity: 0.85;
-  font-weight: 500;
-}
-
-/* Hover — border appears, lighter lift */
-.zz-features li:hover {
-  transform: translateY(-2px);
-  border-color: var(--zz-brand) !important;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.18);
-}
-
-[data-md-color-scheme="default"] .zz-features li {
-  background: var(--zz-surface-0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-[data-md-color-scheme="default"] .zz-features li:hover {
-  border-color: rgba(79, 70, 229, 0.45) !important;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08);
-}
-
-
-/* Inline command tags within cards */
-.zz-card-cmd {
-  margin-top: 1rem;
-  display: flex;
-}
-
-.zz-card-cmd code {
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  color: var(--zz-info) !important;
-  border-radius: 0.25rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.7rem !important;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-}
-
-[data-md-color-scheme="default"] .zz-card-cmd code {
-  background: rgba(79, 70, 229, 0.05);
-  border-color: rgba(79, 70, 229, 0.12);
-  color: var(--zz-brand) !important;
 }
 
 @media screen and (max-width: 76.1875em) {
@@ -595,60 +415,11 @@
   }
 }
 
-/* Score section — centered, contained width */
-/* Score section — elevated card, generous top spacing */
-.zz-score-section {
-  max-width: 640px;
-  margin: 3.5rem auto !important;
-  padding: 2.5rem 2rem;
-  text-align: center;
-  background: var(--md-code-bg-color);
-  border: 1px solid var(--zz-border-subtle);
-  border-radius: 0.75rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-}
-
-[data-md-color-scheme="default"] .zz-score-section {
-  background: var(--zz-surface-0);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
-}
-
-/* Score section text — reduced to match card scale */
-.zz-score-section p {
-  font-size: 0.78rem !important;
-  line-height: 1.7;
-}
-
-.zz-score-section h2 {
-  margin-top: 0;
-  font-size: 0.95rem !important;
-}
-
 /* Quality Score section — smaller code font to avoid scrollbar */
 .zz-score-section .highlight code,
 .zz-score-section pre code {
   font-size: 0.72rem !important;
   line-height: 1.55;
-}
-
-/* Trust bar — minimal footer note */
-.zz-trust-section {
-  text-align: center;
-  padding: 0.75rem 1rem 1rem;
-  font-size: 0.65rem;
-  color: var(--zz-muted-color);
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.zz-trust-section strong {
-  color: var(--md-default-fg-color);
-  opacity: 0.9;
-}
-
-.zz-trust-section a {
-  color: var(--md-typeset-a-color);
-  text-decoration: none;
 }
 
 /* Primary CTA — dark mode contrast override (outside hero, e.g. docs pages) */
@@ -685,7 +456,6 @@
   color: var(--zz-muted-color-hover);
   border-bottom-color: var(--zz-muted-color);
 }
-
 
 /* ── Footer copyright ─────────────────────────────────────────────────────── */
 
@@ -789,22 +559,6 @@
   background-color: var(--zz-brand-light);
 }
 
-/* Metrics styling */
-.zz-metrics {
-  gap: 1.5rem;
-  margin-top: 2.5rem;
-}
-
-.zz-metric__value {
-  font-size: 2rem !important;
-  font-weight: 700;
-}
-
-.zz-metric__label {
-  font-size: 0.7rem !important;
-  letter-spacing: 0.05em;
-}
-
 /* ── Tailwind/MkDocs Bridge: Rem Scaling Fix ─────────────────────────────── */
 /* MkDocs Material sets html { font-size: 125% } for accessibility.
  * This blows up Tailwind's rem values by 25%.
@@ -812,6 +566,39 @@
  * corrupting MkDocs Material's global header proportions. */
 .zz-tailwind-root {
   font-size: 16px !important;
+
+  /* `font-size: 16px` above governs `em`, not `rem`, so on its own it never
+     reached a single Tailwind utility -- every one of them is `rem`-based and
+     `rem` resolves against `html`, which Material sets to 125% (20px). The
+     comment above states the intent correctly and the mechanism could not
+     deliver it; measured 2026-09-20, every spacing and width utility on this
+     page was rendering 25% larger than designed:
+
+         py-24      6rem    designed   96px   rendered  120px
+         py-12      3rem    designed   48px   rendered   60px
+         px-6     1.5rem    designed   24px   rendered   30px
+         max-w-5xl 64rem    designed 1024px   rendered 1280px
+         max-w-3xl 48rem    designed  768px   rendered  960px
+
+     `max-w-5xl` at 1280px is the one with a visible threshold: below a 1280px
+     viewport the container stops fitting, `mx-auto` centres nothing, and the
+     page reads flush to the edges -- the same page laying out two different
+     ways depending on window width.
+
+     This build is Tailwind v4, where utilities read CSS custom properties
+     (`calc(var(--spacing) * 6)`, `var(--container-5xl)`) rather than baking in
+     literals. So the scale can be restated in absolute units *here*, scoped to
+     this wrapper, and every utility inside recomputes. Nothing global moves:
+     `html` keeps 125%, the rest of the documentation is untouched, and the
+     `rem`-valued `!important` overrides tuned against 20px stay valid because
+     `rem` itself has not changed. */
+  --spacing: 4px;
+  --container-sm: 384px;
+  --container-xl: 576px;
+  --container-2xl: 672px;
+  --container-3xl: 768px;
+  --container-4xl: 896px;
+  --container-5xl: 1024px;
 }
 
 /* Hide GitHub stats widget on the Landing Page to reduce visual noise */
@@ -819,71 +606,26 @@ html:has(.zz-tailwind-root) .md-header__source {
   display: none !important;
 }
 
-/* Aggressive Typography Override for Hero Metrics */
-.zz-tailwind-root .text-3xl,
-.zz-tailwind-root .md\:text-4xl {
+/* Hero metric numbers only -- scoped by `tabular-nums`, which nothing else on
+   the page uses.
+
+   This selector read `.zz-tailwind-root .text-3xl, .zz-tailwind-root
+   .md\:text-4xl` until 2026-09-21, and its own comment says it was meant for the
+   metrics. But those utility classes are carried by seven other elements: the
+   hero `h1` and six section `h2`s. With `!important` it beat every responsive
+   size they declare, so `lg:text-6xl` on the title was inert and the heading
+   rendered at exactly 2rem = 40px with a 48px line box -- the two numbers that
+   were measured on the rendered page before this was found.
+
+   A rule written for four numbers, scoped by a class eleven elements share. */
+.zz-tailwind-root .tabular-nums {
   font-size: 2rem !important;
-  /* Force smaller metric numbers */
   line-height: 1.2 !important;
 }
 
 .zz-tailwind-root .text-\[11px\] {
   font-size: 0.65rem !important;
   /* Force smaller metric labels */
-}
-
-/* === Blog Post Metadata Bar ============================================= */
-/* Pure CSS — zero JavaScript. Rendered by overrides/blog_post.html Jinja2. */
-.zz-post-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0 1.25rem;
-  border-bottom: 1px solid var(--zz-border-subtle);
-  margin-bottom: 1.5rem;
-  font-size: 0.78rem !important;
-  color: var(--zz-muted-color);
-  line-height: 1.4;
-}
-
-.zz-post-meta__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-/* Override global svg rule — post-meta uses filled icons, not stroked */
-.zz-post-meta__item svg {
-  flex-shrink: 0;
-  opacity: 0.75;
-  fill: currentColor !important;
-  stroke: none !important;
-  stroke-width: 0 !important;
-}
-
-.zz-post-meta__tags {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.zz-post-meta__tag {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  background: rgba(79, 70, 229, 0.12);
-  border: 1px solid rgba(79, 70, 229, 0.2);
-  border-radius: 9999px;
-  font-size: 0.7rem !important;
-  color: var(--zz-brand-light);
-  font-family: var(--md-code-font-family, ui-monospace, monospace);
-  letter-spacing: 0.01em;
-}
-
-[data-md-color-scheme="default"] .zz-post-meta__tag {
-  background: rgba(79, 70, 229, 0.07);
-  border-color: rgba(79, 70, 229, 0.15);
-  color: var(--zz-brand);
 }
 
 /* === Breadcrumb: Home icon (navigation.path uses .md-path__item) ======= */
@@ -903,97 +645,6 @@ html:has(.zz-tailwind-root) .md-header__source {
   mask-size: contain;
 }
 
-/* === Blog post: manual breadcrumb (.zz-post-breadcrumb) ================= */
-.zz-post-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.74rem;
-  color: var(--zz-muted-color);
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-  line-height: 1;
-}
-
-.zz-post-breadcrumb a {
-  color: var(--zz-muted-color);
-  text-decoration: none;
-  transition: color var(--zz-transition-fast);
-}
-
-.zz-post-breadcrumb a:hover {
-  color: var(--md-typeset-a-color);
-}
-
-/* Inline SVG home icon — override global stroke rule */
-.zz-post-breadcrumb__home svg {
-  fill: currentColor !important;
-  stroke: none !important;
-  stroke-width: 0 !important;
-  vertical-align: -0.15em;
-}
-
-.zz-post-breadcrumb__sep {
-  opacity: 0.45;
-  user-select: none;
-}
-
-.zz-post-breadcrumb__current {
-  color: var(--md-accent-fg-color);
-  font-weight: 500;
-}
-
-/* === Blog posts sidebar (.zz-posts-sidebar) ============================= */
-.zz-posts-sidebar {
-  padding: 0.5rem 0;
-}
-
-.zz-posts-sidebar__label {
-  font-size: 0.625rem !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.09em !important;
-  color: var(--zz-muted-color) !important;
-  margin: 0 0 0.5rem 0 !important;
-  padding: 0 0.5rem !important;
-}
-
-.zz-posts-sidebar__list {
-  list-style: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.zz-posts-sidebar__item {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.zz-posts-sidebar__item a {
-  display: block;
-  padding: 0.28rem 0.5rem;
-  font-size: 0.71rem !important;
-  color: var(--zz-muted-color);
-  text-decoration: none;
-  border-radius: 4px;
-  transition: color var(--zz-transition-fast), background var(--zz-transition-fast);
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.zz-posts-sidebar__item a:hover {
-  color: var(--md-typeset-a-color);
-  background: var(--md-default-bg-color--light);
-}
-
-.zz-posts-sidebar__item--active a {
-  color: var(--md-accent-fg-color) !important;
-  font-weight: 600;
-  background: var(--md-accent-fg-color--transparent);
-}
-
 /* ── Footer Social & Badge Overrides ──────────────────────────────────────── */
 
 /* Make footer social links legible by overriding the dark muted color */
@@ -1007,27 +658,6 @@ html:has(.zz-tailwind-root) .md-header__source {
 .md-footer-meta .md-social__link svg {
   fill: currentColor !important;
   stroke: none !important;
-}
-
-/* Professional styling for the DevTool badge */
-.zz-devtool-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  background: var(--md-code-bg-color);
-  border: 1px solid var(--zz-success);
-  color: var(--zz-muted-color-hover);
-  border-radius: 4px;
-  text-decoration: none !important;
-  font-size: 11px;
-  font-weight: 600;
-  transition: all var(--zz-transition-fast);
-  margin-top: 12px;
-}
-.zz-devtool-badge:hover {
-  color: var(--zz-success) !important;
-  border-color: var(--zz-success);
-  background: rgba(16, 185, 129, 0.05);
 }
 
 /* Z-Code Diagnostic Grid Precision (ZEN-20260702-UI-UX-REFACTOR) */
@@ -1204,9 +834,6 @@ html:has(.zz-tailwind-root) .md-header__source {
   }
 }
 
-
-
-
 /* ══════════════════════════════════════════════════════════════════════════════
    PHASE B — Contrast Accessibility Fixes (WCAG 2.1 AA)
    (V030_DOCS_DESIGN_SYSTEM — A11y subsection)
@@ -1231,6 +858,37 @@ html:has(.zz-tailwind-root) .md-header__source {
      text-amber-400 → var(--zz-warning)   [token = #f59e0b dark / #d97706 light; WCAG AA]
      text-amber-500 → var(--zz-warning)   [same rationale]
    ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Code-index panel (the fourteen finding codes on the landing page) ───── */
+/* Batch 15's method, applied to the one hand-built panel that sat outside it. */
+/* The panel is not inside .zz-terminal or .zz-showcase-card, so the Tailwind  */
+/* mappings above never reached it and `text-indigo-500` stayed a raw value.   */
+/*                                                                             */
+/* Measured 2026-09-20 against --zz-canvas in each branch, not estimated:      */
+/*   text-indigo-500 #6366f1 on #09090b (dark)  → 4.45:1  FAIL AA              */
+/*   text-indigo-500 #6366f1 on #f8fafc (light) → 4.27:1  FAIL AA              */
+/* Every other pair in the panel already passed, which is why only this one is */
+/* remapped -- an override that touches what already works is a second place   */
+/* for the value to drift.                                                     */
+/*                                                                             */
+/* The token differs by branch and that is the point: --zz-brand-light is      */
+/* #818cf8 dark (6.67:1) and #6366f1 light (4.27:1, the same failing value),   */
+/* so the light branch takes --zz-brand #4f46e5 (6.01:1) instead. One token    */
+/* for both branches would have kept the light-mode failure.                   */
+[data-md-color-scheme="slate"] .zz-code-index .group-hover\:text-indigo-500,
+[data-md-color-scheme="slate"] .zz-code-index .group:hover .group-hover\:text-indigo-500 {
+  color: var(--zz-brand-light) !important;
+}
+[data-md-color-scheme="default"] .zz-code-index .group-hover\:text-indigo-500,
+[data-md-color-scheme="default"] .zz-code-index .group:hover .group-hover\:text-indigo-500 {
+  color: var(--zz-brand) !important;
+}
+.zz-code-index .text-indigo-500 {
+  color: var(--zz-brand-light);
+}
+[data-md-color-scheme="default"] .zz-code-index .text-indigo-500 {
+  color: var(--zz-brand);
+}
 
 /* ── Zinc overrides (metadata, muted, secondary text) ────────────────────── */
 /* Context: dark terminal mock backgrounds (#0d1117).                          */
@@ -1282,3 +940,40 @@ html:has(.zz-tailwind-root) .md-header__source {
   color: var(--zz-warning) !important;
 }
 
+/* Failing/Passing pattern pairs stack instead of sitting side by side.
+ *
+ * Material's `grid cards` lays out `auto-fill, minmax(16rem, 1fr)`, so on a
+ * normal content width the pair renders as two columns and each card gets
+ * roughly half of it. The cards hold fenced code, and a code block does not
+ * reflow — it scrolls. So the reader saw a truncated line in both boxes and had
+ * to scroll each one horizontally to read either.
+ *
+ * Scoped to `.zz-pattern-pair` rather than to `.grid.cards`, because every rule
+ * card carries a SECOND grid — the severity/remediation header — which is short
+ * text and is correct in two columns. A blanket rule would have stacked the one
+ * that was already fine.
+ */
+.md-typeset .grid.cards.zz-pattern-pair {
+  grid-template-columns: 1fr;
+}
+
+/* The hero title's four responsive size classes are all dead, and the reason is
+   specificity rather than load order: Material ships `.md-typeset h1 {font-size:
+   2em}` at 0-1-1, and a Tailwind utility is a single class at 0-1-0, so Material
+   wins wherever the landing page sits inside `.md-typeset`. Measured at 1424px:
+   the title rendered 40px while `lg:text-6xl` asks for 75px. The dimmed tone came
+   from the same rule -- `--md-default-fg-color--light` carries 82% alpha, which is
+   why the heading read as greyer than the paragraph beneath it.
+
+   Fluid rather than four breakpoint copies: restating Tailwind's scale here would
+   put the same numbers in two files, which is the duplication this codebase keeps
+   finding. `clamp()` expresses the intent once and needs no media query.
+
+   Six `h2` elements on the same page have the same conflict (40px against the 45px
+   their `md:text-4xl` asks for). They are deliberately NOT fixed here: seven
+   instances is a pattern, and the disposition belongs to an audit of which
+   extra.css and Material rules the Tailwind bundle now supersedes. */
+.zz-tailwind-root h1 {
+  font-size: clamp(1.75rem, 3.2vw, 2.25rem);
+  line-height: 1.05;
+}

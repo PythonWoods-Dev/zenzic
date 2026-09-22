@@ -6,9 +6,7 @@ description: "Walk through the z107-circular-anchor fixture: a self-referential 
 
 # Z107 — Circular Anchor
 
-**Z-Code:** `Z107 CIRCULAR_ANCHOR` · **Engine:** `standalone` · **Exit:** `0`
-
-<Z107CircularAnchor />
+**Z-Code:** `Z107 CIRCULAR_ANCHOR` · **Engine:** `standalone` · **Exit:** `1`
 
 ---
 
@@ -18,7 +16,7 @@ The fixture lives at `examples/z107-circular-anchor/` in the Zenzic repository.
 The source document is `docs/guide.md`, which contains the link `[Setup](#setup)`
 inside the `## Setup` heading section.
 
-The link text **"Setup"** slugifies to `#setup`, the same fragment as the
+The link sits inside the `## Setup` section, and its text **"Setup"** slugifies to `#setup` — the same fragment as the
 containing `## Setup` heading — making it circular (clicking it scrolls to the
 same place the user is already reading):
 
@@ -47,11 +45,11 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone · 1 file (1 docs, 0 assets) · 0.0s · 64 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 64 files/s
 
-docs/guide.md:14:51  !  [Z107]  Self-referential anchor link: '[Setup](#setup)'
-slugifies to its own fragment. Replace with a meaningful target or remove the
-link.
+docs/guide.md:14:51  ✘  [Z107]  Self-referential anchor link: '[Setup](#setup)'
+sits inside the section it points at, so it takes the reader where they already
+are. Replace with a meaningful target or remove the link.
 
     12  │  For advanced options, consult the reference documentation linked bel…
     13  │
@@ -62,13 +60,16 @@ link.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  · 1 file with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
-Analysis complete: All statically-detectable links, credentials, and references
-verified.
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 99/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
-Exit code: `0`
+Exit code: `1`
 
 ---
 
@@ -87,7 +88,7 @@ the link target. Common causes:
 Metadata:
 
 - **Scan Type:** `Rule Engine (built-in, always active)`
-- **Severity:** `Warning`
+- **Severity:** `Error`
 - **Impact:** Deducts **1.0 DQS point** (structural category, weight 0.30).
 
 ---
@@ -105,7 +106,7 @@ Replace the circular link with either a meaningful external target or remove it:
 
 ## See Also
 
-- [Z101 — Broken Links](z101-broken-links) — file-level link integrity.
-- [Z102 — Anchor Missing](z102-anchor-missing) — the target fragment does not
+- [Z101 — Broken Links](../z101-broken-links/) — file-level link integrity.
+- [Z102 — Anchor Missing](../z102-anchor-missing/) — the target fragment does not
   exist on the destination page.
-- [Checks Reference — Z107](../../../reference/checks) — full rule specification.
+- [Checks Reference — Z107](../../../../reference/checks/) — full rule specification.

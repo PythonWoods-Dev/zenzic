@@ -17,26 +17,22 @@ Instead, Zenzic separates **structural correctness** from **semantic meaning**, 
 
 The remediation lifecycle transitions defects from invisible structural failures into visible, trackable semantic debt:
 
-```text
-┌──────────────────────────────────────────────┐
-│  Empty Link: [](https://...)                 │
-│  [Z108] Invisible Structural Error           │
-│  (Inaccessible, unclickable in HTML)         │
-└──────────────────────┬───────────────────────┘
-                       │
-                       ▼  zenzic fix --apply (Atomic Mutator)
-┌──────────────────────────────────────────────┐
-│  Beacon Link: [TODO](https://...)            │
-│  [Z108 Fixed] -> HTML AST Structure Restored │
-│  [Z501 / Z617] Visible Semantic Debt         │
-│  (Intentional CI block before merge)         │
-└──────────────────────┬───────────────────────┘
-                       │
-                       ▼  Human-in-the-Loop Triage
-┌──────────────────────────────────────────────┐
-│  Final Link: [Official Guide](https://...)   │
-│  Total Integrity (DQS 100/100)               │
-└──────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Empty Link: [](https://...)<br/>[Z108] Invisible Structural Error<br/>(Inaccessible, unclickable in HTML)"]
+    B["Beacon Link: [TODO](https://...)<br/>[Z108 Fixed] → HTML AST Structure Restored<br/>[Z501 / Z617] Visible Semantic Debt<br/>(Intentional CI block before merge)"]
+    C["Final Link: [Official Guide](https://...)<br/>Total Integrity (DQS 100/100)"]
+    A -->|"zenzic fix --apply (Atomic Mutator)"| B
+    B -->|"Human-in-the-Loop Triage"| C
+
+    classDef entry fill:#4f46e5,color:#fff,stroke-width:0px
+    classDef data fill:#38bdf8,color:#fff,stroke-width:0px
+    classDef ok fill:#10b981,color:#fff,stroke-width:0px
+    classDef gate fill:#f59e0b,color:#fff,stroke-width:0px
+    classDef danger fill:#f43f5e,color:#fff,stroke-width:0px
+    class A danger
+    class B gate
+    class C ok
 ```
 
 ---

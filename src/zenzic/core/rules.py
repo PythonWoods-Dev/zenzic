@@ -72,13 +72,22 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.ast import BlockTracker
+from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
-from zenzic.core.sovereign_context import get_sovereign_context
+from zenzic.core.resolver import href_resolution_base, page_url_depth, traversal_intent
+from zenzic.core.validator import (
+    JSX_URL_ATTRS,
+    POLY_ATTRS_FRAGMENT,
+    POLY_TAG_NAMES,
+    has_uri_scheme,
+)
 
 
 if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
+    from zenzic.core.regex import RegexPattern
     from zenzic.core.suppressions import SuppressionTracker
     from zenzic.models.config import ProjectMetadata
     from zenzic.models.vsm import VSM, Route
@@ -113,6 +122,13 @@ class ResolutionContext:
     use_directory_urls: bool = True
     adapter: Any = None
     config: Any = None
+    #: Configured i18n locale directory names (e.g. ``{"it", "en"}``).  The
+    #: locale fallback below is gated on membership: without this, the source
+    #: file's first path segment was treated as a locale unconditionally, so
+    #: ``docs/tutorials/...`` made ``tutorials`` a "locale" and any broken link
+    #: that happened to resolve at the root was silently accepted.  Empty means
+    #: the project has no locales, and the fallback must not fire at all.
+    locale_names: frozenset[str] = frozenset()
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -341,6 +357,16 @@ class BaseRule(ABC):
     leave :meth:`check_vsm` as the default no-op.
     """
 
+    #: Set by :class:`AdaptiveRuleEngine` before each :meth:`check` call, so a
+    #: rule can reach adapter-declared facts without the signature changing.
+    #: `check()` is the SDK's public contract -- a third positional parameter
+    #: would break every third-party rule implementing `check(self, file_path,
+    #: text)` -- so the context arrives beside the call rather than inside it.
+    #:
+    #: ``None`` for a rule invoked outside the engine, and every consumer must
+    #: read that as "use the defaults", never as an error.
+    _containers: RegexPattern | None = None
+
     @property
     @abstractmethod
     def rule_id(self) -> str:
@@ -442,12 +468,16 @@ class CustomRule(BaseRule):
         pattern: Regular-expression string applied to each non-blank line.
         message: Human-readable explanation shown in the finding.
         severity: ``"error"`` (default), ``"warning"``, or ``"info"``.
+        link: Optional rationale URL. When set, appended to the finding's
+            message as ``"{message} (see {link})"``. A rule with no link
+            produces exactly its configured message, unchanged.
     """
 
     id: str
     pattern: str
     message: str
     severity: Severity = "error"
+    link: str | None = None
     # Compiled with RE2; typed via the shared RegexPattern alias.
     _compiled: re.RegexPattern = field(init=False, repr=False, compare=False)
 
@@ -476,6 +506,7 @@ class CustomRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         """Apply the pattern line-by-line to *text*."""
         findings: list[RuleFinding] = []
+        message = f"{self.message} (see {self.link})" if self.link else self.message
         for lineno, line in enumerate(text.splitlines(), start=1):
             m = self._compiled.search(line)
             if m:
@@ -484,7 +515,7 @@ class CustomRule(BaseRule):
                         file_path=file_path,
                         line_no=lineno,
                         rule_id=self.id,
-                        message=self.message,
+                        message=message,
                         severity=self.severity,
                         matched_line=line,
                         col_start=m.start(),
@@ -538,25 +569,48 @@ class AdaptiveRuleEngine:
 
     Usage::
 
-        engine = AdaptiveRuleEngine(rules)
+        engine = AdaptiveRuleEngine(rules, containers=None)
         findings = engine.run(Path("docs/guide.md"), text)
 
     Args:
         rules: Iterable of :class:`BaseRule` (or :class:`CustomRule`) instances
             to apply.  Order is preserved in the output.
+        containers: The container-opening pattern for this run, resolved once
+            from the adapter's declared extensions (`core/extensions.py`).
+            Required, never defaulted: the engine is the run-scoped carrier for
+            this fact, and a default here would silently hand every rule the
+            full four-marker vocabulary regardless of what the project enables.
+            ``None`` is still a legal value and means "use the declared
+            default" -- but a caller has to write it.
 
     Raises:
         PluginContractError: If any rule fails the eager pickle validation.
     """
 
-    def __init__(self, rules: Sequence[BaseRule]) -> None:
+    def __init__(
+        self,
+        rules: Sequence[BaseRule],
+        *,
+        containers: RegexPattern | None,
+    ) -> None:
         for rule in rules:
             _assert_pickleable(rule)
         self._rules = rules
+        self._containers = containers
 
     def __bool__(self) -> bool:
         """Return ``True`` when the engine has at least one rule."""
         return bool(self._rules)
+
+    @property
+    def containers(self) -> RegexPattern | None:
+        """The run-level container vocabulary this engine was built with.
+
+        Read-only, and public so that a consumer which is *not* a rule --
+        `PolicyEvaluator` is the one -- can reach the same resolved value
+        without private access and without resolving it a second time.
+        """
+        return self._containers
 
     def run(self, file_path: Path, text: str) -> list[RuleFinding]:
         """Run all rules against *text* and return consolidated findings.
@@ -576,6 +630,11 @@ class AdaptiveRuleEngine:
         findings: list[RuleFinding] = []
         for rule in self._rules:
             try:
+                # Core rules read the context from the engine rather than
+                # from `check()`'s signature: that signature is the SDK's
+                # public contract, and a third positional would break every
+                # third-party rule implementing `check(self, file_path, text)`.
+                rule._containers = self._containers  # noqa: SLF001
                 findings.extend(rule.check(file_path, text))
             except ZenzicRuleTimeout as exc:
                 findings.append(
@@ -584,7 +643,7 @@ class AdaptiveRuleEngine:
                         line_no=0,
                         rule_id="Z902",
                         message=(f"Rule '{rule.rule_id}' exceeded execution limit: {exc.message}"),
-                        severity="error",
+                        severity=code_severity("Z902"),
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -597,7 +656,7 @@ class AdaptiveRuleEngine:
                             f"Rule '{rule.rule_id}' raised an unexpected exception: "
                             f"{type(exc).__name__}: {exc}"
                         ),
-                        severity="error",
+                        severity=code_severity("Z901"),
                     )
                 )
         return findings
@@ -681,7 +740,7 @@ class AdaptiveRuleEngine:
                         message=(
                             f"Rule '{rule.rule_id}' exceeded execution limit in check_vsm: {exc.message}"
                         ),
-                        severity="error",
+                        severity=code_severity("Z902"),
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -694,7 +753,7 @@ class AdaptiveRuleEngine:
                             f"Rule '{rule.rule_id}' raised an unexpected exception "
                             f"in check_vsm: {type(exc).__name__}: {exc}"
                         ),
-                        severity="error",
+                        severity=code_severity("Z901"),
                     )
                 )
         return findings
@@ -705,104 +764,101 @@ class AdaptiveRuleEngine:
 #: Matches a same-page anchor link: [text](#fragment) — not cross-file.
 _ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
 
+#: Matches an ATX heading line, for tracking which section contains a given
+#: line (used by CircularAnchorRule to distinguish a true self-reference from
+#: a cross-section link that merely shares its own link text's slug).
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+
 #: Fenced code block line: captures the fence chars and the full info string.
 #: CEO-138: info string may contain language + metadata (e.g. ``python title="x"``
 #: showLineNumbers). CEO-140: closing fence detection requires empty info string
 #: (CommonMark invariant — a closing fence never has an info string).
-_FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
-
-#: Strict suppression protocol: only exact ``zenzic:ignore:`` directives are valid.
-#: Matches both Markdown HTML comments and MDX/JSX comments.
-#:
-#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore: Z905 - reason -->``
-#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore: Z905 - reason */}``
-_SUPPRESS_RE = re.compile(
-    r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
+# The three patterns that decide what counts as a suppression directive are
+# imported, not redeclared. All three were duplicated here byte-for-byte from
+# `suppressions.py`, which owns the protocol: the fence tracker and the
+# inline-code stripper decide whether a directive is *seen*, and the directive
+# pattern decides what one *is*. Re-exported under the same names so this
+# module's callers are unchanged. `as` on each name is the explicit re-export
+# form: this module is the import path three callers already use (`sdk/rules.py`
+# among them), so the names must stay public here while the definitions live in
+# one place.
+#
+# The consolidation stopped at the patterns until 2026-09-19. The two functions
+# built on them -- a second `count_inline_suppressions` and a second
+# `_is_suppressed` -- stayed here with no production caller, and they disagreed
+# with the real ones: the copy lacked the ADR-093 non-inline guard, directory
+# policies and the `data-zenzic-ignore` pass. Two test modules asserted the
+# suppression protocol against them, including the CEO-152 Inviolability Law,
+# so the suite's account of what silences a finding described code the product
+# never ran. Both are removed and those assertions now drive
+# `SuppressionTracker`.
+from zenzic.core.suppressions import (  # noqa: E402
+    _FENCE_OPEN_RE as _FENCE_OPEN_RE,
+    _INLINE_CODE_STRIP_RE as _INLINE_CODE_STRIP_RE,
+    _SUPPRESS_RE as _SUPPRESS_RE,
 )
 
-#: ADR-084 — Strip backtick inline code spans before counting suppressions.
-#: Prevents didactic examples like `<!-- zenzic:ignore: Z601 -->` from
-#: being counted as active suppression directives.
-#: Alternation ``double first | single`` handles RST-style `````.md````` spans
-#: without backreferences (RE2 engine does not support backreferences).
-_INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
+
+#: A heading's trailing attr-list with an explicit id, `{#custom-id}`.
+#: Python-Markdown's `attr_list` extension and pymdownx both consume it and use
+#: the declared id *instead of* the derived slug, so a heading that carries one
+#: publishes at exactly that anchor under every renderer supporting the syntax.
+_HEADING_ATTR_ID_RE = re.compile(r"\{[^}\n]*#([A-Za-z][\w:.-]*)[^}\n]*\}\s*$")
 
 
-def count_inline_suppressions(text: str) -> int:
-    """Count suppression directives declared in Markdown/MDX source text.
+def _heading_anchor(text: str) -> str:
+    """The anchor a heading actually publishes at.
 
-    Fence-aware (ADR-084): lines inside triple-backtick/tilde fenced code
-    blocks are skipped entirely.  Backtick inline code spans are stripped
-    before the suppression regex is applied on each prose line.
+    Separate from :func:`_slugify` because the two answer different questions:
+    a *link's text* never carries an attr-list, and a *heading* may. Folding
+    the attr-list into the slugifier would have produced
+    `the-integrity-filter` for `## The Integrity Filter {#integrity-filter}`,
+    where the renderer publishes `integrity-filter` -- the declared id replaces
+    the derived slug rather than being stripped from it.
+
+    Measured: **368** headings in this repository declare their own anchor, and
+    Z107's guard compared a mangled `security-gate-{#security-gate}` against a
+    clean fragment in every one of them, so the rule was inert there. The cost
+    was coverage, not noise -- Z107 reported 0 here, which is why nothing
+    surfaced it until a fixture was corrected for an unrelated reason.
     """
-    total = 0
-    inside_fence = False
-    open_char = ""
-    open_count = 0
-    for line in text.splitlines():
-        fm = _FENCE_OPEN_RE.match(line)
-        if not inside_fence:
-            if fm:
-                fence = fm.group("fence")
-                inside_fence = True
-                open_char = fence[0]
-                open_count = len(fence)
-            else:
-                stripped = _INLINE_CODE_STRIP_RE.sub("", line)
-                total += sum(1 for _ in _SUPPRESS_RE.finditer(stripped))
-        else:
-            if fm:
-                fence = fm.group("fence")
-                info = fm.group("info").strip()
-                if fence[0] == open_char and len(fence) >= open_count and not info:
-                    inside_fence = False
-                    open_char = ""
-                    open_count = 0
-            # Inside fence: skip the line entirely (no counting)
-    return total
-
-
-def _is_suppressed(line: str, code: str) -> bool:
-    """Return ``True`` if *line* carries a suppression comment for *code*.
-
-    **Format-aware suppression (CEO-143 — Polymorphic Suppression Protocol):**
-
-    In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
-
-        v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 - historical reference -->
-
-    In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
-    for the Docusaurus/React parser)::
-
-        v0.6.x was the previous codename. {/* zenzic:ignore: Z601 - historical reference */}
-
-    Each suppression comment silences **only** the specified diagnostic code
-    on the tagged line.  To suppress multiple codes, add multiple comments.
-
-    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203, Z204)
-    always return ``False`` unconditionally.  Security findings are facts,
-    not suggestions — a credential leak cannot be declared a false positive.
-    """
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
-
-    if get_sovereign_context().force_audit:
-        return False
-
-    if code in NON_SUPPRESSIBLE_CODES:
-        return False
-
-    if "zenzic" not in line:
-        return False
-
-    return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
+    declared = _HEADING_ATTR_ID_RE.search(text)
+    if declared:
+        return declared.group(1).lower()
+    return _slugify(text)
 
 
 def _slugify(text: str) -> str:
-    """Return the GitHub-Markdown slug for heading *text*.
+    """Lowercase *text*, trim it, and replace internal spaces with hyphens.
 
-    Lowercases, strips leading/trailing whitespace, replaces internal spaces
-    with hyphens. Does NOT strip punctuation — matches the minimal slug that
-    Docusaurus and most renderers produce for same-page anchor links.
+    **This is not a renderer's slug and the docstring used to claim it was.**
+    It read "the GitHub-Markdown slug ... matches the minimal slug that
+    Docusaurus and most renderers produce", and measured against github-slugger
+    on nine heading/anchor pairs taken from a real Astro site it agreed on
+    **none of them**: it keeps backticks, so ``` `<Image />` ``` becomes
+    ``` `<image-/>` ``` where the site publishes ``image-``. A declared target
+    that is false is worse than no target, because the next reader builds on it.
+
+    What it actually is: a **minimal normalisation**, used by Z107 to compare a
+    link's visible text against its own fragment. Both sides of that comparison
+    go through it, so the rule works whenever the two agree -- which is why the
+    false claim survived without producing a wrong finding.
+
+    **Deliberately not `validator.slug_heading`.** That function predicts
+    Python-Markdown's ``toc``, which MkDocs and Zensical render with; this one
+    targets the minimal slug, and the divergence is a choice rather than drift.
+    Measured against ``markdown.Markdown(extensions=["toc", "attr_list"])``,
+    the two agree on a plain heading and part company on punctuation, which is
+    the difference the renderers themselves have.
+
+    **An attr-list is not that difference and is stripped first.** A heading
+    written ``## Security Gate {#security-gate}`` publishes at ``#security-gate``
+    under every renderer that supports the syntax; slugifying the braces
+    produced ``security-gate-{#security-gate}``, an identifier no renderer could
+    mint, so Z107's guard could never match inside such a section. Measured:
+    **368** headings in this repository declare their own anchor this way, and
+    the rule was inert in every one of them. The cost was coverage, not noise --
+    Z107 reported 0 here, which is why nothing surfaced it.
     """
     return text.lower().strip().replace(" ", "-")
 
@@ -810,10 +866,14 @@ def _slugify(text: str) -> str:
 class CircularAnchorRule(BaseRule):
     """Z107 — Detect self-referential anchor links.
 
-    Flags any ``[text](#fragment)`` where ``slug(text) == fragment``.  Such
-    links appear to reference a heading further down the page but actually
-    reference the element the reader is already reading — a no-op that
-    indicates a mis-copied heading.
+    Flags any ``[text](#fragment)`` where ``slug(text) == fragment`` *and*
+    the link sits inside the very section that fragment names — a true
+    no-op that indicates a mis-copied heading.  A link whose text happens to
+    slugify to the same fragment but which lives inside a *different*
+    section (e.g. ``[Z101](#z101)`` written from within a ``## Z104``
+    section, navigating to the distinct ``## Z101`` section elsewhere on the
+    page) is legitimate cross-section navigation, not a self-reference, and
+    is never flagged.
 
     Cross-file links (``[text](other.md#fragment)``) and external URLs are
     never flagged.
@@ -825,14 +885,35 @@ class CircularAnchorRule(BaseRule):
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
+        current_heading_slug: str | None = None
+        # This rule read the contents of fenced code too -- declared in
+        # CHANGELOG.md's Known Limitations, and the tracker makes the note
+        # unnecessary rather than merely true.
+        _fence = BlockTracker(self._containers)
         for line_no, line in enumerate(text.splitlines(), start=1):
-            if "(#" not in line:
+            if _fence.feed(line) or _fence.in_indented_code or _fence.in_frontmatter:
                 continue
-            if _is_suppressed(line, self.rule_id):
+            if _fence.inside:
+                continue
+            heading_match = _HEADING_RE.match(line.strip())
+            if heading_match:
+                current_heading_slug = _heading_anchor(heading_match.group(2))
+            if "(#" not in line:
                 continue
             for m in _ANCHOR_LINK_RE.finditer(line):
                 link_text = m.group(1)
                 fragment = m.group(2)
+                # A self-loop is a link *inside* the section its fragment
+                # names. Before the file's first heading there is no enclosing
+                # section, so the link cannot be one -- and until 2026-09-19
+                # the `is not None` clause let exactly that case through to a
+                # bare slug comparison. Measured at 4 false findings on a
+                # 421-file MDX corpus, every one an orientation link in the
+                # intro paragraph, which is where MDX documentation puts them.
+                if current_heading_slug is None:
+                    continue
+                if current_heading_slug != fragment.lower():
+                    continue
                 if _slugify(link_text) == fragment.lower():
                     findings.append(
                         RuleFinding(
@@ -841,10 +922,11 @@ class CircularAnchorRule(BaseRule):
                             rule_id=self.rule_id,
                             message=(
                                 f"Self-referential anchor link: "
-                                f"'[{link_text}](#{fragment})' slugifies to its own fragment. "
+                                f"'[{link_text}](#{fragment})' sits inside the section it "
+                                "points at, so it takes the reader where they already are. "
                                 "Replace with a meaningful target or remove the link."
                             ),
-                            severity="warning",
+                            severity=code_severity("Z107"),
                             matched_line=line,
                             col_start=m.start(),
                             match_text=m.group(0),
@@ -869,51 +951,38 @@ class UntaggedCodeBlockRule(BaseRule):
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         findings: list[RuleFinding] = []
-        inside: bool = False
-        open_char: str = ""
-        open_count: int = 0
+        _fence = BlockTracker()
 
         for line_no, line in enumerate(text.splitlines(), start=1):
-            m = _FENCE_OPEN_RE.match(line)
-            if not inside:
-                if m:
-                    fence = m.group("fence")
-                    info = m.group("info").strip()
-                    # CEO-138: tag present iff info string has any non-whitespace
-                    # char. Supports Docusaurus metadata:
-                    # ```python title="x" showLineNumbers
-                    has_tag = bool(info)
-                    inside = True
-                    open_char = fence[0]
-                    open_count = len(fence)
-                    if not has_tag and not _is_suppressed(line, self.rule_id):
-                        findings.append(
-                            RuleFinding(
-                                file_path=file_path,
-                                line_no=line_no,
-                                rule_id=self.rule_id,
-                                message=(
-                                    "Fenced code block has no language specifier. "
-                                    "Add a language tag (e.g. ```python, ```bash, ```toml) "
-                                    "to enable syntax highlighting and snippet validation."
-                                ),
-                                severity="warning",
-                                matched_line=line,
-                                col_start=0,
-                                match_text=line.rstrip(),
-                            )
+            # `opens()` answers only from the outside -- it returns None while the
+            # tracker is inside a fence -- so an inner delimiter of a nested block
+            # and a closing delimiter both fall through to `feed()` below. Asking
+            # after `feed()`, or treating any match as an opener, reported one
+            # finding per delimiter instead of one per block.
+            opened = _fence.opens(line)
+            _fence.feed(line)
+            if opened is not None:
+                # CEO-138: tag present iff info string has any non-whitespace
+                # char. Supports Docusaurus metadata:
+                # ```python title="x" showLineNumbers
+                has_tag = bool(opened[1].strip())
+                if not has_tag:
+                    findings.append(
+                        RuleFinding(
+                            file_path=file_path,
+                            line_no=line_no,
+                            rule_id=self.rule_id,
+                            message=(
+                                "Fenced code block has no language specifier. "
+                                "Add a language tag (e.g. ```python, ```bash, ```toml) "
+                                "to enable syntax highlighting and snippet validation."
+                            ),
+                            severity=code_severity("Z505"),
+                            matched_line=line,
+                            col_start=0,
+                            match_text=line.rstrip(),
                         )
-            else:
-                if m:
-                    fence = m.group("fence")
-                    info = m.group("info").strip()
-                    # CEO-139/140: closing fence must use same char, equal or more
-                    # length, and have NO info string (CommonMark spec invariant —
-                    # a fence with an info string is always an opening fence).
-                    if fence[0] == open_char and len(fence) >= open_count and not info:
-                        inside = False
-                        open_char = ""
-                        open_count = 0
+                    )
         return findings
 
 
@@ -944,8 +1013,6 @@ class MalformedFrontmatterRule(BaseRule):
         # Trigger when the line starts with "--" (at least 2 dashes) but is NOT
         # exactly "---".  Examples: "--", "----", "--- trailing chars".
         if stripped.startswith("--") and stripped != "---":
-            if _is_suppressed(first_line, self.rule_id):
-                return []
             return [
                 RuleFinding(
                     file_path=file_path,
@@ -958,7 +1025,7 @@ class MalformedFrontmatterRule(BaseRule):
                         "frontmatter block; 'template:', 'title:', and all metadata "
                         "directives will be ignored by most engines otherwise."
                     ),
-                    severity="error",
+                    severity=code_severity("Z506"),
                     matched_line=first_line,
                     col_start=0,
                     match_text=stripped,
@@ -974,7 +1041,7 @@ if TYPE_CHECKING:
 class BrandObsolescenceRule(BaseRule):
     """Z601 — Detect deprecated brand terms in documentation source.
 
-    Activated only when ``[project_metadata] obsolete_names`` is non-empty in
+    Activated only when ``[governance] brand_obsolescence`` is non-empty in
     ``.zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
@@ -994,9 +1061,14 @@ class BrandObsolescenceRule(BaseRule):
     ``CHANGELOG*.archive.md``.
     """
 
-    def __init__(self, project_metadata: ProjectMetadata) -> None:
+    def __init__(self, project_metadata: ProjectMetadata, obsolete_names: list[str]) -> None:
+        # The terms arrive as an argument rather than being read off
+        # ProjectMetadata. `[project_metadata].obsolete_names` was removed in
+        # v0.31.0 after twenty-three minor versions of deprecation warning, and
+        # `[governance].brand_obsolescence` is now the only source. The caller
+        # passes it, so this rule has no opinion about which section it came from.
         self._release_name = project_metadata.release_name
-        valid_names = [name for name in project_metadata.obsolete_names if name.strip()]
+        valid_names = [name for name in obsolete_names if name.strip()]
         # Pre-compile a single RE2 union regex — O(1) per line regardless of how
         # many obsolete names are configured.  Named groups (g0, g1, …) are used
         # to recover which term matched (required for the finding message).
@@ -1024,28 +1096,10 @@ class BrandObsolescenceRule(BaseRule):
 
         findings: list[RuleFinding] = []
         # Fence-tracking state — body lines inside code blocks are not brand
-        # claims and must not trigger Z905 (CEO-152).
-        inside_fence: bool = False
-        open_char: str = ""
-        open_count: int = 0
+        # claims and must not trigger Z601 (CEO-152).
+        _fence = BlockTracker(self._containers)
         for line_no, line in enumerate(text.splitlines(), start=1):
-            fm = _FENCE_OPEN_RE.match(line)
-            if not inside_fence:
-                if fm:
-                    fence = fm.group("fence")
-                    inside_fence = True
-                    open_char = fence[0]
-                    open_count = len(fence)
-            else:
-                if fm:
-                    fence = fm.group("fence")
-                    info = fm.group("info").strip()
-                    if fence[0] == open_char and len(fence) >= open_count and not info:
-                        inside_fence = False
-                        open_char = ""
-                        open_count = 0
-                continue  # skip all body lines inside the fence block
-            if _is_suppressed(line, "Z601"):
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
             for m in self._union_pattern.finditer(line):
                 findings.append(
@@ -1054,10 +1108,10 @@ class BrandObsolescenceRule(BaseRule):
                         line_no=line_no,
                         rule_id=self.rule_id,
                         message=(
-                            f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
+                            f"Obsolete or unauthorized brand term '{m.group(0)}' detected. "
                             "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
                         ),
-                        severity="warning",
+                        severity=code_severity("Z601"),
                         matched_line=line,
                         col_start=m.start(),
                         match_text=m.group(0),
@@ -1072,17 +1126,50 @@ class BrandObsolescenceRule(BaseRule):
 # Inline links: [text](url) and images ![alt](url)
 _INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 # HTML href/src attributes: <a href="url"> and <img src="url">
+# The attribute region is quote-aware, sharing one fragment with the
+# security-tier pattern in `validator.py` rather than keeping a second copy:
+# a `>` inside a quoted value is legal in both HTML and MDX, and a bare
+# negated-`>` region stopped the match before `href` was reached.
 _HTML_HREF_RE = re.compile(
-    r"""<(?:a|img|link)\b[^>]*?\b(?:href|src)=["'][^"']*["'][^>]*>""",
+    rf"""<(?:{POLY_TAG_NAMES})\b{POLY_ATTRS_FRAGMENT}\b(?:href|src)=["'][^"']*["']{POLY_ATTRS_FRAGMENT}>""",
     re.IGNORECASE,
 )
 _HTML_HREF_ATTR_RE = re.compile(r"""\b(?:href|src)=["']([^"']+)["']""", re.IGNORECASE)
+
+# A JSX component: a capitalised tag carrying a URL-bearing prop. Case-SENSITIVE
+# and therefore a separate pattern -- `_HTML_HREF_RE` above is IGNORECASE, and an
+# uppercase class under that flag matches every lowercase HTML tag as well.
+#
+# The tag side is a rule, not a list: lowercase is an HTML element, capitalised is
+# a component, which is the JSX convention itself. That names no framework and
+# covers components nobody has invented. The attribute side is a fixed set,
+# because that is where false positives live -- treating every string prop as a
+# URL would resolve `<Chart title="./x.md">` as a broken link.
+_JSX_URL_ATTR_ALT = "|".join(JSX_URL_ATTRS)
+_JSX_COMPONENT_HREF_RE = re.compile(
+    rf"""<[A-Z][A-Za-z0-9_]*\b{POLY_ATTRS_FRAGMENT}\b(?:{_JSX_URL_ATTR_ALT})=["'][^"']*["']{POLY_ATTRS_FRAGMENT}/?>"""
+)
+_JSX_URL_ATTR_RE = re.compile(rf"""\b(?:{_JSX_URL_ATTR_ALT})=["']([^"']+)["']""")
 # Reference link definition: [id]: url
-_REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
+# A leading caret marks a footnote definition (`[^1]: prose`), not a link
+# reference. Accepting it turned the first word of the footnote text into a URL:
+# 17 phantom Z101 on `zensical/docs`. This is the fourth copy of one decision --
+# validator.py, rules.py, scanner.py and content.py each carry the pattern, and
+# only validator.py had the guard. Consolidation is tracked; the guard is here now.
+_REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[[^^\]][^\]]*\]:\s*<?([^\s>]+)>?")
 
 
 # Fenced code block fence marker
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
+#: CommonMark fence delimiter, splitting the run from its info string.  A
+#: *closing* fence must use the same character, be at least as long as the
+#: opener, and carry **no** info string.  The old naive toggle -- any
+#: ``_FENCE_RE`` match flips the state -- desynchronised on any page quoting
+#: terminal output that itself contains a fence, after which the extractor
+#: silently returned no links for the rest of the file.  `suppressions.py` and
+#: `mutator.py` already track fences correctly; this is the third copy of the
+#: same rule and the first one that was wrong (see priority table).
+_FENCE_DELIM_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 # Inline code spans — erased before link extraction to avoid false positives
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
 # Math block patterns for masking (display math $$...$$ and inline math $...$)
@@ -1102,11 +1189,23 @@ def _mask_math(text: str) -> str:
     return text
 
 
-def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
+def _extract_inline_links_with_lines(
+    text: str, *, containers: RegexPattern | None
+) -> list[tuple[str, int, str]]:
     """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link
     and HTML anchor/image element found in *text*.
 
-    Skips fenced code blocks, inline code spans, and math blocks.  Pure function — no I/O.
+    Skips fenced code blocks, inline code spans, math blocks, HTML and MDX
+    comments, and the string values of JSX attributes.  Pure function — no I/O.
+
+    The comment and JSX masking is delegated to :class:`PolyglotExtractor`,
+    which already implements it length-preservingly, rather than reimplemented
+    here. This function previously masked only math, fences and inline code
+    while its docstring claimed comments too, so a link written inside
+    ``<!-- ... -->`` was extracted and reported as a broken Z101 — in plain
+    Markdown, not only MDX, which made every commented-out link a false
+    positive. Reusing the existing mask is what keeps the two paths from
+    drifting again: there is one implementation of "what is not content".
 
     Args:
         text: Raw Markdown content.
@@ -1114,18 +1213,22 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     Returns:
         List of ``(url, line_number, raw_line)`` in document order.
     """
+    from zenzic.core.validator import PolyglotExtractor, mask_backslash_escapes
+
     results: list[tuple[str, int, str]] = []
-    in_block = False
-    text_masked = _mask_math(text)
+    _fence = BlockTracker(containers)
+    # _mask_comments blanks HTML and MDX comments with spaces of equal length
+    # and preserves newlines, so line numbers and caret columns below are
+    # unaffected. _mask_jsx_attr_values does the same for JSX string attributes.
+    _extractor = PolyglotExtractor()
+    # `mask_backslash_escapes` last: CommonMark §2.4 escapes are neutralised
+    # after comments, JSX and math, so a `\\[` inside any of those is already
+    # blank and cannot be miscounted. It preserves offsets like the others.
+    text_masked = mask_backslash_escapes(
+        _mask_math(_extractor._mask_jsx_attr_values(_extractor._mask_comments(text)))
+    )
     for lineno, line in enumerate(text_masked.splitlines(), start=1):
-        stripped = line.strip()
-        if not in_block:
-            if _FENCE_RE.match(stripped):
-                in_block = True
-                continue
-        else:
-            if _FENCE_RE.match(stripped):
-                in_block = False
+        if _fence.feed(line) or _fence.in_indented_code:
             continue
 
         clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
@@ -1144,11 +1247,27 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
 
         # HTML href/src attributes (<a href>, <img src>)
         if "<" in clean:
+            html_spans: list[tuple[int, int]] = []
             for tag_m in _HTML_HREF_RE.finditer(clean):
+                html_spans.append((tag_m.start(), tag_m.end()))
                 for attr_m in _HTML_HREF_ATTR_RE.finditer(tag_m.group()):
                     url = attr_m.group(1).strip()
                     if url:
                         results.append((url, lineno, line.strip()))
+
+            # JSX components (<Link to>, <Anchor href>, <Thumb src>).
+            # `<Link href=...>` matches the HTML pattern too, because `link` is an
+            # HTML element name and that pattern is case-insensitive. Skipping a
+            # component whose tag starts where an HTML match already started stops
+            # the same URL being reported twice.
+            for comp_m in _JSX_COMPONENT_HREF_RE.finditer(clean):
+                if any(start == comp_m.start() for start, _ in html_spans):
+                    continue
+                for attr_m in _JSX_URL_ATTR_RE.finditer(comp_m.group()):
+                    url = attr_m.group(1).strip()
+                    if url:
+                        results.append((url, lineno, line.strip()))
+                        break  # one URL per component; `to` wins over a stray `src`
 
         # Markdown reference definitions: [id]: url
         if "]:" in line:
@@ -1178,7 +1297,7 @@ class CredentialScannerRule(BaseRule):
                 findings.append(
                     RuleFinding(
                         rule_id="Z201",
-                        severity="error",
+                        severity=code_severity("Z201"),
                         file_path=file_path,
                         line_no=sec.line_no,
                         match_text=sec.match_text,
@@ -1204,7 +1323,7 @@ class EmptyLinkRule(BaseRule):
             findings.append(
                 RuleFinding(
                     rule_id="Z108",
-                    severity="error",
+                    severity=code_severity("Z108"),
                     file_path=file_path,
                     line_no=lineno,
                     col_start=col_start,
@@ -1227,7 +1346,18 @@ class MissingAltTextRule(BaseRule):
         from zenzic.core.scanner import _RE_HTML_ALT, _RE_HTML_IMG, _RE_IMAGE_INLINE
 
         findings = []
+        # An image shown inside a fence is an example, not content. This rule
+        # was the one image rule that did not ask -- its neighbours at 1068,
+        # 1187 and 1408 all construct a tracker, and 1408 is the rule directly
+        # after this one. Measured at 35 findings on a 421-file MDX corpus,
+        # across eight different info strings, which is the same defect eight
+        # times rather than eight defects.
+        _fence = BlockTracker(self._containers)
         for lineno, line in enumerate(text.splitlines(), start=1):
+            if _fence.feed(line) or _fence.in_indented_code or _fence.in_frontmatter:
+                continue
+            if _fence.inside:
+                continue
             if "![" not in line and "<img" not in line and "<IMG" not in line:
                 continue
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
@@ -1240,10 +1370,12 @@ class MissingAltTextRule(BaseRule):
                     findings.append(
                         RuleFinding(
                             rule_id="Z403",
-                            severity="warning",
+                            severity=code_severity("Z403"),
                             file_path=file_path,
                             line_no=lineno,
                             message=f"Image '{url}' has no alt text.",
+                            col_start=max(line.find(url), 0),
+                            match_text=url if url in line else "",
                             matched_line=line,
                         )
                     )
@@ -1257,7 +1389,7 @@ class MissingAltTextRule(BaseRule):
                     findings.append(
                         RuleFinding(
                             rule_id="Z403",
-                            severity="warning",
+                            severity=code_severity("Z403"),
                             file_path=file_path,
                             line_no=lineno,
                             message=f"HTML <img> tag has no alt text: {src[:60]}",
@@ -1290,7 +1422,7 @@ class ShortContentRule(BaseRule):
             return [
                 RuleFinding(
                     rule_id="Z502",
-                    severity="warning",
+                    severity=code_severity("Z502"),
                     file_path=file_path,
                     line_no=_first_content_line(text),
                     message=f"Page has only {visible} words (minimum {self.min_words}).",
@@ -1316,16 +1448,9 @@ class PlaceholderRule(BaseRule):
         if not self.patterns or not self._combined_re:
             return []
         findings = []
-        in_block = False
+        _fence = BlockTracker(self._containers)
         for i, line in enumerate(text.splitlines(), start=1):
-            stripped = line.strip()
-            if not in_block:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = True
-                    continue
-            else:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = False
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             if not self._combined_re.search(line):
@@ -1337,7 +1462,7 @@ class PlaceholderRule(BaseRule):
                     findings.append(
                         RuleFinding(
                             rule_id="Z501",
-                            severity="warning",
+                            severity=code_severity("Z501"),
                             file_path=file_path,
                             line_no=i,
                             message=f"Found placeholder text matching pattern: '{pattern.pattern}'",
@@ -1359,7 +1484,7 @@ class HeadingHierarchyRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_heading_hierarchy
 
-        return check_heading_hierarchy(file_path, text)
+        return check_heading_hierarchy(file_path, text, containers=self._containers)
 
 
 class ExcessiveSentenceLengthRule(BaseRule):
@@ -1375,7 +1500,9 @@ class ExcessiveSentenceLengthRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_sentence_lengths
 
-        return check_sentence_lengths(file_path, text, max_words=self.max_words)
+        return check_sentence_lengths(
+            file_path, text, max_words=self.max_words, containers=self._containers
+        )
 
 
 class EmptySectionRule(BaseRule):
@@ -1388,7 +1515,7 @@ class EmptySectionRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_empty_sections
 
-        return check_empty_sections(file_path, text)
+        return check_empty_sections(file_path, text, containers=self._containers)
 
 
 class DuplicateHeadingRule(BaseRule):
@@ -1401,7 +1528,7 @@ class DuplicateHeadingRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_duplicate_headings
 
-        return check_duplicate_headings(file_path, text)
+        return check_duplicate_headings(file_path, text, containers=self._containers)
 
 
 class GenericImageAltTextRule(BaseRule):
@@ -1414,7 +1541,7 @@ class GenericImageAltTextRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_generic_image_alt_text
 
-        return check_generic_image_alt_text(file_path, text)
+        return check_generic_image_alt_text(file_path, text, containers=self._containers)
 
 
 class BareUrlUsedRule(BaseRule):
@@ -1427,7 +1554,7 @@ class BareUrlUsedRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_bare_urls
 
-        return check_bare_urls(file_path, text)
+        return check_bare_urls(file_path, text, containers=self._containers)
 
 
 class MultipleH1HeadingsRule(BaseRule):
@@ -1440,7 +1567,7 @@ class MultipleH1HeadingsRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_multiple_h1_headings
 
-        return check_multiple_h1_headings(file_path, text)
+        return check_multiple_h1_headings(file_path, text, containers=self._containers)
 
 
 class HeadingPunctuationRule(BaseRule):
@@ -1453,7 +1580,7 @@ class HeadingPunctuationRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_heading_punctuation
 
-        return check_heading_punctuation(file_path, text)
+        return check_heading_punctuation(file_path, text, containers=self._containers)
 
 
 class CombinedHeadingRule(BaseRule):
@@ -1463,8 +1590,16 @@ class CombinedHeadingRule(BaseRule):
     side effect, eliminating the separate ``anchors_in_file()`` pass in VSM.
     """
 
-    def __init__(self, anchors_out: dict[Path, set[str]] | None = None) -> None:
+    def __init__(
+        self,
+        anchors_out: dict[Path, set[str]] | None = None,
+        *,
+        enable_duplicate_heading: bool = True,
+        enable_heading_punctuation: bool = True,
+    ) -> None:
         self._anchors_out = anchors_out
+        self._enable_duplicate_heading = enable_duplicate_heading
+        self._enable_heading_punctuation = enable_heading_punctuation
 
     @property
     def rule_id(self) -> str:
@@ -1473,7 +1608,21 @@ class CombinedHeadingRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_all_heading_rules
 
-        return check_all_heading_rules(file_path, text, anchors_out=self._anchors_out)
+        findings = check_all_heading_rules(
+            file_path, text, anchors_out=self._anchors_out, containers=self._containers
+        )
+        # Z513 and Z517 are opt-in; Z510 and Z516 are not. They share one pass
+        # because four separate passes cost 716ms against 255ms on a 300-file
+        # corpus (2.8x, measured 2026-09-14), so the gate drops the findings
+        # rather than the work -- the saving is preserved, not traded away.
+        # Filtering is also correct rather than merely cheap: the pass collects
+        # heading anchors as a side effect for the VSM, and skipping it to save
+        # a disabled code would silently remove anchors the link graph needs.
+        if not self._enable_duplicate_heading:
+            findings = [f for f in findings if f.rule_id != "Z513"]
+        if not self._enable_heading_punctuation:
+            findings = [f for f in findings if f.rule_id != "Z517"]
+        return findings
 
 
 class PassiveVoiceRule(BaseRule):
@@ -1486,7 +1635,7 @@ class PassiveVoiceRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_passive_voice
 
-        return check_passive_voice(file_path, text)
+        return check_passive_voice(file_path, text, containers=self._containers)
 
 
 class WeaselWordsRule(BaseRule):
@@ -1502,7 +1651,7 @@ class WeaselWordsRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_weasel_words
 
-        return check_weasel_words(file_path, text, self.weasel_words)
+        return check_weasel_words(file_path, text, self.weasel_words, containers=self._containers)
 
 
 class MalformedListRule(BaseRule):
@@ -1515,7 +1664,7 @@ class MalformedListRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         from zenzic.core.content import check_malformed_lists
 
-        return check_malformed_lists(file_path, text)
+        return check_malformed_lists(file_path, text, containers=self._containers)
 
 
 class VSMBrokenLinkRule(BaseRule):
@@ -1542,20 +1691,13 @@ class VSMBrokenLinkRule(BaseRule):
     Rule code: ``Z101``
     """
 
-    # Schemes we skip — not navigable internal links
-    _SKIP_SCHEMES = frozenset(
-        (
-            "http://",
-            "https://",
-            "mailto:",
-            "data:",
-            "ftp:",
-            "tel:",
-            "javascript:",
-            "irc:",
-            "xmpp://",
-        )
-    )
+    # `_SKIP_SCHEMES` lived here until 2026-09-19: a frozenset of nine schemes,
+    # documented, never referenced by this rule or any other, and read only by a
+    # performance test. The decision it looked like it made is made below by
+    # `has_uri_scheme()`, which reads the grammar instead of a list. It also
+    # spelled `xmpp://` where three other copies spelled `xmpp:`, so editing it
+    # would have changed nothing while looking authoritative — which is worse
+    # than a duplicate, because there is no failure to notice.
 
     @property
     def rule_id(self) -> str:
@@ -1595,11 +1737,18 @@ class VSMBrokenLinkRule(BaseRule):
             List of :class:`Violation` for every link whose target is absent
             from the VSM or not ``REACHABLE``.
         """
+        from zenzic.core.discovery import DOC_SUFFIXES
+
         violations: list[Violation] = []
 
-        for url, lineno, raw_line in _extract_inline_links_with_lines(text):
+        for url, lineno, raw_line in _extract_inline_links_with_lines(
+            text, containers=self._containers
+        ):
             # Skip non-navigable schemes and bare fragments
-            if url == "#" or any(url.startswith(s) for s in self._SKIP_SCHEMES):
+            # `_SKIP_SCHEMES` is kept for the documented schemes it names;
+            # `has_uri_scheme` covers the rest, because nothing registers a
+            # scheme with us and a hardcoded list can only ever be behind.
+            if url == "#" or has_uri_scheme(url):
                 continue
             if url.startswith("#"):
                 continue  # same-page anchor — handled separately
@@ -1626,21 +1775,74 @@ class VSMBrokenLinkRule(BaseRule):
             ):
                 continue
 
-            from zenzic.core.validator import _classify_traversal_intent
+            # Defer to the security tier only for links it actually claims.
+            # `_classify_traversal_intent` answers "aimed where?", not "is this a
+            # traversal?": it strips leading `..` hops, of which there may be
+            # none, and reads the first surviving segment. Asking it the second
+            # question made every ordinary relative link into `docs/dev/`,
+            # `docs/bin/`, `docs/var/` or `docs/usr/` "suspicious", skipped
+            # here, and matched by no branch in the URP pass either -- so broken
+            # links under fourteen perfectly normal directory names were never
+            # reported at all. Same shape as the codeAction defect: a membership
+            # test asked a question it was not built to answer.
+            # This used to guess what the security tier would claim, by asking
+            # the classifier directly. The guess and the tier's real decision
+            # then drifted apart: once the depth base was corrected, an href
+            # could be skipped here *and* declined there, reaching neither
+            # reporter. It now asks the same function the tier asks, so the two
+            # cannot disagree -- one decision, two consumers.
+            _claimed = traversal_intent(
+                url.split("?")[0].split("#")[0].replace("\\", "/"),
+                page_url_depth=page_url_depth(
+                    context.source_file,
+                    context.docs_root,
+                    use_directory_urls=context.use_directory_urls,
+                )
+                if context is not None and context.source_file is not None
+                else 0,
+            )
+            if _claimed == "system":
+                # ...unless the project allowlisted this prefix. The security
+                # tier consults the allowlist before classifying, so deferring
+                # to it here for a link the tier will not claim would drop the
+                # link out of broken-link checking entirely: skipped here, and
+                # cleared there.
+                from zenzic.core.validator import is_allowlisted_absolute
 
-            if _classify_traversal_intent(url) == "suspicious":
-                continue
+                _allow: list[str] = []
+                if context is not None:
+                    if context.adapter is not None:
+                        _allow += list(context.adapter.get_absolute_url_prefixes())
+                    if context.config is not None:
+                        _allow += list(getattr(context.config, "absolute_path_allowlist", []))
+                if not is_allowlisted_absolute(url, url, _allow):
+                    continue
 
             # Compute the canonical URL this link would resolve to.
             # We apply the standard clean-URL transformation:
             #   guide/index.md  → /guide/
             #   guide/install.md → /guide/install/
             # Paths without .md suffix (e.g. "guide/install") are also handled.
+            # The boundary is defined once, in resolver.href_resolution_base --
+            # this site reads it rather than computing a base of its own.
+            _source_dir: Path | None = None
+            if context is not None and context.source_file is not None:
+                _source_dir = href_resolution_base(
+                    context.source_file,
+                    url.split("?")[0].split("#")[0].replace("\\", "/"),
+                    use_directory_urls=context.use_directory_urls,
+                )
+
             target_url = self._to_canonical_url(
                 url,
-                source_dir=context.source_file.parent if context else None,
+                source_dir=_source_dir,
                 docs_root=context.docs_root if context else None,
                 use_directory_urls=context.use_directory_urls if context else True,
+                base_prefixes=(
+                    context.adapter.get_absolute_url_prefixes()
+                    if context is not None and context.adapter is not None
+                    else ()
+                ),
             )
             if target_url is None:
                 continue
@@ -1665,7 +1867,19 @@ class VSMBrokenLinkRule(BaseRule):
                     rel = context.source_file.relative_to(context.docs_root)
                     if len(rel.parts) > 1:
                         locale = rel.parts[0]
-                        if target_url.startswith(f"/{locale}/"):
+                        # A directory is not a language.  `adapter.is_locale_dir`
+                        # is the authoritative predicate (it knows the i18n
+                        # plugin's configuration); `locale_names` covers locale
+                        # trees injected by a caller as locale_roots.  Without
+                        # this gate every top-level docs directory acted as a
+                        # locale, so `/tutorials/reference/checks/` fell back to
+                        # `/reference/checks/` and a broken link was accepted.
+                        _is_locale = locale in context.locale_names
+                        if not _is_locale and context.adapter is not None:
+                            _pred = getattr(context.adapter, "is_locale_dir", None)
+                            if callable(_pred):
+                                _is_locale = bool(_pred(locale))
+                        if _is_locale and target_url.startswith(f"/{locale}/"):
                             default_target_url = target_url[len(f"/{locale}") :]
                             fallback_route = vsm.get(default_target_url)
                             if fallback_route is not None:
@@ -1696,13 +1910,18 @@ class VSMBrokenLinkRule(BaseRule):
                             f"'{url}' resolves to '{target_url}' which is not in the "
                             "Virtual Site Map — the target file may not exist"
                         ),
-                        level="error",
+                        level=code_severity(self.rule_id),
                         context=raw_line,
+                        # The message names the URL; the caret, SARIF's startColumn and the
+                        # LSP range all read col_start, which was 0 on every one of these
+                        # until 2026-09-18.
+                        col_start=max(raw_line.find(url), 0),
+                        match_text=url if url in raw_line else "",
                     )
                 )
 
             elif route.status == "ORPHAN_BUT_EXISTING":
-                if Path(route.source).suffix.lower() in (".md", ".mdx"):
+                if Path(route.source).suffix.lower() in DOC_SUFFIXES:
                     violations.append(
                         Violation(
                             file_path=file_path,
@@ -1714,8 +1933,13 @@ class VSMBrokenLinkRule(BaseRule):
                                 "(ORPHAN_LINK / UNREACHABLE_LINK). "
                                 "Readers cannot reach this page via the nav tree."
                             ),
-                            level="warning",
+                            level=code_severity("Z103"),
                             context=raw_line,
+                            # The message names the URL; the caret, SARIF's startColumn and the
+                            # LSP range all read col_start, which was 0 on every one of these
+                            # until 2026-09-18.
+                            col_start=max(raw_line.find(url), 0),
+                            match_text=url if url in raw_line else "",
                         )
                     )
 
@@ -1730,8 +1954,13 @@ class VSMBrokenLinkRule(BaseRule):
                             f"'{route.status}' — the page exists but is not reachable "
                             "via site navigation (UNREACHABLE_LINK)"
                         ),
-                        level="error",
+                        level=code_severity(self.rule_id),
                         context=raw_line,
+                        # The message names the URL; the caret, SARIF's startColumn and the
+                        # LSP range all read col_start, which was 0 on every one of these
+                        # until 2026-09-18.
+                        col_start=max(raw_line.find(url), 0),
+                        match_text=url if url in raw_line else "",
                     )
                 )
 
@@ -1743,17 +1972,16 @@ class VSMBrokenLinkRule(BaseRule):
         source_dir: Path | None = None,
         docs_root: Path | None = None,
         use_directory_urls: bool = True,
+        base_prefixes: Sequence[str] = (),
     ) -> str | None:
         """Convert a relative Markdown href to a canonical URL string.
 
-        ZRT-004 fix: when ``source_dir`` and ``docs_root`` are provided the
-        href is resolved **relative to the source file's directory** instead of
-        root-relative.  This correctly handles ``..``-prefixed hrefs from files
-        nested in subdirectories.
-
-        Without context (``source_dir=None``), behaves exactly as the original
-        ``@staticmethod`` to preserve full backwards-compatibility with callers
-        that do not supply a :class:`ResolutionContext`.
+        When ``source_dir`` and ``docs_root`` are provided the href is
+        resolved **relative to the source file's directory** instead of
+        root-relative. This correctly handles ``..``-prefixed hrefs from files
+        nested in subdirectories. Without context (``source_dir=None``), the
+        href is resolved root-relative, for callers that do not supply a
+        :class:`ResolutionContext`.
 
         Applies the standard MkDocs / Zensical clean-URL rule:
         ``page.md`` → ``/page/``, ``dir/index.md`` → ``/dir/``.
@@ -1784,6 +2012,26 @@ class VSMBrokenLinkRule(BaseRule):
             path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
         if not path:
             return None
+
+        # Re-base an absolute href against the declared site base. The VSM is
+        # keyed root-relative, so on a site based at `/docs/` the link
+        # `/docs/ref/page/` must lose that prefix before it can match `/ref/page/`.
+        # *base_prefixes* is `adapter.get_absolute_url_prefixes()` -- the same list
+        # Z105 allowlists against, so the two codes cannot disagree about where the
+        # site starts. Allowlisting alone was measured and rejected: it cleared
+        # Z105 and left Z101 reporting every such link broken.
+        #
+        # Safe against traversal by construction: the result is still absolute and
+        # still root-relative, and the `docs_root` escape check below guards the
+        # *relative* branch, which this does not enter.
+        if base_prefixes and path.startswith("/"):
+            for _prefix in sorted(base_prefixes, key=len, reverse=True):
+                _prefix = "/" + _prefix.strip("/") + "/"
+                if _prefix == "/":
+                    continue
+                if path == _prefix.rstrip("/") or path.startswith(_prefix):
+                    path = "/" + path[len(_prefix) :].lstrip("/")
+                    break
 
         # ZRT-004 / LSP-FIX-001: context-aware relative resolution
         # When source_dir + docs_root are provided and the href is relative (does not start
@@ -1953,8 +2201,18 @@ class PluginRegistry:
 
         loaded: list[BaseRule] = []
         for pid in requested:
-            rule = self._load_entry_point(eps_by_name[pid])
-            self._validate_plugin_code(rule, pid)
+            ep = eps_by_name[pid]
+            rule = self._load_entry_point(ep)
+            # Core-distributed entry points (e.g. "broken-links" ->
+            # VSMBrokenLinkRule, rule_id "Z101") are exempt from the
+            # third-party namespace contract below -- the same distinction
+            # load_core_rules() already draws via ep.dist.name == "zenzic".
+            # Without this, a config explicitly listing "broken-links" in
+            # `plugins` would fail on any normal install, where the real
+            # entry point (not the no-entry-point fallback further above)
+            # is what actually resolves.
+            if ep.dist is None or ep.dist.name != "zenzic":
+                self._validate_plugin_code(rule, pid)
             loaded.append(rule)
         return loaded
 
@@ -1964,23 +2222,29 @@ class PluginRegistry:
         Contract:
         - Plugins must not emit core ``Zxxx`` namespace codes.
         - Plugin codes must be prefixed as ``<plugin-id>:<code>``.
-        - Plugins cannot emit security exit codes reserved for core scanners.
+        - Plugins cannot emit security exit codes reserved for core scanners
+          (``PLUGIN_FORBIDDEN_EXITS`` = Exit 2/3) — enforced structurally by
+          the two checks above, not by a separate attribute: ``rule.rule_id``
+          is the only per-rule code a plugin can declare (``BaseRule`` has no
+          ``primary_exit`` member, so a prior version of this check read one
+          that no rule, core or plugin, has ever set — a no-op identical in
+          shape to the ``code`` bug below). Once a code is confirmed prefixed,
+          it can never equal a bare member of ``SECURITY_TIER_CODES``
+          (``Z201``-``Z205``). The exit-code computation matches against
+          ``SECURITY_INCIDENT_CODES`` (``Z203``) and ``SECURITY_BREACH_CODES``
+          (``Z201``, ``Z204``, ``Z205``) — **both measured subsets of the tier**,
+          2026-09-23 — so a prefixed code can never force Exit 2 or 3. (This read
+          "``SECURITY_TIER_CODES`` … is the only thing the computation ever matches
+          against", which named the wrong set: the tier also holds ``Z202``, which
+          neither exit set contains. The conclusion held; the mechanism did not.)
         """
-        from zenzic.core.codes import PLUGIN_FORBIDDEN_EXITS
         from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
 
-        code = getattr(rule, "code", None)
-        if isinstance(code, str):
-            if re.fullmatch(r"Z\d{3}", code):
-                raise PluginContractError(
-                    "Third-party plugins must use '<plugin-id>:<code>' format"
-                )
-            if not code.startswith(f"{plugin_id}:"):
-                raise PluginContractError(f"Plugin code '{code}' must start with '{plugin_id}:'.")
-
-        primary_exit = getattr(rule, "primary_exit", None)
-        if isinstance(primary_exit, int) and primary_exit in PLUGIN_FORBIDDEN_EXITS:
-            raise PluginContractError("Plugins cannot emit Exit 2 or 3")
+        code = rule.rule_id
+        if re.fullmatch(r"Z\d{3}", code):
+            raise PluginContractError("Third-party plugins must use '<plugin-id>:<code>' format")
+        if not code.startswith(f"{plugin_id}:"):
+            raise PluginContractError(f"Plugin code '{code}' must start with '{plugin_id}:'.")
 
     def _load_entry_point(self, ep: EntryPoint) -> BaseRule:
         """Load and instantiate one entry-point as a :class:`BaseRule`."""
@@ -2022,6 +2286,7 @@ def run_rule(
     text: str,
     *,
     file_path: Path | str = "test.md",
+    containers: RegexPattern | None = None,
 ) -> list[RuleFinding]:
     """Run a single rule against *text* and return findings.
 
@@ -2038,11 +2303,36 @@ def run_rule(
         rule: A :class:`BaseRule` instance to test.
         text: Raw Markdown content to scan.
         file_path: Optional file path for labelling (default: ``test.md``).
+        containers: Optional container-opening pattern for the project whose
+            Markdown this is.  ``None`` (the default) uses the declared default
+            vocabulary -- correct for an isolated rule test, which has no
+            project configuration to read.
+
+            **Without it, your rule sees the default vocabulary** -- the four
+            markers ``!!!``, ``???``, ``=== "Tab"`` and ``:`` -- regardless of
+            which extensions your project actually enables.  A rule that passes
+            here can therefore behave differently in a real scan, where the
+            vocabulary comes from the project's own configuration.  To reproduce
+            production behaviour, pass the project's pattern::
+
+                from zenzic.core.adapters import get_adapter
+                from zenzic.core.extensions import container_pattern
+
+                pattern = container_pattern(
+                    get_adapter(cfg.build_context, docs_root, repo_root)
+                    .get_enabled_extensions()
+                )
+                findings = run_rule(MyRule(), text, containers=pattern)
 
     Returns:
         List of :class:`RuleFinding` objects.
     """
     from pathlib import Path
 
-    engine = AdaptiveRuleEngine([rule])
+    # `containers=None` -- the declared default vocabulary. This is a public
+    # SDK helper for plugin authors testing one rule against a literal string;
+    # there is no project to read extensions from, and making the argument
+    # required here would break a third-party contract to close an internal
+    # door. Callers who need a project's real vocabulary pass it explicitly.
+    engine = AdaptiveRuleEngine([rule], containers=containers)
     return engine.run(Path(file_path), text)

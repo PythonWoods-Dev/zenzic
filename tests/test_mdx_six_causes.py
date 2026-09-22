@@ -1,0 +1,279 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""The six causes behind 142 false positives on a 421-file MDX corpus.
+
+One test pair per cause: the construct is no longer reported, and the near-miss
+still is. The second half is the point -- a mask that silenced everything would
+pass the first half and remove coverage, which is how a fix becomes a defect.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from zenzic.core.content import check_bare_urls, check_malformed_lists
+from zenzic.core.rules import CircularAnchorRule, MissingAltTextRule
+from zenzic.core.validator import _extract_empty_link_texts
+
+
+def _lists(text: str) -> list[int]:
+    return [f.line_no for f in check_malformed_lists(Path("d.mdx"), text, containers=None)]
+
+
+def _urls(text: str) -> list[int]:
+    return [f.line_no for f in check_bare_urls(Path("d.mdx"), text, containers=None)]
+
+
+# ── Cause 1: MDX's embedded JavaScript is not prose ──────────────────────────
+
+
+def test_an_mdx_import_block_is_not_a_malformed_list() -> None:
+    doc = "# T\n\nimport A from './A.astro';\nimport B from './B.astro';\nimport C from './C.astro';\n"
+    assert _lists(doc) == []
+
+
+def test_a_multi_line_export_is_not_a_malformed_list() -> None:
+    """The Docusaurus shape: the finding landed in the body, not on the export."""
+    doc = (
+        "# T\n\n"
+        "export const Highlight = ({children, color}) => (\n"
+        "  <span\n"
+        "    style={{\n"
+        "      backgroundColor: color,\n"
+        "      borderRadius: '20px',\n"
+        "      color: '#fff',\n"
+        "    }}>\n"
+        "    {children}\n"
+        "  </span>\n"
+        ");\n"
+    )
+    assert _lists(doc) == []
+
+
+def test_a_real_fake_list_is_still_reported() -> None:
+    doc = "# T\n\nthe first requirement;\nthe second requirement;\nthe third requirement;\n"
+    assert _lists(doc) == [3]
+
+
+def test_prose_beginning_with_the_word_import_is_still_prose() -> None:
+    """`import` alone is not an ESM statement; no `from "..."`, no brace."""
+    doc = (
+        "# T\n\nimport statements are useful;\nthey declare a dependency;\nand they are hoisted;\n"
+    )
+    assert _lists(doc) == [3]
+
+
+# ── Cause 2: Z403 consults the fence tracker ─────────────────────────────────
+
+
+def _alt(text: str) -> list[int]:
+    return [f.line_no for f in MissingAltTextRule().check(Path("d.mdx"), text)]
+
+
+def test_an_image_inside_a_fence_is_an_example() -> None:
+    assert _alt('# T\n\n```astro\n<img src="/b.png" />\n```\n') == []
+    assert _alt("# T\n\n```\n![](/c.png)\n```\n") == []
+
+
+def test_an_image_in_prose_without_alt_is_still_reported() -> None:
+    assert _alt("# T\n\n![](/a.png)\n") == [3]
+
+
+# ── Cause 3: the JSX attribute mask spans lines ──────────────────────────────
+
+
+def test_a_url_in_a_multi_line_jsx_attribute_is_not_prose() -> None:
+    doc = '# T\n\n<LinkCard href="https://example.com/b"\n  title="x" />\n'
+    assert _urls(doc) == []
+
+
+def test_a_url_on_a_bare_attribute_continuation_line_is_not_prose() -> None:
+    """5 of 16 sat on an `href="..."` line carrying neither `<` nor `>`.
+
+    The shape is taken from the corpus rather than invented. An earlier version
+    used `<a href="...">` inside a `<Card>`, which passed at the parent commit
+    too -- that line closes its own tag, so `_HTML_TAG_RE` already masked it.
+    The case that was actually failing has the element opening on one line and
+    the URL on the next, with the closing `>` further down still.
+    """
+    doc = (
+        "# T\n\n"
+        '<LinkCard title="Migrating from Gatsby to Astro"\n'
+        '  href="https://example.com/c"\n'
+        '  description="A blog post" />\n'
+    )
+    assert _urls(doc) == []
+
+
+def test_a_bare_url_in_prose_is_still_reported() -> None:
+    doc = "# T\n\nVisit https://example.com/real for the list.\n"
+    assert _urls(doc) == [3]
+
+
+# ── Cause 4: Z107's section guard ────────────────────────────────────────────
+
+
+def _anchors(text: str) -> list[int]:
+    return [f.line_no for f in CircularAnchorRule().check(Path("d.mdx"), text)]
+
+
+def test_a_link_before_the_first_heading_is_not_a_self_loop() -> None:
+    """There is no enclosing section, so the link cannot navigate to itself."""
+    doc = "Astro provides [scoped styles](#scoped-styles) and more.\n\n## Scoped Styles\n\nText.\n"
+    assert _anchors(doc) == []
+
+
+def test_a_link_inside_the_section_it_names_is_still_a_self_loop() -> None:
+    doc = "# T\n\n## Scoped Styles\n\nAs [scoped styles](#scoped-styles) shows, this loops.\n"
+    assert _anchors(doc) == [5]
+
+
+# ── Cause 5: a URI scheme is not a site path ─────────────────────────────────
+
+
+def test_a_custom_scheme_is_not_a_site_path() -> None:
+    # Imported inside the test because the symbol is new: at the parent commit
+    # the module has no `has_uri_scheme`, and a module-level import would stop
+    # the whole file from collecting instead of failing this one cause.
+    from zenzic.core.validator import has_uri_scheme
+
+    for url in ("cursor://anysphere/mcp/install", "vscode:mcp/install", "raycast://x"):
+        assert has_uri_scheme(url), url
+
+
+def test_a_site_path_and_a_windows_drive_are_not_schemes() -> None:
+    """A single-letter scheme is legal in RFC 3986 and would eat `C:/Users/...`."""
+    from zenzic.core.validator import has_uri_scheme
+
+    for url in ("/guides/example/", "./a.md", "a.md", "#frag", "C:/Users/x"):
+        assert not has_uri_scheme(url), url
+
+
+# ── Cause 6: the HTML <code> element, and a label containing a code span ─────
+
+
+def test_a_type_inside_an_html_code_element_is_not_an_empty_link() -> None:
+    doc = '# T\n\n**Type:** <code><a href="#routepart">RoutePart</a>[][]</code>\n'
+    assert list(_extract_empty_link_texts(doc)) == []
+
+
+def test_a_genuinely_empty_link_is_still_reported() -> None:
+    doc = "# T\n\nSee []( ./x.md ) for details.\n"
+    assert len(list(_extract_empty_link_texts(doc))) == 1
+
+
+# ── Follow-up: the heading's declared anchor ─────────────────────────────────
+
+
+def test_a_heading_that_declares_its_own_anchor_is_seen() -> None:
+    """`{#custom-id}` replaces the derived slug; it is not stripped from it.
+
+    `rules._slugify` produced `security-gate-{#security-gate}` -- an identifier
+    no renderer could mint -- so Z107's guard never matched inside such a
+    section. Measured at 368 affected headings in this repository, where the
+    rule was inert rather than wrong: it reported 0, which is why nothing
+    surfaced it.
+    """
+    doc = "## Security Gate {#security-gate}\n\nSee [security-gate](#security-gate) here.\n"
+    assert _anchors(doc) == [3]
+
+
+def test_the_declared_id_wins_over_the_derived_slug() -> None:
+    """Stripping the attr-list would give `the-integrity-filter`; the renderer
+    publishes `integrity-filter`, because the declared id replaces the slug."""
+    from zenzic.core.rules import _heading_anchor
+
+    assert _heading_anchor("The Integrity Filter {#integrity-filter}") == "integrity-filter"
+    assert _heading_anchor("Plain Heading") == "plain-heading"
+
+
+def test_a_cross_section_link_under_an_attr_list_heading_is_not_a_loop() -> None:
+    """The other direction: restoring coverage must not flag ordinary links."""
+    doc = "## Configuration {#configuration}\n\nSee [security gate](#security-gate) here.\n"
+    assert _anchors(doc) == []
+
+
+# ── Follow-up: JSONC in a `json` fence is JSONC ──────────────────────────────
+
+
+def _snips(tmp_path, body: str, *, flag: bool = True) -> list[str]:
+    from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.core.validator import validate_snippets
+    from zenzic.models.config import PoliciesConfig, ZenzicConfig
+
+    docs = tmp_path / "docs"
+    docs.mkdir(exist_ok=True)
+    (docs / "p.md").write_text(f"```json\n{body}\n```\n", encoding="utf-8")
+    cfg = ZenzicConfig(policies=PoliciesConfig(enable_snippet_check=flag), snippet_min_lines=1)
+    mgr = LayeredExclusionManager(
+        cfg, repo_root=tmp_path, docs_root=docs, adapter_output_dirs=frozenset()
+    )
+    return [e.message for e in validate_snippets(docs, mgr, config=cfg)]
+
+
+def test_a_comment_and_a_trailing_comma_are_jsonc_not_errors(tmp_path: Path) -> None:
+    """`tsconfig.json` and `.prettierrc` are JSONC by specification."""
+    assert _snips(tmp_path, '{"plugins": ["a"] // needs to be last\n}') == []
+
+
+def test_a_url_inside_a_string_survives_comment_stripping(tmp_path: Path) -> None:
+    """`//` in `https://` is not a comment; the scanner tracks strings."""
+    assert _snips(tmp_path, '{"httpUrl": "https://mcp.docs.astro.build/mcp"}') == []
+
+
+def test_genuinely_malformed_json_is_still_reported(tmp_path: Path) -> None:
+    assert len(_snips(tmp_path, '{"key" "value"}')) == 1
+
+
+def test_the_check_is_silent_when_the_flag_is_off(tmp_path: Path) -> None:
+    """Opt-in: the same malformed block reports nothing by default."""
+    assert _snips(tmp_path, '{"key" "value"}', flag=False) == []
+
+
+# ── CommonMark §2.2: a tab is four columns of indentation ───────────────────
+
+
+def _indented(lines: list[str]) -> list[bool]:
+    from zenzic.core.ast import BlockTracker
+
+    tracker = BlockTracker()
+    out = []
+    for line in lines:
+        tracker.feed(line)
+        out.append(tracker.in_indented_code)
+    return out
+
+
+def test_a_tab_opens_an_indented_code_block() -> None:
+    """§2.2: a tab advances to the next four-column stop."""
+    assert _indented(["Prose.", "", "\tcode"]) == [False, False, True]
+
+
+def test_four_spaces_still_open_one() -> None:
+    """The control: the behaviour a tab is being made to match."""
+    assert _indented(["Prose.", "", "    code"]) == [False, False, True]
+
+
+def test_a_partial_tab_counts_to_the_next_stop() -> None:
+    """Two spaces then a tab is four columns, not five and not two."""
+    assert _indented(["Prose.", "", "  \tcode"]) == [False, False, True]
+
+
+def test_three_columns_do_not_open_one() -> None:
+    """The near-miss, which is the half a one-directional test would lose."""
+    assert _indented(["Prose.", "", "   almost"]) == [False, False, False]
+
+
+def test_a_tab_does_not_interrupt_an_open_paragraph() -> None:
+    """§4.4: an indented block cannot interrupt a paragraph, tab or not."""
+    assert _indented(["Prose.", "\tlazy continuation"]) == [False, False]
+
+
+def test_the_column_helper_counts_columns_not_characters() -> None:
+    from zenzic.core.ast import _indent_columns
+
+    assert _indent_columns("\tx") == 4
+    assert _indent_columns("  \tx") == 4
+    assert _indent_columns(" \t x") == 5
+    assert _indent_columns("   x") == 3
+    assert _indent_columns("x") == 0

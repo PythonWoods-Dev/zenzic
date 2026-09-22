@@ -8,8 +8,6 @@ description: "Walk through the z103-orphan-link fixture: a link to an existing f
 
 **Z-Code:** `Z103 ORPHAN_LINK` · **Engine:** `zensical` · **Exit:** `1`
 
-<Z103OrphanLink />
-
 ---
 
 ## The Fixture
@@ -25,9 +23,10 @@ It contains two documents and two configuration files:
 | `zensical.toml` | Nav declaration — `guide.md` deliberately excluded |
 
 `zensical.toml` declares a nav with only `index.md`. The file `guide.md` exists on
-disk but has no nav entry — its VSM status is `ORPHAN_BUT_EXISTING`. When `index.md`
-links to it at line 16, Zenzic's `VSMBrokenLinkRule` fires Z103: the link bypasses
-navigation and makes the page reachable only via direct URL.
+disk but has no nav entry — its status in the Virtual Site Map (VSM) is
+`ORPHAN_BUT_EXISTING`. When `index.md` links to it at line 16, Zenzic's
+`VSMBrokenLinkRule` fires Z103: the link bypasses navigation and makes the page
+reachable only via direct URL.
 
 ```toml title="examples/z103-orphan-link/zensical.toml"
 [project]
@@ -51,31 +50,24 @@ uvx zenzic check links
 Expected output:
 
 ```text
-zensical - 2 files (2 docs, 0 assets) - 0.0s - 101 files/s
+zensical • 2 files (2 pages, 0 assets) • 0.0s • 71 files/s
 
-docs/guide.md  !  [Z402]  Physical file not listed in navigation.
+docs/index.md:16  ✘  [Z103]  'guide.md' resolves to '/guide/' which exists on
+disk but is not in the site navigation (ORPHAN_LINK / UNREACHABLE_LINK). Readers
+cannot reach this page via the nav tree.
 
-docs/index.md:16:2  x  [Z101]  'guide.md' resolves to '/guide/' which exists on
-disk but is not listed in the site navigation (UNREACHABLE_LINK) — add it to nav
-in mkdocs.yml or remove the link
-
-    14  │  The following link points to a page that exists on disk but has no
-nav entry:
+    14  │  The following link points to a page that exists on disk but has no n…
     15  │
-    16  ❱  - [Guide](guide.md) — `guide.md` exists on disk, but it is **not in
-the nav** → **Z103**
-        │    ^^^^^^^^^^^^^^^^^
+    16  ❱  - [Guide](guide.md) — `guide.md` exists on disk, but it is **not in …
     17  │
     18  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 1 warning  i 0 info  - 2 files with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
-'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`
@@ -107,7 +99,7 @@ Exit code 1 is triggered. To fix this, register the target page in the `nav` sec
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the target file does not exist on disk.
-- [z102 — Anchor Missing](z102-anchor-missing) — the target file exists but the heading anchor does not.
-- [z402 — Orphan Page](../../examples/z4xx-topology/z402-orphan-page) — the inverse: a page that is not in the nav and has no link pointing to it at all.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the target file does not exist on disk.
+- [z102 — Anchor Missing](../z102-anchor-missing/) — the target file exists but the heading anchor does not.
+- [z402 — Orphan Page](../../../examples/z4xx-topology/z402-orphan-page/) — the inverse: a page that is not in the nav and has no link pointing to it at all.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

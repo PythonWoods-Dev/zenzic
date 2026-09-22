@@ -39,26 +39,21 @@ All `.md` files are read once; anchors are pre-computed from headings (`# Headin
 
 ### Tier 2 — external links (`--strict` only)
 
-With `--strict`, every `http://` and `https://` URL in the docs is validated via concurrent HTTP HEAD requests using `httpx`. Up to 20 connections run simultaneously. Servers that reject HEAD receive a GET fallback. The same URL referenced in multiple pages is pinged exactly once.
+With `--strict`, every `http://` and `https://` URL in the docs is validated via concurrent HTTP HEAD requests using `httpx`. Up to 20 connections run simultaneously. Servers that reject HEAD receive a GET fallback. The same URL referenced in multiple pages is pinged exactly once. Hostnames reserved for documentation by RFC 2606 — `example.com`, `example.net`, `example.org` and their subdomains, and any host under `.test`, `.example`, `.invalid` or `.localhost` — are never probed.
 
 Servers returning `401`, `403`, or `429` are treated as reachable — these indicate access restrictions, not broken links. Timeouts (>10 s) and connection errors are reported as failures.
 
 ### What is never validated
 
 - Links inside fenced code blocks or inline code spans — the extractor skips them
+  (see [How Zenzic recognises a fenced block](#fence-recognition) for where a block starts and ends)
 - `mailto:`, `data:`, `ftp:`, `tel:` and similar non-HTTP schemes
-- Pure same-page anchors (`#section`) — not validated by default; enable with `validate_same_page_anchors = true`
 
 !!! tip "Same-page anchor validation"
 
-    By default, links like `[text](#section)` that point to a heading within the same file are not validated. To enable:
+    Links like `[text](#section)` that point to a heading within the same file are always validated against `Z102` — there is no configuration flag to disable this check.
 
-    ```toml
-    # .zenzic.toml
-    validate_same_page_anchors = true
-    ```
-
-### Violation codes
+### Finding codes
 
 | Code | Severity | Meaning |
 | :--- | :---: | :--- |
@@ -87,8 +82,6 @@ The path traversal guard treats host-path traversal as a **security event**, not
 
 !!! danger "Exit Code 3 — Path Traversal Guard"
     A `Z203 PATH_TRAVERSAL_FATAL` finding means a documentation source file contains a link whose resolved target points to `/etc/passwd`, `/root/`, or another OS system path. This can indicate a template injection, a compromised documentation toolchain, or an author mistake that reveals internal infrastructure details. Treat it as a build-blocking security incident.
-
-<PathTraversalGuardTerminal />
 
 ---
 
@@ -122,6 +115,39 @@ Code examples in documentation are tested less rigorously than production code. 
 
 Blocks tagged with any other language (`bash`, `javascript`, `mermaid`, etc.) are treated as plain text and are not syntax-checked. However, **every fenced block is still scanned by the Zenzic credential scanner** for credential patterns.
 
+### How Zenzic recognises a fenced block {#fence-recognition}
+
+Zenzic follows [CommonMark 0.31.2 §4.5](https://spec.commonmark.org/0.31.2/#fenced-code-blocks)
+for deciding where a fence starts and ends:
+
+- A fence opens on **three or more** backticks or tildes. Backticks and tildes are distinct —
+  one never closes the other.
+- A closing fence must be **at least as long** as the one that opened the block, must use the
+  **same character**, and must carry **no info string**. So a ``` line does not close a ````
+  block, which is what lets you show a code block inside a code block.
+- If no closing fence appears, the block runs to the end of the document.
+
+!!! info "One deliberate difference from the specification: indentation"
+
+    CommonMark allows an opening fence "preceded by up to three spaces of indentation" — but
+    that is measured relative to the **containing block**, not to the left margin. A fence
+    inside an admonition or a list continuation begins four or more columns in and is still
+    conformant, because its container begins there.
+
+    Zenzic reads Markdown line by line and has no container context, so applying the
+    three-space limit literally would not be stricter — it would measure from a reference the
+    specification does not use, and would stop recognising fences that are perfectly valid.
+    **Zenzic therefore accepts a fence at any indentation.**
+
+    This is not a theoretical case. Measured on 2026-09-14: **942 of 1,308** fenced blocks in
+    the [Zensical documentation](https://github.com/zensical/docs) and **196** in Zenzic's own
+    sit four or more columns from the margin, because they are written inside admonitions and
+    list items.
+
+    The practical consequence: a fence indented inside an admonition **is** recognised, so its
+    contents are excluded from link and heading checks and its language tag is honoured — and
+    an untagged one **will** be reported as [`Z505`](../rules/Z505.md).
+
 ### What it catches
 
 - **Python:** `SyntaxError` — missing colons, unmatched brackets, invalid expressions
@@ -148,27 +174,21 @@ Placeholder pages are pages that were created as stubs and never completed. They
 
 ### Signal 1 — word count
 
-Pages with fewer than `placeholder_max_words` words (default: 50) are flagged as `short-content`.
+Opt-in. With `[policies] enable_short_content_check = true`, pages with fewer than `placeholder_max_words` words (default: 50) are reported as `Z502`.
 
 ### Signal 2 — pattern match
 
-Lines containing any string from `placeholder_patterns` (case-insensitive) are flagged as `placeholder-text`. Default patterns include:
+Lines matching any pattern in `placeholder_patterns` are flagged as `placeholder-text`. The
+entries are RE2-compatible **regular expressions**, not literal substrings, compiled once with
+`IGNORECASE`. There are four defaults, each word-anchored so `todos` and `wipe` do not match:
 
-```text
-coming soon
-work in progress
-wip
-todo
-to do
-stub
-placeholder
-fixme
-tbd
-draft
-da completare
-in costruzione
-bozza
-prossimamente
+```toml
+placeholder_patterns = [
+    "\\btodo\\b",
+    "\\bfixme\\b",
+    "\\bwip\\b",
+    "\\btbd\\b",
+]
 ```
 
 Both signals are independent. A page may trigger one, both, or neither.
@@ -211,7 +231,7 @@ An asset is considered **used** if it appears as a Markdown image link (`![alt](
 
 The security and link-integrity check for [Markdown reference-style links](https://spec.commonmark.org/current/#link-reference-definitions). Also acts as the primary surface for the **credential scanner**.
 
-### Reference violation codes
+### Reference finding codes
 
 | Code | Severity | Exit code | Meaning |
 | :--- | :---: | :---: | :--- |

@@ -91,7 +91,11 @@ def test_cli_update_baseline_and_consume(tmp_path: Path) -> None:
     (docs / "index.md").write_text("# Index\n\n[Dead End](dead.md)\n")
     (docs / "dead.md").write_text("# Dead End\n\nNo outgoing links.\n")
 
-    (tmp_path / ".zenzic.toml").write_text("[site]\nengine = 'standalone'\n")
+    (tmp_path / ".zenzic.toml").write_text(
+        # Z411 is opt-in (V031_OPT_IN_CODES); this fixture is a dead-end graph,
+        # so it must declare the flag or it demonstrates nothing.
+        "[site]\nengine = 'standalone'\n\n[policies]\nenable_dead_end_check = true\n"
+    )
 
     # Step 1: Update baseline
     res = runner.invoke(app, ["check", "all", str(docs), "--update-baseline"])

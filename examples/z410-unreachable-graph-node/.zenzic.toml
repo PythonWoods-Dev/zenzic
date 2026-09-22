@@ -1,17 +1,14 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# .zenzic.toml — Z402 ORPHAN_PAGE gallery example
+# .zenzic.toml — Z410 UNREACHABLE_GRAPH_NODE gallery example
 #
-# This sandbox uses the zensical engine so that find_orphans() can inspect
-# the navigation manifest. docs/secret.md exists on disk but is NOT listed
-# in zensical.toml nav — it is ORPHAN_BUT_EXISTING → Z402 ORPHAN_PAGE.
-#
-# With the standalone engine find_orphans() returns [] (no nav to compare).
-# The zensical adapter reads zensical.toml and detects the unlisted page.
+# This sandbox uses the zensical engine so that the VSM topology check can
+# inspect the navigation manifest. docs/secret.md exists on disk, has no
+# incoming links, and is not in the navigation manifest — it is an
+# unreachable graph node → Z410 UNREACHABLE_GRAPH_NODE.
 #
 # Expected results:
-#   zenzic check assets   → EXIT 1  (Z402 ×1 — docs/secret.md not in nav)
-#   zenzic check all      → EXIT 1
+#   zenzic check all      → EXIT 1  (Z410 ×1 — docs/secret.md unreachable)
 
 docs_dir = "docs"
 fail_under = 0

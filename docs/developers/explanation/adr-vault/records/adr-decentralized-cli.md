@@ -31,25 +31,17 @@ containing six conceptually distinct responsibilities in a single namespace:
 
 This monolith created compounding problems:
 
-1. **Circular import risk.** As `core/` modules grew, contributors were tempted
-
-   to import `cli.py` utilities directly from core, inverting the dependency
+1. **Circular import risk.** As `core/` modules grew, contributors were tempted to import `cli.py` utilities directly from core, inverting the dependency
    direction.
 
-2. **UI state scattering.** The Rich `console` object was instantiated multiple
-
-   times across different function scopes, causing inconsistent output formatting
+2. **UI state scattering.** The Rich `console` object was instantiated multiple times across different function scopes, causing inconsistent output formatting
    and race conditions in test environments.
 
-3. **Test isolation failure.** Every test that touched any CLI command had to
-
-   import the entire `cli.py` — including the lab showcase, the Rich live display,
+3. **Test isolation failure.** Every test that touched any CLI command had to import the entire `cli.py` — including the lab showcase, the Rich live display,
    and all Typer sub-apps. This inflated test startup time and made mocking
    unreliable.
 
-4. **Contributor friction.** A new contributor adding a check command had no
-
-   clear "where does this go?" signal from the file structure alone.
+4. **Contributor friction.** A new contributor adding a check command had no clear "where does this go?" signal from the file structure alone.
 
 ---
 
@@ -76,19 +68,13 @@ contains no analysis logic.
 
 Three companion decisions were applied in the same release:
 
-- **D062-B:** `src/zenzic/ui.py` → `src/zenzic/core/ui.py`. UI primitives are
-
-  consumed by both CLI and Core; placing them in `core/` ensures Core can use
+- **D062-B:** `src/zenzic/ui.py` → `src/zenzic/core/ui.py`. UI primitives are consumed by both CLI and Core; placing them in `core/` ensures Core can use
   them without importing from `cli/`, which would violate the Layer Law.
 
-- **D063:** `src/zenzic/lab.py` → `src/zenzic/cli/_lab.py`. The lab showcase is
-
-  pure CLI orchestration — interactive Rich displays, act sequencing, user
+- **D063:** `src/zenzic/lab.py` → `src/zenzic/cli/_lab.py`. The lab showcase is pure CLI orchestration — interactive Rich displays, act sequencing, user
   prompts. It belongs with the CLI layer, not adjacent to the core.
 
-- **D064 (SDK Cleansing):** `run_rule()` was extracted from `cli.py` into
-
-  `core/rules.py`. The public `zenzic.rules` module became a **6-line re-export
+- **D064 (SDK Cleansing):** `run_rule()` was extracted from `cli.py` into `core/rules.py`. The public `zenzic.rules` module became a **6-line re-export
   façade** — backwards compatible for any third-party code that imported it
   directly, while ensuring the implementation lives in `core/`.
 
@@ -145,34 +131,22 @@ Instantiating multiple `Console()` objects across different command modules brea
 
 ## Invariants (Non-Negotiable)
 
-- `src/zenzic/core/` never imports from `src/zenzic/cli/` — any PR that introduces
+- `src/zenzic/core/` never imports from `src/zenzic/cli/` — any PR that introduces such an import is an automatic revert candidate.
 
-  such an import is an automatic revert candidate.
-
-- `_shared.py` is the **only** place in `cli/` where the Rich `console` object is
-
-  instantiated. All other `cli/` modules call `_ui()` from `_shared.py`.
+- `_shared.py` is the **only** place in `cli/` where the Rich `console` object is instantiated. All other `cli/` modules call `_ui()` from `_shared.py`.
 
 - `src/zenzic/main.py` contains **no analysis logic** — only Typer app wiring.
-- `zenzic.rules` remains a re-export façade. The implementation lives in
-
-  `core/rules.py`.
+- `zenzic.rules` remains a re-export façade. The implementation lives in `core/rules.py`.
 
 ---
 
 ## Consequences
 
-- New CLI commands are added to the appropriate `cli/_*.py` module, not to a
+- New CLI commands are added to the appropriate `cli/_*.py` module, not to a catch-all monolith.
 
-  catch-all monolith.
+- The `run_rule()` function is importable as both `zenzic.rules.run_rule` (public façade) and `zenzic.core.rules.run_rule` (direct). Both paths are stable.
 
-- The `run_rule()` function is importable as both `zenzic.rules.run_rule` (public
-
-  façade) and `zenzic.core.rules.run_rule` (direct). Both paths are stable.
-
-- The lab showcase (`cli/_lab.py`) can be extended with new acts without
-
-  affecting the analysis pipeline's test surface.
+- The lab showcase (`cli/_lab.py`) can be extended with new acts without affecting the analysis pipeline's test surface.
 
 ---
 

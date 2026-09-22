@@ -189,7 +189,7 @@ class TestAnchorsInFileProperties:
     @given(text=_md_text)
     @settings()
     def test_returns_set_of_strings(self, text: str) -> None:
-        result = anchors_in_file(text)
+        result = anchors_in_file(text, tabs=None)
         assert isinstance(result, set)
         for anchor in result:
             assert isinstance(anchor, str)
@@ -198,7 +198,7 @@ class TestAnchorsInFileProperties:
     @settings()
     def test_all_anchors_are_lowercase(self, text: str) -> None:
         """Every anchor slug must be lowercase (consistent with slug_heading)."""
-        for anchor in anchors_in_file(text):
+        for anchor in anchors_in_file(text, tabs=None):
             assert anchor == anchor.lower()
 
 
@@ -272,7 +272,7 @@ class TestResolverProperties:
             root / "guide.md": "# Guide\n## Install\n## Usage\n",
             root / "sub" / "page.md": "# Sub Page\n",
         }
-        anchors = {p: anchors_in_file(c) for p, c in files.items()}
+        anchors = {p: anchors_in_file(c, tabs=None) for p, c in files.items()}
         return InMemoryPathResolver(root, files, anchors)
 
     # Strategy: href-like strings with path chars.

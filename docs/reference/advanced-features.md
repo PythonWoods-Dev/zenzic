@@ -85,27 +85,17 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
 
 - **Every line is scanned** — including lines inside fenced code blocks (labelled or unlabelled).
 
-  A credential committed in a `bash` example is still a committed credential.
+    A credential committed in a `bash` example is still a committed credential.
 
-- Detection is **non-suppressible** — `--exit-zero`, `exit_zero = true` in `.zenzic.toml`, and
+- Detection is **non-suppressible** — `--exit-zero`, `exit_zero = true` in `.zenzic.toml`, and `--strict` have no effect on credential scanner findings.
 
-  `--strict` have no effect on credential scanner findings.
+- Exit code 2 is reserved **exclusively** for credential scanner events. It is never used for ordinary check failures.
 
-- Exit code 2 is reserved **exclusively** for credential scanner events. It is never used for ordinary check
+- Exit code 3 is reserved for **path traversal guard** events — links that resolve to OS system directories. Like exit code 2, it is never suppressed.
 
-  failures.
+- Files with security findings are **excluded from link validation** — Zenzic does not ping URLs that may contain leaked credentials.
 
-- Exit code 3 is reserved for **path traversal guard** events — links that resolve to OS system
-
-  directories. Like exit code 2, it is never suppressed.
-
-- Files with security findings are **excluded from link validation** — Zenzic does not ping URLs
-
-  that may contain leaked credentials.
-
-- **Code block link isolation** — while the credential scanner scans inside fenced blocks, the link and
-
-  reference validators do not. Example URLs inside code blocks (e.g. `https://api.example.com`)
+- **Code block link isolation** — while the credential scanner scans inside fenced blocks, the link and reference validators do not. Example URLs inside code blocks (e.g. `https://api.example.com`)
   never produce false-positive link errors.
 
 !!! danger "If you receive exit code 2"
@@ -150,9 +140,7 @@ validates what it can validate purely in Python.
 `zenzic check references` also flags images that lack meaningful alt text:
 
 - **Markdown inline images** — `![](url)` or `![   ](url)` (blank alt string)
-- **HTML `<img>` tags** — `<img src="...">` with no `alt` attribute, or `alt=""` with no
-
-  content
+- **HTML `<img>` tags** — `<img src="...">` with no `alt` attribute, or `alt=""` with no content
 
 An explicitly empty `alt=""` is treated as intentionally decorative and is **not** flagged.
 A completely absent `alt` attribute, or whitespace-only alt text, is flagged as a warning.
@@ -213,12 +201,12 @@ reports, link_errors = scan_docs_references(
     Path("."),
     exclusion_mgr,
     config=config,
-    validate_links=True,   # set False to skip HTTP validation
+    validate_links=True,  # set False to skip HTTP validation
 )
 
 for report in reports:
     if report.security_findings:
-        raise SystemExit(2)   # your code is responsible for exit-code enforcement
+        raise SystemExit(2)  # your code is responsible for exit-code enforcement
     for finding in report.findings:
         print(finding)
 
@@ -228,6 +216,7 @@ for error in link_errors:
 
 `scan_docs_references` deduplicates external URLs across the entire docs tree before
 firing HTTP requests — 50 files linking to the same URL result in exactly one HEAD request.
+The probe is a `HEAD` request; when the server answers with any status of 400 or above other than 401, 403 or 429 (which count as alive: the host is answering and restricting access), the probe retries with `GET` and reports that status instead. Some hosts refuse `HEAD` outright — the VS Code Marketplace answers it with 404 and `GET` with 200 — and until 2026-09-17 only a 405 triggered the retry, so such a link was reported broken.
 
 ### Hybrid Adaptive Engine
 
@@ -237,12 +226,12 @@ number of files in the repository:
 
 | Repo size | Engine behaviour | Reason |
 | :--- | :--- | :--- |
-| < 50 files | Sequential (always) | Process-spawn overhead (~200–400 ms) exceeds the parallelism benefit |
-| ≥ 50 files, `workers=1` | Sequential | Explicit serial override |
-| ≥ 50 files, `workers=None` or `workers=N` | Parallel (`ProcessPoolExecutor`) | CPU-bound regex work dominates; linear scaling |
+| < 1000 files | Sequential (always) | Process-spawn overhead (~200–400 ms) exceeds the parallelism benefit |
+| ≥ 1000 files, `workers=1` | Sequential | Explicit serial override |
+| ≥ 1000 files, `workers=None` or `workers=N` | Parallel (`ProcessPoolExecutor`) | CPU-bound regex work dominates; linear scaling |
 | 5 000+ files | Parallel with `workers=cpu_count` | Proven 3–6× speedup on 8-core runners |
 
-The 50-file threshold (`ADAPTIVE_PARALLEL_THRESHOLD`) is the conservative
+The `ADAPTIVE_PARALLEL_THRESHOLD` (1000 files) is the conservative
 break-even point where parallelism pays for its own startup cost.
 
 ```python
@@ -257,14 +246,16 @@ exclusion_mgr = LayeredExclusionManager(config)
 # Default: sequential (workers=1, zero overhead)
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config)
 
-# Explicit parallel: 4 workers, auto-activates only if ≥ 50 files
+# Explicit parallel: 4 workers, auto-activates only if ≥ 1000 files
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config, workers=4)
 
 # Fully automatic: ProcessPoolExecutor picks worker count from os.cpu_count()
 reports, _ = scan_docs_references(Path("."), exclusion_mgr, config=config, workers=None)
 
 # With external link validation (works in both sequential and parallel mode)
-reports, link_errors = scan_docs_references(Path("."), exclusion_mgr, config=config, validate_links=True, workers=None)
+reports, link_errors = scan_docs_references(
+    Path("."), exclusion_mgr, config=config, validate_links=True, workers=None
+)
 ```
 
 **Determinism guarantee:** results are always sorted by `file_path` regardless
@@ -276,18 +267,12 @@ Rules are validated for pickle-serializability at engine construction time
 (**eager validation**).  A non-serialisable rule raises `PluginContractError`
 immediately — before any file is scanned.
 
-- **Rules must be defined at module level.**  A class defined inside a function
+- **Rules must be defined at module level.**  A class defined inside a function or lambda cannot be pickled and will be rejected at load time.
 
-  or lambda cannot be pickled and will be rejected at load time.
-
-- **All instance attributes must be pickleable.**  Pre-compiled `re.compile()`
-
-  patterns, strings, and numbers are always safe.  File handles, database
+- **All instance attributes must be pickleable.**  Pre-compiled `re.compile()` patterns, strings, and numbers are always safe.  File handles, database
   connections, and lambda closures are not.
 
-- **No mutable global state.**  Workers receive independent copies of the rule
-
-  engine (via pickle).  A global counter mutated inside `check()` will be
+- **No mutable global state.**  Workers receive independent copies of the rule engine (via pickle).  A global counter mutated inside `check()` will be
   local to each worker process and discarded on completion — results will differ
   from sequential mode silently.  Return all state as `RuleFinding` objects.
 
@@ -300,13 +285,9 @@ examples, and packaging instructions.
 
 The harvester and cross-checker both skip content that should never trigger findings:
 
-- **YAML frontmatter** — the leading `---` block (first line only) is skipped in its entirety,
+- **YAML frontmatter** — the leading `---` block (first line only) is skipped in its entirety, including any reference-like syntax it might contain.
 
-  including any reference-like syntax it might contain.
-
-- **Fenced code blocks** — lines inside ` ``` ` or `~~~` fences are ignored. URLs in code
-
-  examples never produce false positives.
+- **Fenced code blocks** — lines inside ` ``` ` or `~~~` fences are ignored. URLs in code examples never produce false positives.
 
 This exclusion is applied consistently in both Pass 1 and Pass 2.
 
@@ -339,9 +320,7 @@ When a build-engine config (`mkdocs.yml`) is present, Zenzic constructs a **Virt
 Map (VSM)** before running link validation.  The VSM maps every `.md` source file to:
 
 - its **canonical URL** (e.g. `docs/guide/installation.md` → `/guide/installation/`)
-- its **routing status** — one of `REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, or
-
-  `CONFLICT`
+- its **routing status** — one of `REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, or `CONFLICT`
 
 A file is `REACHABLE` if it appears in the `nav:` section of `mkdocs.yml`.  A file is
 `ORPHAN_BUT_EXISTING` if it lives on disk but has no nav entry — the engine copies it to
@@ -353,10 +332,9 @@ When a link resolves to a dark page (`ORPHAN_BUT_EXISTING` or `IGNORED`) in the 
 Zenzic emits:
 
 ```text
-  [UNREACHABLE_LINK] index.md:22 — 'guide/secret.md' resolves to '/guide/secret/'
-  which exists on disk but is not listed in the site navigation (UNREACHABLE_LINK)
-  — add it to nav in mkdocs.yml or remove the link
-    │ - [Secret page](guide/secret.md)
+docs/index.md:3  ✘  [Z103]  'guide/secret.md' resolves to '/guide/secret/' which
+exists on disk but is not in the site navigation (ORPHAN_LINK /
+UNREACHABLE_LINK). Readers cannot reach this page via the nav tree.
 ```
 
 The Visual Snippet (`│`) shows the exact source line so you can locate and fix the link
@@ -392,15 +370,14 @@ by Zenzic when the Zensical engine is active.  Links to these resources are flag
 docs/
 ├── index.md
 ├── features.md
-└── _private/           ← Zensical ignores this directory entirely
+└── _private/           ← Zenzic's ZensicalAdapter ignores this directory entirely
     └── notes.md        ← links to this file → UNREACHABLE_LINK
 ```
 
 ```text
-[UNREACHABLE_LINK] index.md:8 — '_private/notes.md' resolves to '/_private/notes/'
-which exists on disk but is not listed in the site navigation (UNREACHABLE_LINK) —
-add it to nav in mkdocs.yml or remove the link
-  │ - [Private Notes](_private/notes.md)
+docs/index.md:8  ✘  [Z103]  '_private/notes.md' resolves to '/_private/notes/'
+which exists on disk but is not in the site navigation (ORPHAN_LINK /
+UNREACHABLE_LINK). Readers cannot reach this page via the nav tree.
 ```
 
 This rule applies to any path segment starting with `_`:
@@ -411,9 +388,12 @@ This rule applies to any path segment starting with `_`:
 | `_drafts/test.md` | `IGNORED` → `UNREACHABLE_LINK` |
 | `public/page.md` | `REACHABLE` — served normally |
 
-!!! note "MkDocs does not have this rule"
-    MkDocs does not treat underscore-prefixed directories as private.  Only Zensical
-    enforces the `_`-prefix convention.  When switching engines, audit any `_`-prefixed
+!!! note "This is Zenzic's own convention, not a Zensical platform feature"
+    Neither MkDocs nor Zensical itself treats underscore-prefixed directories as private —
+    verified against Zensical's own official documentation, which describes no such
+    convention. This is a modeling choice Zenzic's `ZensicalAdapter` applies internally
+    (`_zensical.py`) when the Zensical engine is active; MkDocs-engine and Standalone-engine
+    projects are unaffected. When switching engines, audit any `_`-prefixed
     directories in your docs tree.
 
 ---
@@ -423,19 +403,13 @@ This rule applies to any path segment starting with `_`:
 When your project uses [MkDocs i18n](https://github.com/ultrabug/mkdocs-static-i18n) or
 Zensical's locale system, Zenzic adapts automatically:
 
-- **Locale directories suppressed from orphan detection** — files under `docs/it/`, `docs/fr/`,
-
-  etc. are not reported as orphans. The adapter detects locale directories from the engine's
+- **Locale directories suppressed from orphan detection** — files under `docs/it/`, `docs/fr/`, etc. are not reported as orphans. The adapter detects locale directories from the engine's
   i18n configuration.
 
-- **Cross-locale link resolution** — the engine adapters resolve links that cross
-
-  locale boundaries (e.g. a link from `docs/it/page.md` to `docs/en/page.md`) without false
+- **Cross-locale link resolution** — the engine adapters resolve links that cross locale boundaries (e.g. a link from `docs/it/page.md` to `docs/en/page.md`) without false
   positives.
 
-- **Standalone mode skips orphan check entirely** — when no build-engine config is present, every
-
-  file would appear as an orphan. Zenzic skips the check rather than report noise.
+- **Standalone mode skips orphan check entirely** — when no build-engine config is present, every file would appear as an orphan. Zenzic skips the check rather than report noise.
 
 !!! tip "Force Standalone mode to suppress orphan check"
 
@@ -490,6 +464,7 @@ The **Custom Rule SDK v3** (`ZenzicRuleV3` + `RuleMetadata`) provides a typed fr
 from pathlib import Path
 from zenzic.sdk import ZenzicRuleV3, RuleMetadata
 from zenzic.core.rules import RuleFinding
+
 
 class ForbiddenInternalUrlRule(ZenzicRuleV3):
     metadata = RuleMetadata(

@@ -13,6 +13,24 @@ on:
       - 'uv.lock'
       - '.github/workflows/ci.yml'
   pull_request:
+    # No label-driven types any more: the matrix below no longer depends on a
+    # label, so `labeled`/`unlabeled` would only start runs that report exactly
+    # what the previous run reported.
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+# Three pushes in five minutes paid for three full runs. This cancels the
+# superseded ones, which on this workflow is ~19.6 billed minutes each.
+#
+# NOT on `main`, and that exclusion is the point: a cancelled run reports its
+# checks as cancelled, not as passed, and `main` is where the release tag is cut
+# from. Cancelling there could leave the branch without a completed required
+# check at the moment it matters most. On a pull request the transient state is
+# harmless — the superseding run re-reports every context, and a PR with a run
+# in flight is not mergeable anyway.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -24,16 +42,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMPORARY EXCLUSION: Windows and Python 3.14 are temporarily excluded
-        # to accelerate CI cycle and isolate environment-specific runners.
-        # Original configuration:
-        #   os: [ubuntu-latest, windows-latest]
-        #   python-version: ["3.10", "3.14"]
-        #   exclude:
-        #     - os: windows-latest
-        #       python-version: "3.14"
-        os: [ubuntu-latest]
-        python-version: ["3.10"]
+        # The matrix is unconditional, and that is a correctness requirement
+        # rather than a thoroughness preference.
+        #
+        # It briefly widened only on demand, while branch protection required
+        # contexts that only the wide form emits -- so an ordinary pull request
+        # could never satisfy them, and one sat with six green checks, `MERGEABLE`,
+        # and permanently `BLOCKED` on a context nothing would ever report. Either
+        # the required list matches what an ordinary run emits, or the wide run is
+        # not optional. Those are the only two coherent configurations; this is the
+        # second, and it needs nobody to remember anything.
+        #
+        # Windows earns its place on evidence, not symmetry: two failures this
+        # release were Windows-only and invisible on Linux -- a hand-built
+        # subprocess `env` that dropped `SystemRoot` and stopped Python starting,
+        # then `text=True` with no explicit codec failing to decode cp1252. Both
+        # were in test scaffolding, so both would have merged under a
+        # Linux-only gate.
+        #
+        # Measured cost of widening, from the real run at `7664533` rather than an
+        # estimate: ubuntu/3.14 124 s, ubuntu/3.10 171 s, windows/3.10 214 s. The
+        # jobs run in parallel, so the wall-clock a developer waits is 214 s
+        # against 124 s -- **+90 s** -- and the billed cost is ~12 minutes against
+        # ~2, Windows counting double.
+        #
+        # `fail-fast: false` above is kept on a count rather than a preference.
+        # Across 100 runs of this workflow on the v0.31.0 branch, 21 failed, and in
+        # 18 of those exactly one matrix job failed -- 16 of them `windows-latest`
+        # alone. The job that fails most often is also the slowest (214 s against
+        # 171 s and 124 s), so by the time it fails its siblings have finished and
+        # cancelling them would save almost nothing. What it would cost is the
+        # pattern: "only Windows failed" is the diagnosis, and it is legible only
+        # because the other two ran to completion.
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.14"]
+        exclude:
+          # Windows is exercised on the floor version only. The interpreter
+          # difference is what 3.14 tests; the platform difference is what Windows
+          # tests, and the cross product costs a fourth job to test both at once.
+          - os: windows-latest
+            python-version: "3.14"
 
     steps:
       - name: Checkout Repository
@@ -53,14 +101,100 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-groups --all-extras --frozen
 
-      - name: Run unit tests
-        run: just test
+      # pre-commit enforces this too, but only on staged files and only when
+      # it is not bypassed; a formatter check that never runs in CI let six
+      # unformatted files reach main. Authoritative version is pinned in
+      # pyproject.toml to match .pre-commit-config.yaml's ruff-pre-commit rev.
+      - name: Formatting check (ruff format)
+        run: uv run ruff format --check src tests
 
+      - name: Run unit tests (coverage enforced, fail_under=80)
+        run: just test-cov
+
+      # The credential scanner is the one path where a test that stops catching a
+      # regression is a security problem rather than a coverage statistic. The
+      # harness was configured in pyproject.toml but never invoked anywhere, so no
+      # score had ever been produced; this step is what makes it real.
       - name: Run Zenzic Quality Gate
-        run: uv run zenzic check all --strict --format github-annotations --ci
+        # --no-external: the PR gate must not depend on third-party uptime.
+        # Observed on run 34860816951: Audit failed on three platforms with nine
+        # distinct URLs, every one a github.com timeout (>10 s) from the runner —
+        # not a broken link. A third-party outage is a real defect but it is not
+        # this pull request's regression, and it left #233 unmergeable.
+        # The external surface is swept on a schedule instead — see
+        # external-link-sweep.yml.
+        run: uv run zenzic check all --strict --no-external --format github-annotations --ci
 
       - name: Build Docs
         run: uv run mkdocs build --strict
 
+      - name: Redirects structure tripwire
+        run: python3 scripts/check_redirects_structure.py
+
+      - name: Blog link schedule gate
+        run: uv run python scripts/check_blog_link_schedule.py
+
+      # Determinism across interpreters is a Tier-0 invariant and nothing was
+      # checking it. `pathlib.PurePath.suffix` changed semantics in 3.12 and the
+      # engine inherited the change, so the same corpus could yield different
+      # findings on 3.10 and 3.14 -- for two years, with both legs green, because
+      # each was only ever compared against itself. This emits one digest per
+      # Ubuntu leg; the `determinism` job below diffs them. Ubuntu only: the
+      # comparison is about the interpreter, and adding Windows would conflate
+      # platform with version, which is precisely the confound that produced two
+      # wrong diagnoses while this was being found.
+      - name: Emit interpreter-determinism digest
+        if: runner.os == 'Linux'
+        run: uv run python scripts/check_interpreter_determinism.py --emit findings-py${{ matrix.python-version }}.json
+
+      - name: Upload interpreter-determinism digest
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: determinism-py${{ matrix.python-version }}
+          path: findings-py${{ matrix.python-version }}.json
+          retention-days: 7
+
       - name: Verify Badge Freshness
-        run: uv run zenzic score --check-stamp --ci
+        # --no-external, for the same reason the Quality Gate above uses it, and
+        # because this step was left out of that decision when it was taken.
+        # Measured on run 35455833729, commit d99a008: this step computed 89/100
+        # on Ubuntu 3.10 while the other two legs computed 97 on the same commit,
+        # and a re-run of that identical commit produced 97 everywhere. The gap is
+        # exactly one Z104 (penalty 8.0) -- an external URL that did not answer
+        # from that runner. A badge gate that moves with third-party uptime fails
+        # a pull request that changed nothing, and stamps a number that is not the
+        # repository's. The external surface is swept on a schedule instead.
+        run: uv run zenzic score --check-stamp --ci --no-external
+
+  # ── Interpreter determinism ────────────────────────────────────────────────
+  # The same corpus must produce the same findings on every supported Python.
+  # This costs a download and a diff, not a test run: both digests come from the
+  # matrix legs that already ran.
+  #
+  # Its limit is written into the script and repeated here because a green run
+  # here is not proof of determinism: it compares findings over the fixtures in
+  # `examples/`, so a divergence in an input shape no fixture contains is
+  # invisible to it. The defect that motivated it lived exactly there -- of the 35
+  # inputs where 3.10 and 3.14 disagreed, zero appear in this repository. This
+  # catches the next one, if that one touches a shape a fixture exercises.
+  determinism:
+    name: Interpreter Determinism
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download 3.10 digest
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: determinism-py3.10
+
+      - name: Download 3.14 digest
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: determinism-py3.14
+
+      - name: Compare findings across interpreters
+        run: python3 scripts/check_interpreter_determinism.py --compare findings-py3.10.json findings-py3.14.json

@@ -32,7 +32,7 @@ Zenzic resolves configuration using a **4-level hierarchy** — the most specifi
 - `--exclude-dir` *adds* to the list already defined in the config file.
 - `--include-dir` is a **force override**: a directory excluded in `.zenzic.toml` but included via `--include-dir` will be scanned. The only exception is Level 1 System Guardrails (`node_modules`, `.git`, etc.) — these cannot be force-included.
 
-When a config file is present but contains a TOML syntax error, Zenzic raises a `ConfigurationError` with a Rich-formatted message. It will **never** silently fall back to defaults when a file exists but cannot be parsed.
+When a config file is present but contains a TOML syntax error, Zenzic raises a `ZenzicConfigError` with a Rich-formatted message. It will **never** silently fall back to defaults when a file exists but cannot be parsed.
 
 ### Standalone `.zenzic.toml`
 
@@ -71,7 +71,29 @@ must remain private on your workstation.
 
 - It is loaded after shared config (`.zenzic.toml` or `[tool.zenzic]`) and therefore wins locally.
 - It is intended for machine-specific paths, temporary cleanup knobs, diagnostics, and private secrets.
-- It is never a team policy file.
+- It is never a team policy file — and that is **enforced**, not merely advised.
+
+### What this file may contain {#local-sanctuary-scope}
+
+Thirteen top-level sections are accepted:
+
+`core` · `build_context` · `project_metadata` · `governance` · `i18n` ·
+`forbidden_patterns` · `excluded_dirs` · `excluded_file_patterns` · `custom_rules` ·
+`secrets` · `debug` · `env`
+
+Anything else stops the run with `[LOCAL-TOML-STRICT]`, naming the key and this file. The
+error is deliberate: a section silently ignored here would be worse than one rejected, because
+you would believe it applied.
+
+!!! warning "`[policies]` is not on the list, and this is the point"
+    Opt-in codes are enabled in `[policies]`, and `[policies]` cannot be set here. A code your
+    project has not enabled cannot be enabled on one machine.
+
+    Otherwise a contributor would see findings nobody else sees, and their gate would pass or
+    fail differently from CI for a reason no one could inspect from the repository. Enabling a
+    code is a project decision, so it lives in the file the project commits. See
+    [When a Finding Looks Wrong](../explanation/when-a-finding-looks-wrong.md) for which of
+    those decisions is yours to make and which is ours.
 
 When `zenzic init` runs in a Git repository, it enforces `.zenzic.local.toml` inside
 `.gitignore` (creating or updating `.gitignore` safely, without destructive edits).
@@ -101,6 +123,12 @@ forbidden_patterns = []
 
 Use `.zenzic.toml` for shared constitutional governance. Use `.zenzic.local.toml`
 for local experiments and private data only.
+
+**Merge semantics**: most scalar fields follow last-write-wins — `.zenzic.local.toml`
+loads after shared config, so a local value overrides the shared one. List fields
+`forbidden_patterns` and `excluded_dirs` are the exception: they merge **additively**
+(deduplicated) rather than replacing — a local entry extends the shared list, it
+never removes from it (`config.py`'s `_apply_local_toml`).
 
 ### What Belongs Where — Decision Matrix {#local-vs-shared}
 
@@ -139,6 +167,14 @@ Expected provenance semantics:
 - `local` -> `.zenzic.local.toml (Override)`
 - `global` -> `.zenzic.toml`
 - `default` -> built-in fallback
+
+!!! warning "Track 2 (`pyproject.toml`) provenance is not reported"
+    `zenzic config explain` only reads `.zenzic.toml` directly for its "Global config" status line.
+    A project configured exclusively via `[tool.zenzic]` in `pyproject.toml` will report
+    `global: not found — using built-in defaults`, even though `zenzic check`/`score`/etc. did
+    successfully load that configuration. Track 2 users should not rely on this command's
+    provenance summary — the underlying values shown are still correct, only the reported
+    *source* of a Track-2-only field is misleading.
 
 Example (governance override):
 
@@ -193,6 +229,47 @@ location such as `website/` or `content/`.
 docs_dir = "."        # scan the entire repository (e.g. README-only projects)
 ```
 
+**If the directory does not exist**, the run stops with
+[`Z111`](finding-codes.md#z111) and exits `1`. This matters most when you have
+*not* set `docs_dir`: a project whose sources live elsewhere — Astro/Starlight
+keeps them under `src/content/docs`, Docusaurus under `docs` — inherits the
+`"docs"` default and gets nothing to scan. Before v0.31.0 that was `Z906` at
+exit `0`, so a gate passed over a tree nothing had read. A directory that
+exists and merely holds no Markdown is the other case and keeps `Z906` and
+exit `0`: it is a project in setup, and nothing is wrong with it.
+
+`zenzic init` writes this line for you when it recognises your generator, and
+`zenzic env` reports both the engine and the detected generator if you want to
+check what Zenzic resolved.
+
+### `content_roots` {#content-roots}
+
+|  |  |
+| :--- | :--- |
+| **Type** | `list[Path]` |
+| **Default** | `[]` |
+
+Additional Markdown trees outside `docs_dir`, relative to the repository root.
+
+`docs_dir` names **one** directory. A generator that publishes from more than
+one — a Docusaurus site's `blog/` beside its `docs/` — leaves the second tree
+unreached: only the MkDocs adapter derives extra roots from its own
+configuration, so under `standalone` or `prebuilt` nothing looks there. List
+them here and they are scanned, routed and link-checked like any other source.
+
+```toml
+docs_dir = "docs"
+content_roots = ["blog"]
+```
+
+Each entry is mounted under a URL prefix derived from its directory name, so
+`blog/post.md` publishes at `/blog/post/` and links resolve from there. Whatever
+your engine adapter discovers on its own is kept as well — this list adds to it
+rather than replacing it.
+
+Declaring a root here does not widen what Zenzic may read. Every read resolves
+against the repository root; a root outside it is reported and skipped.
+
 ### `snippet_min_lines` {#snippet-min-lines}
 
 | | |
@@ -206,6 +283,19 @@ Minimum number of lines for a fenced code block to be syntax-checked. Set to `3`
 snippet_min_lines = 3
 ```
 
+### `max_sentence_length` {#max-sentence-length}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` |
+| **Default** | `40` |
+
+Maximum words allowed in a sentence before triggering `Z511` `EXCESSIVE_SENTENCE_LENGTH`. Has no effect unless `[policies] enable_sentence_length_check = true`.
+
+```toml
+max_sentence_length = 60
+```
+
 ### `placeholder_max_words` {#placeholder-max-words}
 
 | | |
@@ -213,7 +303,7 @@ snippet_min_lines = 3
 | **Type** | `int` |
 | **Default** | `50` |
 
-Pages with fewer words than this threshold are flagged as `short-content` placeholders.
+Pages with fewer words than this threshold are reported as `Z502` `SHORT_CONTENT`. Has no effect unless `[policies] enable_short_content_check = true`.
 
 ```toml
 placeholder_max_words = 100
@@ -238,29 +328,36 @@ Case-insensitive strings that flag a page as containing placeholder text.
     ```
     To add a custom regex while keeping the defaults, you must explicitly re-declare the default patterns alongside your new ones.
 
-The default list includes both English and Italian patterns:
+The default list:
 
 ```toml
 # Default patterns (shown for reference — override to customise)
 placeholder_patterns = [
-  "\\btodo\\b", "\\bfixme\\b", "\\bwip\\b", "\\btbd\\b",
-  "\\bstub\\b", "\\bda completare\\b", "\\bin costruzione\\b",
-  "\\bin lavorazione\\b", "\\bbozza\\b", "\\bprossimamente\\b"
+  '\btodo\b', '\bfixme\b', '\bwip\b', '\btbd\b'
 ]
 ```
 
-### `validate_same_page_anchors` {#validate-same-page-anchors}
+### `absolute_path_allowlist` {#absolute-path-allowlist}
 
 | | |
 | :--- | :--- |
-| **Type** | `bool` |
-| **Default** | `true` |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
 
-When `true`, same-page anchor links (`#section`) are validated against headings present in the source file. Enabled by default for stronger source-level integrity checks. Disable it only when anchor IDs are generated by HTML attributes, custom plugins, or build-time macros invisible at source-scan time.
+Absolute path prefixes allowed in links. A match exempts the link from `Z105`, and — since v0.31.0 — from `Z203` as well. An entry never matched by any scanned link is reported as `Z112` `STALE_ALLOWLIST_ENTRY`.
 
 ```toml
-validate_same_page_anchors = true
+absolute_path_allowlist = ["/api/"]
 ```
+
+**Required, not merely convenient, for a section named after an OS system directory.** A site-absolute link whose first segment is one of `bin`, `boot`, `dev`, `etc`, `proc`, `programdata`, `root`, `sbin`, `sys`, `system32`, `usr`, `var`, `windows` or `winnt` reaches `Z203` — exit 3, non-suppressible — unless a prefix here declares it. Such a link and a genuine path traversal both resolve inside `docs_dir` by construction, so nothing distinguishes them except this declaration:
+
+```toml
+# root-level keys go above the first table, or the parser swallows them
+absolute_path_allowlist = ["/etc/"]
+```
+
+Before v0.31.0 the engine instead checked whether a file existed at the target and downgraded the finding when one did. That made the verdict depend on repository content — see [`Z203`](../rules/Z203.md) for what changed and why.
 
 ---
 
@@ -277,6 +374,14 @@ Configure file and directory exclusion patterns.
 
 Directories inside `docs/` to exclude from orphan and snippet checks. User entries are **merged** with the immutable System Guardrails (`SYSTEM_EXCLUDED_DIRS`) -- they can never be removed.
 
+!!! warning "The security tier ignores this setting"
+    Excluded directories are scoped out of *quality* analysis only. The **whole
+    security tier** still runs on every file here — credentials and forbidden terms
+    (`Z201`/`Z204`), forbidden schemes (`Z205`), and path traversal (`Z202`/`Z203`).
+    Those findings are non-suppressible by any mechanism, including scoping, and
+    `zenzic guard scan` scans these files too. Only System Guardrails and VCS-ignored
+    content are outside the security scan.
+
 **Path matching semantics:** If an entry contains a slash (`/`), it is evaluated against the repository-relative path. If it does not, it evaluates against the directory basename globally.
 
 ```toml
@@ -286,9 +391,9 @@ excluded_dirs = ["includes", "stylesheets", "overrides", "snippets"]
 !!! info "System Guardrails (always excluded)"
     The following directories are excluded unconditionally, regardless of configuration:
 
-    `.git`, `.github`, `.venv`, `node_modules`, `.nox`, `.tox`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `__pycache__`, `.cache`, `.hypothesis`, `.temp`
+    `.git`, `.github`, `_zenzic_core`, `.zenzic_cache`, `.venv`, `node_modules`, `.nox`, `.tox`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.hypothesis`, `build`, `dist`, `temp`, `.temp`, `tmp`, `mutants`, `out`, `.vscode-test`
 
-    These represent the **L1 System Guardrails** layer. No configuration can override them.
+    These represent the **L1 System Guardrails** layer (`SYSTEM_EXCLUDED_DIRS`). No configuration can override them.
 
 ### `excluded_file_patterns` {#excluded-file-patterns}
 
@@ -297,7 +402,12 @@ excluded_dirs = ["includes", "stylesheets", "overrides", "snippets"]
 | **Type** | `list[str]` |
 | **Default** | `[]` |
 
-Filename glob patterns excluded from **all** checks (orphan detection, placeholder scanning, reference pipeline, and credential scanner). Uses glob syntax compiled to RE2 regular expressions — standard `*` and `?` wildcards are supported.
+Filename glob patterns excluded from every **quality** check (orphan detection, placeholder scanning, reference pipeline). Uses glob syntax compiled to RE2 regular expressions — standard `*` and `?` wildcards are supported.
+
+The security tier is **not** exempted — `Z201`/`Z204` (credentials and forbidden
+terms), `Z205` (forbidden schemes) and `Z202`/`Z203` (path traversal) alike. A
+matching file still gets the security pass, in `zenzic check`, `zenzic guard scan`
+and the editor — the tier is non-suppressible by any mechanism, scoping included.
 
 ```toml
 # Skip locale-suffixed files and changelogs
@@ -360,7 +470,7 @@ External URLs (or URL prefixes) excluded from the broken-link check in `--strict
 ```toml
 excluded_external_urls = [
   "https://internal.example.com",
-  "https://github.com/PythonWoods/unreleased-repo",
+  "https://github.com/PythonWoods-Dev/unreleased-repo",
 ]
 ```
 
@@ -449,16 +559,18 @@ The `[build_context]` table tells Zenzic which documentation engine produced the
 
 | | |
 | :--- | :--- |
-| **Type** | `str` |
+| **Type** | `Literal["prebuilt", "vsm", "mkdocs", "zensical", "standalone", "auto"]` |
 | **Default** | `"auto"` |
 
-Build engine identifier. Used by the adapter factory to select the correct path-resolution strategy. Built-in adapters: `mkdocs`, `zensical`, `standalone`.
+Build engine identifier. Used by the adapter factory to select the correct path-resolution strategy. Built-in adapters: `prebuilt`, `vsm`, `mkdocs`, `zensical`, `standalone`.
 
 When set to `"auto"` (the default), Zenzic probes the project root at runtime using **engine auto-discovery**, scanning for engine config files in priority order:
 
-1. `zensical.toml` → `zensical`
-2. `mkdocs.yml` → `mkdocs`
-3. *(no match)* → `standalone`
+1. `.zenzic-vsm.json` → `prebuilt`
+2. `zensical.toml` → `zensical`
+3. `mkdocs.yml`/`mkdocs.yaml` with `theme: zensical` → `zensical` (compat)
+4. `mkdocs.yml`/`mkdocs.yaml` → `mkdocs`
+5. *(no match)* → `standalone`
 
 For production CI, pin the engine explicitly to skip discovery overhead:
 
@@ -502,12 +614,22 @@ locales = ["it", "fr", "de"]
 | **Type** | `str` |
 | **Default** | `""` |
 
-Site base URL (e.g. `"/"` or `"/docs/"`). When set, the adapter uses this value instead of attempting static extraction from the build tool's config file. Recommended when the config file uses dynamic patterns that cannot be parsed statically.
+The path your documentation is served under, when it is not the site root — for example `"/docs/"` on a site published at `https://example.com/docs/`. Leave it unset (or `"/"`) for a site served from the root; both mean "no prefix".
+
+**What it changes.** Absolute links written against the deployed path resolve instead of being reported. On a site based at `/docs/`, a link to `/docs/reference/page/` is re-based to `/reference/page/` before it is matched against the route map, so it stops raising [`Z101`](finding-codes.md#z101); the prefix is also treated as project-owned, so it stops raising [`Z105`](finding-codes.md#z105). Both come from one value, so the two checks cannot disagree about where the site starts.
 
 ```toml
 [build_context]
 base_url = "/docs/"
 ```
+
+!!! warning "Not available with the `prebuilt` engine"
+
+    `prebuilt` takes its routes from `.zenzic-vsm.json`, which already carries the
+    prefix your build produced. Setting `base_url` as well would apply it twice, so
+    the combination is rejected with a configuration error rather than ignored. Emit
+    the manifest with the URLs you want instead. `zenzic init` does not offer the
+    setting when it writes a `prebuilt` configuration.
 
 ### `fallback_to_default` {#fallback-to-default}
 
@@ -521,6 +643,20 @@ When `true`, missing locale-tree assets and pages fall back to the default-local
 ```toml
 [build_context]
 fallback_to_default = false
+```
+
+### `offline_mode` {#offline-mode}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+
+When `true`, adapters force a flat URL structure (e.g. `use_directory_urls = false`) for offline builds.
+
+```toml
+[build_context]
+offline_mode = true
 ```
 
 ---
@@ -542,7 +678,42 @@ Minimum quality score (0--100). If the Zenzic Score falls below this value, `zen
 fail_under = 80
 ```
 
+!!! warning "`zenzic check all` does not consult `fail_under`"
+
+    This is the one setting whose name suggests a global gate and is not one.
+    The three commands answer three different questions, and only the first is
+    about a threshold:
+
+    | Command | Question it answers | What decides its exit code |
+    | :--- | :--- | :--- |
+    | `zenzic score` | *Am I above my bar?* | **`fail_under`** — exit 1 when the score is below it |
+    | `zenzic diff` | *Did I regress?* | The saved snapshot — exit 1 on a drop, at any absolute score |
+    | `zenzic check all` | *Are there defects?* | Breaches, errors, and — under `strict` — warnings. **Never the score.** |
+
+    Measured: a project with `fail_under = 97` and a score of 96 gets exit 1 from
+    `zenzic score` and **exit 0, "Gate Passed"** from `zenzic check all`. There is
+    no `--fail-under` flag on `check all`, and setting the key does not give that
+    command a score gate.
+
+    **In CI this is already handled.** `zenzic-action` runs `check all` *and*
+    `zenzic score`, and propagates the score command's exit code — so a workflow
+    using the action does enforce the threshold. A pipeline that calls
+    `zenzic check all` on its own does not; add `zenzic score` to it.
+
 > See [Exclusion Design — Governance Score Math](../explanation/exclusion-design.md#governance-score-math) for the flat-cost model and hybrid governance policy design.
+
+### `baseline_stale_days` {#baseline-stale-days}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` (optional) |
+| **Default** | `None` — falls back to Core's built-in default of `7` |
+
+Age in days after which the saved score snapshot (`.zenzic-score.json`, written by `zenzic score --save`) is considered stale. `zenzic score --json` reports this as `baseline_status` (`"fresh"`, `"stale"`, or `"absent"` when no snapshot exists yet) and `baseline_age_days`, letting editor integrations (e.g. the VS Code Quality Status Panel) surface the signal without recomputing it.
+
+```toml
+baseline_stale_days = 14
+```
 
 ### `strict` {#strict}
 
@@ -552,6 +723,8 @@ fail_under = 80
 | **Default** | `false` |
 
 When `true`, treat warnings as errors and validate external URLs via network requests. Equivalent to passing `--strict` on every invocation of `check all`, `score`, or `diff`.
+
+Unlike [`fail_under`](#fail-under), this one does reach `check all` — and because a run then behaves in a way nothing on the command line accounts for, the report's telemetry line names it: `… • from config: strict`. `zenzic config explain` gives the full per-key provenance across the global and local layers.
 
 ```toml
 strict = true
@@ -584,11 +757,28 @@ Configure project identity and release naming metadata.
 | **Default** | `""` |
 | **Section** | `[project_metadata]` |
 
-The current release codename. Used as the protected term in `brand_obsolescence` enforcement — Zenzic emits Z601 if this string appears as an obsolete term in documentation.
+The current release codename, shown in `zenzic --version` and related metadata output. It has no effect on Z601 detection — obsolete brand terms are declared separately via `governance.brand_obsolescence` (see below).
 
 ```toml
 [project_metadata]
 release_name = "Graphite"
+```
+
+### `obsolete_names_exclude_patterns` {#obsolete-names-exclude-patterns}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `["CHANGELOG*.md", "CHANGELOG*.archive.md"]` |
+| **Section** | `[project_metadata]` |
+
+Glob patterns, relative to `docs_dir`, for files exempt from `Z601` brand-obsolescence detection. Changelogs are excluded by default: a release history is expected to name superseded products in past-tense prose, and flagging it would penalise an accurate historical record.
+
+Setting this to an empty list removes the exemption, so every file — changelogs included — is checked.
+
+```toml
+[project_metadata]
+obsolete_names_exclude_patterns = ["CHANGELOG*.md", "docs/archive/**"]
 ```
 
 ### `badge_stamp_files` {#badge-stamp-files}
@@ -627,7 +817,7 @@ Configure brand governance and directory policies.
 
 A governance rule to enforce terminology standards across documentation. Ideal for corporate rebranding or deprecating internal project names. Zenzic ships with an empty default list — teams configure their own deprecated term lists here.
 
-When a term in this list appears in any scanned file, Zenzic emits Z601 `BRAND_OBSOLESCENCE` with exit code 2 (same severity as a credential leak). Historical files (e.g. `CHANGELOG*.md`) are excluded via `excluded_file_patterns`. Use an inline `[HISTORICAL]` comment to suppress individual intentional references in other files.
+When a term in this list appears in any scanned file, Zenzic emits Z601 `BRAND_OBSOLESCENCE`, a warning: exit `0`, or `1` under `--strict`. Changelogs and other historical files are exempted with `[project_metadata] obsolete_names_exclude_patterns`. To keep an individual intentional reference, suppress it on its line with `<!-- zenzic:ignore: Z601 -->`.
 
 ```toml
 [governance]
@@ -638,7 +828,7 @@ brand_obsolescence = [
 ]
 ```
 
-**Pattern matching:** case-sensitive whole-word scan. The term `"Deprecated"` does not match `"DeprecatedFeature"` or `"deprecated"`.
+**Pattern matching:** case-insensitive whole-word scan. The term `"Deprecated"` matches `"deprecated"` but not `"DeprecatedFeature"`.
 
 **Scope:** applies to all files within the active `docs_dir` scan scope, subject to the standard exclusion hierarchy.
 
@@ -666,11 +856,32 @@ Scoped suppressions per glob pattern. Security findings remain non-suppressible.
 | **Default** | `{}` |
 | **Section** | `[governance]` |
 
-Strategic directory-level policy exemptions (zero debt). In `--audit` mode,
-these findings are surfaced with the `[POLICY_EXEMPTION]` label.
+Strategic directory-level policy exemptions. Each pattern–code pair that silences a finding in the
+run costs 1 debt point and counts against [`suppression_cap`](#suppression-cap), like a
+`per_file_ignores` pair; a pair that silences nothing costs nothing and is reported as `Z620`. In
+`--audit` mode, these findings are surfaced with the `[POLICY_EXEMPTION]` label.
 
 !!! tip "Z620 (Stale Global Suppression)"
-    Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z620** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
+    Zenzic automatically maintains configuration hygiene via the `GlobalUsageTracker`. If a pattern declared in `directory_policies`, `per_file_ignores`, `excluded_file_patterns`, or `excluded_external_urls` is never used to suppress an actual finding, Zenzic emits the **Z620** warning to prevent dead configuration accumulation. The solution is always to remove the unused policy from `.zenzic.toml`.
+
+### `suppression_cap` {#suppression-cap}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` (`>= 0`) |
+| **Default** | `30` |
+| **Section** | `[governance]` |
+
+Maximum number of suppressions in use allowed before the debt is considered excessive. A suppression is in use when it silences a finding in the run: an inline `zenzic:ignore` directive or `data-zenzic-ignore` attribute, or a `per_file_ignores` or `directory_policies` pattern–code pair.
+
+Each suppression in use also deducts 1 point from the score, so a project that uses its whole cap cannot score above `100 − suppression_cap`. Keep `fail_under <= 100 − suppression_cap`; otherwise a project within its cap can fail the score gate on debt alone. At equality the floor leaves no room for any other penalised finding.
+
+The default of `30` is not calibrated against real projects: it was the free allowance of the scoring model that preceded flat-cost debt, and was kept as the hard-fail threshold when that model was replaced (recorded as ADR 061 in the [ADR Vault](../developers/explanation/adr-vault/index.md)). Declare the cap your project defends rather than relying on the default.
+
+```toml
+[governance]
+suppression_cap = 50
+```
 
 ### `suppression_cap_scope` {#suppression-cap-scope}
 
@@ -707,9 +918,61 @@ suppression_cap_fail_hard = true
 
 ---
 
+## Repository Health {#doctor-settings}
+
+Conventions read by [`zenzic doctor`](./cli.md) and [`zenzic adr new`](./cli.md). They are
+configuration rather than constants because they differ per project: where decision records
+live, how they are cited, where a redirects file sits.
+
+!!! info "Public repository content only"
+    Every `[doctor]` path resolves inside the published tree, and paths reaching into a
+    gitignored directory (`.claude/`, `.human/`) are rejected at config load rather than
+    merely discouraged. A check that inspected gitignored content would pass for whoever
+    holds those files locally and be unrunnable in CI or a fresh clone — so `doctor`, like
+    every other Zenzic check, reads public repository content only.
+
+### `adr_vault_path` {#adr-vault-path}
+
+Directory holding architectural decision records, relative to the repository root.
+
+- **Default:** `"docs/developers/explanation/adr-vault"`
+- Records are matched by filename against `adr_citation_pattern`.
+- If the directory does not exist, `zenzic doctor` reports one actionable finding rather
+  than a finding per citation.
+
+### `adr_citation_pattern` {#adr-citation-pattern}
+
+Regular expression matching an ADR citation in prose or source.
+
+- **Default:** `"ADR-\\d{3}"`
+- Compiled at config load; an invalid pattern is a configuration error, not a scan-time
+  crash.
+- The same pattern identifies both a citation in text and the record file that satisfies
+  it, so a project using `RFC-0001` style needs only this one setting changed.
+
+### `redirects_path` {#redirects-path}
+
+Redirects file to structurally validate, relative to the repository root.
+
+- **Default:** `"docs/_redirects"`
+- Absence is not a finding — most projects have no redirects file.
+- Each non-comment line must carry exactly three fields, a source beginning `/`, a
+  destination beginning `/` or `http`, and a numeric status.
+
+### `redirects_expected_blanks` {#redirects-expected-blanks}
+
+Expected blank-line count in the redirects file.
+
+- **Default:** `8`
+- Blank lines belong only to the file's comment header, so an unexplained change in the
+  count is a signal that something reshaped the file.
+- Set to `0` to disable this check while keeping the structural validation.
+
+---
+
 ## Policy-as-Code Settings {#policies-settings}
 
-Configure declarative Policy-as-Code rules (`Z610` and `Z611`). All policy rules are **opt-in** and inactive by default — empty lists (`[]`) short-circuit evaluation in $O(1)$ time with zero performance overhead.
+Configure the checks that report only when you enable them. They come in two kinds. **Flag-activated** checks are off until their `enable_*` key is `true`: `Z106`, `Z401`, `Z411`, `Z502`, `Z511`, `Z513`, `Z517`, `Z518`. **Data-activated** checks always run and find nothing until you declare the collection they read — inert rather than off: `Z412`, `Z519`, `Z521`–`Z523`, `Z610`–`Z619`. An empty list or table (`[]`/`{}`) short-circuits evaluation in $O(1)$ time. `zenzic explain <code>` shows which state a code is in.
 
 ### `required_frontmatter_keys` {#required-frontmatter-keys}
 
@@ -739,6 +1002,10 @@ required_frontmatter_keys = ["title", "description", "author"]
 | **Opt-in** | **Yes** |
 
 Declarative list of restricted external domain prefixes. Links (native Markdown `[text](url)` or raw HTML `<a href="url">`) referencing matching domains emit Z611 governance findings. Matching is case-insensitive and covers exact domain names and all subdomains (e.g. `"example.com"` matches `"sub.example.com"`).
+
+**This key is a blacklist, and it is the opposite of [`allowed_external_domains`](#allowed-external-domains)**: it flags only the domains it names and leaves
+every other domain alone. The two are easy to reach for by mistake — declaring the whitelist when you
+meant the blacklist turns every unlisted domain into an error.
 
 ```toml
 [policies]
@@ -791,6 +1058,12 @@ version = "^v\\d+\\.\\d+\\.\\d+$"
 
 Zero-Trust whitelist of allowed external domain prefixes. When non-empty, ANY external link pointing to a domain not in this whitelist emits a Z614 error finding.
 
+**This key is exclusive, and that is the whole of it**: an empty list checks nothing, and a list of two
+domains turns every link to a third domain into an error. Measured on an eight-link page, `["github.com", "zenzic.dev"]` produced five `Z614` errors and took the score from 100 to 70. Declare it
+when you genuinely intend an allow-list; for the opposite rule — flag only the domains you name — use
+[`forbidden_external_domains`](#forbidden-external-domains), which is a blacklist and leaves every
+unlisted domain alone.
+
 ```toml
 [policies]
 allowed_external_domains = ["zenzic.dev", "github.com"]
@@ -830,11 +1103,321 @@ Dictionary mapping source namespace path prefixes to a list of forbidden target 
 "docs/public" = ["docs/internal"]
 ```
 
+### `forbidden_content_patterns` {#forbidden-content-patterns}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z617 `FORBIDDEN_CONTENT_PATTERN` |
+| **Opt-in** | **Yes** |
+
+List of RE2 regular expression patterns forbidden from appearing anywhere in a document's prose content. A match anywhere in the body emits a Z617 warning finding.
+
+```toml
+[policies]
+forbidden_content_patterns = ["\\bTODO\\b", "\\bFIXME\\b", "\\bconfidential\\b"]
+```
+
+### `required_heading_patterns` {#required-heading-patterns}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z618 `REQUIRED_HEADING_PATTERN` |
+| **Opt-in** | **Yes** |
+
+List of RE2 regular expression patterns, each of which must match at least one heading in the document. A pattern with zero matching headings emits a Z618 warning finding.
+
+```toml
+[policies]
+required_heading_patterns = ["^Overview$", "^License$"]
+```
+
+### `max_document_complexity` {#max-document-complexity}
+
+| | |
+| :--- | :--- |
+| **Type** | `int` |
+| **Default** | `0` |
+| **Section** | `[policies]` |
+| **Finding** | Z619 `MAX_DOCUMENT_COMPLEXITY` |
+| **Opt-in** | **Yes** (`0` disables the check) |
+
+Maximum allowed document complexity score, computed from word count, heading depth, and link density. Documents exceeding this threshold emit a Z619 warning finding.
+
+```toml
+[policies]
+max_document_complexity = 500
+```
+
+### `weasel_words` {#weasel-words}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z519 `WEASEL_WORDS` |
+| **Opt-in** | **Yes** |
+
+List of weasel words to flag in prose. Each occurrence emits a Z519 warning finding.
+
+```toml
+[policies]
+weasel_words = ["clearly", "simply", "obviously", "basically", "very"]
+```
+
+### `enable_passive_voice_check` {#enable-passive-voice-check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z518 `PASSIVE_VOICE_DETECTED` |
+| **Opt-in** | **Yes** |
+
+When `true`, enables heuristic passive-voice detection in prose. Detected sentences emit a Z518 warning finding.
+
+```toml
+[policies]
+enable_passive_voice_check = true
+```
+
+### `enable_sentence_length_check` {#enable_sentence_length_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z511 `EXCESSIVE_SENTENCE_LENGTH` |
+| **Opt-in** | **Yes** |
+
+When `true`, a sentence longer than `max_sentence_length` (default 40 words) is
+reported. Off by default, because the threshold is a readability preference: a
+52-word sentence is long rather than wrong, and a number tuned on one project's
+prose fires on every other.
+
+Measured on the [Zensical documentation](https://github.com/zensical/docs) with
+the check on, it produced **22 findings across 16 files** — the largest single
+class on that corpus, and none of them a defect.
+
+```toml
+[policies]
+enable_sentence_length_check = true
+```
+
+### `enable_short_content_check` {#enable_short_content_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z502 `SHORT_CONTENT` |
+| **Opt-in** | **Yes** |
+
+When `true`, a page with fewer than `placeholder_max_words` words (default 50)
+is reported. Off by default: a stub, a redirect page, a changelog entry and a
+licence page are all legitimately short, and the count says nothing about whether
+the page is finished.
+
+```toml
+[policies]
+enable_short_content_check = true
+```
+
+### `enable_heading_punctuation_check` {#enable_heading_punctuation_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z517 `HEADING_PUNCTUATION` |
+| **Opt-in** | **Yes** |
+
+When `true`, a heading ending in `.`, `:` or `;` is reported. Off by default:
+trailing punctuation in a heading is a house style, and the heading renders
+correctly either way.
+
+```toml
+[policies]
+enable_heading_punctuation_check = true
+```
+
+### `enable_duplicate_heading_check` {#enable_duplicate_heading_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z513 `DUPLICATE_HEADING` |
+| **Opt-in** | **Yes** |
+
+When `true`, two headings in one document that resolve to the same text are
+reported. Off by default: repeating `## Configuration` under several sections is
+legal Markdown and ordinary structure.
+
+Note that duplicate headings still produce colliding anchor slugs. That half is
+not affected by this flag — [`Z102`](../rules/Z102.md) reports a link to an
+anchor that does not resolve, and stays on.
+
+```toml
+[policies]
+enable_duplicate_heading_check = true
+```
+
+### `enable_dead_end_check` {#enable_dead_end_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z411 `DEAD_END_NODE` |
+| **Opt-in** | **Yes** |
+
+When `true`, a page with no outgoing links is reported as a structural dead end.
+Off by default: a licence page, a changelog and a glossary are dead ends by
+design. Enable it for a corpus meant to be a navigable graph, where every page
+should offer the reader somewhere to go next.
+
+```toml
+[policies]
+enable_dead_end_check = true
+```
+
+### `enable_directory_index_check` {#enable_directory_index_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z401 `MISSING_DIRECTORY_INDEX` |
+| **Opt-in** | **Yes** |
+
+When `true`, a directory holding Markdown files but no index page is reported,
+on the grounds that its directory URL may 404. Off by default: whether a
+directory URL must resolve is a site-structure choice, not every generator uses
+directory indexes, and some serve a listing instead of an error.
+
+```toml
+[policies]
+enable_directory_index_check = true
+```
+
+### `enable_circular_link_check` {#enable_circular_link_check}
+
+| | |
+| :--- | :--- |
+| **Type** | `bool` |
+| **Default** | `false` |
+| **Section** | `[policies]` |
+| **Finding** | Z106 `CIRCULAR_LINK` |
+| **Opt-in** | **Yes** |
+
+When `true`, every page participating in a link cycle is reported as an
+informational Z106 finding. Off by default, because a cycle is documentation's
+ordinary shape rather than a defect: an index links to each of its records and
+every record links back, and two articles cross-reference each other.
+
+Measured against this project's own documentation with the check on, it reported
+**704 findings across 238 of roughly 300 pages** — for the index-and-record
+pattern every documentation set has by construction.
+
+Enable it for a corpus meant to be an acyclic hierarchy — an ordered tutorial
+sequence, a linear handbook — where a cycle means a reader can be sent in a loop.
+
+```toml
+[policies]
+enable_circular_link_check = true
+```
+
+Z106 is `info` severity and carries no DQS penalty, so it is hidden unless you
+pass `--show-info`.
+
+### `required_table_columns` {#required-table-columns}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z521 `REQUIRED_TABLE_COLUMN` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping a heading/context pattern (or `"*"` for every table in the document) to a list of column header names that table must contain. A missing column emits a Z521 warning finding, reported at the table's own line.
+
+```toml
+[policies.required_table_columns]
+"*" = ["Status", "Description"]
+"^API Reference$" = ["Method", "Endpoint"]
+```
+
+### `table_cell_enums` {#table-cell-enums}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z522 `TABLE_CELL_ENUM` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping a column header name to the list of string values allowed in that column. Matching is case-insensitive; a cell value outside the whitelist emits a Z522 warning finding at the precise data-row line.
+
+```toml
+[policies.table_cell_enums]
+Status = ["draft", "review", "stable"]
+```
+
+### `required_heading_order` {#required-heading-order}
+
+| | |
+| :--- | :--- |
+| **Type** | `list[str]` |
+| **Default** | `[]` |
+| **Section** | `[policies]` |
+| **Finding** | Z523 `HEADING_ORDER_VIOLATION` |
+| **Opt-in** | **Yes** |
+
+List of RE2 regular expression heading patterns that must appear in the document in strictly ascending sequential order. A heading matching an earlier pattern appearing after one matching a later pattern emits a Z523 warning finding.
+
+```toml
+[policies]
+required_heading_order = ["^Overview$", "^Usage$", "^API Reference$"]
+```
+
+### `traceability_targets` {#traceability-targets}
+
+| | |
+| :--- | :--- |
+| **Type** | `dict[str, list[str]]` |
+| **Default** | `{}` |
+| **Section** | `[policies]` |
+| **Finding** | Z412 `TRACEABILITY_BROKEN` |
+| **Opt-in** | **Yes** |
+
+Dictionary mapping a target documentation glob pattern to a list of source documentation glob patterns that must link to it. A target document with no inbound link from any matching source emits a Z412 warning finding. Unlike the other policies on this page, Z412 is a graph-level finding that cannot be suppressed with an inline `<!-- zenzic:ignore -->` comment — see [Suppression Policy](suppression-policy.md) — it is governed only through `[governance] directory_policies`.
+
+```toml
+[policies.traceability_targets]
+"docs/specs/**" = ["docs/architecture/**"]
+```
+
 ---
 
 ## Custom Rules {#custom-rules}
 
-Project-specific lint rules can be declared inline without writing Python. Each entry applies a regex pattern line-by-line to every `.md` file.
+Project-specific lint rules. Each entry is either a regex pattern applied line-by-line to every `.md` file, or a `class_name` reference to a Python class for AST-level analysis (Custom Rule SDK v3).
 
 ```toml
 [[custom_rules]]
@@ -852,10 +1435,14 @@ severity = "warning"
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `str` | (required) | Stable unique identifier (e.g. `"ZZ001"`) |
-| `pattern` | `str` | (required) | Regex applied to each content line |
-| `message` | `str` | (required) | Human-readable explanation shown in findings |
+| `id` | `str \| None` | `None` | Stable unique identifier, must start with `"ZZ-"` (e.g. `"ZZ-NOINTERNAL"`) |
+| `pattern` | `str \| None` | `None` | Regex applied to each content line (regex-flavor rules only) |
+| `message` | `str \| None` | `None` | Human-readable explanation shown in findings (regex-flavor rules only) |
 | `severity` | `str` | `"error"` | `"error"`, `"warning"`, or `"info"` |
+| `class_name` | `str \| None` | `None` | Dotted import path to a Custom Rule SDK v3 class for AST-level rules (mutually exclusive with `pattern`) |
+| `link` | `str \| None` | `None` | Optional rationale URL (regex-flavor rules only). When set, appended to the finding's message as `"{message} (see {link})"`; omitted entirely when unset. |
+
+None of the fields are enforced as required at the schema level — a regex-flavor entry missing `id`, `pattern`, or `message` is silently skipped by the scanner rather than raising a load-time error.
 
 ---
 
@@ -909,7 +1496,6 @@ CLI flags > .zenzic.toml > pyproject.toml [tool.zenzic] > built-in defaults
 docs_dir = "docs"
 snippet_min_lines = 3
 placeholder_max_words = 100
-validate_same_page_anchors = true
 
 # Exclusions
 excluded_dirs = ["includes", "stylesheets", "overrides"]
@@ -937,6 +1523,13 @@ strict = false
 fail_under = 80
 exit_zero = false
 
+# Repository health (zenzic doctor) — every value shown is the default
+[doctor]
+adr_vault_path = "docs/developers/explanation/adr-vault"
+adr_citation_pattern = "ADR-\\d{3}"
+redirects_path = "docs/_redirects"
+redirects_expected_blanks = 8
+
 # Custom rules
 [[custom_rules]]
 id = "ZZ-NOINTERNAL"
@@ -957,16 +1550,22 @@ Avoid common syntax and order pitfalls when editing `.zenzic.toml`.
 ### Field Order is Law {#field-order}
 
 In TOML, every key written **after** a `[section]` header belongs to that section, not to the root.
-Zenzic loads the root with `_build_from_data`, which filters against `ZenzicConfig.model_fields` — any key nested inside an unknown section is silently discarded.
+Zenzic actively defends against this: before loading, it scans every table (including unrecognized
+ones) for any of ~20 known root-level field names. If a root field name is found nested inside a
+table, Zenzic raises a **fatal** `ZenzicConfigError` and refuses to load — it does not silently
+discard the value.
 
-**Wrong — all root fields after `[project]` are swallowed:**
+**Wrong — this raises a fatal error, it does not silently ignore the misplaced fields:**
 
 ```toml
 [project]
 name = "My Project"
 
-# ❌ These lines look like root settings but they are INSIDE [project]
-# Zenzic ignores them — the section is unknown
+# ❌ These lines look like root settings but they are INSIDE [project].
+# Zenzic detects this and raises:
+#   FATAL CONFIGURATION ERROR: The root key 'docs_dir' was found inside
+#   the '[project]' section. In TOML, root keys must be declared at the
+#   absolute top of the file before any [tables] are opened.
 placeholder_patterns = []
 docs_dir = "docs"
 ```
@@ -985,9 +1584,10 @@ engine = "zensical"
 base_url = "/"
 ```
 
-### Unknown Sections Emit a Warning {#unknown-sections}
+### Unrecognized Sections With No Swallowed Root Key Emit a Warning {#unknown-sections}
 
-Zenzic, Zenzic emits a `WARNING` when it encounters an unrecognised TOML section (e.g. `[project]`) instead of discarding it silently.
+An unrecognized TOML section (e.g. `[project]`) whose keys do **not** collide with any known
+root-level field name is not fatal — Zenzic emits a `WARNING` and ignores that section's contents.
 If you see:
 
 ```text
@@ -995,6 +1595,19 @@ WARNING  .zenzic.toml: unknown section [project] will be ignored …
 ```
 
 move all settings that follow that header to the top of the file, before any `[section]` tag.
+
+Every configuration warning is written to **stderr**, never to stdout — so `--format json`
+and `--format sarif` payloads stay parseable — and is held until the banner has been printed,
+so it appears below the frame rather than above it (or at exit, when no banner is printed).
+The prefix names the file the key came from: `pyproject.toml:` when the key sat under
+`[tool.zenzic]`. A zenzic table found at the *root* of `pyproject.toml` — `[policies]`
+pasted verbatim from a `.zenzic.toml` example, outside `[tool.zenzic]` — is not read, and
+the loader says so:
+
+```text
+WARNING  pyproject.toml: a root-level [policies] table is not read -- zenzic reads
+         [tool.zenzic.policies]. Move it under [tool.zenzic] for it to take effect.
+```
 
 ### Dogfooding Pattern with Zensical/MkDocs {#dogfooding}
 

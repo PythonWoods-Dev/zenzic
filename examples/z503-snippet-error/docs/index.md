@@ -24,4 +24,8 @@ expression. Zenzic's `ast`-based validator catches this → **Z503**.
 docs/index.md:13:  Z503  SNIPPET_ERROR  Python block has a syntax error: invalid syntax (<unknown>, line 2)
 ```
 
-Run `zenzic check content` to reproduce the finding.
+Run `zenzic check snippets` to reproduce the finding.
+
+Validating embedded code samples against a real parser catches copy-paste
+errors that a plain-text spell checker would never notice, keeping
+tutorials trustworthy for readers who copy the snippet verbatim.

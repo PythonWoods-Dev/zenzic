@@ -8,8 +8,6 @@ description: "Analysis of the z201-credentials fixture."
 
 **Z-Code:** `Z201 CREDENTIAL_SECRET` · **Engine:** `standalone` · **Exit:** `2`
 
-<Z201Credentials />
-
 ---
 
 ## The Fixture
@@ -30,25 +28,26 @@ uvx zenzic check all
 Expected output:
 
 ```text
-✘ SECURITY BREACH DETECTED
-  x Finding:    Secret detected (aws-access-key) — rotate immediately.
-  x Location:   docs/setup.md:15
-  x Credential:  AKIA************MPLE
+✘ SECURITY BREACH DETECTED  [LIKELY PLACEHOLDER]
+  ✘ Finding:    Secret detected (aws-access-key) — rotate immediately.
+  ✘ Location:   docs/setup.md:15
+  ✘ Credential:  AKIA************MPLE
 
   Action: Rotate this credential immediately and purge it from the repository
 history.
 
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 58 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 34 files/s
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 security breach  - 1 file impacted  x 0 errors  ! 0 warnings  i 0
-info  - 0 files with findings
+Summary:  ✘ 1 security breach  • 1 file impacted  ✘ 0 errors  ⚠ 0 warnings  💡 0
+info  • 0 files with findings
 
 FAILED: Security breaches detected. Exit code 2 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+DQS Final Score: 0/100 (Security Override — 1 non-suppressible finding detected)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `2`
@@ -75,4 +74,4 @@ Exit code 2 triggers a critical build failure. Immediately rotate the exposed cr
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

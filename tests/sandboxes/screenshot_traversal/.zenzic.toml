@@ -4,4 +4,8 @@
 docs_dir = "docs"
 
 [build_context]
-engine = "mkdocs"
+# `standalone`, and it always was: no `mkdocs.yml` is checked in beside
+# this, so the factory substituted the standalone adapter. Since
+# 2026-09-21 that substitution is a `Z111` error, which would stop these
+# path-traversal tests at configuration instead of at the traversal.
+engine = "standalone"

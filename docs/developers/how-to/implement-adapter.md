@@ -28,6 +28,7 @@ An adapter answers questions for each docs tree through a single API surface:
 | Method | Question |
 |---|---|
 | `get_route_info(rel)` | What is the canonical URL, route status, slug, and proxy flag for this source file? Returns a `RouteMetadata` instance. |
+| `get_entry_points(vsm)` | Given the fully-built `VirtualSiteMap`, which canonical URLs are root entry points for reachability analysis (e.g. the homepage, or every route when there is no nav tree)? |
 
 ### Common Methods
 
@@ -39,7 +40,7 @@ An adapter answers questions for each docs tree through a single API surface:
 | `is_shadow_of_nav_page(rel, nav_paths)` | Is this file a locale mirror of a nav-listed page? |
 | `get_ignored_patterns()` | Which filename globs should the orphan check skip? |
 | `get_nav_paths()` | Which `.md` paths are listed in this engine's nav config? |
-| `has_engine_config()` | Was a build-engine config file found on disk? (Controls orphan check activation.) |
+| `has_engine_config()` | Was a build-engine config file found on disk? (**Returning `False` for a declared engine stops the run with `Z111`** — see below.) |
 | `provides_index(directory_path)` | Does this directory have an engine-provided landing page? (Controls `MISSING_DIRECTORY_INDEX` emission.) |
 
 ### URL Routing Mode (`use_directory_urls`)
@@ -69,7 +70,8 @@ from typing import Any
 
 from zenzic.core.adapters import RouteMetadata
 from zenzic.core.adapters._base import BaseAdapter
-from zenzic.models.vsm import RouteStatus
+from zenzic.models.vsm import RouteStatus, VirtualSiteMap
+
 
 class MyEngineAdapter(BaseAdapter):
     """Adapter for MyEngine documentation projects."""
@@ -121,8 +123,18 @@ class MyEngineAdapter(BaseAdapter):
     def has_engine_config(self) -> bool:
         """Return True when a build-engine config was found and loaded.
 
-        When False, the orphan check is skipped — with no nav information
-        there is no reference set to compare the file list against.
+        **This answer decides whether the run happens at all.** Since Zenzic
+        v0.31.0, returning False for an engine the user *declared* in
+        `.zenzic.toml` is a `Z111` configuration error: the run stops before
+        reading a page and names the file to create. It used to substitute
+        `StandaloneAdapter` and print a notice on stderr, which meant a user
+        got a full report from an engine they had not asked for.
+
+        Nothing is stopped when the user declared `standalone` or `auto`,
+        because nothing was declared to be broken.
+
+        When True, the orphan check runs: with nav information there is a
+        reference set to compare the file list against.
 
         Return True if your adapter successfully loaded a config file.
         Return False only if no engine config exists (bare/standalone mode).
@@ -155,11 +167,22 @@ class MyEngineAdapter(BaseAdapter):
         """Return engine-owned metadata files to ignore in findings."""
         return frozenset({"myengine.toml"})
 
+    def get_enabled_extensions(self) -> EnabledExtensions:
+        """Return the Markdown extensions this project enables.
+
+        Only override this when your engine reads a different configuration
+        key. The base implementation returns the four container-bearing
+        extensions, and unlike `get_output_dirs()` its default is deliberately
+        not empty -- see the reference page for the measurement.
+        """
+        return EnabledExtensions.from_declaration(
+            self._config.get("markdown_extensions", [])
+        )
+
     @property
     def watched_config_files(self) -> frozenset[str]:
         """Return configuration filenames that trigger a VSM rebuild in LSP mode."""
         return frozenset({"myengine.toml"})
-
 
     def provides_index(self, directory_path: Path) -> bool:
         """Return whether this engine serves an index page for the directory."""
@@ -202,6 +225,26 @@ class MyEngineAdapter(BaseAdapter):
             canonical_url=canonical_url,
             status=status,
         )
+
+    def get_entry_points(self, vsm: VirtualSiteMap) -> list[str]:
+        """Return canonical URLs serving as root entry points for reachability analysis.
+
+        If your engine has no nav tree (e.g. bare/standalone mode), every
+        route is its own entry point — return ``list(vsm.keys())``. When a
+        nav tree exists, restrict this to the routes it actually lists, plus
+        the homepage if present, so reachability analysis starts only from
+        genuine navigation roots.
+        """
+        if not self._nav_paths:
+            return list(vsm.keys())
+
+        entry_points = {
+            f"/{Path(p).with_suffix('').as_posix()}/" for p in self._nav_paths
+        }
+        entry_points &= vsm.keys()
+        if "/" in vsm:
+            entry_points.add("/")
+        return sorted(entry_points)
 
     # ── Private helpers ────────────────────────────────────────────────────
 
@@ -265,6 +308,7 @@ def from_repo(
     config = {}
     if config_path.exists():
         import tomllib
+
         with config_path.open("rb") as f:
             config = tomllib.load(f)
     return cls(config, docs_root)
@@ -332,37 +376,35 @@ Most engines return `frozenset()`. An engine might use custom link schemes to by
 Your adapter must satisfy these invariants, or Zenzic's scanner may produce
 incorrect results:
 
-1. `get_route_info()` must return a `RouteMetadata` with a `canonical_url`
+1. `get_route_info()` must return a `RouteMetadata` with a `canonical_url` that starts and ends with `/`.
 
-   that starts and ends with `/`.
-
-2. `get_route_info()` must set `status` to one of `REACHABLE`,
-
-   `ORPHAN_BUT_EXISTING`, or `IGNORED`.  Never return `CONFLICT` — that
+2. `get_route_info()` must set `status` to one of `REACHABLE`, `ORPHAN_BUT_EXISTING`, or `IGNORED`.  Never return `CONFLICT` — that
    status is assigned later by `_detect_collisions()`.
 
-3. `get_nav_paths()` returns paths **relative to `docs_root`**, using forward
+3. `get_nav_paths()` returns paths **relative to `docs_root`**, using forward slashes, with no leading `/`.
 
-   slashes, with no leading `/`.
+4. `get_nav_paths()` returns only `.md` files (other extensions are ignored by the orphan checker).
 
-4. `get_nav_paths()` returns only `.md` files (other extensions are ignored by
-
-   the orphan checker).
-
-5. `is_locale_dir()` must return `False` for the **default** locale.  Only
-
-   non-default locale directories should return `True`.
+5. `is_locale_dir()` must return `False` for the **default** locale.  Only non-default locale directories should return `True`.
 
 6. All methods must be **pure**: same inputs always produce the same outputs.
 
-   No I/O, no global-state mutation.
+    No I/O, no global-state mutation.
 
 7. `resolve_asset()` must never raise — return `None` on any failure.
 8. `resolve_anchor()` must never raise — return `False` on any failure.
 
-   The `anchors_cache` argument is read-only; do not mutate it.
+    The `anchors_cache` argument is read-only; do not mutate it.
 
-9. `has_engine_config()` must never raise — return `False` on any failure.
+9. `has_engine_config()` must never raise.
+
+    **Do not return `False` to swallow a transient failure.** Since v0.31.0 a
+    `False` from a declared engine stops the run with `Z111`, so an unreadable
+    file or a momentary I/O error reported that way becomes a hard failure the
+    user cannot distinguish from a missing configuration. Answer the question
+    the method asks — *is the engine configuration present?* — and let a genuine
+    parse failure raise `ZenzicConfigError`, which the factory propagates
+    unchanged with its own message.
 10. `provides_index(directory_path)` **is the only method permitted to do I/O**.
 
     It is called once per directory during the discovery phase — never inside
@@ -381,6 +423,14 @@ incorrect results:
 
     filenames (e.g. `{"mkdocs.yml", "mkdocs.yaml"}`) that dictate documentation
     structure for LSP hot-reloading — never `None`, never raise.
+
+13. `get_entry_points(vsm)` must return a `list[str]` of canonical URLs that
+
+    already exist as keys in the given `vsm` — never invent a URL not present
+    in the map. If your engine has no nav tree, return every route
+    (`list(vsm.keys())`); a partial or empty return narrows reachability
+    analysis and can produce false-positive orphan findings for pages that
+    are genuinely reachable from your engine's real entry points.
 
 ---
 
@@ -412,9 +462,11 @@ verify protocol compliance:
 from zenzic.core.adapters import BaseAdapter
 from my_engine_adapter.adapter import MyEngineAdapter
 
+
 def test_satisfies_protocol() -> None:
     adapter = MyEngineAdapter(config={}, docs_root=Path("/tmp/docs"))
     assert isinstance(adapter, BaseAdapter)
+
 
 def test_nav_paths_relative() -> None:
     adapter = MyEngineAdapter(

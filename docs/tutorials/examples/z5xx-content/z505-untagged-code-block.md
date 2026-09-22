@@ -8,8 +8,6 @@ description: "Analysis of the z505-untagged-code-block fixture."
 
 **Z-Code:** `Z505 UNTAGGED_CODE_BLOCK` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z505UntaggedCodeBlock />
-
 ---
 
 ## The Fixture
@@ -30,9 +28,9 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 61 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 34 files/s
 
-docs/index.md:13  !  [Z505]  Fenced code block has no language specifier. Add a
+docs/index.md:13  ⚠  [Z505]  Fenced code block has no language specifier. Add a
 language tag (e.g. ```python, ```bash, ```toml) to enable syntax highlighting
 and snippet validation.
 
@@ -40,18 +38,19 @@ and snippet validation.
     12  │
     13  ❱  ```
         │  ^^^
-    14  │  zenzic check all --fail-under 0
+    14  │  zenzic check references
     15  │  ```
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 1 warning  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 99/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`
@@ -78,4 +77,4 @@ Exit code 1. Append a valid language tag (e.g., ` ```python ` or ` ```bash `) im
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

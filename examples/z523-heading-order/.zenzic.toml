@@ -1,0 +1,2 @@
+[policies]
+required_heading_order = ["^Overview$", "^API Reference$"]

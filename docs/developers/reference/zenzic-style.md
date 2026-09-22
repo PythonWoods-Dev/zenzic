@@ -25,15 +25,29 @@ Navigation cards orient. They do **not** replace the sidebar.
 
 Every card in a `<div class="grid cards" markdown>` block must have exactly:
 
-1. An **icon** (`:material-*: / :octicons-*:` — see §3).
-2. A **bold title**.
-3. A **description** of at most two lines.
-4. A **single action link** using the arrow prefix.
+1. A **bold title**.
+2. A **description** of at most two lines.
+3. A **single action link** using the arrow prefix.
+
+**Card headers carry no icon, changed 2026-09-20.** They did until then, and this
+page required one — but the requirement had already split into two conventions
+that nobody reconciled. The canonical form below was the original, from the
+2026-03-29 initial release; a `.lg .middle` variant with a hardcoded colour
+arrived with the 2026-07-25 IA refactor and spread through five more pages,
+including one commit titled *"harmonize … cards"* that added the newer form
+without converting the older. Two forms on one surface, and this page declaring
+only one of them.
+
+Measured before removing: **44 header icons across seven pages**, rendering at
+32px against 16px body text — a 2.0× ratio — with five different hardcoded hex
+values between them. The arrow on the action link stays: it is part of the link
+text rather than decoration on the heading, it carries no modifier, and it
+inherits the neutral link colour.
 
 ### Canonical example
 
 ```markdown
-- :material-play: &nbsp; **User Guide**
+- **User Guide**
 
     Everything you need to install, configure, and integrate Zenzic into
     your CI/CD workflow.
@@ -50,12 +64,34 @@ Every card in a `<div class="grid cards" markdown>` block must have exactly:
 | Nested `<li>` lists inside a card | Breaks card height uniformity |
 | `---` separators inside a card | Adds visual noise without information gain |
 | Cards with zero action links | Dead-end; the user has nowhere to go |
+| An icon before the card title | Removed 2026-09-20 — see above. Two conventions had drifted apart, and at 32px against 16px text the icon dominated the heading it was meant to label |
+
+---
+
+## 2. Admonition Role Taxonomy {#admonition-roles}
+
+The docs site uses 8 admonition types (`!!! note`, `tip`, `info`, `danger`, `warning`,
+`abstract`, `caution`, `important`). Pick by role, not by which one "looks right" —
+each has a distinct, observed convention across this site:
+
+| Type | Role | Example use |
+| :--- | :--- | :--- |
+| `note` | An architectural invariant or ADR-level fact the reader should retain | "ADR-078-STRICT Invariant: BaseAdapter Contract" |
+| `tip` | Helpful, non-critical guidance — prerequisites, optional shortcuts | "Prerequisites", "Interactive Demo — No installation required" |
+| `info` | Supplementary or navigational context, often cross-referencing another page | "Next Steps", "Rule R21 — Protocol Sovereignty" |
+| `warning` | A real constraint or process rule the reader must respect | "Bug fixes are not backported", "Avoid global mutable state" |
+| `danger` | A non-negotiable security or safety invariant — inviolable, not just risky | "Inviolable Security Override", "Exit Code Contract" |
+| `caution` | A narrow, specific pitfall or trap to avoid — smaller scope than `warning` | "`docs_dir` trap", "`strict = true` trap for monorepos" |
+| `important` | A hard version/compatibility or invariant requirement, non-security | "Minimum Core Version Requirement" |
+| `abstract` | A dated historical-snapshot summary at the top of an ADR or changelog-style page | "Architectural Update" |
+
+When two types both seem to fit, prefer the narrower one: `caution` over `warning`
+for a single specific gotcha, `danger` over `important` when a security or exit-code
+invariant is involved.
 
 ---
 
 ## 3. Iconography Law (Material for MkDocs) {#iconography}
-
-This section details the specifications and guidelines for 3. Iconography Law (Material for MkDocs) within the Zenzic ecosystem.
 
 ### Native Emoji & Icon Shortcodes
 
@@ -84,8 +120,6 @@ Examples:
 ---
 
 ## 4. Anchor ID Protocol (ZRT-DOC-004) {#anchor-ids}
-
-This section details the specifications and guidelines for 4. Anchor ID Protocol (ZRT-DOC-004) within the Zenzic ecosystem.
 
 ### When to add explicit IDs
 
@@ -139,6 +173,42 @@ accessibility tools and syntax highlighters.
 **Gutter specificity:** for CLI output shown inside `:::info` blocks,
 always use the `text` tag to prevent the syntax highlighter from generating
 random colours on log strings or file paths.
+
+---
+
+## 5b. List Continuation Rule {#list-continuation}
+
+A paragraph that continues a list item across a blank line **must** be indented
+**four spaces**, whatever the marker:
+
+| Source | Renders |
+| :--- | :--- |
+| item, blank line, **2-space** continuation | ✗ the list closes, the text becomes a loose paragraph, a new list opens |
+| item, blank line, **4-space** continuation | ✓ a second paragraph inside the item |
+| item, **no blank line**, any indent | ✓ one paragraph, the wrapped sentence |
+
+Four is the requirement, not the marker's content column: a `-` bullet and a `1.`
+number behave identically, because Python-Markdown uses a flat `tab_length`.
+
+**Why this has its own rule.** The two-space form reads as correct and the
+Markdown stays valid, so `markdownlint` passes it — which is how **99** instances
+survived until 2026-09-20, the oldest traced to `v0.15.1`. Every one shipped a
+list item that stops mid-sentence with its other half orphaned below. In the 19
+ordered-list cases the break also **restarted the numbering**:
+`developers/how-to/implement-adapter` rendered its eight adapter-contract
+invariants as seven lists each numbered "1.".
+
+**Choose the repair by what the item is**, not by which one is quicker. A wrapped
+sentence — the item ends mid-clause — is rejoined onto one line. A deliberate
+second paragraph — the item ends on a full stop and the continuation opens a new
+thought — is indented to four, which keeps the break the author meant. 91 of the
+99 were the first kind.
+
+**Enforced by** `scripts/check_list_continuation.py`, run in `just docs-build`.
+Its `--self-test` proves the instrument still finds the defect before trusting a
+zero. It scans `docs/` and the syndication drafts; four spaces is the one indent
+that renders correctly under Python-Markdown, Redcarpet (dev.to) and CommonMark
+alike, so the same rule holds off-site.
 
 ---
 
@@ -203,7 +273,7 @@ Before submitting a PR, verify:
 ## 8. ZenzicUI Gateway {#zenzicui-gateway}
 
 All branded terminal output in Zenzic flows through a single object: `ZenzicUI` in
-`src/zenzic/ui.py`. Command modules must **never** instantiate `Console` or `ZenzicUI`
+`src/zenzic/core/ui.py`. Command modules must **never** instantiate `Console` or `ZenzicUI`
 directly — they must call `get_ui()` and `get_console()` from `zenzic.cli._shared`.
 
 ### Core methods
@@ -256,7 +326,7 @@ Add to your PR checklist:
 
 ## 9. ZenzicPalette — Zero Hex Law {#zenzic-palette}
 
-`ZenzicPalette` in `src/zenzic/ui.py` is the **sole authorised source of colour values**
+`ZenzicPalette` in `src/zenzic/core/ui.py` is the **sole authorised source of colour values**
 in the entire Zenzic codebase. This is the Zero Hex Law.
 
 ### The Law
@@ -295,7 +365,7 @@ For the most common combinations, use a `STYLE_*` constant instead of constructi
 
 ```python
 # CORRECT — semantic alias via ZenzicPalette
-from zenzic.ui import ZenzicPalette
+from zenzic.core.ui import ZenzicPalette
 
 table = Table(border_style=ZenzicPalette.DIM, header_style=ZenzicPalette.STYLE_BRAND)
 text = Text.from_markup(f"[{ZenzicPalette.BRAND}]Zenzic[/]")
@@ -304,19 +374,19 @@ panel = Panel("...", border_style=ZenzicPalette.STYLE_ERR)
 
 ```python
 # FORBIDDEN — hex literal outside ZenzicPalette
-text = Text.from_markup("[#4f46e5]Zenzic[/]")   # ✗
+text = Text.from_markup("[#4f46e5]Zenzic[/]")  # ✗
 
 # FORBIDDEN — flat constant import (removed in)
-from zenzic.ui import INDIGO, EMERALD            # ✗
+from zenzic.core.ui import INDIGO, EMERALD  # ✗
 
 # FORBIDDEN — inline alias
-P = ZenzicPalette                              # ✗  use full qualification
+P = ZenzicPalette  # ✗  use full qualification
 ```
 
 ### Updating the palette
 
 To change a colour, edit **only** the corresponding `_PRIVATE` hex attribute inside
-`ZenzicPalette` in `src/zenzic/ui.py`. All semantic aliases and pre-composed style
+`ZenzicPalette` in `src/zenzic/core/ui.py`. All semantic aliases and pre-composed style
 strings derive from those private attributes — the entire codebase updates automatically.
 
 ### Checklist addition
@@ -326,7 +396,7 @@ Add to your PR checklist:
 - [ ] No hex literal (`#rrggbb`) anywhere in `src/` outside `ZenzicPalette._*`.
 - [ ] No raw Rich colour names (`"red"`, `"cyan"`) for brand-palette usage — use `ZenzicPalette.*`.
 - [ ] No local alias `P = ZenzicPalette` — always use the full class name.
-- [ ] No `from zenzic.ui import INDIGO` (or any removed flat constant).
+- [ ] No `from zenzic.core.ui import INDIGO` (or any removed flat constant).
 
 ---
 
@@ -339,7 +409,7 @@ Add to your PR checklist:
     Any diagram or structured illustration intended for **exclusive use within Markdown pages** must be implemented
     using native HTML/Jinja templates or Mermaid code blocks, never as a static text-bearing `.svg` file.
 
-For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/mdx-asset-rationale.md).
+For the detailed architectural rationale behind this directive, see [Markdown Asset Componentization Rationale](../explanation/svg-vs-native-asset-rationale.md).
 
 ### Checklist addition
 

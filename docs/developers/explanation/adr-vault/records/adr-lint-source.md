@@ -29,22 +29,17 @@ a diagnostic.
 
 Three compounding problems emerge in CI environments:
 
-1. **Build coupling.** A documentation validator that requires a successful build
-
-   cannot be the first gate in the pipeline. It must be placed after `mkdocs build`
+1. **Build coupling.** A documentation validator that requires a successful build cannot be the first gate in the pipeline. It must be placed after `mkdocs build`
    or `npm run build`, adding 2–10 minutes of build overhead before a single link
    is checked.
 
-2. **Engine fragility.** Build engines change how they generate anchor IDs, URL
+2. **Engine fragility.** Build engines can change how they generate anchor IDs, URL slugs, and asset paths — whether through an engine release, a theme
+   change, or a Markdown-extension setting such as a different `slugify`
+   function. A validator calibrated to one set of generated IDs can silently
+   miss broken links once that scheme changes, because it is, in effect,
+   testing the engine's output rather than the author's intent.
 
-   slugs, and asset paths between minor versions. A validator calibrated to the
-   output of MkDocs 1.5 may silently miss broken links under MkDocs 1.6 because
-   the ID generation scheme changed. The validator is, in effect, testing the
-   engine's output rather than the author's intent.
-
-3. **Engine lock-in.** A validator that understands HTML from one engine cannot
-
-   validate HTML from another without engine-specific adaptation. This creates a
+3. **Engine lock-in.** A validator that understands HTML from one engine cannot validate HTML from another without engine-specific adaptation. This creates a
    validation ecosystem that fragments along engine lines rather than converging
    on universal documentation quality standards.
 
@@ -69,18 +64,12 @@ ADR 007).
 
 The VSM allows Zenzic to answer questions that previously required a live site:
 
-- "Does this anchor `#installation` exist in the target page?" — answered by
+- "Does this anchor `#installation` exist in the target page?" — answered by parsing the Markdown heading structure, not the rendered HTML.
 
-  parsing the Markdown heading structure, not the rendered HTML.
-
-- "Is this path `/docs/reference/finding-codes` a valid route?" — answered by
-
-  the VSM's route graph, which models i18n fallbacks and versioned slugs without
+- "Is this path `/docs/reference/finding-codes` a valid route?" — answered by the VSM's route graph, which models i18n fallbacks and versioned slugs without
   executing the build.
 
-- "Is this asset referenced in `docusaurus.config.ts` present on disk?" — answered
-
-  by static parsing of the TypeScript config file, not by starting a Node.js
+- "Is this asset referenced in `docusaurus.config.ts` present on disk?" — answered by static parsing of the TypeScript config file, not by starting a Node.js
   process.
 
 ---
@@ -101,9 +90,12 @@ is consumed.
 
 By analyzing source files rather than build output, Zenzic is inherently
 engine-agnostic. The same `check links` command validates an MkDocs project,
-a Docusaurus site, and a Zensical wiki — because all three share the same
-raw Markdown format. Engine-specific URL conventions are encoded in the adapter
-layer (not in the validator), making the core engine permanently portable.
+a Zensical wiki, or a Standalone repository — because all three share the same
+raw Markdown format. (An earlier version of this principle was also demonstrated
+against a Docusaurus site, before that adapter was removed in `v0.14.0` — see
+[ADR 006](./adr-unified-perimeter.md).) Engine-specific URL conventions are
+encoded in the adapter layer (not in the validator), making the core engine
+permanently portable.
 
 ### 3. Deterministic Analysis
 
@@ -126,18 +118,12 @@ structural errors in routes that the author planned but hasn't yet published.
 
 ## Invariants (Non-Negotiable)
 
-- Zenzic's validation logic (`core/validator.py`, `core/scanner.py`) must never
-
-  start an HTTP request, load a browser, or parse HTML. All analysis operates
+- Zenzic's validation logic (`core/validator.py`, `core/scanner.py`) must never start an HTTP request, load a browser, or parse HTML. All analysis operates
   on bytes read from the filesystem.
 
-- The VSM (`models/vsm.py`) is the canonical source of route truth. No validator
+- The VSM (`models/vsm.py`) is the canonical source of route truth. No validator may compute a route by invoking the build engine — even as a subprocess.
 
-  may compute a route by invoking the build engine — even as a subprocess.
-
-- Adapters may read static configuration files (`.ts`, `.yml`, `.toml`) using
-
-  pure-Python text parsing. They must not execute those files (see ADR 002).
+- Adapters may read static configuration files (`.ts`, `.yml`, `.toml`) using pure-Python text parsing. They must not execute those files (see ADR 002).
 
 ---
 
@@ -150,16 +136,10 @@ structural errors in routes that the author planned but hasn't yet published.
   cost is Python interpreter startup on cold `uvx` invocations; subsequent
   runs in the same process or with a warm bytecode cache are faster.
 
-- Zenzic can be placed as the **first step** in any CI pipeline, before
+- Zenzic can be placed as the **first step** in any CI pipeline, before `npm install`, before `pip install`, before the build engine is even available.
 
-  `npm install`, before `pip install`, before the build engine is even available.
-
-- Engine-specific quirks (Docusaurus anchor generation, MkDocs nav contracts,
-
-  Zensical slug conventions) are isolated in the adapter layer. The core engine
+- Engine-specific quirks (Docusaurus anchor generation, MkDocs nav contracts, Zensical slug conventions) are isolated in the adapter layer. The core engine
   is permanently engine-neutral.
 
-- The VSM provides a testable, inspectable data structure for documentation
-
-  architecture — enabling future capabilities like structural diffing, coverage
+- The VSM provides a testable, inspectable data structure for documentation architecture — enabling future capabilities like structural diffing, coverage
   metrics, and ghost route detection without modifying the analysis core.
