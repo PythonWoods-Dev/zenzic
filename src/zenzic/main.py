@@ -50,9 +50,15 @@ from zenzic.core.ui import ZenzicPalette, ZenzicUI
 # contract three separate times. Usage errors belong to the quality/error tier,
 # so they exit 1 and exit 2 stays exclusive to the security tier.
 #
-# Set at module scope rather than inside cli_main() so every consumer of `app`
-# -- the console entry point, the test runner, zenzic-mcp -- agrees on the
-# semantics. A remap that only applies to one entry point is the same
+# **Applied inside `cli_main()`, and that is a gap rather than a design.**
+# Corrected 2026-09-23: this read "Set at module scope rather than inside
+# cli_main() so every consumer of `app` -- the console entry point, the test
+# runner, zenzic-mcp -- agrees on the semantics." The remap is a context
+# manager wrapping `app()` at the bottom of `cli_main()`, so a consumer that
+# imports `app` and calls it directly gets Click's exit 2 for a usage error --
+# which is exactly the collision described above, and exactly the consumers the
+# sentence named. Moving it changes exit codes for library callers, so it is a
+# decision recorded rather than a fix made in a comment pass. A remap that only applies to one entry point is the same
 # some-decision-points-but-not-all shape this contract keeps being bitten by.
 #
 # Typer vendors its own click (`typer._click`), which is a DIFFERENT module

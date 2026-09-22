@@ -8,8 +8,10 @@ together with a reachability status and the set of heading anchors.
 
 Design principles (The Zenzic Way):
 - Pure data, no I/O.  ``Route`` is a frozen dataclass; ``VSM`` is a plain dict.
-- ``build_vsm()`` is the only I/O entry point; it delegates URL mapping to the
-  adapter and collision detection to ``_detect_collisions()``.
+- ``build_vsm()`` is the only entry point that consumes I/O results; it delegates
+  URL mapping to the adapter and collision detection to ``_detect_collisions()``.
+  (Corrected 2026-09-23: this read "the only I/O entry point", which contradicted
+  the line above it. Measured: this module makes zero filesystem calls.)
 - Status values match the Routing Table Specification in the project brief.
 """
 

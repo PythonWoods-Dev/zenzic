@@ -2230,9 +2230,13 @@ class PluginRegistry:
           that no rule, core or plugin, has ever set — a no-op identical in
           shape to the ``code`` bug below). Once a code is confirmed prefixed,
           it can never equal a bare member of ``SECURITY_TIER_CODES``
-          (``Z201``-``Z205``), which is the only thing the exit-code
-          computation (``_evaluate_security_exit``/``code_severity``) ever
-          matches against — so it can never force Exit 2 or 3.
+          (``Z201``-``Z205``). The exit-code computation matches against
+          ``SECURITY_INCIDENT_CODES`` (``Z203``) and ``SECURITY_BREACH_CODES``
+          (``Z201``, ``Z204``, ``Z205``) — **both measured subsets of the tier**,
+          2026-09-23 — so a prefixed code can never force Exit 2 or 3. (This read
+          "``SECURITY_TIER_CODES`` … is the only thing the computation ever matches
+          against", which named the wrong set: the tier also holds ``Z202``, which
+          neither exit set contains. The conclusion held; the mechanism did not.)
         """
         from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
 

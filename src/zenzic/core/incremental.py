@@ -1513,8 +1513,10 @@ class IncrementalAnalysisEngine:
             # returns an absolute right operand whole, and normpath drops a
             # leading `..` at the root, so `/../etc/passwd` normalises to
             # `/etc/passwd` -- which does not start with `..`. No finding, no
-            # `continue`, and the elif that owns absolute paths (the only branch
-            # that can raise Z203) was never evaluated. Two guards deferring to
+            # `continue`, and the elif that owns absolute paths -- which at the
+            # time was the only branch that could raise Z203 -- was never
+            # evaluated. (Tense corrected 2026-09-23: three branches emit Z203
+            # today, and the parenthetical read as a present-tense claim.) Two guards deferring to
             # each other over conditions that overlapped instead of partitioning.
             # ── The traversal decision, made once ─────────────────────────
             # Evaluated first and unconditionally for every href, and it either

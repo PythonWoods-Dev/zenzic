@@ -1056,8 +1056,12 @@ class LanguageServer:
         if not matched:
             # No active diagnostic here. A suppression directive on this line is
             # the likely reason there is nothing to report, and explaining that is
-            # more useful than an empty hover — it is the only way to see, without
-            # editing the file, whether a `zenzic:ignore` comment is doing anything.
+            # more useful than an empty hover. (Corrected 2026-09-23: this read
+            # "the only way to see, without editing the file, whether a
+            # `zenzic:ignore` comment is doing anything". `Z603 DEAD_SUPPRESSION`
+            # reports exactly that from the CLI, and runs by default. The hover is
+            # the only way to see it *at the line, without running anything*, which
+            # is a smaller and true claim.)
             suppression_md = self._explain_suppression_at(uri, line)
             self.send_response(
                 msg_id,
