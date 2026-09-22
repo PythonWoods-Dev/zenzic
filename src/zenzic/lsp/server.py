@@ -951,7 +951,12 @@ class LanguageServer:
         results = self.engine.process_changes(self.vsm, self.overlay, incremental_uris)
 
         # Serialize at transport boundary and publish via JSON-RPC
-        # to_lsp_dict() is the ONLY serialization site in the codebase
+        # to_lsp_dict() is the only place a diagnostic becomes a dict.
+        # Narrowed 2026-09-22: this read "the ONLY serialization site in
+        # the codebase", which is wider than what holds. Workspace edits
+        # build their own LSP `range` objects below, and a claim stated
+        # wider than its evidence sends the next reader to verify a
+        # scope nobody was defending.
         for uri, typed_diags in results.items():
             # file_diagnostics tracks URIs with *active* (non-empty) diagnostics.
             # Discard when the list is empty so ghost-clearing broadcasts are not
