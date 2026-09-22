@@ -1456,6 +1456,20 @@ def _run_vsm_and_urp_pass(
             else:
                 anchors_cache[f] = anchors_in_file(md_contents[f], tabs=_anchor_tabs)
 
+    # A manifest that states its anchors replaces the prediction for those
+    # sources. The engine derives anchors with `slug_heading`, a replica of
+    # Python-Markdown; a site rendered with anything else -- `github-slugger`
+    # for Astro and Starlight -- diverges on every heading the two slugify
+    # differently, and each divergence is a `Z102` on a link the browser
+    # serves. The engine cannot predict better because it cannot know which
+    # renderer to predict, so it stops predicting where it is told.
+    _declared = adapter.declared_anchors()
+    if _declared:
+        for rel, anchors in _declared.items():
+            abs_path = (docs_root / rel).resolve()
+            if abs_path in anchors_cache:
+                anchors_cache[abs_path] = anchors
+
     used_assets: set[str] = set()
     for f, text in md_contents.items():
         if f.is_relative_to(docs_root):

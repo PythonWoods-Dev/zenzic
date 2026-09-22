@@ -74,6 +74,20 @@ class BaseAdapter(ABC):
     def resolve_asset(self, missing_abs: Path, docs_root: Path) -> Path | None:
         """Return default-locale fallback for a missing asset, else ``None``."""
 
+    def declared_anchors(self) -> dict[str, set[str]]:
+        """Anchors the engine's own manifest states, keyed by source path.
+
+        Empty for every adapter that derives anchors from content, which is all
+        of them but ``prebuilt``. A generator that declares its anchors is
+        authoritative: the engine predicts with ``slug_heading``, a replica of
+        Python-Markdown, and a site rendered with anything else diverges on
+        every heading the two slugify differently.
+
+        Concrete rather than abstract on purpose: an adapter that has nothing to
+        declare should not have to say so.
+        """
+        return {}
+
     @abstractmethod
     def resolve_anchor(
         self,

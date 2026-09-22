@@ -66,6 +66,24 @@ class PrebuiltVSMAdapter(StandaloneAdapter):
     def has_engine_config(self) -> bool:
         return self._has_config
 
+    def declared_anchors(self) -> dict[str, set[str]]:
+        """The `anchors` array of each manifest entry, where present.
+
+        Declared anchors **replace** the predicted set for that source rather
+        than extending it. A generator that states them is authoritative, and
+        merging would let a wrong prediction keep passing fragments the site
+        does not serve -- which would make the field a suppression mechanism
+        wearing a schema's name.
+        """
+        out: dict[str, set[str]] = {}
+        for rel, entry in self._routes.items():
+            if not isinstance(entry, dict):
+                continue
+            declared = entry.get("anchors")
+            if isinstance(declared, list):
+                out[rel] = {str(a).lstrip("#") for a in declared}
+        return out
+
     def declared_sources(self) -> set[str] | None:
         """Return the manifest's declared source paths, or ``None`` when there
         is no manifest to be stale against.

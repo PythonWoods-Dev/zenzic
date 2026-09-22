@@ -12,6 +12,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **`.zenzic-vsm.json` Can Declare Its Own Anchors**: a `prebuilt` manifest entry may carry an
+  `anchors` array, and where it does the engine stops predicting that page's fragments. Zenzic
+  derives anchors with a replica of Python-Markdown's slugifier; a site rendered with anything
+  else — `github-slugger` for Astro and Starlight — diverges on every heading the two slugify
+  differently, and each divergence surfaced as a `Z102` on a link the browser serves. Declared
+  anchors **replace** the predicted set rather than extending it, so a fragment absent from a
+  declared set is still reported. The field is optional and absent keeps the previous behaviour,
+  so existing manifests need no change. Both the full scan and the editor's incremental engine
+  honour it.
+- **`Z102` Says When It Is Predicting**: on a `prebuilt` project, a page whose manifest entry
+  declares no `anchors` now produces `anchor '#x' not found in 'y' (anchors predicted from
+  headings: this page declares none in .zenzic-vsm.json, and the prediction replicates
+  Python-Markdown)`. A renderer divergence and a typo used to read identically. The note appears
+  only where anchors were in fact predicted.
 - **Route Manifest Schema Reference**: `.zenzic-vsm.json`'s contract is now documented as a
   versioned reference page (`docs/reference/route-manifest.md`) covering all three fields the engine
   reads — `url`, `status` and `slug` — their defaults, and the four measured behaviours: a declared

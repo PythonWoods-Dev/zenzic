@@ -169,7 +169,56 @@ class IncrementalAnalysisEngine:
             text: Raw Markdown content.
         """
         self.md_contents_cache[path] = text
-        self.anchors_cache[path] = anchors_in_file(text, tabs=self._tabs)
+        self.anchors_cache[path] = self._anchors_for(path, text)
+
+    def _anchors_for(self, path: Path, text: str) -> set[str]:
+        """Declared anchors when the manifest states them, predicted otherwise.
+
+        The editor must answer the same as the CLI: a fragment the manifest
+        declares is not a `Z102` in a terminal and a squiggle in the editor.
+        The scanner applies the same replacement at its own cache-building
+        site, and this is the incremental half of that one decision.
+        """
+        declared = self._declared_anchors_by_abs()
+        if path in declared:
+            return declared[path]
+        return anchors_in_file(text, tabs=self._tabs)
+
+    def _declared_anchors_by_abs(self) -> dict[Path, set[str]]:
+        """Manifest anchors keyed by absolute path, resolved once per adapter."""
+        cached: dict[Path, set[str]] | None = getattr(self, "_declared_anchor_cache", None)
+        if cached is not None:
+            return cached
+        out: dict[Path, set[str]] = {}
+        try:
+            for rel, anchors in self.adapter.declared_anchors().items():
+                out[(self.docs_root / rel).resolve()] = anchors
+        except Exception:  # pragma: no cover - an adapter without the hook
+            out = {}
+        self._declared_anchor_cache = out
+        return out
+
+    def _anchor_provenance_note(self, target: Path) -> str:
+        """`""` normally; a note when anchors were predicted under a manifest.
+
+        Only for an engine whose manifest *can* carry anchors. For `standalone`
+        or `mkdocs` the engine is predicting the renderer it knows is in play,
+        which is not the same claim and needs no caveat.
+        """
+        try:
+            if not self.adapter.has_engine_config():
+                return ""
+            declared = self._declared_anchors_by_abs()
+        except Exception:  # pragma: no cover - an adapter without the hook
+            return ""
+        if not hasattr(self.adapter, "declared_anchors"):
+            return ""
+        if target.resolve() in declared:
+            return ""
+        return (
+            " (anchors predicted from headings: this page declares none in "
+            ".zenzic-vsm.json, and the prediction replicates Python-Markdown)"
+        )
 
     def remove_file_cache(self, path: Path) -> None:
         """Remove a file from the content and anchor caches.
@@ -398,7 +447,7 @@ class IncrementalAnalysisEngine:
                         continue
                 path = md_file.resolve()
                 self.md_contents_cache[path] = text
-                self.anchors_cache[path] = anchors_in_file(text, tabs=self._tabs)
+                self.anchors_cache[path] = self._anchors_for(path, text)
                 files_to_process.add(path)
                 valid_paths.add(path)
 
@@ -1752,7 +1801,17 @@ class IncrementalAnalysisEngine:
                                     path,
                                     lineno,
                                     "Z102",
-                                    f"anchor '#{anchor}' not found in '{parsed.path}'",
+                                    # When the manifest could have declared this
+                                    # page's anchors and did not, the engine is
+                                    # predicting with a Python-Markdown replica
+                                    # on a site it does not render. Saying so in
+                                    # the finding is the difference between a
+                                    # wrong answer and a wrong answer that
+                                    # explains itself -- the batch's own rule:
+                                    # an absent field must not produce the same
+                                    # silence as a correct one.
+                                    f"anchor '#{anchor}' not found in '{parsed.path}'"
+                                    + self._anchor_provenance_note(target_path),
                                     severity=code_severity("Z102"),
                                     matched_line=raw_line,
                                 )

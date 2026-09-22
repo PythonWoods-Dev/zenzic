@@ -41,6 +41,7 @@ the file.
 | `url` | string | the URL the standalone mapping would produce | The canonical URL this source publishes at. Write it the way an author writes it in a link, trailing slash included if your generator emits one. |
 | `status` | `"REACHABLE"`, `"ORPHAN_BUT_EXISTING"`, `"IGNORED"`, `"CONFLICT"` | `"REACHABLE"` | How the route is treated in the site map. |
 | `slug` | string | *(none)* | **Accepted and currently inert on this path.** See below. |
+| `anchors` | array of strings | *(none)* — anchors are predicted from the headings | The fragments this URL answers to. When present, **replaces** the predicted set for this source. See below. |
 
 ### `slug` is read and not used
 
@@ -52,6 +53,28 @@ It is documented rather than omitted because the reader accepts it, and a field 
 accepts is part of the contract whether or not it does anything. Supplying it is harmless;
 expecting it to change a URL is not supported. For the `prebuilt` engine the URL is already
 stated outright by `url`, which is why the slug has nothing left to decide.
+
+### `anchors` replaces the prediction
+
+Zenzic does not render your site: it derives a page's anchors from its headings with a
+replica of Python-Markdown's slugifier. A site rendered with anything else — `github-slugger`
+for Astro and Starlight — produces different anchors, and every divergence surfaces as a
+`Z102` on a link the browser serves.
+
+The engine cannot predict better, because it cannot know which renderer to predict. So where
+the manifest states the anchors, the engine stops predicting for that source.
+
+**Replaces, not extends.** A generator that declares its anchors is authoritative; merging the
+declared set with the predicted one would let a wrong prediction keep passing fragments the
+site does not serve, which would make the field a suppression mechanism wearing a schema's
+name. A fragment absent from a declared set is still a `Z102`.
+
+**Absent is not silent.** A page with no declared anchors still produces `Z102` as before, and
+the finding now says the anchors were predicted rather than declared — so a renderer
+divergence can be told apart from a typo.
+
+Zenzic ships nothing to generate these values: they come from your generator's own slugger,
+the same way the URLs come from your generator's own routing.
 
 ## Behaviour this schema defines
 
@@ -81,5 +104,11 @@ The consequence for anyone writing a manifest, and for any future extension of t
 - **This page's version number is the contract's version.** Until the engine reads a version
   marker, the version lives here and in the release notes, not in the file.
 
-Whether the manifest should carry its own version marker — and what an engine should do with a
-version it does not know — is an open design question, not settled by this page.
+**Deferred deliberately, 2026-09-22.** Adding `anchors` did not need a version marker and did
+not add one: an entry without the field behaves exactly as before, so old manifests stay valid
+and new ones are readable by older engines that will ignore what they do not know.
+
+A real version marker is **code, not documentation** — it means a reader that decides what to
+do with a version it has never seen, and that decision (refuse? warn? proceed?) is a contract
+of its own. It is therefore scoped to a separate directive rather than smuggled in beside a
+field addition, so that one change does not alter two contracts at once.

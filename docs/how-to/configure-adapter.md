@@ -102,6 +102,25 @@ Nothing ships to generate this file. Writing it is the cost of this approach.
 > [Route Manifest Schema](../reference/route-manifest.md), which is versioned so a change to
 > the format can be tracked. This section stays the recipe; that page is the contract.
 
+**Optional: declare your anchors too.** If `Z102` reports fragments that work in your browser,
+your generator slugifies headings differently from the Python-Markdown replica Zenzic predicts
+with. Add the anchors your generator produces and the prediction stops for those pages:
+
+```json
+{ "guides/example.md": { "url": "/guides/example/", "status": "REACHABLE",
+                         "anchors": ["overview", "install", "next-steps"] } }
+```
+
+Astro and Starlight slugify with [`github-slugger`](https://www.npmjs.com/package/github-slugger),
+an ordinary npm package that works on the raw heading text — **no build required**, the same
+way the routes above are derived from the source tree. Your generator's own slugger is the one
+to call; Zenzic ships nothing for this and does not replicate it, deliberately, because a
+replica would mean the engine claims to know a renderer it cannot select.
+
+**Not verified by Zenzic's own test suite**, and that is a stated limit rather than a silence:
+keeping a permanent parity check against `github-slugger` would put Node in a Python test
+environment for a snippet Zenzic never executes.
+
 === "Astro / Starlight"
 
     The build tree *is* the manifest: every `dist/**/index.html` is a published URL, and the
