@@ -95,6 +95,13 @@ other one.
 
 Nothing ships to generate this file. Writing it is the cost of this approach.
 
+> **The example above shows two fields; the engine reads three.** `slug` is accepted as well,
+> and a source the manifest does not list produces `Z115` rather than broken links. The full
+> contract — every field, its default, and what happens when the manifest is absent or
+> out of date — is in
+> [Route Manifest Schema](../reference/route-manifest.md), which is versioned so a change to
+> the format can be tracked. This section stays the recipe; that page is the contract.
+
 === "Astro / Starlight"
 
     The build tree *is* the manifest: every `dist/**/index.html` is a published URL, and the

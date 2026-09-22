@@ -251,6 +251,7 @@ nav:
       - Scoring Algorithm: reference/scoring-algorithm.md
       - Engine Adapters: reference/engines.md
       - Compatibility Matrix: reference/compatibility.md
+      - Route Manifest Schema: reference/route-manifest.md
       - Advanced Features: reference/advanced-features.md
       - JSON & SARIF API: reference/api-json.md
       - Glossary: reference/glossary.md

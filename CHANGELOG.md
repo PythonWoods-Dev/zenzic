@@ -10,6 +10,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Route Manifest Schema Reference**: `.zenzic-vsm.json`'s contract is now documented as a
+  versioned reference page (`docs/reference/route-manifest.md`) covering all three fields the engine
+  reads — `url`, `status` and `slug` — their defaults, and the four measured behaviours: a declared
+  `prebuilt` engine with no manifest exits `1` with `Z111`; a source the manifest does not list
+  produces `Z115`; a manifest key with no file is never matched; and an unknown field inside an entry
+  is accepted silently. The how-to's example showed two of the three fields and is now linked to the
+  full contract. `slug` is documented as accepted and currently inert on this path.
+
 ### ⚠ Upgrade notice — verify before rolling out
 
 The changes below alter what a corpus reports or what the tool emits, and several can make a corpus
