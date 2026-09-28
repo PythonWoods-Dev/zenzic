@@ -114,7 +114,7 @@ pdf/
 # ────────────────────────────────────────────────────────────────────────────
 node_modules/
 .npm/
-package-lock.json
+# package-lock.json is committed: scripts/check_generated_provenance.py needs it to verify the pin
 
 # ────────────────────────────────────────────────────────────────────────────
 # Logs & Temporary Files
