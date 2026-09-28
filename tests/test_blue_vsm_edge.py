@@ -9,6 +9,7 @@ files outside docs/, nested paths, collision detection edge cases.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from zenzic.core.adapters._mkdocs import MkDocsAdapter
 from zenzic.core.adapters._standalone import StandaloneAdapter
@@ -16,7 +17,7 @@ from zenzic.models.config import BuildContext
 from zenzic.models.vsm import Route, _detect_collisions
 
 
-def _mkdocs(docs_root: Path, config: dict | None = None) -> MkDocsAdapter:
+def _mkdocs(docs_root: Path, config: dict[str, Any] | None = None) -> MkDocsAdapter:
     return MkDocsAdapter(BuildContext(), docs_root, config or {})
 
 

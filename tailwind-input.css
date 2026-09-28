@@ -1,5 +1,42 @@
 /* SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 syntax. This file carried the v3 directives
+   `@tailwind components; @tailwind utilities;` until 2026-09-21 while
+   package.json pins the v4.3.1 CLI. Measured before changing it: building the
+   v3 form with the v4 CLI produced 93 rules where the committed bundle had 340
+   -- 253 missing, including everything the site actually uses. The v3
+   directives are not an error under v4, they simply generate almost nothing.
+
+   `@source` is required under v4: without it the CLI scans from this file's
+   directory by its own heuristic, which is not the same as naming the two trees
+   that hold the markup. `docs/` matters as much as `overrides/`: 85 files there
+   carry `class=` attributes against 10 in overrides.
+
+   Preflight stays disabled -- see docs/assets/css/README.md. Importing
+   `tailwindcss` would pull it in, so the layers are imported individually and
+   `preflight` is left out. */
+/* Imported WITHOUT `layer(...)`, deliberately. A first attempt wrapped these in
+   `@layer theme, components, utilities`, which is the shape v4's own docs show —
+   and it broke the site: layered styles lose to unlayered ones in the cascade,
+   `docs/assets/css/extra.css` uses no layers, so every Tailwind utility started
+   losing to it. The visible symptom was the hero buttons rendering near-invisible
+   text on a light pill, because `dark:text-zinc-950` lost to extra.css's link
+   colour. The committed bundle has zero `@layer utilities`, so this matches what
+   the site has always shipped. */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+/* The dark variant is Material's theme attribute, not the operating system's
+   preference. Declared here because v4 defines variants in CSS and nothing else
+   in this repository carries it: `tailwind.config.js` has never had a `darkMode`
+   key (it was created once, in e88cdbd, and never changed). The committed bundle
+   nonetheless wires 114 selectors to `[data-md-color-scheme=slate]`, so it was
+   built from an input this repository does not contain -- which is why pinning
+   the CLI version alone did not make the artifact reproducible. Without this
+   line the regenerated bundle falls back to `prefers-color-scheme`, and every
+   Tailwind surface would follow the reader's OS instead of the site's toggle. */
+@custom-variant dark (&:where([data-md-color-scheme=slate], [data-md-color-scheme=slate] *));
+
+@source "./overrides";
+@source "./docs";

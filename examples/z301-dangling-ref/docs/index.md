@@ -21,3 +21,7 @@ docs/index.md:12:  Z301  DANGLING_REF  reference ID 'missing-ref' is used but ne
 ```
 
 Run `zenzic check references` to reproduce the finding.
+
+Dangling references are easy to introduce during a rename: an author
+updates the definition line but forgets one of the inline citations, and
+the mismatch only surfaces when a linter checks reference integrity.

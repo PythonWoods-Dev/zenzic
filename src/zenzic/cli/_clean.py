@@ -77,14 +77,14 @@ def clean_assets(
         _shared._print_no_config_hint()
     config = _shared._apply_engine_override(config, engine)
 
-    from zenzic.core.adapters import get_adapter
+    from zenzic.core.adapters import get_adapter, resolve_content_roots
 
     docs_root = (repo_root / config.docs_dir).resolve()
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
     _locale_roots = adapter.get_locale_source_roots(repo_root)
     locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
-    _content_roots = adapter.get_extra_content_roots(repo_root)
+    _content_roots = resolve_content_roots(adapter, config, repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
     exclusion_mgr = _shared._build_exclusion_manager(
         config,

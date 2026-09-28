@@ -8,8 +8,6 @@ description: "Analysis of the z402-orphan-page fixture."
 
 **Z-Code:** `Z402 ORPHAN_PAGE` · **Engine:** `zensical` · **Exit:** `0`
 
-<Z402OrphanPage />
-
 ---
 
 ## The Fixture
@@ -30,19 +28,23 @@ uvx zenzic check all
 Expected output:
 
 ```text
-zensical - 3 files (3 docs, 0 assets) - 0.0s - 155 files/s
+zensical • 3 files (3 pages, 0 assets) • 0.0s • 93 files/s
 
-docs/secret.md  !  [Z402]  Physical file not listed in navigation.
+docs/secret.md  ⚠  [Z402]  Physical file not listed in navigation.
+
+docs/secret.md:1  ⚠  [Z410]  Document is isolated and unreachable from defined
+entry points: '/secret/'
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 91/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 1/30 (inline: 0, per-file: 1) [MANAGED DEBT]
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`
@@ -69,4 +71,4 @@ Exit code 1. Add the orphaned file path to the navigation configuration file or 
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

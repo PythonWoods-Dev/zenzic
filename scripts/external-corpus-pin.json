@@ -1,0 +1,40 @@
+{
+  "_blind_spot": "A corpus pinned at a commit exercises the constructs that corpus contains. Two corpora are better than one and are not coverage: neither is i18n or versioned, and both are the failures that break the prebuilt manifest in silence.",
+  "corpora": [
+    {
+      "_note": "The batch file named zensical/zensical at 6346cfd with 64 files. Measured 2026-09-18: that commit is not an object in that repository, and the corpus is the separate repository below.",
+      "commit": "2e687994d0bcb9f18b4ba0e6995cb4dc62f50bf3",
+      "counts": {
+        "Z205": 1,
+        "Z301": 1,
+        "Z302": 22,
+        "Z402": 2,
+        "Z405": 3,
+        "Z410": 1,
+        "Z505": 28,
+        "Z512": 2,
+        "Z515": 1
+      },
+      "file_count": 58,
+      "repository": "https://github.com/zensical/docs.git"
+    },
+    {
+      "_note": "Astro/Starlight, which is MDX. Pinned 2026-09-19 with 27 Z102 declared as a known renderer divergence rather than as false positives: Astro renders with github-slugger, the engine predicts Python-Markdown's toc, and no adapter can tell which applies -- get_enabled_extensions is overridden by mkdocs alone. The other 37 are that corpus's own defects and one borderline.",
+      "commit": "16fe0736aa4dc53b5b7e40acf3a2527e09106141",
+      "counts": {
+        "Z102": 27,
+        "Z107": 1,
+        "Z302": 9,
+        "Z505": 14,
+        "Z510": 5,
+        "Z515": 8
+      },
+      "file_count": 421,
+      "repository": "https://github.com/withastro/docs.git",
+      "setup": {
+        "docs_dir": "src/content/docs/en",
+        "url_prefix": "/en/"
+      }
+    }
+  ]
+}

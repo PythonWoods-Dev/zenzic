@@ -10,8 +10,8 @@ from typer.testing import CliRunner
 
 from zenzic.cli._governance import _apply_directory_policies, _apply_per_file_ignores
 from zenzic.core.reporter import Finding
-from zenzic.core.rules import _is_suppressed, count_inline_suppressions
 from zenzic.core.sovereign_context import sovereign_context
+from zenzic.core.suppressions import SuppressionTracker, count_inline_suppressions
 from zenzic.main import app
 from zenzic.models.config import GovernanceConfig, ZenzicConfig
 
@@ -21,10 +21,10 @@ runner = CliRunner()
 
 def test_inline_suppression_is_ignored_in_sovereign_audit_mode() -> None:
     line = "Legacy name <!-- zenzic:ignore: Z601 - historical -->"
-    assert _is_suppressed(line, "Z601") is True
+    assert SuppressionTracker(Path("docs/page.md"), line).is_suppressed(1, "Z601") is True
 
     with sovereign_context(force_audit=True):
-        assert _is_suppressed(line, "Z601") is False
+        assert SuppressionTracker(Path("docs/page.md"), line).is_suppressed(1, "Z601") is False
 
 
 def test_per_file_ignores_are_disabled_in_sovereign_audit_mode() -> None:

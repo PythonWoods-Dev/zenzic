@@ -46,4 +46,4 @@ Silence on success maximizes the signal-to-noise ratio. When an automated qualit
 - Standardized, machine-parsable logs across CI/CD adapters.
 - Seamless integration with upstream task orchestrators.
 
-For further context, see the [ADR Vault Records Index](./index.md) and the [CLI Architecture Reference](../../../reference/cli-architecture.md).
+For further context, see the [ADR Vault](../index.md) and the [CLI Architecture Reference](../../../reference/cli-architecture.md).

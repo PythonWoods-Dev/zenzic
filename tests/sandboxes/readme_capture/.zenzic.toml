@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# The four-file fixture the README depicts: one leaked credential, one broken
+# link, one missing asset, one unused asset, one page nothing links to. The
+# README block is regenerated from this directory by `just lab-blocks`.
+docs_dir = "docs"
+
+[build_context]
+engine = "mkdocs"

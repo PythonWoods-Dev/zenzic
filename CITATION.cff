@@ -18,7 +18,7 @@ abstract: >-
 version: 0.30.0
 date-released: 2026-08-18
 url: "https://zenzic.dev"
-repository-code: "https://github.com/PythonWoods/zenzic"
+repository-code: "https://github.com/PythonWoods-Dev/zenzic"
 repository-artifact: "https://pypi.org/project/zenzic/"
 license: Apache-2.0
 keywords:
@@ -33,7 +33,7 @@ references:
   - type: website
     title: "Zenzic Documentation Portal"
     url: "https://zenzic.dev"
-    repository-code: "https://github.com/PythonWoods/zenzic-doc"
+    repository-code: "https://github.com/PythonWoods-Dev/zenzic-doc"
     abstract: >-
       Official Diátaxis documentation corpus for Zenzic, covering tutorials,
       how-to guides, reference, and explanation — available in English.

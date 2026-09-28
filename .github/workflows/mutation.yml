@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# The mutation gate, moved out of the pull-request loop.
+#
+# It ran on every push as part of `ci.yml` and cost ~3.4 billed minutes of the
+# ~19.6 a full run takes — about 17%, paid on every iteration, to measure a
+# property that changes rarely.
+#
+# WHY NOT PURELY NIGHTLY. It guards the Tier-0 credential path, where this cycle
+# found two security defects no other check caught. A nightly-only run discovers
+# a regression after the merge, on `main`, when undoing it is expensive. Running
+# it at the merge point keeps the protection where it counts while removing it
+# from the loop a contributor waits on.
+#
+# SAFE TO MOVE, verified rather than assumed: moving this job makes no pull
+# request unmergeable, checked against every repository's merge requirements
+# before the change and again after. The job's own comment in `ci.yml` used to
+# claim it was "required for the PR by the same rule that requires Audit" — that
+# was never true, and the claim went with it.
+#
+# REGISTRATION. GitHub reads `schedule` from the default branch only, so the
+# nightly run begins once this file is on `main`. Until then the push trigger is
+# what fires it, which is the half that matters for the release.
+name: Mutation Gate
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 04:40 UTC — off the hour, where scheduled runs queue behind everyone else's.
+    - cron: "40 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Single Linux slot: mutmut has no native Windows support (upstream
+  # boxed/mutmut#397) and the 95.7% floor is measured on one interpreter.
+  # Running it twice measured the same thing twice.
+  mutation:
+    name: Mutation gate (credential scanner)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install just
+        uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.10
+        run: uv python install 3.10
+
+      - name: Sync dependencies
+        run: uv sync --all-groups --all-extras --frozen
+
+      - name: Mutation gate (credential scanner)
+        run: just mutation

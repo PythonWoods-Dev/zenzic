@@ -24,4 +24,4 @@ secret_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ## Next Steps
 
 - See `docs/configuration.md` for advanced options.
-- Run `zenzic check credentials` to scan for secrets in your own docs.
+- Run `zenzic check references` to scan for secrets in your own docs.

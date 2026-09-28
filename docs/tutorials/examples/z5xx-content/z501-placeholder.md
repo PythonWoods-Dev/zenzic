@@ -8,8 +8,6 @@ description: "Analysis of the z501-placeholder fixture."
 
 **Z-Code:** `Z501 PLACEHOLDER` · **Engine:** `standalone` · **Exit:** `0`
 
-<Z501Placeholder />
-
 ---
 
 ## The Fixture
@@ -30,29 +28,10 @@ uvx zenzic check all
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 64 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 35 files/s
 
-docs/index.md:4:9  !  [Z501]  Found placeholder text matching pattern:
-'(?i)placeholder'
-
-    2  │  <!-- SPDX-License-Identifier: Apache-2.0 -->
-    3  │
-    4  ❱  # Z501 — Placeholder Content Gallery Example
-       │           ^^^^^^^^^^^
-    5  │
-    6  │  This page demonstrates **Z501 PLACEHOLDER** detection.
-
-docs/index.md:6:30  !  [Z501]  Found placeholder text matching pattern:
-'(?i)placeholder'
-
-    4  │  # Z501 — Placeholder Content Gallery Example
-    5  │
-    6  ❱  This page demonstrates **Z501 PLACEHOLDER** detection.
-       │                                ^^^^^^^^^^^
-    7  │
-    8  │  ## Installation
-
-docs/index.md:10  !  [Z501]  Found placeholder text matching pattern: '(?i)todo'
+docs/index.md:10  ⚠  [Z501]  Found placeholder text matching pattern:
+'(?i)\btodo\b'
 
      8  │  ## Installation
      9  │
@@ -61,7 +40,8 @@ docs/index.md:10  !  [Z501]  Found placeholder text matching pattern: '(?i)todo'
     11  │
     12  │  ## Advanced Usage
 
-docs/index.md:14  !  [Z501]  Found placeholder text matching pattern: '(?i)todo'
+docs/index.md:14  ⚠  [Z501]  Found placeholder text matching pattern:
+'(?i)\btodo\b'
 
     12  │  ## Advanced Usage
     13  │
@@ -70,74 +50,16 @@ docs/index.md:14  !  [Z501]  Found placeholder text matching pattern: '(?i)todo'
     15  │
     16  │  Coming soon!
 
-docs/index.md:16  !  [Z501]  Found placeholder text matching pattern:
-'(?i)coming\ soon'
-
-    14  │  TODO: Add advanced usage examples once the feature is complete.
-    15  │
-    16  ❱  Coming soon!
-        │  ^^^^^^^^^^^
-    17  │
-    18  │  ## What Zenzic Reports
-
-docs/index.md:21:59  !  [Z501]  Found placeholder text matching pattern:
-'(?i)todo'
-
-    19  │
-    20  │  ```text
-    21  ❱  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-        │                                                             ^^^^
-    22  │  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-    23  │  ```
-
-docs/index.md:21:25  !  [Z501]  Found placeholder text matching pattern:
-'(?i)placeholder'
-
-    19  │
-    20  │  ```text
-    21  ❱  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-        │                           ^^^^^^^^^^^
-    22  │  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-    23  │  ```
-
-docs/index.md:22:59  !  [Z501]  Found placeholder text matching pattern:
-'(?i)coming\ soon'
-
-    20  │  ```text
-    21  │  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-    22  ❱  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-        │
-^^^^^^^^^^^
-    23  │  ```
-    24  │
-
-docs/index.md:22:25  !  [Z501]  Found placeholder text matching pattern:
-'(?i)placeholder'
-
-    20  │  ```text
-    21  │  docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:'
-matched
-    22  ❱  docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming
-soon!' matched
-        │                           ^^^^^^^^^^^
-    23  │  ```
-    24  │
-
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 9 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 2 warnings  💡 0 info  • 1 file with findings
 
-* Analysis complete: All statically-detectable links, credentials, and
-references verified.
-Refer to ../../../reference/finding-codes.md for remediation · Try
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+DQS Final Score: 96/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
 'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`
@@ -174,4 +96,4 @@ Exit code 1. Complete the placeholder section with concrete technical content an
 
 ## See Also
 
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

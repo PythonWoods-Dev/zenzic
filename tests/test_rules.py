@@ -7,12 +7,14 @@ from __future__ import annotations
 import os
 import sys
 import time
+import warnings
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core.codes import code_severity
 from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
@@ -28,8 +30,18 @@ from zenzic.core.rules import (
     VSMBrokenLinkRule,
     _extract_inline_links_with_lines,
 )
+from zenzic.core.validator import has_uri_scheme
 from zenzic.models.config import CustomRuleConfig, ProjectMetadata, ZenzicConfig
 from zenzic.models.vsm import Route
+
+
+def _through_the_tracker(rule, path, text):
+    """Run *rule* the way both engines do: filtered, and consumed, by the file's tracker."""
+    from zenzic.core.suppressions import SuppressionTracker
+
+    tracker = SuppressionTracker(path, text)
+    findings = AdaptiveRuleEngine([rule], containers=None).run_with_tracker(path, text, tracker)
+    return findings, tracker.get_dead_suppressions()
 
 
 _FILE = Path("docs/guide.md")
@@ -77,7 +89,7 @@ class _BrokenVsmRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         return []
 
-    def check_vsm(self, file_path, text, vsm, anchors_cache, context=None) -> list[Violation]:
+    def check_vsm(self, file_path, text, vsm, anchors_cache, containers=None) -> list[Violation]:
         raise RuntimeError("vsm rule internal error")
 
 
@@ -129,25 +141,48 @@ def test_custom_rule_info_severity_not_error() -> None:
     assert not findings[0].is_error
 
 
+def test_custom_rule_no_link_message_unchanged() -> None:
+    """A CustomRule with no `link` produces exactly the configured message,
+    byte-for-byte — existing rules with no link keep working unchanged."""
+    rule = CustomRule(id="ZZ011", pattern=r"TODO", message="Remove TODO.", severity="warning")
+    findings = rule.check(_FILE, "TODO: fix this.\n")
+    assert findings[0].message == "Remove TODO."
+
+
+def test_custom_rule_link_appears_in_finding_message() -> None:
+    """A CustomRule with `link` set surfaces it in the finding's message."""
+    rule = CustomRule(
+        id="ZZ012",
+        pattern=r"TODO",
+        message="Remove TODO.",
+        severity="warning",
+        link="https://wiki.example.com/todo-policy",
+    )
+    findings = rule.check(_FILE, "TODO: fix this.\n")
+    assert len(findings) == 1
+    assert "Remove TODO." in findings[0].message
+    assert "https://wiki.example.com/todo-policy" in findings[0].message
+
+
 # ─── AdaptiveRuleEngine ───────────────────────────────────────────────────────────────
 
 
 def test_rule_engine_empty_no_findings() -> None:
-    engine = AdaptiveRuleEngine([])
+    engine = AdaptiveRuleEngine([], containers=None)
     assert not engine
     assert engine.run(_FILE, "any text") == []
 
 
 def test_rule_engine_bool_true_when_rules_present() -> None:
     rule = CustomRule(id="ZZ007", pattern=r"x", message="x", severity="error")
-    engine = AdaptiveRuleEngine([rule])
+    engine = AdaptiveRuleEngine([rule], containers=None)
     assert engine
 
 
 def test_rule_engine_multiple_rules_combined() -> None:
     r1 = CustomRule(id="ZZ008", pattern=r"TODO", message="todo found", severity="error")
     r2 = CustomRule(id="ZZ009", pattern=r"FIXME", message="fixme found", severity="warning")
-    engine = AdaptiveRuleEngine([r1, r2])
+    engine = AdaptiveRuleEngine([r1, r2], containers=None)
     text = "Line with TODO here.\nAnother FIXME line.\n"
     findings = engine.run(_FILE, text)
     assert len(findings) == 2
@@ -162,7 +197,7 @@ def test_rule_engine_isolates_exception() -> None:
     Its check() raises at runtime — the engine must catch it and continue.
     """
     good_rule = CustomRule(id="ZZ010", pattern=r"x", message="x found", severity="info")
-    engine = AdaptiveRuleEngine([_BrokenRule(), good_rule])
+    engine = AdaptiveRuleEngine([_BrokenRule(), good_rule], containers=None)
     findings = engine.run(_FILE, "x line\n")
 
     # One error from the broken rule, one info from the good rule
@@ -187,7 +222,7 @@ def test_rule_engine_rejects_non_pickleable_rule() -> None:
             return []
 
     with pytest.raises(PluginContractError, match="not serialisable"):
-        AdaptiveRuleEngine([LocalRule()])
+        AdaptiveRuleEngine([LocalRule()], containers=None)
 
 
 # ─── Integration with scanner ──────────────────────────────────────────────────
@@ -201,7 +236,7 @@ def test_scan_single_file_with_rule_engine(tmp_path: Path) -> None:
     md.write_text("# Guide\n\nThis is TODO content.\n")
     config = ZenzicConfig()
     rule = CustomRule(id="ZZ-TODO", pattern=r"TODO", message="Remove TODO.", severity="warning")
-    engine = AdaptiveRuleEngine([rule])
+    engine = AdaptiveRuleEngine([rule], containers=None)
 
     report, _ = _scan_single_file(md, config, engine)
     assert len(report.rule_findings) == 1
@@ -255,7 +290,7 @@ def test_build_rule_engine_always_built() -> None:
     from zenzic.core.scanner import _build_rule_engine
 
     config = ZenzicConfig()
-    engine = _build_rule_engine(config)
+    engine = _build_rule_engine(config, containers=None)
     assert engine is not None
     rule_ids = {r.rule_id for r in engine._rules}
     assert "Z107" in rule_ids
@@ -315,6 +350,18 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
     class _EP:
         def __init__(self, name: str) -> None:
             self.name = name
+            self.dist = None
+
+    class _NamespacedRule(BaseRule):
+        def __init__(self, plugin_id: str) -> None:
+            self._id = f"{plugin_id}:ok"
+
+        @property
+        def rule_id(self) -> str:
+            return self._id
+
+        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+            return []
 
     registry = PluginRegistry()
     monkeypatch.setattr(
@@ -327,7 +374,7 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
 
     def _fake_load(ep: _EP, *_args: object, **_kwargs: object) -> BaseRule:
         loaded_names.append(ep.name)
-        return _PluginTodoRule()
+        return _NamespacedRule(ep.name)
 
     monkeypatch.setattr(registry, "_load_entry_point", _fake_load)
 
@@ -386,9 +433,16 @@ def test_custom_rules_fire_regardless_of_engine(
     else:
         config = base_config
 
-    # For zensical engine, a zensical.toml must exist (factory enforcement contract).
+    # A declared engine must have its own configuration (factory enforcement
+    # contract). `zensical` was written this way from the start because its
+    # adapter always raised; `mkdocs` was not, because until 2026-09-21 the
+    # factory substituted StandaloneAdapter for it in silence -- so this
+    # parametrisation claimed three adapters and exercised two, running `auto`
+    # twice. Both are declared now, and the `mkdocs` leg tests MkdocsAdapter.
     if engine == "zensical":
         (repo / "zensical.toml").write_text("[site]\nname = 'Test'\n")
+    elif engine == "mkdocs":
+        (repo / "mkdocs.yml").write_text("site_name: Test\n")
 
     docs_root = repo / config.docs_dir
     mgr = make_mgr(config, repo_root=repo)
@@ -495,14 +549,20 @@ class TestVSMBrokenLinkRule:
         assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
 
-    # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
+    # ── ORPHAN status → Z103 ──────────────────────────────────────────────────
 
-    def test_orphan_link_emits_z002_warning(self) -> None:
+    def test_orphan_link_emits_z103_at_its_ssot_severity(self) -> None:
+        """Regression: this Violation's level was hardcoded "warning", disagreeing
+        with codes.py's CODE_DEFINITIONS (Z103 = "error") -- a real, executed
+        disagreement for any consumer reading the raw Violation/RuleFinding
+        object directly rather than through a CLI render path, which re-derives
+        the correct severity independently. Now derived from code_severity(),
+        the same Core-layer SSoT every other emission site in this method uses."""
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
         assert violations[0].code == "Z103"
-        assert violations[0].level == "warning"
+        assert violations[0].level == code_severity("Z103")
         assert "ORPHAN_LINK" in violations[0].message
 
     # ── External links are skipped ────────────────────────────────────────────
@@ -544,7 +604,7 @@ class TestVSMBrokenLinkRule:
     # ── AdaptiveRuleEngine.run_vsm integration ───────────────────────────────────────
 
     def test_run_vsm_converts_violations_to_findings(self) -> None:
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)\n[Bad](ghost.md)\n", vsm, {})
         assert len(findings) == 1
@@ -588,41 +648,162 @@ class TestAdaptiveRuleEngineTortureTest:
                 lines.append(f"[Page {i}](missing-{i}.md)")
         return "\n".join(lines)
 
+    #: Ceiling for `check_vsm` measured against its own per-link primitive. The
+    #: calibration, ten readings across both configurations: without coverage the
+    #: ratio sits at 1.27-1.45 (all-valid) and 1.56-1.74 (all-missing); under
+    #: coverage at 1.77-1.86 and 1.72-2.25. Worst observed is 2.25, so 4.0 leaves
+    #: 1.8x of headroom and still catches a real regression -- an O(N^2) collapse
+    #: on 10 000 links is ~100x, not 2x. Chosen coarse deliberately: this
+    #: assertion's history is one CI-blocking failure caused by the environment
+    #: and none by the code.
+    _RATIO_LIMIT = 4.0
+
+    def _reference_cost(self, text: str, vsm: dict[str, Route]) -> tuple[float, int]:
+        """Time the per-link work `check_vsm` does, minus the rule dispatch itself.
+
+        The reference has to track the subject or the ratio means nothing. This
+        mirrors the real loop: extract the inline links, apply the scheme skip,
+        normalise the URL, apply the extension skip, and do the VSM dict lookup.
+        A cheaper reference -- a bare dict lookup, say -- would not move with the
+        subject across platforms or interpreters, which is exactly how the
+        equivalent test in `test_resolver.py` failed before it was rewritten.
+        """
+        exts = (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".webp",
+            ".svg",
+            ".ico",
+            ".pdf",
+            ".zip",
+            ".tar.gz",
+            ".xml",
+            ".css",
+            ".json",
+        )
+        start = time.perf_counter()
+        sink = 0
+        for url, _lineno, _raw in _extract_inline_links_with_lines(text, containers=None):
+            # The rule's own predicate, not a copy of a list: `_SKIP_SCHEMES`
+            # was removed on 2026-09-19 as dead, and this was its only reader.
+            if url == "#" or has_uri_scheme(url):
+                continue
+            clean = url.split("?")[0].split("#")[0].lower()
+            if any(clean.endswith(ext) for ext in exts):
+                continue
+            sink += 1 if vsm.get("/" + clean.removesuffix(".md") + "/") is not None else 0
+        return time.perf_counter() - start, sink
+
+    @staticmethod
+    def _environment() -> str:
+        """What a failure needs to know before anyone re-runs anything."""
+        core = os.environ.get("COVERAGE_CORE", "(unset -> sysmon on 3.12+)")
+        tracer = sys.gettrace()
+        try:  # pragma: no cover - diagnostic only
+            import coverage
+
+            current = getattr(coverage.Coverage, "current", lambda: None)()
+            cov_state = "no Coverage object" if current is None else "Coverage object present"
+        except Exception:  # pragma: no cover - diagnostic only
+            cov_state = "coverage not importable"
+        return (
+            f"platform={sys.platform} python={sys.version_info.major}."
+            f"{sys.version_info.minor} COVERAGE_CORE={core} "
+            f"sys.gettrace={'installed' if tracer else 'None'} {cov_state}"
+        )
+
+    def _assert_linear(self, *, all_valid: bool) -> None:
+        """Shared body: subject against reference, reported on success as well.
+
+        **Why a ratio and not a wall-clock limit.** This assertion used to read
+        `elapsed < 1.5`, widened for Windows and for CI but *not* for coverage --
+        and `just verify` runs pytest with `--cov`, so the strictest threshold
+        applied in the slowest configuration. The same code path measured 0.62 s
+        standalone, 2.65-3.31 s isolated under coverage, and 2.171 s inside the
+        full suite, where it failed and blocked a push. Five readings spanning
+        5.3x, none of them about the algorithm. The failure is **not reliably
+        reproducible**: a later full-suite run under the same flags passed. That
+        is the point rather than a caveat -- an assertion whose verdict depends
+        on contention it cannot see is not measuring the code. The ratio spans 1.27-2.25 over
+        the same period: it cancels the machine, the interpreter and the
+        instrumentation, which is all this test was ever trying to hold constant.
+        """
+        rule = VSMBrokenLinkRule()
+        vsm = self._make_large_vsm()
+        text = self._make_text_with_links(self._N, all_valid=all_valid)
+
+        # Warm both paths equally: first-call import and cache effects otherwise
+        # land entirely on whichever loop runs first and distort the ratio.
+        warm = self._make_text_with_links(200, all_valid=all_valid)
+        rule.check_vsm(_FILE, warm, vsm, {})
+        self._reference_cost(warm, vsm)
+
+        start = time.perf_counter()
+        violations = rule.check_vsm(_FILE, text, vsm, {})
+        subject_s = time.perf_counter() - start
+
+        reference_s, sink = self._reference_cost(text, vsm)
+        assert reference_s > 0.0, "the reference loop was not timed, so the ratio means nothing"
+        assert sink == (self._N if all_valid else 0), (
+            f"the reference loop did not do the subject's work: sink={sink}"
+        )
+
+        if all_valid:
+            assert violations == [], f"Expected 0 violations, got {len(violations)}"
+        else:
+            assert len(violations) == self._N, (
+                f"Expected {self._N} violations, got {len(violations)}"
+            )
+
+        ratio = subject_s / reference_s
+        environment = self._environment()
+        # Reported on success too: pytest swallows stdout without `-s`, while the
+        # warnings summary shows even under `-q`. A passing assertion otherwise
+        # emits nothing, and the margin is the question anyone actually asks.
+        warnings.warn(
+            f"[perf] check_vsm all_valid={all_valid} "
+            f"subject={subject_s * 1000:.1f}ms reference={reference_s * 1000:.1f}ms "
+            f"ratio={ratio:.2f} limit={self._RATIO_LIMIT} "
+            f"margin={self._RATIO_LIMIT / ratio:.2f}x ({environment})",
+            stacklevel=2,
+        )
+        assert ratio < self._RATIO_LIMIT, (
+            f"check_vsm cost {ratio:.2f}x its own per-link primitive "
+            f"({subject_s * 1000:.1f} ms against {reference_s * 1000:.1f} ms) for "
+            f"{self._N} links; limit is {self._RATIO_LIMIT}x and the calibrated range is "
+            "1.27-2.25. This is a ratio against the work the rule itself does per link, "
+            "so neither a slow machine nor an instrumented one moves it -- an O(N^2) "
+            f"regression would read ~100x. Environment: {environment}."
+        )
+
+    @pytest.mark.no_cover
     def test_check_vsm_scales_linearly_all_valid(self) -> None:
-        """10 000 REACHABLE links must resolve in < 1.5 s (O(N) dict lookups)."""
-        rule = VSMBrokenLinkRule()
-        vsm = self._make_large_vsm()
-        text = self._make_text_with_links(self._N, all_valid=True)
+        """10 000 REACHABLE links stay linear in the rule's own per-link cost."""
+        self._assert_linear(all_valid=True)
 
-        start = time.monotonic()
-        violations = rule.check_vsm(_FILE, text, vsm, {})
-        elapsed = time.monotonic() - start
-
-        max_elapsed = 3.0 if sys.platform == "win32" or os.environ.get("CI") else 1.5
-        assert violations == [], f"Expected 0 violations, got {len(violations)}"
-        assert elapsed < max_elapsed, (
-            f"check_vsm took {elapsed:.3f}s for {self._N} valid links — possible O(N²) regression"
-        )
-
+    @pytest.mark.no_cover
     def test_check_vsm_scales_linearly_all_missing(self) -> None:
-        """10 000 missing links (worst-case violation path) must complete < 1.5 s."""
-        rule = VSMBrokenLinkRule()
-        vsm = self._make_large_vsm()
-        text = self._make_text_with_links(self._N, all_valid=False)
-
-        start = time.monotonic()
-        violations = rule.check_vsm(_FILE, text, vsm, {})
-        elapsed = time.monotonic() - start
-
-        max_elapsed = 3.0 if sys.platform == "win32" or os.environ.get("CI") else 1.5
-        assert len(violations) == self._N, f"Expected {self._N} violations, got {len(violations)}"
-        assert elapsed < max_elapsed, (
-            f"check_vsm took {elapsed:.3f}s for {self._N} missing links — possible O(N²) regression"
-        )
+        """10 000 missing links (worst-case violation path) stay linear."""
+        self._assert_linear(all_valid=False)
 
     def test_run_vsm_engine_scales_with_large_vsm(self) -> None:
-        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 0.5 s."""
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 0.5 s.
+
+        **Deliberately still a wall-clock limit, unlike its two siblings above.**
+        They were converted to ratios because they failed: the same code path
+        spanned 0.62-3.31 s depending on instrumentation and load, against a
+        1.5 s threshold. This one does not have that problem and converting it
+        would add noise rather than remove it. Measured: 1.88-2.07 ms
+        uninstrumented and 5.04-6.17 ms under coverage, against a 500 ms limit --
+        a margin of ~250x and ~81x respectively. Its input is 100 links, not
+        10 000, so the subject is dominated by dispatch over a tiny workload, and
+        a ratio between two sub-10 ms numbers is less stable than the absolute
+        figure it would replace. Recorded here so the asymmetry reads as a
+        decision rather than an omission.
+        """
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
         vsm = self._make_large_vsm()
         # Small file — only the VSM lookup overhead is being measured here
         text = "\n".join(f"[P](page-{i}.md)" for i in range(100))
@@ -685,7 +866,7 @@ class TestExtractInlineLinksWithLines:
 
     def test_simple_link_extraction(self) -> None:
         text = "[Foo](bar.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         url, lineno, raw = result[0]
         assert url == "bar.md"
@@ -695,78 +876,78 @@ class TestExtractInlineLinksWithLines:
     def test_multiple_links_all_extracted(self) -> None:
         """Multiple links on different lines — kills continue→break mutations."""
         text = "[A](a.md)\n[B](b.md)\n[C](c.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 3
         urls = [r[0] for r in result]
         assert urls == ["a.md", "b.md", "c.md"]
 
     def test_line_numbers_correct_multiline(self) -> None:
         text = "Preamble.\n\n[Link](page.md)\n\nEnd."
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][1] == 3
 
     def test_fenced_block_skips_links(self) -> None:
         text = "```\n[fake](ghost.md)\n```"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert result == []
 
     def test_tilde_fence_block_skips_links(self) -> None:
         text = "~~~\n[fake](ghost.md)\n~~~"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert result == []
 
     def test_link_before_and_after_fence_both_found(self) -> None:
         """Both links around a fence block are found — kills in_block=None mutation."""
         text = "[A](a.md)\n```\n[B](b.md)\n```\n[C](c.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 2
         urls = [r[0] for r in result]
         assert urls == ["a.md", "c.md"]
 
     def test_inline_code_link_ignored(self) -> None:
         text = "See `[link](code.md)` for details."
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert result == []
 
     def test_mixed_inline_code_and_real_link(self) -> None:
         text = "`[a](a.md)` and [b](b.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "b.md"
 
     def test_link_with_title_stripped(self) -> None:
         text = '[Link](page.md "Title text")'
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "page.md"
 
     def test_empty_url_skipped(self) -> None:
         text = "[Empty]()"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert result == []
 
     def test_image_link_extracted(self) -> None:
         text = "![Alt](image.png)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "image.png"
 
     def test_multiple_links_after_fence_all_found(self) -> None:
         """After a fenced block ends, ALL subsequent links must be found (not just first)."""
         text = "```\ncode\n```\n[A](a.md)\n[B](b.md)\n[C](c.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 3
 
     def test_empty_input_returns_empty(self) -> None:
-        assert _extract_inline_links_with_lines("") == []
+        assert _extract_inline_links_with_lines("", containers=None) == []
 
     def test_no_links_returns_empty(self) -> None:
-        assert _extract_inline_links_with_lines("Just plain text.") == []
+        assert _extract_inline_links_with_lines("Just plain text.", containers=None) == []
 
     def test_whitespace_only_url_skipped(self) -> None:
         text = "[Space](   )"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert result == []
 
 
@@ -799,7 +980,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert "ghost.md" in v.context
 
     def test_orphan_violation_exact_fields(self) -> None:
-        """Assert every field of a Z002 violation."""
+        """Assert every field of a Z103 violation."""
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
@@ -807,8 +988,8 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert v.file_path == _FILE
         assert v.line_no == 1
         assert v.code == "Z103"
-        assert v.level == "warning"
-        assert not v.is_error
+        assert v.level == code_severity("Z103")
+        assert v.is_error
         assert "ORPHAN_LINK" in v.message
         assert "not in the site navigation" in v.message
         assert "Readers cannot reach this page via the nav tree." in v.message
@@ -1021,14 +1202,14 @@ class TestExtractLinksDeepMutantKill:
         """Kill in_block=False→None mutant when exiting first fence.
         Link between two fences must be found."""
         text = "```\ncode1\n```\n[Real](real.md)\n```\ncode2\n```"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "real.md"
 
     def test_links_after_multiple_fence_blocks(self) -> None:
         """Multiple fence blocks followed by multiple links."""
         text = "```\na\n```\n```\nb\n```\n[C](c.md)\n[D](d.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 2
         assert result[0][0] == "c.md"
         assert result[1][0] == "d.md"
@@ -1036,14 +1217,14 @@ class TestExtractLinksDeepMutantKill:
     def test_inline_code_replaced_correctly_preserves_real_link(self) -> None:
         """Kill lambda→None mutant: inline code must be space-replaced, not None."""
         text = "Use `code_here` then [Link](real.md) end."
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "real.md"
 
     def test_inline_code_hiding_link_preserves_adjacent_link(self) -> None:
         """Inline code containing a fake link must not break real link extraction."""
         text = "`[fake](fake.md)` and [real](real.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "real.md"
 
@@ -1051,7 +1232,7 @@ class TestExtractLinksDeepMutantKill:
         """Kill XX-multiply mutant: space replacement must match exact length."""
         long_code = "`" + "x" * 100 + "`"
         text = f"{long_code} [Link](page.md)"
-        result = _extract_inline_links_with_lines(text)
+        result = _extract_inline_links_with_lines(text, containers=None)
         assert len(result) == 1
         assert result[0][0] == "page.md"
 
@@ -1066,14 +1247,14 @@ class TestAdaptiveRuleEngineRunMutantKill:
         """Kills file_path=None mutant in run()."""
         custom_file = Path("docs/specific.md")
         rule = CustomRule(id="ZZ-T", pattern=r"X", message="x", severity="error")
-        engine = AdaptiveRuleEngine([rule])
+        engine = AdaptiveRuleEngine([rule], containers=None)
         findings = engine.run(custom_file, "X here")
         assert len(findings) == 1
         assert findings[0].file_path == custom_file
 
     def test_run_exception_finding_exact_fields(self) -> None:
         """Assert exact fields of error finding — kills string/field mutations."""
-        engine = AdaptiveRuleEngine([_BrokenRule()])
+        engine = AdaptiveRuleEngine([_BrokenRule()], containers=None)
         findings = engine.run(_FILE, "text")
         assert len(findings) == 1
         f = findings[0]
@@ -1087,7 +1268,7 @@ class TestAdaptiveRuleEngineRunMutantKill:
     def test_run_exception_does_not_stop_other_rules(self) -> None:
         """A broken rule must not prevent subsequent rules from running."""
         good = CustomRule(id="ZZ-GOOD", pattern=r"a", message="a", severity="info")
-        engine = AdaptiveRuleEngine([_BrokenRule(), good])
+        engine = AdaptiveRuleEngine([_BrokenRule(), good], containers=None)
         findings = engine.run(_FILE, "a text\n")
         rule_ids = [f.rule_id for f in findings]
         assert "Z901" in rule_ids
@@ -1098,7 +1279,7 @@ class TestAdaptiveRuleEngineRunMutantKill:
         r1 = CustomRule(id="R1", pattern=r"AAA", message="a", severity="error")
         r2 = CustomRule(id="R2", pattern=r"BBB", message="b", severity="error")
         r3 = CustomRule(id="R3", pattern=r"CCC", message="c", severity="error")
-        engine = AdaptiveRuleEngine([r1, r2, r3])
+        engine = AdaptiveRuleEngine([r1, r2, r3], containers=None)
         findings = engine.run(_FILE, "AAA BBB CCC")
         assert len(findings) == 3
         assert {f.rule_id for f in findings} == {"R1", "R2", "R3"}
@@ -1113,14 +1294,14 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
     def test_run_vsm_propagates_file_path(self) -> None:
         """Kills file_path=None mutant in run_vsm()."""
         custom_file = Path("docs/vsm-test.md")
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
         findings = engine.run_vsm(custom_file, "[Bad](ghost.md)", {}, {})
         assert len(findings) == 1
         assert findings[0].file_path == custom_file
 
     def test_run_vsm_converts_violation_fields(self) -> None:
         """Assert that Violation→RuleFinding conversion preserves all fields."""
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
         findings = engine.run_vsm(_FILE, "[Bad](ghost.md)", {}, {})
         assert len(findings) == 1
         f = findings[0]
@@ -1133,7 +1314,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
 
     def test_run_vsm_exception_finding_exact_fields(self) -> None:
         """Assert exact fields of error finding from check_vsm exception."""
-        engine = AdaptiveRuleEngine([_BrokenVsmRule()])
+        engine = AdaptiveRuleEngine([_BrokenVsmRule()], containers=None)
         findings = engine.run_vsm(_FILE, "text", {}, {})
         assert len(findings) == 1
         f = findings[0]
@@ -1147,7 +1328,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
 
     def test_run_vsm_exception_does_not_stop_other_rules(self) -> None:
         """A broken VSM rule must not prevent subsequent rules from running."""
-        engine = AdaptiveRuleEngine([_BrokenVsmRule(), VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([_BrokenVsmRule(), VSMBrokenLinkRule()], containers=None)
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)", vsm, {})
         # Should have the error finding from _BrokenVsmRule, and 0 from valid link
@@ -1156,7 +1337,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
 
     def test_run_vsm_multiple_rules_all_produce_findings(self) -> None:
         """Multiple VSM rules must all run — no early break."""
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule(), VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule(), VSMBrokenLinkRule()], containers=None)
         findings = engine.run_vsm(_FILE, "[Bad](ghost.md)", {}, {})
         # Both instances should report the broken link
         assert len(findings) == 2
@@ -1164,7 +1345,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
 
     def test_run_vsm_worker_returns_empty_list(self) -> None:
         """Rule returning no violations is fine — no crash."""
-        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
         vsm = _make_vsm("/page/")
         findings = engine.run_vsm(_FILE, "[OK](page.md)", vsm, {})
         assert findings == []
@@ -1188,7 +1369,7 @@ class TestAssertPickleableMutantKill:
                 return []
 
         with pytest.raises(PluginContractError, match="_LocalBad"):
-            AdaptiveRuleEngine([_LocalBad()])
+            AdaptiveRuleEngine([_LocalBad()], containers=None)
 
     def test_error_message_mentions_rule_id(self) -> None:
         """Kills rule.rule_id mutation in error message."""
@@ -1202,7 +1383,7 @@ class TestAssertPickleableMutantKill:
                 return []
 
         with pytest.raises(PluginContractError, match="ZZ-UNIQUEID"):
-            AdaptiveRuleEngine([_LocalBad2()])
+            AdaptiveRuleEngine([_LocalBad2()], containers=None)
 
 
 # ─── Mutant-Killing Tests: PluginRegistry ──────────────────────────────────
@@ -1682,46 +1863,73 @@ class TestCircularAnchorRule:
         return CircularAnchorRule()
 
     def test_z107_matches_simple_anchor(self) -> None:
-        """[Foo](#foo) → slug('Foo') == 'foo' → Z107."""
+        """`[Foo](#foo)` written inside `## Foo` → Z107."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Foo](#foo)\n")
+        # A self-loop needs an enclosing section: `docs/reference/finding-codes.md`
+        # defines Z107 as a link that takes the reader where they already are.
+        # These fixtures carried no heading at all until 2026-09-19, so they
+        # asserted the bare slug comparison the guard was meant to prevent --
+        # measured at 4 false findings on a real MDX corpus, all of them
+        # orientation links in an intro paragraph.
+        findings = rule.check(_ANCHOR_FILE, "## Foo\n\n[Foo](#foo)\n")
         assert len(findings) == 1
         assert findings[0].rule_id == "Z107"
-        assert findings[0].line_no == 1
-        assert findings[0].severity == "warning"
+        assert findings[0].line_no == 3
+        # "error" per codes.py's CODE_DEFINITIONS (the SSoT) -- this used to
+        # assert "warning", locking in a hardcoded-severity bug (fixed in
+        # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP).
+        assert findings[0].severity == "error"
 
     def test_z107_matches_multi_word_anchor(self) -> None:
-        """[Foo Bar](#foo-bar) → slug('Foo Bar') == 'foo-bar' → Z107."""
+        """`[Foo Bar](#foo-bar)` written inside `## Foo Bar` → Z107."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Foo Bar](#foo-bar)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Foo Bar\n\n[Foo Bar](#foo-bar)\n")
         assert len(findings) == 1
         assert findings[0].rule_id == "Z107"
 
     def test_z107_no_match_different_target(self) -> None:
         """[Docs](#introduction) — slug('Docs')='docs' != 'introduction' → no finding."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Docs](#introduction)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Docs\n\n[Docs](#introduction)\n")
         assert findings == []
 
     def test_z107_ignores_cross_file_link(self) -> None:
         """[text](other.md#foo) is a cross-file link, not a same-page anchor → no finding."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[text](other.md#foo)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Text\n\n[text](other.md#foo)\n")
         assert findings == []
 
     def test_z107_ignores_external_url(self) -> None:
         """External URLs are never flagged by Z107."""
         rule = self._rule()
-        findings = rule.check(_ANCHOR_FILE, "[Zenzic](https://zenzic.dev)\n")
+        findings = rule.check(_ANCHOR_FILE, "## Zenzic\n\n[Zenzic](https://zenzic.dev)\n")
         assert findings == []
 
     def test_z107_col_start_correct(self) -> None:
         """col_start points to the opening '[' of the anchor link."""
         rule = self._rule()
         text = "See [Foo](#foo) for details.\n"
-        findings = rule.check(_ANCHOR_FILE, text)
+        findings = rule.check(_ANCHOR_FILE, "## Foo\n\n" + text)
         assert len(findings) == 1
         assert findings[0].col_start == text.index("[Foo]")
+
+    def test_z107_true_self_reference_still_flagged(self) -> None:
+        """Link text/fragment match AND the link sits under that very heading
+        → genuine no-op self-reference → still flagged."""
+        rule = self._rule()
+        text = "## Foo\n\nSee [Foo](#foo) above.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+
+    def test_z107_no_false_positive_cross_section_reference(self) -> None:
+        """[Z101](#z101) written from inside a *different* section (## Z104)
+        must NOT be flagged: it navigates to a distinct section that merely
+        shares a name with its own link text, not a circular no-op."""
+        rule = self._rule()
+        text = "## Z104\n\nSee also [Z101](#z101) for the related code.\n\n## Z101\n\nDetails.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
 
 
 # ─── UntaggedCodeBlockRule (Z505) ─────────────────────────────────────────────
@@ -1810,29 +2018,28 @@ class TestUntaggedCodeBlockRule:
 
 
 def _meta(
-    obsolete: list[str] | None = None,
     release: str = "NextRelease",
     exclude: list[str] | None = None,
 ) -> ProjectMetadata:
-    kwargs: dict = {"release_name": release, "obsolete_names": obsolete or []}  # type: ignore[type-arg]
+    kwargs: dict = {"release_name": release}  # type: ignore[type-arg]
     if exclude is not None:
         kwargs["obsolete_names_exclude_patterns"] = exclude
     return ProjectMetadata(**kwargs)
 
 
 class TestBrandObsolescenceRule:
-    def _rule(self, meta: ProjectMetadata) -> BrandObsolescenceRule:
-        return BrandObsolescenceRule(meta)
+    def _rule(self, meta: ProjectMetadata, obsolete: list[str]) -> BrandObsolescenceRule:
+        return BrandObsolescenceRule(meta, obsolete)
 
     def test_z601_empty_obsolete_no_findings(self) -> None:
         """When obsolete_names is empty, rule always returns []."""
-        rule = self._rule(_meta(obsolete=[]))
+        rule = self._rule(_meta(), [])
         findings = rule.check(_ANCHOR_FILE, "OldBrand was the old name.\n")
         assert findings == []
 
     def test_z601_match_emits_warning(self) -> None:
         """Obsolete term found → one Z601 warning with remediation hint."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         findings = rule.check(_ANCHOR_FILE, "OldBrand is documented here.\n")
         assert len(findings) == 1
         assert findings[0].rule_id == "Z601"
@@ -1841,23 +2048,25 @@ class TestBrandObsolescenceRule:
         assert "semantic versioning" in findings[0].message
 
     def test_z601_suppress_md_html_comment(self) -> None:
-        """CEO-143: HTML comment suppression (Markdown .md syntax)."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        """CEO-143: HTML comment suppression (Markdown .md syntax) -- silenced and consumed."""
+        rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. <!-- zenzic:ignore: Z601 -->\n"
-        findings = rule.check(_ANCHOR_FILE, text)
+        findings, dead = _through_the_tracker(rule, _ANCHOR_FILE, text)
         assert findings == []
+        assert dead == []
 
     def test_z601_suppress_mdx_jsx_comment(self) -> None:
         """CEO-143: JSX comment suppression (MDX .mdx syntax)."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         mdx_file = Path("docs/guide/history.mdx")
         text = "The OldBrand era defined our foundations. {/* zenzic:ignore: Z601 */}\n"
-        findings = rule.check(mdx_file, text)
+        findings, dead = _through_the_tracker(rule, mdx_file, text)
         assert findings == []
+        assert dead == []
 
     def test_z601_suppress_only_correct_code(self) -> None:
         """CEO-143: A suppression comment for a different code does NOT suppress Z601."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. <!-- zenzic:ignore: Z107 -->\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert len(findings) == 1
@@ -1865,7 +2074,7 @@ class TestBrandObsolescenceRule:
 
     def test_z601_historical_tag_no_longer_suppresses(self) -> None:
         """CEO-143: The deprecated [HISTORICAL] token is no longer a suppression mechanism."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         text = "OldBrand was the old name. [HISTORICAL]\n"
         findings = rule.check(_ANCHOR_FILE, text)
         # [HISTORICAL] is plain text — does not suppress Z601
@@ -1874,21 +2083,21 @@ class TestBrandObsolescenceRule:
 
     def test_z601_path_in_exclude_patterns_skipped(self) -> None:
         """File matching an exclusion glob is skipped entirely."""
-        rule = self._rule(_meta(obsolete=["OldBrand"], exclude=["CHANGELOG*.md"]))
+        rule = self._rule(_meta(exclude=["CHANGELOG*.md"]), ["OldBrand"])
         cl_file = Path("CHANGELOG.md")
         findings = rule.check(cl_file, "OldBrand was the old name.\n")
         assert findings == []
 
     def test_z601_case_insensitive(self) -> None:
         """Z601 is case-insensitive: 'oldbrand' also triggers when lowercased."""
-        rule = self._rule(_meta(obsolete=["OldBrand"]))
+        rule = self._rule(_meta(), ["OldBrand"])
         findings = rule.check(_ANCHOR_FILE, "oldbrand is no longer used.\n")
         assert len(findings) == 1
         assert findings[0].match_text.lower() == "oldbrand"
 
     def test_z601_multiple_names_multiple_findings(self) -> None:
         """Each unique obsolete term on a line → its own finding."""
-        rule = self._rule(_meta(obsolete=["OldBrand", "LegacyTerm"]))
+        rule = self._rule(_meta(), ["OldBrand", "LegacyTerm"])
         text = "OldBrand and LegacyTerm are both deprecated.\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert len(findings) == 2
@@ -1999,14 +2208,15 @@ class TestMalformedFrontmatterRule:
         assert len(findings) == 1
 
     def test_z506_suppression_honored(self, tmp_path: Path) -> None:
-        """<!-- zenzic:ignore: Z506 --> on line 1 suppresses the finding."""
+        """<!-- zenzic:ignore: Z506 --> on line 1 suppresses the finding, and is consumed."""
         text = "-- <!-- zenzic:ignore: Z506 -->\ntitle: test\n---\n"
-        findings = self._rule().check(tmp_path / "ok.md", text)
+        findings, dead = _through_the_tracker(self._rule(), tmp_path / "ok.md", text)
         assert findings == []
+        assert dead == []
 
     def test_z506_integrated_in_rule_engine(self, tmp_path: Path) -> None:
         """MalformedFrontmatterRule fires when run through AdaptiveRuleEngine."""
-        engine = AdaptiveRuleEngine([MalformedFrontmatterRule()])
+        engine = AdaptiveRuleEngine([MalformedFrontmatterRule()], containers=None)
         text = "--\ntitle: test\n---\n\nContent.\n"
         findings = engine.run(tmp_path / "bad.md", text)
         assert len(findings) == 1
@@ -2017,7 +2227,7 @@ class TestMalformedFrontmatterRule:
         from zenzic.core.scanner import _build_rule_engine
 
         config = ZenzicConfig()
-        engine = _build_rule_engine(config)
+        engine = _build_rule_engine(config, containers=None)
         assert engine is not None
         rule_ids = {r.rule_id for r in engine._rules}
         assert "Z506" in rule_ids

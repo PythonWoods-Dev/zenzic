@@ -29,6 +29,7 @@ from zenzic.core.resolver import (
     InMemoryPathResolver,
     PathTraversal,
     Resolved,
+    is_emitted_verbatim,
 )
 
 
@@ -144,10 +145,29 @@ class TestPathTraversal:
         assert isinstance(outcome, PathTraversal)
 
     def test_backslash_dotdot_mixed(self, resolver: InMemoryPathResolver) -> None:
-        """Windows path with mixed separators: ..\\../etc/passwd."""
+        """Windows separators normalise, and the depth base is the page URL.
+
+        ``..\\../etc/passwd`` is extensionless, so the site generator emits it
+        verbatim and the browser resolves it against the page's URL directory --
+        ``/guide/install/`` -- where two levels up is the site root, i.e.
+        ``docs_root``.  The resolver therefore reports ``FileNotFound`` rather
+        than ``PathTraversal``: on this site the href names ``/etc/passwd``
+        *inside* the site, which does not exist.
+
+        The Tier-0 property is unaffected and that was verified end to end, not
+        assumed: a real ``zenzic check all`` over a fixture containing exactly
+        this href still emits ``Z202`` ("resolves outside the docs") and
+        Exit 1.  The security tier is the control here; this classification is
+        an internal resolution detail.
+
+        The two sibling tests stay ``PathTraversal`` and pin the boundary:
+        ``test_parallel_directory_escape`` uses a ``.md`` href, which the
+        generator rewrites, and ``test_raw_href_preserved_on_traversal``
+        starts from an ``index.md``, whose URL gains no segment.
+        """
         href = "..\\../etc/passwd"
         outcome = resolver.resolve(ROOT / "guide" / "install.md", href)
-        assert isinstance(outcome, PathTraversal)
+        assert isinstance(outcome, FileNotFound)
 
     def test_raw_href_preserved_on_traversal(self, resolver: InMemoryPathResolver) -> None:
         """The exact raw href is preserved for accurate error reporting."""
@@ -503,10 +523,89 @@ class TestNormcasePortability:
 
 
 class TestPerformanceBaseline:
-    """5 000 mixed resolutions must complete in under 200 ms.
+    """5 000 mixed resolutions must stay cheap *relative to the machine running them*.
 
     Tests a realistic mix: hits, misses, traversal attempts, and anchor checks.
     All lookups are in-memory; no I/O, no subprocess.
+
+    This used to assert an absolute wall-clock ceiling of 200 ms, and that number was
+    calibrated on one machine and enforced on every other. It failed twice in a row on
+    a Windows CI runner at 219.6 ms and 217.1 ms -- and it was not a regression.
+    Measured against the last commit before the change under suspicion, on one machine
+    and with one script: **22.7 ms median before, 22.8 ms after**, min/max overlapping.
+    What had actually changed was the runner: the same suite took **223 s** on the
+    passing run and **317 s** on the failing one, +42% wall-clock for +5 tests. The
+    assertion had roughly 10% headroom on that hardware, so a uniformly slower runner
+    flipped it while the code was untouched.
+
+    Raising the ceiling would have hidden that rather than fixed it, and the class is
+    one this project has already corrected elsewhere: a timing measured on one machine
+    is not a property of the software. So the assertion is now a **ratio** against a
+    reference loop timed in the same process, on the same inputs, immediately
+    afterwards. A ratio is invariant to a uniformly slower machine -- which is the
+    observed failure mode -- and still catches what this test exists to catch: a rise
+    in per-resolution cost inside ``_lookup`` or ``_build_target``.
+
+    Calibration, measured over 12 trials: the ratio sits at **3.02 median, 2.52-3.40
+    range, stdev 0.203**. The limit is **6.0**, which a doubling of per-resolution cost
+    would breach and machine variance will not. The absolute figure is still reported
+    in the failure message, because it is useful to a human even when it is not the
+    thing being asserted.
+
+    **The reference has to be the subject's own dominant primitive.** Two earlier
+    attempts failed because it was not. A `PurePosixPath(href).name` reference is always
+    cheap and stable, while `resolver.resolve` does far more path work, so the numerator
+    carried a cost the denominator did not: with instrumentation the ratio
+    read **6.08** (217.3 ms against 35.7 ms) and without it **6.69** (82.2 ms against
+    12.3 ms), where this machine reads ~3.0 either way. The reference is now the join and
+    normalise the resolver itself performs, so any platform path-handling penalty lands
+    on both sides and cancels.
+
+    **The calibration moved once the optimisation landed, and the reported figure is the
+    current one.** The reference was calibrated at 1.210 while `resolve` still built a
+    `PurePosixPath` per link; removing that made `resolve` *cheaper than a single path
+    join*, and the ratio is now **0.77 on this machine** — 22.9 ms of resolution against
+    29.9 ms of reference. The limit of 3.0 therefore carries a **3.9x margin** here and
+    would only catch a regression of roughly that size. That is loose on purpose for now:
+    the ratio is known to differ by platform, the Windows figure is reported by CI rather
+    than deduced, and tightening it before that number exists would be calibrating on one
+    machine again. The measurement is emitted as a warning on **every** run, on every
+    platform, so the margin is observable instead of inferred from a silent pass.
+
+    **The ratio alone was not enough, and the second failure said why.** On the Windows
+    runner it read **6.08** -- `217.3 ms against 35.7 ms` -- where this machine reads
+    3.02. A ratio cancels a uniformly slower machine, but coverage is not uniform: it
+    instruments `resolver.resolve`, which is under `--source=src/zenzic`, and does not
+    instrument `PurePosixPath`, which is stdlib. So the overhead lands entirely on the
+    numerator. Reproduced locally by forcing coverage's tracer core, since Python 3.14
+    on Linux uses `sys.monitoring` and pays almost nothing:
+
+        COVERAGE_CORE=sysmon    resolve  37.0 ms   ref 14.7 ms   ratio 2.52
+        COVERAGE_CORE=ctrace    resolve 168.5 ms   ref 30.5 ms   ratio 5.52
+        COVERAGE_CORE=pytrace   resolve 458.0 ms   ref 67.1 ms   ratio 6.83
+
+    CI's 6.08 sits between the last two, so that runner is not using `sys.monitoring`.
+
+    **And the asymmetry was the interpreter, not the platform** -- recorded because the
+    first explanation was `WindowsPath` and it was wrong. Measured on all three CI legs
+    once this test began reporting on success: `resolve` costs 48.1 ms on ubuntu/3.10 and
+    46.4 ms on windows/3.10 against 17.5 ms on ubuntu/3.14. Windows is marginally the
+    faster of the two 3.10 legs. So the reference cancels **platform** variation, which is
+    what it was chosen for, and does **not** cancel interpreter variation: the ratio reads
+    0.83 on 3.14 and 2.18 on 3.10, and the tightest margin against the 3.0 limit is
+    **1.38x**, not the 3.9x this machine shows. That is the number to watch.
+
+    Hence `@pytest.mark.no_cover`: a performance test run under a profiler measures the
+    profiler. Disabling instrumentation for this one test is not a convenience, it is
+    the only way the measurement means what its name says. Coverage for every other
+    test, on every platform, is untouched -- and the `resolver.py` lines this test
+    would have covered are covered by the ~40 other tests in this file.
+
+    **Why it passed until now, measured rather than guessed.** Under `ctrace`, the last
+    commit that passed CI reads **5.52** and HEAD reads **5.60** -- 1.4% apart, so the
+    normalisation added nothing. The corpus is a fixed constant in this file and did not
+    grow. The test was simply sitting at ~92% of its limit under instrumentation on both
+    commits, which is why two consecutive runs failed rather than one unlucky one.
     """
 
     _HREFS: list[str] = [
@@ -518,18 +617,93 @@ class TestPerformanceBaseline:
         "guide\\install.md",  # Resolved (backslash)
     ]
 
-    def test_5000_resolutions_under_200ms(self, resolver: InMemoryPathResolver) -> None:
+    #: Ratio ceiling for 5 000 resolutions against the reference loop. See the class
+    #: docstring for the calibration: the measured value is ~0.77 since the resolver was
+    #: optimised (1.21 before), and 3.0 is chosen for
+    #: robustness over sensitivity -- it catches a 2.5x rise in per-resolution cost and
+    #: will not be moved by a platform or a loaded runner. A tighter limit would be more
+    #: sensitive and this assertion's history is three CI failures caused by the
+    #: environment and none by the code, so a coarse guard that holds is worth more than
+    #: a fine one that cries.
+    _RATIO_LIMIT = 3.0
+
+    @pytest.mark.no_cover
+    def test_5000_resolutions_stay_cheap_relative_to_the_machine(
+        self, resolver: InMemoryPathResolver
+    ) -> None:
         source = ROOT / "index.md"
         hrefs = (self._HREFS * 834)[:5_000]  # exactly 5 000
+
+        # Warm both paths equally: first-call import and cache effects otherwise land
+        # entirely on whichever loop runs first and distort the ratio.
+        sink = ""
+        for href in hrefs[:300]:
+            resolver.resolve(source, href)
+            sink = (source.parent / href).as_posix()
 
         start = time.perf_counter()
         for href in hrefs:
             resolver.resolve(source, href)
-        elapsed_ms = (time.perf_counter() - start) * 1_000
+        resolve_s = time.perf_counter() - start
 
-        assert elapsed_ms < 200.0, (
-            f"5 000 resolutions took {elapsed_ms:.1f} ms — limit is 200 ms. "
-            "Investigate _lookup or _build_target overhead."
+        # The reference is the resolver's own dominant primitive: joining the href onto
+        # the source directory and normalising it. Anything cheaper does not track the
+        # subject across platforms -- which is exactly how the previous reference failed.
+        start = time.perf_counter()
+        for href in hrefs:
+            sink = (source.parent / href).as_posix()
+        reference_s = time.perf_counter() - start
+        assert sink, "the reference loop did no work, so the ratio means nothing"
+
+        # Diagnostics in the message, so a failure says *why* without another CI round.
+        # This assertion has now failed three times for three environmental reasons, and
+        # each time the first question was whether instrumentation was still on. The
+        # answer belongs in the output: the tracing core, whether a global trace function
+        # is installed, and whether coverage reports itself active.
+        import os
+        import sys
+
+        core = os.environ.get("COVERAGE_CORE", "(unset -> sysmon on 3.12+)")
+        tracer = sys.gettrace()
+        try:  # pragma: no cover - diagnostic only
+            import coverage
+
+            current = getattr(coverage.Coverage, "current", lambda: None)()
+            cov_state = "no Coverage object" if current is None else "Coverage object present"
+        except Exception:  # pragma: no cover - diagnostic only
+            cov_state = "coverage not importable"
+        environment = (
+            f"platform={sys.platform} python={sys.version_info.major}."
+            f"{sys.version_info.minor} COVERAGE_CORE={core} "
+            f"sys.gettrace={'installed' if tracer else 'None'} {cov_state}"
+        )
+
+        ratio = resolve_s / reference_s
+
+        # Report the measurement on success too, as a warning rather than a print:
+        # pytest captures stdout and stderr at file-descriptor level, so a write is
+        # invisible without `-s`, while the warnings summary is shown even under `-q`. A passing assertion otherwise emits nothing, and the
+        # margin is the question people actually ask: this test failed three times for
+        # three environmental causes, and each diagnosis needed the numbers from the one
+        # platform that was not reporting them. Deducing a platform's figure from another
+        # platform is what produced two of those wrong diagnoses.
+        import warnings
+
+        warnings.warn(
+            f"[perf] resolve x5000={resolve_s * 1000:.1f}ms "
+            f"reference={reference_s * 1000:.1f}ms ratio={ratio:.2f} "
+            f"limit={self._RATIO_LIMIT} margin={self._RATIO_LIMIT / ratio:.2f}x "
+            f"({environment})",
+            stacklevel=1,
+        )
+
+        assert ratio < self._RATIO_LIMIT, (
+            f"5 000 resolutions cost {ratio:.2f}x the reference loop "
+            f"({resolve_s * 1000:.1f} ms against {reference_s * 1000:.1f} ms); "
+            f"limit is {self._RATIO_LIMIT}x and the calibrated value is ~0.8. "
+            "Investigate _lookup or _build_target overhead -- this is a ratio against the "
+            "resolver's own dominant primitive, so neither a slow machine nor an "
+            f"instrumented one moves it. Environment: {environment}."
         )
 
     def test_outcome_distribution_is_correct(self, resolver: InMemoryPathResolver) -> None:
@@ -537,3 +711,128 @@ class TestPerformanceBaseline:
         source = ROOT / "index.md"
         outcomes = {type(resolver.resolve(source, h)) for h in self._HREFS}
         assert outcomes == {Resolved, AnchorMissing, FileNotFound, PathTraversal}
+
+
+class TestExtensionRuleIsPinnedAndVersionIndependent:
+    """`is_emitted_verbatim` defines its own extension rule instead of inheriting one.
+
+    It used to read `PurePosixPath(path_part).suffix`, and **that was not deterministic
+    across supported Python versions.** `pathlib.PurePath.suffix` gained a
+    `name.lstrip('.')` step in 3.12, so on 3.10 the same href produced a different
+    answer: `..a` yielded `'.a'` there and `''` on 3.14, and `x.` yielded `''` against
+    `'.'`. This function decides which links have their resolution base shifted one
+    segment, so the divergence decided *which findings appear* — on a tool whose first
+    Tier-0 invariant is determinism. CI is what surfaced it: the equivalence test written
+    for the optimisation passed on 3.14 and failed on 3.10 with exactly those cases.
+
+    So the rule is pinned here rather than delegated:
+
+    * a leading run of dots is not an extension — `.hidden`, `..a`;
+    * an extension needs at least one character after the dot — `x.` has none;
+    * otherwise it is the text from the last dot of the final component.
+
+    The table below is the specification. It is written as literal expectations rather
+    than compared against `PurePosixPath`, because comparing against the standard library
+    is what made the behaviour move under the project in the first place.
+    """
+
+    #: (path_part, emitted_verbatim). `True` means the site generator passes the href
+    #: through unchanged, so the browser resolves it against the page URL.
+    _SPEC = [
+        ("", True),
+        (".", True),
+        ("..", True),
+        ("...", True),
+        ("a", True),
+        ("index", True),
+        ("no-ext", True),
+        ("a.md", False),
+        ("a.MD", False),
+        ("a.b.c", False),
+        ("a/b/c.md", False),
+        ("/abs/x.png", False),
+        ("weird..md", False),
+        ("-.md", False),
+        ("a.html", True),
+        ("a.htm", True),
+        ("a.HTML", True),
+        ("a.Htm", True),
+        (".hidden", True),
+        (".hidden.md", False),
+        ("a/.hidden", True),
+        ("x.", True),
+        ("x..", True),
+        ("a/x.", True),
+        ("..a", True),
+        ("..-", True),
+        ("a/.", True),
+        ("a.b/.", True),
+        ("a/..", True),
+        ("page/", True),
+        ("trail/dir/", True),
+        ("guide/install.md", False),
+        ("/reference/api.md", False),
+    ]
+
+    @pytest.mark.parametrize(("path_part", "expected"), _SPEC)
+    def test_the_rule(self, path_part: str, expected: bool) -> None:
+        assert is_emitted_verbatim(path_part) is expected, (
+            f"{path_part!r}: rule says {is_emitted_verbatim(path_part)}, spec says {expected}"
+        )
+
+    def test_the_rule_does_not_depend_on_the_interpreter(self) -> None:
+        """The two cases where `pathlib` moved between 3.10 and 3.12, pinned explicitly.
+
+        On 3.10 `PurePosixPath('..a').suffix` is `'.a'` and on 3.12+ it is `''`; for
+        `'x.'` it is `''` against `'.'`. Whichever interpreter runs this, the answers
+        below must not change, which is the whole point of not calling `.suffix`.
+        """
+        assert is_emitted_verbatim("..a") is True
+        assert is_emitted_verbatim("x.") is True
+        assert is_emitted_verbatim("a/x.") is True
+
+    def test_every_path_part_the_live_corpus_produces_is_classified_the_same_way(
+        self,
+    ) -> None:
+        """The generated cases are not the population that matters; this is.
+
+        Read through the same decoding `resolve` applies, because a `PurePosixPath` over
+        an already-normalised string behaves differently from one over a raw href. The
+        assertion is that the fast path agrees with the pinned rule recomputed
+        independently — a second implementation of the specification, not a second call
+        to the same code.
+        """
+        from urllib.parse import unquote, urlsplit
+
+        from zenzic.core.validator import PolyglotExtractor
+
+        def independent(path_part: str) -> bool:
+            if path_part.endswith("/"):
+                return True
+            final = path_part.split("/")[-1]
+            while final.startswith("."):
+                final = final[1:]
+            if "." not in final:
+                return True
+            ext = final[final.rindex(".") :].lower()
+            if ext == ".":
+                return True
+            return ext in (".html", ".htm")
+
+        docs = Path(__file__).resolve().parents[1] / "docs"
+        if not docs.is_dir():  # pragma: no cover - a consumer checkout may ship no docs
+            pytest.skip("no docs/ tree in this checkout")
+        extractor = PolyglotExtractor()
+        parts: set[str] = set()
+        for page in docs.rglob("*.md"):
+            text = page.read_text(encoding="utf-8", errors="replace")
+            for item in extractor.extract_all_links(text):
+                url = item.url
+                if url and not url.startswith(("http://", "https://", "mailto:", "#")):
+                    parts.add(unquote(urlsplit(url).path.replace("\\", "/")))
+        assert parts, "extracted no path parts; the instrument found nothing"
+        disagreements = [p for p in sorted(parts) if is_emitted_verbatim(p) != independent(p)]
+        assert not disagreements, (
+            f"{len(disagreements)} of {len(parts)} real path parts are classified "
+            f"differently by the two implementations: {disagreements[:5]}"
+        )

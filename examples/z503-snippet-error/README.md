@@ -24,7 +24,7 @@ a code sample that cannot be executed as documented.
 ```bash
 zenzic lab z503
 # or directly:
-zenzic check content
+zenzic check snippets
 ```
 
 ## Expected output

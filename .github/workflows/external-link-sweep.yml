@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# The PR gate runs with --no-external. The reason is measured, not assumed:
+# on run 34860816951 the Audit job failed on three platforms, and all nine
+# distinct URLs were github.com links that timed out (>10 s) from the runner.
+# None was broken. A third-party outage is a real defect but it is not the
+# pull request's regression, and letting it gate the merge queue left #233
+# unmergeable. The external surface is still checked — here, on a schedule,
+# where a failure is triaged rather than sitting in front of someone's merge.
+#
+# This schedule is this project's arrangement, not a feature of the tool.
+name: External Link Sweep
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    name: Sweep external links
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: zenzic
+
+      # The three satellites, because the root-document sweep below covers all
+      # four and a gate that reads one repository reports "clean" in exactly the
+      # same words as one that reads everything. Shallow and read-only: their
+      # `README.md` and `CONTRIBUTING.md` are all it opens.
+      - name: Checkout zenzic-vscode
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PythonWoods-Dev/zenzic-vscode
+          path: zenzic-vscode
+      - name: Checkout zenzic-action
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PythonWoods-Dev/zenzic-action
+          path: zenzic-action
+      - name: Checkout zenzic-mcp
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PythonWoods-Dev/zenzic-mcp
+          path: zenzic-mcp
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Sync dependencies
+        working-directory: zenzic
+        run: uv sync --all-extras
+
+      - name: Check external links
+        working-directory: zenzic
+        run: uv run zenzic check links --strict
+
+      # Root-level documentation is first-party content that no other gate
+      # reads. Measured 2026-09-21, both directions: a broken external link in
+      # `docs/` fails `zenzic check all` (91/100); the identical link in
+      # `README.md` passes it (100/100), because `docs_dir` does not name the
+      # repository root and turning it on here pulls in test sandboxes holding
+      # planted secrets. The script's own docstring carries that measurement.
+      #
+      # It runs here rather than in the merge gate for the reason this whole
+      # workflow exists: external checking is triaged on a schedule, not left
+      # sitting in front of someone's merge.
+      - name: Check root-document links (all four repositories)
+        working-directory: zenzic
+        run: |
+          uv run python scripts/check_root_doc_links.py --self-test
+          uv run python scripts/check_root_doc_links.py --root ..

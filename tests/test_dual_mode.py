@@ -59,11 +59,21 @@ def test_check_placeholder_short_content() -> None:
 def test_check_placeholder_pattern_match() -> None:
     config = ZenzicConfig()
     rule = PlaceholderRule(config.placeholder_patterns_compiled)
+    # "This is a TODO section..." is a sentence, not a marker. Since 2026-09-19
+    # the default patterns describe a marker's shape -- it opens its line, or a
+    # colon follows it -- because `\btodo\b` matched ordinary English prose on a
+    # foreign corpus ("inboxes, social networks, todo lists").
     findings = rule.check(
         Path("page.md"),
-        "# Title\n\nThis is a TODO section that needs more content.\n" * 5,
+        "# Title\n\nTODO: this section needs more content.\n" * 5,
     )
     assert any(f.rule_id == "Z501" for f in findings)
+
+    prose = rule.check(
+        Path("page.md"),
+        "# Title\n\nInboxes, social networks, todo lists and native-like apps.\n" * 5,
+    )
+    assert not any(f.rule_id == "Z501" for f in prose)
 
 
 def test_check_placeholder_clean_page() -> None:
@@ -77,22 +87,26 @@ def test_check_placeholder_clean_page() -> None:
 
 # ─── Pure core: check_snippet_content ─────────────────────────────────────────
 
+# `Z503` is opt-in and the gate sits in `check_snippet_content`, so these tests
+# declare the flag rather than relying on a default that would make them silent.
+SNIPPETS_ON = ZenzicConfig.model_validate({"policies": {"enable_snippet_check": True}})
+
 
 def test_check_snippet_valid_python() -> None:
     md = "```python\nprint('hello')\n```\n"
-    assert check_snippet_content(md, "page.md") == []
+    assert check_snippet_content(md, "page.md", SNIPPETS_ON) == []
 
 
 def test_check_snippet_invalid_python() -> None:
     md = "```python\ndef broken(\n```\n"
-    errors = check_snippet_content(md, "page.md")
+    errors = check_snippet_content(md, "page.md", SNIPPETS_ON)
     assert errors
     assert "SyntaxError" in errors[0].message
 
 
 def test_check_snippet_non_python_ignored() -> None:
     md = "```bash\nrm -rf /\n```\n"
-    assert check_snippet_content(md, "page.md") == []
+    assert check_snippet_content(md, "page.md", SNIPPETS_ON) == []
 
 
 def test_check_snippet_yaml_multi_doc_no_false_positive() -> None:
@@ -115,7 +129,7 @@ title: Second Document
 
 Some text after.
 """
-    errors = check_snippet_content(md, "guide.mdx")
+    errors = check_snippet_content(md, "guide.mdx", SNIPPETS_ON)
     assert errors == [], f"Multi-doc YAML snippet raised unexpected errors: {errors}"
 
 
@@ -130,7 +144,7 @@ def test_check_snippet_yaml_absolute_line_no() -> None:
     # of the snippet (absolute line 13 in the file).
     prefix = "\n" * 9  # 9 blank lines → fence opens at line 10
     md = prefix + "```yaml\nkey: value\nanother: fine\nbad: :\n```\n"
-    errors = check_snippet_content(md, "reference.mdx")
+    errors = check_snippet_content(md, "reference.mdx", SNIPPETS_ON)
     assert errors, "Invalid YAML must produce a SnippetError"
     # The error is on snippet line 3 (bad: :) → absolute line 10 + 3 = 13
     assert errors[0].line_no == 13, (

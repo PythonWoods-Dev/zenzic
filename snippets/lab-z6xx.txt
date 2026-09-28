@@ -1,0 +1,52 @@
+Z601 -- Brand Obsolescence
+
+Z601 BRAND_OBSOLESCENCE — deprecated release name detected in content
+This scenario is designed to fail — the output below is the expected Z601
+detection, not a problem with your install.
+
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 67 files/s
+
+docs/index.md:6:33  ⚠  [Z601]  Obsolete or unauthorized brand term 'OldPlatform'
+detected. Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress
+if this is a historical ledger.
+
+    4  │  # Welcome to the Documentation Platform
+    5  │
+    6  ❱  This project was migrated from **OldPlatform** in Q1 2026.
+       │                                   ^^^^^^^^^^^
+    7  │
+    8  │  All content has been ported to the new documentation engine.
+
+docs/index.md:9:4  ⚠  [Z601]  Obsolete or unauthorized brand term 'OldPlatform'
+detected. Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress
+if this is a historical ledger.
+
+     7  │
+     8  │  All content has been ported to the new documentation engine.
+     9  ❱  The OldPlatform export scripts are archived for reference.
+        │      ^^^^^^^^^^^
+    10  │
+    11  │  ## Getting Started
+
+docs/index.md:17:19  ⚠  [Z601]  Obsolete or unauthorized brand term
+'OldPlatform' detected. Use semantic versioning (e.g., 'vX.Y.Z') in active
+prose, or suppress if this is a historical ledger.
+
+    15  │  ## About the Migration
+    16  │
+    17  ❱  The migration from OldPlatform improved build times by 60% and added
+        │                     ^^^^^^^^^^^
+    18  │  native i18n support. Contact the platform team for migration assista…
+
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 0 errors  ⚠ 3 warnings  💡 0 info  • 1 file with findings
+
+✨ Analysis complete: Links, credentials, semantic structure, and policies
+verified.
+
+✔ LAB RESULT
+
+2 files scanned • 0.03s • 67 files/s
+
+✔ Z601 — Brand Obsolescence — expectation met.

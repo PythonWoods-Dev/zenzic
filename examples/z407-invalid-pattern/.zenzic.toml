@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z407 INVALID_ENGINE_PATTERN gallery example
+#
+# mkdocs.yml declares not_in_nav with a pattern gitignore syntax cannot parse.
+# MkDocs itself aborts the build on it; Zenzic reports it and keeps scanning.
+#
+# Expected results:
+#   zenzic check all   → EXIT 1  (Z407 ×1, warning; Z402 on the undeclared page)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "mkdocs"

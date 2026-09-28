@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+site_name: README capture
+nav:
+  - Home: index.md
+  - Deploy: deploy.md

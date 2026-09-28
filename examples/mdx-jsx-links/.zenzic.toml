@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+#   zenzic check references   → EXIT 1  (Z101 ×1 — the broken <Link to=...>)
+#
+# Everything else in this fixture is a NON-finding, and that is the point: a
+# component link that resolves, and a Markdown link inside a JSX attribute that
+# is a string rather than a link.
+#
+# An inline-suppression construct was deliberately left out rather than omitted
+# quietly. A working suppression is currently also reported as
+# Z603 DEAD_SUPPRESSION -- the finding is silenced and the directive that
+# silenced it is called dead in the same run -- so a fixture demonstrating it
+# would teach a defect. Tracked in the priority table.
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

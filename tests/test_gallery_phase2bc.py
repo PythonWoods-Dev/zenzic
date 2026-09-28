@@ -142,16 +142,25 @@ class TestZ104FileNotFound:
         assert errors == 1
         assert warnings == 0
 
-    def test_z104_finding_code_is_z101(self) -> None:
-        # Per CORE-REFACTOR-005, missing markdown link targets are uniformly Z101
+    def test_z104_finding_code_is_z104(self) -> None:
+        # The fixture used to link to a missing MARKDOWN file, which is Z101 --
+        # missing markdown link targets are uniformly Z101 per CORE-REFACTOR-005,
+        # and that behaviour is unchanged and demonstrated by z101-broken-links.
+        # But a directory named z104-file-not-found that produces Z101 is a
+        # fixture demonstrating the wrong code, which a name comparison cannot
+        # see. Z104 covers missing NON-markdown assets, so the fixture now
+        # references one. Found by tests/test_gallery_code_coverage.py on its
+        # first run.
         findings, _, _ = _run("z104")
         codes = [f.code for f in findings]
-        assert "Z101" in codes
+        assert "Z104" in codes, codes
 
     def test_z104_finding_message_contains_missing_path(self) -> None:
         findings, _, _ = _run("z104")
-        z101_msgs = [f.message for f in findings if f.code == "Z101"]
-        assert any("api/reference.md" in m or "api/reference" in m for m in z101_msgs)
+        z104_msgs = [f.message for f in findings if f.code == "Z104"]
+        assert any("architecture.png" in m or "assets/architecture" in m for m in z104_msgs), (
+            z104_msgs
+        )
 
     def test_z104_expected_pass_false(self) -> None:
         assert _GALLERY["z104"].expected_pass is False
@@ -161,10 +170,16 @@ class TestZ104FileNotFound:
 
 
 class TestZ107CircularAnchor:
-    def test_z107_produces_exactly_one_warning(self) -> None:
+    def test_z107_produces_exactly_one_error(self) -> None:
+        # Z107 is "error" per codes.py's CODE_DEFINITIONS (the SSoT). This
+        # test used to assert errors==0, warnings==1, locking in a bug where
+        # rules.py's CircularAnchorRule hardcoded severity="warning" instead
+        # of deriving it via code_severity() -- fixed in
+        # V031_RULES_PY_STRUCTURAL_FIX_AND_STRICT_FLAG_GAP (same bug shape
+        # as Z301/Z406/Z503, found in a second subsystem).
         _, errors, warnings = _run("z107")
-        assert errors == 0
-        assert warnings == 1
+        assert errors == 1
+        assert warnings == 0
 
     def test_z107_finding_code_is_z107(self) -> None:
         findings, _, _ = _run("z107")
@@ -234,10 +249,15 @@ class TestZ404ConfigAssetMissing:
 
 
 class TestZ406NavContract:
-    def test_z406_produces_exactly_one_error(self) -> None:
+    def test_z406_produces_exactly_one_warning(self) -> None:
+        # Z406 is "warning" per codes.py's CODE_DEFINITIONS (the SSoT). This
+        # test used to assert errors==1, warnings==0, locking in a bug where
+        # _check.py hardcoded severity="error" for Z406 instead of deriving
+        # it via _finding_severity() -- fixed in
+        # V031_Z406_SEVERITY_FIX_AND_SYSTEMIC_SWEEP (same bug shape as Z301).
         _, errors, warnings = _run("z406")
-        assert errors == 1
-        assert warnings == 0
+        assert errors == 0
+        assert warnings == 1
 
     def test_z406_finding_code_is_z406(self) -> None:
         findings, _, _ = _run("z406")

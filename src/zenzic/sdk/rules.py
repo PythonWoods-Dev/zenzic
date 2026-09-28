@@ -144,6 +144,45 @@ class ZenzicRuleV3(BaseRule):
                 doc = parse(text)
                 self._walk_headings(doc, file_path, findings)
 
+        if self._is_method_overridden("visit_code_block"):
+            for start_line, lang, code in self._extract_code_blocks(text):
+                res = self.visit_code_block(file_path, start_line, lang, code)
+                if res:
+                    findings.extend(res)
+
+    def _extract_code_blocks(self, text: str) -> list[tuple[int, str, str]]:
+        """Yield ``(start_line, lang, code)`` for every fenced code block.
+
+        Mirrors the fence-matching logic in
+        :class:`zenzic.core.rules.UntaggedCodeBlockRule` (``_FENCE_OPEN_RE``)
+        so both stay in sync on what counts as an opening/closing fence.
+        """
+        from zenzic.core.ast import BlockTracker
+
+        blocks: list[tuple[int, str, str]] = []
+        fence = BlockTracker()
+        start_line = 0
+        lang = ""
+        code_lines: list[str] = []
+
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            opened = fence.opens(line)
+            was_inside = fence.inside
+            skip = fence.feed(line)
+            if opened is not None:
+                info = opened[1].strip()
+                start_line = line_no
+                lang = info.split()[0] if info else ""
+                code_lines = []
+                continue
+            if was_inside and not fence.inside:
+                blocks.append((start_line, lang, "\n".join(code_lines)))
+                continue
+            if skip:
+                code_lines.append(line)
+
+        return blocks
+
     def _walk_headings(self, node: Any, file_path: Path, findings: list[RuleFinding]) -> None:
         from zenzic.core.ast import Heading, TextNode
 

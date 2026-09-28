@@ -42,6 +42,7 @@ from ._mkdocs import (
     find_config_file,
 )
 from ._standalone import StandaloneAdapter
+from ._utils import resolve_content_roots
 from ._zensical import ZensicalAdapter, _load_zensical_config, find_zensical_config
 
 
@@ -58,6 +59,7 @@ __all__ = [
     "get_adapter",
     "clear_adapter_cache",
     "list_adapter_engines",
+    "resolve_content_roots",
     # MkDocs utilities
     "find_config_file",
     "_load_doc_config",

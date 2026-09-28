@@ -17,7 +17,8 @@ deterministic.
 
 ## Business Value
 
-This section details the specifications and guidelines for Business Value within the Zenzic ecosystem.
+Three concrete outcomes justify running Zenzic in CI: fewer production defects, less manual
+review time, and repeatable, auditable gate behavior.
 
 ### 1. Risk Reduction
 
@@ -48,32 +49,34 @@ analysis and deterministic exit codes so CI behavior is stable across runs and e
 
 ## Defence Trinity {#defence-trinity}
 
-This section details the specifications and guidelines for Defence Trinity within the Zenzic ecosystem.
+Three independent layers defend a repository's integrity, each with its own gate behavior.
 
 ### Link Integrity (Z1xx)
 
 Internal links, anchors, and route references are validated before build. This prevents runtime
 navigation failures from reaching users.
 
-### Credential Leak Prevention (Z2xx) {#credential-scanner}
+### Credential & Forbidden-Term Detection (Z201/Z204/Z205) {#credential-scanner}
 
-The scanner checks each file for known credential patterns. Security findings are fail-closed and
-immediately stop the pipeline.
+The scanner checks each file for known credential patterns, project-specific forbidden terms, and
+forbidden URL schemes. These three codes are fail-closed, non-suppressible, and exit 2
+unconditionally — the strictest gate in the system.
 
-### Path and Topology Safety (Z202/Z203) {#path-traversal-guard}
+### Path Traversal Safety (Z202/Z203) {#path-traversal-guard}
 
-Path traversal and unsafe path resolution are blocked. Configuration cannot escape repository
-boundaries during analysis.
+Path traversal and unsafe path resolution are blocked. Both codes are non-suppressible, but their
+exit behavior differs: an ordinary boundary violation (`Z202`) is a plain quality finding, exit 1;
+a traversal targeting an OS system directory (`Z203`) is a fatal security incident, exit 3.
 
 ---
 
 ## Deterministic Execution Model {#three-pillars}
 
-Zenzic applies three engineering rules to keep results predictable:
+Zenzic's determinism rests on the same [Three Pillars](../developers/explanation/governance/index.md#the-supreme-law-the-three-pillars) that govern the whole project:
 
-1. **Lint source, not build output.**
-2. **No subprocesses in the core analysis loop.**
-3. **Pure-function-first validation and scoring.**
+1. **Lint the Source, Not the Build.**
+2. **Zero Subprocesses.**
+3. **Pure Functions First.**
 
 This model keeps the same repository state tied to the same finding set and the same gate result.
 

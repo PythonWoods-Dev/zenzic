@@ -14,3 +14,11 @@
 ## img tag without src attribute
 
 <img alt="Placeholder for missing src attribute demonstration" width="200" height="100">
+
+## Why this matters
+
+Anchors and images without a destination attribute are dead weight in
+rendered HTML — they look interactive but lead nowhere, which frustrates
+readers and assistive technology alike. See the
+[WCAG 2.2 link purpose guideline](https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html)
+for the full accessibility rationale.

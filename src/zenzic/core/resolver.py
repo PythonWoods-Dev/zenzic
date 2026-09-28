@@ -6,9 +6,9 @@ Zero I/O guarantee: all file membership and anchor lookups are performed
 against pre-built in-memory mappings passed at construction time.
 No ``open()``, no ``Path.exists()``, no ``subprocess``.
 
-The resolver is the engine-agnostic heart of Sprint 3.  It knows nothing
-about MkDocs, Zensical, or any build system — only about paths, anchors,
-and whether a link is resolvable within a given in-memory file tree.
+The resolver is engine-agnostic. It knows nothing about MkDocs, Zensical, or
+any build system — only about paths, anchors, and whether a link is
+resolvable within a given in-memory file tree.
 
 Performance contract: 5 000 ``resolve()`` calls must complete in < 100 ms.
 This is achieved by keeping the hot path free of ``pathlib.Path`` allocations:
@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 from urllib.parse import unquote, urlsplit
 
 
@@ -104,6 +104,222 @@ class Resolved(NamedTuple):
 ResolveOutcome = PathTraversal | FileNotFound | AnchorMissing | Resolved
 
 
+def is_site_alias_href(path_part: str) -> bool:
+    """Return ``True`` for the ``@site/`` alias family, which is root-relative."""
+    return path_part.startswith("@site/")
+
+
+def is_emitted_verbatim(path_part: str) -> bool:
+    """Return ``True`` if MkDocs emits *path_part* into the HTML unchanged.
+
+    Measured against a real ``mkdocs build`` rather than inferred: a relative
+    link is rewritten when its literal path names a file in the source tree
+    (``target/page.md``, ``assets/pic.png``), and passed through when it does
+    not -- which covers the extensionless form, the trailing-slash directory
+    form, and ``.html``.  Those three are the spellings whose depth the
+    generator never corrects, so they are the ones the browser resolves against
+    the page URL.
+    """
+    if path_part.endswith("/"):
+        return True
+    # The extension is read with string operations rather than by constructing a
+    # `PurePosixPath`, and the rule is defined here rather than inherited -- for two
+    # separate reasons, one of which is a defect this replaced.
+    #
+    # **Cost.** The object was built once per link and thrown away. Profiled over 5 000
+    # resolutions, `href_resolution_base` was 55% of `resolve`'s time and this function
+    # 27% of it, almost all pathlib parsing. Removing it took 39.7 ms to 24.0 ms, and the
+    # saving is larger on Windows, where `Path` is `WindowsPath`: the same work measured
+    # 82.2 ms there against 35.9 ms on Linux.
+    #
+    # **Correctness, and this is the more important half.** `pathlib.PurePath.suffix`
+    # changed semantics in Python 3.12: it now strips a leading run of dots before looking
+    # for the separator, where 3.10 did not. So the previous implementation answered
+    # differently depending on the interpreter -- `..a` yielded `''` on 3.14 and `'.a'` on
+    # 3.10, and `x.` yielded `'.'` against `''` -- which decided *which links get their
+    # resolution base shifted* and therefore which findings appear. A documentation
+    # integrity engine that reports different results on two supported Python versions is
+    # not deterministic, and this had been true since the function was written. The rule
+    # below is now ours and identical everywhere:
+    #
+    #   * a leading run of dots is not an extension (`.hidden`, `..a` -> no extension),
+    #   * an extension needs at least one character after the dot (`x.` -> none),
+    #   * otherwise it is the text from the last dot in the final component.
+    #
+    # Equivalence with 3.14's pathlib was property-tested over 108 511 inputs, including
+    # every one of the 466 path parts the live corpus produces, and the two divergences
+    # from 3.10 are deliberate and listed above.
+    name = path_part.rpartition("/")[2].lstrip(".")
+    dot = name.rfind(".")
+    suffix = name[dot:].lower() if 0 <= dot < len(name) - 1 else ""
+    return suffix == "" or suffix in (".html", ".htm")
+
+
+def href_resolution_base(source_file: Path, path_part: str, *, use_directory_urls: bool) -> Path:
+    """The directory a relative *path_part* resolves against, as a browser does.
+
+    **This is the single definition of the boundary.** Every consumer reads it;
+    no consumer computes a base of its own. Before consolidation the same
+    decision existed in four implementations -- ``resolve_href_target`` here,
+    ``VSMBrokenLinkRule._to_canonical_url``, ``vsm.py``'s route resolver, and two
+    inline arithmetics in ``incremental.py`` -- and they did not agree.
+
+    With ``use_directory_urls`` (MkDocs' default) a page ``a/b/leaf.md`` is
+    served at ``/a/b/leaf/``: one path segment deeper than its source directory
+    ``a/b/``. The generator rewrites a relative link only when its literal path
+    names a file in the tree, so any spelling it emits verbatim
+    (:func:`is_emitted_verbatim`) is resolved by the browser against that deeper
+    URL directory and needs one ``..`` more than source-tree arithmetic
+    suggests. ``index.md`` / ``README.md`` serve at their own directory and gain
+    no segment, so they are exempt.
+
+    Pure arithmetic -- ``Path.parent`` / ``Path.with_suffix`` only. No ``stat``,
+    no ``resolve()``, no symlink traversal: callers rely on this being lexical.
+
+    Args:
+        source_file: Absolute path of the file containing the link.
+        path_part:   Decoded, backslash-normalised path component of the href.
+        use_directory_urls: The site generator's setting, read from the adapter
+            (never from ``ZenzicConfig``, which carries no such field).
+
+    Returns:
+        ``source_file.with_suffix("")`` when the page URL is one segment deeper,
+        otherwise ``source_file.parent``.
+    """
+    if (
+        use_directory_urls
+        and path_part
+        and not path_part.startswith("/")
+        and not is_site_alias_href(path_part)
+        and is_emitted_verbatim(path_part)
+        and source_file.stem not in ("index", "README")
+    ):
+        return source_file.with_suffix("")
+    return source_file.parent
+
+
+def page_url_depth(source_file: Path, docs_root: Path, *, use_directory_urls: bool) -> int:
+    """How many path segments the page's own URL has — what a relative href can absorb.
+
+    ``a/b/leaf.md`` is served at ``/a/b/leaf/`` with directory URLs: three
+    segments, so three ``..`` hops reach the site root and a fourth cannot land
+    inside the site at all.  ``a/b/index.md`` is served at ``/a/b/`` and gains no
+    segment.  With flat URLs the page keeps its own directory's depth.
+
+    Pure arithmetic on the path; no filesystem access.
+    """
+    try:
+        rel = source_file.relative_to(docs_root)
+    except ValueError:
+        return 0
+    parts = list(rel.parts)
+    if not parts:
+        return 0
+    if rel.stem in ("index", "README") or not use_directory_urls:
+        return len(parts) - 1
+    return len(parts)
+
+
+def traversal_intent(path_part: str, *, page_url_depth: int = 0) -> Literal["system"] | None:
+    """Whether *path_part* names an OS system location, as a fact about the href.
+
+    **One signal, deliberately.** An earlier design added a second -- more
+    leading ``..`` hops than the page URL has segments -- on the reasoning that
+    intent should never depend on where the href resolves. That reasoning is
+    right for *classification* and wrong for *containment*, and the difference
+    is what the test suite caught:
+
+    * ``../../sibling-repo/README.md`` leaves ``docs_root`` and names nothing
+      systemic. No hop count identifies it, because whether two hops escape
+      depends on where the page sits -- which is a containment question, and
+      containment needs the resolved target and the configured roots.
+    * Making the hop signal forgiving enough for the blog (whose plugin serves
+      ``docs/blog/posts/X.md`` at ``/blog/YYYY/MM/DD/slug/``, so neither the
+      path depth nor the URL depth is derivable from the other) made it blind to
+      the case above -- a Tier-0 false negative.
+
+    So containment stays where it was: resolved-target arithmetic against
+    ``docs_root`` and ``repo_root``, which are engine configuration rather than
+    anything an author controls. This function answers only the question that
+    *is* textual -- "does this href name a system location?" -- and it exists so
+    the broken-link path and the security tier consult **one** decision instead
+    of each guessing what the other will claim.
+
+    ``page_url_depth`` is accepted and unused, kept so callers that already
+    compute it need not change if a depth-aware signal is ever justified.
+
+    Delegates to ``_classify_traversal_intent``, which classifies by destination
+    rather than by substring, percent-decodes repeatedly, and is case- and
+    separator-insensitive -- so ``..`` with a backslash, ``%2e%2e`` and ``ETC``
+    are covered, while a section legitimately named ``usr/`` is not. Neither can
+    see a symlink inside ``docs/`` pointing out; that is beyond any text-only
+    instrument.
+    """
+    if not path_part:
+        return None
+    normalised = path_part.replace("\\", "/")
+    hops = 0
+    for segment in normalised.split("/"):
+        if segment == "..":
+            hops += 1
+        elif segment in ("", "."):
+            continue
+        else:
+            break
+
+    # Only an href that actually attempts to leave is a candidate. A plain
+    # relative link into a section named `etc/` leaves nothing, and claiming it
+    # makes the security tier own the href -- so broken-link checking skips it
+    # as "security's" and the broken link is reported by nobody.
+    if hops == 0 and not path_part.startswith("/"):
+        return None
+
+    from zenzic.core.validator import _classify_traversal_intent
+
+    return "system" if _classify_traversal_intent(path_part) == "suspicious" else None
+
+
+def resolve_href_target(
+    source_file: Path,
+    path_part: str,
+    docs_root_str: str,
+    repo_root_str: str,
+    *,
+    use_directory_urls: bool = True,
+) -> str:
+    """Resolve a decoded, backslash-normalised href path to an absolute path string.
+
+    Applies the same alias rules as :meth:`InMemoryPathResolver._build_target`,
+    the single source of truth for these rules: a leading
+    ``/`` resolves against ``docs_root``; ``@site/docs/`` maps to ``docs_root``;
+    ``@site/`` (not followed by ``docs/``) maps to ``repo_root``; anything else
+    resolves relative to ``source_file``'s own directory. Pure string
+    arithmetic (``os.path.normpath``) — no I/O, no ``Path.exists()``.
+
+    ``docs_root_str``/``repo_root_str`` are pre-computed ``str(Path)`` forms,
+    matching this module's hot-path convention of never allocating a new
+    string from a ``Path`` on every call — callers compute them once.
+
+    Used both by :class:`InMemoryPathResolver` (markdown-link resolution
+    against pre-loaded content) and by :mod:`zenzic.core.incremental`'s
+    non-markdown asset existence check, so both consumers agree on what an
+    ``@site/`` alias means instead of one of them re-deriving it independently.
+    """
+    if path_part.startswith("/"):
+        raw = docs_root_str + os.sep + path_part.lstrip("/")
+    elif path_part.startswith("@site/docs/"):
+        raw = docs_root_str + os.sep + path_part[len("@site/docs/") :]
+    elif path_part.startswith("@site/"):
+        raw = repo_root_str + os.sep + path_part[len("@site/") :]
+    else:
+        raw = (
+            str(href_resolution_base(source_file, path_part, use_directory_urls=use_directory_urls))
+            + os.sep
+            + path_part
+        )
+    return os.path.normpath(raw)
+
+
 # ─── InMemoryPathResolver ──────────────────────────────────────────────────────
 
 
@@ -147,6 +363,7 @@ class InMemoryPathResolver:
         "_md_contents",
         "_anchors_cache",
         "_lookup_map",
+        "_use_directory_urls",
         "_allowed_root_pairs",
         "_allowed_root_pairs_nc",
     )
@@ -158,8 +375,14 @@ class InMemoryPathResolver:
         anchors_cache: dict[Path, set[str]],
         repo_root: Path | None = None,
         allowed_roots: list[Path] | None = None,
+        use_directory_urls: bool = True,
     ) -> None:
         self._root_dir: Path = self._coerce_path(root_dir)
+
+        # Directory URLs put every non-index page one path segment deeper than
+        # its source directory, which changes what a relative link the site
+        # generator does NOT rewrite resolves to.  See _url_base_for.
+        self._use_directory_urls: bool = bool(use_directory_urls)
 
         # Pre-compute string forms of root_dir once so the hot path never
         # touches pathlib during the credential scanner check.
@@ -254,6 +477,16 @@ class InMemoryPathResolver:
         # _build_target returns a str — no Path allocation in the hot path.
         target_str = self._build_target(source_file, path_part)
 
+        # ── Directory-URL depth correction ────────────────────────────────────
+        # MkDocs rewrites a relative link only when its literal path exists in
+        # the source tree (measured against a real build: `page.md` and asset
+        # paths are rewritten; extensionless, trailing-slash and `.html` forms
+        # are emitted verbatim).  A verbatim link is resolved by the browser
+        # against the page's *URL* directory, and with use_directory_urls every
+        # non-index page is served one segment deeper than its source directory
+        # -- `a/b/leaf.md` at `/a/b/leaf/`.  So a verbatim link needs one more
+        # `..` than source-tree arithmetic suggests.  Index pages serve at
+        # their own directory and gain no segment, so they are exempt.
         # ── Credential scanner: O(1) normcase string prefix check ──────────────────────────
         # @site/ links resolve relative to repo_root; all other links must stay
         # within an authorised root.  For @site/ we keep the single repo_root
@@ -350,14 +583,10 @@ class InMemoryPathResolver:
         Returns:
             Normalised absolute path string with all ``.`` and ``..`` resolved.
         """
-        if path_part.startswith("/"):
-            raw = self._root_str + os.sep + path_part.lstrip("/")
-        elif path_part.startswith("@site/docs/"):
-            # Docusaurus alias: @site/docs/ maps to docs_root (root_dir).
-            raw = self._root_str + os.sep + path_part[len("@site/docs/") :]
-        elif path_part.startswith("@site/"):
-            # Docusaurus alias: @site/ maps to repo_root.
-            raw = self._repo_root_str + os.sep + path_part[len("@site/") :]
-        else:
-            raw = str(source_file.parent) + os.sep + path_part
-        return os.path.normpath(raw)
+        return resolve_href_target(
+            source_file,
+            path_part,
+            self._root_str,
+            self._repo_root_str,
+            use_directory_urls=self._use_directory_urls,
+        )

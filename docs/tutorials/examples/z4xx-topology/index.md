@@ -7,6 +7,12 @@ title: Navigation & Topology Scenarios (Z4xx)
 
 # Navigation & Topology Scenarios (Z4xx)
 
-Interactive lab scenarios and test fixtures for navigation and structural topology rules (`Z4xx`). These fixtures demonstrate detection of missing directory indexes (`Z401`), orphan pages (`Z410`), missing image alt text (`Z403`), and nav contract mismatches (`Z406`).
+Interactive lab scenarios and test fixtures for navigation and structural topology rules (`Z4xx`). These fixtures demonstrate detection of missing directory indexes (`Z401`), orphan pages (`Z410`), missing image alt text (`Z403`), nav contract mismatches (`Z406`), and unparseable engine patterns (`Z407`).
 
 Run `zenzic lab z405` to test topology scenarios interactively, or return to the [Lab Gallery Overview](../index.md).
+
+The scenario carries its own fixture, so nothing has to be set up first:
+
+```text
+--8<-- "snippets/lab-z4xx.txt"
+```

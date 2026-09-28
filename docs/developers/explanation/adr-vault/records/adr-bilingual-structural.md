@@ -36,19 +36,13 @@ mirror had not.
 
 This class of bug is particularly insidious because:
 
-1. **No build-time error is produced.** `onBrokenLinks: 'throw'` only detects
-
-   internal `[text](link)` references — it does not validate language switcher
+1. **No build-time error is produced.** `onBrokenLinks: 'throw'` only detects internal `[text](link)` references — it does not validate language switcher
    paths.
 
-2. **The bug is invisible in development mode.** `npm run start` serves a single
-
-   locale. The switcher is inactive. The 404 only appears in `just build` output
+2. **The bug is invisible in development mode.** `npm run start` serves a single locale. The switcher is inactive. The 404 only appears in `just build` output
    when both locales are built simultaneously.
 
-3. **The time-to-detection window is long.** A missing IT file discovered three
-
-   commits after the EN rename requires a forensic git blame to trace — the
+3. **The time-to-detection window is long.** A missing IT file discovered three commits after the EN rename requires a forensic git blame to trace — the
    coupling between the two moves is no longer visible in the history.
 
 ---
@@ -104,34 +98,24 @@ history noise and make bisect unreliable when investigating regressions.
 
 ## Invariants (Non-Negotiable)
 
-- The symmetry `diff` command must exit 0 before any commit that modifies the
+- The symmetry `diff` command must exit 0 before any commit that modifies the filesystem structure of `docs/` or `i18n/it/`.
 
-  filesystem structure of `docs/` or `i18n/it/`.
-
-- New files added to `docs/` must have a corresponding placeholder added to `i18n/it/`
-
-  **in the same commit** — even if the Italian content is a copy of the English
+- New files added to `docs/` must have a corresponding placeholder added to `i18n/it/` **in the same commit** — even if the Italian content is a copy of the English
   until a translation is provided.
 
 - The pre-commit hook (`pre-commit-config.yaml`) enforces symmetry at the gate.
 
-  Bypassing it with `--no-verify` on a structural commit is a Class 1 violation
+    Bypassing it with `--no-verify` on a structural commit is a Class 1 violation
   (Technical Debt).
 
 ---
 
 ## Consequences
 
-- Every contributor who renames or moves a documentation file must be aware of
-
-  the Italian mirror — this is a non-optional part of the contribution workflow
+- Every contributor who renames or moves a documentation file must be aware of the Italian mirror — this is a non-optional part of the contribution workflow
   documented in `CONTRIBUTING.md`.
 
-- The `just lint-all` recipe (`uvx pre-commit run --all-files`) enforces this
+- The `just lint-all` recipe (`uvx pre-commit run --all-files`) enforces this check in CI. A PR that breaks structural symmetry will fail at the gate.
 
-  check in CI. A PR that breaks structural symmetry will fail at the gate.
-
-- The symmetry invariant applies to **directory structure** only. Italian
-
-  *content* may lag behind English during active development cycles, as long as the file
+- The symmetry invariant applies to **directory structure** only. Italian *content* may lag behind English during active development cycles, as long as the file
   is present (even as a placeholder). A 404 is worse than a stale translation.

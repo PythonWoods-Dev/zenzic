@@ -23,10 +23,14 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.adapters._mkdocs_config import (
+    MKDOCS_CONFIG_NAMES as _MKDOCS_CONFIG_NAMES,
+)
+from zenzic.core.ast import BlockTracker
+from zenzic.core.codes import code_severity, exit_contract_severity
 from zenzic.core.credentials import (
     SecurityFinding,
-    scan_line_for_forbidden_terms,
-    scan_lines_with_lookback,
+    scan_security_findings,
     scan_url_for_secrets,
 )
 from zenzic.core.discovery import (
@@ -35,11 +39,21 @@ from zenzic.core.discovery import (
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
+    iter_security_scan_sources,
     walk_files,
 )
+from zenzic.core.extensions import tab_anchor_style
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.validator import _POLYGLOT_EXTRACTOR, LinkValidator, PolyglotExtractor
+from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
+from zenzic.core.ui import format_elapsed_ms
+from zenzic.core.validator import (
+    _POLYGLOT_EXTRACTOR,
+    LinkValidator,
+    PolyglotExtractor,
+    mask_html_code_elements,
+    repo_relative_label,
+)
 from zenzic.models.config import (
     ZenzicConfig,
 )
@@ -49,6 +63,7 @@ from zenzic.models.references import IntegrityReport, ReferenceFinding, Referenc
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import BaseAdapter
     from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.core.regex import RegexPattern
 
 
 # ─── Code-asset suffix guard (Z405 exemption) ────────────────────────────────
@@ -69,6 +84,8 @@ CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
         ".jsx",
         ".mjs",
         ".cjs",
+        ".mts",
+        ".cts",
         # Systems languages
         ".rs",
         ".go",
@@ -110,10 +127,16 @@ CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
 # Optional title on the same line is ignored (we only need the URL for credential scan).
-_RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
+# A leading caret marks a footnote definition (`[^1]: prose`), not a link
+# reference. Accepting it turned the first word of the footnote text into a URL:
+# 17 phantom Z101 on `zensical/docs`. This is the fourth copy of one decision --
+# validator.py, rules.py, scanner.py and content.py each carry the pattern, and
+# only validator.py had the guard. Consolidation is tracked; the guard is here now.
+_RE_REF_DEF = re.compile(r"^ {0,3}\[([^^\]][^\]]*)\]:\s+(\S+)")
 
 # Reference link usage: [text][id] or [text][] (collapsed reference).
 _RE_REF_LINK = re.compile(r"(\[([^\]]*)\]\[([^\]]*)\])")
+
 
 # Shortcut reference link: [text] with semantic filters applied in code to
 # exclude image refs and full/collapsed ref tails.
@@ -123,8 +146,49 @@ _RE_REF_SHORTCUT = re.compile(r"\[([^\]]+)\]")
 _RE_IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
 # HTML image tag — captures the entire tag for alt extraction
-_RE_HTML_IMG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+#: An ``<img>`` tag, aware that a quoted attribute value may contain ``>``.
+#: The bare ``[^>]*`` this replaced ended the tag at the first ``>`` anywhere
+#: in it, including inside ``src`` or ``title`` -- so a tag whose value carried
+#: one before ``alt=`` was truncated before the alt attribute was ever seen, and
+#: Z403 (missing alt) and Z514 (generic alt) both read the truncated text.
+#: Measured: ``src="a.png?q=<x>"`` and ``title="a > b"`` with a good ``alt`` were
+#: reported as having none, while the same ``>`` placed *after* ``alt=`` was clean.
+#: Reuses ``POLY_ATTRS_FRAGMENT``'s shape -- alternation and character classes
+#: only, RE2-safe and linear -- which ``validator.py`` introduced when the same
+#: truncation let a ``javascript:`` href past the security tier.
+_RE_HTML_IMG = re.compile(r"""<img\b(?:[^>"']|"[^"]*"|'[^']*')*>""", re.IGNORECASE)
 _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
+
+
+#: The ``srcset`` attribute of an ``<img>`` or ``<source>`` tag. Its value is a
+#: candidate list -- a URL, then an optional width (``480w``) or density (``2x``)
+#: descriptor, candidates separated by commas -- so it is parsed, not matched as
+#: one URL. Deliberately read only by the asset pass: the tag extractor that
+#: feeds link validation and the attribute-governance codes is left untouched.
+#: Attribute-aware, for the reason ``_RE_HTML_IMG`` above is: the bare ``[^>]*?``
+#: this replaced ended the tag at the first ``>`` anywhere in it, so an image whose
+#: earlier attribute carried one -- ``src="a.png?q=<x>"`` -- hid its own candidates
+#: and the asset pass reported them unused. Measured with a control pair: the same
+#: tag with ``?q=x`` was clean. That is the Z405 false positive this pattern was
+#: added to remove, reintroduced in a narrower case by the commit that removed it.
+_SRCSET_ATTR_RE = re.compile(
+    r"""(?is)<(?:img|source)\b(?:[^>"']|"[^"]*"|'[^']*')*?\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)')"""
+)
+
+
+def _srcset_candidate_urls(value: str) -> list[str]:
+    """URLs named by a ``srcset`` value, descriptors dropped.
+
+    Covers the comma-separated candidate list with ``w``/``x`` descriptors or none.
+    Does not cover a URL that itself contains a comma: HTML allows one only where it
+    cannot be mistaken for a separator, and splitting on commas would cut it.
+    """
+    urls: list[str] = []
+    for candidate in value.split(","):
+        parts = candidate.strip().split()
+        if parts:
+            urls.append(parts[0])
+    return urls
 
 
 _MARKDOWN_ASSET_LINK_RE = re.compile(
@@ -137,12 +201,12 @@ _INLINE_CODE_RE = re.compile(r"`[^`]+`")
 def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = None) -> Path:
     """Walk upward from *search_from* (or CWD) until a Zenzic project root marker is found.
 
-    Root markers (first match wins, checked in order):
+    Root markers (any match wins; each ancestor directory is checked against
+    all four before moving further up):
     - ``.git/``  — universal VCS marker.
     - ``.zenzic.toml`` — Zenzic's own configuration file.
-
-    Using engine-neutral markers keeps the Core independent of any specific
-    documentation build engine (e.g. ``mkdocs.yml`` is intentionally excluded).
+    - ``zensical.toml`` — Zensical engine config.
+    - ``mkdocs.yml`` — MkDocs engine config.
 
     This is more robust than ``Path(__file__).parents[N]`` because it works
     regardless of where the CLI is invoked from inside the repo.
@@ -167,7 +231,7 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
             (candidate / ".git").is_dir()
             or (candidate / ".zenzic.toml").is_file()
             or (candidate / "zensical.toml").is_file()
-            or (candidate / "mkdocs.yml").is_file()
+            or any((candidate / _n).is_file() for _n in _MKDOCS_CONFIG_NAMES)
         ):
             return candidate
 
@@ -175,8 +239,9 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
         return start
 
     raise RuntimeError(
-        "Could not locate repo root: no .git directory or .zenzic.toml found in any "
-        f"ancestor of {start}. Run Zenzic from inside the repository."
+        "Could not locate repo root: no .git directory, .zenzic.toml, zensical.toml, "
+        f"or mkdocs.yml found in any ancestor of {start}. Run Zenzic from inside the "
+        "repository."
     )
 
 
@@ -214,42 +279,51 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
 
     Returns:
         A :class:`~zenzic.core.reporter.Finding` ready for the ZenzicReporter
-        pipeline.  Z204 FORBIDDEN_TERM findings use ``severity="security_breach"``
-        with code ``"Z204"``; all other credential scanner findings use ``"Z201"``.
+        pipeline.  Z204 FORBIDDEN_TERM findings use code ``"Z204"``; all other
+        credential scanner findings use ``"Z201"``. Severity for both is
+        derived from :func:`~zenzic.core.codes.exit_contract_severity` — the
+        single Core-layer authority also consulted by ``_check.py``'s
+        finding-conversion loop — never a hardcoded literal, so this bridge
+        cannot silently disagree with any other caller about what these two
+        codes' severity is.
     """
-    try:
-        rel = str(sf.file_path.relative_to(repo_root))
-    except ValueError:
-        rel = str(sf.file_path)
+    rel = repo_relative_label(sf.file_path, repo_root)
 
     if sf.secret_type == "FORBIDDEN_TERM":  # noqa: S105  # Categorical finding identifier
+        code = "Z204"
         return Finding(
             rel_path=rel,
             line_no=sf.line_no,
-            code="Z204",
-            severity="security_breach",
+            code=code,
+            severity=exit_contract_severity(code),
             message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
             source_line=sf.url,
             col_start=sf.col_start,
             match_text=sf.match_text,
+            is_likely_placeholder=sf.is_likely_placeholder,
         )
 
+    code = "Z201"
     return Finding(
         rel_path=rel,
         line_no=sf.line_no,
-        code="Z201",
-        severity="security_breach",
+        code=code,
+        severity=exit_contract_severity(code),
         message=f"Secret detected ({sf.secret_type}) — rotate immediately.",
         source_line=sf.url,
         col_start=sf.col_start,
         match_text=sf.match_text,
+        is_likely_placeholder=sf.is_likely_placeholder,
     )
 
 
 # Strips YAML frontmatter (leading ---...--- block).
 _FRONTMATTER_RE: re.RegexPattern = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
 # Strips MDX comments {/* ... */} — invisible in the rendered page.
-_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
+# MDX allows whitespace inside the expression container -- `{ /* … */ }` is
+# what Prettier emits -- so requiring the braces adjacent meant a formatted
+# file's comments were not recognised as comments at all.
+_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\s*/\*.*?\*/\s*\}", re.DOTALL)
 # Strips HTML comments <!-- ... --> — also invisible.
 _HTML_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
 
@@ -292,7 +366,8 @@ def _first_content_line(text: str) -> int:
                 in_html = True
             i += 1
             continue
-        if stripped.startswith("{/*"):
+        # `{ /*` with whitespace is the same opener -- see _MDX_COMMENT_RE above.
+        if stripped.startswith("{") and stripped[1:].lstrip().startswith("/*"):
             if "*/" not in lines[i]:
                 in_mdx = True
             i += 1
@@ -350,15 +425,59 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     Returns:
         Set of normalised asset paths relative to docs root.
     """
+    from zenzic.core.governance import _parse_frontmatter_dict
     from zenzic.core.validator import PolyglotExtractor
 
     extractor = PolyglotExtractor()
     referenced: set[str] = set()
 
+    # ── Deliberate exemption from the directory-URL depth boundary ─────────────
+    # The four `posixpath.join(base, clean_url)` computations below use the
+    # page's *source* directory, and that is correct here -- do not "consolidate"
+    # them onto `resolver.href_resolution_base`.
+    #
+    # Measured against a real `mkdocs build`, not assumed: the generator
+    # REWRITES a relative link whose literal path names a file in the tree, and
+    # an asset path does (`../../assets/pic.png` was emitted as
+    # `../../../assets/pic.png`, depth corrected). The depth boundary exists
+    # only for spellings the generator emits verbatim -- extensionless,
+    # trailing-slash, `.html` -- which asset references are not.
+    #
+    # This pass answers "which files does the corpus reference?" (feeding Z404 /
+    # Z405), against the source tree, where source-tree arithmetic is the
+    # question being asked.
+
+    # One question, asked five times below and answered once here: is this
+    # asset reference somewhere other than the source tree? A remote URL, an
+    # inline `data:` payload and a bare fragment are all "not a file we can
+    # look for", and the five passes -- frontmatter image, Markdown image,
+    # HTML `src`, `srcset`, inline link -- must agree, or the same page's
+    # references land in the set through one pass and not another.
+    #
+    # Deliberately NOT the same constant as `validator._SKIP_SCHEMES` or the
+    # resolver's bypass list. Those answer "does this URL address a page in
+    # the site?", which admits `mailto:`, `tel:`, `xmpp:` and the rest. Here
+    # the question is narrower and a `mailto:` is correctly absent: it is not
+    # an asset reference either way, and widening this set to match theirs
+    # would change what Z404/Z405 see.
+    _REMOTE_OR_INLINE = ("http://", "https://", "data:", "#")
+
+    # 0. Frontmatter `image` key (e.g. social card / OG image references —
+    #    see docs/how-to/configure-social-metadata.md) — not a markdown-body
+    #    link, so invisible to the AST/HTML/inline-link passes below.
+    frontmatter = _parse_frontmatter_dict(text)
+    fm_image = frontmatter.get("image")
+    if fm_image and not fm_image.startswith(_REMOTE_OR_INLINE):
+        clean_url = unquote(fm_image.split("?")[0].split("#")[0])
+        base = page_dir if page_dir else "."
+        normalized = posixpath.normpath(posixpath.join(base, clean_url))
+        if not normalized.startswith(".."):
+            referenced.add(normalized)
+
     # 1. AST Reference Link Definitions ([label]: dest) from PolyglotExtractor
     for ref_node in extractor.extract_ref_defs(text):
         url = ref_node.dest
-        if not url or url.startswith(("http://", "https://", "data:", "#")):
+        if not url or url.startswith(_REMOTE_OR_INLINE):
             continue
         clean_url = unquote(url.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."
@@ -369,7 +488,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
     # 2. Native HTML tags (<a>, <img>) from PolyglotExtractor
     for html_node in extractor.extract(text):
         html_url: str | None = html_node.href
-        if not html_url or html_url.startswith(("http://", "https://", "data:", "#")):
+        if not html_url or html_url.startswith(_REMOTE_OR_INLINE):
             continue
         clean_url = unquote(html_url.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."
@@ -377,10 +496,27 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
         if not normalized.startswith(".."):
             referenced.add(normalized)
 
+    # 2b. ``srcset`` on <img>/<source> -- every candidate URL, over the same masked
+    #     buffer the tag extractor reads, so a srcset inside a fence, a comment or
+    #     inline code is not a reference.
+    masked = extractor._mask_math(
+        extractor._mask_inline_code(extractor._mask_fences(extractor._mask_comments(text)))
+    )
+    for srcset_match in _SRCSET_ATTR_RE.finditer(masked):
+        srcset_value = srcset_match.group(1) or srcset_match.group(2) or ""
+        for srcset_url in _srcset_candidate_urls(srcset_value):
+            if srcset_url.startswith(_REMOTE_OR_INLINE):
+                continue
+            clean_url = unquote(srcset_url.split("?")[0].split("#")[0])
+            base = page_dir if page_dir else "."
+            normalized = posixpath.normpath(posixpath.join(base, clean_url))
+            if not normalized.startswith(".."):
+                referenced.add(normalized)
+
     # 3. Standard inline markdown links [text](url)
     for match in _MARKDOWN_ASSET_LINK_RE.finditer(text):
         url = match.group(1) or match.group(2) or match.group(3)
-        if not url or url.startswith(("http://", "https://", "data:", "#")):
+        if not url or url.startswith(_REMOTE_OR_INLINE):
             continue
         clean_url = unquote(url.split("?")[0].split("#")[0])
         base = page_dir if page_dir else "."
@@ -520,7 +656,7 @@ def find_unused_assets(
     # the exclusion_manager's directory decisions.
     asset_extra_prune = set(config.excluded_asset_dirs)
     for file_path in walk_files(docs_root, asset_extra_prune, exclusion_manager):
-        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
+        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix.lower() in DOC_SUFFIXES:
             continue
         # Apply VCS and core engine exclusions
         if exclusion_manager.should_exclude_file(file_path, docs_root):
@@ -535,7 +671,18 @@ def find_unused_assets(
             continue
         if rel_path.suffix in CODE_ASSET_SUFFIXES:
             continue
-        if rel_path.name in {"robots.txt", "_redirects", "CNAME", "sitemap.xml"}:
+        # Site-root machine-readable artifacts, not documentation content.
+        # llms.txt / llms-ctx-full.txt are generated into the built site by
+        # hooks/generate_llms_txt.py; if a project also keeps one in docs_dir,
+        # analysing it as a page would report findings against generated output.
+        if rel_path.name in {
+            "robots.txt",
+            "_redirects",
+            "CNAME",
+            "sitemap.xml",
+            "llms.txt",
+            "llms-ctx-full.txt",
+        }:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue
@@ -627,6 +774,11 @@ def find_missing_directory_indices(
     """Return directories that contain ``.md`` / ``.mdx`` source files but no
     engine-provided index page, indicating a potential 404 at the directory URL.
 
+    Opt-in (``[policies] enable_directory_index_check``): whether a directory URL
+    must resolve is a site-structure choice. Not every generator uses directory
+    indexes, and some serve a listing rather than a 404. Returns an empty list
+    when the policy is off, which is what "no such directories" already means.
+
     The check is engine-aware via the injected ``provides_index`` callback so
     the scanner stays independent from adapter resolution.
 
@@ -646,6 +798,11 @@ def find_missing_directory_indices(
         List of :class:`~pathlib.Path` objects relative to *docs_root*,
         sorted lexicographically, for directories that lack an index page.
     """
+    # The gate, not merely its docstring. An earlier pass documented this policy
+    # here and left the function returning its list unconditionally -- the same
+    # shape as writing a comment and calling it a control.
+    if not config.policies.enable_directory_index_check:
+        return []
     if not docs_root.exists() or not docs_root.is_dir():
         return []
 
@@ -743,21 +900,15 @@ def _iter_content_lines(
     Yields:
         ``(1-based line number, raw line string)`` for every content line.
     """
-    in_block = False
+    fence = BlockTracker()
 
     with file_path.open(encoding="utf-8") as fh:
         for lineno, line in _skip_frontmatter(fh):
-            stripped = line.strip()
-
-            # ── Fenced code block skip ────────────────────────────────────
-            if not in_block:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = True
-                    continue
-            else:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = False
-                continue  # always skip lines inside fenced block
+            # One fence implementation for the whole core (core/ast.py). This
+            # loop decides which lines reach the credential scanner, so a fence
+            # that closes wrongly here changes what Z201/Z204 look at.
+            if fence.feed(line):
+                continue
 
             yield lineno, line
 
@@ -766,16 +917,9 @@ def _iter_content_lines_text(
     text: str,
 ) -> Generator[tuple[int, str], None, None]:
     """In-memory variant of :func:`_iter_content_lines` — no file I/O."""
-    in_block = False
+    fence = BlockTracker()
     for lineno, line in _skip_frontmatter(text.splitlines(keepends=True)):
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
+        if fence.feed(line):
             continue
         yield lineno, line
 
@@ -807,7 +951,6 @@ class ReferenceScanner:
         self.file_path = file_path
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
-        self.suspicious_domains: list[ReferenceFinding] = []
 
     # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
@@ -827,39 +970,20 @@ class ReferenceScanner:
                 return
 
         lines = text.splitlines(keepends=True)
+        # Credentials (Z201) and forbidden terms (Z204) come from one shared
+        # primitive, so the CLI and the LSP cannot disagree about which security
+        # findings a file contains — see scan_security_findings' own docstring for
+        # the two divergences that made sharing necessary.
         secret_line_nos: set[int] = set()
         credential_events: list[HarvestEvent] = []
-        for finding in scan_lines_with_lookback(enumerate(lines, start=1), self.file_path):
+        for finding in scan_security_findings(text, self.file_path, self._config):
             credential_events.append((finding.line_no, "SECRET", finding))
             secret_line_nos.add(finding.line_no)
 
-        fp = self._config.forbidden_patterns if self._config else []
-        if fp:
-            fp_compiled = self._config.forbidden_patterns_compiled if self._config else None
-            for lineno, raw_line in enumerate(lines, start=1):
-                if lineno in secret_line_nos:
-                    continue
-                for finding in scan_line_for_forbidden_terms(
-                    raw_line,
-                    fp,
-                    self.file_path,
-                    lineno,
-                    compiled_pattern=fp_compiled,
-                ):
-                    credential_events.append((finding.line_no, "SECRET", finding))
-                    secret_line_nos.add(finding.line_no)
-
         content_events: list[HarvestEvent] = []
-        in_block = False
+        _fence = BlockTracker()
         for lineno, line in _skip_frontmatter(lines):
-            stripped = line.strip()
-            if not in_block:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = True
-                    continue
-            else:
-                if stripped.startswith("```") or stripped.startswith("~~~"):
-                    in_block = False
+            if _fence.feed(line) or _fence.in_indented_code:
                 continue
 
             def_match = _RE_REF_DEF.match(line)
@@ -904,12 +1028,27 @@ class ReferenceScanner:
             else _iter_content_lines(self.file_path)
         )
         for lineno, line in line_source:
-            # Blank out inline code to avoid false matches inside `[code][spans]`
+            # Blank out inline code to avoid false matches inside `[code][spans]`,
+            # and the HTML `<code>` element for the same reason on the surface
+            # the backtick mask does not reach. Both are length-preserving.
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+            clean = mask_html_code_elements(clean)
 
+            # Candidates are found in the masked text and their *identifiers*
+            # are read back from the original at the same offsets, which is
+            # sound because every mask above replaces a run with spaces of
+            # equal length.
+            #
+            # Why it matters: a reference label may legitimately contain a code
+            # span -- ``[`i18n.locales`]`` is a label CommonMark accepts and
+            # Astro's documentation uses. Reading the id from the masked text
+            # turned it into `[            ]`, which never resolved against the
+            # definition, so a reference that was defined *and used* was
+            # reported as defined and never used.
             for m in _RE_REF_LINK.finditer(clean):
-                text = m.group(2)
-                ref_id = m.group(3) if m.group(3) else text  # collapsed ref
+                text = line[m.start(2) : m.end(2)]
+                raw_id = line[m.start(3) : m.end(3)]
+                ref_id = raw_id if raw_id else text  # collapsed ref
                 url = self.ref_map.resolve(ref_id)
                 if url is None:
                     norm_id = ref_id.lower().strip()
@@ -921,7 +1060,7 @@ class ReferenceScanner:
                             detail=(
                                 f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
                             ),
-                            is_warning=False,
+                            is_warning=code_severity("Z301") == "warning",
                         )
                     )
 
@@ -934,7 +1073,7 @@ class ReferenceScanner:
                     continue
                 if tail == ":" and clean[: m.start()].strip() == "":
                     continue
-                ref_id = m.group(1)
+                ref_id = line[m.start(1) : m.end(1)]
                 self.ref_map.resolve(ref_id)  # mark as used if defined
 
         return findings
@@ -969,7 +1108,7 @@ class ReferenceScanner:
                     line_no=def_line,
                     issue="Z302",
                     detail=(f"Reference '[{norm_id}]: {url}' is defined but never used."),
-                    is_warning=True,
+                    is_warning=code_severity("Z302") == "warning",
                 )
             )
 
@@ -985,11 +1124,16 @@ class ReferenceScanner:
                         f"Reference ID '[{norm_id}]' is defined more than once. "
                         "First definition wins (CommonMark §4.7)."
                     ),
-                    is_warning=True,
+                    is_warning=code_severity("Z303") == "warning",
                 )
             )
 
-        findings.extend(self.suspicious_domains)
+        # A `suspicious_domains` list lived here from 2026-07-14 until
+        # 2026-09-19, initialised in __init__ and extended into every report.
+        # Nothing ever appended to it: enumerating every `ReferenceFinding(`
+        # construction site in the engine returns three, all in this file, all
+        # emitting Z301/Z302/Z303. The extend was a no-op on every run of the
+        # product's life, and the field advertised a check that did not exist.
 
         return IntegrityReport(
             file_path=self.file_path,
@@ -1000,6 +1144,40 @@ class ReferenceScanner:
 
 
 # ─── I/O wrapper: scan all docs ───────────────────────────────────────────────
+
+
+def _graph_link_infos(md_contents: dict[Path, str]) -> dict[Path, list[Any]]:
+    """Link list for the reachability graph: every internal link, including ref_defs.
+
+    Separate from the per-finding `links_cache`, which filters
+    ``node_type == "ref_def"`` so that a reference definition is not reported as its
+    own broken link alongside the ``[text][label]`` that consumes it. That filter is
+    right for findings and wrong for the graph: ``[label]: target.md`` is the other
+    spelling of an inline link, and the rendered page carries a real ``href`` for it.
+
+    Measured before changing it: on `docs/developers/how-to/contribute/index.md` --
+    ten reference definitions, two inline links -- the built page carries 3, 4, 3, 3
+    and 2 hrefs to the five sibling pages whose links are all reference definitions.
+    Excluding them left the CLI graph six edges short of the VSM's reverse index,
+    which was the entire residual divergence between the two once canonical URLs
+    were normalised. Suppressed links stay excluded here, as they are everywhere.
+    """
+    from zenzic.core.validator import LinkInfo, PolyglotExtractor
+
+    extractor = PolyglotExtractor()
+    out: dict[Path, list[Any]] = {}
+    for path, text in md_contents.items():
+        out[path] = [
+            LinkInfo(
+                url=item.url,
+                lineno=item.line_no,
+                col_start=item.col_start,
+                match_text=item.raw_text,
+            )
+            for item in extractor.extract_all_links(text)
+            if not item.suppressed
+        ]
+    return out
 
 
 def _scan_single_file(
@@ -1058,20 +1236,23 @@ def _scan_single_file(
         from zenzic.core.suppressions import SuppressionTracker
 
         # Pre-compute global suppression codes for this specific file
-        # to prevent consuming redundant inline directives (ADR-084).
+        # to prevent consuming redundant inline directives.
         globally_suppressed_codes: dict[str, list[str]] = {}
+        # Kept apart from the merged lookup above so Z620 can credit the right
+        # table: suppression does not care which one a glob came from, the
+        # stale-configuration report does.
+        _per_file_patterns: set[str] = set()
+        _dir_policy_patterns: set[str] = set()
         if getattr(config, "governance", None):
             repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
-            try:
-                rel_path = md_file.relative_to(repo_root).as_posix()
-            except ValueError:
-                rel_path = md_file.as_posix()
+            rel_path = repo_relative_label(md_file, repo_root)
 
             if config.governance.per_file_ignores:
                 import fnmatch
 
                 for pattern, codes in config.governance.per_file_ignores.items():
                     if fnmatch.fnmatch(rel_path, pattern):
+                        _per_file_patterns.add(pattern)
                         for c in codes:
                             globally_suppressed_codes.setdefault(str(c).strip().upper(), []).append(
                                 pattern
@@ -1086,24 +1267,33 @@ def _scan_single_file(
                 if _cached is None:
                     _cached = []
                     for _pat, _codes in config.governance.directory_policies.items():
-                        with contextlib.suppress(Exception):
+                        # Narrow by type, not by breadth: translate_glob_to_re2
+                        # produces a compilable RE2 for every glob measured, so a
+                        # failure here is a real defect and must not be hidden.
+                        # ``suppress(Exception)`` used to wrap this and swallowed
+                        # TypeError and AttributeError along with it.
+                        try:
                             _cached.append((_pat, re.compile(translate_glob_to_re2(_pat)), _codes))
-                    with contextlib.suppress(Exception):
+                        except (re.error, ValueError):
+                            continue
+                    with contextlib.suppress(AttributeError, TypeError):
                         object.__setattr__(config, "_compiled_dir_policies", _cached)
 
                 for _pat, compiled, codes in _cached:
-                    with contextlib.suppress(Exception):
-                        if compiled.fullmatch(rel_path):
-                            for c in codes:
-                                globally_suppressed_codes.setdefault(
-                                    str(c).strip().upper(), []
-                                ).append(_pat)
+                    if compiled.fullmatch(rel_path):
+                        _dir_policy_patterns.add(_pat)
+                        for c in codes:
+                            globally_suppressed_codes.setdefault(str(c).strip().upper(), []).append(
+                                _pat
+                            )
 
         tracker = SuppressionTracker(
             md_file,
             text,
             globally_suppressed_codes=globally_suppressed_codes,
             global_tracker=getattr(config, "_global_tracker", None),
+            per_file_ignore_patterns=frozenset(_per_file_patterns),
+            directory_policy_patterns=frozenset(_dir_policy_patterns),
         )
         report.suppression_tracker = tracker
 
@@ -1112,15 +1302,29 @@ def _scan_single_file(
         #   2. Each matching directive is marked consumed=True.
         report.rule_findings = rule_engine.run_with_tracker(md_file, text, tracker)
 
-        # Inject Z201 findings derived from harvest() — single-pass, no re-scan.
-        # Z201 is non-suppressible so tracker filtering is intentionally skipped.
+        # Inject Z201/Z204 findings derived from harvest() — single-pass, no re-scan.
+        # Both codes are non-suppressible so tracker filtering is intentionally
+        # skipped. harvest() yields FORBIDDEN_TERM findings (Z204) alongside
+        # credential/secret findings (Z201) — mirror the branch already used by
+        # _map_credential_to_finding() above so the two codes aren't conflated.
         if security_findings:
             from zenzic.core.rules import RuleFinding as _RF
 
-            z201 = [
+            security_rule_findings = [
                 _RF(
+                    rule_id="Z204",
+                    severity=code_severity("Z204"),
+                    file_path=sf.file_path,
+                    line_no=sf.line_no,
+                    message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
+                    match_text=sf.match_text,
+                    matched_line=sf.url,
+                    col_start=sf.col_start,
+                )
+                if sf.secret_type == "FORBIDDEN_TERM"  # noqa: S105  # Categorical finding identifier
+                else _RF(
                     rule_id="Z201",
-                    severity="error",
+                    severity=code_severity("Z201"),
                     file_path=sf.file_path,
                     line_no=sf.line_no,
                     message=f"Credential or secret detected: {sf.secret_type}",
@@ -1130,18 +1334,30 @@ def _scan_single_file(
                 )
                 for sf in security_findings
             ]
-            report.rule_findings = z201 + report.rule_findings
+            report.rule_findings = security_rule_findings + report.rule_findings
 
         # Policy-as-Code Engine (v0.28.0)
         from zenzic.core.governance import check_policies
 
-        policy_findings = check_policies(md_file, text, config)
+        policy_findings = check_policies(
+            md_file,
+            text,
+            config,
+            containers=rule_engine.containers if rule_engine is not None else None,
+        )
         for pf in policy_findings:
             if not tracker.is_suppressed(pf.line_no, pf.rule_id):
                 report.rule_findings.append(pf)
 
-        # Z603 DEAD_SUPPRESSION — emit for every directive never consumed above.
-        report.rule_findings += tracker.get_dead_suppressions()
+        # Z603 DEAD_SUPPRESSION is deliberately NOT emitted here. Consumption is
+        # not finished at this point: Z101 and the rest of the VSM tier, the URP
+        # checks, the topology codes and the VSM-stage policy codes are all
+        # decided later, in _run_vsm_and_urp_pass(), and each of them consumes
+        # directives through this same tracker. Reading the ledger here reported
+        # every working suppression of a cross-file code as dead -- and it did so
+        # in the same run that silenced the finding, because the silencing had
+        # simply not happened yet. Emission lives at the end of that pass instead,
+        # which is the first point at which "never consumed" is a true statement.
 
     # Return scanner only when the file is secure — callers must not register
     # URLs from files that failed the credential scanner (they may embed leaked credentials).
@@ -1161,8 +1377,27 @@ def _run_vsm_and_urp_pass(
     static_assets: set[Path] | None = None,
     preloaded_md_contents: dict[Path, str] | None = None,
     preloaded_anchors: dict[Path, set[str]] | None = None,
+    path_remap: dict[Path, Path] | None = None,
 ) -> None:
-    """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files."""
+    """Run VSM building, VSMBrokenLinkRule, and URP checks over all scanned files.
+
+    ``path_remap`` maps a file **on disk** to the logical path it is displayed
+    at, for the two trees whose sources live somewhere other than where they
+    are published: locale roots and extra content roots. Reports reach this
+    function carrying their real paths, so ``md_contents`` resolves; the VSM
+    route is keyed on the logical path, so the lookup below translates.
+
+    Both halves were wrong, in opposite directions, until 2026-09-19. The
+    parallel branch rewrote ``report.file_path`` to the logical path *before*
+    this ran, so the content lookup missed, ``is_file()`` failed on a path that
+    does not exist, and the file was skipped by ``continue``. The sequential
+    branch rewrote it *after*, so the route lookup fell through to an absolute
+    path that matches no route. Either way the result was the same: **every
+    link in a locale or content-root file went unchecked, in silence**, while
+    that file's content-tier findings appeared normally. Measured -- a file
+    reporting `Z101` under ``docs/`` reported nothing when mounted from
+    ``blog/``.
+    """
     from zenzic.core.adapter import get_adapter
     from zenzic.core.ast import ExtractedLink
     from zenzic.core.incremental import IncrementalAnalysisEngine
@@ -1179,11 +1414,15 @@ def _run_vsm_and_urp_pass(
         _build_link_graph,
         _find_cycles_iterative,
         anchors_in_file,
+        tab_anchors_in,
     )
-    from zenzic.models.vsm import build_vsm
+    from zenzic.models.vsm import build_vsm, stale_manifest_message
 
     if not rule_engine:
-        rule_engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        # VSM-only engine: Z104 resolves links and consults no container
+        # vocabulary, so the declared default is not merely acceptable
+        # here, it is unread.
+        rule_engine = AdaptiveRuleEngine([VSMBrokenLinkRule()], containers=None)
 
     if repo_root is None:
         repo_root = find_repo_root(fallback_to_cwd=True, search_from=docs_root)
@@ -1194,6 +1433,9 @@ def _run_vsm_and_urp_pass(
     md_contents: dict[Path, str] = (
         preloaded_md_contents if preloaded_md_contents is not None else {}
     )
+    # One answer for the run: which anchors this project's content tabs mint.
+    _anchor_tabs = tab_anchor_style(adapter.get_enabled_extensions())
+
     for f in md_files:
         if f not in md_contents and f.is_file():
             try:
@@ -1203,9 +1445,30 @@ def _run_vsm_and_urp_pass(
                 pass
         if f in md_contents:
             if preloaded_anchors and f in preloaded_anchors:
-                anchors_cache[f] = preloaded_anchors[f]
+                # The preloaded set is `CombinedHeadingRule`'s side effect, which
+                # collects heading slugs only -- and this branch wins whenever the
+                # rule ran, so wiring only the `else` below left the anchors a
+                # content tab mints uncollected. Union them, so both branches
+                # produce the same set.
+                anchors_cache[f] = preloaded_anchors[f] | tab_anchors_in(
+                    md_contents[f], tabs=_anchor_tabs
+                )
             else:
-                anchors_cache[f] = anchors_in_file(md_contents[f])
+                anchors_cache[f] = anchors_in_file(md_contents[f], tabs=_anchor_tabs)
+
+    # A manifest that states its anchors replaces the prediction for those
+    # sources. The engine derives anchors with `slug_heading`, a replica of
+    # Python-Markdown; a site rendered with anything else -- `github-slugger`
+    # for Astro and Starlight -- diverges on every heading the two slugify
+    # differently, and each divergence is a `Z102` on a link the browser
+    # serves. The engine cannot predict better because it cannot know which
+    # renderer to predict, so it stops predicting where it is told.
+    _declared = adapter.declared_anchors()
+    if _declared:
+        for rel, anchors in _declared.items():
+            abs_path = (docs_root / rel).resolve()
+            if abs_path in anchors_cache:
+                anchors_cache[abs_path] = anchors
 
     used_assets: set[str] = set()
     for f, text in md_contents.items():
@@ -1225,19 +1488,44 @@ def _run_vsm_and_urp_pass(
         docs_root,
         md_contents,
         anchors_cache=anchors_cache,
-        extra_content_roots=content_roots,
-        repo_root=repo_root,
+        extra_mounts=build_content_mounts(list(content_roots or []), repo_root=repo_root),
         static_assets=static_assets,
     )
+    _undeclared: frozenset[str] = frozenset(vsm.undeclared_sources)
 
     orphaned_urls: set[str] = set()
     dead_end_urls: set[str] = set()
+    traceability_violations: dict[str, tuple[str, list[str]]] = {}
     if hasattr(adapter, "get_entry_points"):
-        from zenzic.core.topology import detect_dead_ends, detect_orphans
+        from zenzic.core.topology import (
+            detect_dead_ends,
+            detect_orphans,
+            detect_traceability_violations,
+        )
 
         entry_points = adapter.get_entry_points(vsm)
         orphaned_urls = set(detect_orphans(vsm, entry_points))
-        dead_end_urls = set(detect_dead_ends(vsm))
+        # Z411 is opt-in: a licence page, a changelog and a glossary are dead
+        # ends by design. Leaving the set empty is exactly what "no dead ends"
+        # already means downstream, so no consumer needs to learn a new state.
+        # Why this gate is here and not inside a rule-engine member, measured
+        # 2026-09-20: a rule receives the VSM through `run_vsm`, so it would read the
+        # URL-keyed graph -- and `link_graph` below is deliberately built from
+        # `_graph_link_infos` instead, because a reference definition is a navigable
+        # edge there and must not be a separate finding in `links_cache`. The two
+        # graphs encode different edge semantics on purpose, so moving this check
+        # onto the VSM would change which dead ends exist. `run_vsm` also runs once
+        # per file, so a whole-graph walk inside it is N traversals where this is
+        # one. The gate is duplicated across the two pipelines on purpose; what
+        # stops it drifting is tests/test_activation_ssot_structural.py.
+        dead_end_urls = (
+            set(detect_dead_ends(vsm)) if config.policies.enable_dead_end_check else set()
+        )
+        if config.policies and config.policies.traceability_targets:
+            for url, _rel_src, target_glob, req_sources in detect_traceability_violations(
+                vsm, config.policies.traceability_targets, docs_root=docs_root, repo_root=repo_root
+            ):
+                traceability_violations[url] = (target_glob, req_sources)
 
     raw_extracted_links: dict[Path, list[ExtractedLink]] = {}
     links_cache: dict[Path, list[LinkInfo]] = {}
@@ -1256,21 +1544,72 @@ def _run_vsm_and_urp_pass(
             if item.node_type != "ref_def" and not item.suppressed
         ]
 
-    resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache, repo_root=repo_root)
+    # The adapter is the only component that actually reads the site generator's
+    # own config; ZenzicConfig carries no such field, so asking it yields the
+    # default whatever mkdocs.yml says (see the use_dir_urls note below).
+    adapter_dir_urls = bool(getattr(adapter, "use_directory_urls", True))
 
-    link_graph = _build_link_graph(links_cache, resolver, frozenset(md_contents.keys()))
+    # Configured locale directory names, so the broken-link rule's locale
+    # fallback fires only for an actual language tree (see ResolutionContext).
+    _locale_names = frozenset(name for _root, name in (locale_roots or []))
 
-    cycle_nodes = set(_find_cycles_iterative(link_graph))
+    resolver = InMemoryPathResolver(
+        docs_root,
+        md_contents,
+        anchors_cache,
+        repo_root=repo_root,
+        use_directory_urls=adapter_dir_urls,
+    )
+
+    # The graph is built from its own link list, not from `links_cache`. The two
+    # answer different questions: `links_cache` drives per-link findings, where a
+    # reference definition must not be reported separately from the `[text][label]`
+    # that uses it, while the graph asks which pages a reader can reach from here --
+    # and a reference definition is a navigable edge, confirmed against the built
+    # HTML rather than the parser (see `_graph_link_infos`).
+    link_graph = _build_link_graph(
+        _graph_link_infos(md_contents), resolver, frozenset(md_contents.keys())
+    )
+
+    # Why this gate is here and not inside a rule-engine member, measured
+    # 2026-09-20: a rule receives the VSM through `run_vsm`, so it would read the
+    # URL-keyed graph -- and `link_graph` below is deliberately built from
+    # `_graph_link_infos` instead, because a reference definition is a navigable
+    # edge there and must not be a separate finding in `links_cache`. The two
+    # graphs encode different edge semantics on purpose, so moving this check
+    # onto the VSM would change which cycles exist. `run_vsm` also runs once
+    # per file, so a whole-graph walk inside it is N traversals where this is
+    # one. The gate is duplicated across the two pipelines on purpose; what
+    # stops it drifting is tests/test_activation_ssot_structural.py.
+    # Z106 is opt-in: a cycle is documentation's ordinary shape, not a defect
+    # signal. Left on by default it reported 704 findings across 238 of ~300
+    # pages of this repository -- index<->record pairs and an interlinked
+    # reference section -- which is why a `"docs/**" = ["Z106"]` policy had been
+    # silencing it corpus-wide. The exemption was the symptom; this is the fix.
+    cycle_nodes: set[str] = set()
+    if getattr(config.policies, "enable_circular_link_check", False):
+        # `_find_cycles_iterative` is generic over the node type and returns the
+        # keys it was given, so the Path->posix conversion belongs here rather than
+        # inside it -- the same pass runs over the VSM's URL-keyed reverse index on
+        # the incremental path, and one of the two had to stop being privileged.
+        cycle_nodes = {node.as_posix() for node in _find_cycles_iterative(link_graph)}
 
     inc_engine = IncrementalAnalysisEngine(config, rule_engine, adapter, docs_root, repo_root)
     inc_engine.anchors_cache = anchors_cache
 
-    use_dir_urls = getattr(config, "use_directory_urls", True)
+    # Was `getattr(config, "use_directory_urls", True)`, which always returned
+    # True: ZenzicConfig has no such attribute, so a site built with
+    # use_directory_urls: false still got directory-URL canonicalisation.  The
+    # adapter reads the real setting out of mkdocs.yml.
+    use_dir_urls = adapter_dir_urls
     parent_global_tracker = getattr(config, "_global_tracker", None)
 
     from zenzic.core.governance import PolicyEvaluator
 
-    policy_evaluator = PolicyEvaluator(config)
+    policy_evaluator = PolicyEvaluator(
+        config,
+        containers=rule_engine.containers if rule_engine is not None else None,
+    )
 
     for r in reports:
         # In parallel mode, each report is deserialized from a worker process and
@@ -1279,6 +1618,12 @@ def _run_vsm_and_urp_pass(
         # is recorded on the canonical tracker instance.
         if r.suppression_tracker is not None:
             r.suppression_tracker.global_tracker = parent_global_tracker
+
+        # A mounted source -- a locale tree or an extra content root -- lives at
+        # one path and is published at another. The file is read from the real
+        # path; everything about *where the page is on the site* uses the
+        # logical one.
+        _logical = path_remap.get(r.file_path, r.file_path) if path_remap else r.file_path
 
         text_opt = md_contents.get(r.file_path)
         if text_opt is None:
@@ -1297,10 +1642,16 @@ def _run_vsm_and_urp_pass(
             extracted_links = extractor.extract_all_links(text)
         context = ResolutionContext(
             docs_root=docs_root,
-            source_file=r.file_path,
+            # The logical path, not the real one: a link is written relative to
+            # where the page is *published*, and for a mounted source those are
+            # different directories. Resolving from the real path sent every
+            # target outside docs_root, where it matched no route and was
+            # dropped without a finding.
+            source_file=_logical,
             use_directory_urls=use_dir_urls,
             config=config,
             adapter=adapter,
+            locale_names=_locale_names,
         )
 
         vsm_findings = rule_engine.run_vsm(
@@ -1351,10 +1702,31 @@ def _run_vsm_and_urp_pass(
                     r.rule_findings.append(pf)
 
         try:
-            rel_posix = r.file_path.relative_to(docs_root).as_posix()
+            rel_posix = _logical.relative_to(docs_root).as_posix()
         except ValueError:
-            rel_posix = r.file_path.absolute().as_posix()
+            rel_posix = _logical.absolute().as_posix()
         canonical_url = next((route.url for route in vsm.values() if route.source == rel_posix), "")
+
+        # Z115 sits above the `if canonical_url:` block, not inside it, because
+        # the drift is a fact about the *source*, not about its URL. A source
+        # the manifest does not declare is routed IGNORED, and every correct
+        # link pointing at it is then reported `Z101 ... UNREACHABLE_LINK`.
+        # Before this finding existed the run named the link and never the
+        # manifest, so the fix it implied — edit the link — was the wrong one.
+        if rel_posix in _undeclared and (
+            r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(1, "Z115")
+        ):
+            r.rule_findings.append(
+                RuleFinding(
+                    r.file_path,
+                    1,
+                    "Z115",
+                    stale_manifest_message(rel_posix),
+                    severity=code_severity("Z115"),
+                    matched_line="",
+                )
+            )
+
         if canonical_url:
             if canonical_url in orphaned_urls:
                 if r.suppression_tracker is None or not r.suppression_tracker.is_suppressed(
@@ -1366,7 +1738,7 @@ def _run_vsm_and_urp_pass(
                             1,
                             "Z410",
                             f"Document is isolated and unreachable from defined entry points: '{canonical_url}'",
-                            severity="warning",
+                            severity=code_severity("Z410"),
                             matched_line="",
                         )
                     )
@@ -1380,10 +1752,22 @@ def _run_vsm_and_urp_pass(
                             1,
                             "Z411",
                             f"Document has no outgoing links and forms a structural dead end: '{canonical_url}'",
-                            severity="warning",
+                            severity=code_severity("Z411"),
                             matched_line="",
                         )
                     )
+            if canonical_url in traceability_violations:
+                target_glob, req_sources = traceability_violations[canonical_url]
+                r.rule_findings.append(
+                    RuleFinding(
+                        r.file_path,
+                        1,
+                        "Z412",
+                        f"Document matches traceability target '{target_glob}' but has no inbound references from required source namespaces {req_sources}",
+                        severity=code_severity("Z412"),
+                        matched_line="",
+                    )
+                )
 
         if cycle_nodes and r.file_path in links_cache:
             for link in links_cache[r.file_path]:
@@ -1401,12 +1785,21 @@ def _run_vsm_and_urp_pass(
                                             link.lineno,
                                             "Z106",
                                             f"'{link.url}' is part of a circular link cycle",
-                                            severity="error",
+                                            severity=code_severity("Z106"),
                                             matched_line="",
                                             col_start=link.col_start,
                                             match_text=link.match_text,
                                         )
                                     )
+
+    # Z603 DEAD_SUPPRESSION — now, and only now, is the ledger complete. Every
+    # pass that consumes a directive has run: the per-file rule engine (before
+    # this function), and above, the VSM tier, the URP checks, the policy engine
+    # and the topology codes. A directive still unconsumed here genuinely
+    # suppresses nothing.
+    for r in reports:
+        if r.suppression_tracker is not None:
+            r.rule_findings += r.suppression_tracker.get_dead_suppressions()
 
     if config.absolute_path_allowlist:
         used_allowlist: set[str] = set()
@@ -1429,23 +1822,90 @@ def _run_vsm_and_urp_pass(
                     RuleFinding(
                         target_path,
                         1,
-                        "Z110",
+                        "Z112",
                         f"{target_path.name}:1: Stale absolute_path_allowlist entry '{entry}': no link matched this prefix across all scanned files",
-                        severity="warning",
+                        severity=code_severity("Z112"),
                     )
                 )
+
+
+# MUST NOT BE CACHED, and this is a correctness constraint rather than a
+# preference. `AdaptiveRuleEngine` carries the per-run `ResolutionContext`, and
+# the engine binds it onto each rule before calling `check()`. A cached factory
+# would hand two runs the same engine, so the second would read the first
+# project's adapter-declared facts -- silently, and worst in the LSP, where two
+# documents are analysed in one process.
+#
+# `test_rule_engine_factory_is_not_cached` asserts it, because the property
+# held by accident until 2026-09-18: nothing said it, so nothing protected it.
+def resolve_container_vocabulary(
+    config: ZenzicConfig,
+    docs_root: Path,
+    repo_root: Path | None = None,
+) -> RegexPattern:
+    """The run's container-opening pattern, read from the project's own adapter.
+
+    Which extensions a project enables has **one answer for the whole run**, so
+    this resolves once and the value is handed to
+    :class:`~zenzic.core.rules.AdaptiveRuleEngine`, which is the run-scoped
+    carrier. It deliberately does not ride `ResolutionContext`, which is
+    per-file by construction.
+
+    Cost, measured 2026-09-18 on this repository: ~23 ms to build the adapter
+    cold, ~16 ms to read `markdown_extensions`, ~0.1 ms to compile -- about
+    40 ms once per run, against a scan measured in seconds. It does force one
+    adapter construction on paths where the adapter was previously lazy; that
+    is the price of the vocabulary being right rather than assumed.
+    """
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.extensions import container_pattern
+
+    # Not `docs_root` as the fallback: the adapter looks for `zensical.toml` /
+    # `mkdocs.yml` *in the root it is given*, and a docs directory is not a repo
+    # root. The pre-existing fallback at the security-URP call site does exactly
+    # that, and was harmless only because that path is rarely reached; making
+    # this resolution eager would have made it reachable on every scan.
+    root = (
+        repo_root
+        if repo_root is not None
+        else find_repo_root(fallback_to_cwd=True, search_from=docs_root)
+    )
+    # No guard around this call, and the caller decides what that means.
+    #
+    # On the CLI it is correct to raise: `_check`, `_audit`, `_guard`,
+    # `_inspect`, `_clean`, `config explain` and `lab` each build their own
+    # adapter first and report the configuration error there -- exit 1, no
+    # traceback -- and the library path raises from the pre-existing
+    # `get_adapter` in `_run_vsm_and_urp_pass`.
+    #
+    # It said "on every path" until 2026-09-21, and it was wrong: the language
+    # server calls this from three places and has no channel to fail through.
+    # Measured on a repository declaring `engine = "zensical"` with no
+    # `zensical.toml`, the exception escaped into `serve()`'s handler and the
+    # session published zero diagnostics for a file the CLI flags. The guard is
+    # at that caller -- `LanguageServer._resolve_containers` -- because it is
+    # the caller whose answer differs, not this resolution.
+    #
+    # The enumeration was also short by two entry points at the time it was
+    # written. Both errors are the same one: a claim about every caller,
+    # checked against the callers that came to mind.
+    enabled = get_adapter(config.build_context, docs_root, root).get_enabled_extensions()
+    return container_pattern(enabled)
 
 
 def _build_rule_engine(
     config: ZenzicConfig,
     anchors_out: dict[Path, set[str]] | None = None,
+    *,
+    containers: RegexPattern | None,
 ) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
     Load order is deterministic:
 
     1. Built-in always-active rules (Z107, Z505, Z506).
-    2. Z601 BRAND_OBSOLESCENCE — activated only when ``obsolete_names`` is set.
+    2. Z601 BRAND_OBSOLESCENCE — activated only when ``[governance]
+       brand_obsolescence`` is set.
     3. Core rules registered via the ``zenzic.rules`` entry-point group.
     4. Regex rules from ``[[custom_rules]]``.
     5. External plugin rules explicitly listed in ``plugins = [...]``.
@@ -1488,10 +1948,21 @@ def _build_rule_engine(
         WeaselWordsRule,
     )
 
-    built_in.append(ShortContentRule(config.placeholder_max_words))
+    # Z502 and Z511 are editorial policy, not correctness: both compare a word
+    # count against a threshold tuned on one project's prose. Off unless asked
+    # for, the same shape as Z518/Z519 below and Z106 in the link pass.
+    if config.policies.enable_short_content_check:
+        built_in.append(ShortContentRule(config.placeholder_max_words))
     built_in.append(PlaceholderRule(config.placeholder_patterns_compiled))
-    built_in.append(CombinedHeadingRule(anchors_out=anchors_out))
-    built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
+    built_in.append(
+        CombinedHeadingRule(
+            anchors_out=anchors_out,
+            enable_duplicate_heading=config.policies.enable_duplicate_heading_check,
+            enable_heading_punctuation=config.policies.enable_heading_punctuation_check,
+        )
+    )
+    if config.policies.enable_sentence_length_check:
+        built_in.append(ExcessiveSentenceLengthRule(config.max_sentence_length))
     built_in.append(EmptySectionRule())
     built_in.append(GenericImageAltTextRule())
     built_in.append(BareUrlUsedRule())
@@ -1500,8 +1971,10 @@ def _build_rule_engine(
         built_in.append(PassiveVoiceRule())
     if config.policies.weasel_words:
         built_in.append(WeaselWordsRule(config.policies.weasel_words))
-    if config.project_metadata.obsolete_names:
-        built_in.append(BrandObsolescenceRule(config.project_metadata))
+    if config.governance.brand_obsolescence:
+        built_in.append(
+            BrandObsolescenceRule(config.project_metadata, config.governance.brand_obsolescence)
+        )
 
     from zenzic.core.rules import BaseRule, RuleFinding
 
@@ -1545,6 +2018,7 @@ def _build_rule_engine(
                     pattern=cr.pattern,
                     message=cr.message,
                     severity=cr.severity,
+                    link=cr.link,
                 )
             )
 
@@ -1613,7 +2087,7 @@ def _build_rule_engine(
 
     if not deduped:
         return None
-    return AdaptiveRuleEngine(deduped)
+    return AdaptiveRuleEngine(deduped, containers=containers)
 
 
 def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) -> None:
@@ -1655,6 +2129,28 @@ def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) ->
     )
 
 
+def _iter_legal_files(docs_root: Path) -> list[Path]:
+    """Legal files at the docs root, which links may target but pages never are.
+
+    Only the names ``SYSTEM_EXCLUDED_FILE_NAMES`` lists as *"Licensing & legal
+    (Zero-Config v0.7.0 -- never documentation assets)"*, and only at the top
+    level: a ``LICENSE`` nested inside a vendored tree is not a link target this
+    project publishes, and walking deeper would re-import the noise the
+    exclusion exists to keep out.
+    """
+    from zenzic.models.config import SYSTEM_EXCLUDED_FILE_NAMES
+
+    legal = {
+        n for n in SYSTEM_EXCLUDED_FILE_NAMES if n.split(".")[0] in ("LICENSE", "NOTICE", "COPYING")
+    }
+    found: list[Path] = []
+    for name in sorted(legal):
+        candidate = docs_root / name
+        if candidate.is_file() and not candidate.is_symlink():
+            found.append(candidate)
+    return found
+
+
 def scan_docs_references(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
@@ -1668,6 +2164,7 @@ def scan_docs_references(
     content_roots: list[Path] | None = None,
     show_progress: bool = False,
     progress_instance: Any | None = None,
+    rule_engine_target: Path | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1684,10 +2181,11 @@ def scan_docs_references(
       External URL validation is performed in the main process after all
       workers complete.
 
-    The threshold default (50 files) is a conservative heuristic: below it,
-    ``ProcessPoolExecutor`` spawn overhead (~200–400 ms on a cold interpreter)
-    exceeds the parallelism benefit.  Override with ``workers=N`` to select a
-    specific pool size when parallel mode is active.
+    The :data:`ADAPTIVE_PARALLEL_THRESHOLD` default is a conservative
+    heuristic: below it, ``ProcessPoolExecutor`` spawn overhead (~200–400 ms
+    on a cold interpreter) exceeds the parallelism benefit.  Override with
+    ``workers=N`` to select a specific pool size when parallel mode is
+    active.
 
     **Determinism guarantee:** results are always sorted by ``file_path``
     regardless of execution mode.
@@ -1723,6 +2221,16 @@ def scan_docs_references(
         content_roots:  Optional extra markdown roots injected by caller.
         show_progress:  When ``True``, display a rich progress bar on stderr.
         progress_instance: Optional external Rich Progress instance.
+        rule_engine_target: When set, restricts rule-engine execution (AST
+                        parsing + all Z1xx-Z6xx content/editorial rules) to
+                        this single resolved file. Every other file still
+                        runs the cheap reference/security/link pipeline
+                        (Pass 1-3) so link resolution, credential scanning,
+                        and VSM topology remain correct project-wide — only
+                        the expensive per-file rule pass is skipped for
+                        non-target files. Forces sequential execution
+                        (parallel mode is pointless when only one file's
+                        rule findings are kept).
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1757,8 +2265,33 @@ def scan_docs_references(
             return [report], []
         config = loaded_cfg or ZenzicConfig()
 
-    rule_engine = _build_rule_engine(config)
+    # ── Run-level container vocabulary ───────────────────────────────────────
+    # Which extensions the project enables has one answer for the whole
+    # execution, so it is resolved once, here, as a *value*. It deliberately
+    # does not ride `ResolutionContext`, which is per-file by construction:
+    # that would build an object per file to carry a fact that never varies.
+    #
+    # This does force one adapter construction per run, where the adapter was
+    # previously built lazily. Measured 2026-09-18 on this repository:
+    # 23.4 ms cold, 16.3 ms to read `markdown_extensions`, 0.1 ms to compile --
+    # ~40 ms once, against a scan measured in seconds. The alternative, leaving
+    # the vocabulary unresolved, is what made every content rule read the full
+    # four-marker default regardless of what the project enables.
+    _containers = resolve_container_vocabulary(config, docs_root, repo_root)
+
+    rule_engine = _build_rule_engine(config, containers=_containers)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
+
+    # A rule-engine target outside docs_root (e.g. CHANGELOG.md/README.md at
+    # repo root) is never discovered by iter_markdown_sources(docs_root, ...)
+    # above, since it only walks docs_root. Inject it explicitly so its own
+    # rule pass still runs — otherwise the target would silently receive
+    # zero rule-engine findings while docs_root's full VSM/topology scan
+    # continues unaffected.
+    if rule_engine_target is not None:
+        _resolved_target_for_injection = rule_engine_target.resolve(strict=False)
+        if _resolved_target_for_injection not in {f.resolve(strict=False) for f in md_files}:
+            md_files.append(_resolved_target_for_injection)
 
     static_assets: set[Path] = set()
     if docs_root.is_dir():
@@ -1766,6 +2299,24 @@ def scan_docs_references(
             if fpath.suffix.lower() not in DOC_SUFFIXES and not fpath.is_symlink():
                 if not exclusion_manager.should_exclude_file(fpath, docs_root):
                     static_assets.add(fpath)
+        # Legal files are excluded from the analysed corpus because they are not
+        # documentation -- that is what SYSTEM_EXCLUDED_FILE_NAMES is for and it
+        # stays. The exclusion had a second effect nobody argued for: it kept
+        # them out of the *static asset* index too, so a link to a LICENSE that
+        # exists resolved to nothing and VSMBrokenLinkRule reported Z101 on a
+        # file whose link works on GitHub (measured 2026-09-18 with
+        # docs_dir = "docs" and the standalone engine, alongside a missing
+        # LICENSE that produced the identical finding -- the engine could not
+        # tell the two apart).
+        #
+        # Indexing them here, and only here, separates the two effects: they
+        # enter the site map as assets so links resolve, and they are still
+        # never walked as pages. This deliberately does not touch
+        # SYSTEM_EXCLUDED_FILE_NAMES or should_exclude_file, whose L1a branch is
+        # applied by security_view() as well -- changing that set would change
+        # what the credential scan walks.
+        for fpath in _iter_legal_files(docs_root):
+            static_assets.add(fpath)
 
     # Build locale path remap: actual_abs_path → virtual_path_under_docs_root.
     # virtual_path = docs_root / locale_name / rel_within_locale
@@ -1780,18 +2331,112 @@ def scan_docs_references(
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
+    # Content roots are remapped for display exactly like locale roots, and kept
+    # in a second dict as well, because only *they* may be used to resolve links.
+    # A locale file resolves its links inside its own locale tree, with the
+    # adapter's sibling fallback -- translating it to a logical path sends a
+    # correct cross-locale link to a route that does not exist. A content-root
+    # file has no such fallback: it is published at the logical path and nowhere
+    # else, so that is where its relative links point from. Measured both ways.
+    _content_path_remap: dict[Path, Path] = {}
     if content_roots:
         for content_root, url_prefix in build_content_mounts(content_roots):
             for abs_path, logical_rel in iter_extra_content_markdown_sources(
                 content_root, url_prefix, config, exclusion_manager
             ):
                 _locale_path_remap[abs_path] = docs_root / logical_rel
+                _content_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
-    if not md_files:
-        return [], []
+    # Security-tier immunity: a file scoped out by excluded_dirs /
+    # excluded_file_patterns / --exclude-dir is excluded from quality analysis,
+    # never from the credential scan — Z201/Z204/Z205 are non-suppressible by
+    # any mechanism, and "the file was never looked at" is a suppression
+    # mechanism. Files already in the corpus are scanned by harvest(); this
+    # pass covers only the ones user scoping removed, and it emits
+    # security-only reports (no quality findings), so exclusion semantics for
+    # every other tier are preserved.
+    _scanned_paths = {f.resolve(strict=False) for f in md_files}
+    _security_only_reports: list[IntegrityReport] = []
+    _sec_engine: Any = None
 
-    use_parallel = workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD
+    def _security_urp_findings(_p: Path, _t: str) -> list[Any]:
+        """Link-tier security findings for a file user scoping removed."""
+        nonlocal _sec_engine
+        from zenzic.models.vsm import VirtualSiteMap
+
+        if _sec_engine is None:
+            from zenzic.core.adapters import get_adapter
+            from zenzic.core.incremental import IncrementalAnalysisEngine
+
+            # repo_root is optional on this entry point; the engine and the
+            # adapter factory both require a real path.
+            #
+            # The fallback searches upward rather than handing over `docs_root`,
+            # which is what it did until 2026-09-19. A comment ~500 lines above
+            # already argued against exactly this line -- "a docs directory is
+            # not a repo root … harmless only because that path is rarely
+            # reached" -- and it was reached: on any project with an excluded
+            # directory, this adapter looked for `mkdocs.yml` inside `docs/`,
+            # did not find it, and the run printed a notice saying the declared
+            # engine had been replaced while the file sat in the root. Naming a
+            # wrong line in a comment is not fixing it.
+            _root = (
+                repo_root
+                if repo_root is not None
+                else find_repo_root(fallback_to_cwd=True, search_from=docs_root)
+            )
+            _sec_engine = IncrementalAnalysisEngine(
+                config,
+                # None is accepted here on purpose: `security_only` restricts the
+                # pass to Z202/Z203/Z205, none of which consult the rule engine.
+                rule_engine,
+                get_adapter(config.build_context, docs_root, _root),
+                docs_root,
+                _root,
+            )
+        try:
+            found: list[Any] = _sec_engine._run_urp_checks(
+                VirtualSiteMap(), _p, _t, security_only=True
+            )
+        except Exception:  # pragma: no cover - a malformed excluded file must not abort the scan
+            return []
+        return found
+
+    for _sec_file in iter_security_scan_sources(
+        docs_root,
+        config,
+        exclusion_manager,
+        content_roots=content_roots,
+        locale_roots=locale_roots,
+    ):
+        if _sec_file.resolve(strict=False) in _scanned_paths:
+            continue
+        try:
+            _sec_text = _sec_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        _sec_findings = list(scan_security_findings(_sec_text, _sec_file, config))
+        # The other three fifths of the tier. Z202/Z203/Z205 come from the URP
+        # pass, which runs over the user-scoped walk, so scoping a directory out
+        # went on silencing them long after the credential half was made immune.
+        _sec_rule_findings = _security_urp_findings(_sec_file, _sec_text)
+        if _sec_findings or _sec_rule_findings:
+            _security_only_reports.append(
+                IntegrityReport(
+                    file_path=_sec_file,
+                    rule_findings=_sec_rule_findings,
+                    score=0.0,
+                    security_findings=_sec_findings,
+                )
+            )
+
+    if not md_files:
+        return _security_only_reports, []
+
+    use_parallel = (
+        workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD and rule_engine_target is None
+    )
 
     # Initialise Visual Progress Bar context if requested.
     progress = None
@@ -1826,12 +2471,12 @@ def scan_docs_references(
             f"[cyan]Parsing[/cyan] [dim]{len(md_files)} files ({_mode_label})...[/dim]",
             total=len(md_files),
         )
-        if validate_links:
-            task_validate_id = progress.add_task(
-                "[blue]Validating links...[/blue]",
-                total=None,  # indeterminate until parsing completes
-                start=False,
-            )
+        # The link-validation line is deliberately *not* created here. Its size
+        # (the deduplicated URL count) is unknown until parsing has finished, and
+        # a task created with total=None renders as a pulsing indeterminate bar —
+        # announcing, for the whole parsing and VSM window, a phase that has not
+        # started. It is added at the point the count becomes known instead, in
+        # both the parallel and sequential paths below.
 
     _t0 = time.monotonic()
 
@@ -1843,7 +2488,15 @@ def scan_docs_references(
             actual_workers = workers if workers is not None else os.cpu_count() or 1
             chunk_size = max(4, len(md_files) // (actual_workers * 2))
             chunks = [md_files[i : i + chunk_size] for i in range(0, len(md_files), chunk_size)]
-            work_items = [(chunk, config, rule_engine) for chunk in chunks]
+            # The sovereign context is a ContextVar, and a ContextVar does not
+            # cross a process boundary. Read it here, in the parent, and hand it
+            # to each worker explicitly: without this the child re-read the
+            # module default and `--audit` silently stopped overriding
+            # suppressions once a corpus crossed ADAPTIVE_PARALLEL_THRESHOLD --
+            # the one mode that exists to reveal hidden debt, going quiet on
+            # exactly the repositories that have the most of it.
+            _force_audit = get_sovereign_context().force_audit
+            work_items = [(chunk, config, rule_engine, _force_audit) for chunk in chunks]
             executor = concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers)
             try:
                 futures_map: dict[concurrent.futures.Future[list[IntegrityReport]], list[Path]] = {
@@ -1899,17 +2552,28 @@ def scan_docs_references(
             finally:
                 t0_teardown = time.perf_counter()
                 executor.shutdown(wait=True)
-                teardown_ms = (time.perf_counter() - t0_teardown) * 1000
+                teardown_s = time.perf_counter() - t0_teardown
 
             if progress:
                 progress.add_task(
-                    f"Finalizing parallel workers (IPC teardown)... [dim]({teardown_ms:.1f}ms)[/dim]",
+                    f"Finalizing parallel workers (IPC teardown)... {format_elapsed_ms(teardown_s)}",
                     total=1,
                     completed=1,
                 )
 
             reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
+            # Same split as the sequential path below: stamp parsing before the
+            # VSM/URP pass, which carries its own line.
+            _parse_elapsed_s = time.monotonic() - _t0
+            if progress and task_id is not None:
+                progress.update(
+                    task_id,
+                    description=f"Parsing {len(md_files)} files ({_mode_label})... {format_elapsed_ms(_parse_elapsed_s)}",
+                )
+
+            _t_vsm = time.monotonic()
+            task_vsm = progress.add_task(_VSM_TASK_LABEL, total=1) if progress else None
             _run_vsm_and_urp_pass(
                 reports,
                 md_files,
@@ -1920,22 +2584,31 @@ def scan_docs_references(
                 locale_roots=locale_roots,
                 content_roots=content_roots,
                 static_assets=static_assets,
+                path_remap=_content_path_remap,
             )
-
-            if progress and task_id is not None:
-                _parse_elapsed_ms = (time.monotonic() - _t0) * 1000
+            if progress and task_vsm is not None:
                 progress.update(
-                    task_id,
-                    description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_ms:.1f}ms)[/dim]",
+                    task_vsm,
+                    completed=1,
+                    description=(
+                        f"{_VSM_TASK_LABEL} {format_elapsed_ms(time.monotonic() - _t_vsm)}"
+                    ),
                 )
 
             if getattr(config, "_global_tracker", None):
                 for _r in reports:
                     if _r.suppression_tracker is not None:
+                        # Rebind first: the worker's tracker carries a detached
+                        # GlobalUsageTracker (or none), and _mark_global_pattern_used
+                        # writes to whatever it holds. Replaying through the tracker
+                        # rather than calling mark_directory_policy_used() directly is
+                        # what keeps per_file_ignores credited to the per-file ledger
+                        # in parallel mode as well as sequential.
+                        _r.suppression_tracker.global_tracker = config._global_tracker
                         for pattern, code in getattr(
                             _r.suppression_tracker, "consumed_global_patterns", ()
                         ):
-                            config._global_tracker.mark_directory_policy_used(pattern, code)
+                            _r.suppression_tracker._mark_global_pattern_used(pattern, code)
 
             elapsed = time.monotonic() - _t0
 
@@ -1957,7 +2630,7 @@ def scan_docs_references(
                             _sf.file_path = _locale_path_remap[_sf.file_path]
 
             if not validate_links:
-                return reports, []
+                return reports + _security_only_reports, []
 
             # Phase B in main process: lightweight sequential pass for URL
             # registration.  Workers discard scanners; we re-collect ref_maps here
@@ -1985,13 +2658,11 @@ def scan_docs_references(
                         pass
 
             n_urls = validator_b.unique_url_count
-            if progress and task_validate_id is not None:
-                progress.update(
-                    task_validate_id,
-                    description=f"Validating links ({n_urls} external URLs)...",
+            if progress:
+                task_validate_id = progress.add_task(
+                    f"Validating links ({n_urls} external URLs)...",
                     total=max(1, n_urls),
                 )
-                progress.start_task(task_validate_id)
 
             def _advance_cb() -> None:
                 if progress and task_validate_id is not None:
@@ -1999,15 +2670,15 @@ def scan_docs_references(
 
             t0_val = time.perf_counter()
             link_errors = validator_b.validate(progress_callback=_advance_cb if progress else None)
-            elapsed_ms_val = (time.perf_counter() - t0_val) * 1000
+            elapsed_val_s = time.perf_counter() - t0_val
             if progress and task_validate_id is not None:
                 progress.update(
                     task_validate_id,
                     completed=max(1, n_urls),
-                    description=f"Validating links ({n_urls} external URLs)... [dim]({elapsed_ms_val:.1f}ms)[/dim]",
+                    description=f"Validating links ({n_urls} external URLs)... {format_elapsed_ms(elapsed_val_s)}",
                 )
 
-            return reports, link_errors
+            return reports + _security_only_reports, link_errors
 
         # Sequential path — zero overhead, full O(N) link-validation support.
         reports_seq: list[IntegrityReport] = []
@@ -2015,7 +2686,12 @@ def scan_docs_references(
         md_contents_seq: dict[Path, str] = {}
         # Anchors collected as side effect of CombinedHeadingRule; reused in VSM pass.
         preloaded_anchors_seq: dict[Path, set[str]] = {}
-        _seq_rule_engine = _build_rule_engine(config, anchors_out=preloaded_anchors_seq)
+        _seq_rule_engine = _build_rule_engine(
+            config, anchors_out=preloaded_anchors_seq, containers=_containers
+        )
+        _resolved_rule_engine_target = (
+            rule_engine_target.resolve(strict=False) if rule_engine_target is not None else None
+        )
 
         for md_file in md_files:
             text = ""
@@ -2025,13 +2701,42 @@ def scan_docs_references(
                     md_contents_seq[md_file] = text
                 except OSError:
                     pass
-            report, secure_scanner = _scan_single_file(md_file, config, _seq_rule_engine, text=text)
+            # When scoped to a single target, skip the expensive rule pass
+            # (AST parsing + all Z1xx-Z6xx rules) for every other file — Pass
+            # 1-3 (security/link/reference) still run below via
+            # _scan_single_file, and _run_vsm_and_urp_pass falls back to the
+            # standalone anchors_in_file() for VSM topology on files that
+            # never ran CombinedHeadingRule, so link/anchor resolution stays
+            # correct project-wide.
+            _file_rule_engine = (
+                _seq_rule_engine
+                if _resolved_rule_engine_target is None
+                or md_file.resolve(strict=False) == _resolved_rule_engine_target
+                else None
+            )
+            report, secure_scanner = _scan_single_file(
+                md_file, config, _file_rule_engine, text=text
+            )
             reports_seq.append(report)
             if validate_links and secure_scanner is not None:
                 secure_scanners_seq.append(secure_scanner)
             if progress and task_id is not None:
                 progress.advance(task_id)
 
+        # Parsing proper ends at the last advance() above — stamp the label here,
+        # before the VSM/URP pass, which now carries its own line. Measuring
+        # through that pass (as this did previously) made the label disagree with
+        # its own row: Rich sets finished_time on the final advance(), so the row
+        # showed the parse-only elapsed while the label showed parse + VSM.
+        _parse_elapsed_seq_s = time.monotonic() - _t0
+        if progress and task_id is not None:
+            progress.update(
+                task_id,
+                description=f"Parsing {len(md_files)} files ({_mode_label})... {format_elapsed_ms(_parse_elapsed_seq_s)}",
+            )
+
+        _t_vsm_seq = time.monotonic()
+        task_vsm_seq = progress.add_task(_VSM_TASK_LABEL, total=1) if progress else None
         _run_vsm_and_urp_pass(
             reports_seq,
             md_files,
@@ -2044,13 +2749,15 @@ def scan_docs_references(
             static_assets=static_assets,
             preloaded_md_contents=md_contents_seq,
             preloaded_anchors=preloaded_anchors_seq,
+            path_remap=_content_path_remap,
         )
-
-        if progress and task_id is not None:
-            _parse_elapsed_seq_ms = (time.monotonic() - _t0) * 1000
+        if progress and task_vsm_seq is not None:
             progress.update(
-                task_id,
-                description=f"Parsing {len(md_files)} files ({_mode_label})... [dim]({_parse_elapsed_seq_ms:.1f}ms)[/dim]",
+                task_vsm_seq,
+                completed=1,
+                description=(
+                    f"{_VSM_TASK_LABEL} {format_elapsed_ms(time.monotonic() - _t_vsm_seq)}"
+                ),
             )
 
         elapsed_seq = time.monotonic() - _t0
@@ -2073,7 +2780,7 @@ def scan_docs_references(
                         _sf.file_path = _locale_path_remap[_sf.file_path]
 
         if not validate_links:
-            return reports_seq, []
+            return reports_seq + _security_only_reports, []
 
         # Phase B — global URL deduplication and async HTTP validation.
         # Uses the already-populated ref_maps from Phase A — no second file read.
@@ -2093,28 +2800,41 @@ def scan_docs_references(
                             validator_seq.register(link.url, r.file_path, link.line_no)
 
         n_urls_seq = validator_seq.unique_url_count
-        if progress and task_validate_id is not None:
-            progress.update(
-                task_validate_id,
-                description=f"Validating links ({n_urls_seq} external URLs)...",
+        if progress:
+            task_validate_id = progress.add_task(
+                f"Validating links ({n_urls_seq} external URLs)...",
                 total=max(1, n_urls_seq),
             )
-            progress.start_task(task_validate_id)
 
         def _advance_seq_cb() -> None:
             if progress and task_validate_id is not None:
                 progress.advance(task_validate_id, 1)
 
+        t0_val_seq = time.perf_counter()
         link_errors = validator_seq.validate(
             progress_callback=_advance_seq_cb if progress else None
         )
-        return reports_seq, link_errors
+        elapsed_val_seq_s = time.perf_counter() - t0_val_seq
+        if progress and task_validate_id is not None:
+            progress.update(
+                task_validate_id,
+                completed=max(1, n_urls_seq),
+                description=(
+                    f"Validating links ({n_urls_seq} external URLs)... "
+                    f"{format_elapsed_ms(elapsed_val_seq_s)}"
+                ),
+            )
+        return reports_seq + _security_only_reports, link_errors
     finally:
         if owns_progress and progress:
             progress.stop()
 
 
 # ─── Adaptive parallel worker ─────────────────────────────────────────────────
+
+#: Progress-line label for the VSM/URP resolution pass. Shared by the parallel
+#: and sequential paths so the two never drift apart in wording.
+_VSM_TASK_LABEL = "Building VSM & resolving references..."
 
 #: Files below this threshold are scanned sequentially (zero process-spawn
 #: overhead).  Above it, scan_docs_references() switches to a
@@ -2126,7 +2846,7 @@ ADAPTIVE_PARALLEL_THRESHOLD: int = 1000
 #: If a worker exceeds this limit it is abandoned and a Z902 timeout finding
 #: is emitted for the file instead of a normal IntegrityReport.  The purpose
 #: is to guard against I/O hangs, network stalls, and worker process crashes
-#: that would otherwise deadlock the entire parallel pipeline.  (ZRT-002 fix)
+#: that would otherwise deadlock the entire parallel pipeline.
 _WORKER_TIMEOUT_S: int = 30
 
 
@@ -2140,7 +2860,7 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
 
     A Z902 finding indicates a systemic stall (I/O hang, network timeout,
     worker process crash) rather than a regex issue — all CustomRule patterns
-    are DFA-safe since ZRT-007 replaced the NFA engine with Google RE2.
+    are DFA-safe, compiled via Google RE2.
 
     Args:
         md_file: Absolute path of the file whose worker timed out.
@@ -2160,7 +2880,7 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
             "Worker stalled — possible I/O hang, network timeout, or process crash. "
             "Custom rule patterns are DFA-safe (ZRT-007); this is a systemic stall."
         ),
-        severity="error",
+        severity=code_severity("Z902"),
     )
     return IntegrityReport(
         file_path=md_file,
@@ -2192,7 +2912,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
             f"Worker for '{md_file.name}' raised an unexpected exception: "
             f"{type(exc).__name__}: {exc}"
         ),
-        severity="error",
+        severity=code_severity("Z901"),
     )
     return IntegrityReport(
         file_path=md_file,
@@ -2204,7 +2924,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
 
 
 def _chunk_worker(
-    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None],
+    args: tuple[list[Path], ZenzicConfig, AdaptiveRuleEngine | None, bool],
 ) -> list[IntegrityReport]:
     """Top-level chunk worker function for ``ProcessPoolExecutor``.
 
@@ -2213,19 +2933,22 @@ def _chunk_worker(
     processing of subsequent files in the chunk is aborted immediately.
 
     Args:
-        args: ``(chunk_files, config, rule_engine)`` tuple.
+        args: ``(chunk_files, config, rule_engine, force_audit)`` tuple. The
+            last element re-establishes the sovereign context inside the child
+            process, which a ContextVar cannot reach on its own.
 
     Returns:
         List of :class:`IntegrityReport` for files in the chunk.
     """
-    chunk_files, config, rule_engine = args
+    chunk_files, config, rule_engine, force_audit = args
     reports: list[IntegrityReport] = []
-    for md_file in chunk_files:
-        report = _worker((md_file, config, rule_engine))
-        reports.append(report)
-        if report.security_findings:
-            # ADR-020: Stop processing remaining files in this chunk immediately.
-            break
+    with sovereign_context(force_audit=force_audit):
+        for md_file in chunk_files:
+            report = _worker((md_file, config, rule_engine))
+            reports.append(report)
+            if report.security_findings:
+                # ADR-020: stop processing the rest of this chunk immediately.
+                break
     return reports
 
 

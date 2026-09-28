@@ -3,10 +3,12 @@
 # .zenzic.toml — Z109 EXTERNAL_LINK_BROKEN gallery example
 #
 # docs/index.md contains a broken external link.
-# Zenzic's link validator flags it as Z109 EXTERNAL_LINK_BROKEN — exit 1.
+# External URLs are only fetched under --strict, and the failure is reported
+# under Z101: Z109 is consolidated into the broken-link code at report time.
 #
 # Expected results:
-#   zenzic check links   → EXIT 1  (Z109 ×1)
+#   zenzic check links            → EXIT 0  (external URLs not fetched)
+#   zenzic check links --strict   → EXIT 1  (Z101 ×1, external connection error)
 
 docs_dir = "docs"
 fail_under = 0

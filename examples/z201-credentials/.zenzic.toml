@@ -7,7 +7,7 @@
 # SECURITY BREACH (exit 2).
 #
 # Expected results:
-#   zenzic check credentials   → EXIT 2  (Z201 ×1 — aws-access-key)
+#   zenzic check references   → EXIT 2  (Z201 ×1 — aws-access-key)
 #   zenzic check all           → EXIT 2  (security tier overrides quality score)
 
 docs_dir = "docs"

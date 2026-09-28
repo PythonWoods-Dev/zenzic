@@ -102,3 +102,17 @@ def test_explain_z402_shows_navigation_tier() -> None:
     result = runner.invoke(app, ["explain", "Z402"])
     assert result.exit_code == 0
     assert "navigation" in result.stdout
+
+
+def test_explain_z502_shows_placeholder_max_words_genealogy() -> None:
+    """Z502 SHORT_CONTENT explain output must show its real config genealogy
+    row (placeholder_max_words), not silently omit it.
+
+    _RULE_CONFIG_MAP previously looked up a non-existent config attribute
+    (short_content_threshold) via getattr(config, part, None), which always
+    returned None and silently skipped the row -- see
+    V031_Z501_Z506_REMEDIATION_AND_EXPLAIN_BUG.
+    """
+    result = runner.invoke(app, ["explain", "Z502"])
+    assert result.exit_code == 0
+    assert "placeholder_max_words" in result.stdout
