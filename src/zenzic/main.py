@@ -50,16 +50,26 @@ from zenzic.core.ui import ZenzicPalette, ZenzicUI
 # contract three separate times. Usage errors belong to the quality/error tier,
 # so they exit 1 and exit 2 stays exclusive to the security tier.
 #
-# **Applied inside `cli_main()`, and that is a gap rather than a design.**
-# Corrected 2026-09-23: this read "Set at module scope rather than inside
-# cli_main() so every consumer of `app` -- the console entry point, the test
-# runner, zenzic-mcp -- agrees on the semantics." The remap is a context
-# manager wrapping `app()` at the bottom of `cli_main()`, so a consumer that
-# imports `app` and calls it directly gets Click's exit 2 for a usage error --
-# which is exactly the collision described above, and exactly the consumers the
-# sentence named. Moving it changes exit codes for library callers, so it is a
-# decision recorded rather than a fix made in a comment pass. A remap that only applies to one entry point is the same
-# some-decision-points-but-not-all shape this contract keeps being bitten by.
+# **Applied inside `cli_main()` deliberately, not as a gap.** An earlier version
+# (94b0dfe, 2026-09-02) set this at module scope precisely so "every consumer of
+# `app` -- the console entry point, the test runner -- agrees on the semantics."
+# It was replaced the same day (487c7bb) because module scope is a mutation of
+# shared state owned by a class Zenzic does not own: merely importing
+# `zenzic.main` silently changed the exit code of every other Click application
+# in the same interpreter -- `tests/test_usage_error_exit_code.py`'s
+# `TestTheRemapDoesNotEscapeZenzic` class exists to pin that this does not
+# recur. Measured 2026-09-28: no production code anywhere in the ecosystem
+# imports `app` directly (`zenzic-mcp` imports only `zenzic.core.*`, never
+# `zenzic.main`; the other two satellites shell out to the installed `zenzic`
+# console script, which already goes through `cli_main()`). The only real
+# direct callers are this repository's own tests -- 53 files, all via
+# `CliRunner().invoke(app, ...)`, none reaching `cli_main()` -- and each of
+# those gets Click's native exit 2 for a usage error today, same as any other
+# hypothetical direct-`app` caller would. That is accepted, not overlooked: a
+# test asserting CLI behaviour through `CliRunner(app)` is choosing the
+# narrower Click-native contract on purpose, and `cli_main()`'s own tests
+# (`test_usage_error_exit_code.py`) exercise the real console-script boundary
+# instead, which is the one users and subprocess callers actually hit.
 #
 # Typer vendors its own click (`typer._click`), which is a DIFFERENT module
 # object from the installed `click` package -- patching only the latter changes

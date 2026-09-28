@@ -1097,6 +1097,14 @@ The editor's auto-repair has the same boundary, which is why the two agree.
 | **`2`** | **SECURITY CRITICAL — a leaked credential (`Z201`), a forbidden term (`Z204`), or a forbidden URL scheme (`Z205`)** |
 | **`3`** | **SECURITY INCIDENT — Path Traversal Guard: link targets an OS system directory (`Z203`)** |
 
+This table describes the `zenzic` console-script entry point, the one users and CI actually
+run. An unknown flag or command there exits **1**, not 2 — a usage error is deliberately kept
+out of the security tier so it can never be mistaken for a credential breach. That remap is
+scoped to the entry point itself: a caller that imports Zenzic's Typer `app` object directly
+and invokes it — bypassing the console script, as only test harnesses do — gets Click's
+unmodified default of exit **2** for the same usage error, because the remap does not (and
+must not) mutate shared Click state that other libraries in the same process could observe.
+
 !!! danger "Exit code 2 is reserved for security events"
     Exit code 2 is issued by `zenzic check references`, `zenzic check links`, and `zenzic check all`
     whenever `Z201`, `Z204`, or `Z205` is detected, in every output format (text, JSON, SARIF,
