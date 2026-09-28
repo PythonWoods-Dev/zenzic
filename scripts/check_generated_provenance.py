@@ -28,13 +28,16 @@ WHAT THIS CAN VERIFY
 2. `package.json` and `package-lock.json` agree on the pinned version. A lockfile
    that no longer matches its manifest is the same class of drift, and nothing
    else checks it: CI has no Node by design, so `npm ci` never runs.
-3. `package-lock.json` is tracked by git, not merely present on disk. It was not:
-   an active `.gitignore` rule excluded it from the pin's introduction in cdf2c05
-   until 2026-09-28, and every check here used `Path.is_file()`, which cannot
-   tell a tracked file from an ignored one sitting in the working tree — so a
-   correct-looking lockfile on the machine that wrote it proved nothing about
-   what a clone would get. Checked with `git ls-files`, the one query that
-   distinguishes them.
+3. `package-lock.json` is committed to **HEAD**, not merely present on disk or
+   staged. It was neither for a week: an active `.gitignore` rule excluded it
+   from the pin's introduction in cdf2c05 until 2026-09-28, and every check here
+   used `Path.is_file()`, which cannot tell a tracked file from an ignored one
+   sitting in the working tree — so a correct-looking lockfile on the machine
+   that wrote it proved nothing about what a clone would get. The first fix
+   checked `git ls-files`, which is satisfied by a staged-but-uncommitted file —
+   the same false-green shape one layer closer in, since `just verify` runs
+   before a commit. Checked with `git cat-file -e HEAD:package-lock.json`, which
+   only a real commit satisfies.
 
 WHAT THIS CANNOT VERIFY, stated so the gate's name does not imply more
 ----------------------------------------------------------------------
@@ -67,18 +70,25 @@ def _npm_available() -> bool:
 
 
 def check_lockfile_tracked() -> list[str]:
-    """`package-lock.json` must be tracked by git, not merely present on disk.
+    """`package-lock.json` must be committed to HEAD, not merely staged or present on disk.
 
     `Path.is_file()` cannot distinguish a committed lockfile from one sitting
     ignored in the working tree -- the exact gap that let this file go
     untracked from the pin's introduction until 2026-09-28 while every other
     check here reported clean, because it never asked git.
+
+    Checked against **HEAD**, not the index: `git ls-files` (and `--error-unmatch`
+    against it) is satisfied by a file that is staged but not yet committed, which
+    is precisely the gap this check exists to close one layer further out -- a
+    clone gets HEAD, never the index of the machine that staged it. `just verify`
+    runs before a commit, so a staged-only lockfile at that point is a false
+    green if the check stops at the index.
     """
     git = shutil.which("git")
     if git is None:
         return ["git is not on PATH -- cannot verify package-lock.json is tracked"]
     result = subprocess.run(  # noqa: S603 — absolute path, fixed argv, no shell
-        [git, "ls-files", "--error-unmatch", "package-lock.json"],
+        [git, "cat-file", "-e", "HEAD:package-lock.json"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -86,9 +96,9 @@ def check_lockfile_tracked() -> list[str]:
     )
     if result.returncode != 0:
         return [
-            "package-lock.json exists on disk but is not tracked by git "
-            "(git ls-files does not list it) — a clone would not have it; "
-            "check it is not re-added to .gitignore and commit it"
+            "package-lock.json is not in HEAD (git cat-file -e HEAD:package-lock.json "
+            "failed) -- staged or present on disk is not enough, a clone gets HEAD; "
+            "commit it"
         ]
     return []
 
