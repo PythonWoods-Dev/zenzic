@@ -739,12 +739,6 @@ which mode produced it.
 
 ### Changed
 
-- **Installing zenzic now requires anyio 4.14.2 or later.** anyio reaches zenzic through httpx, which does
-  not bound it, and the external-link check (`--strict`) opens its TLS connections through anyio. Before
-  4.14.2, anyio encodes a TLS host name with IDNA 2003 (GHSA-82r6-8w77-94w6). httpx already hands it an
-  IDNA 2008, ASCII name, and a test now guards that path, so the floor does not change what the check
-  does: it keeps an older, vulnerable anyio out of the environment zenzic is installed into.
-
 - **The report says when a setting came from your configuration rather than your command line.** Reading `STRICT MODE: Warnings have been promoted to errors` on an invocation that carried no `--strict` is indistinguishable from a bug; it was correct, and nothing said so. The telemetry line now ends with `… • from config: strict` when a verdict-deciding setting was taken from the file and the command line does not account for it. It names at most `strict` and `exit_zero` — the only settings with that shape that reach `check all` — and prints nothing at all for a project that configures neither, because a header that always says something teaches people to stop reading it. `zenzic config explain` remains the complete answer, with per-key provenance across the global and local layers.
 
 - **`--audit` now says that its score is not comparable with a normal run's.** The flag restores findings that declared exemptions had removed, so the DQS drops — on this repository, 96 to 59 — and nothing said the two numbers answer different questions. The audit-mode footer, the flag's help text and the CLI reference now state it. Restored findings already carried a `[POLICY_EXEMPTION]` label; that is unchanged.
@@ -1511,6 +1505,14 @@ which mode produced it.
 - **`zenzic check`/`doctor`'s Finding Locations Used Backslash Path Separators on Windows, Silently Suppressing Every Z201/Z204 Finding Whose Path Contained One**: `doctor.py` and `_check.py` built several finding-location/`rel_path` strings via bare `str(path)` instead of the codebase's own established `path.as_posix()` convention (already used at 73 other call sites), and `core/scanner.py`'s `_map_credential_to_finding` — the sole authorised bridge from the credential scanner to every `Z201`/`Z204` finding — built its `rel_path` the same wrong way. On Windows, `str(path)` renders `\` separators; every downstream consumer that expects a POSIX-style relative path (suppression matching, `directory_policies` glob matching, and the homepage-terminal capture parity tests) silently failed to match a Windows-built path, masking real security findings. Confirmed via real Windows CI failures, not assumed from reading the code: fixed in two commits (`040e853` for `doctor.py`/`_check.py`'s location strings, `98c4f75` for the credential/forbidden-term bridge), each verified green on a real Windows runner afterward.
 - **`--no-color` Was Sticky Across Invocations in a Long-Running Process, With No Way Back to Auto**: `configure_console()`'s "neither flag" branch treated itself as a no-op ("keep the existing console"), so once any call set `no_color=True` or `force_color=True`, every later call in the same process — with no flags of its own — silently kept that state. Cosmetic in a normal one-shot CLI invocation (the process exits anyway), but live for `zenzic-mcp`'s long-running embedded server, where one consumer's `--no-color` request could silently darken another consumer's later output in the same process. Extracted the module-level console construction into `_auto_consoles()`, now also called by the no-flags branch, so "auto" means the same real reset (re-reading `NO_COLOR`/`FORCE_COLOR` from the environment) whether it is the process's first console or a later explicit reset away from a prior call's flags.
 - **Security: A Credential Sitting Under an Ordinary `out`/`tmp`/`temp`/`.temp`-Named Directory Was Invisible to the Scanner, With No Configuration Able to Bring It Back Into Scope**: `security_view()` retained the full `SYSTEM_EXCLUDED_DIRS` set, justified as "the engine's own internals, fixed in code and not editable by the project under scan" — true for `.git`/`node_modules`, false for `out`/`tmp`/`temp`/`.temp`, which are ordinary directory names any project can create and write real content into. Confirmed live before the fix: a real AWS-shaped key under `docs/out/` produced exit 0. Introduced `SECURITY_EXEMPT_DIRS`, a narrower subset used only by the security tier — `build`/`dist`/`mutants` stay exempt (convention-owned by a specific build/test tool), the four ordinary names do not. The regular quality-scan exclusion of these directories is unaffected; only the credential/forbidden-term tier's blind spot closes.
+
+### Security
+
+- **Installing zenzic now requires anyio 4.14.2 or later.** anyio reaches zenzic through httpx, which does
+  not bound it, and the external-link check (`--strict`) opens its TLS connections through anyio. Before
+  4.14.2, anyio encodes a TLS host name with IDNA 2003 (GHSA-82r6-8w77-94w6). httpx already hands it an
+  IDNA 2008, ASCII name, and a test now guards that path, so the floor does not change what the check
+  does: it keeps an older, vulnerable anyio out of the environment zenzic is installed into.
 
 ### Known Limitations
 

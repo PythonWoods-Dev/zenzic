@@ -85,7 +85,8 @@ in a real environment, not just `pyproject.toml`'s top-level names.
 14. anyio (https://github.com/agronholm/anyio)
     Copyright (c) 2018 Alex Grönholm
     License: MIT
-    Used for: Transitive dependency of httpx (async concurrency backend)
+    Used for: Direct dependency (anyio>=4.14.2, a security floor) and transitive
+              dependency of httpx (async concurrency backend)
 
 15. certifi (https://github.com/certifi/python-certifi)
     Mozilla Public License 2.0 (see the project's own LICENSE file for the
