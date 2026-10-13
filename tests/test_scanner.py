@@ -12,12 +12,18 @@ import yaml
 from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
-from zenzic.core.rules import BrandObsolescenceRule, PlaceholderRule, ShortContentRule
+from zenzic.core.rules import (
+    AdaptiveRuleEngine,
+    BrandObsolescenceRule,
+    PlaceholderRule,
+    ShortContentRule,
+)
 from zenzic.core.scanner import (
     find_orphans,
     find_repo_root,
     find_unused_assets,
 )
+from zenzic.core.suppressions import SuppressionTracker
 from zenzic.models.config import ProjectMetadata, ZenzicConfig
 
 
@@ -216,25 +222,31 @@ def test_short_content_pointer_skips_frontmatter() -> None:
 def test_jsx_suppression_is_respected_for_z601() -> None:
     """MDX-native JSX suppression marker must silence Z601 on the tagged line."""
     rule = BrandObsolescenceRule(
-        ProjectMetadata(
-            release_name="v0.8.0", obsolete_names=["v0.6.x"], obsolete_names_exclude_patterns=[]
-        )
+        ProjectMetadata(release_name="v0.8.0", obsolete_names_exclude_patterns=[]),
+        ["v0.6.x"],
     )
     text = "v0.6.x codename {/* zenzic:ignore: Z601 release codename */}\n"
-    findings = rule.check(Path("docs/page.mdx"), text)
+    tracker = SuppressionTracker(Path("docs/page.mdx"), text)
+    findings = AdaptiveRuleEngine([rule], containers=None).run_with_tracker(
+        Path("docs/page.mdx"), text, tracker
+    )
     assert findings == []
+    assert tracker.get_dead_suppressions() == []
 
 
 def test_html_suppression_still_works_for_z601() -> None:
     """Legacy/standard HTML suppression marker remains backward compatible."""
     rule = BrandObsolescenceRule(
-        ProjectMetadata(
-            release_name="v0.8.0", obsolete_names=["v0.6.x"], obsolete_names_exclude_patterns=[]
-        )
+        ProjectMetadata(release_name="v0.8.0", obsolete_names_exclude_patterns=[]),
+        ["v0.6.x"],
     )
     text = "v0.6.x codename <!-- zenzic:ignore: Z601 release codename -->\n"
-    findings = rule.check(Path("docs/page.md"), text)
+    tracker = SuppressionTracker(Path("docs/page.md"), text)
+    findings = AdaptiveRuleEngine([rule], containers=None).run_with_tracker(
+        Path("docs/page.md"), text, tracker
+    )
     assert findings == []
+    assert tracker.get_dead_suppressions() == []
 
 
 def test_short_content_pointer_skips_spdx_comments() -> None:
@@ -540,7 +552,7 @@ def test_i18n_languages_is_null(tmp_path: Path) -> None:
               languages: null
 
     Zenzic must return set() and find_orphans must not crash.
-    This is the exact YAML pattern the Tech Lead flagged.
+    This is the exact YAML pattern flagged during internal review.
     """
     repo = tmp_path / "repo"
     docs = repo / "docs"
@@ -762,3 +774,25 @@ def test_placeholder_partial_files_word_count_skipped() -> None:
     assert any(f.rule_id == "Z502" for f in findings_reg)
     findings_partial = rule.check(Path("_partial.md"), "Short page.")
     assert not any(f.rule_id == "Z502" for f in findings_partial)
+
+
+def test_rule_engine_factory_is_not_cached() -> None:
+    """`_build_rule_engine` must return a fresh engine on every call.
+
+    The engine carries a per-run `ResolutionContext` and binds it onto each
+    rule before `check()`. Caching the factory would let a second run read the
+    first project's adapter-declared facts — silently, and worst in the LSP,
+    where two documents are analysed in one process.
+
+    The property held by accident until 2026-09-18: nothing declared it, so
+    nothing protected it, and adding `@lru_cache` for a performance reason
+    would have been a reasonable-looking change that broke correctness.
+    """
+    from zenzic.core import scanner
+
+    fn = scanner._build_rule_engine
+    for attr in ("cache_info", "cache_clear", "__wrapped__"):
+        assert not hasattr(fn, attr), (
+            f"_build_rule_engine carries {attr!r}, so it is memoised: two runs "
+            "would share one engine and therefore one ResolutionContext"
+        )

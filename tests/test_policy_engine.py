@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from zenzic.cli._standalone import _base_url_line
 from zenzic.core.governance import (
     PolicyEvaluator,
     _extract_links,
@@ -115,7 +116,7 @@ def test_extract_links_no_links() -> None:
 def test_policy_evaluator_z610_missing_single_key() -> None:
     config = _config_with_policies(required_keys=["title", "description"])
     content = "---\ntitle: My Doc\n---\nBody."  # missing 'description'
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     codes = [f.rule_id for f in findings]
     assert "Z610" in codes
@@ -126,7 +127,7 @@ def test_policy_evaluator_z610_missing_single_key() -> None:
 def test_policy_evaluator_z610_multiple_missing_keys() -> None:
     config = _config_with_policies(required_keys=["title", "description", "author"])
     content = "---\ntitle: My Doc\n---\nBody."  # missing 'description' and 'author'
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z610_findings = [f for f in findings if f.rule_id == "Z610"]
     assert len(z610_findings) == 2
@@ -138,7 +139,7 @@ def test_policy_evaluator_z610_multiple_missing_keys() -> None:
 def test_policy_evaluator_z610_all_keys_present() -> None:
     config = _config_with_policies(required_keys=["title", "description"])
     content = "---\ntitle: My Doc\ndescription: Short desc\n---\nBody."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z610" for f in findings)
 
@@ -147,7 +148,7 @@ def test_policy_evaluator_z610_empty_policy_is_noop() -> None:
     """Z610 must be completely inactive when required_frontmatter_keys = []."""
     config = _config_with_policies(required_keys=[])
     content = "# Heading\n\nNo frontmatter at all."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert findings == []
 
@@ -156,7 +157,7 @@ def test_policy_evaluator_z610_no_frontmatter_emits_finding() -> None:
     """A file without any frontmatter block violates ALL required key policies."""
     config = _config_with_policies(required_keys=["title"])
     content = "# No Frontmatter\n\nBody."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert any(f.rule_id == "Z610" and "title" in f.message for f in findings)
 
@@ -167,7 +168,7 @@ def test_policy_evaluator_z610_no_frontmatter_emits_finding() -> None:
 def test_policy_evaluator_z611_forbidden_domain_markdown_link() -> None:
     config = _config_with_policies(forbidden_domains=["competitor.example.com"])
     content = "See [this](https://competitor.example.com/page)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert len(findings) == 1
     assert findings[0].rule_id == "Z611"
@@ -177,7 +178,7 @@ def test_policy_evaluator_z611_forbidden_domain_markdown_link() -> None:
 def test_policy_evaluator_z611_forbidden_domain_html_link() -> None:
     config = _config_with_policies(forbidden_domains=["legacy.corp"])
     content = '<a href="https://legacy.corp/docs">old docs</a>'
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     links = _extract_links(content)
     findings = evaluator.check(DUMMY_FILE, content, links=links)
     assert any(f.rule_id == "Z611" for f in findings)
@@ -187,7 +188,7 @@ def test_policy_evaluator_z611_subdomain_match() -> None:
     """Forbidden domains must match subdomains (api.competitor.example.com)."""
     config = _config_with_policies(forbidden_domains=["competitor.example.com"])
     content = "See [API](https://api.competitor.example.com/v1)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert any(f.rule_id == "Z611" for f in findings)
 
@@ -195,7 +196,7 @@ def test_policy_evaluator_z611_subdomain_match() -> None:
 def test_policy_evaluator_z611_allowed_domain_no_finding() -> None:
     config = _config_with_policies(forbidden_domains=["legacy.corp"])
     content = "See [docs](https://docs.myproject.dev/guide)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z611" for f in findings)
 
@@ -204,7 +205,7 @@ def test_policy_evaluator_z611_empty_policy_is_noop() -> None:
     """Z611 must be completely inactive when forbidden_external_domains = []."""
     config = _config_with_policies(forbidden_domains=[])
     content = "See [legacy](https://anything.example.com)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert findings == []
 
@@ -213,7 +214,7 @@ def test_policy_evaluator_z611_non_http_scheme_ignored() -> None:
     """Z611 must not flag mailto: or ftp: links — only http/https."""
     config = _config_with_policies(forbidden_domains=["example.com"])
     content = "Mail [us](mailto:info@example.com) or [ftp](ftp://example.com)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z611" for f in findings)
 
@@ -222,7 +223,7 @@ def test_policy_evaluator_z611_case_insensitive_domain() -> None:
     """Domain matching must be case-insensitive."""
     config = _config_with_policies(forbidden_domains=["Legacy.Corp"])
     content = "See [this](https://LEGACY.CORP/docs)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert any(f.rule_id == "Z611" for f in findings)
 
@@ -233,7 +234,7 @@ def test_policy_evaluator_z611_case_insensitive_domain() -> None:
 def test_policy_evaluator_z612_forbidden_key_present() -> None:
     config = _config_with_policies(forbidden_keys=["draft", "internal_notes"])
     content = "---\ntitle: My Doc\ndraft: true\n---\nBody."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z612_findings = [f for f in findings if f.rule_id == "Z612"]
     assert len(z612_findings) == 1
@@ -244,7 +245,7 @@ def test_policy_evaluator_z612_forbidden_key_present() -> None:
 def test_policy_evaluator_z612_no_forbidden_key_present() -> None:
     config = _config_with_policies(forbidden_keys=["draft", "internal_notes"])
     content = "---\ntitle: My Doc\n---\nBody."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z612" for f in findings)
 
@@ -255,7 +256,7 @@ def test_policy_evaluator_z612_no_forbidden_key_present() -> None:
 def test_policy_evaluator_z613_schema_mismatch_detected() -> None:
     config = _config_with_policies(schema_match={"version": r"^v\d+\.\d+\.\d+$"})
     content = "---\ntitle: Release\nversion: 1.0\n---\nBody."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z613_findings = [f for f in findings if f.rule_id == "Z613"]
     assert len(z613_findings) == 1
@@ -266,7 +267,7 @@ def test_policy_evaluator_z613_schema_mismatch_detected() -> None:
 def test_policy_evaluator_z613_schema_match_valid() -> None:
     config = _config_with_policies(schema_match={"version": r"^v\d+\.\d+\.\d+$"})
     content = "# Heading\n\nNo frontmatter."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z613" for f in findings)
 
@@ -279,7 +280,7 @@ def test_policy_evaluator_z614_unapproved_domain() -> None:
     config = ZenzicConfig()
     config.policies = policies
     content = "See [Unvetted](https://unapproved.example.org/spec) and [Valid](https://pythonwoods.dev/docs)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z614 = [f for f in findings if f.rule_id == "Z614"]
     assert len(z614) == 1
@@ -295,10 +296,8 @@ def test_policy_evaluator_z614_whitelisted_domain_passes() -> None:
     policies = PoliciesConfig(allowed_external_domains=["pythonwoods.dev", "github.com"])
     config = ZenzicConfig()
     config.policies = policies
-    content = (
-        "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods/zenzic)."
-    )
-    evaluator = PolicyEvaluator(config)
+    content = "See [Doc](https://pythonwoods.dev/docs) and [Repo](https://github.com/PythonWoods-Dev/zenzic)."
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z614" for f in findings)
 
@@ -311,7 +310,7 @@ def test_policy_evaluator_z615_forbidden_scheme() -> None:
     config = ZenzicConfig()
     config.policies = policies
     content = "Check [site](http://example.com/docs) and [email](mailto:dev@pythonwoods.dev)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z615 = [f for f in findings if f.rule_id == "Z615"]
     assert len(z615) == 1
@@ -323,7 +322,7 @@ def test_policy_evaluator_z615_allowed_scheme_passes() -> None:
     config = ZenzicConfig()
     config.policies = policies
     content = "Check [site](https://example.com/docs) and [email](mailto:dev@pythonwoods.dev)."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     assert not any(f.rule_id == "Z615" for f in findings)
 
@@ -345,7 +344,7 @@ def test_policy_evaluator_z616_cross_namespace_boundary_violation() -> None:
         Path("docs/internal/secret.md"): "# Secret\n",
     }
     resolver = InMemoryPathResolver(Path("docs"), md_contents, {p: set() for p in md_contents})
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(src_file, content, resolver=resolver)
     z616 = [f for f in findings if f.rule_id == "Z616"]
     assert len(z616) == 1
@@ -364,19 +363,19 @@ def test_policies_config_invalid_re2_pattern_raises_error() -> None:
 
 def test_policy_evaluator_is_active_false_when_empty() -> None:
     config = _config_with_policies()
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     assert not evaluator.is_active
 
 
 def test_policy_evaluator_is_active_true_with_required_keys() -> None:
     config = _config_with_policies(required_keys=["title"])
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     assert evaluator.is_active
 
 
 def test_policy_evaluator_is_active_true_with_forbidden_domains() -> None:
     config = _config_with_policies(forbidden_domains=["bad.example.com"])
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     assert evaluator.is_active
 
 
@@ -387,14 +386,14 @@ def test_check_policies_wrapper_returns_empty_for_unconfigured() -> None:
     """Zero-cost opt-in: no findings and no overhead when policies are empty."""
     config = ZenzicConfig()
     content = "# Doc\n\nNo links, no frontmatter."
-    findings = check_policies(DUMMY_FILE, content, config)
+    findings = check_policies(DUMMY_FILE, content, config, containers=None)
     assert findings == []
 
 
 def test_check_policies_wrapper_delegates_to_evaluator() -> None:
     config = _config_with_policies(required_keys=["title"])
     content = "# Doc\n\nNo frontmatter."
-    findings = check_policies(DUMMY_FILE, content, config)
+    findings = check_policies(DUMMY_FILE, content, config, containers=None)
     assert any(f.rule_id == "Z610" for f in findings)
 
 
@@ -431,7 +430,7 @@ def test_zenzic_config_backward_compat_no_policies_key() -> None:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     toml_str = b"strict = true\nfail_under = 98\n"
     data = tomllib.loads(toml_str.decode())
@@ -447,11 +446,17 @@ def test_init_template_includes_policies_section() -> None:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE
 
-    rendered = GLOBAL_TOML_TEMPLATE.format(engine="mkdocs", hint_name="test-project")
+    rendered = GLOBAL_TOML_TEMPLATE.format(
+        engine="mkdocs",
+        engines="mkdocs, standalone",
+        hint_name="test-project",
+        docs_dir_line='# docs_dir = "docs"\n',
+        base_url_line=_base_url_line("mkdocs"),
+    )
     parsed = tomllib.loads(rendered)
 
     assert "policies" in parsed
@@ -462,7 +467,7 @@ def test_init_template_includes_policies_section() -> None:
 def test_policy_evaluator_empty_policies_short_circuit() -> None:
     """PolicyEvaluator internal checkers must return [] immediately when policy lists are empty."""
     config = ZenzicConfig()
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
 
     assert not evaluator.is_active
     assert evaluator._check_frontmatter(DUMMY_FILE, "no frontmatter") == []
@@ -478,7 +483,7 @@ def test_policy_evaluator_empty_policies_short_circuit() -> None:
 def test_policy_evaluator_z617_forbidden_content_detected() -> None:
     config = _config_with_policies(forbidden_content=["(?i)confidential", r"\bTODO\b"])
     content = "# Title\n\nThis contains confidential info.\nAnd a `TODO` in code is ignored?"
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z617 = [f for f in findings if f.rule_id == "Z617"]
     assert len(z617) >= 1
@@ -492,7 +497,7 @@ def test_policy_evaluator_z617_forbidden_content_detected() -> None:
 def test_policy_evaluator_z618_required_heading_missing() -> None:
     config = _config_with_policies(required_headings=["^Overview$", "^License$"])
     content = "# Title\n\n## Overview\n\nSome overview."
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z618 = [f for f in findings if f.rule_id == "Z618"]
     assert len(z618) == 1
@@ -503,7 +508,7 @@ def test_policy_evaluator_z618_required_heading_missing() -> None:
 def test_policy_evaluator_z618_required_heading_satisfied() -> None:
     config = _config_with_policies(required_headings=["^Overview$", "^License$"])
     content = "# Title\n\n## Overview\n\n## License\n\nMIT"
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z618 = [f for f in findings if f.rule_id == "Z618"]
     assert len(z618) == 0
@@ -520,7 +525,7 @@ def test_policy_evaluator_z619_max_complexity_exceeded() -> None:
         "### Sub 2\n\n[Link 2](https://b.com)\n\n"
         "#### Sub 3\n\n[Link 3](https://c.com)\n\n"
     )
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z619 = [f for f in findings if f.rule_id == "Z619"]
     assert len(z619) == 1
@@ -531,7 +536,7 @@ def test_policy_evaluator_z619_max_complexity_exceeded() -> None:
 def test_policy_evaluator_z619_complexity_under_threshold() -> None:
     config = _config_with_policies(max_complexity=100)
     content = "# Title\n\nSimple content.\n"
-    evaluator = PolicyEvaluator(config)
+    evaluator = PolicyEvaluator(config, containers=None)
     findings = evaluator.check(DUMMY_FILE, content)
     z619 = [f for f in findings if f.rule_id == "Z619"]
     assert len(z619) == 0

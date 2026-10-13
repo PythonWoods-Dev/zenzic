@@ -141,7 +141,7 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
           <div class="rss-notice">
             <strong>This is a live RSS feed.</strong>
             Copy <code><xsl:value-of select="/rss/channel/link"/>blog/rss.xml</code> into your feed reader to stay updated.
-            An <a href="/blog/atom.xml">Atom feed</a> is also available.
+            A <a href="/blog/rss-updated.xml">feed of recently updated posts</a> is also available.
           </div>
           <section class="rss-meta">
             <dl>
@@ -188,7 +188,7 @@ Feed readers receive the raw XML and ignore this stylesheet entirely.
             </p>
             <p>
               <a href="/blog/rss.xml">RSS</a> &#183;
-              <a href="/blog/atom.xml">Atom</a> &#183;
+              <a href="/blog/rss-updated.xml">RSS (Updated)</a> &#183;
               Copyright &#169; 2026 PythonWoods &#8212; Apache-2.0
             </p>
           </footer>

@@ -25,6 +25,59 @@ from zenzic.core.content import (
 from zenzic.core.reporter import Finding
 
 
+def test_z512_exempts_a_heading_that_only_groups_deeper_subheadings(
+    tmp_path: Path,
+) -> None:
+    """A heading whose next heading is deeper is a grouping label, not an empty section.
+
+    '## Editor Integration' followed directly by '### Zenzic: Not Found' introduces
+    its subsections structurally; the content lives one level down. Flagging it
+    pushes authors to write a filler sentence restating the heading, which is what
+    Z512 exists to discourage.
+    """
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n"
+        "\n"
+        "Overview text.\n"
+        "\n"
+        "## Grouping Heading\n"  # line 5: no body, but next heading is DEEPER
+        "\n"
+        "### Real Subsection\n"
+        "\n"
+        "Body content lives here.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    assert check_empty_sections(file_path, text, containers=None) == []
+
+
+def test_z512_still_fires_when_the_next_heading_is_not_deeper(tmp_path: Path) -> None:
+    """The exemption must not become a loophole.
+
+    A heading followed by a sibling or shallower heading has no subsection to
+    delegate its content to, so it is genuinely empty and must still fire.
+    """
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n"
+        "\n"
+        "Overview text.\n"
+        "\n"
+        "### Deep Empty Heading\n"  # line 5: next heading is SHALLOWER
+        "\n"
+        "## Sibling Level\n"
+        "\n"
+        "Body content.\n"
+    )
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_empty_sections(file_path, text, containers=None)
+    assert len(findings) == 1
+    assert findings[0].line_no == 5
+    assert "Deep Empty Heading" in findings[0].message
+
+
 def test_z510_heading_hierarchy_detection(tmp_path: Path) -> None:
     """Z510 flags skipped heading levels with line-number fidelity."""
     file_path = tmp_path / "doc.md"
@@ -39,7 +92,7 @@ def test_z510_heading_hierarchy_detection(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_heading_hierarchy(file_path, text)
+    findings = check_heading_hierarchy(file_path, text, containers=None)
     assert len(findings) == 2
     assert findings[0].rule_id == "Z510"
     assert findings[0].line_no == 3
@@ -72,7 +125,7 @@ def test_z511_sentence_length_and_line_fidelity(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_sentence_lengths(file_path, text, max_words=40)
+    findings = check_sentence_lengths(file_path, text, max_words=40, containers=None)
     assert len(findings) == 1
     assert findings[0].rule_id == "Z511"
     assert findings[0].line_no == 9
@@ -96,7 +149,7 @@ def test_z511_html_block_exclusion(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_sentence_lengths(file_path, text, max_words=40)
+    findings = check_sentence_lengths(file_path, text, max_words=40, containers=None)
     assert len(findings) == 0
 
 
@@ -118,7 +171,7 @@ def test_z512_empty_section_detection(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_empty_sections(file_path, text)
+    findings = check_empty_sections(file_path, text, containers=None)
     assert len(findings) == 3
     assert findings[0].rule_id == "Z512"
     assert findings[0].line_no == 5
@@ -180,13 +233,13 @@ def test_z511_semicolon_sentence_splitting(tmp_path: Path) -> None:
     text = f"# Title\n\n{clause1}; {clause2}.\n"
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_sentence_lengths(file_path, text, max_words=40)
+    findings = check_sentence_lengths(file_path, text, max_words=40, containers=None)
     assert len(findings) == 0
 
     # Verify that if any single clause separated by a semicolon exceeds max_words, it is flagged
     long_clause = " ".join([f"wordc{i}" for i in range(45)])
     text_long = f"# Title\n\n{clause1}; {long_clause}.\n"
-    findings_long = check_sentence_lengths(file_path, text_long, max_words=40)
+    findings_long = check_sentence_lengths(file_path, text_long, max_words=40, containers=None)
     assert len(findings_long) == 1
     assert findings_long[0].rule_id == "Z511"
 
@@ -205,7 +258,7 @@ def test_z513_duplicate_heading_detection(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_duplicate_headings(file_path, text)
+    findings = check_duplicate_headings(file_path, text, containers=None)
     assert len(findings) == 2
     assert findings[0].rule_id == "Z513"
     assert findings[0].line_no == 6
@@ -228,7 +281,7 @@ def test_z514_generic_image_alt_text_detection(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_generic_image_alt_text(file_path, text)
+    findings = check_generic_image_alt_text(file_path, text, containers=None)
     assert len(findings) == 3
     assert all(f.rule_id == "Z514" for f in findings)
     assert findings[0].line_no == 3
@@ -250,7 +303,7 @@ def test_z515_bare_url_detection_and_mutator(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_bare_urls(file_path, text)
+    findings = check_bare_urls(file_path, text, containers=None)
     assert len(findings) == 1
     assert findings[0].rule_id == "Z515"
     assert findings[0].line_no == 3
@@ -280,7 +333,7 @@ def test_z516_multiple_h1_headings_detection(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_multiple_h1_headings(file_path, text)
+    findings = check_multiple_h1_headings(file_path, text, containers=None)
     assert len(findings) == 2
     assert findings[0].rule_id == "Z516"
     assert findings[0].severity == "error"
@@ -306,7 +359,7 @@ def test_z517_heading_punctuation_detection_and_mutator(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_heading_punctuation(file_path, text)
+    findings = check_heading_punctuation(file_path, text, containers=None)
     assert len(findings) == 3
     assert all(f.rule_id == "Z517" for f in findings)
     assert findings[0].line_no == 1
@@ -339,7 +392,7 @@ def test_z518_passive_voice_detection(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_passive_voice(file_path, text)
+    findings = check_passive_voice(file_path, text, containers=None)
     assert len(findings) == 1
     assert findings[0].rule_id == "Z518"
     assert findings[0].line_no == 3
@@ -358,7 +411,7 @@ def test_z519_weasel_words_detection(tmp_path: Path) -> None:
     file_path.write_text(text, encoding="utf-8")
 
     weasel_words = ["clearly", "simply", "obviously"]
-    findings = check_weasel_words(file_path, text, weasel_words)
+    findings = check_weasel_words(file_path, text, weasel_words, containers=None)
     assert len(findings) == 2
     assert all(f.rule_id == "Z519" for f in findings)
     assert findings[0].line_no == 3
@@ -384,7 +437,7 @@ def test_z520_malformed_list_detection_and_mutator(tmp_path: Path) -> None:
     )
     file_path.write_text(text, encoding="utf-8")
 
-    findings = check_malformed_lists(file_path, text)
+    findings = check_malformed_lists(file_path, text, containers=None)
     assert len(findings) == 1
     assert findings[0].rule_id == "Z520"
     assert findings[0].line_no == 4
@@ -401,5 +454,61 @@ def test_z520_malformed_list_detection_and_mutator(tmp_path: Path) -> None:
     assert "- Third item;" in fixed_text
 
     # Re-evaluating fixed text should produce zero Z520 findings
-    recheck_findings = check_malformed_lists(file_path, fixed_text)
+    recheck_findings = check_malformed_lists(file_path, fixed_text, containers=None)
     assert len(recheck_findings) == 0
+
+
+# `<h1\b[^>]*>` ended the tag at the first `>` anywhere in it, so an attribute
+# value carrying one was read as part of the heading text: the finding named a
+# title the document does not contain, and the truncated text is what the
+# message, `match_text` and every downstream reader saw.
+
+
+def test_z516_reports_the_whole_html_title_when_an_attribute_contains_a_greater_than(
+    tmp_path: Path,
+) -> None:
+    file_path = tmp_path / "doc.md"
+    text = '# First Title\n\n<h1 title="a > b">Second Title</h1>\n'
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_multiple_h1_headings(file_path, text, containers=None)
+    assert len(findings) == 1
+    assert findings[0].match_text == "Second Title"
+    assert "('Second Title')" in findings[0].message
+
+
+def test_z516_reports_the_same_title_without_the_greater_than(tmp_path: Path) -> None:
+    """The control half of the pair: identical heading, `>` removed from the value."""
+    file_path = tmp_path / "doc.md"
+    text = '# First Title\n\n<h1 title="a b">Second Title</h1>\n'
+    file_path.write_text(text, encoding="utf-8")
+
+    findings = check_multiple_h1_headings(file_path, text, containers=None)
+    assert len(findings) == 1
+    assert findings[0].match_text == "Second Title"
+
+
+def test_z515_reference_definition_skip_follows_commonmark_indentation(tmp_path: Path) -> None:
+    """A link reference definition may be indented at most three spaces
+    (CommonMark §4.7). A line indented four or more is either indented code --
+    when a blank line precedes it -- or a paragraph continuation. The skip that
+    keeps a definition's URL out of Z515 matched `^\\s*`, so a four-space
+    paragraph line shaped like a definition was silently exempted, and an
+    indented code line was exempted for the wrong reason."""
+    file_path = tmp_path / "doc.md"
+    text = (
+        "# Title\n\n"
+        "Prose that continues on the next line\n"
+        "    [ref]: https://example.com/continued-paragraph\n"  # line 4: paragraph continuation, not a definition
+        "\n"
+        "    [code]: https://example.com/indented-code\n"  # line 6: indented code after a blank line
+        "\n"
+        "   [three]: https://example.com/real-definition\n"  # line 8: a definition, three spaces
+    )
+    file_path.write_text(text, encoding="utf-8")
+    lines = {
+        f.line_no for f in check_bare_urls(file_path, text, containers=None) if f.code == "Z515"
+    }
+    assert 4 in lines, "a four-space paragraph continuation is prose: its bare URL is reported"
+    assert 6 not in lines, "indented code is inert"
+    assert 8 not in lines, "a real definition is not a bare URL"

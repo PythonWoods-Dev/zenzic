@@ -45,4 +45,4 @@ Manual version editing is error-prone, produces undocumented release debt, and b
 - Elimination of stale version references in developer onboarding guides.
 - Full compliance with the [Mirror Law (ADR-020)](./adr-020-mirror-law.md).
 
-For operational protocols, see the [Release Governance Protocol](../../../how-to/release-governance-protocol.md) and the [ADR Vault Records Index](./index.md).
+For operational protocols, see the [Release Governance Protocol](../../../how-to/release-governance-protocol.md) and the [ADR Vault](../index.md).

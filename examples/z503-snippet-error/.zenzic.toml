@@ -9,7 +9,7 @@
 # `ast` module and flags syntax errors as Z503 SNIPPET_ERROR — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z503 ×1 — SyntaxError in Python block)
+#   zenzic check snippets   → EXIT 0  (Z503 ×1 — SyntaxError in Python block)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"
@@ -17,3 +17,11 @@ fail_under = 0
 
 [build_context]
 engine = "standalone"
+
+# Z503 became opt-in on 2026-09-19: documentation shows excerpts, and on a
+# 421-file public corpus 9 of 27 findings were deliberate fragments of a larger
+# file. A fixture named for the code must enable it, or it demonstrates nothing
+# -- the same thing that happened to z106 when its default changed, which
+# tests/test_gallery_code_coverage.py caught.
+[policies]
+enable_snippet_check = true

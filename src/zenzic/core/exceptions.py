@@ -81,6 +81,27 @@ class ZenzicConfigError(ConfigurationError):
         super().__init__(message, context, code="Z001")
 
 
+def config_error_z111(message: str, context: dict[str, Any] | None = None) -> ZenzicConfigError:
+    """Build a ``Z111`` that reports itself as one.
+
+    :class:`ZenzicConfigError` hardcodes ``code="Z001"``, so a configuration
+    error raised through it reaches the JSON payload as ``"code": "Z001"`` --
+    and the payload is what a CI wrapper reads. That was corrected once, for
+    the missing route manifest, by a helper in ``cli/_shared``; the adapters
+    that raise their own configuration errors live in Core and could not reach
+    it, so `zensical` without its `zensical.toml` was still reporting `Z001`
+    against a documented `Z111` reference page. Measured 2026-09-21.
+
+    ``tier`` and ``severity`` are pinned to the values that path already
+    produced, so this corrects the identifier and nothing else.
+    """
+    exc = ZenzicConfigError(
+        message, context={"tier": "Core", "severity": "fatal", **(context or {})}
+    )
+    exc.code = "Z111"
+    return exc
+
+
 class ZenzicViolation(ZenzicError):
     """Raised when a specific scan rule or policy is violated."""
 

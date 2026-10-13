@@ -14,4 +14,6 @@ Deep content with [Link 4](https://example.com/4).
 
 ##### Level 5 Heading
 
-Very deep content with [Link 5](https://example.com/5).
+Very deep content with [Link 5](https://example.com/5). This deeply nested
+structure is exactly what the max-complexity policy is meant to flag before
+it ships.

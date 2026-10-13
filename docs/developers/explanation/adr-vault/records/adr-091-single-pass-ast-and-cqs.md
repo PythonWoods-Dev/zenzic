@@ -45,4 +45,4 @@ Decoupling validation from mutation prevents monolithic CLI commands, guarantees
 - Strict isolation between static rule evaluation and badge/metric persistence.
 - Deterministic, easily parallelizable AST visitor pipelines.
 
-For related specifications, see [ADR 021: Parallel Audit](./adr-021-parallel-audit.md) and the [ADR Vault Records Index](./index.md).
+For related specifications, see [ADR 021: Parallel Audit](./adr-021-parallel-audit.md) and the [ADR Vault](../index.md).

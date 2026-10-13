@@ -25,7 +25,7 @@ Fixes #
 
 ## Architectural Quality Gates (Core Python)
 
-- [ ] **Mirror Law:** I have updated the finding codes catalog, scoring matrices, rule cards, and reference documentation if adding or modifying a rule.
+- [ ] **Mirror Law:** I have updated all 10 mandatory targets (including the zenzic init template in templates.py and the VS Code IntelliSense schema in zenzic.schema.json) if adding or modifying a rule.
 - [ ] **Local Quality Pipeline:** `just verify` (or `pytest tests/` + `zenzic check all --strict`) passes with 100% test pass rate and no DQS regression.
 - [ ] **Zero Subprocess & Determinism:** No unauthorized subprocess executions, shell wrappers, or non-deterministic file I/O are introduced into the core analysis engine.
 - [ ] **Custom Rule SDK v3:** If modifying the SDK or rule extensions, changes maintain backward compatibility with `ZenzicRuleV3`.

@@ -1,4 +1,3 @@
-<!-- zenzic:ignore:Z411 -->
 # Suppressed Dead End Page
 
-This page is a dead end, but Z411 is suppressed inline.
+This page is a dead end, and Z411 is suppressed via per_file_ignores in .zenzic.toml.

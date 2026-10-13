@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -15,7 +16,12 @@ from zenzic.models.config import ZenzicConfig
 
 def test_ghost_policy_leading_space_remediation() -> None:
     """Vulnerability 1: Ensure leading/trailing spaces in per_file_ignores are counted in DQS."""
-    config_data = {"governance": {"per_file_ignores": {"docs/index.md": [" Z101"]}}}
+    # dict[str, Any], not the narrower nested type mypy would otherwise infer:
+    # ZenzicConfig's real fields are heterogeneously typed, and an inferred
+    # dict[str, dict[str, dict[str, list[str]]]] makes every ** unpacked key
+    # fail against every other field's type (mypy's dict is invariant; see
+    # "Consider using Mapping instead, which is covariant").
+    config_data: dict[str, Any] = {"governance": {"per_file_ignores": {"docs/index.md": [" Z101"]}}}
     config = ZenzicConfig(**config_data)
 
     # Verify the space-prefixed code is properly counted as a suppression

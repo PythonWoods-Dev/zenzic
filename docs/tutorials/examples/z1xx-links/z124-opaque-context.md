@@ -7,7 +7,7 @@ description: "Z124 fires when an HTML tag contains attributes that obfuscate lin
 
 ## Z124 Opaque HTML Context
 
-**Severity:** `warning` | **Category:** `hygiene` | **Penalty:** `-1.0 pts`
+**Severity:** `error` | **Category:** `hygiene` | **Penalty:** `-1.0 pts`
 
 `Z124` is triggered when an `<a>` or `<img>` tag uses blacklisted attributes like `onclick` or `onmouseover`.
 

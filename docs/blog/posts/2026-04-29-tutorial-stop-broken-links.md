@@ -72,17 +72,15 @@ are caught before they reach `main`.
 
 ## Why Zenzic
 
-- **Fast** — Zenzic is fast because it's lightweight. No build step, no Node.js,
-
-  no browser launch. Analysis happens directly on your Markdown source files.
+- **Fast** — Zenzic is fast because it's lightweight. No build step, no Node.js, no browser launch. Analysis happens directly on your Markdown source files.
 
 - **Safe** — Zenzic is secure because it doesn't touch your system files.
 
-  Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes.
+    Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes.
 
 - **Universal** — Works with MkDocs, Zensical, or any plain Markdown folder.
 
-  Point it at your `docs/` directory and it figures out the rest.
+    Point it at your `docs/` directory and it figures out the rest.
 
 ---
 
@@ -100,3 +98,17 @@ Pin a specific version for reproducible CI:
 ```bash title="Terminal"
 uvx "zenzic==0.7.0" check all ./docs
 ```
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

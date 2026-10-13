@@ -18,6 +18,10 @@
 #   just verify      — Final Guard (pre-commit + test-cov + check)
 #   just clean       — remove generated artefacts
 
+# Optional local recipes live in .justfile.local, gitignored and absent on a
+# fresh clone -- every recipe below still works without it.
+import? '.justfile.local'
+
 set shell := ["bash", "-c"]
 
 runner     := "uv run --active"
@@ -28,6 +32,17 @@ export BUILD_DATE := `date -u +'%Y/%m/%d'`
 ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
+
+# The hook install is deliberately part of setup rather than a separate step a
+# developer has to know about -- three of the four ecosystem repositories were
+# once found running with no hooks installed at all, a precondition this now
+# blocks on. Running this makes that precondition self-healing.
+#
+# Bootstrap a fresh clone: install dependencies and git hooks.
+setup:
+    uv sync --all-groups
+    uvx pre-commit install -t pre-commit -t pre-push
+    @echo "Setup complete. Run 'just verify' to check everything passes."
 
 # Install or update all dependency groups
 sync:
@@ -57,6 +72,49 @@ test-slow *args:
 test-cov *args:
     {{ runner }} pytest -m "not slow" --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
+# Mutation gate for the credential scanner (Z201/Z204/Z205 path).
+# Ratchet, not the Tier-0 target: see scripts/mutation_gate.py for why the floor
+# is the measured score and not the documented 90%.
+mutation:
+    {{ runner }} python scripts/mutation_gate.py
+
+# The expanded four-module set (credentials, scanner, validator, exclusion).
+# ~90 minutes, ~4,800 mutants -- deliberately NOT in CI: it ran there once by
+# oversight and cost 2h50m per Linux job before failing, because the 95.7% floor
+# belongs to the one-module set above and means nothing against four.
+#
+# Reports the score; does not gate on it. There is no measured floor for this
+# population yet, and inventing one would repeat the mistake that put this on
+# demand in the first place.
+#
+# mutmut 3 reads `source_paths` from pyproject.toml and has no CLI override, so
+# the list is swapped in for the duration and restored by a trap -- including on
+# Ctrl-C or failure, because leaving the expanded list in place would silently
+# turn the next CI run back into a three-hour job.
+mutation-expanded:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cp pyproject.toml pyproject.toml.mutbak
+    trap 'mv -f pyproject.toml.mutbak pyproject.toml; echo "pyproject.toml restored"' EXIT
+    # mutmut reuses whatever mutant/test mapping `mutants/` already holds. After a
+    # `just mutation` (credentials only) that mapping covers one module, and an
+    # expanded run inherits it: the three added modules come back as 4,380 "no
+    # tests" and the run reports 4822/4822 having measured nothing. The output
+    # looks complete, which is what makes it dangerous. Regenerate from scratch.
+    rm -rf mutants .mutmut-cache
+    python3 - <<'PY'
+    import pathlib, tomllib
+    p = pathlib.Path("pyproject.toml"); t = p.read_text(encoding="utf-8")
+    expanded = tomllib.loads(t)["tool"]["mutmut"]["mutmut_expanded_source_paths"]
+    body = ",\n    ".join(f'"{m}"' for m in expanded)
+    t = t.replace('source_paths = ["src/zenzic/core/credentials.py"]',
+                  f"source_paths = [\n    {body},\n]", 1)
+    p.write_text(t, encoding="utf-8")
+    print(f"expanded set active: {len(expanded)} modules")
+    PY
+    {{ runner }} mutmut run || true
+    {{ runner }} mutmut results
+
 # Full audit: includes slow tests (deadlock guards, 1k-file torture, Hypothesis ci).
 # Run on Ubuntu only; reserved for pre-release validation.
 test-cov-full *args:
@@ -72,24 +130,133 @@ test-full *args:
 lint:
     {{ runner }} pre-commit run --all-files
 
+# Optional repository-local checks. They are defined only in the gitignored
+# `.justfile.local`, so they cannot be static dependencies of `verify` -- a
+# fresh clone without that file must still parse and run `verify` cleanly
+# rather than fail with an unknown-dependency error at parse time.
+#
+# The outcomes below are deliberately different, because they are different
+# failures. A clone with no local recipe file is ordinary: nothing is wrong,
+# and the skip is announced rather than hidden. A clone that has *opted in* to
+# local tooling and then lost its recipe file is a half-installed setup, where
+# the checks the operator believes are running silently are not -- that fails
+# hard, because a control absent from the execution path is indistinguishable
+# from one that was never written.
+#
+# The opt-in marker is a local git config key, deliberately not a file or
+# directory name. `.git/config` is never cloned, pushed or forked, so this
+# cannot be inherited by accident: a fork that creates a directory this
+# project also happens to use is a legitimate fork, not a broken install, and
+# must behave exactly like a plain clone. Opt in with:
+#     git config --local zenzic.local-tooling true
+_local-checks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f .justfile.local ]; then
+        just _local-gates
+        exit 0
+    fi
+    if git config --local --get zenzic.local-tooling >/dev/null 2>&1; then
+        echo -e "\033[31mBLOCKED: this clone opts in to local tooling, but '.justfile.local' is missing.\033[0m" >&2
+        echo "  The local checks cannot run, so this would verify less than it appears to." >&2
+        echo "  Restore '.justfile.local', or opt out with:" >&2
+        echo "    git config --local --unset zenzic.local-tooling" >&2
+        exit 1
+    fi
+    if [ -d .claude ] || [ -d .human ]; then
+        echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
+        echo "  '.claude/' and/or '.human/' exist here, so this is a maintainer clone —" >&2
+        echo "  but '.justfile.local' is absent and 'zenzic.local-tooling' is unset, so" >&2
+        echo "  every private gate is being skipped while 'just verify' reports success." >&2
+        echo "  That is the failure this check exists to make visible: a green run that" >&2
+        echo "  verified less than it appeared to." >&2
+        echo "  Fix — restore the private recipes, then opt this clone in:" >&2
+        echo "    git config --local zenzic.local-tooling true" >&2
+        echo "  A genuine contributor fork has neither directory and never reaches this." >&2
+        exit 1
+    fi
+    echo "note: '.justfile.local' not present — repository-local checks skipped (expected for a fresh clone)."
+# The pre-push gate: only the checks whose failure a later run cannot undo.
+#
+# **This replaced `just verify` in the pre-push hook on 2026-09-18, and the
+# reason is a measured failure, not a preference.** git opens the SSH connection
+# to the remote in order to hand the hook its ref list, and holds it open while
+# the hook runs; GitHub closes a connection left idle for a few minutes. A hook
+# running the full gate took 388 s on a cold verdict cache and therefore failed
+# the push itself — `Connection to github.com closed by remote host`, exit 141,
+# nothing transferred — which is the hang that cost five push attempts in the
+# v0.31.0 cycle before its cause was found. The gate was not merely slow: it was
+# the cause. This recipe finishes in ~13 s and cannot reach that limit.
+#
+# What runs here is the set whose damage is irreversible: a push publishes, and
+# a pushed commit is not rewritten. Everything else — the suite, the audit, the
+# score, the coherence gates — runs in `just verify` before a commit and in CI
+# on every push, where a failure costs a follow-up commit and nothing more.
+# `just verify-full` adds the two on-demand gates before a release.
+# CONTRIBUTING.md, "Which gate runs where", is the table.
+_prepush-checks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f .justfile.local ]; then
+        just _prepush-gates
+        exit 0
+    fi
+    if git config --local --get zenzic.local-tooling >/dev/null 2>&1; then
+        echo -e "\033[31mBLOCKED: this clone opts in to local tooling, but '.justfile.local' is missing.\033[0m" >&2
+        echo "  The pre-push gates cannot run, so this would verify less than it appears to." >&2
+        exit 1
+    fi
+    if [ -d .claude ] || [ -d .human ]; then
+        echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
+        echo "  The disclosure and private-tree gates are the ones that matter most here:" >&2
+        echo "  they are the only checks that read '.claude/' and '.human/' before a push." >&2
+        echo "  Fix — restore the private recipes, then opt this clone in:" >&2
+        echo "    git config --local zenzic.local-tooling true" >&2
+        exit 1
+    fi
+    echo "note: '.justfile.local' not present — pre-push gates skipped (expected for a fresh clone)"
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → pip-audit → pytest tests/ → structural audit → score + stamp.
-verify: _check-hooks release-contracts check-pinning docs-build
-    @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
-    {{ runner }} pre-commit run --all-files
-    @echo "==> [2/5] Dependency vulnerability audit (pip-audit)..."
+# Sequence: git-hook check → [tree-deterministic, verdict cached per tree: release
+# contracts → pinning → docs build → local gates → pre-commit (all hooks) →
+# pytest with coverage] → pip-audit → structural audit → score + stamp.
+#
+# The bracketed stages read nothing but the tree, so their verdict for a
+# byte-identical tree is the verdict already recorded: `just verify` before a
+# commit and again inside the pre-push hook paid them twice -- about 400 of
+# 445 seconds -- for the same answer. scripts/verdict_cache.py keys on the
+# tree's content (tracked, untracked and the gitignored local trees the
+# local gates read) and records a verdict only on exit 0. The three stages that
+# reach outside the tree -- pip-audit, the structural audit, the score -- run
+# every time. Off in CI; ZENZIC_VERDICT_CACHE=0 forces a full run locally.
+verify: _check-hooks
+    @{{ runner }} python scripts/verdict_cache.py run deterministic -- just _verify-deterministic
+    @echo "==> [3/5] Dependency vulnerability audit (pip-audit)..."
     {{ runner }} pip-audit
-    @echo "==> [3/5] Test suite..."
-    {{ runner }} pytest tests/
     @echo "==> [4/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict --no-header {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [5/5] Score computation and badge stamp (zenzic score --stamp)..."
-    {{ runner }} zenzic score --stamp --ci --no-header
+    {{ runner }} zenzic score --stamp --ci --no-header --no-external
+
+# The tree-deterministic half of `verify`, run through the verdict cache above.
+_verify-deterministic: release-contracts check-pinning docs-build
+    @just _local-checks
+    @echo "==> [1/5] Pre-commit hooks (lint, type-check, flake8-bandit, REUSE)..."
+    {{ runner }} pre-commit run --all-files
+    @echo "==> [2/5] Test suite (coverage enforced, fail_under=80 via pyproject.toml; pytest-xdist)..."
+    # -n auto adopted 2026-09-17 on measurement, here and not in CI: 256 s serial
+    # vs 129-150 s on 8 cores; the coverage figure moved by three lines, traced
+    # to a test reading the worker's argv (now pinned), and what remains is the
+    # same +/-3-line order noise two serial runs show. The perf assertions'
+    # worst margin narrowed from 1.74x to 1.45x under contention -- the one
+    # cost (CHANGELOG, Unreleased/Changed, carries the figures). CI runs
+    # `just test-cov`, serial, where nothing was measured.
+    {{ runner }} pytest tests/ -n auto --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json
+    @{{ runner }} python -c "import json; d=json.load(open('coverage.json'))['totals']; pct=d['percent_covered']; print(f'  Coverage: {pct:.2f}%  (gap to 80%: {max(0.0, 80 - pct):.2f} pts)')"
 
 # Badge freshness gate for non-mutating CI pipelines
 check-badges: docs-build
     @echo "==> Validating badge freshness (zenzic score --check-stamp)..."
-    {{ runner }} zenzic score --check-stamp --ci --no-header
+    {{ runner }} zenzic score --check-stamp --ci --no-header --no-external
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
 # not a public Zenzic rule). Pre-commit `rev:` keys must be 40-char
@@ -106,26 +273,64 @@ check-pinning:
         exit 1
     fi
     echo "✓ ADR-089: all pre-commit hooks pinned to immutable commit hashes."
+    # The other five pins. A declared pin whose file moved, whose value changed
+    # shape, or whose bump command is not a recipe, fails here rather than the
+    # next time somebody needs to move it.
+    {{ runner }} python scripts/declared_pins.py --self-test
+    {{ runner }} python scripts/bump_engine_version.py --self-test
 
+# Blocking gate, not a warning. A pre-commit hook that is merely declared in
+# .pre-commit-config.yaml runs nothing: the hook has to be installed into
+# .git/hooks for the commit-time gate to exist at all. Three of the four
+# ecosystem repositories were found with no hook installed, so every commit
+# in them bypassed markdownlint, REUSE and the formatter silently.
+#
+# A missing pre-commit hook cannot block its own commit -- there is nothing
+# installed to run -- so this check fails `just verify` instead, which is the
+# pre-push path and what CI runs. Exit 1, never a warning: the previous
+# version of this recipe printed the same diagnosis and let the work proceed.
+# Blocking gate, not a warning. A pre-commit hook that is merely declared in
+# .pre-commit-config.yaml runs nothing: the hook has to be installed into
+# .git/hooks for the commit-time gate to exist at all. Three of the four
+# ecosystem repositories were found with no hook installed, so every commit
+# in them bypassed markdownlint, REUSE and the formatter silently.
+#
+# A missing pre-commit hook cannot block its own commit -- there is nothing
+# installed to run -- so this check fails `just verify` instead, which is the
+# pre-push path and what CI runs. Exit 1, never a warning: the previous
+# version of this recipe printed the same diagnosis and let the work proceed.
 _check-hooks:
     #!/usr/bin/env bash
+    set -euo pipefail
+    # CI checks out a bare working tree and never commits from it, so git hooks
+    # are meaningless there -- and requiring them would fail every run for a
+    # condition no CI job can or should fix. The gate exists for the machine
+    # where commits are actually authored.
+    if [ -n "${CI:-}" ]; then
+        echo "CI environment: git-hook check skipped (hooks gate local commits only)"
+        exit 0
+    fi
     _missing=0
-    if [ ! -f .git/hooks/pre-commit ]; then
-        echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
-        echo "Without it, static checks and type-checks will NOT run automatically on git commit."
-        echo "👉 Fix it by running: uv run --active pre-commit install"
+    # commit-msg is listed because a hook declared in .pre-commit-config.yaml is
+    # not an installed hook: `pre-commit install` writes pre-commit only, and the
+    # commit-msg stage needs `-t commit-msg`. Without this line the
+    # breaking-change marker check would be declared, uninstalled, and silent --
+    # indistinguishable from a clean run.
+    for _h in pre-commit pre-push commit-msg; do
+        if [ ! -f ".git/hooks/${_h}" ] || ! grep -qi "pre-commit" ".git/hooks/${_h}"; then
+            echo -e "\033[31mBLOCKED: the ${_h} hook is not installed (or is not pre-commit's).\033[0m"
+            echo "  Without it the ${_h} gate does not run, and defects reach the remote."
+            echo "  Fix: uvx pre-commit install -t ${_h}"
+            _missing=1
+        fi
+    done
+    if [ "${_missing}" -ne 0 ]; then
         echo ""
-        _missing=1
+        echo "Refusing to continue with an uninstalled git hook."
+        exit 1
     fi
-    if [ ! -f .git/hooks/pre-push ]; then
-        echo -e "\033[33m⚠️  WARNING: pre-push hook is not installed.\033[0m"
-        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
-        echo "👉 Fix it by running: uv run --active pre-commit install -t pre-push"
-        echo ""
-        _missing=1
-    fi
+    echo "git hooks installed (pre-commit, pre-push, commit-msg)"
 
-# Enforce release contracts: dirty allowed only in release-dry.
 release-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -160,6 +365,102 @@ release part: release-contracts
         git add -u
         git commit -S -s -m "release: bump version to ${version}"
 
+# Create the signed release tag. Run AFTER the bump commit is on the default
+# branch, which means after its pull request has merged -- `main` refuses a direct
+# push, so the bump cannot be tagged where it is made.
+# Usage: just release-tag [--push]
+release-tag *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # A separate recipe from `release` on purpose, and the reason is structural
+    # rather than stylistic. `main` carries a `pull_request` ruleset rule with no
+    # bypass actors, so the bump commit reaches the default branch through a pull
+    # request; by the time there is something to tag, the branch the bump was made
+    # on is behind. Tagging inside `release` would tag the wrong commit.
+    _push=false
+    for _arg in {{args}}; do [[ "$_arg" == "--push" ]] && _push=true; done
+
+    if [[ -n "$(git status --porcelain)" ]]; then
+        echo "Refusing to tag a dirty tree — commit or stash first." >&2
+        exit 1
+    fi
+    version="$(uv run --active bump-my-version show current_version)"
+    tag="v${version}"
+
+    if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+        echo "Tag ${tag} already exists locally. Delete it first if you mean to recreate it." >&2
+        exit 1
+    fi
+
+    # -s, always. A lightweight `git tag ${tag}` produces an object GitHub reports
+    # as type `commit` with no signature of its own, and it still starts
+    # release.yml. So the wrong form must not be reachable from here: this recipe
+    # is the only tagging path, and it verifies its own output before anything
+    # is pushed.
+    git tag -s "${tag}" -m "${tag}"
+
+    # Verified before anything is pushed, because the whole point of putting this
+    # in a recipe is that it cannot produce the wrong form silently.
+    if [[ "$(git cat-file -t "${tag}")" != "tag" ]]; then
+        echo "FATAL: ${tag} is not an annotated tag." >&2
+        git tag -d "${tag}" >/dev/null
+        exit 1
+    fi
+    if ! git cat-file tag "${tag}" | grep -qE "BEGIN (SSH|PGP) SIGNATURE"; then
+        echo "FATAL: ${tag} carries no signature. Check user.signingkey and gpg.format." >&2
+        git tag -d "${tag}" >/dev/null
+        exit 1
+    fi
+    echo "${tag}: annotated and signed."
+
+    if $_push; then
+        echo "Pushing ${tag} — this starts the release workflow."
+        git push origin "${tag}"
+    else
+        echo "Not pushed. Review, then: git push origin ${tag}"
+    fi
+
+# Release-consistency audit: every version string is bumped or frozen on purpose.
+# The satellites carry one of these; the core did not, which ran the wrong way round.
+# Regenerate the terminal blocks the family index pages include. Each is real
+# output of the `zenzic lab` command its page names, captured by running it --
+# never transcribed. `--check` fails if any block differs from what the command
+# prints now, which is what the parity test asserts in CI.
+lab-blocks *args:
+    {{ runner }} python scripts/generate_lab_blocks.py {{ args }}
+
+audit-release:
+    @{{ runner }} python scripts/audit_release.py
+
+# Every declared pin in the ecosystem, its current value, and what moves it
+#
+# `just bump-engine` moves one of six. Until this recipe, nothing enumerated
+# the rest: "which files carry a pin" was answered from memory, and a pin whose
+# bump command nobody remembers is a pin that goes stale. The script's
+# self-test (run by `just verify`) checks that each file still exists, that the
+# value is still readable in it, and that a `just` recipe named here is a
+# recipe that exists.
+pins:
+    @{{ runner }} python scripts/declared_pins.py
+
+# Show the declared engine versions and where each is checked
+engines:
+    @{{ runner }} python scripts/bump_engine_version.py --list
+
+# Bump a declared engine version in the compatibility matrix.
+#
+# `just version` bumps *Zenzic's* version. This is the other one: what a
+# contributor does when MkDocs 2 ships. The matrix is a user-facing claim that
+# a version was tested, so for an engine that is a pip dependency the script
+# refuses a version `uv.lock` does not carry -- a "tested version" nobody
+# tested is the thing that table exists to prevent. For an engine that is not a
+# dependency (Zensical is parsed as data, never installed) it says there is
+# nothing to check against, rather than implying there was.
+#
+# Usage: just bump-engine "Material for MkDocs" 9.7.8
+bump-engine engine version:
+    @{{ runner }} python scripts/bump_engine_version.py "{{ engine }}" "{{ version }}"
+
 # Show the current project version
 version:
     @uv run --active bump-my-version show current_version
@@ -191,6 +492,40 @@ docs-serve +args="":
 
 docs-build:
 	uv run --extra docs mkdocs build --strict
+	# Every docs/_redirects destination must resolve in the site just built.
+	# A rule pointing at a deleted page keeps working against the *deployed*
+	# site and starts 404ing the moment this build ships -- a regression the
+	# release introduces rather than inherits. Six were found this way.
+	uv run python3 scripts/check_redirect_destinations.py site
+	# Every Mermaid node takes its colour from a declared class, and every class
+	# value is one the dark theme declares. Diagrams only: the rule cards carry
+	# three undeclared values today and are their own batch -- a gate that starts
+	# red on seventy-one pages teaches its reader to ignore it. The check states
+	# in its own docstring what it cannot do: whether a depicted flow is still
+	# the flow.
+	uv run python3 scripts/check_diagram_palette.py
+	# Every internal link must resolve the way a browser resolves it. The
+	# engine answers a different question -- against the source tree -- which
+	# is how 161 broken links passed `zenzic check links`. Public gate, not a
+	# governance one, so it lives here rather than in .justfile.local: CI runs
+	# `just verify`, and this ships to users.
+	uv run python3 scripts/check_built_site_links.py site
+	# Every list item keeps its continuation. Python-Markdown needs four spaces
+	# across a blank line -- two reads as correct and renders as three elements,
+	# so a bullet stops mid-sentence and its other half becomes a loose paragraph.
+	# The Markdown stays valid, which is why markdownlint passed 99 instances --
+	# the oldest traced to v0.15.1 -- including eight adapter-contract invariants
+	# that each rendered as a fresh list numbered "1.". Run with --self-test to
+	# check the instrument.
+	uv run python3 scripts/check_list_continuation.py
+
+# Report which staggered-publication blog links are ready to paste back in
+# (target now live) vs still pending (target still draft). Always exits 0 --
+# this is a report to run before each day's publish action, not a gate. The
+# gate itself is scripts/check_blog_link_schedule.py's default mode, wired
+# into pre-commit and CI.
+blog-link-schedule:
+	uv run python3 scripts/check_blog_link_schedule.py --schedule
 
 # Optimize blog images and animated GIFs for web performance
 optimize-assets:
@@ -199,3 +534,31 @@ optimize-assets:
     echo "==> Optimizing animated GIFs with gifsicle..."
     find docs/assets/images -name "*.gif" -exec gifsicle -O3 --colors 128 --lossy=80 {} -o {} \;
     echo "✓ Assets optimized successfully."
+
+# Run the "Power Triad" sandbox for a landing-page terminal screenshot (broken
+# link, path traversal, leaked credential) — output is meant to be captured
+# manually, not asserted on
+screenshot-hero:
+    cd tests/sandboxes/hero_specimen && {{runner}} zenzic check all --strict
+
+# Run the circular-link sandbox for a terminal screenshot demonstrating Z106
+# CIRCULAR_LINK detection — output is meant to be captured manually
+screenshot-circular:
+    cd tests/sandboxes/screenshot_circular && {{runner}} zenzic check all --show-info
+
+# Compare the findings Zenzic produces on two Python interpreters. Determinism is a
+# Tier-0 invariant and nothing checked it across versions until 2026-09-13, when
+# `pathlib.PurePath.suffix`'s 3.12 semantics change was found to have been changing
+# results for two years with both CI legs green. Its limit is real and documented in
+# the script: it compares findings over `examples/`, so a divergence in a shape no
+# fixture contains is invisible to it.
+determinism py_a="3.10" py_b="3.14":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    uv run --python {{ py_a }} --extra dev python scripts/check_interpreter_determinism.py --emit "$tmp/a.json"
+    uv run --python {{ py_b }} --extra dev python scripts/check_interpreter_determinism.py --emit "$tmp/b.json"
+    uv venv --python {{ py_b }} --allow-existing >/dev/null 2>&1
+    uv sync --extra dev --extra docs >/dev/null 2>&1
+    uv run python scripts/check_interpreter_determinism.py --compare "$tmp/a.json" "$tmp/b.json"

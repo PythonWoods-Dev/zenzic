@@ -26,3 +26,18 @@ docs/(nav)  x  [Z406]  mkdocs.yml extra.alternate[it]: link '/it/' does not
 correspond to any URL the build engine will generate. The Virtual Site Map
 contains no entry for '/it/'.
 ```
+
+## It also declares its Markdown extensions
+
+This is the one gallery fixture whose `mkdocs.yml` carries a
+`markdown_extensions` key, and it is there to exercise the adapter-extension
+contract rather than to demonstrate `Z406`.
+
+It enables `admonition` and not `pymdownx.details`. So in *this* project `!!!`
+opens a container and `???` does not — which makes the four-space-indented
+lines under the `??? note` block a CommonMark §4.4 code block, not container
+content. The heading inside it ends with a period and is never reported as
+`Z517 HEADING_PUNCTUATION`, because it is never read as a heading.
+
+Under the default vocabulary the same file reports that finding. That
+difference is asserted in `tests/test_container_vocabulary_contract.py`.

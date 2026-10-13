@@ -27,7 +27,7 @@
       "type": "number",
       "minimum": 0,
       "maximum": 100,
-      "description": "Document Quality Score (DQS) at baseline creation."
+      "description": "Documentation Quality Score (DQS) at baseline creation."
     },
     "findings_count": {
       "type": "integer",

@@ -13,6 +13,14 @@ Zenzic is designed to run inside automated pipelines without configuration drift
 
 These patterns target different teams at different stages: DevOps teams enforcing merge gates in CI, technical leads scoping governance adoption in repositories with accumulated debt, and documentation engineers maintaining multilingual portals. The patterns are independent and can be combined. A repository with legacy debt can run Pattern 2 to fence exemptions while still enforcing a quality floor via Pattern 1 and structural i18n parity via Pattern 3.
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post describes the v0.9.0 line, where a `[governance.directory_policies]`
+    entry cost nothing against `suppression_cap`. That is no longer how the engine accounts for it:
+    every pattern-code pair that silences a finding in the run now costs one point of suppression
+    debt and counts once against the cap, exactly as an inline directive or a `per_file_ignores`
+    entry does — while a pair that silences nothing costs nothing and is reported as dead
+    configuration instead. The patterns below still work; their price changed.
+
 <!-- more -->
 
 ## Pattern 1 — CI/CD Quality Gate
@@ -114,3 +122,17 @@ If the translation backlog is substantial, set `strict_parity = false` initially
 ```
 
 Remove the exemption when the translation reaches structural parity. `zenzic diff main` confirms the removal does not regress the quality score.
+
+---
+
+## Resources
+
+- **Source Code**: <https://github.com/PythonWoods-Dev/zenzic>
+- **Documentation**: <https://zenzic.dev>
+- **GitHub Action**: <https://github.com/PythonWoods-Dev/zenzic-action>
+- **Finding Codes Index**: <https://zenzic.dev/reference/finding-codes/>
+- **License**: Apache-2.0
+
+## Trademark & Legal Disclaimer
+
+*All product names, logos, and brands referenced in this publication are property of their respective owners. All company, product, and service names used on this site are for identification purposes only. Use of these names, logos, and brands does not imply endorsement or affiliation. Zenzic is an independent, open-source project created and maintained by PythonWoods.*

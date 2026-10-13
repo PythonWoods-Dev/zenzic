@@ -1,0 +1,12 @@
+{
+  "name": "zenzic-css-toolchain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pins the Tailwind CLI that builds docs/assets/css/zenzic-tailwind.min.css. Not a runtime dependency of Zenzic: the Python package ships no JavaScript, and CI installs nothing from here. The build stays a human-operated step (see docs/assets/css/README.md); this file exists so that step is reproducible instead of resolving to whatever version is current on the day it is run.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./tailwind-input.css -o ./docs/assets/css/zenzic-tailwind.min.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.1"
+  }
+}

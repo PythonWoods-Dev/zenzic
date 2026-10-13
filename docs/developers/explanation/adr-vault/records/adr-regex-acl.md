@@ -9,7 +9,7 @@ description: "ADR 013: Why Zenzic wraps google-re2 behind a Regex Anti-Corruptio
 # ADR 013: The Regex Anti-Corruption Layer (ReDoS Protection)
 
 **Status:** Accepted (May 2026)
-**Decider:** Tech Lead
+**Decider:** Internal architecture decision
 **Date:** 2026-05-10 (v0.8.x)
 
 ---

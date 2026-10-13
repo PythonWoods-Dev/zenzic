@@ -15,6 +15,7 @@ This module validates:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from hypothesis import strategies as st
@@ -34,7 +35,10 @@ from zenzic.models.config import BuildContext
 
 def _make_context(**overrides: object) -> BuildContext:
     """Create a minimal BuildContext for testing."""
-    defaults: dict[str, object] = {
+    # dict[str, Any], not object: dict is invariant, so an object-valued dict
+    # fails **unpacking against BuildContext's per-field types the same way
+    # test_security.py's ZenzicConfig construction did (see that file's fix).
+    defaults: dict[str, Any] = {
         "engine": "standalone",
         "default_locale": "en",
         "locales": [],

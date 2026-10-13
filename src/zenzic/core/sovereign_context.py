@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Sovereign runtime context shared across governance-sensitive execution paths.
 
-Phase 2 introduces a single context switch (``force_audit``) that can disable
-all suppressible bypass mechanisms during truth-seeking audits.
+A single context switch (``force_audit``) can disable all suppressible
+bypass mechanisms during truth-seeking audits.
 """
 
 from __future__ import annotations

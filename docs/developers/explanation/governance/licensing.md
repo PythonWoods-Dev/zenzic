@@ -46,16 +46,27 @@ declaration of authorship and license:
 This is not a comment. It is a **license signature** — machine-parseable by any
 REUSE 3.3-compliant tool, including `reuse lint`.
 
-Files without an individual header are covered by `REUSE.toml` bulk declarations:
+Files that cannot carry an inline header — because the format has no comment
+syntax, or because the comment would appear in rendered output — are covered
+instead by `REUSE.toml` annotation blocks:
 
-```toml title="REUSE.toml"
+```toml title="REUSE.toml (excerpt)"
+# JSON files (no comment syntax)
 [[annotations]]
-path = ["docs/**", "i18n/**", "*.md"]
+path = [".zenzic-score.json", "coverage.json", "zenzic-output.schema.json"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
+# Root Markdown prose — inline SPDX would appear in rendered output
 [[annotations]]
-path = ["site/**", "build/**", "node_modules/**"]
+path = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"]
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Binary/font assets
+[[annotations]]
+path = "docs/assets/**"
+precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 ```
@@ -66,10 +77,11 @@ SPDX-License-Identifier = "Apache-2.0"
 | :--- | :--- |
 | Python source files | Per-file SPDX header |
 | Shell scripts | Per-file SPDX header |
-| Configuration (TOML, YAML) | Per-file header or `REUSE.toml` |
-| Documentation (`.md`, `.md`) | `REUSE.toml` bulk declaration |
-| Auto-generated files | `REUSE.toml` coverage |
-| Binary assets (SVG, PNG) | `REUSE.toml` bulk declaration |
+| Configuration (TOML, YAML) | Per-file SPDX header |
+| Documentation pages (`docs/**/*.md`) | Per-file SPDX header (HTML comment) — see this page's own header above |
+| Root-level prose (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, etc.) | `REUSE.toml` bulk declaration — inline SPDX would render visibly in these files |
+| JSON files, `uv.lock`, extension-less files (`LICENSE`, `NOTICE`) | `REUSE.toml` bulk declaration (no comment syntax) |
+| Binary/font assets (`docs/assets/**`) | `REUSE.toml` bulk declaration |
 
 ---
 
@@ -94,8 +106,10 @@ Congratulations! Your project is compliant with version 3.3 of the REUSE Specifi
 
 This gate runs in:
 
-- The Zenzic Guard pre-commit hook (hook 8 of 8)
-- `just verify` — the full local final guard
+- Its own dedicated pre-commit hook (`reuse`, hook 5 of 8 — `repo: fsfe/reuse-tool`, commit-time)
+- `just verify` (hook 8 of 8, `just-verify` — pre-push only), which transitively re-runs the full commit-time hook chain, `reuse` included
+
+It is unrelated to the Zenzic Guard hook (hook 7 of 8, `zenzic-guard`) — that hook is a secret scanner over staged Markdown/MDX, not a license-compliance check.
 
 Any PR that fails `uv run reuse lint` does not merge.
 

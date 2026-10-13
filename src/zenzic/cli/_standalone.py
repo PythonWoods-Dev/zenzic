@@ -7,7 +7,9 @@ from __future__ import annotations
 import contextlib
 import json
 import sys
+import time
 from pathlib import Path
+from typing import Any
 
 
 if sys.version_info >= (3, 11):
@@ -22,12 +24,16 @@ from rich.text import Text
 
 from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 from zenzic.core import regex as re
+from zenzic.core.adapters import get_adapter, list_adapter_engines
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.history import append_history_entry, read_history, summarize_trend
 from zenzic.core.scanner import (
     find_repo_root,
 )
 from zenzic.core.scorer import (
+    _SNAPSHOT_FILENAME as _SCORE_SNAPSHOT_FILENAME,
+    DEFAULT_BASELINE_STALE_DAYS,
     CategoryScore,
     ScoreReport,
     compute_score,
@@ -35,6 +41,7 @@ from zenzic.core.scorer import (
     save_snapshot,
 )
 from zenzic.core.ui import ZenzicPalette, emoji
+from zenzic.core.validator import repo_relative_label
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -48,12 +55,58 @@ _SLUG_MULTI_DASH_RE = re.compile(r"-+")
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 
+#: Below this console width the six-column breakdown table cannot be rendered
+#: without losing content, so a different layout is used instead of a cropped
+#: one. Measured rather than chosen: at 67 columns the table renders whole; at
+#: 66 and 65 the right border stops closing; at 64 and below the `Applied Pts`
+#: column is gone entirely -- and that column is the number the table exists to
+#: show, how many points each category actually cost. Rich crops silently, so
+#: the reader sees a table that looks complete and is not.
+_BREAKDOWN_MIN_WIDTH = 67
+
+
+def _print_narrow_breakdown(
+    rows: list[tuple[str, str, str, str, str, str]], total_display: str
+) -> None:
+    """The breakdown as a list, for terminals too narrow for the table.
+
+    Borders are NOT the problem and removing them is not the fix: dropping
+    `box.ROUNDED` recovers about seven columns, which a six-column numeric table
+    still cannot use at 30. The identity cost would also be real -- that box
+    appears in every screenshot, both demo GIFs, the README and the Marketplace
+    listing. What the content needs is a layout that degrades instead of
+    cropping, and a label-per-line list holds every figure down to roughly 24
+    columns.
+    """
+    labels = ("Issues", "Weight", "Raw Pts", "Applied Pts")
+    _shared.console.print("  [bold]Quality Breakdown[/]")
+    for icon, name, *values in rows:
+        _shared.console.print(f"  {icon} [bold]{name}[/]")
+        for label, value in zip(labels, values, strict=True):
+            _shared.console.print(f"      [dim]{label:<12}[/]{value}")
+    _shared.console.print(f"  [dim]{'Σ Penalties':<14}[/]{total_display}")
+
+
+def _score_rule() -> str:
+    """The separator under the penalty column, clamped to the real terminal.
+
+    It was 37 literal box-drawing characters. A constant is a promise about the
+    reader's terminal that nothing can keep: below 41 columns Rich wrapped it
+    onto a second line, so the rule that exists to separate two figures was
+    itself drawn in two pieces. `min` rather than the console width outright --
+    the rule underlines a short column of numbers, and stretching it across a
+    200-column terminal would be a different defect in the other direction.
+    """
+    return "─" * max(8, min(37, _shared.console.width - 4))
+
+
 def _run_all_checks(
     repo_root: Path,
     docs_root: Path,
     config: ZenzicConfig,
     exclusion_mgr: LayeredExclusionManager,
     strict: bool,
+    check_external: bool = True,
 ) -> ScoreReport:
     """Run all checks and return a ScoreReport. Used by score and diff.
 
@@ -71,7 +124,7 @@ def _run_all_checks(
             config=config,
             exclusion_mgr=exclusion_mgr,
             strict=strict,
-            check_external=True,
+            check_external=check_external,
         )
         all_findings = _to_findings(results, docs_root, repo_root)
         filtered_findings = _apply_per_file_ignores(all_findings, config)
@@ -82,13 +135,11 @@ def _run_all_checks(
         code = f.code.upper().strip()
         findings_counts[code] = findings_counts.get(code, 0) + 1
 
-    # Suppression Debt: count all active suppressions (inline + per-file config).
-    # Each suppression is a technical debt entry that reduces the final score.
-    from zenzic.cli._governance import collect_inline_suppression_stats, count_per_file_ignores
+    # Suppression debt: the declared exceptions this run used -- inline directives the
+    # trackers consumed, and per-file and directory-policy pairs the usage ledger saw work.
+    from zenzic.cli._governance import build_suppression_audit
 
-    inline_suppressions, _ = collect_inline_suppression_stats(docs_root, config, exclusion_mgr)
-    per_file_suppressions = count_per_file_ignores(config)
-    total_suppressions = inline_suppressions + per_file_suppressions
+    total_suppressions = build_suppression_audit(results.reference_reports, config, docs_root).total
     suppression_cap = (
         config.governance.suppression_cap if hasattr(config.governance, "suppression_cap") else 30
     )
@@ -158,18 +209,19 @@ def _stamp_file(path: Path, marker: str, badge_url: str) -> bool:
     return modified
 
 
-def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
-    """Return True if the badge after marker matches expected_url.
+def _check_stamp_file(path: Path, marker: str, expected_url: str) -> str:
+    """State of the badge after *marker*: ``current``, ``stale``, ``no-marker`` or ``missing``.
 
-    Returns True (pass) when the file does not exist, has no marker, or the
-    marker has no following badge line — badge is considered 'not configured'.
-    Returns False (stale) only when a badge line is present but the URL differs.
+    Until 2026-09-17 this returned True for a missing file and for a file with no
+    marker, and ``--check-stamp`` printed ``All badges are current`` over a README
+    that carried nothing to check (measured in `zenzic-vscode`). A declared file
+    the check cannot examine is now named, never counted as verified.
     """
     if not path.exists():
-        return True
+        return "missing"
     content = path.read_text(encoding="utf-8")
     if marker not in content:
-        return True
+        return "no-marker"
     lines = content.splitlines(keepends=True)
     i = 0
     while i < len(lines):
@@ -179,9 +231,105 @@ def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
                 j += 1
             if j < len(lines) and "img.shields.io/badge/" in lines[j]:
                 m = _SHIELDS_URL_RE.search(lines[j])
-                return bool(m and m.group() == expected_url)
+                return "current" if (m and m.group() == expected_url) else "stale"
         i += 1
-    return True
+    return "no-marker"
+
+
+def _compute_baseline_freshness(repo_root: Path, config: ZenzicConfig) -> tuple[str, float | None]:
+    """Read the saved score snapshot's mtime and classify it fresh/stale/absent.
+
+    This is deliberately CLI-layer I/O — ``compute_score()``/``ScoreReport`` stay
+    pure (Determinism invariant). Returns ``(baseline_status, baseline_age_days)``;
+    ``baseline_age_days`` is ``None`` only when no snapshot exists.
+    """
+    snapshot_path = repo_root / _SCORE_SNAPSHOT_FILENAME
+    if not snapshot_path.is_file():
+        return "absent", None
+
+    threshold_days = config.baseline_stale_days
+    if threshold_days is None:
+        threshold_days = DEFAULT_BASELINE_STALE_DAYS
+
+    age_seconds = max(0.0, time.time() - snapshot_path.stat().st_mtime)
+    age_days = age_seconds / 86400
+    status = "stale" if age_days >= threshold_days else "fresh"
+    return status, age_days
+
+
+def _history_entry(report: Any) -> dict[str, Any]:
+    """One history record from a score report.
+
+    Deliberately small and flat: the score, when it was taken, and the per-category
+    contributions. Anything reconstructible from the repository (file lists,
+    findings) is left out — this file is a series, not a second report archive.
+    """
+    from datetime import datetime, timezone
+
+    data = report.to_dict()
+    categories = {
+        str(c.get("name")): c.get("category_score")
+        for c in data.get("categories", [])
+        if isinstance(c, dict) and c.get("name")
+    }
+    entry: dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "score": data.get("score"),
+        "categories": categories,
+    }
+    return entry
+
+
+def _render_trend(repo_root: Path, output_format: str) -> None:
+    """Print the recorded score series, or say plainly that there is none yet."""
+    entries = read_history(repo_root)
+    summary = summarize_trend(entries)
+
+    if output_format == "json":
+        print(json.dumps({"history": entries, "summary": summary}, indent=2))
+        return
+
+    if summary is None:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]No score history yet. "
+            f"Run 'zenzic score --save' to start recording one.[/]"
+        )
+        return
+
+    arrow = "→" if summary["delta"] == 0 else ("↑" if summary["delta"] > 0 else "↓")
+    sign = "+" if summary["delta"] > 0 else ""
+    _shared.console.print(
+        f"Score trend over {summary['runs']} run(s): "
+        f"{summary['first']} {arrow} {summary['last']} "
+        f"({sign}{summary['delta']})  ·  min {summary['min']}  max {summary['max']}"
+    )
+    for entry in entries[-10:]:
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]  {entry.get('timestamp', '?')}  {entry.get('score', '?')}[/]"
+        )
+
+
+def _compute_score_trend(repo_root: Path, current_score: int) -> dict[str, int] | None:
+    """Compare the current score against the saved snapshot, if one exists.
+
+    Reuses ``load_snapshot()`` — the same JSON file already touched by
+    ``_compute_baseline_freshness`` — so no second `zenzic` subprocess or LSP
+    call is ever needed to surface a trend indicator. Returns ``None`` when no
+    snapshot exists or it cannot be parsed (e.g. legacy pre-v2 schema); a
+    missing/incompatible baseline is a graceful "no trend to show", not an
+    error the caller needs to handle differently from the "absent" case.
+    """
+    try:
+        baseline = load_snapshot(repo_root)
+    except ConfigurationError:
+        return None
+    if baseline is None:
+        return None
+    return {
+        "baseline_score": baseline.score,
+        "current_score": current_score,
+        "delta": current_score - baseline.score,
+    }
 
 
 # ── score command ─────────────────────────────────────────────────────────────
@@ -193,18 +341,17 @@ def score(
         help="Repository root or docs directory to score (default: configured docs directory).",
         show_default=False,
     ),
-    strict: bool | None = typer.Option(
-        None,
-        "--strict",
-        "-s",
-        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
-    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
     ),
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
     fail_under: int = typer.Option(
         0, "--fail-under", help="Exit non-zero if score is below this threshold (0 = disabled)."
+    ),
+    trend: bool = typer.Option(
+        False,
+        "--trend",
+        help="Show the score series recorded in .zenzic-history.jsonl by previous --save runs.",
     ),
     stamp: bool = typer.Option(
         False,
@@ -248,6 +395,25 @@ def score(
         "-q",
         help="Suppress output on successful score.",
     ),
+    no_external: bool = typer.Option(
+        False,
+        "--no-external",
+        help=(
+            "Skip HTTP validation of external URLs. The score then depends only on the "
+            "repository, which is what a badge gate needs: a third-party outage otherwise "
+            "moves the number and fails the check with no change to the tree."
+        ),
+    ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
     # ECOSYSTEM-FEAT-002: --json is a shorthand alias for --format json.
@@ -264,9 +430,10 @@ def score(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, _ = ZenzicConfig.load(repo_root)
+        config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except (RuntimeError, ConfigurationError) as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -288,26 +455,63 @@ def score(
 
         _shared._ui.print_header(__version__)
         if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
+            _hint = repo_relative_label(docs_root, Path.cwd())
             _shared.console.print(f"[{ZenzicPalette.DIM}]  Scoring: {_hint}[/]")
         _shared.console.print()
 
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
-    report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
+    # The adapter declares where its engine builds to (MkDocs ``site_dir``);
+    # get_adapter() caches by (engine, docs_root, repo_root), so this is a
+    # cache hit rather than a second construction.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
+    report = _run_all_checks(
+        repo_root,
+        docs_root,
+        config,
+        exclusion_mgr,
+        strict=config.strict,
+        check_external=not no_external,
+    )
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
+    # Set here, not inside `if save:`. The threshold is what decided this run's
+    # exit code, so every consumer of the report must see it -- including the
+    # JSON payload, which is emitted whether or not a snapshot is written.
+    # While this lived in the save branch, `zenzic score --format json` reported
+    # `"threshold": 0` and therefore `"status": "success"` on a run that exited
+    # 1, and a consumer reading `status` instead of the exit code got the
+    # opposite verdict.
+    report.threshold = effective_threshold
 
     if save:
-        report.threshold = effective_threshold
         snapshot_path = save_snapshot(repo_root, report)
+        # The series is appended alongside the snapshot rather than replacing it:
+        # .zenzic-score.json stays exactly as every existing consumer expects, and
+        # the history file is additive. Failing to record a trend entry must never
+        # fail a scoring run, so the append is best-effort.
+        with contextlib.suppress(OSError):
+            append_history_entry(repo_root, _history_entry(report))
         if not quiet:
             _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
 
+    if trend:
+        _render_trend(repo_root, output_format)
+        raise typer.Exit(0)
+
     if output_format == "json" and not check_stamp:
-        print(json.dumps(report.to_dict(), indent=2))
+        payload = report.to_dict()
+        baseline_status, baseline_age_days = _compute_baseline_freshness(repo_root, config)
+        payload["baseline_status"] = baseline_status
+        payload["baseline_age_days"] = (
+            round(baseline_age_days, 2) if baseline_age_days is not None else None
+        )
+        payload["score_trend"] = _compute_score_trend(repo_root, report.score)
+        print(json.dumps(payload, indent=2))
     elif not check_stamp and not (quiet and report.score >= effective_threshold):
         if report.score >= 80:
             score_style = ZenzicPalette.STYLE_OK
@@ -340,6 +544,10 @@ def score(
         table.add_column("Applied Pts", justify="right")
 
         total_category_penalties = 0
+        # Collected rather than added straight to the table, so the narrow
+        # layout below renders the same values from the same place. Building the
+        # numbers twice is how two layouts come to disagree about one score.
+        breakdown_rows: list[tuple[str, str, str, str, str, str]] = []
         for cat in report.categories:
             # Split issues into punitive (penalty > 0) vs. informational (penalty == 0).
             from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY
@@ -374,29 +582,32 @@ def score(
             )
             total_category_penalties += applied_penalty
             capped_suffix = " [yellow](Max limit reached)[/yellow]" if cat.is_capped else ""
-            table.add_row(
-                status_icon,
-                cat.name,
-                issue_display,
-                f"{cat.weight:.0%}",
-                raw_display,
-                f"{applied_display}{capped_suffix}",
+            breakdown_rows.append(
+                (
+                    status_icon,
+                    cat.name,
+                    issue_display,
+                    f"{cat.weight:.0%}",
+                    raw_display,
+                    f"{applied_display}{capped_suffix}",
+                )
             )
 
-        table.add_section()
-        table.add_row(
-            "",
-            "[dim]Σ Category Penalties[/dim]",
-            "",
-            "",
-            "",
+        total_display = (
             f"[bold red]-{total_category_penalties}[/bold red]"
             if total_category_penalties > 0
-            else "[bold]0[/bold]",
+            else "[bold]0[/bold]"
         )
 
         _shared.console.print(score_summary)
-        _shared.console.print(table)
+        if _shared.console.width >= _BREAKDOWN_MIN_WIDTH:
+            for row in breakdown_rows:
+                table.add_row(*row)
+            table.add_section()
+            table.add_row("", "[dim]Σ Category Penalties[/dim]", "", "", "", total_display)
+            _shared.console.print(table)
+        else:
+            _print_narrow_breakdown(breakdown_rows, total_display)
 
         subtotal = sum(round(c.contribution * 100) for c in report.categories)
         gravity_loss = subtotal - (report.score + report.suppression_debt_pts)
@@ -423,26 +634,14 @@ def score(
 
             _shared.console.print()
             _shared.console.print("[bold cyan]DETAILED CATEGORY BREAKDOWN[/]")
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
 
-            # Helper to map codes to display categories
-            def get_display_category(c: str) -> str:
-                from zenzic.core.scorer import _CODE_CATEGORY
-
-                cat = _CODE_CATEGORY.get(c)
-                if cat is not None:
-                    return cat
-                if c.startswith("Z1"):
-                    return "structural"
-                if c.startswith("Z3"):
-                    return "navigation"
-                if c.startswith("Z5"):
-                    return "content"
-                if c.startswith("Z6"):
-                    return "brand"
-                if c.startswith("Z2"):
-                    return "security"
-                return "other"
+            # Which bucket a finding is grouped under comes from the registry, not
+            # from its numeric prefix. The prefix cascade this replaced answered for
+            # any code the scorer did not categorise by reading its first digit, so
+            # `Z106` and `Z123` -- Z1xx codes that no bucket scores -- were printed
+            # under STRUCTURAL while the same run's SARIF reported them uncategorized.
+            from zenzic.core.codes import category_bucket_key as get_display_category
 
             # Group findings by display category
             grouped_findings: dict[str, list[tuple[str, int]]] = {
@@ -513,7 +712,8 @@ def score(
                         f"  [yellow]![/] [bold]{code}[/] ({name}): {count} occurrence(s) (no DQS penalty)"
                     )
 
-            _shared.console.print("\n[dim]━[/]" * 50)
+            _shared.console.print()
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
             _shared.console.print("[bold cyan]DQS MATHEMATICAL TRANSPARENCY[/]")
             _shared.console.print("  [bold]Base Score:[/bold]                100.0 pts")
 
@@ -526,19 +726,22 @@ def score(
                 )
                 total_cat_penalties += penalty
 
-            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(f"  [dim]{_score_rule()}[/]")
             _shared.console.print(
                 f"  [bold]Total Category Penalties:[/]   -{total_cat_penalties:.1f} pts"
             )
 
             brand_cat = next((cs for cs in report.categories if cs.name == "brand"), None)
             subtotal_val = sum(cs.contribution * 100 for cs in report.categories)
-            if brand_cat is not None and brand_cat.category_score == 0.0:
+            brand_zeroed = brand_cat is not None and brand_cat.category_score == 0.0
+            if brand_zeroed:
                 gravity_loss_val = max(0.0, subtotal_val - 70.0)
+                gravity_note = "Brand bucket zeroed cap"
             else:
                 gravity_loss_val = 0.0
+                gravity_note = "not triggered"
             _shared.console.print(
-                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts (Brand bucket zeroed cap)"
+                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts ({gravity_note})"
             )
 
             debt_pts = report.suppression_debt_pts
@@ -547,11 +750,11 @@ def score(
             )
 
             total_penalties_val = total_cat_penalties + gravity_loss_val + debt_pts
-            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(f"  [dim]{_score_rule()}[/]")
             _shared.console.print(
                 f"  [bold]Final Score: 100 - {total_penalties_val:.1f} = {report.score:.1f}[/bold]"
             )
-            _shared.console.print("[dim]━[/]" * 50)
+            _shared.console.print(f"[dim]{'━' * 50}[/]")
 
         if report.score == 100:
             from rich.console import Group
@@ -621,20 +824,67 @@ def score(
         )
         audit_url = _audit_badge_url(audit_ok)
         outdated: list[tuple[Path, str]] = []
+        unverifiable: list[tuple[Path, str]] = []
+        skipped: list[tuple[Path, str]] = []
+        current = 0
         for rel in config.project_metadata.badge_stamp_files:
             p = repo_root / rel
-            if not _check_stamp_file(p, _SCORE_STAMP_MARKER, score_url):
-                outdated.append((p, "score"))
-            if not _check_stamp_file(p, _AUDIT_STAMP_MARKER, audit_url):
-                outdated.append((p, "audit"))
-        if outdated:
+            states = {
+                "score": _check_stamp_file(p, _SCORE_STAMP_MARKER, score_url),
+                "audit": _check_stamp_file(p, _AUDIT_STAMP_MARKER, audit_url),
+            }
+            if all(st == "missing" for st in states.values()):
+                unverifiable.append((p, "declared in badge_stamp_files and not on disk"))
+                continue
+            if all(st == "no-marker" for st in states.values()):
+                unverifiable.append(
+                    (
+                        p,
+                        "declared in badge_stamp_files and carries neither "
+                        f"{_SCORE_STAMP_MARKER} nor {_AUDIT_STAMP_MARKER}, so nothing in it can be checked",
+                    )
+                )
+                continue
+            for badge_type, st in states.items():
+                if st == "stale":
+                    outdated.append((p, badge_type))
+                elif st == "no-marker":
+                    skipped.append((p, badge_type))
+                else:
+                    current += 1
+        for p, badge_type in skipped:
+            _shared.console.print(
+                f"[{ZenzicPalette.DIM}]--check-stamp: {badge_type} badge in {p.name} skipped — no marker.[/]"
+            )
+        if outdated or unverifiable:
             for p, badge_type in outdated:
+                # The expected URL is printed because "is stale" alone cannot be
+                # diagnosed off the machine that printed it: on 2026-09-17 this
+                # check failed on a GitHub runner and passed in five local
+                # reproductions of the same tree, and the message said nothing
+                # about which number the run had computed.
+                expected = score_url if badge_type == "score" else audit_url
                 _shared.console.print(
-                    f"[red][FAILED][/red] Badge ({badge_type}) in [bold]{p}[/] is stale. "
+                    f"[red][FAILED][/red] Badge ({badge_type}) in [bold]{p}[/] is stale: this run "
+                    f"computed score {report.score}/100 and expects\n  {expected}\n"
                     "Run 'zenzic score --stamp' locally and commit the result."
                 )
+            for p, reason in unverifiable:
+                _shared.console.print(
+                    f"[red][FAILED][/red] Badge file [bold]{p}[/] cannot be checked: {reason}. "
+                    "Add the markers, or remove the file from badge_stamp_files."
+                )
             raise typer.Exit(1)
-        _shared.console.print(f"[{ZenzicPalette.SUCCESS}][SUCCESS] All badges are current.[/]")
+        n_files = len(config.project_metadata.badge_stamp_files)
+        tail = f"; {len(skipped)} skipped (no marker)" if skipped else ""
+        if n_files == 0:
+            _shared.console.print(
+                f"[{ZenzicPalette.WARNING}][SUCCESS] 0 badges checked: badge_stamp_files is empty.[/]"
+            )
+        else:
+            _shared.console.print(
+                f"[{ZenzicPalette.SUCCESS}][SUCCESS] {current} badge(s) current in {n_files} file(s){tail}.[/]"
+            )
 
     if effective_threshold > 0 and report.score < effective_threshold:
         _fail_console = _shared.stderr_console if output_format == "json" else _shared.console
@@ -667,12 +917,6 @@ def diff(
         help="Repository root or docs directory to compare (default: configured docs directory).",
         show_default=False,
     ),
-    strict: bool | None = typer.Option(
-        None,
-        "--strict",
-        "-s",
-        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
-    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
     ),
@@ -697,6 +941,16 @@ def diff(
         "--ci",
         help="CI shorthand: sets --no-header.",
     ),
+    config_path: str | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Explicit path to a Zenzic TOML config file, bypassing the normal "
+            ".zenzic.toml / pyproject.toml discovery. Does not have to live under "
+            "the repository root."
+        ),
+        metavar="PATH",
+    ),
 ) -> None:
     """Compare current documentation score against the saved snapshot.
 
@@ -714,9 +968,10 @@ def diff(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
+    _config_file_override = Path(config_path).resolve() if config_path else None
     try:
         repo_root = find_repo_root(search_from=_search_from)
-        config, _ = ZenzicConfig.load(repo_root)
+        config, _ = ZenzicConfig.load(repo_root, config_file=_config_file_override)
     except (RuntimeError, ConfigurationError) as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -726,7 +981,16 @@ def diff(
         docs_root.relative_to(repo_root)
     except ValueError:
         repo_root = docs_root
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    # The adapter declares where its engine builds to (MkDocs ``site_dir``);
+    # get_adapter() caches by (engine, docs_root, repo_root), so this is a
+    # cache hit rather than a second construction.
+    _adapter = get_adapter(config.build_context, docs_root, repo_root)
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        adapter_output_dirs=_adapter.get_output_dirs(),
+    )
 
     baseline: ScoreReport | None = None
     try:
@@ -760,21 +1024,17 @@ def diff(
     delta = current.score - baseline.score
 
     # ── FATAL / HALT semantic detection ──────────────────────────────────────
-    # Z0xx (config abort) and Z2xx (security) collapse score to 0 unconditionally.
-    from zenzic.core.codes import CODE_DEFINITIONS
+    # Z2xx (security) collapses score to 0 unconditionally. Z0xx (config abort,
+    # e.g. Z001) can never appear here: ZenzicConfig.load() above already raised
+    # ConfigurationError and returned Exit 1 before _run_all_checks() was ever
+    # called, so no Z0xx code can reach current.findings_counts — confirmed dead
+    # branch, removed rather than left checking an unreachable prefix
+    # (V031_CODE_BACKLOG_BATCH1_EXECUTION_AND_PROACTIVE_ADVISORY_CODIFICATION).
+    from zenzic.core.codes import is_pipeline_halt
 
-    _fatal_codes = sorted(
-        c for c in current.findings_counts if c.startswith("Z0") or c.startswith("Z2")
-    )
+    _fatal_codes = sorted(c for c in current.findings_counts if c.startswith("Z2"))
     has_fatal = bool(_fatal_codes) or current.security_override
-    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z504).
-    _halt_codes = sorted(
-        c
-        for c in current.findings_counts
-        if CODE_DEFINITIONS.get(c)
-        and CODE_DEFINITIONS[c].severity == "warning"
-        and CODE_DEFINITIONS[c].penalty == 0.0
-    )
+    _halt_codes = sorted(c for c in current.findings_counts if is_pipeline_halt(c))
     has_halt = bool(_halt_codes) and not has_fatal
 
     if output_format == "json":
@@ -911,10 +1171,7 @@ def diff(
         if not no_header:
             _shared._ui.print_header(__version__)
             if path is not None:
-                try:
-                    _hint = str(docs_root.relative_to(Path.cwd()))
-                except ValueError:
-                    _hint = str(docs_root)
+                _hint = repo_relative_label(docs_root, Path.cwd())
                 _shared.console.print(f"[{ZenzicPalette.DIM}]  Comparing: {_hint}[/]")
             _shared.console.print()
         _shared.console.print(body)
@@ -1014,6 +1271,36 @@ def explain(
     meta_table.add_row(
         "Fixable", "[green]Yes[/]" if getattr(_defn, "fixable", False) else "[yellow]No[/]"
     )
+    # Activation lives here rather than in `zenzic inspect codes`: this panel is
+    # vertical, so a long key costs no width, while a seventh column in that
+    # table truncated at Rich's 80-column default. Derived from the registry,
+    # which has been activation's single source since it gained the field.
+    _act = getattr(_defn, "activation", "default")
+    _act_key = getattr(_defn, "activation_key", None)
+    if _act == "flag":
+        meta_table.add_row(
+            "Activation",
+            f"[yellow]opt-in[/] — set [bold]\\[policies] {_act_key} = true[/]",
+        )
+    elif _act == "data":
+        meta_table.add_row(
+            "Activation",
+            f"[cyan]inert[/] — runs, but finds nothing until "
+            f"[bold]\\[policies] {_act_key}[/] is declared",
+        )
+    elif getattr(_defn, "status", "active") != "active":
+        # A catalogued alias: registered, carded and fixtured, but consolidated
+        # into another code at runtime so nothing ever emits it. Saying "on by
+        # default" here told a reader the opposite of the truth, and no command
+        # surfaced status at all. The wording distinguishes an alias from a
+        # broken rule, because the aliasing was a decision and the card says so.
+        meta_table.add_row(
+            "Activation",
+            "[magenta]never emitted[/] — catalogued alias; the condition is real "
+            "and reported under another code (see the rule card)",
+        )
+    else:
+        meta_table.add_row("Activation", "[green]on by default[/]")
     _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
     _is_halt = (
         _defn is not None and _defn.severity == "warning" and _defn.penalty == 0.0 and not _is_fatal
@@ -1047,7 +1334,17 @@ def explain(
             "[bold red]HALT[/bold red] — pipeline-blocking warning; CI exits non-zero regardless of score",
         )
     else:
+        # Every code renders a Penalty row so the field set does not depend on
+        # whether a code has a scoring category -- Z407 and Z906 both carry
+        # penalty 0.0 and used to render different fields. The content still
+        # differs, because these four genuinely sit outside the score rather
+        # than scoring zero within it, and equalising the wording would imply a
+        # scoring relationship they do not have.
         meta_table.add_row("Scoring Tier", f"[{ZenzicPalette.DIM}]not included in DQS[/]")
+        meta_table.add_row(
+            "Penalty",
+            f"[{ZenzicPalette.DIM}]none — this code is not in the DQS penalty table[/]",
+        )
 
     _shared.console.print(meta_table)
     _shared.console.print()
@@ -1067,7 +1364,7 @@ def explain(
             "Z601": [("governance.brand_obsolescence", "brand_obsolescence list")],
             "Z204": [("forbidden_patterns", "forbidden_patterns list")],
             "Z501": [("placeholder_patterns", "placeholder_patterns list")],
-            "Z502": [("short_content_threshold", "short_content_threshold")],
+            "Z502": [("placeholder_max_words", "placeholder_max_words (minimum word count)")],
             "Z402": [("excluded_dirs", "excluded_dirs (removes pages from nav scope)")],
         }
         # Global: .zenzic.toml presence
@@ -1129,6 +1426,14 @@ def explain(
                                 "Rule fires on default patterns.",
                             )
                         )
+                elif val is not None:
+                    genealogy_rows.append(
+                        (
+                            f"  {label}",
+                            f"[yellow]{val}[/]",
+                            "Configured value for this rule.",
+                        )
+                    )
 
         # Per-file suppression status for this rule
         suppressed_patterns = [
@@ -1200,7 +1505,7 @@ def init(
     pyproject: bool = typer.Option(
         False,
         "--pyproject",
-        help="Write configuration into pyproject.toml [tool.zenzic] instead of .zenzic.toml.",
+        help=r"Write configuration into pyproject.toml \[tool.zenzic] instead of .zenzic.toml.",
     ),
     local: bool = typer.Option(
         False,
@@ -1214,10 +1519,25 @@ def init(
         None,
         "--engine",
         help=(
-            "Override the build engine adapter (mkdocs, zensical, standalone). "
+            # Derived, not listed: the registry has five members and this text
+            # named three, omitting `prebuilt` -- which is the one an Astro or
+            # Docusaurus user needs, and the only one `init` proposes when it
+            # detects their generator. A hand-written subset of a registry is a
+            # list that goes stale the first time the registry grows.
+            f"Override the build engine adapter ({', '.join(sorted(list_adapter_engines()))}). "
             "Auto-detected from project files when omitted."
         ),
         metavar="ENGINE",
+    ),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help=(
+            "Ask before writing: the engine (offered from the adapter registry, the detected "
+            "one proposed with its reason), then each opt-in finding code one at a time. "
+            "Data-gated codes are not asked. Without this flag nothing about codes is asked."
+        ),
     ),
     path: str | None = typer.Argument(
         None,
@@ -1252,10 +1572,7 @@ def init(
     if path is not None:
         repo_root = Path(path).resolve()
         repo_root.mkdir(parents=True, exist_ok=True)
-        try:
-            _hint = str(repo_root.relative_to(Path.cwd()))
-        except ValueError:
-            _hint = str(repo_root)
+        _hint = repo_relative_label(repo_root, Path.cwd())
         _shared.console.print(f"[{ZenzicPalette.DIM}]  Target: {_hint}[/]")
     else:
         repo_root = find_repo_root(fallback_to_cwd=True)
@@ -1270,7 +1587,9 @@ def init(
                 "These flags target different init modes.",
                 err=True,
             )
-            raise typer.Exit(2)
+            # Plain CLI-usage error: Exit 1, matching --local+--pyproject's
+            # exit code below (Exit 2 is reserved for security breaches).
+            raise typer.Exit(1)
         _scaffold_plugin(repo_root, plugin, force)
         return
 
@@ -1286,7 +1605,15 @@ def init(
         _shared.print_footer_hint("init")
         return
 
-    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "standalone"}
+    # Derived from the adapter registry, not restated. The literal here read
+    # `{"mkdocs", "zensical", "standalone"}` until 2026-09-20 while this same
+    # command's `--help`, and the `# Supported:` comment it writes into the
+    # generated file, both came from `list_adapter_engines()` -- so `prebuilt`
+    # and `vsm` were advertised in two places and refused in the third. Both
+    # build: auto-detection already writes `engine = "prebuilt"` on a repository
+    # carrying `.zenzic-vsm.json`, and `vsm` resolves to the same adapter. A
+    # third-party adapter now reaches this gate without this line changing.
+    _INIT_VALID_ENGINES = set(list_adapter_engines())
     if engine is not None and engine not in _INIT_VALID_ENGINES:
         _shared.console.print(
             f"[red]✘ ERROR:[/] Unknown engine [bold]{engine!r}[/]. "
@@ -1313,16 +1640,63 @@ def init(
     use_pyproject = pyproject
     pyproject_path = repo_root / "pyproject.toml"
 
+    enabled_keys: list[str] = []
+    engine_reason = "manually specified via --engine"
+    # The source directory comes from the generator rather than from the
+    # default. Measured: `init` never wrote `docs_dir` -- it left a commented
+    # example, so the default `docs` applied, and an Astro repository has no
+    # `docs/`. The user then ran `check all` as the panel instructs and got
+    # "Audit skipped" with exit 0, over 2,604 unexamined sources.
+    _gen = detect_generator(repo_root)
+    generator_docs_dir: str | None = None
+    generator_name: str | None = None
+    if _gen:
+        generator_name, _candidate, _marker = _gen
+        # Verified to exist before it is written. A generated configuration
+        # pointing at a directory that is not there is the defect this closes,
+        # not a variant of it.
+        if (repo_root / _candidate).is_dir():
+            generator_docs_dir = _candidate
+    if interactive:
+        engine = _prompt_engine(repo_root, engine)
+        engine_reason = "chosen at the prompt"
+        enabled_keys = _prompt_opt_in_codes()
+
     if not use_pyproject and pyproject_path.is_file():
-        use_pyproject = typer.confirm(
-            "Found pyproject.toml. Embed Zenzic config there as [tool.zenzic]?",
-            default=False,
-        )
+        try:
+            use_pyproject = typer.confirm(
+                "Found pyproject.toml. Embed Zenzic config there as [tool.zenzic]?",
+                default=False,
+            )
+        except typer.Abort:
+            # No terminal and no answer on stdin -- a CI job, a script. The
+            # question cannot be answered there, and aborting the whole command
+            # over it left a Python project uninitialised in exactly the
+            # unattended setting init is documented to serve. The default the
+            # question already offers is the answer.
+            _shared.console.print(
+                f"\n[{ZenzicPalette.DIM}]  pyproject.toml found and no answer available: "
+                "writing .zenzic.toml (pass --pyproject to embed instead).[/]"
+            )
+            use_pyproject = False
 
     if use_pyproject:
-        _init_pyproject(repo_root, pyproject_path, engine_override=engine)
+        _init_pyproject(
+            repo_root,
+            pyproject_path,
+            engine_override=engine,
+            engine_reason=engine_reason,
+            enabled_keys=enabled_keys,
+        )
     else:
-        _init_standalone(repo_root, engine_override=engine)
+        _init_standalone(
+            repo_root,
+            engine_override=engine,
+            engine_reason=engine_reason,
+            enabled_keys=enabled_keys,
+            docs_dir=generator_docs_dir,
+            generator=generator_name,
+        )
 
     # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root, discovered_name=_discover_project_name(repo_root))
@@ -1332,9 +1706,9 @@ def init(
         "\n[bold green]✨ Zenzic initialized successfully![/]\n\n"
         "[bold]Next steps:[/]\n"
         "  1. Run [bold cyan]zenzic check all[/] to see your baseline.\n"
-        "  2. To automate Zenzic in CI/CD or pre-commit, see:\n"
-        "     [link=https://zenzic.dev/docs/how-to/configure-ci-cd]"
-        "https://zenzic.dev/docs/how-to/configure-ci-cd[/link]"
+        "  2. To automate Zenzic in pre-commit hooks or CI/CD, see:\n"
+        "     [link=https://zenzic.dev/how-to/configure-ci-cd/]"
+        "https://zenzic.dev/how-to/configure-ci-cd/[/link]"
     )
     _shared.print_footer_hint("init")
 
@@ -1407,12 +1781,12 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
             added_str = " and ".join(f"[bold]{a}[/]" for a in additions)
             gitignore_line = (
                 f"[yellow]🛡️ Security Note:[/] Added {added_str} "
-                "to your [bold].gitignore[/] to preserve local sovereignty.\\n"
+                "to your [bold].gitignore[/] to preserve local sovereignty.\n"
             )
         else:
-            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\\n"
+            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\n"
     else:
-        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\\n"
+        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\n"
 
     _shared.console.print(
         Panel(
@@ -1423,11 +1797,146 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
             )
             + gitignore_line
             + "\nEdit local overrides safely: this file wins over shared config "
-            "only on your machine.",
+            "only on your machine.\n"
+            # The panel is where a user meets this file for the first time, and
+            # it used to name it without saying what it may contain. Thirteen
+            # sections are accepted and `[policies]` is not among them, so an
+            # opt-in code cannot be enabled here -- a fact worth meeting now
+            # rather than discovering through a [LOCAL-TOML-STRICT] failure.
+            "It accepts thirteen sections and rejects the rest, so an opt-in code "
+            "cannot be enabled from here:\n"
+            "https://zenzic.dev/reference/configuration-reference/#local-sanctuary-scope",
             title=f"[bold]{discovered_name or 'Zenzic'} Local Sandbox[/]",
             border_style="cyan",
         )
     )
+
+
+#: Generators Zenzic has no adapter for, keyed by what each leaves in a
+#: repository root, with the directory its sources live in.
+#:
+#: **Every entry is measured, not recalled.** Astro: `withastro/docs`
+#: cloned at `16fe0736` holds **2,604 of its 2,618** Markdown sources under
+#: `src/content/docs`, the remaining fourteen being root-level README and
+#: CONTRIBUTING files. Docusaurus: a `create-docusaurus` classic scaffold keeps
+#: its nine documentation sources under `docs`. Both artefacts were on disk and
+#: counted; the official Astro documentation was also fetched and returned 403,
+#: which is why the artefact is cited instead of a page.
+#:
+#: **Hugo is deliberately absent.** No Hugo artefact was available to measure,
+#: and writing its layout from memory is exactly what this table must not
+#: contain. A generator named here without measurement would be worse than one
+#: missing: it would send a user to a directory nobody checked.
+GENERATOR_MARKERS: dict[str, tuple[tuple[str, ...], str]] = {
+    "astro": (("astro.config.mjs", "astro.config.ts", "astro.config.js"), "src/content/docs"),
+    "docusaurus": (
+        ("docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs"),
+        "docs",
+    ),
+}
+
+
+def detect_generator(repo_root: Path) -> tuple[str, str, str] | None:
+    """Return ``(generator, docs_dir, marker_filename)`` when one is recognised.
+
+    A generator's own config file in the root is as strong a signal as
+    `mkdocs.yml`, and until 2026-09-19 nothing looked for one: `zenzic init` on
+    a cloned Astro repository printed "standalone (auto-detected)" with
+    `astro.config.ts` sitting beside it, and the word *auto-detected* told the
+    user detection had succeeded.
+    """
+    for generator, (markers, docs_dir) in GENERATOR_MARKERS.items():
+        for marker in markers:
+            if (repo_root / marker).is_file():
+                return generator, docs_dir, marker
+    return None
+
+
+def _detection_reason(repo_root: Path) -> str:
+    """Name the file the engine detection rested on, or say there was none."""
+    for marker, why in (
+        (".zenzic-vsm.json", "a prebuilt route manifest, .zenzic-vsm.json"),
+        ("zensical.toml", "zensical.toml"),
+        ("mkdocs.yml", "mkdocs.yml"),
+        ("mkdocs.yaml", "mkdocs.yaml"),
+    ):
+        if (repo_root / marker).is_file():
+            return f"{why} found"
+    found = detect_generator(repo_root)
+    if found:
+        generator, _docs, marker = found
+        return f"{marker} found — this is {generator.capitalize()}"
+    return "nothing found to detect from"
+
+
+def _prompt_engine(repo_root: Path, override: str | None) -> str:
+    """Offer every engine the adapter registry holds, proposing the detected one.
+
+    Detection that guesses wrong is worse than none, so the proposal states what
+    it rests on and the reader accepts or overrides it. The choices come from the
+    registry, not from a list written here.
+    """
+    from zenzic.core.adapters._factory import list_adapter_engines
+
+    generator = None if override else detect_generator(repo_root)
+    if generator and _detect_init_engine(repo_root) == "standalone":
+        # A generator Zenzic has no adapter for is served by `prebuilt`, and
+        # proposing `standalone` here is proposing the worst answer available:
+        # measured on a real Astro tree, `standalone` gives an order of
+        # magnitude more findings than the documented configuration.
+        detected = "prebuilt"
+    else:
+        detected = override or _detect_init_engine(repo_root)
+    reason = "given with --engine" if override else _detection_reason(repo_root)
+    choices = list_adapter_engines()
+    _shared.console.print(
+        f"[bold]Engine[/] — detected [bold cyan]{detected}[/] ({reason}). "
+        f"Available: {', '.join(choices)}."
+    )
+    while True:
+        chosen: str = typer.prompt("Engine", default=detected)
+        if chosen in choices:
+            return chosen
+        _shared.console.print(f"[{ZenzicPalette.FATAL}]  {chosen!r} is not a registered engine.[/]")
+
+
+def _prompt_opt_in_codes() -> list[str]:
+    """Ask about each flag-gated code, one at a time, derived from the registry.
+
+    A code added to the registry with ``activation="flag"`` appears here on its
+    own; nothing in this function names a code. Data-gated codes are excluded
+    with the reason printed: they are inert until their ``[policies]`` data is
+    declared, and that is not a yes-or-no question.
+    """
+    from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS, CODE_NAMES
+
+    flagged = [(c, d) for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "flag"]
+    data = [c for c, d in sorted(CODE_DEFINITIONS.items()) if d.activation == "data"]
+    _shared.console.print(
+        f"\n[bold]Opt-in checks[/] — {len(flagged)} codes run only when their flag is set. "
+        "Answer per code; every default is no."
+    )
+    enabled: list[str] = []
+    for code, defn in flagged:
+        desc = CODE_DESCRIPTIONS.get(code, CODE_NAMES.get(code, code))
+        key = defn.activation_key or ""
+        if typer.confirm(
+            f"Enable {code} {CODE_NAMES.get(code, '')} — {desc} [{key}]", default=False
+        ):
+            enabled.append(key)
+    _shared.console.print(
+        f"[{ZenzicPalette.DIM}]  {len(data)} data-gated codes ({', '.join(data)}) are not asked: "
+        "they run once their [policies] data is declared, and a list is not a yes or no. "
+        "The generated file names each with the key it waits on.[/]"
+    )
+    return enabled
+
+
+def _enable_flags(content: str, enabled_keys: list[str]) -> str:
+    """Flip ``key = false`` to ``true`` for each chosen opt-in flag in generated TOML."""
+    for key in enabled_keys:
+        content = content.replace(f"{key} = false\n", f"{key} = true\n", 1)
+    return content
 
 
 def _detect_init_engine(repo_root: Path) -> str:
@@ -1467,13 +1976,74 @@ def _discover_project_name(repo_root: Path) -> str | None:
     return None
 
 
-def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) -> str:
-    """Build governance configuration template with didactic comments."""
+def _supported_engines() -> str:
+    """The engines the generated file may legitimately name.
+
+    Read from the adapter registry, which is the same source the interactive
+    prompt offers from -- so a third-party adapter appears here without this
+    file changing, and the comment can never again omit the value it annotates.
+    """
+    from zenzic.core.adapters import list_adapter_engines
+
+    return ", ".join(list_adapter_engines())
+
+
+def _base_url_line(engine: str) -> str:
+    """The `[build_context] base_url` line, or the reason there is not one.
+
+    Conditional on the chosen engine for the same reason `docs_dir_line` is
+    conditional on what the generator declared: a template that offers a setting
+    the project's own state rejects is a defect, not a convenience. `prebuilt`
+    takes its routes from `.zenzic-vsm.json`, which already carries the prefix the
+    real build produced, so `base_url` on top would apply it twice -- the adapter
+    refuses it at construction, and this keeps a reader from meeting that refusal
+    by following our own generated file.
+    """
+    if engine == "prebuilt":
+        return (
+            "# base_url is not offered here: routes come from .zenzic-vsm.json, which\n"
+            "# already carries the prefix your build produced. Setting it is an error.\n"
+        )
+    # No finding code is named here on purpose: the pyproject section is a pointer,
+    # not a catalogue, and a test enforces that it enumerates none.
+    return (
+        "# base_url — the path your docs are served under, when it is not the root\n"
+        '#   (e.g. "/docs/"). Absolute links written against it then resolve, instead\n'
+        "#   of being reported as broken and as non-portable absolute paths.\n"
+        '# base_url = "/docs/"\n'
+    )
+
+
+def _build_governance_ready_toml(
+    *, engine: str, discovered_name: str | None, docs_dir: str | None = None
+) -> str:
+    """Build governance configuration template with didactic comments.
+
+    *docs_dir* is written uncommented when a generator declared it. Left
+    commented, the default `docs` applies -- which on an Astro repository names
+    a directory that does not exist, and the scan then examined nothing and
+    exited 0.
+    """
     hint_name = discovered_name or "My Awesome App"
-    return GLOBAL_TOML_TEMPLATE.format(engine=engine, hint_name=hint_name)
+    line = f'docs_dir = "{docs_dir}"\n' if docs_dir else '# docs_dir = "docs"\n'
+    return GLOBAL_TOML_TEMPLATE.format(
+        engine=engine,
+        engines=_supported_engines(),
+        hint_name=hint_name,
+        docs_dir_line=line,
+        base_url_line=_base_url_line(engine),
+    )
 
 
-def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> None:
+def _init_standalone(
+    repo_root: Path,
+    *,
+    engine_override: str | None = None,
+    engine_reason: str = "manually specified via --engine",
+    enabled_keys: list[str] | None = None,
+    docs_dir: str | None = None,
+    generator: str | None = None,
+) -> None:
     """Create a standalone ``.zenzic.toml`` configuration file."""
     config_path = repo_root / ".zenzic.toml"
     local_path = repo_root / ".zenzic.local.toml"
@@ -1485,15 +2055,29 @@ def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> 
 
     detected_engine = engine_override or _detect_init_engine(repo_root)
     engine_hint = (
-        f"[bold cyan]{detected_engine}[/] (manually specified via --engine)."
+        f"[bold cyan]{detected_engine}[/] ({engine_reason})."
         if engine_override
         else f"[bold cyan]{detected_engine}[/] (auto-detected)."
     )
+    if generator and detected_engine == "standalone":
+        # "auto-detected" with no object is the word that made this defect
+        # invisible: it told the user detection had succeeded while
+        # `astro.config.ts` sat unread in the root. Name what was found, and
+        # name the engine that serves it -- without configuring `prebuilt`
+        # here, because `prebuilt` without a manifest degrades to `standalone`
+        # and would warn on every run of a project that has not written one.
+        engine_hint = (
+            f"[bold cyan]standalone[/] — but {generator.capitalize()} was detected, "
+            "and `prebuilt` serves it once a route manifest exists:\n"
+            "     https://zenzic.dev/how-to/configure-adapter/#prebuilt-route-manifest"
+        )
     discovered_name = _discover_project_name(repo_root)
     toml_content = _build_governance_ready_toml(
         engine=detected_engine,
         discovered_name=discovered_name,
+        docs_dir=docs_dir,
     )
+    toml_content = _enable_flags(toml_content, enabled_keys or [])
 
     config_path.write_text(toml_content, encoding="utf-8")
 
@@ -1511,7 +2095,12 @@ def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> 
 
 
 def _init_pyproject(
-    repo_root: Path, pyproject_path: Path, *, engine_override: str | None = None
+    repo_root: Path,
+    pyproject_path: Path,
+    *,
+    engine_override: str | None = None,
+    engine_reason: str = "manually specified via --engine",
+    enabled_keys: list[str] | None = None,
 ) -> None:
     """Append a ``[tool.zenzic]`` section to ``pyproject.toml``, creating it if absent."""
     from zenzic.cli.templates import PYPROJECT_TOML_SECTION_TEMPLATE
@@ -1532,7 +2121,7 @@ def _init_pyproject(
 
     detected_engine = engine_override or _detect_init_engine(repo_root)
     engine_hint = (
-        f"[bold cyan]{detected_engine}[/] (manually specified via --engine)."
+        f"[bold cyan]{detected_engine}[/] ({engine_reason})."
         if engine_override
         else f"[bold cyan]{detected_engine}[/] (auto-detected)."
     )
@@ -1540,8 +2129,14 @@ def _init_pyproject(
 
     section = PYPROJECT_TOML_SECTION_TEMPLATE.format(
         engine=detected_engine,
+        engines=_supported_engines(),
         hint_name=discovered_name or "your-project",
+        base_url_line=_base_url_line(detected_engine),
     )
+    if enabled_keys:
+        # The pyproject section is the pointer, not the catalogue: a chosen
+        # opt-in flag is the one decision it carries beyond the defaults.
+        section += "\n[tool.zenzic.policies]\n" + "".join(f"{key} = true\n" for key in enabled_keys)
 
     pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")
 
@@ -1568,7 +2163,7 @@ def _scaffold_plugin(repo_root: Path, plugin_name: str, force: bool) -> None:
     """Create a ready-to-edit plugin package scaffold."""
     raw = plugin_name.strip()
     if not raw:
-        _shared.console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
+        _shared.stderr_console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
         raise typer.Exit(1)
 
     project_slug = _SLUG_NONWORD_RE.sub("-", raw.lower()).strip("-")
