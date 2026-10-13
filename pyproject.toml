@@ -44,6 +44,11 @@ dependencies = [
     "pyyaml>=6.0.3",
     "pydantic>=2.0.0",
     "httpx>=0.27,<1.0",
+    # anyio arrives through httpx, which does not bound it. Before 4.14.2 anyio encodes
+    # TLS host names with IDNA 2003 (GHSA-82r6-8w77-94w6); the floor keeps such a copy
+    # out of an installed environment. The external-link check's path is guarded by
+    # tests/test_a_non_ascii_host_reaches_anyio_already_encoded.py.
+    "anyio>=4.14.2",
     # ZRT-007: DFA-native RE2 engine — no NFA fallback, no ReDoS surface.
     # ImportError at module load time is intentional: non-RE2 environments
     # are explicitly unsupported. google-re2 provides the C++ RE2 bindings.

@@ -739,6 +739,12 @@ which mode produced it.
 
 ### Changed
 
+- **Installing zenzic now requires anyio 4.14.2 or later.** anyio reaches zenzic through httpx, which does
+  not bound it, and the external-link check (`--strict`) opens its TLS connections through anyio. Before
+  4.14.2, anyio encodes a TLS host name with IDNA 2003 (GHSA-82r6-8w77-94w6). httpx already hands it an
+  IDNA 2008, ASCII name, and a test now guards that path, so the floor does not change what the check
+  does: it keeps an older, vulnerable anyio out of the environment zenzic is installed into.
+
 - **The report says when a setting came from your configuration rather than your command line.** Reading `STRICT MODE: Warnings have been promoted to errors` on an invocation that carried no `--strict` is indistinguishable from a bug; it was correct, and nothing said so. The telemetry line now ends with `… • from config: strict` when a verdict-deciding setting was taken from the file and the command line does not account for it. It names at most `strict` and `exit_zero` — the only settings with that shape that reach `check all` — and prints nothing at all for a project that configures neither, because a header that always says something teaches people to stop reading it. `zenzic config explain` remains the complete answer, with per-key provenance across the global and local layers.
 
 - **`--audit` now says that its score is not comparable with a normal run's.** The flag restores findings that declared exemptions had removed, so the DQS drops — on this repository, 96 to 59 — and nothing said the two numbers answer different questions. The audit-mode footer, the flag's help text and the CLI reference now state it. Restored findings already carried a `[POLICY_EXEMPTION]` label; that is unchanged.
