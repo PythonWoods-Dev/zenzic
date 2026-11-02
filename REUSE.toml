@@ -73,16 +73,17 @@ SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors (https://github.c
 SPDX-License-Identifier = "OFL-1.1"
 
 [[annotations]]
-# The OASIS SARIF 2.1.0 JSON schema, byte-identical (SHA-256 7c9688f0…) to
-# SchemaStore's copy at commit 734c0e50105228741c0b76853efdd81b5f93487c
-# (src/schemas/json/sarif-2.1.0.json, 2023-12-20). The content is the OASIS
-# Work Product (SARIF v2.1.0, OASIS Standard, 27 March 2020); SchemaStore's
-# changes (the draft-07 `$schema`/`$id` and its key order) come under its
-# repository license, Apache-2.0. Not authored by PythonWoods.
+# The OASIS SARIF 2.1.0 JSON schema, unmodified: byte-identical (SHA-256
+# c3b4bb2d…, pinned by tests/test_sarif_schema_fixture_is_the_oasis_file.py) to
+# https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json,
+# the schema of SARIF v2.1.0 Plus Errata 01 (OASIS Standard incorporating
+# Approved Errata, 28 August 2023), which the v2.1.0 "Latest stage" page names.
+# Its notice is the Notices section of that deliverable. Not authored by
+# PythonWoods.
 path = "tests/fixtures/sarif-2.1.0-schema.json"
 precedence = "override"
-SPDX-FileCopyrightText = ["2020 OASIS Open", "SchemaStore contributors (https://github.com/SchemaStore/schemastore)"]
-SPDX-License-Identifier = "LicenseRef-OASIS-Notice AND Apache-2.0"
+SPDX-FileCopyrightText = "2023 OASIS Open"
+SPDX-License-Identifier = "LicenseRef-OASIS-Notice"
 
 # ── Examples (fixture data: MDX, MD, JSON, lock files — cannot have inline) ──
 

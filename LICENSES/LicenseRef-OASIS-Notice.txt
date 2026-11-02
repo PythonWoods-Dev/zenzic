@@ -1,8 +1,9 @@
-Copyright © OASIS Open 2020. All Rights Reserved.
+Copyright © OASIS Open 2023. All Rights Reserved.
 
 All capitalized terms in the following text have the meanings assigned to them
 in the OASIS Intellectual Property Rights Policy (the "OASIS IPR Policy"). The
-full Policy may be found at the OASIS website.
+full Policy may be found at the OASIS website:
+[https://www.oasis-open.org/policies-guidelines/ipr/].
 
 This document and translations of it may be copied and furnished to others,
 and derivative works that comment on or otherwise explain it or assist in its
@@ -23,53 +24,65 @@ This document and the information contained herein is provided on an "AS IS"
 basis and OASIS DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT
 NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN WILL NOT
 INFRINGE ANY OWNERSHIP RIGHTS OR ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR
-FITNESS FOR A PARTICULAR PURPOSE.
+FITNESS FOR A PARTICULAR PURPOSE. OASIS AND ITS MEMBERS WILL NOT BE LIABLE FOR
+ANY DIRECT, INDIRECT, SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF ANY USE
+OF THIS DOCUMENT OR ANY PART THEREOF.
 
-OASIS requests that any OASIS Party or any other party that believes it has
+As stated in the OASIS IPR Policy, the following three paragraphs in brackets
+apply to OASIS Standards Final Deliverable documents (Committee
+Specifications, OASIS Standards, or Approved Errata).
+
+[OASIS requests that any OASIS Party or any other party that believes it has
 patent claims that would necessarily be infringed by implementations of this
-OASIS Committee Specification or OASIS Standard, to notify OASIS TC
-Administrator and provide an indication of its willingness to grant patent
-licenses to such patent claims in a manner consistent with the IPR Mode of the
-OASIS Technical Committee that produced this specification.
+OASIS Standards Final Deliverable, to notify OASIS TC Administrator and
+provide an indication of its willingness to grant patent licenses to such
+patent claims in a manner consistent with the IPR Mode of the OASIS Technical
+Committee that produced this deliverable.]
 
-OASIS invites any party to contact the OASIS TC Administrator if it is aware
+[OASIS invites any party to contact the OASIS TC Administrator if it is aware
 of a claim of ownership of any patent claims that would necessarily be
-infringed by implementations of this specification by a patent holder that is
-not willing to provide a license to such patent claims in a manner consistent
-with the IPR Mode of the OASIS Technical Committee that produced this
-specification. OASIS may include such claims on its website, but disclaims any
-obligation to do so.
+infringed by implementations of this OASIS Standards Final Deliverable by a
+patent holder that is not willing to provide a license to such patent claims
+in a manner consistent with the IPR Mode of the OASIS Technical Committee that
+produced this OASIS Standards Final Deliverable. OASIS may include such claims
+on its website, but disclaims any obligation to do so.]
 
-OASIS takes no position regarding the validity or scope of any intellectual
+[OASIS takes no position regarding the validity or scope of any intellectual
 property or other rights that might be claimed to pertain to the
-implementation or use of the technology described in this document or the
-extent to which any license under such rights might or might not be
-available; neither does it represent that it has made any effort to identify
-any such rights. Information on OASIS' procedures with respect to rights in
-any document or deliverable produced by an OASIS Technical Committee can be
-found on the OASIS website. Copies of claims of rights made available for
-publication and any assurances of licenses to be made available, or the result
-of an attempt made to obtain a general license or permission for the use of
-such proprietary rights by implementers or users of this OASIS Committee
-Specification or OASIS Standard, can be obtained from the OASIS TC
+implementation or use of the technology described in this OASIS Standards
+Final Deliverable or the extent to which any license under such rights might
+or might not be available; neither does it represent that it has made any
+effort to identify any such rights. Information on OASIS' procedures with
+respect to rights in any document or deliverable produced by an OASIS
+Technical Committee can be found on the OASIS website. Copies of claims of
+rights made available for publication and any assurances of licenses to be
+made available, or the result of an attempt made to obtain a general license
+or permission for the use of such proprietary rights by implementers or users
+of this OASIS Standards Final Deliverable, can be obtained from the OASIS TC
 Administrator. OASIS makes no representation that any information or list of
 intellectual property rights will at any time be complete, or that any claims
-in such list are, in fact, Essential Claims.
+in such list are, in fact, Essential Claims.]
 
 The name "OASIS" is a trademark of OASIS, the owner and developer of this
-specification, and should be used only to refer to the organization and its
+document, and should be used only to refer to the organization and its
 official outputs. OASIS welcomes reference to, and implementation and use of,
-specifications, while reserving the right to enforce its marks against
-misleading uses. Please see https://www.oasis-open.org/policies-guidelines/trademark
-for above guidance.
+documents, while reserving the right to enforce its marks against misleading
+uses. Please see https://www.oasis-open.org/policies-guidelines/trademark/ for
+above guidance.
 
 --------------------------------------------------------------------------------
 
-Source of the text above: the "Notices" section of the Static Analysis Results
-Interchange Format (SARIF) Version 2.1.0, OASIS Standard, 27 March 2020,
-https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/sarif-v2.1.0-os.html
-(retrieved 2026-11-02). That standard lists its JSON schemas as part of the
-same Work Product. The repository that hosts the schema sources,
+Source of the text above: the "Notices" section of Static Analysis Results
+Interchange Format (SARIF) Version 2.1.0 Plus Errata 01, OASIS Standard
+incorporating Approved Errata, 28 August 2023,
+https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/sarif-v2.1.0-errata01-os-complete.html
+(the "Latest stage" of
+https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html, retrieved
+2026-11-02). That document lists among its related work the SARIF schema
+https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json,
+of which tests/fixtures/sarif-2.1.0-schema.json is an unmodified copy. The
+repository that hosts the schema sources,
 https://github.com/oasis-tcs/sarif-spec, states in LICENSE.md that its content
 is governed by the OASIS policies, including the OASIS IPR Policy
-(https://www.oasis-open.org/policies-guidelines/ipr), in RF on RAND Terms Mode.
+(https://www.oasis-open.org/policies-guidelines/ipr), in RF on RAND Terms
+Mode.
