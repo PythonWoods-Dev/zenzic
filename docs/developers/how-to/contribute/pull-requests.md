@@ -229,6 +229,21 @@ For binary files, generated assets, or formats with no comment syntax, add an
 entry to `REUSE.toml` at the repository root instead of adding inline headers.
 The pre-commit hook validates both inline headers and `REUSE.toml` entries.
 
+### Files you did not write
+
+A font, a vendored or compiled library, a schema copied from a standard: these
+carry **their** holder and licence, never the PythonWoods header. Annotate each
+one by name in `REUSE.toml` with `precedence = "override"`, or in its `.license`
+sidecar, with the holder the file itself names (its banner, its font name table,
+its `$id`); add the licence text to `LICENSES/` and list the file in `NOTICE`.
+Never cover it with a directory glob, and never copy another file's sidecar.
+
+`reuse lint` cannot tell a true declaration from a false one, so a second
+pre-commit hook, `third-party-declarations`
+(`scripts/check_third_party_declarations.py`), reads the content: it fails when a
+file declared as PythonWoods' own carries a licence banner, an `@license` tag, a
+copyright line of another holder, a foreign JSON `$id`, or is a font.
+
 ---
 
 ## Use of Generative AI (No AI Slop)

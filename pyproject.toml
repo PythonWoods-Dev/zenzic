@@ -128,6 +128,10 @@ test = [
     # a check.
     "pymdown-extensions>=11.0",
     "markdown>=3.6",
+    # tests/test_check_third_party_declarations.py resolves each file's declaration
+    # with reuse's own API, so the test group carries it rather than skipping
+    # without it. Same pin as the lint group and the pre-commit reuse-tool rev.
+    "reuse==6.2.0",
 ]
 lint = [
     "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)

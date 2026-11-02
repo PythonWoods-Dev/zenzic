@@ -63,12 +63,19 @@ path = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
-# Binary/font assets
+# The project's own binaries only -- never a directory that also holds
+# someone else's files
 [[annotations]]
-path = "docs/assets/**"
-precedence = "aggregate"
+path = "docs/assets/demo/**"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# A third-party file, by name, under its real holder and licence
+[[annotations]]
+path = "docs/assets/fonts/roboto-mono-*.woff2"
+precedence = "override"
+SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)"
+SPDX-License-Identifier = "OFL-1.1"
 ```
 
 **Coverage strategy:**
@@ -81,7 +88,8 @@ SPDX-License-Identifier = "Apache-2.0"
 | Documentation pages (`docs/**/*.md`) | Per-file SPDX header (HTML comment) — see this page's own header above |
 | Root-level prose (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, etc.) | `REUSE.toml` bulk declaration — inline SPDX would render visibly in these files |
 | JSON files, `uv.lock`, extension-less files (`LICENSE`, `NOTICE`) | `REUSE.toml` bulk declaration (no comment syntax) |
-| Binary/font assets (`docs/assets/**`) | `REUSE.toml` bulk declaration |
+| The project's own binary assets (`docs/assets/demo/**`) | `REUSE.toml` bulk declaration |
+| Third-party files (the Roboto fonts, the compiled Tailwind bundle, the OASIS SARIF schema fixture) | One `REUSE.toml` block or `.license` sidecar per file or font family, under the holder and licence the file itself names; the texts in `LICENSES/`, the list in `NOTICE` |
 
 ---
 
@@ -91,7 +99,7 @@ SPDX-License-Identifier = "Apache-2.0"
 uv run reuse lint
 ```
 
-This is the **only authorised compliance verification command.** It:
+This is the authorised compliance verification command. It:
 
 1. Parses every SPDX header in every file.
 2. Validates all `REUSE.toml` bulk declarations.
@@ -106,10 +114,21 @@ Congratulations! Your project is compliant with version 3.3 of the REUSE Specifi
 
 This gate runs in:
 
-- Its own dedicated pre-commit hook (`reuse`, hook 5 of 8 — `repo: fsfe/reuse-tool`, commit-time)
-- `just verify` (hook 8 of 8, `just-verify` — pre-push only), which transitively re-runs the full commit-time hook chain, `reuse` included
+- Its own dedicated pre-commit hook (`reuse`, `repo: fsfe/reuse-tool`, commit-time)
+- `just verify`, which runs `pre-commit run --all-files` and so the whole commit-time hook chain, `reuse` included
 
-It is unrelated to the Zenzic Guard hook (hook 7 of 8, `zenzic-guard`) — that hook is a secret scanner over staged Markdown/MDX, not a license-compliance check.
+It is unrelated to the Zenzic Guard hook (`zenzic-guard`) — that hook is a secret scanner over staged Markdown/MDX, not a license-compliance check.
+
+**What `reuse lint` does not check: whether a declaration is true.** It accepts any
+file that has a declaration, so fonts, a Tailwind bundle and the OASIS SARIF schema
+declared as PythonWoods' own passed it until they were corrected. The pre-commit hook
+`third-party-declarations` (`scripts/check_third_party_declarations.py`) runs beside
+it, at commit time and in `just verify`, and the test suite runs it on the whole
+repository: it resolves each file's declaration with `reuse` itself and fails when a
+file declared as the project's own carries another holder's marks — a `/*! … License */`
+banner, an `@license` tag, a `Copyright (c)` line of another holder, a JSON `$id` of
+another publisher, or a font file. What it cannot see — a copied file with no marker
+in it — is stated in the script's docstring.
 
 Any PR that fails `uv run reuse lint` does not merge.
 

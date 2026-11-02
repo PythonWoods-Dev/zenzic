@@ -60,6 +60,23 @@ repos:
     hooks:
       - id: reuse
 
+  # 5a. A declaration is checked against the file it declares. `reuse lint` asks
+  #     whether a file has a copyright and licence; it never reads the content,
+  #     and passed for months on fonts, a Tailwind bundle and the OASIS SARIF
+  #     schema declared as PythonWoods' own (corrected in 9da4e36). This flags a
+  #     file declared as the project's own whose content carries another
+  #     holder's marks. Every file, because a REUSE.toml edit changes the
+  #     declaration of files that are not staged. Its limits are stated in the
+  #     script's docstring.
+  - repo: local
+    hooks:
+      - id: third-party-declarations
+        name: Third-party files not declared as the project's own
+        entry: uv run python scripts/check_third_party_declarations.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
   # 6. Local: type checking
   - repo: local
     hooks:

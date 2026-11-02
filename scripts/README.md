@@ -15,6 +15,7 @@ script is dead — check this table first.
 | :--- | :--- | :--- |
 | `generate_blog_headers.sh` | **Active** | Regenerates the six Foundations header images from real fixtures. See [`BLOG_HEADERS.md`](BLOG_HEADERS.md). |
 | `verdict_cache.py` | **Active** (`just verify`) | Skips the tree-deterministic half of `verify` when this exact tree already earned a green verdict; never caches `pip-audit`, the structural audit or the score. `ZENZIC_VERDICT_CACHE=0` forces a full run. |
+| `check_third_party_declarations.py` | **Active** (pre-commit hook `third-party-declarations`, `just verify`, and the suite through `tests/test_check_third_party_declarations.py`) | Fails when a file declared as PythonWoods' own (`REUSE.toml`, a `.license` sidecar or an inline SPDX header) carries another holder's marks: a licence banner, an `@license` tag, a foreign copyright line, a foreign JSON `$id`, or a font. `--self-test` checks the instrument alone. |
 | `mutation_gate.py` | **Active** (`just mutation`, CI) | Runs mutmut over the credential scanner, gates the score floor and the survivor count, and writes `mutants/mutmut-results.txt` — the per-mutant fates a triage needs — beside the aggregate stats. |
 | `benchmark.py` | Hand-run | Performance harness for scan throughput; run when investigating a regression. |
 | `sync_rule_card_badges.py` | Hand-run | Synchronises rule-card badges after a finding-code change. |

@@ -3006,6 +3006,7 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
+    { name = "reuse" },
 ]
 
 [package.metadata]
@@ -3075,4 +3076,5 @@ test = [
     { name = "pytest-cov", specifier = ">=4.1.0" },
     { name = "pytest-timeout", specifier = ">=2.3.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "reuse", specifier = "==6.2.0" },
 ]
