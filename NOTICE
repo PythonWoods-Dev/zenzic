@@ -145,12 +145,21 @@ They are not included in the distributed wheel.
 
 ## Self-Hosted Fonts
 
-The documentation site includes the following self-hosted font families:
+The documentation site serves the following font files from
+`docs/assets/fonts/`. Copyright lines and license are read from each file's own
+name table (name ID 0 and name ID 14), and match the upstream OFL.txt files.
 
-24. Roboto & Roboto Mono (https://github.com/googlefonts/roboto)
-    Copyright (c) 2015 Google Inc.
-    License: Apache License 2.0
-    Used for: General documentation body and monospaced text
+24. Roboto 3.015 (https://github.com/googlefonts/roboto-classic)
+    Copyright 2011 The Roboto Project Authors
+    License: SIL Open Font License 1.1 (OFL-1.1); text in `LICENSES/OFL-1.1.txt`
+    Files: `roboto-{300,400,700}-{normal,italic}.woff2`
+    Used for: General documentation body text
+
+25. Roboto Mono 3.001 (https://github.com/googlefonts/robotomono)
+    Copyright 2015 The Roboto Mono Project Authors
+    License: SIL Open Font License 1.1 (OFL-1.1); text in `LICENSES/OFL-1.1.txt`
+    Files: `roboto-mono-{400,700}-{normal,italic}.woff2`
+    Used for: Monospaced documentation text
 
 ================================================================================
 
@@ -159,17 +168,39 @@ The documentation site includes the following self-hosted font families:
 The following compiled asset is committed to the repository and served
 directly to end users as part of the built documentation site.
 
-25. Tailwind CSS (https://github.com/tailwindlabs/tailwindcss)
+26. Tailwind CSS (https://github.com/tailwindlabs/tailwindcss)
     Copyright (c) Tailwind Labs, Inc.
-    License: MIT
+    License: MIT; text in `LICENSES/MIT.txt`
     Used for: Utility-class CSS compiled into `docs/assets/css/zenzic-tailwind.min.css`
     by a human-run Tailwind CLI build (see `docs/assets/css/README.md`); the compiled
     file carries its own inline `/*! tailwindcss ... | MIT License | ... */` banner.
+    The bundle is Tailwind's theme and utility CSS (MIT) selected and parameterised
+    by this project's input (`tailwind-input.css`: the dark-mode variant selector,
+    and the arbitrary values used in the site's markup), which is Apache-2.0; its
+    `.license` file declares both.
 
 ================================================================================
 
-Full license texts for third-party dependencies can be found in their
-respective project repositories or package installations.
+## Bundled Test Fixtures
+
+27. OASIS SARIF 2.1.0 JSON schema (`tests/fixtures/sarif-2.1.0-schema.json`)
+    Copyright (c) OASIS Open 2020. All Rights Reserved.
+    License: the OASIS copyright notice of the SARIF v2.1.0 OASIS Standard,
+    governed by the OASIS IPR Policy; text in `LICENSES/LicenseRef-OASIS-Notice.txt`
+    Source: byte-identical to SchemaStore's `src/schemas/json/sarif-2.1.0.json` at
+    commit 734c0e50105228741c0b76853efdd81b5f93487c (2023-12-20,
+    https://github.com/SchemaStore/schemastore, Apache-2.0), a copy of the OASIS
+    schema (https://github.com/oasis-tcs/sarif-spec) with the draft-07 `$schema`
+    and `$id`. Not shipped in the wheel.
+    Used for: Validating Zenzic's SARIF output in the test suite
+
+================================================================================
+
+The license texts of every third-party file bundled in this repository
+(items 24-27) are in the `LICENSES/` directory, and `REUSE.toml` or a `.license`
+file next to each one names its copyright holder and license. The packages in
+items 1-23 are not bundled here: they are installed from their own
+distributions, which carry their own license texts.
 
 This NOTICE file is provided in accordance with the Apache License 2.0
 requirements for attribution.

@@ -33,12 +33,51 @@ SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
 # ── Binary assets ─────────────────────────────────────────────────────────────
+# Only the project's own binaries. This block once covered `docs/assets/**` and
+# so declared the vendored fonts and the compiled Tailwind bundle as
+# PythonWoods/Apache-2.0. Every other file under docs/assets/ declares itself
+# (an inline header or a `.license` sidecar); third-party files are annotated
+# one by one below, never by a directory glob.
 
 [[annotations]]
-path = "docs/assets/**"
-precedence = "aggregate"
+path = "docs/assets/demo/**"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# ── Third-party files bundled in the repository ───────────────────────────────
+
+[[annotations]]
+# Roboto 3.015 (name table: "Copyright 2011 The Roboto Project Authors
+# (https://github.com/googlefonts/roboto-classic)", name ID 14
+# "https://openfontlicense.org"). Upstream license:
+# https://github.com/googlefonts/roboto-classic/blob/main/OFL.txt
+path = ["docs/assets/fonts/roboto-300-*.woff2", "docs/assets/fonts/roboto-400-*.woff2",
+        "docs/assets/fonts/roboto-700-*.woff2"]
+precedence = "override"
+SPDX-FileCopyrightText = "2011 The Roboto Project Authors (https://github.com/googlefonts/roboto-classic)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+# Roboto Mono 3.001 (name table: "Copyright 2015 The Roboto Mono Project
+# Authors (https://github.com/googlefonts/robotomono)", name ID 14
+# "https://openfontlicense.org"). Upstream license:
+# https://github.com/googlefonts/robotomono/blob/main/OFL.txt
+path = "docs/assets/fonts/roboto-mono-*.woff2"
+precedence = "override"
+SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+# The OASIS SARIF 2.1.0 JSON schema, byte-identical (SHA-256 7c9688f0…) to
+# SchemaStore's copy at commit 734c0e50105228741c0b76853efdd81b5f93487c
+# (src/schemas/json/sarif-2.1.0.json, 2023-12-20). The content is the OASIS
+# Work Product (SARIF v2.1.0, OASIS Standard, 27 March 2020); SchemaStore's
+# changes (the draft-07 `$schema`/`$id` and its key order) come under its
+# repository license, Apache-2.0. Not authored by PythonWoods.
+path = "tests/fixtures/sarif-2.1.0-schema.json"
+precedence = "override"
+SPDX-FileCopyrightText = ["2020 OASIS Open", "SchemaStore contributors (https://github.com/SchemaStore/schemastore)"]
+SPDX-License-Identifier = "LicenseRef-OASIS-Notice AND Apache-2.0"
 
 # ── Examples (fixture data: MDX, MD, JSON, lock files — cannot have inline) ──
 
@@ -63,14 +102,6 @@ SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = ["NOTICE", "LICENSE"]
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-# ── Font assets ──────────────────────────────────────────────────────────────
-
-[[annotations]]
-path = "docs/assets/fonts/**"
-precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 

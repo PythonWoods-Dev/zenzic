@@ -30,9 +30,12 @@ npm run build:css           # -i tailwind-input.css -o docs/assets/css/zenzic-ta
 
 **The generated file carries no SPDX header.** The bundle committed before
 2026-09-21 had one, added by hand after generation and recorded nowhere; the CLI
-does not emit it and a rebuild drops it. `reuse lint` passes regardless, because
-`REUSE.toml`'s `docs/assets/**` block covers it. Do not re-add it by hand: that is
-the manual post-step which made the artifact irreproducible in the first place.
+does not emit it and a rebuild drops it. Its licensing is declared next to it, in
+`zenzic-tailwind.min.css.license`: Tailwind Labs, Inc. under MIT for the framework
+CSS the bundle is made of, and PythonWoods under Apache-2.0 for what this project's
+input adds (the dark-mode variant selector, the arbitrary values from the markup).
+Do not re-add a header by hand: that is the manual post-step which made the artifact
+irreproducible in the first place.
 
 **Why the version is pinned.** The committed bundle declares its own builder in
 its first comment — `tailwindcss v4.3.1` — and nothing else recorded it, so

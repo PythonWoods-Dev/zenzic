@@ -9,9 +9,10 @@ was visible to any existing check:
 
 1. **A hand-added SPDX header.** The committed bundle carried one; the CLI does
    not emit it and a clean rebuild drops it. `reuse lint` passed throughout,
-   because `REUSE.toml`'s `docs/assets/**` block covers the path — a compliance
-   gate covering the file with an unrelated exclusion, which is why nothing
-   noticed it was hand-edited.
+   because `REUSE.toml`'s `docs/assets/**` block then covered the path — a
+   compliance gate covering the file with an unrelated exclusion, which is why
+   nothing noticed it was hand-edited. That block is gone; the bundle's licensing
+   now lives in its own `.license` file, which a rebuild does not touch.
 2. **An input the repository does not contain.** The bundle wired 114 selectors
    to `[data-md-color-scheme=slate]`, and nothing in the repo produced that:
    `tailwind.config.js` has never had a `darkMode` key. Pinning the CLI version
