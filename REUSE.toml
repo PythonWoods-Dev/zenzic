@@ -47,10 +47,13 @@ SPDX-License-Identifier = "Apache-2.0"
 # ── Third-party files bundled in the repository ───────────────────────────────
 
 [[annotations]]
-# Roboto 3.015 (name table: "Copyright 2011 The Roboto Project Authors
-# (https://github.com/googlefonts/roboto-classic)", name ID 14
-# "https://openfontlicense.org"). Upstream license:
-# https://github.com/googlefonts/roboto-classic/blob/main/OFL.txt
+# Roboto 3.015, subset by scripts/regenerate_fonts.py from web/static/ of the
+# release asset Roboto_v3.015.zip (googlefonts/roboto-classic tag v3.015,
+# SHA-256 pinned in the script). Name IDs 0, 13 and 14 are upstream's:
+# "Copyright 2011 The Roboto Project Authors
+# (https://github.com/googlefonts/roboto-classic)", the OFL 1.1 description and
+# "https://openfontlicense.org". Upstream license:
+# https://github.com/googlefonts/roboto-classic/blob/v3.015/OFL.txt
 path = ["docs/assets/fonts/roboto-300-*.woff2", "docs/assets/fonts/roboto-400-*.woff2",
         "docs/assets/fonts/roboto-700-*.woff2"]
 precedence = "override"
@@ -58,10 +61,12 @@ SPDX-FileCopyrightText = "2011 The Roboto Project Authors (https://github.com/go
 SPDX-License-Identifier = "OFL-1.1"
 
 [[annotations]]
-# Roboto Mono 3.001 (name table: "Copyright 2015 The Roboto Mono Project
-# Authors (https://github.com/googlefonts/robotomono)", name ID 14
-# "https://openfontlicense.org"). Upstream license:
-# https://github.com/googlefonts/robotomono/blob/main/OFL.txt
+# Roboto Mono 3.001, subset by scripts/regenerate_fonts.py from fonts/ttf/ of
+# googlefonts/robotomono at tag v3.001 (111eb14e, SHA-256 of each file pinned in
+# the script). Name IDs 0, 13 and 14 are upstream's: "Copyright 2015 The Roboto
+# Mono Project Authors (https://github.com/googlefonts/robotomono)", the OFL 1.1
+# description and "https://openfontlicense.org". Upstream license:
+# https://github.com/googlefonts/robotomono/blob/v3.001/OFL.txt
 path = "docs/assets/fonts/roboto-mono-*.woff2"
 precedence = "override"
 SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)"

@@ -146,19 +146,23 @@ They are not included in the distributed wheel.
 ## Self-Hosted Fonts
 
 The documentation site serves the following font files from
-`docs/assets/fonts/`. Copyright lines and license are read from each file's own
-name table (name ID 0 and name ID 14), and match the upstream OFL.txt files.
+`docs/assets/fonts/`. Each is a subset of an upstream release file, made by
+`scripts/regenerate_fonts.py`, which pins the release by SHA-256 and keeps the
+original's copyright and license records (name IDs 0, 13 and 14) in the subset.
+They match the upstream OFL.txt files.
 
 24. Roboto 3.015 (https://github.com/googlefonts/roboto-classic)
     Copyright 2011 The Roboto Project Authors
     License: SIL Open Font License 1.1 (OFL-1.1); text in `LICENSES/OFL-1.1.txt`
     Files: `roboto-{300,400,700}-{normal,italic}.woff2`
+    Source: release asset `Roboto_v3.015.zip`, `web/static/` (tag v3.015)
     Used for: General documentation body text
 
 25. Roboto Mono 3.001 (https://github.com/googlefonts/robotomono)
     Copyright 2015 The Roboto Mono Project Authors
     License: SIL Open Font License 1.1 (OFL-1.1); text in `LICENSES/OFL-1.1.txt`
     Files: `roboto-mono-{400,700}-{normal,italic}.woff2`
+    Source: `fonts/ttf/` at tag v3.001 (commit 111eb14e)
     Used for: Monospaced documentation text
 
 ================================================================================

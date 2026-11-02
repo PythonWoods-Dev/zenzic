@@ -91,6 +91,10 @@ SPDX-License-Identifier = "OFL-1.1"
 | The project's own binary assets (`docs/assets/demo/**`) | `REUSE.toml` bulk declaration |
 | Third-party files (the Roboto fonts, the compiled Tailwind bundle, the OASIS SARIF schema fixture) | One `REUSE.toml` block or `.license` sidecar per file or font family, under the holder and licence the file itself names; the texts in `LICENSES/`, the list in `NOTICE` |
 
+The fonts are subsets of the upstream release files, rebuilt by `scripts/regenerate_fonts.py`
+from sources it pins by SHA-256, and each keeps upstream's copyright and OFL records in its
+own name table — the place the OFL lets a font carry its notice. A test reads them there.
+
 ---
 
 ## 3. The Single Gate of Truth

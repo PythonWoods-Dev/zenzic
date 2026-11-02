@@ -132,6 +132,10 @@ test = [
     # with reuse's own API, so the test group carries it rather than skipping
     # without it. Same pin as the lint group and the pre-commit reuse-tool rev.
     "reuse==6.2.0",
+    # tests/test_bundled_fonts_carry_their_licence.py reads each docs/assets/fonts/*.woff2
+    # name table (WOFF2 needs brotli: the `woff` extra). The floor is the first release
+    # without GHSA-768j-98cg-p3fv. scripts/regenerate_fonts.py pins its own version.
+    "fonttools[woff]>=4.60.2",
 ]
 lint = [
     "ruff==0.11.2",  # pinned to .pre-commit-config.yaml's ruff-pre-commit rev (v0.11.2)

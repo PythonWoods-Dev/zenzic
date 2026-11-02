@@ -42,7 +42,8 @@ declared-own file is reported when its content carries a third-party marker:
 3. **A font file** (`.woff`, `.woff2`, `.ttf`, `.otf`). With fontTools (and
    brotli, for WOFF2) importable, the name table's copyright (name ID 0) is
    read and the file is reported only when it does not name PythonWoods.
-   Neither is a dependency of this repository, so in the ordinary environment
+   Both come with the test group (`fonttools[woff]`, for
+   `tests/test_bundled_fonts_carry_their_licence.py`); where they are absent,
    **every** font declared as PythonWoods' own is reported: this project draws
    no typefaces, and a font it ships is somebody else's until shown otherwise.
 4. **A JSON document whose `$id` is another organisation's URL.** A schema's
