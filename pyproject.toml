@@ -17,8 +17,15 @@ version = "0.30.0"
 description = "Deterministic Document Integrity Engine for Markdown/MDX graphs."
 readme = "README.md"
 requires-python = ">=3.10"
-# PEP 639: SPDX expression string (replaces deprecated `license = { text = "..." }`)
-license = "Apache-2.0"
+# PEP 639: the licences of what the archives ship, not of the project's own code alone.
+# The sdist carries the Roboto fonts (OFL-1.1), the compiled Tailwind bundle (MIT) and
+# the OASIS SARIF schema fixture (LicenseRef-OASIS-Notice) beside the Apache-2.0 code.
+# hatchling writes the sdist's PKG-INFO and the wheel's METADATA from this one value, and
+# a wheel built from an sdist must repeat its non-Dynamic fields, so the wheel (only
+# src/zenzic and examples/, Apache-2.0) carries the sdist's expression.
+# tests/test_distributions_declare_every_shipped_licence.py builds both and reads them.
+license = "Apache-2.0 AND MIT AND OFL-1.1 AND LicenseRef-OASIS-Notice"
+license-files = ["LICENSE", "NOTICE", "LICENSES/*.txt"]
 keywords = ["static-analysis", "security", "documentation", "semver", "document-integrity", "graph-topology", "ci", "strict", "links", "mkdocs", "zensical", "yaml", "json", "toml"]
 classifiers = [
 
@@ -27,7 +34,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

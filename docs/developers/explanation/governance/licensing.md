@@ -31,6 +31,16 @@ it is an engineering commitment. It permits free use, modification, and distribu
 
 **Full text:** `LICENSE` file at the root of each Zenzic repository.
 
+**What the published distributions declare.** Zenzic's own code is Apache-2.0, and the
+source distribution also ships third-party files: the Roboto fonts (OFL-1.1), the
+compiled Tailwind bundle (MIT) and the OASIS SARIF schema used by the tests (the OASIS
+Notices). Under PEP 639 a distribution's `License-Expression` describes that archive, so
+`pyproject.toml` declares `Apache-2.0 AND MIT AND OFL-1.1 AND LicenseRef-OASIS-Notice` and
+lists `LICENSE`, `NOTICE` and every text in `LICENSES/` as `license-files`. The wheel
+carries the same expression: the build backend writes both archives' metadata from one
+value, and a wheel built from an sdist must repeat its fields. The wheel itself contains
+only Zenzic's Apache-2.0 code and examples.
+
 ---
 
 ## 2. The License Signature — SPDX + REUSE 3.3
