@@ -165,7 +165,7 @@ _local-checks:
     fi
     if [ -d .claude ] || [ -d .human ]; then
         echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
-        echo "  '.claude/' and/or '.human/' exist here, so this is a maintainer clone —" >&2
+        echo "  The private folders exist here, so this is a maintainer clone —" >&2
         echo "  but '.justfile.local' is absent and 'zenzic.local-tooling' is unset, so" >&2
         echo "  every private gate is being skipped while 'just verify' reports success." >&2
         echo "  That is the failure this check exists to make visible: a green run that" >&2
@@ -209,7 +209,7 @@ _prepush-checks:
     if [ -d .claude ] || [ -d .human ]; then
         echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
         echo "  The disclosure and private-tree gates are the ones that matter most here:" >&2
-        echo "  they are the only checks that read '.claude/' and '.human/' before a push." >&2
+        echo "  they are the only checks that read the private folders before a push." >&2
         echo "  Fix — restore the private recipes, then opt this clone in:" >&2
         echo "    git config --local zenzic.local-tooling true" >&2
         exit 1

@@ -248,8 +248,8 @@ copyright line of another holder, a foreign JSON `$id`, or is a font.
 
 A commit message is public the moment it is pushed. The `commit-message-terms`
 hook (`scripts/check_commit_message_terms.py`, at the commit-msg stage) refuses a
-message that names a path inside `.claude/`, `.human/` or `.governance/`, and any
-term of the local list `.commit-message-terms` at the repository's root: one term
+message that names any term of the local list `.commit-message-terms` at the
+repository's root, a private folder's path included (listed as `<folder>/`): one term
 per line, kept out of git, so the words it holds are never published by being
 listed. Reword and commit again; git keeps the message in `.git/COMMIT_EDITMSG`.
 

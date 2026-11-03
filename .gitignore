@@ -19,12 +19,6 @@
 # Internal workspace (not published)
 # ────────────────────────────────────────────────────────────────────────────
 zenzic.code-workspace
-.claude/
-.human/
-# Integrity manifest for the two directories above. It records their file
-# paths, sizes and hashes — never their content — but the paths alone would
-# publish the shape of a deliberately private tree, so it stays on the same
-# side of the boundary.
 # Local-only recipes, loaded via just's `import?` when present and silently
 # absent otherwise, so a fresh clone's public recipes still all work.
 .justfile.local

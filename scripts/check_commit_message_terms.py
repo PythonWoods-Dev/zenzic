@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Refuse a commit message that names a private folder, or a term of the local list.
+"""Refuse a commit message that names a term of the local list.
 
     python3 scripts/check_commit_message_terms.py <commit-msg-file>
     python3 scripts/check_commit_message_terms.py --self-test
@@ -15,15 +15,12 @@ Exit 0 when the message is acceptable, 1 with each offending line otherwise.
 
 What it refuses
 ---------------
-* **A path inside a private folder**: `.claude/`, `.human/` or `.governance/`
-  followed by a slash. The bare names stay allowed, because the product itself
-  refuses to point into those folders and a message about that code may name
-  them.
 * **Every term of the local list**, one per line, matched case-insensitively.
   The list is the file `.commit-message-terms` at the repository's root, kept out
   of git (`.gitignore`), so the words it holds are never published by being
-  listed. Blank lines and lines starting with `#` are ignored. No file, no terms:
-  the folder rule alone applies.
+  listed. A private folder is listed with its slash (`<folder>/`): a path inside it
+  is refused, and its bare name is not. Blank lines and lines starting with `#` are
+  ignored. No file, no terms: nothing is refused.
 
 Lines git itself strips (those starting with `#`) are not read.
 
@@ -37,15 +34,12 @@ What this does NOT check
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TERMS_FILE = REPO_ROOT / ".commit-message-terms"
-PRIVATE_FOLDERS = (".claude", ".human", ".governance")
-FOLDER_PATH = re.compile(r"(?<![\w.])(" + "|".join(re.escape(f) for f in PRIVATE_FOLDERS) + r")/")
 
 
 def terms(file: Path = TERMS_FILE) -> list[str]:
@@ -62,9 +56,6 @@ def problems(message: str, local_terms: list[str]) -> list[str]:
     for n, line in enumerate(message.splitlines(), 1):
         if line.startswith("#"):
             continue
-        folder = FOLDER_PATH.search(line)
-        if folder:
-            out.append(f"line {n}: names a path inside the private folder {folder.group(1)}/")
         lowered = line.lower()
         out += [
             f"line {n}: names a term of the local list ({term!r})"
@@ -77,15 +68,13 @@ def problems(message: str, local_terms: list[str]) -> list[str]:
 def self_test() -> list[str]:
     """Each rule must be shown to fire, and to stay quiet where it should."""
     failed: list[str] = []
-    # The examples are assembled from PRIVATE_FOLDERS, so that this public file writes no private path out.
-    folder = PRIVATE_FOLDERS[0]
-    if not problems(f"docs: the rule in {folder}/notes/x.md", []):
-        failed.append("a private folder's path passes")
-    if problems("fix: DoctorConfig refuses .claude and .human as targets", []):
-        failed.append("the bare folder names are refused")
+    if not problems("docs: the rule in notes-private/x.md", ["notes-private/"]):
+        failed.append("a listed folder's path passes")
+    if problems("fix: the config refuses notes-private as a target", ["notes-private/"]):
+        failed.append("a listed folder's bare name is refused")
     if not problems("docs: as the secret plan says", ["secret plan"]):
         failed.append("a term of the local list passes")
-    if problems(f"# {folder}/x is a comment git strips", []):
+    if problems("# secret plan is a comment git strips", ["secret plan"]):
         failed.append("a comment line is read")
     return failed
 

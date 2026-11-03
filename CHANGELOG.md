@@ -13,8 +13,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **A Commit Message That Names a Private Folder Is Refused When It Is Written**: the `commit-message-terms` hook
-  (commit-msg stage) refuses a message naming a path inside `.claude/`, `.human/` or `.governance/`, or a term of the
-  local, git-ignored list `.commit-message-terms`, while a reword is still free. Contributor tooling only: no code,
+  (commit-msg stage) refuses a message naming a term of the local, git-ignored list `.commit-message-terms`, a private
+  folder's path included, while a reword is still free. Contributor tooling only: no code,
   finding or output of the product changes.
 
 - **`.zenzic-vsm.json` Can Declare Its Own Anchors**: a `prebuilt` manifest entry may carry an
