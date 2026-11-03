@@ -377,7 +377,7 @@ class BlockTracker:
         #: lets a consumer stop carrying its own copy of the rule: thirteen of
         #: them did, they accepted only `---`, and a document closed with YAML's
         #: `...` marker therefore had its whole body treated as frontmatter --
-        #: every content rule silent, exit 0, measured on the published v0.30.0.
+        #: every content rule silent, exit 0.
         #:
         #: `_frontmatter` above is the *state between* the delimiters; this is
         #: the per-line verdict, which is what a caller's `continue` needs.
@@ -456,8 +456,7 @@ class BlockTracker:
             # `---` does. Thirteen line-skipping copies of this rule in
             # `content.py` and `governance.py` accept only `---`, so a document
             # closed with `...` has its entire body treated as frontmatter and
-            # every content rule goes silent -- measured 2026-09-18 on the
-            # published v0.30.0: two H1 headings, no `Z516`, exit 0.
+            # every content rule goes silent: two H1 headings, no `Z516`, exit 0.
             #
             # `scanner._skip_frontmatter` is the one copy that already accepts
             # both, which is why the credential scanner is unaffected: measured,

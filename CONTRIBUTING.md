@@ -23,10 +23,8 @@ Zenzic is structured across three independent, dedicated repositories:
 **If you want to contribute to the core analysis engine** (new checks, adapters, bug fixes, CLI features, or performance improvements) — you are in the right place!
 
 > **Brand assets** — The logo and icon live in `docs/assets/brand/svg/` and
-> `docs/assets/brand/png/`. The brand-system page this note used to link was
-> removed in v0.30.0 as identity content outside a technical tool's public
-> documentation; the redirect that outlived it lands on the reference index,
-> which says nothing about the palette.
+> `docs/assets/brand/png/`. The public documentation has no brand-system page:
+> identity content sits outside a technical tool's documentation.
 
 ---
 
