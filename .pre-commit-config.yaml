@@ -140,6 +140,18 @@ repos:
         stages: [commit-msg]
         always_run: true
 
+  # 7a'. Private names in the commit message (commit-msg stage). A message is
+  #     public once pushed; this refuses a path inside a private folder and the
+  #     terms of the local, git-ignored list while the reword is still free.
+  - repo: local
+    hooks:
+      - id: commit-message-terms
+        name: Private names in the commit message
+        entry: python3 scripts/check_commit_message_terms.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
   # 7b. Redirects tripwire — structural drift detector for docs/_redirects.
   #     Not a formatter: it never edits the file, it fails loudly when the file
   #     changes shape. Added after commit 36c5f70 silently gained 18 blank lines

@@ -12,6 +12,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **A Commit Message That Names a Private Folder Is Refused When It Is Written**: the `commit-message-terms` hook
+  (commit-msg stage) refuses a message naming a path inside `.claude/`, `.human/` or `.governance/`, or a term of the
+  local, git-ignored list `.commit-message-terms`, while a reword is still free. Contributor tooling only: no code,
+  finding or output of the product changes.
+
 - **`.zenzic-vsm.json` Can Declare Its Own Anchors**: a `prebuilt` manifest entry may carry an
   `anchors` array, and where it does the engine stops predicting that page's fragments. Zenzic
   derives anchors with a replica of Python-Markdown's slugifier; a site rendered with anything

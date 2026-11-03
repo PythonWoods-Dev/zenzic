@@ -28,6 +28,9 @@ zenzic.code-workspace
 # Local-only recipes, loaded via just's `import?` when present and silently
 # absent otherwise, so a fresh clone's public recipes still all work.
 .justfile.local
+# The local list of terms a commit message must not name
+# (scripts/check_commit_message_terms.py): listing them would publish them.
+.commit-message-terms
 
 # ────────────────────────────────────────────────────────────────────────────
 # Python Build & Distribution
