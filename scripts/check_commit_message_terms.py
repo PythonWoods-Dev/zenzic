@@ -77,13 +77,15 @@ def problems(message: str, local_terms: list[str]) -> list[str]:
 def self_test() -> list[str]:
     """Each rule must be shown to fire, and to stay quiet where it should."""
     failed: list[str] = []
-    if not problems("docs: the rule in .claude/references/x.md", []):
+    # The examples are assembled from PRIVATE_FOLDERS, so that this public file writes no private path out.
+    folder = PRIVATE_FOLDERS[0]
+    if not problems(f"docs: the rule in {folder}/notes/x.md", []):
         failed.append("a private folder's path passes")
     if problems("fix: DoctorConfig refuses .claude and .human as targets", []):
         failed.append("the bare folder names are refused")
     if not problems("docs: as the secret plan says", ["secret plan"]):
         failed.append("a term of the local list passes")
-    if problems("# .claude/x is a comment git strips", []):
+    if problems(f"# {folder}/x is a comment git strips", []):
         failed.append("a comment line is read")
     return failed
 

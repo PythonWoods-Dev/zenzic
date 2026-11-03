@@ -51,12 +51,12 @@ def test_no_terms_file_means_no_terms(tmp_path: Path) -> None:
 
 
 def test_comment_lines_are_not_read() -> None:
-    assert checker.problems("feat: x\n# .claude/state/y.md\n", []) == []
+    assert checker.problems(f"feat: x\n# {checker.PRIVATE_FOLDERS[0]}/notes/y.md\n", []) == []
 
 
 def test_the_hook_exits_one_on_a_refused_message_and_zero_otherwise(tmp_path: Path) -> None:
     bad = tmp_path / "bad"
-    bad.write_text("docs: see .human/README.md\n", encoding="utf-8")
+    bad.write_text(f"docs: see {checker.PRIVATE_FOLDERS[1]}/notes.md\n", encoding="utf-8")
     good = tmp_path / "good"
     good.write_text("docs: the install page\n", encoding="utf-8")
     assert checker.main([str(bad)]) == 1
