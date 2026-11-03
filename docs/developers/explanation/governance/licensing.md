@@ -31,15 +31,15 @@ it is an engineering commitment. It permits free use, modification, and distribu
 
 **Full text:** `LICENSE` file at the root of each Zenzic repository.
 
-**What the published distributions declare.** Zenzic's own code is Apache-2.0, and the
-source distribution also ships third-party files: the Roboto fonts (OFL-1.1), the
-compiled Tailwind bundle (MIT) and the OASIS SARIF schema used by the tests (the OASIS
-Notices). Under PEP 639 a distribution's `License-Expression` describes that archive, so
-`pyproject.toml` declares `Apache-2.0 AND MIT AND OFL-1.1 AND LicenseRef-OASIS-Notice` and
-lists `LICENSE`, `NOTICE` and every text in `LICENSES/` as `license-files`. The wheel
-carries the same expression: the build backend writes both archives' metadata from one
-value, and a wheel built from an sdist must repeat its fields. The wheel itself contains
-only Zenzic's Apache-2.0 code and examples.
+**What the published distributions declare.** Zenzic's own code is Apache-2.0, and that
+is the licence `pyproject.toml` declares (`license = "Apache-2.0"`): under PEP 639 the
+expression describes the project's licence, and the licences of individual files are out
+of its scope. The source distribution also ships third-party files: the Roboto fonts
+(OFL-1.1), the compiled Tailwind bundle (MIT) and the OASIS SARIF schema used by the tests
+(the OASIS Notices). Each keeps its own licence, declared in `REUSE.toml` and named in
+`NOTICE`, and its text ships with both archives: `license-files` lists `LICENSE`, `NOTICE`
+and every text in `LICENSES/`. The wheel contains only Zenzic's Apache-2.0 code and
+examples.
 
 ---
 

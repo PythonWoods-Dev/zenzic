@@ -1,25 +1,22 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""The sdist and the wheel declare, in their own metadata, every licence of what they ship.
+"""The sdist and the wheel declare the project's licence, and ship the text of every licence of what they carry.
 
-`pyproject.toml` declared `license = "Apache-2.0"`, and the sdist built from it
-ships the Roboto fonts (OFL-1.1), the compiled Tailwind bundle (MIT) and the
-OASIS SARIF schema (the OASIS Notices). Under PEP 639 `License-Expression`
-describes the archive that carries it, so the sdist's metadata named one licence
-of four.
+`pyproject.toml` declares `license = "Apache-2.0"`, the licence of Zenzic's own
+code: under PEP 639 `License-Expression` "describes a Project's license(s)", and
+the PEP leaves the licences of individual files out of its scope. The sdist also
+ships files under other licences: the Roboto fonts (OFL-1.1), the compiled
+Tailwind bundle (MIT) and the OASIS SARIF schema (the OASIS Notices). What makes
+shipping them lawful is that each keeps its own licence, declared in REUSE.toml
+and named in NOTICE, and that its text travels with the archive: `license-files`
+is the field PEP 639 gives for "license text, author/attribution information, or
+other legal notices that need to be distributed with the package".
 
 This test builds both distributions with `uv build` and reads what an installer
 or an auditor reads: `PKG-INFO` in the sdist, `METADATA` in the wheel. It checks
-that the expression is valid SPDX, that every licence `reuse` declares for a file
-inside the sdist is in it, that each licence has its text among the declared
-`License-File`s, and that each declared file is in the archive.
-
-The two archives carry one expression. hatchling writes `PKG-INFO` and `METADATA`
-from the same core metadata (its only per-target metadata setting is
-`core-metadata-version`), and the core metadata specification requires a wheel
-built from an sdist to repeat every field the sdist does not mark `Dynamic`. The
-expression is therefore the sdist's, which also covers the wheel; the wheel
-contains only `src/zenzic` and `examples/`, both Apache-2.0.
+that the expression is the project's, valid SPDX; that every licence `reuse`
+declares for a file inside the sdist has its text among the declared
+`License-File`s; and that each declared file is in the archive.
 """
 
 from __future__ import annotations
@@ -40,7 +37,7 @@ from reuse.project import Project
 
 ROOT = Path(__file__).resolve().parent.parent
 
-EXPECTED = "Apache-2.0 AND MIT AND OFL-1.1 AND LicenseRef-OASIS-Notice"
+EXPECTED = "Apache-2.0"
 
 
 @dataclass(frozen=True)
@@ -89,9 +86,8 @@ def test_the_expression_is_the_expected_valid_spdx(built: dict[str, Archive], ar
     assert canonicalize_license_expression(expression) == expression
 
 
-def test_every_licence_reuse_declares_inside_the_sdist_is_in_the_expression(
-    built: dict[str, Archive],
-) -> None:
+def _declared_in_sdist(built: dict[str, Archive]) -> dict[str, str]:
+    """Every licence reuse declares for a file inside the sdist, with one file that carries it."""
     project = Project.from_directory(ROOT)
     declared: dict[str, str] = {}
     for rel in sorted(built["sdist"].files):
@@ -102,21 +98,30 @@ def test_every_licence_reuse_declares_inside_the_sdist_is_in_the_expression(
             for spdx in info.spdx_expressions:
                 for licence in spdx.licenses:
                     declared.setdefault(licence, rel)
-    expression = _licences(built["sdist"].metadata["License-Expression"])
-    missing = {lic: rel for lic, rel in declared.items() if lic not in expression}
-    assert missing == {}, "a licence of a shipped file, with one file that carries it"
-    assert set(declared) == expression, "the expression names a licence no shipped file has"
+    return declared
+
+
+def test_the_sdist_ships_files_under_other_licences_than_the_project(
+    built: dict[str, Archive],
+) -> None:
+    """The premise of the next test: without third-party files it would pass on nothing."""
+    assert {"MIT", "OFL-1.1", "LicenseRef-OASIS-Notice"} <= set(_declared_in_sdist(built))
 
 
 @pytest.mark.parametrize("archive", ["sdist", "wheel"])
-def test_each_licence_has_its_text_among_the_licence_files(
+def test_every_licence_of_a_shipped_file_has_its_text_among_the_licence_files(
     built: dict[str, Archive], archive: str
 ) -> None:
-    meta = built[archive].metadata
-    files = set(meta.get_all("License-File") or [])
+    files = set(built[archive].metadata.get_all("License-File") or [])
     assert {"LICENSE", "NOTICE"} <= files
-    for licence in _licences(meta["License-Expression"]):
-        assert f"LICENSES/{licence}.txt" in files, licence
+    missing = {
+        licence: rel
+        for licence, rel in _declared_in_sdist(built).items()
+        if f"LICENSES/{licence}.txt" not in files
+    }
+    assert missing == {}, (
+        "a licence of a shipped file, with one file that carries it, whose text is not shipped"
+    )
 
 
 def test_each_declared_licence_file_is_in_its_archive(built: dict[str, Archive]) -> None:
