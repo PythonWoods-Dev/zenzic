@@ -16,7 +16,7 @@ the repository. The risk that remains is the inverse: a version string *outside*
 tool's list, which is silently stale the moment a release ships.
 
 Measured before being built: today every unmanaged occurrence is legitimate — the
-lockfile, dated blog posts and changelog archives, "introduced in vX.Y.Z" annotations
+lockfile, changelog archives, dated ADRs, "introduced in vX.Y.Z" annotations
 in source comments, and a generated baseline. So this is a tripwire on the invariant,
 not a repair. A *new* unmanaged occurrence — a version hardcoded into a new module or
 a new how-to page — fails it.
@@ -30,7 +30,7 @@ What this does NOT check, stated here rather than discovered later
    version — a stale `0.29.0` in a how-to — is invisible to it. The check is about
    what a bump will fail to update, not about every wrong version in the tree.
 2. **It trusts the allowlist's categories, not each file's contents.** A newly added
-   blog post may legitimately name the current version; so may a post that has simply
+   ADR may legitimately name the current version; so may a record that has simply
    not been updated. Both pass. The category is the judgement, made once.
 3. **It cannot see a version string that is assembled at runtime.** An f-string that
    composes `f"{major}.{minor}.0"` carries no literal and is unreachable here.
@@ -58,7 +58,6 @@ ALLOWLIST: tuple[tuple[str, str], ...] = (
     (".bumpversion.toml", "holds `current_version`; it is the tool's own state"),
     (".zenzic-baseline.json", "generated; records the version its baseline was taken at"),
     ("changelogs/", "historical archives — frozen by construction"),
-    ("docs/blog/posts/", "dated posts; each describes the version it was written about"),
     ("docs/developers/explanation/adr-vault/", "dated architectural records"),
     ("src/zenzic/core/codes.py", "`(vX.Y.Z)` annotations recording when a code was introduced"),
 )
@@ -240,8 +239,8 @@ def _self_test() -> bool:
     clean. The third case is the one that matters most: an allowlist that matches
     everything would make `unmanaged()` return an empty list forever.
     """
-    if _allowlisted("docs/blog/posts/2026-01-01-x.md") is None:
-        print("self-test FAILED: the allowlist does not cover a dated post", file=sys.stderr)
+    if _allowlisted("docs/developers/explanation/adr-vault/records/adr-x.md") is None:
+        print("self-test FAILED: the allowlist does not cover a dated record", file=sys.stderr)
         return False
     if _allowlisted("src/zenzic/cli/_check.py") is not None:
         print("self-test FAILED: the allowlist matches ordinary source", file=sys.stderr)

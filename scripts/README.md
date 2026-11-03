@@ -13,7 +13,6 @@ script is dead — check this table first.
 
 | Script | Status | When to run it |
 | :--- | :--- | :--- |
-| `generate_blog_headers.sh` | **Active** | Regenerates the six Foundations header images from real fixtures. See [`BLOG_HEADERS.md`](BLOG_HEADERS.md). |
 | `verdict_cache.py` | **Active** (`just verify`) | Skips the tree-deterministic half of `verify` when this exact tree already earned a green verdict; never caches `pip-audit`, the structural audit or the score. `ZENZIC_VERDICT_CACHE=0` forces a full run. |
 | `check_third_party_declarations.py` | **Active** (pre-commit hook `third-party-declarations`, `just verify`, and the suite through `tests/test_check_third_party_declarations.py`) | Fails when a file declared as PythonWoods' own (`REUSE.toml`, a `.license` sidecar or an inline SPDX header) carries another holder's marks: a licence banner, an `@license` tag, a foreign copyright line, a foreign JSON `$id`, or a font. `--self-test` checks the instrument alone. |
 | `regenerate_fonts.py` | Hand-run (`uvx --from 'fonttools[woff]==4.68.0' python -I scripts/regenerate_fonts.py`) | Rebuilds the ten `docs/assets/fonts/*.woff2` from the pinned Roboto and Roboto Mono releases (each source refused unless its SHA-256 matches), keeping upstream's copyright and OFL name records; deterministic. `tests/test_bundled_fonts_carry_their_licence.py` checks the result. |
@@ -28,5 +27,4 @@ script is dead — check this table first.
 `generate_docs_assets.py` was **removed** (2026-08-31): it wrote SVGs via Rich's
 export into `static/assets/terminal/`, a Docusaurus-era path that no longer
 exists, and its own docstring instructed running it "from the zenzic-doc root" —
-a repository layout already superseded. The mechanism it used was replaced by
-the `freeze` captures documented in `BLOG_HEADERS.md`.
+a repository layout already superseded.

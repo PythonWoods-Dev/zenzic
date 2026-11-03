@@ -131,9 +131,6 @@ jobs:
       - name: Redirects structure tripwire
         run: python3 scripts/check_redirects_structure.py
 
-      - name: Blog link schedule gate
-        run: uv run python scripts/check_blog_link_schedule.py
-
       # Determinism across interpreters is a Tier-0 invariant and nothing was
       # checking it. `pathlib.PurePath.suffix` changed semantics in 3.12 and the
       # engine inherited the change, so the same corpus could yield different

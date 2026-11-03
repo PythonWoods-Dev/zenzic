@@ -40,7 +40,10 @@ REDIRECTS = Path(__file__).resolve().parent.parent / "docs" / "_redirects"
 # (five in fa8204d's docs pruning, one when Z504 was removed), and the explicit
 # /docs/architecture rule. The tripwire did exactly what it is for: it stopped a
 # commit until the change was declared.
-EXPECTED_BLANK_LINES = 10
+#
+# 10 -> 9 on 2026-11-03: the blog left the site and its redirect layer went with
+# it, header, rules and the blank line that closed it.
+EXPECTED_BLANK_LINES = 9
 
 
 def main() -> int:

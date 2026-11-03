@@ -21,8 +21,8 @@ This hook copies the schemas into `site_dir/schemas/` after the build, so the
 advertised `$id` resolves for real. Copying at build time — rather than keeping a
 second copy under `docs/` — keeps exactly one source of truth for each schema.
 
-Runs as `on_post_build` for the same reason as the sibling RSS hook: it operates
-on `site_dir` directly, outside the per-page render pipeline.
+Runs as `on_post_build` because it operates on `site_dir` directly, outside the
+per-page render pipeline.
 """
 
 from __future__ import annotations

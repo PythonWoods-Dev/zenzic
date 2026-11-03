@@ -669,15 +669,9 @@ html:has(.zz-tailwind-root) .md-header__source {
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PHASE A — Image Design System: "Engineered Frame" (V030_DOCS_DESIGN_SYSTEM)
-   Standard images in blog posts and documentation get a subtle professional
-   frame treatment: rounded corners, a containment border, layered shadow,
-   and a gentle hover lift.
-
-   Cover/hero images (the first image in a blog post body) get an elevated
-   borderless glow treatment. They are targeted via structural CSS selector
-   (.md-content--post .md-typeset > p:first-of-type > img) since MkDocs
-   renders Markdown images as <p><img></p> and we cannot inject classes
-   into the img tag without breaking MkDocs path resolution.
+   Standard images in the documentation get a subtle professional frame
+   treatment: rounded corners, a containment border, layered shadow, and a
+   gentle hover lift.
 
    To opt an image out of the frame entirely, add the CSS class .no-frame:
      ![alt](src){ .no-frame }
@@ -686,11 +680,8 @@ html:has(.zz-tailwind-root) .md-header__source {
 /* ── Standard image frame ─────────────────────────────────────────────────── */
 /* Applies to all content images EXCEPT: author avatars (.md-author img),
    social cards, and images inside nav/header/footer, and images opted out.
-   Covers both individual doc/blog pages (.md-content__inner) and blog index
-   excerpts (.md-post__content / .md-post--excerpt). */
-.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img),
-.md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img),
-.md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img) {
+   Covers every documentation page (.md-content__inner). */
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img) {
   border-radius: 0.5rem;
   border: 1px solid var(--zz-border-subtle);
   background-color: var(--zz-surface-1);
@@ -712,9 +703,7 @@ html:has(.zz-tailwind-root) .md-header__source {
 }
 
 /* Light mode shadow is softer — dark frames on white look heavier */
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img),
-[data-md-color-scheme="default"] .md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img),
-[data-md-color-scheme="default"] .md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img) {
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img) {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.06),
     0 3px 8px rgba(0, 0, 0, 0.10),
@@ -722,9 +711,7 @@ html:has(.zz-tailwind-root) .md-header__source {
 }
 
 /* Hover: subtle lift + brand glow */
-.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
-.md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
-.md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
+.md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
   transform: translateY(-3px);
   border-color: var(--zz-brand-light);
   box-shadow:
@@ -733,55 +720,12 @@ html:has(.zz-tailwind-root) .md-header__source {
     0 0 0 3px rgba(129, 140, 248, 0.12);
 }
 
-[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
-[data-md-color-scheme="default"] .md-typeset .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover,
-[data-md-color-scheme="default"] .md-post--excerpt .md-post__content img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
+[data-md-color-scheme="default"] .md-typeset .md-content__inner img:not(.no-frame):not(.md-author img):not(.md-profile img):hover {
   border-color: var(--zz-brand);
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.08),
     0 6px 16px rgba(0, 0, 0, 0.12),
     0 0 0 3px rgba(79, 70, 229, 0.10);
-}
-
-/* ── Blog Post Hero / Cover image ─────────────────────────────────────────── */
-/* The first paragraph that contains only an image in a blog post body is
-   the cover image. Targeting: blog post article > first <p> > <img>.
-   MkDocs Material blog renders <article class="md-content__inner md-typeset">
-   and Markdown images become <p><img alt="..." src="..."></p>.
-   We override the standard frame here with an elevated, borderless glow. */
-.md-content--post .md-typeset > p:first-of-type > img,
-.md-content--post .md-typeset > p:first-child > img {
-  border-radius: 0.75rem;
-  border: none !important;
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto 2.5rem;
-  box-shadow:
-    0 0 0 1px var(--zz-border-subtle),
-    0 4px 12px rgba(0, 0, 0, 0.20),
-    0 16px 40px rgba(0, 0, 0, 0.25),
-    0 0 60px rgba(79, 70, 229, 0.10);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-[data-md-color-scheme="default"] .md-content--post .md-typeset > p:first-of-type > img,
-[data-md-color-scheme="default"] .md-content--post .md-typeset > p:first-child > img {
-  box-shadow:
-    0 0 0 1px var(--zz-border-subtle),
-    0 4px 12px rgba(0, 0, 0, 0.10),
-    0 16px 40px rgba(0, 0, 0, 0.12),
-    0 0 40px rgba(79, 70, 229, 0.07);
-}
-
-.md-content--post .md-typeset > p:first-of-type > img:hover,
-.md-content--post .md-typeset > p:first-child > img:hover {
-  transform: translateY(-2px) scale(1.002);
-  box-shadow:
-    0 0 0 1px var(--zz-brand-light),
-    0 6px 20px rgba(0, 0, 0, 0.28),
-    0 24px 56px rgba(0, 0, 0, 0.30),
-    0 0 80px rgba(129, 140, 248, 0.18);
 }
 
 /* ── figcaption styling ───────────────────────────────────────────────────── */
@@ -811,26 +755,15 @@ html:has(.zz-tailwind-root) .md-header__source {
 
 /* ── Mobile: disable hover lift (touch devices don't hover) ─────────────────── */
 @media (hover: none) {
-  .md-typeset .md-content__inner img:not(.no-frame):hover,
-  .md-typeset .md-post__content img:not(.no-frame):hover,
-  .md-post--excerpt .md-post__content img:not(.no-frame):hover,
-  .md-content--post .md-typeset > p:first-of-type > img:hover,
-  .md-content--post .md-typeset > p:first-child > img:hover {
+  .md-typeset .md-content__inner img:not(.no-frame):hover {
     transform: none;
   }
 }
 
 /* ── Responsiveness guard ─────────────────────────────────────────────────── */
 @media screen and (max-width: 44.9375em) {
-  .md-typeset .md-content__inner img:not(.no-frame),
-  .md-typeset .md-post__content img:not(.no-frame),
-  .md-post--excerpt .md-post__content img:not(.no-frame) {
+  .md-typeset .md-content__inner img:not(.no-frame) {
     margin: 1.25rem auto;
-  }
-
-  .md-content--post .md-typeset > p:first-of-type > img,
-  .md-content--post .md-typeset > p:first-child > img {
-    margin-bottom: 1.75rem;
   }
 }
 
@@ -838,7 +771,7 @@ html:has(.zz-tailwind-root) .md-header__source {
    PHASE B — Contrast Accessibility Fixes (WCAG 2.1 AA)
    (V030_DOCS_DESIGN_SYSTEM — A11y subsection)
 
-   Root cause: blog posts use JSX-style Tailwind classes (text-zinc-400,
+   Root cause: the homepage partials use JSX-style Tailwind classes (text-zinc-400,
    text-rose-500, text-amber-400, text-rose-400) directly as HTML attributes
    in inline components. These classes are compiled by the Tailwind CDN bundle
    (zenzic-tailwind.min.css) with their default palette values, which do NOT
@@ -847,7 +780,7 @@ html:has(.zz-tailwind-root) .md-header__source {
 
    Strategy: Override the conflicting classes via extra.css using our semantic
    --zz-* tokens, which have been calibrated for accessibility. This CSS-only
-   fix avoids touching every blog post source file.
+   fix avoids touching every partial that uses them.
 
    Mapping:
      text-zinc-400  → var(--zz-ink-200)   [dark bg context: from ~3.2:1 to ~7.5:1]
