@@ -109,6 +109,56 @@ packages = ["src/zenzic"]
 [tool.hatch.build.targets.wheel.force-include]
 "examples" = "zenzic/examples"
 
+# The sdist takes the tracked top-level entries and nothing else: hatchling leaves out only what .gitignore names,
+# so a folder a clone excludes locally would ship. tests/test_sdist_takes_only_the_tracked_tree.py keeps the list
+# equal to what git tracks.
+[tool.hatch.build.targets.sdist]
+only-include = [
+    ".bumpversion.toml",
+    ".github",
+    ".gitignore",
+    ".markdownlint.json",
+    ".markdownlint.json.license",
+    ".pre-commit-config.yaml",
+    ".pre-commit-hooks.yaml",
+    ".vscode",
+    ".zenzic-baseline.json",
+    ".zenzic.toml",
+    "CHANGELOG.md",
+    "CITATION.cff",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "LICENSES",
+    "NOTICE",
+    "README.md",
+    "RELEASE.md",
+    "REUSE.toml",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "changelogs",
+    "docs",
+    "examples",
+    "hooks",
+    "justfile",
+    "mkdocs.yml",
+    "noxfile.py",
+    "overrides",
+    "package-lock.json",
+    "package.json",
+    "pyproject.toml",
+    "scripts",
+    "snippets",
+    "src",
+    "static",
+    "tailwind-input.css",
+    "tailwind.config.js",
+    "tests",
+    "uv.lock",
+    "zenzic-baseline.schema.json",
+    "zenzic-output.schema.json",
+]
+
 # ─── Development dependencies (PEP 735 — managed by uv) ──────────────────────
 
 [dependency-groups]
