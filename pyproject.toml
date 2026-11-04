@@ -114,6 +114,7 @@ packages = ["src/zenzic"]
 # equal to what git tracks.
 [tool.hatch.build.targets.sdist]
 only-include = [
+    ".gitattributes",
     ".bumpversion.toml",
     ".github",
     ".gitignore",
