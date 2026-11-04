@@ -2924,12 +2924,7 @@ def test_check_all_suppression_audit_has_its_own_progress_line(
 def test_templates_root_keys_not_swallowed() -> None:
     """Ensure root keys like excluded_dirs are not swallowed by tables in TOML templates."""
     import re
-    import sys
-
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
+    import tomllib
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 
@@ -3211,10 +3206,7 @@ def test_pyproject_template_stays_a_pointer_not_a_catalogue() -> None:
     # template, because it was false rather than verbose. Length, codes and the
     # pointer all still checked out; nothing here looked at which table a key
     # landed in, so the check this file exists for walked straight past it.
-    try:
-        import tomllib
-    except ModuleNotFoundError:  # Python 3.10, the floor: the PEP 680 backport
-        import tomli as tomllib
+    import tomllib
 
     parsed = tomllib.loads('[project]\nname = "demo"\n' + rendered)
     zenzic = parsed["tool"]["zenzic"]

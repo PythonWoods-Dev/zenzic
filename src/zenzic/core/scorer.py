@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
@@ -160,7 +160,7 @@ class ScoreReport:
             "score": self.score,
             "threshold": self.threshold,
             "status": status,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
+            "timestamp": datetime.now(tz=UTC).isoformat(timespec="seconds"),
             "categories": [asdict(c) for c in self.categories],
             "suppression_count": self.suppression_count,
             "suppression_cap": self.suppression_cap,

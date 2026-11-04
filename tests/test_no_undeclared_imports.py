@@ -18,16 +18,8 @@ from __future__ import annotations
 
 import ast
 import sys
+import tomllib
 from pathlib import Path
-
-
-# tomllib is stdlib only from 3.11, and this project supports 3.10
-# (requires-python = ">=3.10"). Same guard the CLI modules already use --
-# tomli is declared in pyproject.toml under `python_version < '3.11'`.
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # PEP 680 backport
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,8 +49,6 @@ def _module_level_imports(path: Path) -> set[str]:
 
 
 def test_cli_entry_point_imports_only_declared_packages() -> None:
-    import sys
-
     declared = _declared()
     imported = _module_level_imports(ROOT / "src" / "zenzic" / "main.py")
     third_party = {m for m in imported if m not in STDLIB_OK and m not in sys.stdlib_module_names}
@@ -72,7 +62,6 @@ def test_cli_entry_point_imports_only_declared_packages() -> None:
 
 def test_the_check_can_actually_find_something() -> None:
     """Positive control: a fabricated undeclared import must be detected."""
-    import sys
 
     declared = _declared()
     fabricated = {"definitely_not_a_declared_package"}

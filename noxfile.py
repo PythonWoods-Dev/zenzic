@@ -9,14 +9,14 @@ import nox
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv"
 
-# Nox = isolated environments for multi-version compatibility (3.10 – 3.14).
+# Nox = isolated environments for multi-version compatibility (3.11 – 3.14).
 # Daily quality gate is `just verify` (single entry-point — see justfile).
 # NOTE: posargs are forwarded with `--`, e.g.: nox -s lint -- --fix
 nox.options.sessions = ["lint", "format", "typecheck"]
 
-# Boundary Testing: mirrors the CI Pillar Matrix (Floor 3.10 / Peak 3.14).
+# Boundary Testing: mirrors the CI Pillar Matrix (Floor 3.11 / Peak 3.14).
 # Intermediate versions are covered by the full nox-all run in release cycles.
-PYTHONS = ["3.10", "3.14"]
+PYTHONS = ["3.11", "3.14"]
 
 # Per-group sync tuples — each session installs only what it needs.
 _SYNC_TEST = ("uv", "sync", "--active", "--group", "test")

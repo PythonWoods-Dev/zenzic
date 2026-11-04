@@ -6,16 +6,12 @@ from __future__ import annotations
 
 import contextlib
 import json
-import sys
 import time
+import tomllib
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # PEP 680 backport
 import typer
 from rich import box
 from rich.panel import Panel
@@ -264,7 +260,7 @@ def _history_entry(report: Any) -> dict[str, Any]:
     contributions. Anything reconstructible from the repository (file lists,
     findings) is left out — this file is a series, not a second report archive.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     data = report.to_dict()
     categories = {
@@ -273,7 +269,7 @@ def _history_entry(report: Any) -> dict[str, Any]:
         if isinstance(c, dict) and c.get("name")
     }
     entry: dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
         "score": data.get("score"),
         "categories": categories,
     }

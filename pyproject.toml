@@ -16,7 +16,7 @@ name = "zenzic"
 version = "0.30.0"
 description = "Deterministic Document Integrity Engine for Markdown/MDX graphs."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # PEP 639: the licence of the project's own code. The sdist also ships files under
 # other licences (the Roboto fonts, OFL-1.1; the compiled Tailwind bundle, MIT; the
 # OASIS SARIF schema fixture, LicenseRef-OASIS-Notice): each keeps its own licence,
@@ -34,7 +34,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -58,9 +57,6 @@ dependencies = [
     # ImportError at module load time is intentional: non-RE2 environments
     # are explicitly unsupported. google-re2 provides the C++ RE2 bindings.
     "google-re2>=1.0",
-    # tomllib was added to the stdlib in Python 3.11 (PEP 680).
-    # tomli is the identical backport for Python 3.10 (our Floor).
-    "tomli>=2.0.0; python_version < '3.11'",
     "pathspec>=1.1.1",
 ]
 
@@ -164,7 +160,7 @@ dev = [
 [tool.ruff]
 src = ["src"]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C4", "UP", "A", "TID252", "S"]
@@ -204,7 +200,7 @@ indent-style = "space"
 # ─── Mypy ─────────────────────────────────────────────────────────────────────
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 ignore_missing_imports = true
 warn_unused_configs = false

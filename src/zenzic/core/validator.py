@@ -30,17 +30,11 @@ import contextlib
 import html
 import json
 import posixpath
-import sys
 import textwrap
 import time
+import tomllib
 import unicodedata
 from collections.abc import Hashable, Iterable, Iterator, Mapping
-
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # PEP 680 backport
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, TypeVar

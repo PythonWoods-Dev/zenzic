@@ -31,10 +31,8 @@ def _find_active_config_path(cwd: Path) -> Path | None:
     pyproject = cwd / "pyproject.toml"
     if pyproject.is_file():
         with contextlib.suppress(Exception):
-            if sys.version_info >= (3, 11):
-                import tomllib
-            else:
-                import tomli as tomllib
+            import tomllib
+
             with pyproject.open("rb") as f:
                 data = tomllib.load(f)
             if "tool" in data and "zenzic" in data["tool"]:

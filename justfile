@@ -544,7 +544,7 @@ screenshot-circular:
 # results for two years with both CI legs green. Its limit is real and documented in
 # the script: it compares findings over `examples/`, so a divergence in a shape no
 # fixture contains is invisible to it.
-determinism py_a="3.10" py_b="3.14":
+determinism py_a="3.11" py_b="3.14":
     #!/usr/bin/env bash
     set -euo pipefail
     tmp="$(mktemp -d)"

@@ -24,18 +24,11 @@ Native ``zensical.toml`` layout::
 from __future__ import annotations
 
 import logging
-import sys
+import tomllib
 from pathlib import Path
-
-from zenzic.core import regex as re
-
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # PEP 680 backport
 from typing import TYPE_CHECKING, Any
 
+from zenzic.core import regex as re
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import (
     MKDOCS_CONFIG_NAMES,

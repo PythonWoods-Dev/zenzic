@@ -46,7 +46,7 @@ import os
 import subprocess  # noqa: S404 - build tooling, not the Zero Subprocess Core
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -136,7 +136,7 @@ def run(label: str, command: list[str], root: Path = REPO_ROOT, cache_dir: Path 
     if code == 0:
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(
-            f"{datetime.now(timezone.utc).isoformat(timespec='seconds')}\n{' '.join(command)}\n",
+            f"{datetime.now(UTC).isoformat(timespec='seconds')}\n{' '.join(command)}\n",
             encoding="utf-8",
         )
         print(f"verdict cache: `{label}` recorded green for tree {key[:12]}")

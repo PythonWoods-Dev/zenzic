@@ -425,12 +425,8 @@ def test_zenzic_config_policies_field_defaults() -> None:
 
 def test_zenzic_config_backward_compat_no_policies_key() -> None:
     """Existing configs without [policies] must not raise any error."""
-    import sys
 
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
+    import tomllib
 
     toml_str = b"strict = true\nfail_under = 98\n"
     data = tomllib.loads(toml_str.decode())
@@ -441,12 +437,8 @@ def test_zenzic_config_backward_compat_no_policies_key() -> None:
 
 def test_init_template_includes_policies_section() -> None:
     """zenzic init template must include valid [policies] section with empty opt-in lists."""
-    import sys
 
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
+    import tomllib
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE
 

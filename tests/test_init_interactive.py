@@ -11,6 +11,7 @@ in the prompt without `init` being touched, and the test plants one to prove it.
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -19,12 +20,6 @@ from typer.testing import CliRunner
 
 from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.main import app
-
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10, the floor: the PEP 680 backport
-    import tomli as tomllib
 
 
 FLAG_KEYS = sorted(

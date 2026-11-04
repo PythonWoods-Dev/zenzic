@@ -45,17 +45,12 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
-
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # PEP 680 backport
 
 from zenzic.core import regex as re
 from zenzic.core.codes import CODE_DEFINITIONS

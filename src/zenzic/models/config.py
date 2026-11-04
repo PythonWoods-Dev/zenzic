@@ -5,15 +5,9 @@
 from __future__ import annotations
 
 import contextlib
-import sys
+import tomllib
 from collections.abc import Collection
 from pathlib import Path
-
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # PEP 680 backport
 from typing import Any, ClassVar, Final, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator
