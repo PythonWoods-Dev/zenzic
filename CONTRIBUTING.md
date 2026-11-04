@@ -16,7 +16,7 @@ Zenzic is structured across three independent, dedicated repositories:
 
 | Repository | Purpose | Primary Stack |
 |:---|:---|:---|
-| **[zenzic](https://github.com/PythonWoods-Dev/zenzic)** (this repo) | Python Core analysis engine & CLI (`src/zenzic`) | Python 3.10+, `uv`, `pytest`, `mypy` |
+| **[zenzic](https://github.com/PythonWoods-Dev/zenzic)** (this repo) | Python Core analysis engine & CLI (`src/zenzic`) | Python 3.11+, `uv`, `pytest`, `mypy` |
 | **[zenzic-vscode](https://github.com/PythonWoods-Dev/zenzic-vscode)** | Official VS Code Extension (LSP Thin Client) | TypeScript, Node.js 24+, VS Code API |
 | **[zenzic-action](https://github.com/PythonWoods-Dev/zenzic-action)** | Official GitHub Action CI/CD Wrapper | YAML, Bash, SARIF Upload |
 
@@ -200,7 +200,7 @@ To maintain security, architectural integrity, and legal compliance, all contrib
 
 | Requirement | Version | Notes |
 |:---|:---|:---|
-| **Python** | ≥ 3.10 | Core engine floor; validated on 3.10 & 3.14 in CI |
+| **Python** | ≥ 3.11 | Core engine floor; validated on 3.11 & 3.14 in CI |
 | **uv** | required | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | **just** | required | Task runner — `cargo install just` or via OS package manager |
 
@@ -373,7 +373,7 @@ Neither reproduces anything external, so neither carries a version.
 gates — `nox -s typecheck` and the `mypy` `pre-commit` hook, both running `mypy src/` — so its
 verdict is deterministic and reproducible for every contributor and in CI, independent of
 which editor anyone happens to use. Configuration lives in one place, `[tool.mypy]` in
-`pyproject.toml` (`strict = true`, `python_version = "3.10"`).
+`pyproject.toml` (`strict = true`, `python_version = "3.11"`).
 
 Pylance (or Pyright, or any other in-editor checker) is a useful interactive aid, but it is
 **not** the gating standard, and it does not always agree with `mypy` — the two implement
@@ -442,7 +442,7 @@ When working with file paths in any contribution, use `pathlib.Path` throughout 
 
 CI runs the **whole matrix on every pull request**, with nothing to opt into.
 
-- **The matrix** is `ubuntu-latest` on Python 3.10 and 3.14, plus `windows-latest` on 3.10.
+- **The matrix** is `ubuntu-latest` on Python 3.11 and 3.14, plus `windows-latest` on 3.11.
   Three jobs; all three must pass. You can also run it on demand from the Actions tab
   (**Zenzic Core CI → Run workflow**), which uses the `workflow_dispatch` trigger.
 - **`fail-fast` is off deliberately**, so a failure on one platform does not hide the

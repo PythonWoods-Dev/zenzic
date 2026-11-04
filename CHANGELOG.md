@@ -744,6 +744,12 @@ which mode produced it.
 
 ### Changed
 
+- **Zenzic Requires Python 3.11 or Later**: `requires-python` is `>=3.11`. Python 3.10 reached its end of life on
+  2026-10-01 (PEP 619), and the last `filelock` that installs on it, 4.1.0, carries three advisories
+  (GHSA-v4x8-3wr5-3wq8, GHSA-6627-m3xw-93mp, GHSA-9c4x-gm8v-wgc4) that only 4.2.1 and later fix, which need 3.11.
+  On Python 3.10, `pip` and `uv` no longer install this release: stay on the previous one, or move to 3.11 or later.
+  The `tomli` backport is no longer a dependency, and the CI matrix runs 3.11 and 3.14.
+
 - **The report says when a setting came from your configuration rather than your command line.** Reading `STRICT MODE: Warnings have been promoted to errors` on an invocation that carried no `--strict` is indistinguishable from a bug; it was correct, and nothing said so. The telemetry line now ends with `… • from config: strict` when a verdict-deciding setting was taken from the file and the command line does not account for it. It names at most `strict` and `exit_zero` — the only settings with that shape that reach `check all` — and prints nothing at all for a project that configures neither, because a header that always says something teaches people to stop reading it. `zenzic config explain` remains the complete answer, with per-key provenance across the global and local layers.
 
 - **`--audit` now says that its score is not comparable with a normal run's.** The flag restores findings that declared exemptions had removed, so the DQS drops — on this repository, 96 to 59 — and nothing said the two numbers answer different questions. The audit-mode footer, the flag's help text and the CLI reference now state it. Restored findings already carried a `[POLICY_EXEMPTION]` label; that is unchanged.

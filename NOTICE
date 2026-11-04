@@ -109,12 +109,7 @@ in a real environment, not just `pyproject.toml`'s top-level names.
     License: BSD-3-Clause
     Used for: DFA-native RE2 engine bindings
 
-19. tomli (https://github.com/hukkin/tomli)
-    Copyright (c) Taneli Hukkinen
-    License: MIT
-    Used for: TOML parsing backport for Python 3.10
-
-20. pathspec (https://github.com/cpburnz/python-pathspec)
+19. pathspec (https://github.com/cpburnz/python-pathspec)
     Copyright (c) Caleb P. Burns
     License: Mozilla Public License 2.0
     Used for: Gitignore pattern matching
@@ -126,17 +121,17 @@ in a real environment, not just `pyproject.toml`'s top-level names.
 These packages are used during development, testing, and documentation builds.
 They are not included in the distributed wheel.
 
-21. MkDocs (https://github.com/mkdocs/mkdocs)
+20. MkDocs (https://github.com/mkdocs/mkdocs)
     Copyright (c) 2014-present, Tom Christie
     License: BSD-2-Clause
     Used for: Documentation build backend
 
-22. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
+21. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
     Copyright (c) 2016-present, Martin Donath
     License: MIT
     Used for: Documentation theme
 
-23. bump-my-version (https://github.com/callowayproject/bump-my-version)
+22. bump-my-version (https://github.com/callowayproject/bump-my-version)
     Copyright (c) Corey Oordt and contributors
     License: MIT
     Used for: Automated version bumping across pyproject.toml, __init__.py, mkdocs.yml
@@ -151,14 +146,14 @@ The documentation site serves the following font files from
 original's copyright and license records (name IDs 0, 13 and 14) in the subset.
 They match the upstream OFL.txt files.
 
-24. Roboto 3.015 (https://github.com/googlefonts/roboto-classic)
+23. Roboto 3.015 (https://github.com/googlefonts/roboto-classic)
     Copyright 2011 The Roboto Project Authors
     License: SIL Open Font License 1.1 (OFL-1.1); text in `LICENSES/OFL-1.1.txt`
     Files: `roboto-{300,400,700}-{normal,italic}.woff2`
     Source: release asset `Roboto_v3.015.zip`, `web/static/` (tag v3.015)
     Used for: General documentation body text
 
-25. Roboto Mono 3.001 (https://github.com/googlefonts/robotomono)
+24. Roboto Mono 3.001 (https://github.com/googlefonts/robotomono)
     Copyright 2015 The Roboto Mono Project Authors
     License: SIL Open Font License 1.1 (OFL-1.1); text in `LICENSES/OFL-1.1.txt`
     Files: `roboto-mono-{400,700}-{normal,italic}.woff2`
@@ -172,7 +167,7 @@ They match the upstream OFL.txt files.
 The following compiled asset is committed to the repository and served
 directly to end users as part of the built documentation site.
 
-26. Tailwind CSS (https://github.com/tailwindlabs/tailwindcss)
+25. Tailwind CSS (https://github.com/tailwindlabs/tailwindcss)
     Copyright (c) Tailwind Labs, Inc.
     License: MIT; text in `LICENSES/MIT.txt`
     Used for: Utility-class CSS compiled into `docs/assets/css/zenzic-tailwind.min.css`
@@ -187,7 +182,7 @@ directly to end users as part of the built documentation site.
 
 ## Bundled Test Fixtures
 
-27. OASIS SARIF 2.1.0 JSON schema (`tests/fixtures/sarif-2.1.0-schema.json`)
+26. OASIS SARIF 2.1.0 JSON schema (`tests/fixtures/sarif-2.1.0-schema.json`)
     Copyright (c) OASIS Open 2023. All Rights Reserved.
     License: the Notices of SARIF Version 2.1.0 Plus Errata 01 (OASIS Standard
     incorporating Approved Errata, 28 August 2023), governed by the OASIS IPR

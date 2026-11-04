@@ -122,7 +122,7 @@ Without Zenzic          With Zenzic
 ──────────────────────  ─────────────────────────
 npm install              uvx zenzic check all
 Node.js runtime + deps   (zero persistent install)
-Node ≥ 18 required       Python 3.10+ required
+Node ≥ 18 required       Python 3.11+ required
 A second dependency tree Zero transitive risk
 ```
 
