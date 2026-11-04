@@ -61,7 +61,7 @@ jobs:
         # Linux-only gate.
         #
         # Measured cost of widening, from the real run at `7664533` rather than an
-        # estimate: ubuntu/3.14 124 s, ubuntu/3.10 171 s, windows/3.10 214 s. The
+        # estimate: ubuntu/3.14 124 s, ubuntu/3.10 171 s, windows/3.10 214 s (3.10 was the floor then). The
         # jobs run in parallel, so the wall-clock a developer waits is 214 s
         # against 124 s -- **+90 s** -- and the billed cost is ~12 minutes against
         # ~2, Windows counting double.
@@ -75,7 +75,7 @@ jobs:
         # pattern: "only Windows failed" is the diagnosis, and it is legible only
         # because the other two ran to completion.
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.11", "3.14"]
         exclude:
           # Windows is exercised on the floor version only. The interpreter
           # difference is what 3.14 tests; the platform difference is what Windows
@@ -183,10 +183,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Download 3.10 digest
+      - name: Download 3.11 digest
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: determinism-py3.10
+          name: determinism-py3.11
 
       - name: Download 3.14 digest
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -194,4 +194,4 @@ jobs:
           name: determinism-py3.14
 
       - name: Compare findings across interpreters
-        run: python3 scripts/check_interpreter_determinism.py --compare findings-py3.10.json findings-py3.14.json
+        run: python3 scripts/check_interpreter_determinism.py --compare findings-py3.11.json findings-py3.14.json
