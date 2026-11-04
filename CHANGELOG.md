@@ -748,7 +748,8 @@ which mode produced it.
   2026-10-01 (PEP 619), and the last `filelock` that installs on it, 4.1.0, carries three advisories
   (GHSA-v4x8-3wr5-3wq8, GHSA-6627-m3xw-93mp, GHSA-9c4x-gm8v-wgc4) that only 4.2.1 and later fix, which need 3.11.
   On Python 3.10, `pip` and `uv` no longer install this release: stay on the previous one, or move to 3.11 or later.
-  The `tomli` backport is no longer a dependency, and the CI matrix runs 3.11 and 3.14.
+  The `tomli` backport is no longer a dependency, and the CI matrix runs 3.11 and 3.14
+  ([ADR 095](docs/developers/explanation/adr-vault/records/adr-095-python-3-11-floor.md)).
 
 - **The report says when a setting came from your configuration rather than your command line.** Reading `STRICT MODE: Warnings have been promoted to errors` on an invocation that carried no `--strict` is indistinguishable from a bug; it was correct, and nothing said so. The telemetry line now ends with `… • from config: strict` when a verdict-deciding setting was taken from the file and the command line does not account for it. It names at most `strict` and `exit_zero` — the only settings with that shape that reach `check all` — and prints nothing at all for a project that configures neither, because a header that always says something teaches people to stop reading it. `zenzic config explain` remains the complete answer, with per-key provenance across the global and local layers.
 
