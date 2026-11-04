@@ -61,12 +61,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-# Derived from the canonical posts, so the real gate is `docs/` above. Scanned
-# anyway because a hand-edit to a copy would not pass through the generator, and
-# because four spaces is the one indent that renders correctly under every parser
-# involved -- Python-Markdown, Redcarpet and CommonMark alike. Gitignored, so it
-# is absent in CI; missing is not a failure.
-SYNDICATION = ROOT / ".human" / "editorial-drafts" / "external-syndication"
+# Any other folder to scan comes on the command line: copies derived from the
+# canonical posts live outside the tracked tree, and the clone that has them
+# passes their folder, so this public script names none of them. Scanned because
+# a hand-edit to a copy would not pass through the generator, and because four
+# spaces is the one indent that renders correctly under every parser involved --
+# Python-Markdown, Redcarpet and CommonMark alike. A folder given that does not
+# exist is not a failure.
 
 ITEM = re.compile(r"^\s*(?:[-*+]|\d+\.) \S")
 CONTINUATION = re.compile(r"^ {1,3}\S")
@@ -133,11 +134,12 @@ def main() -> int:
         return 0
 
     problems = []
-    roots = [DOCS] + ([SYNDICATION] if SYNDICATION.is_dir() else [])
+    extra = [Path(a) for a in sys.argv[1:] if not a.startswith("--")]
+    roots = [DOCS] + [d for d in extra if d.is_dir()]
     for root in roots:
         for path in sorted(root.rglob("*.md")):
             for line_no, item in orphaned_continuations(path.read_text(encoding="utf-8")):
-                rel = path.relative_to(ROOT)
+                rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
                 problems.append(f"{rel}:{line_no}  {item[:62]}")
 
     if problems:

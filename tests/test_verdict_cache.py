@@ -37,11 +37,26 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for k, v in (("user.email", "t@e.invalid"), ("user.name", "T"), ("commit.gpgsign", "false")):
         _run(["git", "config", k, v], root)
     (root / "a.txt").write_text("a\n", encoding="utf-8")
-    (root / ".gitignore").write_text(".local-notes/\n.zenzic_cache/\n", encoding="utf-8")
-    monkeypatch.setattr(vc, "PRIVATE", (".local-notes",))
+    (root / ".gitignore").write_text(".zenzic_cache/\n", encoding="utf-8")
+    (root / ".git" / "info").mkdir(parents=True, exist_ok=True)
+    (root / ".git" / "info" / "exclude").write_text(".local-notes/\n", encoding="utf-8")
     _run(["git", "add", "-A"], root)
     _run(["git", "commit", "-q", "-m", "seed"], root)
     return root
+
+
+def test_a_folder_this_clone_excludes_locally_is_part_of_the_key(repo: Path) -> None:
+    """The private trees are named nowhere in the public scripts: the key reads
+    the folders git ignores through this clone's own ``info/exclude``."""
+    exclude = repo / ".git" / "info" / "exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    exclude.write_text(".private-tree/\n", encoding="utf-8")
+    tree = repo / ".private-tree"
+    tree.mkdir()
+    (tree / "notes.md").write_text("one\n", encoding="utf-8")
+    before = vc.tree_key(repo)
+    (tree / "notes.md").write_text("two\n", encoding="utf-8")
+    assert vc.tree_key(repo) != before, "an edit under a locally excluded folder must move the key"
 
 
 def _touch_counter(root: Path) -> list[str]:

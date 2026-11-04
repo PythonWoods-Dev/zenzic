@@ -24,8 +24,9 @@ The key is the content of everything a stage can read:
   files count by content (a plain `write-tree` ignores them entirely, which a
   brand-new unstaged test file would slip through), and a deletion or a rename
   changes the tree like any other content change;
-* the gitignored local trees and recipe file the local gates read (`PRIVATE`
-  below), hashed by content when present.
+* the trees this clone excludes locally (its own ``info/exclude``, read from
+  git, so no public file names them) and the local recipe file
+  (`LOCAL_FILES`), hashed by content when present.
 
 Deliberately *not* in the key: `git status` output. The row that designed this
 cache proposed composing it in, but staging and committing change the status
@@ -51,7 +52,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = REPO_ROOT / ".zenzic_cache" / "verdicts"
-PRIVATE = (".claude", ".human", ".justfile.local")
+LOCAL_FILES = (".justfile.local",)
 SKIP_DIRS = frozenset({"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"})
 
 
@@ -67,9 +68,21 @@ def _git(root: Path, *argv: str, env: dict[str, str] | None = None) -> str:
     return done.stdout.strip()
 
 
+def _locally_excluded(root: Path) -> tuple[str, ...]:
+    """The top-level paths git ignores through this clone's ``info/exclude``."""
+    exclude = _git(root, "rev-parse", "--git-path", "info/exclude")
+    path = Path(exclude) if Path(exclude).is_absolute() else root / exclude
+    if not path.is_file():
+        return ()
+    listed = _git(
+        root, "ls-files", "--others", "--ignored", "--directory", f"--exclude-from={path}"
+    )
+    return tuple(sorted({line.rstrip("/").split("/")[0] for line in listed.splitlines() if line}))
+
+
 def _private_digest(root: Path) -> str:
     h = hashlib.sha256()
-    for name in PRIVATE:
+    for name in (*_locally_excluded(root), *LOCAL_FILES):
         p = root / name
         if p.is_file():
             h.update(name.encode())

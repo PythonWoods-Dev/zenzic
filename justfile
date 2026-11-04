@@ -163,7 +163,7 @@ _local-checks:
         echo "    git config --local --unset zenzic.local-tooling" >&2
         exit 1
     fi
-    if [ -d .claude ] || [ -d .human ]; then
+    if [ -n "$(git ls-files --others --ignored --directory --exclude-from="$(git rev-parse --git-path info/exclude)" 2>/dev/null)" ]; then
         echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
         echo "  The private folders exist here, so this is a maintainer clone —" >&2
         echo "  but '.justfile.local' is absent and 'zenzic.local-tooling' is unset, so" >&2
@@ -206,7 +206,7 @@ _prepush-checks:
         echo "  The pre-push gates cannot run, so this would verify less than it appears to." >&2
         exit 1
     fi
-    if [ -d .claude ] || [ -d .human ]; then
+    if [ -n "$(git ls-files --others --ignored --directory --exclude-from="$(git rev-parse --git-path info/exclude)" 2>/dev/null)" ]; then
         echo -e "\033[31mBLOCKED: a governance tree is present, but this clone is not opted in.\033[0m" >&2
         echo "  The disclosure and private-tree gates are the ones that matter most here:" >&2
         echo "  they are the only checks that read the private folders before a push." >&2
