@@ -744,6 +744,15 @@ which mode produced it.
 
 ### Changed
 
+- **`zenzic doctor` Reports a Path Git Does Not Track, Instead of Refusing Two Names When It Loads**: a `[doctor]` path
+  was refused at config load if it passed through two folder names written in the product. The refusal protected
+  something real, a check that passes only for whoever holds the files, and it protected it for those two names only.
+  The configuration now loads whatever the folder is called, without Git, and refuses only an absolute path or `..`. The
+  new `tracked-paths` check reports a configured path that exists but that Git does not track; a fresh clone or CI, where
+  it is absent, reports the ADR vault as not found. Outside a repository, or without `git`, `tracked-paths` reports
+  nothing. If you had a `[doctor]` path in one of those folders, the config now loads and `zenzic doctor` exits `1` with
+  the finding ([ADR 096](docs/developers/explanation/adr-vault/records/adr-096-doctor-reads-versioned-content.md)).
+
 - **Zenzic Requires Python 3.11 or Later**: `requires-python` is `>=3.11`. Python 3.10 reached its end of life on
   2026-10-01 (PEP 619), and the last `filelock` that installs on it, 4.1.0, carries three advisories
   (GHSA-v4x8-3wr5-3wq8, GHSA-6627-m3xw-93mp, GHSA-9c4x-gm8v-wgc4) that only 4.2.1 and later fix, which need 3.11.

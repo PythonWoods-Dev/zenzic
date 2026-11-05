@@ -29,6 +29,7 @@ pipeline beside your other gates.
 | `config-schema` | Does `.zenzic.toml` actually load? Surfaces `Z110` syntax and `Z111` schema errors. |
 | `adr-citations` | Does every architectural decision cited in code or prose have a record you can read? |
 | `redirects` | Is the redirects file structurally valid, and has anything reshaped it unexpectedly? |
+| `tracked-paths` | Does git track every path `[doctor]` points at, so that a fresh clone and CI see what you see? |
 
 The ADR check is the one most projects notice first. A citation naming a decision record
 that does not exist is the same class of defect as a broken link, one level up: prose or a
@@ -37,6 +38,11 @@ code comment claims a decision was recorded, and there is nothing there to read.
 ```text
 src/app/parser.py: ADR-013 is cited but has no record in 'docs/decisions'.
 ```
+
+The verdict must not depend on the clone. A vault that exists on your machine but that git
+does not track is reported where it exists; in a fresh clone or in CI, where it is absent,
+`adr-citations` reports it as not found. Outside a Git repository, or without `git` on the
+machine, there is nothing to compare with and `tracked-paths` reports nothing.
 
 ---
 

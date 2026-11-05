@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""``zenzic doctor``'s three repository-health checks.
+"""``zenzic doctor``'s repository-health checks, the ones that need no git.
 
-Each is pure over a repo root plus a :class:`DoctorConfig`, reads only public
-repository content, and returns findings rather than printing — the CLI owns
-presentation and exit codes.
+Each is pure over a repo root plus a :class:`DoctorConfig` and returns findings
+rather than printing — the CLI owns presentation and exit codes.
 """
 
 from __future__ import annotations
@@ -149,7 +148,7 @@ class TestRunAll:
     def test_returns_every_check_even_when_all_are_clean(self, tmp_path: Path) -> None:
         _vault(tmp_path, "012")
         results = run_all(tmp_path, DoctorConfig())
-        assert set(results) == {"config-schema", "adr-citations", "redirects"}
+        assert set(results) == {"config-schema", "adr-citations", "redirects", "tracked-paths"}
 
     def test_a_clean_repository_produces_no_findings(self, tmp_path: Path) -> None:
         _vault(tmp_path, "012")

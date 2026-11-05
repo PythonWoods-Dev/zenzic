@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 """``zenzic doctor`` and ``zenzic adr new`` — repository-health CLI surface.
 
-Presentation and exit codes only; every check and the scaffold itself live in
-``zenzic.core.doctor`` and are pure over a path plus config (ADR-075).
+Presentation and exit codes, and the one question to git the checks need; every
+check and the scaffold itself live in ``zenzic.core.doctor`` and are pure over a
+path plus config (ADR-075, ADR 096).
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import typer
@@ -24,6 +26,23 @@ def _load(repo_root: Path) -> ZenzicConfig:
     return config or ZenzicConfig()
 
 
+def _tracked_files(repo_root: Path) -> frozenset[str] | None:
+    """The files git tracks under *repo_root*; None outside a repository or without git."""
+    try:
+        proc = subprocess.run(  # noqa: S603  # Fixed hardcoded git ls-files arguments
+            ["git", "ls-files", "-z"],  # noqa: S607
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return frozenset(name for name in proc.stdout.split("\0") if name)
+
+
 def doctor(
     path: str = typer.Argument(None, help="Repository root to inspect (default: current dir)."),
     output_format: str = typer.Option(
@@ -35,14 +54,14 @@ def doctor(
     """Check repository conventions: ADR citations, redirects, and config schema.
 
     Complements ``zenzic check``, which analyses documentation content. These
-    checks look at the repository's own conventions instead, and all of them read
-    public repository content only.
+    checks look at the repository's own conventions instead, and a configured path
+    git does not track is reported: the verdict must not depend on the clone.
     """
     _shared._validate_output_format(output_format, _shared._BASE_FORMATS[:2])
 
     repo_root = Path(path).resolve() if path else Path.cwd()
     config = _load(repo_root)
-    results = run_all(repo_root, config.doctor)
+    results = run_all(repo_root, config.doctor, _tracked_files(repo_root))
     findings = [f for group in results.values() for f in group]
 
     if output_format == "json":

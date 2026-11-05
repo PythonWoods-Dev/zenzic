@@ -69,6 +69,7 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 093](./records/adr-093-topological-suppression-non-inline.md) | Topological Suppression Non-Inline Invariant & LSP UX Determinism |
 | [ADR 094](./records/adr-094-control-plane-structure.md) | Control Plane Structure |
 | [ADR 095](./records/adr-095-python-3-11-floor.md) | Python 3.11 Is the Interpreter Floor |
+| [ADR 096](./records/adr-096-doctor-reads-versioned-content.md) | The Doctor Reads Versioned Content |
 
 ---
 

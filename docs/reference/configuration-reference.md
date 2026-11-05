@@ -924,12 +924,12 @@ Conventions read by [`zenzic doctor`](./cli.md) and [`zenzic adr new`](./cli.md)
 configuration rather than constants because they differ per project: where decision records
 live, how they are cited, where a redirects file sits.
 
-!!! info "Public repository content only"
-    Every `[doctor]` path resolves inside the published tree, and paths reaching into a
-    gitignored directory (`.claude/`, `.human/`) are rejected at config load rather than
-    merely discouraged. A check that inspected gitignored content would pass for whoever
-    holds those files locally and be unrunnable in CI or a fresh clone — so `doctor`, like
-    every other Zenzic check, reads public repository content only.
+!!! info "Versioned content only"
+    A `[doctor]` path must stay inside the repository: an absolute path or one with `..` is
+    rejected at config load, which needs no Git. A path Git does not track loads, and
+    `zenzic doctor` reports it through its `tracked-paths` check. A check that inspected
+    untracked content would pass for whoever holds those files locally and be unrunnable in
+    CI or a fresh clone.
 
 ### `adr_vault_path` {#adr-vault-path}
 

@@ -7,11 +7,9 @@ universal: where a project keeps its ADR records, how it cites them, where its
 redirects file lives. Those cannot be hardcoded to Zenzic's own layout and still
 be useful to anyone else, so they are configuration.
 
-The defaults are Zenzic's own real values, and every one of them points at
-**public repository content**. `.claude/` is gitignored and absent from every
-clone, so a shipped command cannot read it under any configuration — these tests
-assert that boundary directly rather than trusting the default string to stay
-correct.
+The defaults are Zenzic's own real values, repo-relative, and a configured path
+stays inside the repository. A path git does not track is the doctor's to report:
+``test_doctor_tracked_paths.py``.
 """
 
 from __future__ import annotations
@@ -40,26 +38,13 @@ class TestDefaults:
 
 
 class TestPublicScopeOnly:
-    """`.claude/` must be unreachable — it does not exist in a clone."""
-
-    def test_no_default_points_into_a_gitignored_control_plane(self) -> None:
-        cfg = DoctorConfig()
-        for value in (cfg.adr_vault_path, cfg.redirects_path):
-            parts = Path(value).parts
-            assert ".claude" not in parts, f"{value} reaches into the gitignored control plane"
-            assert ".human" not in parts, f"{value} reaches into gitignored private material"
+    """The defaults stay in the repository; a path git does not track: test_doctor_tracked_paths."""
 
     def test_defaults_are_repo_relative_not_absolute(self) -> None:
         """An absolute default would leak this developer's own filesystem layout."""
         cfg = DoctorConfig()
         assert not cfg.adr_vault_path.is_absolute()
         assert not cfg.redirects_path.is_absolute()
-
-    @pytest.mark.parametrize("bad", [".claude", ".claude/state", "docs/../.claude"])
-    def test_a_configured_path_into_the_control_plane_is_rejected(self, bad: str) -> None:
-        """Not merely defaulted away from — refused, so it cannot be opted into."""
-        with pytest.raises(ValidationError):
-            DoctorConfig(adr_vault_path=Path(bad))
 
 
 class TestOverrides:

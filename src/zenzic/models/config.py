@@ -179,18 +179,15 @@ class DoctorConfig(BaseModel):
     commands useless to anyone else, so the layout is configuration and the
     defaults are simply Zenzic's own values.
 
-    **Public repository content only.** Every default resolves inside the
-    published tree. `zenzic doctor` deliberately cannot inspect `.claude/` or
-    `.human/`: both are gitignored, so neither exists in a clone or in CI, and a
-    check that silently passed for everyone but one developer would be worse than
-    no check. Paths reaching into either are rejected rather than merely
-    defaulted away from, so the boundary cannot be opted out of by configuration.
+    **Versioned content only.** Every default resolves inside the published tree.
+    A check that silently passed for everyone but one developer would be worse than
+    no check, so `zenzic doctor` reports a configured path git does not track. That
+    is decided by the doctor and not here: loading the configuration needs no git
+    (ADR 096). This model refuses only what leaves the repository.
     """
 
     adr_vault_path: Path = Field(
-        # Zenzic's own public vault. Never `.claude/` — see the class docstring:
-        # that directory is gitignored and absent from every clone, so pointing a
-        # shipped check at it would make the check structurally unrunnable.
+        # Zenzic's own public vault.
         default=Path("docs/developers/explanation/adr-vault"),
         description=(
             "Directory holding architectural decision records, relative to the "
@@ -224,7 +221,7 @@ class DoctorConfig(BaseModel):
     @field_validator("adr_vault_path", "redirects_path")
     @classmethod
     def _must_be_public_repo_content(cls, value: Path) -> Path:
-        """Refuse absolute paths, traversal, and anything reaching a gitignored plane.
+        """Refuse absolute paths and traversal.
 
         ``doctor`` walks these paths with ``rglob`` directly rather than through
         ``discovery.walk_files``, so it does not inherit the repository-root boundary
@@ -237,20 +234,11 @@ class DoctorConfig(BaseModel):
             raise ValueError(
                 f"{value} is absolute; doctor paths are relative to the repository root."
             )
-        parts_ordered = Path(value).parts
-        if ".." in parts_ordered:
+        if ".." in Path(value).parts:
             raise ValueError(
                 f"{value} traverses outside the repository root; doctor paths must stay "
                 "inside the published tree."
             )
-        parts = set(parts_ordered)
-        for private in (".claude", ".human"):
-            if private in parts:
-                raise ValueError(
-                    f"{value} points inside '{private}', which is gitignored and absent "
-                    "from every clone. Doctor checks operate on public repository "
-                    "content only."
-                )
         return value
 
     @field_validator("adr_citation_pattern")

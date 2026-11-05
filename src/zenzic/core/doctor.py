@@ -12,10 +12,10 @@ Every function here is pure over a path plus a :class:`DoctorConfig`, reads only
 **public repository content**, and returns findings rather than printing. The
 CLI layer owns presentation and exit codes (Radical Unawareness, ADR-075).
 
-`.claude/` and `.human/` are unreachable by construction: the config model
-refuses paths into either, and the scan roots below are the published tree plus
-``src/``. Both directories are gitignored, so a check reading them would pass for
-exactly one developer and be unrunnable everywhere else.
+The verdict must not depend on the clone. A configured path that git does not
+track would pass for whoever holds it and be missing everywhere else, so
+:func:`check_tracked_paths` reports it; the list of tracked files comes from the
+CLI, which is the layer allowed to ask git (ADR 096).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from zenzic.models.config import DoctorConfig
 
 #: Directories scanned for citations. Deliberately the published documentation
-#: tree and the shipped source — never a gitignored control plane.
+#: tree and the shipped source.
 _CITATION_ROOTS: tuple[str, ...] = ("src", "docs")
 
 #: Suffixes worth reading for citations; anything else is binary or generated.
@@ -244,12 +244,49 @@ def check_config_schema(repo_root: Path) -> list[DoctorFinding]:
     ]
 
 
-def run_all(repo_root: Path, config: DoctorConfig) -> dict[str, list[DoctorFinding]]:
+def check_tracked_paths(
+    repo_root: Path, config: DoctorConfig, tracked: frozenset[str] | None
+) -> list[DoctorFinding]:
+    """Report a configured path that exists here and that git does not track.
+
+    *tracked* is every file git tracks under *repo_root*, or None where there is
+    nothing to compare with: outside a repository, or without git. A path that does
+    not exist is not reported here: the check that reads it says so, or, for the
+    redirects file, absence is not a finding.
+    """
+    if tracked is None:
+        return []
+    findings: list[DoctorFinding] = []
+    for setting, value in (
+        ("adr_vault_path", config.adr_vault_path),
+        ("redirects_path", config.redirects_path),
+    ):
+        path = value.as_posix()
+        if not (repo_root / value).exists():
+            continue
+        if path in tracked or any(name.startswith(f"{path}/") for name in tracked):
+            continue
+        findings.append(
+            DoctorFinding(
+                check="tracked-paths",
+                message=(
+                    f"'{path}' exists here but is not tracked by git, so a fresh clone or "
+                    f"CI does not have it. Track it, or change [doctor].{setting}."
+                ),
+            )
+        )
+    return findings
+
+
+def run_all(
+    repo_root: Path, config: DoctorConfig, tracked: frozenset[str] | None = None
+) -> dict[str, list[DoctorFinding]]:
     """Every check, keyed by name, in a stable order."""
     return {
         "config-schema": check_config_schema(repo_root),
         "adr-citations": check_adr_citations(repo_root, config),
         "redirects": check_redirects(repo_root, config),
+        "tracked-paths": check_tracked_paths(repo_root, config, tracked),
     }
 
 

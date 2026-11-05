@@ -408,12 +408,13 @@ Select a command tab to view its execution flags, default behaviors, and usage e
     | `config-schema` | Configuration load failures (`Z110` syntax, `Z111` schema). |
     | `adr-citations` | Citations naming a decision record that does not exist. |
     | `redirects` | Malformed redirect lines, and unexplained blank-line drift. |
+    | `tracked-paths` | A configured path that exists and that Git does not track. |
 
     Exits `1` when any check reports a finding, `0` when all pass.
 
     Configured under [`[doctor]`](./configuration-reference.md#doctor-settings). All paths
-    resolve inside the published tree — `doctor` reads public repository content only and
-    cannot be pointed at a gitignored directory.
+    stay inside the repository, and the verdict does not depend on the clone: a path Git does
+    not track is a finding where it exists, and missing in a fresh clone or in CI.
 
     **Usage Examples:**
     ```bash title="Terminal"

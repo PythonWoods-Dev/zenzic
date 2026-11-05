@@ -161,10 +161,9 @@ def test_discovery_is_the_only_module_that_walks_the_filesystem() -> None:
 class TestDoctorPathsStayInsideTheRepository:
     """``doctor`` walks a configured subpath, so its boundary is the config validator.
 
-    The validator already refuses an absolute path and anything reaching ``.claude/``
-    or ``.human/``, and its own docstring says doctor "operates on public repository
-    content only" — but it did not refuse ``..``, so ``adr_vault_path = "../outside"``
-    loaded cleanly and doctor read a vault outside the repository.
+    The validator already refused an absolute path, but it did not refuse ``..``, so
+    ``adr_vault_path = "../outside"`` loaded cleanly and doctor read a vault outside the
+    repository.
     """
 
     @staticmethod
