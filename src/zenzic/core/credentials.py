@@ -33,8 +33,13 @@ import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from zenzic.core import regex as re
+
+
+if TYPE_CHECKING:
+    from zenzic.models.config import ZenzicConfig
 
 
 # ─── Pre-scan Normalizer (ZRT-003: split-token bypass defence) ────────────────
@@ -42,12 +47,23 @@ from zenzic.core import regex as re
 # Unwrap inline code spans: `AKIA` → AKIA
 _BACKTICK_INLINE_RE = re.compile(r"`([^`]*)`")
 # Remove concatenation operators that split tokens: `AKIA` + `KEY` → AKIAKEY
-_CONCAT_OP_RE = re.compile(r"[`'\"\s]*\+[`'\"\s]*")
+# Both flanks are REQUIRED (`+` quantifier, not `*`): a bare `+` with no
+# adjacent quote/backtick/whitespace is indistinguishable from a `+` that is
+# simply part of a Base64 alphabet, and stripping it unconditionally shifted
+# every following Base64 group by one character, corrupting the decode of a
+# real secret placed after it -- an attacker-controllable scanner bypass
+# (5A-S5). Every documented split-token example already has whitespace on
+# both sides of the operator once backticks are unwrapped, so this loses no
+# real coverage.
+_CONCAT_OP_RE = re.compile(r"[`'\"\s]+\+[`'\"\s]+")
 # Replace table-cell separators with spaces
 _TABLE_PIPE_RE = re.compile(r"\|")
 # ZRT-007: strip HTML comments <!-- ... --> and MDX comments {/* ... */}
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
-_MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
+# MDX allows whitespace inside the expression container -- `{ /* … */ }` is
+# what Prettier emits -- so requiring the braces adjacent meant a formatted
+# file's comments were not recognised as comments at all.
+_MDX_COMMENT_RE = re.compile(r"\{\s*/\*.*?\*/\s*\}", re.DOTALL)
 
 
 _QUICK_SUBSTRINGS: tuple[str, ...] = (
@@ -111,7 +127,7 @@ def _normalize_line_for_scan(line: str) -> str:
     # e.g. ghp_ABC{/* comment */}DEF or ghp_ABC<!-- comment -->DEF
     if "<!--" in normalized:
         normalized = _HTML_COMMENT_RE.sub("", normalized)
-    if "{/*" in normalized:
+    if "/*" in normalized:
         normalized = _MDX_COMMENT_RE.sub("", normalized)
     if "`" in normalized:
         normalized = _BACKTICK_INLINE_RE.sub(r"\1", normalized)  # unwrap `...` spans
@@ -127,26 +143,83 @@ def _normalize_line_for_scan(line: str) -> str:
 # Per-pattern quick-prefix tuples: before invoking an RE2 search we verify that
 # at least one prefix is present via a cheap `in` check.  This reduces RE2
 # calls from N_patterns per passing line to at most 1 on average.
-_SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern]] = [
-    ("openai-api-key", ("sk-",), re.compile(r"sk-[a-zA-Z0-9]{48}")),
+# Fourth element: ``bounded`` -- True when the pattern's length is fixed, so a
+# match cannot absorb characters an attacker appended after the real token.
+# It is not decoration: ``_is_likely_placeholder`` refuses to classify an
+# unbounded span, because a substring test over a span whose tail the attacker
+# controls returns whatever the attacker wants. Declaring it per signature
+# means adding a pattern forces the author to make the call explicitly rather
+# than inherit a default that happens to be wrong.
+_SECRETS: list[tuple[str, tuple[str, ...], re.RegexPattern, bool]] = [
+    ("openai-api-key", ("sk-",), re.compile(r"sk-[a-zA-Z0-9]{48}"), True),
     (
         "github-token",
         ("ghp_", "gho_", "ghu_", "ghs_", "ghr_", "GHP_", "GHO_", "GHU_", "GHS_", "GHR_"),
-        re.compile(r"(?i)\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b"),
+        # No leading \b (5A-S7): this pattern also scans Base64-decoded text
+        # and cross-line lookback joins, neither of which the author ever
+        # typed a word boundary into deliberately -- a decoded/joined token
+        # immediately preceded by any word character (no separator at all)
+        # silently failed to match, dropping a real secret whose raw form
+        # was never scannable in the first place. Kept for hand-typed raw
+        # prose it would be nice to avoid false-flagging mid-identifier, but
+        # a missed real secret is worse than an extra flagged substring for
+        # a non-suppressible security tier.
+        re.compile(r"(?i)(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b"),
+        # Unbounded: stateless ghs_ tokens are JWT-shaped and variable-length,
+        # so there is no upper bound to pin the quantifier to.
+        False,
     ),
-    ("aws-access-key", ("AKIA",), re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("stripe-live-key", ("sk_live_",), re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
-    ("slack-token", ("xox",), re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
-    ("google-api-key", ("AIza",), re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
-    ("private-key", ("-----BEGIN",), re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
-    ("hex-encoded-payload", ("\\x",), re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
-    ("gitlab-pat", ("glpat-",), re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
+    ("aws-access-key", ("AKIA",), re.compile(r"AKIA[0-9A-Z]{16}"), True),
+    ("stripe-live-key", ("sk_live_",), re.compile(r"sk_live_[0-9a-zA-Z]{24}"), True),
+    # Unbounded: the {10,48} range lets an appended alphanumeric marker extend
+    # the match up to the ceiling.
+    ("slack-token", ("xox",), re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}"), False),
+    ("google-api-key", ("AIza",), re.compile(r"AIza[0-9A-Za-z\-_]{35}"), True),
+    ("private-key", ("-----BEGIN",), re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----"), True),
+    ("hex-encoded-payload", ("\\x",), re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}"), True),
+    # Unbounded: {20,} has no ceiling.
+    ("gitlab-pat", ("glpat-",), re.compile(r"glpat-[A-Za-z0-9\-_]{20,}"), False),
 ]
 
-#: Maximum line length the credential scanner will scan.  Lines exceeding this limit
-#: are silently truncated before regex matching to prevent ReDoS or
-#: excessive memory consumption from pathological input (F2-1 hardening).
-_MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
+# ── One gate, folded once ─────────────────────────────────────────────────────
+# The quick-prefix tables exist only to skip an RE2 search; the patterns decide.
+# A pre-filter must therefore be a SUPERSET of what its pattern accepts, and the
+# github-token pattern is `(?i)` while its prefix tuple spells out only the
+# all-lower and all-upper forms. Folding the haystack fixes that -- but the fix
+# has to reach every gate, and there are four: the single-line scan, the URL
+# scan, the base64-decoded rescan, and the cross-line lookback join. Applying it
+# at one site left the other three blind to exactly the spelling the fix was
+# written for, including the lookback that the same change had just wired into
+# `guard scan`. Hence one helper over one pre-folded table, used everywhere,
+# rather than four sites that each have to remember.
+_QUICK_SUBSTRINGS_FOLDED: tuple[str, ...] = tuple(
+    dict.fromkeys(s.casefold() for s in _QUICK_SUBSTRINGS)
+)
+_SECRETS_GATE: tuple[tuple[str, tuple[str, ...], re.RegexPattern, bool], ...] = tuple(
+    (secret_type, tuple(dict.fromkeys(pfx.casefold() for pfx in prefixes)), pattern, bounded)
+    for secret_type, prefixes, pattern, bounded in _SECRETS
+)
+
+#: Families whose matched span is trustworthy input for placeholder
+#: classification. Derived from the table so the two cannot drift.
+_BOUNDED_SECRET_TYPES: frozenset[str] = frozenset(
+    [secret_type for secret_type, _pfx, _pat, bounded in _SECRETS if bounded]
+    # Z204's span is `line[idx : idx + len(term)]` -- exactly the configured
+    # term, so it never had a tail an attacker could extend.
+    + ["FORBIDDEN_TERM"]
+)
+
+
+def _gate_open(haystack: str) -> str | None:
+    """Return the casefolded haystack when a known signature might be present.
+
+    ``None`` means no pattern can match, so the caller skips the whole table.
+    Folding happens once per haystack rather than once per prefix per call.
+    """
+    folded = haystack.casefold()
+    if not any(s in folded for s in _QUICK_SUBSTRINGS_FOLDED):
+        return None
+    return folded
 
 
 # ─── Base64 speculative decoder (CEO-194 / D095) ─────────────────────────────
@@ -195,6 +268,13 @@ class SecurityFinding:
             Used by the reporter for surgical caret rendering.
         match_text: The matched secret substring (unredacted).
             The reporter is responsible for obfuscating this before display.
+        is_likely_placeholder: ``True`` when :func:`_is_likely_placeholder`
+            deterministically classifies ``match_text`` as a documented
+            example/dummy value rather than a genuine secret. A fixed,
+            rule-based classification — never a probabilistic confidence
+            score, which would violate Tier-0 Invariant #1 (Determinism &
+            Pure Functions). Never suppresses the finding; it is a display
+            hint only.
     """
 
     file_path: Path
@@ -203,6 +283,68 @@ class SecurityFinding:
     url: str
     col_start: int = 0
     match_text: str = ""
+    is_likely_placeholder: bool = False
+
+
+# Case-insensitive substring markers. Any match_text containing one of these
+# is a documented convention for example/dummy credentials, never a real
+# generated secret (e.g. AWS's own published example key AKIAIOSFODNN7EXAMPLE).
+_PLACEHOLDER_MARKERS: tuple[str, ...] = (
+    "EXAMPLE",
+    "PLACEHOLDER",
+    "YOUR_API_KEY",
+    "YOUR_KEY",
+    "REDACTED",
+    "CHANGEME",
+    "DUMMY",
+    "SAMPLE",
+)
+
+
+def _is_likely_placeholder(match_text: str, *, secret_type: str) -> bool:
+    """Deterministic, rule-based placeholder classification.
+
+    True when *match_text* contains a well-known placeholder marker
+    (case-insensitive) or a run of 8+ identical characters (e.g.
+    ``"XXXXXXXX"``, ``"00000000"``) — both are common documented-example/
+    dummy-token conventions and do not occur in a real generated secret.
+    Not a confidence score: a fixed lookup and a fixed structural check,
+    nothing probabilistic (Tier-0 Invariant #1).
+
+    **Only classifies a span the attacker cannot extend.** This is a substring
+    test, so its answer belongs to whoever controls the tail of *match_text*.
+    Three signatures (``github-token``, ``slack-token``, ``gitlab-pat``) use
+    open-ended quantifiers, so appending ``example`` to a live token gets the
+    suffix swallowed into the match and flips the flag — turning a real secret
+    into one a reviewer skims past. For those families this returns ``False``
+    meaning *not classifiable*, never *not a placeholder*.
+
+    A tighter alphabet was the obvious alternative and was measured, not
+    assumed: removing ``.`` from the github class truncated a legitimate
+    550-character stateless ``ghs_`` token's match to 13 characters **and**
+    still admitted ``example`` and ``-example``. It cost real reporting
+    fidelity and closed nothing.
+
+    An unrecognised *secret_type* is treated as unbounded. A new signature
+    whose author forgot the flag loses a cosmetic tag; the alternative is
+    inheriting a hole in silence.
+    """
+    if secret_type not in _BOUNDED_SECRET_TYPES:
+        return False
+    upper = match_text.upper()
+    if any(marker in upper for marker in _PLACEHOLDER_MARKERS):
+        return True
+    run_char = ""
+    run_len = 0
+    for ch in match_text:
+        if ch == run_char:
+            run_len += 1
+        else:
+            run_char = ch
+            run_len = 1
+        if run_len >= 8:
+            return True
+    return False
 
 
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
@@ -227,11 +369,12 @@ def scan_url_for_secrets(
     Yields:
         :class:`SecurityFinding` for each secret pattern that matches.
     """
-    if not any(s in url for s in _QUICK_SUBSTRINGS):
+    _folded_url = _gate_open(url)
+    if _folded_url is None:
         return
     _path: Path | None = None
-    for secret_type, quick_prefixes, pattern in _SECRETS:
-        if not any(s in url for s in quick_prefixes):
+    for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
+        if not any(s in _folded_url for s in quick_prefixes):
             continue
         m = pattern.search(url)
         if m:
@@ -244,6 +387,7 @@ def scan_url_for_secrets(
                 url=url,
                 col_start=m.start(),
                 match_text=m.group(0),
+                is_likely_placeholder=_is_likely_placeholder(m.group(0), secret_type=secret_type),
             )
 
 
@@ -278,21 +422,32 @@ def scan_line_for_secrets(
     Yields:
         :class:`SecurityFinding` for each match found.
     """
-    # F2-1 hardening: truncate pathologically long lines to prevent ReDoS
-    # or excessive memory consumption. The constant is defined above.
-    line = line[:_MAX_LINE_LENGTH]
+    # Previously this truncated to _MAX_LINE_LENGTH and dropped the remainder
+    # silently, so attacker-controlled padding hid a real secret past the cutoff
+    # with no finding and no warning. The stated rationale was ReDoS defence,
+    # which does not apply: every pattern here is RE2, which cannot backtrack
+    # and is linear in input length. A secret gate must not answer "clean" for
+    # bytes it chose not to look at, so the whole line is scanned.
     normalized = _normalize_line_for_scan(line)
     seen: set[str] = set()
     line_forms = (line,) if line == normalized else (line, normalized)
     _path: Path | None = None  # defer Path creation until a finding is yielded
 
     for line_form in line_forms:
-        if not any(s in line_form for s in _QUICK_SUBSTRINGS):
+        # The quick-prefix tables are an optimisation, not the decision. They
+        # must therefore be a superset of what the patterns accept: the
+        # github-token pattern is `(?i)` while its prefix tuple listed only the
+        # all-lower and all-upper spellings, so `Ghp_` satisfied the regex and
+        # never reached it. Case-folding the haystack for gating keeps the
+        # filter faithful; a prefix hit the pattern then rejects costs one
+        # search, which is the correct direction for a pre-filter to err.
+        _gate_form = _gate_open(line_form)
+        if _gate_form is None:
             continue
-        for secret_type, quick_prefixes, pattern in _SECRETS:
+        for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
             if secret_type in seen:
                 continue
-            if not any(s in line_form for s in quick_prefixes):
+            if not any(s in _gate_form for s in quick_prefixes):
                 continue
             m = pattern.search(line_form)
             if m:
@@ -311,6 +466,9 @@ def scan_line_for_secrets(
                     url=line.strip(),  # always report the raw line for context
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
+                    is_likely_placeholder=_is_likely_placeholder(
+                        match_text, secret_type=secret_type
+                    ),
                 )
 
     # ── Phase 3: Base64 speculative decoding (CEO-194) ────────────────────────
@@ -318,7 +476,18 @@ def scan_line_for_secrets(
     # re-scan the decoded text through _SECRETS.  Catches credentials that
     # have been Base64-encoded to bypass the raw-text scan (e.g. a frontmatter
     # field containing base64(ghp_...) or base64(AKIA...)).
-    if len(normalized) >= 20 and ("=" in normalized or "+" in normalized or "/" in normalized):
+    # No symbol test: a base64 string carries no "=" when the plaintext length
+    # is a multiple of 3 and need contain no "/" at all, so appending a single
+    # space before encoding was enough to skip this decode entirely. (The "+"
+    # disjunct used to be dead too -- _normalize_line_for_scan deleted every
+    # bare "+" as a concatenation operator before this line ran, corrupting
+    # any Base64 blob that legitimately contained one; _CONCAT_OP_RE now
+    # requires an actual quote/backtick/whitespace flank, so a real "+" in a
+    # candidate token survives to reach _BASE64_CANDIDATE_RE below.)
+    # _BASE64_CANDIDATE_RE already imposes the 4-character-group structure
+    # and the length floor below already bounds the work, so the symbol test
+    # bought nothing.
+    if len(normalized) >= 20:
         for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
             _candidate = _b64_match.group(0)
             if len(_candidate) < 20:
@@ -326,12 +495,13 @@ def scan_line_for_secrets(
             _decoded = _try_decode_base64(_candidate)
             if _decoded is None:
                 continue
-            if not any(s in _decoded for s in _QUICK_SUBSTRINGS):
+            _folded_decoded = _gate_open(_decoded)
+            if _folded_decoded is None:
                 continue
-            for secret_type, quick_prefixes, pattern in _SECRETS:
+            for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
                 if secret_type in seen:
                     continue
-                if not any(s in _decoded for s in quick_prefixes):
+                if not any(s in _folded_decoded for s in quick_prefixes):
                     continue
                 m = pattern.search(_decoded)
                 if m:
@@ -345,6 +515,9 @@ def scan_line_for_secrets(
                         url=line.strip(),
                         col_start=0,  # position in decoded text is meaningless in raw line
                         match_text=m.group(0),
+                        is_likely_placeholder=_is_likely_placeholder(
+                            m.group(0), secret_type=secret_type
+                        ),
                     )
 
 
@@ -397,6 +570,10 @@ def scan_line_for_forbidden_terms(
                 url=line.strip(),
                 col_start=m.start(),
                 match_text=m.group(0),
+                is_likely_placeholder=_is_likely_placeholder(
+                    m.group(0),
+                    secret_type="FORBIDDEN_TERM",  # noqa: S106  # Finding category identifier
+                ),
             )
         return
 
@@ -412,6 +589,10 @@ def scan_line_for_forbidden_terms(
                 url=line.strip(),
                 col_start=idx,
                 match_text=line[idx : idx + len(term)],
+                is_likely_placeholder=_is_likely_placeholder(
+                    line[idx : idx + len(term)],
+                    secret_type="FORBIDDEN_TERM",  # noqa: S106  # Finding category identifier
+                ),
             )
             return  # one finding per line — first-match wins
 
@@ -452,24 +633,30 @@ def scan_lines_with_lookback(
     prev_seen: set[str] = set()
 
     for lineno, raw_line in lines:
-        raw_trunc = raw_line[:_MAX_LINE_LENGTH]
-        current_normalized = _normalize_line_for_scan(raw_trunc)
+        # Not truncated, for the same reason scan_line_for_secrets no longer
+        # truncates: RE2 cannot backtrack, so a long line is a linear cost and
+        # not a ReDoS risk, whereas silently dropping its tail let padding hide
+        # a real secret. This was the second of the two cutoffs -- fixing only
+        # the other one left the corpus path still blind, which the end-to-end
+        # probe caught after the unit test had already gone green.
+        current_normalized = _normalize_line_for_scan(raw_line)
 
         # 1. Scan individual line
         seen_this_line: set[str] = set()
-        for finding in scan_line_for_secrets(raw_trunc, file_path, lineno):
+        for finding in scan_line_for_secrets(raw_line, file_path, lineno):
             seen_this_line.add(finding.secret_type)
             yield finding
 
         # 2. Lookback: join previous line tail + current line head (normalised)
         if prev_normalized:
             joined = prev_normalized[-80:] + current_normalized[:80]
-            if any(s in joined for s in _QUICK_SUBSTRINGS):
+            _folded_join = _gate_open(joined)
+            if _folded_join is not None:
                 already_seen = seen_this_line | prev_seen
-                for secret_type, quick_prefixes, pattern in _SECRETS:
+                for secret_type, quick_prefixes, pattern, _bounded in _SECRETS_GATE:
                     if secret_type in already_seen:
                         continue
-                    if not any(s in joined for s in quick_prefixes):
+                    if not any(s in _folded_join for s in quick_prefixes):
                         continue
                     m = pattern.search(joined)
                     if m:
@@ -480,6 +667,9 @@ def scan_lines_with_lookback(
                             url=raw_line.strip(),
                             col_start=0,
                             match_text=m.group(0),
+                            is_likely_placeholder=_is_likely_placeholder(
+                                m.group(0), secret_type=secret_type
+                            ),
                         )
                         seen_this_line.add(secret_type)
 
@@ -524,7 +714,7 @@ def safe_read_line(
     to the caller, preventing the secret from entering any parser (YAML,
     Markdown, Regex).
 
-    This function is the **IO Middleware** mandated by the Tech Lead directive:
+    This function is the **IO Middleware** required per internal architecture decision:
     every line read during metadata extraction (frontmatter for slug, tags,
     draft status) must pass through the credential scanner before any parser sees it.
 
@@ -542,3 +732,87 @@ def safe_read_line(
     for finding in scan_line_for_secrets(line, file_path, line_no):
         raise CredentialViolation(finding)
     return line
+
+
+def scan_security_findings(
+    text: str,
+    file_path: Path | str,
+    config: ZenzicConfig | None = None,
+) -> list[SecurityFinding]:
+    """Every Tier-0 security finding in *text*: credentials (Z201) and forbidden terms (Z204).
+
+    The single decision about *which* security findings a file contains. Both
+    analysis paths call it — ``scanner.py``'s ``harvest()`` for the full-corpus
+    CLI scan, and ``incremental.py``'s ``_analyze_file`` for the buffer-aware LSP
+    path (which never calls ``harvest()``), and through that, ``zenzic-mcp``.
+
+    It exists because the same logic was implemented twice and drifted twice,
+    both times in the security tier: once leaving the LSP with no forbidden-term
+    scan at all, and once leaving it with an older suppression rule than the CLI,
+    so the two reported different findings for the same line. Detection is shared
+    here; each caller still builds its own output shape, which is a genuine
+    difference rather than duplication.
+
+    Returns :class:`SecurityFinding` rather than ``RuleFinding`` deliberately —
+    ``RuleFinding`` has no ``is_likely_placeholder`` field, and the CLI reporter
+    and SARIF writer both read it, so converting here would silently drop the
+    ``[LIKELY PLACEHOLDER]`` signal.
+
+    Args:
+        text: Full file content.
+        file_path: Path identifier (no disk access).
+        config: Supplies ``forbidden_patterns``; when absent, only credentials
+            are scanned.
+
+    Returns:
+        Findings in discovery order: credentials first, then forbidden terms.
+    """
+    path = Path(file_path)
+    lines = text.splitlines(keepends=True)
+
+    findings: list[SecurityFinding] = []
+    # Per-line character spans of the credentials found, so a forbidden term can
+    # be told apart from a second view of the same secret. ``opaque_lines`` holds
+    # lines with a credential whose position could not be established.
+    secret_spans: dict[int, list[tuple[int, int]]] = {}
+    opaque_lines: set[int] = set()
+
+    for finding in scan_lines_with_lookback(enumerate(lines, start=1), path):
+        findings.append(finding)
+        raw_line = lines[finding.line_no - 1] if finding.line_no <= len(lines) else ""
+        start = finding.col_start
+        end = start + len(finding.match_text)
+        # ``col_start`` is only meaningful when ``match_text`` genuinely sits there
+        # in the raw line. Both scanners fall back to 0 when it does not — for a
+        # secret seen only in the normalised form of a line, and for one
+        # reconstructed across two lines by the lookback buffer — so a bare 0
+        # cannot be trusted as an offset.
+        if raw_line[start:end] == finding.match_text:
+            secret_spans.setdefault(finding.line_no, []).append((start, end))
+        else:
+            opaque_lines.add(finding.line_no)
+
+    forbidden = config.forbidden_patterns if config else []
+    if not forbidden:
+        return findings
+
+    compiled = config.forbidden_patterns_compiled if config else None
+    for line_no, raw_line in enumerate(lines, start=1):
+        # A credential here whose span is unknown: suppress the whole line, as
+        # before. Conservative in the only safe direction — it can hide an
+        # independent term, never invent a second panel for a single leak.
+        if line_no in opaque_lines:
+            continue
+        spans = secret_spans.get(line_no, ())
+        for finding in scan_line_for_forbidden_terms(
+            raw_line, forbidden, path, line_no, compiled_pattern=compiled
+        ):
+            term_start = finding.col_start
+            term_end = term_start + len(finding.match_text)
+            # Half-open intersection: adjacency is not overlap, so a term butted
+            # directly against a secret is still its own finding.
+            if any(term_start < end and start < term_end for start, end in spans):
+                continue
+            findings.append(finding)
+
+    return findings

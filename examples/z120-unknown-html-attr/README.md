@@ -17,7 +17,7 @@ The PolyglotExtractor emits **Z120** (warning) for each unknown attribute.
 ```bash
 zenzic lab z120
 # or directly:
-zenzic check examples/z120-unknown-html-attr
+cd examples/z120-unknown-html-attr && zenzic check all
 ```
 
 ## How to suppress (if intentional)

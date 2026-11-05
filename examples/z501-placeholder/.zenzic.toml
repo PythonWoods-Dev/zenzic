@@ -7,7 +7,7 @@
 # Zenzic's content scanner flags them as Z501 PLACEHOLDER — exit 1.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z501 ×2 — two placeholder patterns found)
+#   zenzic check placeholders   → EXIT 0  (Z501 ×2 — two placeholder patterns found)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

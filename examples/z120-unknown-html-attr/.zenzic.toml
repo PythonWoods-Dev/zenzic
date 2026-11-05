@@ -6,9 +6,9 @@
 # (hreflang, ping, referrerpolicy). The PolyglotExtractor emits Z120 warnings.
 #
 # Expected results:
-#   zenzic lab z120   → EXIT 0  (Z120 ×3 — warnings only, DQS penalised)
-[zenzic]
+#   zenzic lab z120   → EXIT 0  (Z120 ×4 — warnings only, DQS penalised)
+#
+# Every link in docs/index.md is local ('./target.md'), so external link
+# checking never engages here and needs no configuration.
+[build_context]
 engine = "standalone"
-
-[links]
-check_external = false

@@ -9,12 +9,16 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from zenzic.core.mutator import EmptyLinkTextMutation, Mutator
 from zenzic.core.parser import parse, serialize
+
+
+if TYPE_CHECKING:
+    from zenzic.models.config import ZenzicConfig
 
 
 def _atomic_write(file_path: Path, content: str) -> None:
@@ -38,6 +42,69 @@ def _atomic_write(file_path: Path, content: str) -> None:
                 pass
 
 
+#: Sentinel for "the scan failed, so treat every file as carrying a live
+#: suppression". A membership test against it is always true, which is the
+#: fail-safe direction for a gate that exists to decline a mutation.
+class _AllFilesSuppressed(frozenset):  # type: ignore[type-arg]
+    def __contains__(self, item: object) -> bool:
+        return True
+
+
+_ALL_FILES_SUPPRESSED: set[Path] = _AllFilesSuppressed()  # type: ignore[assignment]
+
+
+def _project_suppression_state(
+    config: ZenzicConfig, repo_root: Path, docs_root: Path
+) -> tuple[dict[Path, set[int]], set[Path]]:
+    """One project-wide scan, returning what the auto-fixer needs to be safe.
+
+    Two facts, and neither is a per-file fact:
+
+    * ``dead_lines`` — the lines carrying a suppression that silences nothing,
+      keyed by file. A directive naming ``Z101`` is dead only if the link beside
+      it resolves, and that is decided against the whole Virtual Site Map.
+    * ``files_with_live_suppressions`` — files where at least one directive did
+      silence something, which is the rename gate's fail-safe.
+
+    Both used to be read from ``_scan_single_file(md_file, config)``, called with
+    no rule engine — so it built no suppression tracker at all. The dead-line set
+    was therefore empty on every input, and ``Z603`` is published as
+    Auto-Fixable with this command as its remediation; and the rename gate's
+    "has an active inline suppression" test was ``any()`` over an empty list, so
+    the gate it documents never once engaged.
+
+    Failures are swallowed deliberately: this is a safety input to a mutation, and
+    an empty answer removes nothing and guards nothing new, which is the correct
+    direction to fail for the first and the wrong one for the second — so a scan
+    that cannot run reports every file as suppressed rather than none.
+    """
+    from zenzic.cli._shared import _build_exclusion_manager
+    from zenzic.core.scanner import scan_docs_references
+
+    dead_lines: dict[Path, set[int]] = {}
+    live: set[Path] = set()
+    try:
+        exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
+        reports, _ = scan_docs_references(
+            docs_root,
+            exclusion_mgr,
+            repo_root=repo_root,
+            config=config,
+            validate_links=False,
+        )
+    except Exception:
+        return {}, _ALL_FILES_SUPPRESSED
+    for report in reports:
+        key = report.file_path.resolve()
+        for finding in report.rule_findings:
+            if finding.rule_id == "Z603":
+                dead_lines.setdefault(key, set()).add(finding.line_no)
+        tracker = report.suppression_tracker
+        if tracker is not None and any(d.consumed for d in tracker.directives):
+            live.add(key)
+    return dead_lines, live
+
+
 def fix(
     path: Annotated[
         Path | None,
@@ -55,12 +122,27 @@ def fix(
             help="Show unified diff without saving changes (default).",
         ),
     ] = True,
+    rename: Annotated[
+        tuple[str, str] | None,
+        typer.Option(
+            "--rename",
+            help=(
+                "Repair inbound relative links across the docs tree after renaming/moving "
+                "OLD to NEW (e.g. after `git mv docs/old.md docs/new.md`). OLD does not need "
+                "to still exist on disk. Same --dry-run/--apply gate as the default mode."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Auto-fix deterministic structural violations (e.g., Z108)."""
     from zenzic.cli._shared import _build_exclusion_manager
     from zenzic.core.discovery import iter_markdown_sources
     from zenzic.core.scanner import find_repo_root
     from zenzic.models.config import ZenzicConfig
+
+    if rename is not None:
+        _fix_rename(rename[0], rename[1], dry_run=dry_run)
+        return
 
     _search_from: Path | None = None
     if path is not None:
@@ -85,7 +167,8 @@ def fix(
         MalformedListMutation,
         UntaggedCodeBlockMutation,
     )
-    from zenzic.core.scanner import _scan_single_file
+
+    dead_by_file, _ = _project_suppression_state(config, repo_root, docs_root)
 
     modified_count = 0
 
@@ -96,8 +179,7 @@ def fix(
             typer.echo(f"Error reading {md_file}: {exc}", err=True)
             continue
 
-        report, _ = _scan_single_file(md_file, config)
-        dead_lines = {f.line_no for f in report.rule_findings if f.rule_id == "Z603"}
+        dead_lines = dead_by_file.get(md_file.resolve(), set())
 
         mutator = Mutator(
             [
@@ -143,3 +225,149 @@ def fix(
 
     if modified_count == 0:
         typer.echo("No violations to fix.")
+
+
+def _fix_rename(old: str, new: str, *, dry_run: bool) -> None:
+    """Repair inbound relative links across the docs tree after a rename.
+
+    CLI/batch counterpart to the LSP's `workspace/willRenameFiles` handler
+    (`zenzic.lsp.server._handle_will_rename_files`) -- same `RenameLinkMutation`
+    (no new resolution logic), same safety gates (alias-style hrefs skipped,
+    a suppressed occurrence never rewritten), same "report every file
+    individually, never a single opaque batch result" discipline.
+
+    Unlike the LSP version, this scans the whole docs tree directly instead
+    of using the VSM's `incoming_links` reverse index: OLD does not need to
+    still exist on disk (the realistic `git mv old new && zenzic fix --rename
+    old new` workflow already moved it), so there is no VSM entry to key a
+    reverse-index lookup off in the general case.
+    """
+    from zenzic.cli._shared import _build_exclusion_manager
+    from zenzic.core.discovery import iter_markdown_sources
+    from zenzic.core.mutator import Mutator, RenameLinkMutation
+    from zenzic.core.scanner import find_repo_root
+    from zenzic.models.config import ZenzicConfig
+
+    old_path = Path(old).resolve()
+    # The new name may not exist yet, and on a case-insensitive filesystem
+    # `resolve()` of a name that differs from an existing entry only by case
+    # returns that entry's on-disk spelling -- a case-only rename would then
+    # collapse to old == new and rewrite nothing (same fix as the LSP
+    # handler). Resolve the parent, keep the requested name.
+    new_path = Path(new).parent.resolve() / Path(new).name
+
+    _search_from = old_path.parent
+    repo_root = find_repo_root(search_from=_search_from)
+    config, _ = ZenzicConfig.load(repo_root)
+    docs_root = (repo_root / config.docs_dir).resolve()
+    docs_root_str = str(docs_root)
+    repo_root_str = str(repo_root)
+    old_abs = str(old_path)
+    new_abs = str(new_path)
+
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
+    files = list(iter_markdown_sources(docs_root, config, exclusion_mgr))
+
+    # An href may name the renamed file up to letter case only
+    # (`./casetarget.md` -> `CaseTarget.md`), which a case-insensitive
+    # filesystem resolves and the editor already repairs. Accept that identity
+    # here too, but only when it is unambiguous: if any OTHER discovered page
+    # folds equal to OLD, the link belongs to that page and exact matching
+    # alone applies.
+    #
+    # The predicate is "no *other* page folds equal", not the LSP's "exactly
+    # one page folds equal": `workspace/willRenameFiles` fires before the
+    # rename, so there the file still exists, while OLD need not exist for this
+    # command -- `git mv` first, then `zenzic fix --rename`, is the documented
+    # workflow, and requiring a match would decline every such rename.
+    #
+    # `str.casefold()` over the already-enumerated set, never
+    # `os.path.normcase` and never a filesystem probe: normcase is the identity
+    # on POSIX and lowercases on NTFS, which would make the output depend on
+    # the host and put platform-specific behaviour in the Core (ADR-075).
+    # Costs no I/O -- `files` is already in memory.
+    _old_folded = old_abs.casefold()
+    match_case_insensitively = not any(
+        str(f) != old_abs and str(f).casefold() == _old_folded for f in files
+    )
+
+    _, files_with_live_suppressions = _project_suppression_state(config, repo_root, docs_root)
+
+    fixed_count = 0
+    skipped_count = 0
+    checked_count = 0
+
+    for md_file in files:
+        if md_file.resolve() in (old_path, new_path):
+            continue
+        try:
+            content = md_file.read_text(encoding="utf-8")
+        except Exception as exc:
+            typer.echo(f"Error reading {md_file}: {exc}", err=True)
+            continue
+
+        checked_count += 1
+
+        try:
+            rel_path = md_file.relative_to(Path.cwd())
+        except ValueError:
+            rel_path = md_file
+
+        # Safety gate: if ANY occurrence of a link-integrity finding at this
+        # file's location is inline-suppressed, skip it -- same fail-safe
+        # choice as the LSP version (no per-occurrence location scoping
+        # exists to respect partial suppression surgically).
+        if md_file.resolve() in files_with_live_suppressions:
+            typer.echo(f"Skipped {rel_path}: has an active inline suppression, not overriding it")
+            skipped_count += 1
+            continue
+
+        try:
+            mutation = RenameLinkMutation(
+                source_file=md_file,
+                docs_root_str=docs_root_str,
+                repo_root_str=repo_root_str,
+                old_abs=old_abs,
+                new_abs=new_abs,
+                match_case_insensitively=match_case_insensitively,
+            )
+            ast = parse(content)
+            new_ast, changed = Mutator([mutation]).mutate(ast)
+        except Exception as exc:
+            typer.echo(f"Skipped {rel_path}: mutation failed ({exc})", err=True)
+            skipped_count += 1
+            continue
+
+        if not changed:
+            continue
+
+        new_content = serialize(new_ast)
+        if new_content == content:
+            continue  # matched but rewrote nothing: not a fix, not a write
+        fixed_count += 1
+
+        if dry_run:
+            diff_lines = list(
+                difflib.unified_diff(
+                    content.splitlines(keepends=True),
+                    new_content.splitlines(keepends=True),
+                    fromfile=f"a/{rel_path}",
+                    tofile=f"b/{rel_path}",
+                    n=3,
+                )
+            )
+            sys.stdout.writelines(diff_lines)
+        else:
+            try:
+                _atomic_write(md_file, new_content)
+                typer.echo(f"Repaired link to {Path(new).name} in {rel_path}")
+            except Exception as exc:
+                typer.echo(f"Failed to write {md_file}: {exc}", err=True)
+
+    if fixed_count == 0:
+        suffix = f" ({skipped_count} skipped)" if skipped_count else ""
+        typer.echo(
+            f"No inbound links to {Path(old).name} found in {checked_count} file(s){suffix}."
+        )
+    elif skipped_count:
+        typer.echo(f"{fixed_count} file(s) repaired, {skipped_count} skipped (see above).")

@@ -18,8 +18,10 @@ Two distinct logging surfaces:
 
 from __future__ import annotations
 
+import atexit
 import logging
 
+from rich.console import Console
 from rich.logging import RichHandler
 
 
@@ -62,16 +64,55 @@ def setup_cli_logging(level: int = logging.WARNING) -> None:
                Pass ``logging.DEBUG`` to enable verbose diagnostic output.
     """
     logger = logging.getLogger(LOGGER_NAME)
-    if any(isinstance(h, RichHandler) for h in logger.handlers):
+    if any(isinstance(h, RichHandler | DeferringHandler) for h in logger.handlers):
         return  # already configured
 
+    # stderr, never stdout: a warning written to stdout ahead of `--format json`
+    # corrupted the payload every machine consumer parses (measured 2026-09-15
+    # for .zenzic.toml, 2026-09-17 for pyproject.toml -- the same code path).
     handler = RichHandler(
         level=level,
+        console=Console(stderr=True),
         show_time=False,
         show_path=False,
         rich_tracebacks=True,
         markup=True,
     )
-    logger.addHandler(handler)
+    logger.addHandler(DeferringHandler(handler))
     logger.setLevel(level)
     logger.propagate = False
+    atexit.register(release_deferred_logs)
+
+
+class DeferringHandler(logging.Handler):
+    """Hold records until the banner has been printed, then pass them through.
+
+    Configuration loads before any command prints its header, so a warning
+    about a misspelled key came out first and above the frame -- the one place
+    a reader skips. The handler buffers until :func:`release_deferred_logs`
+    is called (by the banner printer, or at exit when no banner is printed),
+    then forwards every buffered record and every later one immediately.
+    """
+
+    def __init__(self, target: logging.Handler) -> None:
+        super().__init__()
+        self.target = target
+        self.buffer: list[logging.LogRecord] | None = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if self.buffer is not None:
+            self.buffer.append(record)
+        else:
+            self.target.handle(record)
+
+    def release(self) -> None:
+        pending, self.buffer = self.buffer, None
+        for record in pending or []:
+            self.target.handle(record)
+
+
+def release_deferred_logs() -> None:
+    """Flush the records held back until the banner; a no-op afterwards."""
+    for h in logging.getLogger(LOGGER_NAME).handlers:
+        if isinstance(h, DeferringHandler):
+            h.release()

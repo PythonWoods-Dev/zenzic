@@ -17,7 +17,8 @@ at startup:
 | 3 | Built-in defaults | Used when neither file is present |
 
 The repository root is located by walking upward from the current working directory until a `.git`
-directory, a `.zenzic.toml`, or a `pyproject.toml` is found.
+directory, a `.zenzic.toml`, a `zensical.toml`, or an `mkdocs.yml` is found. `pyproject.toml` is not
+itself a root marker — it is read only once the root is already located by one of these markers.
 
 ---
 
@@ -60,8 +61,8 @@ become `[[tool.zenzic.custom_rules]]`.
 
 If the winning config file contains a **TOML syntax error**, Zenzic raises a `ConfigurationError`
 with a human-friendly message and exits immediately — silent fallback on a broken config file
-would hide mistakes. Unknown fields are silently ignored, which means adding fields not yet
-supported by your installed version is safe.
+would hide mistakes. An unknown key or section is ignored with a warning that names it, so a field
+your installed version does not support yet is safe to add, and a misspelled one is visible.
 
 ---
 

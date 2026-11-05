@@ -57,7 +57,7 @@ class DummyWorkingRule(ZenzicRuleV3):
 def test_custom_rule_crash_handling() -> None:
     """If a rule raises an arbitrary exception, it is caught and converted to Z901."""
     rule = DummyCrashingRule()
-    engine = AdaptiveRuleEngine([rule])
+    engine = AdaptiveRuleEngine([rule], containers=None)
 
     findings = engine.run(Path("dummy.md"), "# Hello")
     assert len(findings) == 1
@@ -69,7 +69,7 @@ def test_custom_rule_crash_handling() -> None:
 def test_custom_rule_working() -> None:
     """A normal custom v3 rule executes and reports findings correctly."""
     rule = DummyWorkingRule()
-    engine = AdaptiveRuleEngine([rule])
+    engine = AdaptiveRuleEngine([rule], containers=None)
 
     findings = engine.run(Path("dummy.md"), "# Heading\nThis line has a badword")
     assert len(findings) == 1
@@ -113,7 +113,7 @@ class MyAwesomeRule(ZenzicRuleV3):
     )
 
     config, _ = ZenzicConfig.load(repo_root)
-    engine = _build_rule_engine(config)
+    engine = _build_rule_engine(config, containers=None)
     assert engine is not None
 
     rule_ids = {r.rule_id for r in engine._rules}

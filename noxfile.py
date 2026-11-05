@@ -9,14 +9,14 @@ import nox
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv"
 
-# Nox = isolated environments for multi-version compatibility (3.10 – 3.14).
+# Nox = isolated environments for multi-version compatibility (3.11 – 3.14).
 # Daily quality gate is `just verify` (single entry-point — see justfile).
 # NOTE: posargs are forwarded with `--`, e.g.: nox -s lint -- --fix
 nox.options.sessions = ["lint", "format", "typecheck"]
 
-# Boundary Testing: mirrors the CI Pillar Matrix (Floor 3.10 / Peak 3.14).
+# Boundary Testing: mirrors the CI Pillar Matrix (Floor 3.11 / Peak 3.14).
 # Intermediate versions are covered by the full nox-all run in release cycles.
-PYTHONS = ["3.10", "3.14"]
+PYTHONS = ["3.11", "3.14"]
 
 # Per-group sync tuples — each session installs only what it needs.
 _SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
@@ -65,7 +65,7 @@ def fmt(session: nox.Session) -> None:
 def typecheck(session: nox.Session) -> None:
     """Run static type checking with mypy."""
     session.run(*_SYNC_LINT, external=True)
-    session.run("mypy", "src/")
+    session.run("mypy", "src/", "tests/")
 
 
 @nox.session(python="3.14")
@@ -117,14 +117,16 @@ def security(session: nox.Session) -> None:
 
 @nox.session(python="3.14")
 def mutation(session: nox.Session) -> None:
-    """Run mutation testing with mutmut on the security-critical core modules.
+    """Run mutation testing with mutmut on the credential scanner.
 
-    Targets (configured in ``[tool.mutmut]`` in ``pyproject.toml``):
-    - ``src/zenzic/core/rules.py``    — rule engine and regex canary
+    Target (configured as ``source_paths`` in ``[tool.mutmut]``, ``pyproject.toml``):
     - ``src/zenzic/core/credentials.py``   — secret detection (ZRT-001/ZRT-003)
-    - ``src/zenzic/core/reporter.py`` — _obfuscate_secret() masking function
 
-    A surviving mutant means a test gap.  Goal: mutation score ≥ 90%.
+    A surviving mutant means a test gap.  Target: mutation score >= 90%; measured 68.2%
+    as of 2026-09-05 (285 killed / 133 survived / 0 uncovered on the credential scanner).
+
+    This session computes no floor and fails on nothing.  CI runs ``just mutation``
+    instead, which reads mutmut's own stats export and fails below a recorded floor.
 
     Implementation note — non-editable install:
         ``uv sync`` installs zenzic as an editable package whose ``.pth`` file

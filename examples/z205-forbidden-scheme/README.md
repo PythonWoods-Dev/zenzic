@@ -14,7 +14,7 @@
 ```bash
 zenzic lab z205
 # or directly:
-zenzic check examples/z205-forbidden-scheme
+cd examples/z205-forbidden-scheme && zenzic check all
 ```
 
 ## Security Invariant

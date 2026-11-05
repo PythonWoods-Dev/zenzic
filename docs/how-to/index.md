@@ -15,7 +15,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-rocket-launch:{ .lg .middle style="color: #6366f1;" } **[Installation & Environment](install.md)**
+- **[Installation & Environment](install.md)**
 
     ---
 
@@ -23,7 +23,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](install.md)
 
-- :material-tune:{ .lg .middle style="color: #6366f1;" } **[Configuration Strategy](initialize-configuration.md)**
+- **[Initialize Configuration](initialize-configuration.md)**
 
     ---
 
@@ -31,7 +31,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](initialize-configuration.md)
 
-- :material-microsoft-visual-studio-code:{ .lg .middle style="color: #6366f1;" } **[Editor & VS Code Setup](editor-integrations.md)**
+- **[Editor & VS Code Setup](editor-integrations.md)**
 
     ---
 
@@ -47,7 +47,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-pipe:{ .lg .middle style="color: #0284c7;" } **[CI/CD Quality Gates](configure-ci-cd.md)**
+- **[CI/CD Quality Gates](configure-ci-cd.md)**
 
     ---
 
@@ -55,19 +55,11 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-ci-cd.md)
 
-- :material-git:{ .lg .middle style="color: #0284c7;" } **[Pre-Commit & Git Hooks](workflow-integration.md)**
+- **[DQS Status Badges](add-badges.md)**
 
     ---
 
-    Integrate sub-50ms secret scanning and fast link linting on staged files.
-
-    [:material-arrow-right: Read Guide](workflow-integration.md)
-
-- :material-shield-badge-outline:{ .lg .middle style="color: #0284c7;" } **[DQS Status Badges](add-badges.md)**
-
-    ---
-
-    Generate and stamp live Document Quality Score shields directly into your `README.md`.
+    Generate and stamp live Documentation Quality Score shields directly into your `README.md`.
 
     [:material-arrow-right: Read Guide](add-badges.md)
 
@@ -79,7 +71,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-scale-balance:{ .lg .middle style="color: #10b981;" } **[Managing Technical Debt](handle-technical-debt.md)**
+- **[Managing Technical Debt](handle-technical-debt.md)**
 
     ---
 
@@ -87,7 +79,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](handle-technical-debt.md)
 
-- :material-shield-key-outline:{ .lg .middle style="color: #10b981;" } **[Zero-Network Privacy Gate](configure-privacy-gate.md)**
+- **[Zero-Network Privacy Gate](configure-privacy-gate.md)**
 
     ---
 
@@ -95,7 +87,15 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](configure-privacy-gate.md)
 
-- :material-link-variant:{ .lg .middle style="color: #10b981;" } **[Cross-Site & Remote Links](manage-cross-site-links.md)**
+- **[Integrate Vale and Zenzic](integrate-vale-and-zenzic.md)**
+
+    ---
+
+    Run prose-style and structural-integrity checks in the same pre-commit pass.
+
+    [:material-arrow-right: Read Guide](integrate-vale-and-zenzic.md)
+
+- **[Cross-Site & Remote Links](manage-cross-site-links.md)**
 
     ---
 
@@ -103,19 +103,11 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](manage-cross-site-links.md)
 
-- :material-palette-outline:{ .lg .middle style="color: #10b981;" } **[Brand Governance System](use-brand-system.md)**
+- **[Social Metadata & SEO](configure-social-metadata.md)**
 
     ---
 
-    Configure brand term dictionaries and eradicate obsolete product naming conventions.
-
-    [:material-arrow-right: Read Guide](use-brand-system.md)
-
-- :material-share-variant-outline:{ .lg .middle style="color: #10b981;" } **[Social Metadata & SEO](configure-social-metadata.md)**
-
-    ---
-
-    Validate OpenGraph social cards, meta descriptions, and sitemap topology.
+    How Zenzic's asset checker recognizes social card images — setup itself is your build engine's job.
 
     [:material-arrow-right: Read Guide](configure-social-metadata.md)
 
@@ -127,7 +119,7 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
 <div class="grid cards" markdown>
 
-- :material-puzzle-outline:{ .lg .middle style="color: #f59e0b;" } **[Custom Rule Plugins](add-custom-rules.md)**
+- **[Custom Rule Plugins](add-custom-rules.md)**
 
     ---
 
@@ -135,15 +127,15 @@ Task-oriented, step-by-step instructions for installing, configuring, automating
 
     [:material-arrow-right: Read Guide](add-custom-rules.md)
 
-- :material-swap-horizontal:{ .lg .middle style="color: #f59e0b;" } **[Engine Migration Guide](migrate-engines.md)**
+- **[Engine Migration Guide](migrate-engines.md)**
 
     ---
 
-    Migrate documentation seamlessly between MkDocs, Zensical, and Docusaurus.
+    Migrate documentation seamlessly between MkDocs and Zensical.
 
     [:material-arrow-right: Read Guide](migrate-engines.md)
 
-- :material-lifebuoy:{ .lg .middle style="color: #f59e0b;" } **[Diagnostic Troubleshooting](troubleshooting.md)**
+- **[Diagnostic Troubleshooting](troubleshooting.md)**
 
     ---
 

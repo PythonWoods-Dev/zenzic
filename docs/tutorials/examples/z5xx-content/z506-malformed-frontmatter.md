@@ -4,8 +4,6 @@
 
 ## description: "Live example showing a malformed frontmatter delimiter detected by Zenzic."
 
-This section details the specifications and guidelines for description: "Live example showing a malformed frontmatter delimiter detected by Zenzic." within the Zenzic ecosystem.
-
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
@@ -26,17 +24,25 @@ This file intentionally opens with `--` (two dashes) to trigger the rule. The `d
 ## Terminal Output
 
 ```text
- Z506 MALFORMED_FRONTMATTER
- docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md:1
+docs/index.md:1  ✘  [Z506]  Malformed frontmatter delimiter on line 1: '--' is
+not a valid YAML frontmatter boundary. Use exactly '---' (three dashes) on its
+own line to open the frontmatter block; 'template:', 'title:', and all metadata
+directives will be ignored by most engines otherwise.
 
-  1 │ --
-    │ ^^
-    Malformed frontmatter delimiter on line 1: '--' is not a valid YAML
-    frontmatter boundary. Use exactly '---' (three dashes) on its own line
-    to open the frontmatter block; 'template:', 'title:', and all metadata
-    directives will be ignored by most engines otherwise.
+    1  ❱  --
+       │  ^^
+    2  │  title: Deployment Notes
+    3  │  author: Platform Team
 
- Severity  error · Penalty  −5.0 pts (Content)
+────────────────────────────────────────────────────────────────────────────────
+
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+DQS Final Score: 95/100 (Gate Failed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 ---

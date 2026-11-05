@@ -4,11 +4,13 @@
 #
 # docs/index.md uses [Click here][missing-ref] — a reference-style link whose
 # ID "missing-ref" is never defined in a [id]: url definition.
-# Zenzic's reference scanner flags it as Z301 DANGLING_REF — exit 1.
+# Zenzic's reference scanner flags it as Z301 DANGLING_REF — a warning,
+# gated by --strict (codes.py: CodeDefinition("warning", 4.0, "navigation")).
 #
 # Expected results:
-#   zenzic check references   → EXIT 1  (Z301 ×1 — 'missing-ref' undefined)
-#   zenzic check all          → EXIT 1
+#   zenzic check references            → EXIT 0  (Z301 ×1 — 'missing-ref' undefined, warning only)
+#   zenzic check all                   → EXIT 0
+#   zenzic check all --strict          → EXIT 1
 
 docs_dir = "docs"
 fail_under = 0

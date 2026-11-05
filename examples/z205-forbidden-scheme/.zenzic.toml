@@ -7,7 +7,5 @@
 #
 # Expected results:
 #   zenzic lab z205   → EXIT 2  (Z205 ×3 — SECURITY BREACH)
-[zenzic]
+[build_context]
 engine = "standalone"
-[links]
-check_external = false

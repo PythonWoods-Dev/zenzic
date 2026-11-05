@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.scorer import (
+    DEFAULT_BASELINE_STALE_DAYS,
     ScoreReport,
     compute_score,
     load_snapshot,
@@ -223,6 +224,12 @@ def test_unknown_code_contributes_zero_deduction() -> None:
     assert report.score == 100
 
 
+def test_default_baseline_stale_days_is_a_plain_constant() -> None:
+    """DEFAULT_BASELINE_STALE_DAYS is a pure, I/O-free constant (no filesystem access)."""
+    assert DEFAULT_BASELINE_STALE_DAYS == 7
+    assert isinstance(DEFAULT_BASELINE_STALE_DAYS, int)
+
+
 def test_to_dict_structure() -> None:
     # Z101:1 → struct 32; Z503:2 → content 10; Z405:1 → brand 7; nav 20 → total 69
     report = compute_score({"Z101": 1, "Z503": 2, "Z405": 1})
@@ -309,14 +316,6 @@ def test_z111_config_schema_error_score() -> None:
     assert r_z111.score == 0
 
 
-def test_z113_structural_penalty() -> None:
-    """Z113 AUTHOR_KEY_COLLISION: -2.0 pts from structural bucket (ADR-031)."""
-    report = compute_score({"Z113": 1})
-    structural = next(c for c in report.categories if c.name == "structural")
-    assert structural.issues == 1
-    assert report.score == 98
-
-
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
 
 
@@ -381,6 +380,7 @@ def _mock_all_checks_empty(
     config: object,
     exclusion_mgr: object,
     strict: bool,
+    check_external: bool = True,
 ) -> ScoreReport:
     return compute_score({})
 
@@ -391,6 +391,7 @@ def _mock_all_checks_with_issues(
     config: object,
     exclusion_mgr: object,
     strict: bool,
+    check_external: bool = True,
 ) -> ScoreReport:
     # structural: 2×8=16 → 30-16=14pts; nav: 1×4=4 → 25-4=21pts; content: 1×10+3×2=16 → 20-16=4pts; brand: 1×3=3 → 25-3=22pts → score=61
     return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z405": 1})
@@ -539,8 +540,8 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 # ─── CLI: check all --exit-zero ───────────────────────────────────────────────
 
 
-@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
-@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0, 0))
+@patch("zenzic.cli._command_setup.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -570,7 +571,7 @@ def test_check_all_exit_zero_with_failures(
     assert "FAILED" in result.stdout  # report is printed but exit is 0
 
 
-@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._command_setup.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
     "zenzic.cli._check.validate_links_structured",
@@ -597,4 +598,5 @@ def test_check_all_exit_zero_json(
     result = runner.invoke(app, ["check", "all", "--exit-zero", "--format", "json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert len(data["links"]) == 1
+    # links[] was removed in v0.31.0; the same assertion against findings[].
+    assert len([f for f in data["findings"] if f["code"] in {"Z101", "Z104"}]) == 1

@@ -8,8 +8,6 @@ description: "Analysis of the z105-absolute-path fixture: a link using an absolu
 
 **Z-Code:** `Z105 ABSOLUTE_PATH` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z105AbsolutePath />
-
 ---
 
 ## The Fixture
@@ -42,28 +40,31 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone - 1 file (1 docs, 0 assets) - 0.0s - 66 files/s
+standalone • 1 file (1 pages, 0 assets) • 0.0s • 42 files/s
 
-docs/index.md:10:2  x  [Z105]  '/guide' uses an absolute path — use a relative
-path (e.g. '../' or './') instead; absolute paths break portability when the
-site is hosted in a subdirectory
+docs/index.md:10  ✘  [Z101]  '/guide' resolves to '/guide/' which is not in the
+Virtual Site Map — the target file may not exist
 
      8  │  ## Absolute Path Link
      9  │
-    10  ❱  - [Guide](/guide) — uses `/guide` (absolute) instead of `guide.md`
-(relative) → **Z105**
-        │    ^^^^^^^^^^^^^^^
+    10  ❱  - [Guide](/guide) — uses `/guide` (absolute) instead of `guide.md` (…
+    11  │
+    12  │  ## What Zenzic Reports
+
+docs/index.md:10  ✘  [Z105]  absolute path '/guide' found
+
+     8  │  ## Absolute Path Link
+     9  │
+    10  ❱  - [Guide](/guide) — uses `/guide` (absolute) instead of `guide.md` (…
     11  │
     12  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 0 warnings  i 0 info  - 1 file with findings
+Summary:  ✘ 2 errors  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
-'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`
@@ -90,7 +91,7 @@ Exit code 1. Replace the root-relative path link with a document-relative path l
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the target file does not exist on disk.
-- [z108 — Empty Link Text](z108-empty-link-text) — the link label is empty, breaking screen reader accessibility.
-- [z202 — Path Traversal](../../examples/z2xx-security/z202-path-traversal) — a link that escapes the `docs/` directory boundary.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the target file does not exist on disk.
+- [z108 — Empty Link Text](../z108-empty-link-text/) — the link label is empty, breaking screen reader accessibility.
+- [z202 — Path Traversal](../../../examples/z2xx-security/z202-path-traversal/) — a link that escapes the `docs/` directory boundary.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

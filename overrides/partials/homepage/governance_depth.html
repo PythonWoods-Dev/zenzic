@@ -1,0 +1,172 @@
+{# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{# // GOVERNANCE_DEPTH #}
+{# The score panel read `dark:bg-[var(--zz-surface-0)]/30` until 2026-09-20 and #}
+{# compiled to nothing: Tailwind cannot apply an opacity modifier to an arbitrary #}
+{# var() colour, and `zz-surface-0` appears nowhere in the built bundle. So #}
+{# `bg-zinc-50/50` was the only background that existed, in both themes — the one #}
+{# light panel on a dark page. Fixed to the form all fifteen sibling panels use, #}
+{# not to the token without the modifier: that spelling compiles only if someone #}
+{# regenerates zenzic-tailwind.min.css, which is a human-operated build step. #}
+{# Merged 2026-09-20 from enterprise_section.html, governance_gate.html and #}
+{# suppression_policy.html. The three shared one concern -- how deep the #}
+{# governance goes -- and were the three a visitor reaching the page for #}
+{# "does this understand my stack?" never got to. Weighted rather than simply #}
+{# concatenated: `enterprise_section` carried one paragraph and no visual, so #}
+{# it was already functioning as a heading for the other two and is now #}
+{# literally that. Quality Score leads because it is the measurable claim; the #}
+{# suppression CAP follows because it presupposes you already track a score. #}
+{# The marker lives inside this section, not in home.html. It sat there until #}
+{# 2026-09-20 as a separator between includes, and reordering the sections moved #}
+{# the includes while leaving the labels behind: measured in the built page, two #}
+{# labelled the wrong section, two labelled nothing and floated above the footer, #}
+{# and three sections had none. Inside the section it cannot come apart from what #}
+{# it names, and it reads as that section's eyebrow rather than as a strip adrift #}
+{# in the ~200px gap that two stacked `py-24` paddings leave between them. #}
+<section class="pt-0 pb-8 md:pb-10">
+  <div class="pt-8 md:pt-10 pb-3"><div class="max-w-5xl mx-auto px-6 text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-400 text-zinc-600"><span>// GOVERNANCE_DEPTH</span></div></div>
+  <div class="max-w-5xl mx-auto px-6">
+    <div class="mb-4 max-w-3xl">
+      <p class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 uppercase">Enterprise</p>
+      <h2 class="text-3xl md:text-4xl font-semibold tracking-tight dark:text-white text-zinc-900 mb-4">Governance that goes deeper. <span class="dark:text-zinc-400 text-zinc-500">A score you can gate on, and a ceiling on what you silence.</span></h2>
+      <p class="dark:text-zinc-400 text-zinc-500 text-base">Track suppression debt, enforce quality policies, and govern documentation health across teams and repositories.</p>
+    </div>
+    <div class="py-10 border-t dark:border-zinc-800/60 border-zinc-200">
+    <div class="mb-12 max-w-3xl">
+      <p class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 uppercase">Health Metrics</p>
+      <h3 class="text-xl md:text-2xl font-semibold tracking-tight dark:text-white text-zinc-900 mb-4">Quality Score <span class="dark:text-zinc-400 text-zinc-500">Deterministic health check, per commit.</span></h3>
+      <p class="dark:text-zinc-400 text-zinc-500 text-lg max-w-2xl">Track a deterministic score in CI to block regressions. A holistic, elegant view of your documentation health.</p>
+    </div>
+    <div class="w-full bg-transparent border dark:border-zinc-800/40 border-zinc-200 rounded-xl overflow-hidden flex flex-col md:flex-row md:translate-x-8 lg:translate-x-12">
+      <div class="w-full md:w-72 dark:bg-zinc-900/20 bg-zinc-50/50 backdrop-blur-sm border-b md:border-b-0 md:border-r dark:border-zinc-800/40 border-zinc-200 p-6 flex flex-col">
+        <div class="text-[13px] font-medium dark:text-zinc-300 text-zinc-600 mb-8">Metrics</div>
+        <div class="flex-1 flex flex-col justify-center">
+          <div class="text-sm font-medium dark:text-zinc-400 text-zinc-500 mb-2">Overall Health</div>
+          <div class="text-7xl font-light tracking-tighter dark:text-white text-zinc-900 mb-4">98</div>
+          <div class="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm bg-emerald-500/10 text-emerald-400 text-xs font-medium w-max border border-emerald-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>+2%
+          </div>
+        </div>
+        <div class="mt-12 pt-6 border-t dark:border-zinc-800/40 border-zinc-200">
+          <div class="text-xs dark:text-zinc-400 text-zinc-500 mb-2">CI Command</div>
+          <code class="text-xs dark:text-zinc-400 text-zinc-600 font-mono">zenzic score --save</code>
+        </div>
+      </div>
+      <div class="flex-1 p-2 dark:bg-zinc-950/10 bg-white backdrop-blur-sm">
+        <div class="p-2">
+          <div class="flex items-center justify-between group px-4 py-3 rounded-md dark:hover:bg-zinc-800/30 hover:bg-zinc-50 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="w-5 h-5 rounded-full border flex items-center justify-center border-sky-500/30 bg-sky-500/10">
+                <div class="w-1.5 h-1.5 rounded-full bg-sky-400"></div>
+              </div>
+              <span class="text-[13px] dark:text-zinc-200 text-zinc-700 font-medium">Structural <span class="dark:text-zinc-400 text-zinc-500 font-normal">(30%)</span></span>
+            </div>
+            <span class="text-[13px] dark:text-zinc-400 text-zinc-500 font-mono">99</span>
+          </div>
+          <div class="ml-5 pl-4 border-l dark:border-zinc-800/40 border-zinc-200 flex flex-col py-1">
+            <div class="flex items-center justify-between group px-4 py-2 rounded-md dark:hover:bg-zinc-800/30 hover:bg-zinc-50 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="inline-flex w-4 h-4 rounded-full text-sky-400/80 border border-current items-center justify-center"><span class="w-1 h-1 rounded-full bg-current"></span></span>
+                <span class="text-[13px] dark:text-zinc-400 text-zinc-500 font-mono">Z101 Broken link</span>
+              </div>
+              <span class="text-[13px] dark:text-zinc-600 text-zinc-500 font-mono">0</span>
+            </div>
+            <div class="flex items-center justify-between group px-4 py-2 rounded-md dark:hover:bg-zinc-800/30 hover:bg-zinc-50 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="inline-flex w-4 h-4 rounded-full text-sky-400/80 border border-current items-center justify-center"><span class="w-1 h-1 rounded-full bg-current"></span></span>
+                <span class="text-[13px] dark:text-zinc-400 text-zinc-500 font-mono">Z102 Anchor missing</span>
+              </div>
+              <span class="text-[13px] dark:text-zinc-600 text-zinc-500 font-mono">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="border-t dark:border-zinc-800/50 border-zinc-200 mx-2 my-1"></div>
+        <div class="p-2">
+          <div class="flex items-center justify-between group px-4 py-3 rounded-md dark:hover:bg-zinc-800/30 hover:bg-zinc-50 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="w-5 h-5 rounded-full border flex items-center justify-center border-rose-500/30 bg-rose-500/10">
+                <div class="w-1.5 h-1.5 rounded-full bg-rose-400"></div>
+              </div>
+              <span class="text-[13px] dark:text-zinc-200 text-zinc-700 font-medium">Navigation <span class="dark:text-zinc-400 text-zinc-500 font-normal">(25%)</span></span>
+            </div>
+            <span class="text-[13px] dark:text-zinc-400 text-zinc-500 font-mono">95</span>
+          </div>
+          <div class="ml-5 pl-4 border-l dark:border-zinc-800/40 border-zinc-200 flex flex-col py-1">
+            <div class="flex items-center justify-between group px-4 py-2 rounded-md dark:hover:bg-zinc-800/30 hover:bg-zinc-50 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="inline-flex w-4 h-4 rounded-full text-rose-400/80 border border-current items-center justify-center"><span class="w-1 h-1 rounded-full bg-current"></span></span>
+                <span class="text-[13px] dark:text-zinc-400 text-zinc-500 font-mono">Z402 Orphan page</span>
+              </div>
+              <span class="text-[13px] dark:text-zinc-600 text-zinc-500 font-mono">1</span>
+            </div>
+            <div class="flex items-center justify-between group px-4 py-2 rounded-md dark:hover:bg-zinc-800/30 hover:bg-zinc-50 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="inline-flex w-4 h-4 rounded-full text-rose-400/80 border border-current items-center justify-center"><span class="w-1 h-1 rounded-full bg-current"></span></span>
+                <span class="text-[13px] dark:text-zinc-400 text-zinc-500 font-mono">Z401 Missing index</span>
+              </div>
+              <span class="text-[13px] dark:text-zinc-600 text-zinc-500 font-mono">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    <div class="py-10 border-t dark:border-zinc-800/60 border-zinc-200">
+    <div class="max-w-3xl mb-16">
+      <p class="text-[11px] font-mono font-semibold tracking-[0.18em] dark:text-zinc-400 text-zinc-500 mb-4 uppercase">Governance</p>
+      <h3 class="text-xl md:text-2xl font-semibold tracking-tight dark:text-white text-zinc-900 mb-4">Suppression CAP <span class="dark:text-zinc-400 text-zinc-500">— Live Preview</span></h3>
+      <p class="dark:text-zinc-400 text-zinc-500 max-w-xl text-sm leading-relaxed">When active suppressions exceed the configured CAP, zenzic-action writes this summary directly to the GitHub Actions job panel. No log diving required.</p>
+    </div>
+    <div class="grid md:grid-cols-12 gap-8 items-stretch">
+      <div class="md:col-span-7 h-full flex flex-col [&>div]:flex-1 [&>div]:my-0">
+        <p class="text-[11px] font-mono font-semibold tracking-widest dark:text-zinc-400 text-zinc-500 mb-3 uppercase">CAP exceeded — exit 1</p>
+        <div class="my-6 overflow-hidden rounded-xl border dark:bg-zinc-900/40 bg-white font-mono shadow-2xl dark:border-rose-900/40 border-rose-200">
+          <div class="flex items-center justify-between border-b px-6 py-3 dark:border-rose-900/40 border-rose-200 dark:bg-rose-900/20 bg-rose-50">
+            <span class="text-[13px] font-semibold tracking-wide text-rose-500">✘ <span class="dark:text-zinc-200 text-zinc-800">Suppression CAP Exceeded</span></span>
+            <span class="rounded-sm px-2 py-0.5 text-[11px] font-bold tabular-nums text-rose-400 bg-rose-500/10">+13</span>
+          </div>
+          <div class="grid grid-cols-3 divide-x dark:divide-zinc-800 divide-zinc-100">
+            <div class="flex flex-col items-center gap-1 px-3 py-5">
+              <span class="dark:text-zinc-400 text-zinc-500 text-[10px] tracking-widest uppercase">Active suppressions</span>
+              <span class="dark:text-zinc-100 text-zinc-900 text-2xl font-light tabular-nums">43</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 px-3 py-5">
+              <span class="dark:text-zinc-400 text-zinc-500 text-[10px] tracking-widest uppercase">CAP limit</span>
+              <span class="dark:text-zinc-100 text-zinc-900 text-2xl font-light tabular-nums">30</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 px-3 py-5">
+              <span class="dark:text-zinc-400 text-zinc-500 text-[10px] tracking-widest uppercase">Excess debt</span>
+              <span class="text-2xl font-light tabular-nums text-rose-400">+13</span>
+            </div>
+          </div>
+          <div class="border-t px-5 py-3 dark:bg-zinc-900/20 bg-zinc-50 dark:border-rose-900/40 border-rose-200">
+            <a href="{{ 'developers/how-to/release-governance-protocol/' | url }}" class="text-[11px] tracking-wide dark:text-amber-400 text-amber-600 hover:underline">📋 Remediation Playbook →</a>
+          </div>
+        </div>
+      </div>
+      <div class="md:col-span-5 h-full flex flex-col [&>div]:flex-1 [&>div]:my-0">
+        <p class="text-[11px] font-mono font-semibold tracking-widest dark:text-zinc-400 text-zinc-500 mb-3 uppercase">CAP within limit — exit 0</p>
+        <div class="my-6 overflow-hidden rounded-xl border dark:bg-zinc-900/40 bg-white font-mono shadow-2xl dark:border-emerald-900/40 border-emerald-200">
+          <div class="flex items-center justify-between border-b px-6 py-3 dark:border-emerald-900/40 border-emerald-200 dark:bg-emerald-900/20 bg-emerald-50">
+            <span class="text-[13px] font-semibold tracking-wide text-emerald-500">✔ <span class="dark:text-zinc-200 text-zinc-800">Suppression CAP — Within Limit</span></span>
+          </div>
+          <div class="grid grid-cols-3 divide-x dark:divide-zinc-800 divide-zinc-100">
+            <div class="flex flex-col items-center gap-1 px-3 py-5">
+              <span class="dark:text-zinc-400 text-zinc-500 text-[10px] tracking-widest uppercase">Active suppressions</span>
+              <span class="dark:text-zinc-100 text-zinc-900 text-2xl font-light tabular-nums">18</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 px-3 py-5">
+              <span class="dark:text-zinc-400 text-zinc-500 text-[10px] tracking-widest uppercase">CAP limit</span>
+              <span class="dark:text-zinc-100 text-zinc-900 text-2xl font-light tabular-nums">30</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 px-3 py-5">
+              <span class="dark:text-zinc-400 text-zinc-500 text-[10px] tracking-widest uppercase">Excess debt</span>
+              <span class="text-2xl font-light tabular-nums dark:text-emerald-400 text-emerald-600">-12</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</section>

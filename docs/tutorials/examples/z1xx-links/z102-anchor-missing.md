@@ -8,8 +8,6 @@ description: "Walk through the z102-anchor-missing fixture: a fragment link targ
 
 **Z-Code:** `Z102 ANCHOR_MISSING` · **Engine:** `standalone` · **Exit:** `1`
 
-<Z102AnchorMissing />
-
 ---
 
 ## The Fixture
@@ -48,35 +46,23 @@ uvx zenzic check links
 Expected output:
 
 ```text
-standalone - 2 files (2 docs, 0 assets) - 0.0s - 107 files/s
+standalone • 2 files (2 pages, 0 assets) • 0.0s • 62 files/s
 
-docs/guide.md:4  !  [Z502]  Page has only 37 words (minimum 50).
-
-    2  │  <!-- SPDX-License-Identifier: Apache-2.0 -->
-    3  │
-    4  ❱  # Guide
-    5  │
-    6  │  ## Overview
-
-docs/index.md:11:2  x  [Z102]  anchor '#nonexistent-section' not found in
+docs/index.md:11  ✘  [Z102]  anchor '#nonexistent-section' not found in
 'guide.md'
 
      9  │  ## Broken Anchor Reference
     10  │
-    11  ❱  - [Nonexistent Section](guide.md#nonexistent-section) — the fragment
-`#nonexistent-section` is not defined i…
-        │    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    11  ❱  - [Nonexistent Section](guide.md#nonexistent-section) — the fragment…
     12  │
     13  │  ## What Zenzic Reports
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 1 error  ! 1 warning  i 0 info  - 2 files with findings
+Summary:  ✘ 1 error  ⚠ 0 warnings  💡 0 info  • 1 file with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to ../../../reference/finding-codes.md for remediation · Try
-'zenzic check --help' for options.
-[ Suppression Audit: 0/30 (inline: 0, per-file: 0)
+Try 'zenzic check links --help' for options.
 ```
 
 Exit code: `1`
@@ -114,6 +100,6 @@ Zenzic natively supports explicit block-level anchors (such as `{#id}`) and hand
 
 ## See Also
 
-- [z101 — Broken Links](z101-broken-links) — the file-level variant: the target file itself does not exist.
-- [z103 — Orphan Link](z103-orphan-link) — link targets that exist on disk but are absent from the site navigation.
-- [Checks Reference](../../../reference/checks) — full rule specification.
+- [z101 — Broken Links](../z101-broken-links/) — the file-level variant: the target file itself does not exist.
+- [z103 — Orphan Link](../z103-orphan-link/) — link targets that exist on disk but are absent from the site navigation.
+- [Checks Reference](../../../../reference/checks/) — full rule specification.

@@ -1,0 +1,2 @@
+[policies]
+table_cell_enums = {"Status" = ["draft", "review", "stable"]}

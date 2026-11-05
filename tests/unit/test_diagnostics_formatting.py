@@ -30,7 +30,7 @@ def test_to_lsp_dict_formatting() -> None:
     assert lsp_dict["code"] == "Z101"
     assert lsp_dict["message"] == "[Z101] 'missing.md' resolves to nowhere"
     assert lsp_dict["codeDescription"] == {
-        "href": "https://zenzic.dev/docs/reference/finding-codes#Z101",
+        "href": "https://zenzic.dev/reference/finding-codes/#z101",
     }
     assert lsp_dict["source"] == "zenzic"
     assert lsp_dict["severity"] == 1

@@ -9,7 +9,7 @@ description: "Step-by-step guide to auditing, understanding, and reducing suppre
 
 > *"Why did my score drop after I ignored an error?"*
 
-When you suppress a finding in Zenzic — via an inline comment or a per-file config entry — you are not erasing the problem. You are **assuming responsibility** for it. That assumption has a cost: **Technical Debt Points** deducted from your quality score.
+When you suppress a finding in Zenzic — via an inline comment, a per-file config entry or a directory policy — you are not erasing the problem. You are **assuming responsibility** for it. That assumption has a cost: **Technical Debt Points** deducted from your quality score.
 
 This guide explains how to read the debt, understand the cost formula, and reduce it over time.
 
@@ -22,7 +22,7 @@ After running `zenzic score`, you may see an extra line below the score table:
 ```text
 Score: 93/100
 ! Technical Debt (Suppressions): -7 pts
-Suppression Audit: 7/30 (inline: 5, per-file: 2)
+Suppression Audit: 7/30 [MANAGED DEBT] (inline: 5, per-file: 2, directory: 0)
 ```
 
 This means:
@@ -30,6 +30,7 @@ This means:
 - **7 active suppressions** are hiding findings from the audit stream.
 - **5** are inline `zenzic:ignore` comments in Markdown files.
 - **2** are per-file entries in `governance.per_file_ignores`.
+- **0** are `governance.directory_policies` pairs.
 - The debt formula reduced the score by **7 pts**.
 
 ---
@@ -42,8 +43,8 @@ $$
 
 Where:
 
-- $n$ = total active suppressions (inline + per-file)
-- `cap` = `governance.suppression_cap` in `.zenzic.toml` (default: **30**)
+- $n$ = suppressions in use (inline + per-file + directory policy) — a declaration that silences nothing is not counted; it is reported as `Z603` or `Z620`
+- `cap` = `governance.suppression_cap` in `.zenzic.toml` (default: **30**, not calibrated — see [`suppression_cap`](../reference/configuration-reference.md#suppression-cap))
 
 The debt cost is **flat**: each suppression always costs **1 pt**.
 
@@ -67,7 +68,7 @@ Run a sovereign audit to see all findings that are currently suppressed:
 zenzic check all --audit
 ```
 
-The `--audit` flag bypasses all inline `zenzic:ignore` comments and all `governance.per_file_ignores` entries. It shows the true state of your documentation.
+The `--audit` flag bypasses all inline `zenzic:ignore` comments, all `governance.per_file_ignores` entries and all `governance.directory_policies` entries. It shows the true state of your documentation.
 
 Compare the `--audit` output with a normal `zenzic check all` run to see exactly which findings are hidden.
 
@@ -98,7 +99,7 @@ For each suppressed finding, make an explicit decision:
 Remove the suppression and fix the underlying issue:
 
 1. Delete the `<!-- zenzic:ignore ZXXX -->` comment from the Markdown line.
-2. Or remove the entry from `governance.per_file_ignores`.
+2. Or remove the entry from `governance.per_file_ignores` or `governance.directory_policies`.
 3. Then fix the actual violation (update the link, remove the obsolete term, etc.).
 4. Run `zenzic check all` to verify.
 
@@ -122,15 +123,27 @@ suppression_cap = 45           # adjusted for a large i18n project
 suppression_cap_fail_hard = true
 ```
 
+The same keys are available under `[tool.zenzic.governance]` in `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.zenzic.governance]
+suppression_cap = 45
+suppression_cap_fail_hard = true
+```
+
 Setting the cap to the current suppression count gives you a governance floor: new suppressions will immediately escalate the cost and eventually trigger `suppression_cap_fail_hard`.
 
 ---
 
 ## Why Security Violations Cannot Be Suppressed {#security}
 
-Findings in the Z2xx Security Gate category — `Z201 CREDENTIAL_SECRET`, `Z202 PATH_TRAVERSAL`, `Z203 PATH_TRAVERSAL_FATAL`, and `Z204 FORBIDDEN_TERM` — cannot be suppressed by any mechanism.
+Findings in the Z2xx Security Gate category cannot be suppressed by any mechanism. See the
+[Suppression Policy — Inviolable Security Surface](../reference/suppression-policy.md) for the
+full code list and exit-code contract; note the codes' exit codes differ (`Z201`/`Z204` exit 2,
+`Z203` exit 3, `Z202` exits 1 — not escalated by design).
 
-A `<!-- zenzic:ignore: Z2XX -->` comment is **silently ignored**. The finding is still emitted. The exit code is still 2 or 3. The score collapses to 0.
+A `<!-- zenzic:ignore: Z2XX -->` comment is **silently ignored**. The finding is still emitted.
+The score collapses to 0.
 
 This is by design. Security findings are facts, not style opinions. You cannot assume responsibility for a credential leak and call it a validated exception.
 
@@ -149,11 +162,60 @@ zenzic check all --only Z201,Z202,Z204,Z101,Z104
 
 As your team resolves the structural debt, you can progressively expand the `--only` list until the repository is ready for a full, unfiltered `zenzic check all`. This allows you to secure the most critical aspects of your documentation immediately.
 
+The `Z201`/`Z202`/`Z203`/`Z204`/`Z205` security tier and the `Z110`/`Z111` fatal config-load errors are always evaluated regardless of `--only`'s contents — narrowing the flag to a smaller list, or omitting the security codes entirely, cannot silence them. A minimal `--only Z104` scoped purely to broken links still fails the build on a real credential leak.
+
+---
+
+## Track Whether Debt Is Growing or Shrinking {#track-trend}
+
+A single score answers "how good is it now." Deciding whether to accept a pull request
+usually needs the other question: *is this making things better or worse?*
+
+Have CI record a point on every run that already scores the repository:
+
+```bash title="CI"
+zenzic score --save
+```
+
+`--save` writes the snapshot `zenzic diff` already uses, and appends one line to
+`.zenzic-history.jsonl`. Read the series back at any time:
+
+```bash title="Terminal"
+zenzic score --trend
+```
+
+```text
+Score trend over 3 run(s): 91 ↑ 94 (+3)  ·  min 91  max 94
+  2026-08-29T09:14:02+00:00  91
+  2026-08-30T09:12:55+00:00  93
+  2026-08-31T09:15:41+00:00  94
+```
+
+For a dashboard or a PR comment, take the machine-readable form — it returns the full
+series plus a summary object with `runs`, `first`, `last`, `min`, `max` and `delta`:
+
+```bash title="CI"
+zenzic score --trend --format json
+```
+
+Two properties matter when wiring this into a pipeline:
+
+- **An absent history is not a failure.** Before the first `--save`, `--trend` reports
+  that there is no history yet and exits `0`. A fresh clone or a new branch will not
+  break the step.
+- **Recording never fails a scoring run.** The append is best-effort; if the file cannot
+  be written, the score is still computed and reported exactly as before.
+
+Commit `.zenzic-history.jsonl` if you want the series shared across the team and visible
+in review; add it to `.gitignore` if you would rather each environment keep its own.
+Zenzic does not require either choice.
+
 ---
 
 ## Reference {#reference}
 
-- [Suppression Policy](../reference/suppression-policy.md) — Full reference for all three suppression levels.
+- [Suppression Policy](../reference/suppression-policy.md) — Full reference for all four suppression levels.
 - [Scoring Algorithm](../reference/scoring-algorithm.md) — How debt interacts with the Gravity Cap and category weights.
 - [`zenzic explain`](../reference/cli.md) — Inspect any rule's cost and suppression status.
-- [Example: Suppression Mechanics](https://github.com/PythonWoods/zenzic/tree/main/examples/scoring) — Runnable demo with 7 active suppressions.
+- [`zenzic score --trend`](../reference/cli.md) — Full option reference for the recorded score series.
+- [Example: Suppression Mechanics](https://github.com/PythonWoods-Dev/zenzic/tree/main/examples/scoring) — Runnable demo with 7 active suppressions.

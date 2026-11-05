@@ -31,6 +31,16 @@ it is an engineering commitment. It permits free use, modification, and distribu
 
 **Full text:** `LICENSE` file at the root of each Zenzic repository.
 
+**What the published distributions declare.** Zenzic's own code is Apache-2.0, and that
+is the licence `pyproject.toml` declares (`license = "Apache-2.0"`): under PEP 639 the
+expression describes the project's licence, and the licences of individual files are out
+of its scope. The source distribution also ships third-party files: the Roboto fonts
+(OFL-1.1), the compiled Tailwind bundle (MIT) and the OASIS SARIF schema used by the tests
+(the OASIS Notices). Each keeps its own licence, declared in `REUSE.toml` and named in
+`NOTICE`, and its text ships with both archives: `license-files` lists `LICENSE`, `NOTICE`
+and every text in `LICENSES/`. The wheel contains only Zenzic's Apache-2.0 code and
+examples.
+
 ---
 
 ## 2. The License Signature — SPDX + REUSE 3.3
@@ -46,18 +56,36 @@ declaration of authorship and license:
 This is not a comment. It is a **license signature** — machine-parseable by any
 REUSE 3.3-compliant tool, including `reuse lint`.
 
-Files without an individual header are covered by `REUSE.toml` bulk declarations:
+Files that cannot carry an inline header — because the format has no comment
+syntax, or because the comment would appear in rendered output — are covered
+instead by `REUSE.toml` annotation blocks:
 
-```toml title="REUSE.toml"
+```toml title="REUSE.toml (excerpt)"
+# JSON files (no comment syntax)
 [[annotations]]
-path = ["docs/**", "i18n/**", "*.md"]
+path = [".zenzic-score.json", "coverage.json", "zenzic-output.schema.json"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
+# Root Markdown prose — inline SPDX would appear in rendered output
 [[annotations]]
-path = ["site/**", "build/**", "node_modules/**"]
+path = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# The project's own binaries only -- never a directory that also holds
+# someone else's files
+[[annotations]]
+path = "docs/assets/demo/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# A third-party file, by name, under its real holder and licence
+[[annotations]]
+path = "docs/assets/fonts/roboto-mono-*.woff2"
+precedence = "override"
+SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)"
+SPDX-License-Identifier = "OFL-1.1"
 ```
 
 **Coverage strategy:**
@@ -66,10 +94,16 @@ SPDX-License-Identifier = "Apache-2.0"
 | :--- | :--- |
 | Python source files | Per-file SPDX header |
 | Shell scripts | Per-file SPDX header |
-| Configuration (TOML, YAML) | Per-file header or `REUSE.toml` |
-| Documentation (`.md`, `.md`) | `REUSE.toml` bulk declaration |
-| Auto-generated files | `REUSE.toml` coverage |
-| Binary assets (SVG, PNG) | `REUSE.toml` bulk declaration |
+| Configuration (TOML, YAML) | Per-file SPDX header |
+| Documentation pages (`docs/**/*.md`) | Per-file SPDX header (HTML comment) — see this page's own header above |
+| Root-level prose (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, etc.) | `REUSE.toml` bulk declaration — inline SPDX would render visibly in these files |
+| JSON files, `uv.lock`, extension-less files (`LICENSE`, `NOTICE`) | `REUSE.toml` bulk declaration (no comment syntax) |
+| The project's own binary assets (`docs/assets/demo/**`) | `REUSE.toml` bulk declaration |
+| Third-party files (the Roboto fonts, the compiled Tailwind bundle, the OASIS SARIF schema fixture) | One `REUSE.toml` block or `.license` sidecar per file or font family, under the holder and licence the file itself names; the texts in `LICENSES/`, the list in `NOTICE` |
+
+The fonts are subsets of the upstream release files, rebuilt by `scripts/regenerate_fonts.py`
+from sources it pins by SHA-256, and each keeps upstream's copyright and OFL records in its
+own name table — the place the OFL lets a font carry its notice. A test reads them there.
 
 ---
 
@@ -79,7 +113,7 @@ SPDX-License-Identifier = "Apache-2.0"
 uv run reuse lint
 ```
 
-This is the **only authorised compliance verification command.** It:
+This is the authorised compliance verification command. It:
 
 1. Parses every SPDX header in every file.
 2. Validates all `REUSE.toml` bulk declarations.
@@ -94,8 +128,21 @@ Congratulations! Your project is compliant with version 3.3 of the REUSE Specifi
 
 This gate runs in:
 
-- The Zenzic Guard pre-commit hook (hook 8 of 8)
-- `just verify` — the full local final guard
+- Its own dedicated pre-commit hook (`reuse`, `repo: fsfe/reuse-tool`, commit-time)
+- `just verify`, which runs `pre-commit run --all-files` and so the whole commit-time hook chain, `reuse` included
+
+It is unrelated to the Zenzic Guard hook (`zenzic-guard`) — that hook is a secret scanner over staged Markdown/MDX, not a license-compliance check.
+
+**What `reuse lint` does not check: whether a declaration is true.** It accepts any
+file that has a declaration, so fonts, a Tailwind bundle and the OASIS SARIF schema
+declared as PythonWoods' own passed it until they were corrected. The pre-commit hook
+`third-party-declarations` (`scripts/check_third_party_declarations.py`) runs beside
+it, at commit time and in `just verify`, and the test suite runs it on the whole
+repository: it resolves each file's declaration with `reuse` itself and fails when a
+file declared as the project's own carries another holder's marks — a `/*! … License */`
+banner, an `@license` tag, a `Copyright (c)` line of another holder, a JSON `$id` of
+another publisher, or a font file. What it cannot see — a copied file with no marker
+in it — is stated in the script's docstring.
 
 Any PR that fails `uv run reuse lint` does not merge.
 

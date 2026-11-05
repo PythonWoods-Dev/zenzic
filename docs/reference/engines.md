@@ -46,21 +46,43 @@ the `zenzic.adapters` entry-point group is a valid Zenzic adapter — for any SS
 
 ## Supported Engine Versions
 
-Zenzic ships adapters for specific major-version lines. Declaring a different engine is a configuration error: Zenzic will emit `Z000 UNSUPPORTED_ENGINE` and abort.
+Zenzic ships adapters for specific major-version lines. Declaring an `engine` value outside the
+six supported identifiers (`prebuilt`, `vsm`, `mkdocs`, `zensical`, `standalone`, `auto`) is a
+configuration error: Zenzic will emit `Z001 CORE_CONFIG_STRUCTURE` and abort before any file is
+scanned.
 
-| Engine | Supported versions | Notes |
-| :--- | :--- | :--- |
-| MkDocs | `1.x` | Series frozen at `1.6.1`; no `1.7` planned. v2 is a separate project requiring a dedicated adapter |
-| Zensical | `0.0.x` | Pre-release; API is volatile. Adapter is updated in lockstep |
-| Standalone | — | Engine-agnostic; version is irrelevant |
-
-Zenzic does **not** invoke the engine binary — it reads configuration files as plain data. Version constraints apply to the **config-file schema**, not to the installed engine binary. If your project runs a newer engine than listed, the adapter may still work; report an issue only if you observe an actual parse error or a false positive traceable to a schema change.
+For the specific tested version, verification method, and last-verified date per engine, see
+the [Tested Compatibility Matrix](compatibility.md). Zenzic does **not** invoke the engine
+binary — it reads configuration files as plain data. Version constraints apply to the
+**config-file schema**, not to the installed engine binary. If your project runs a newer
+engine than listed there, the adapter may still work; report an issue only if you observe an
+actual parse error or a false positive traceable to a schema change.
 
 ---
 
 ## Choosing an engine
 
 The `[build_context]` section in `.zenzic.toml` tells Zenzic which engine your project uses:
+
+!!! tip "Building on a generator Zenzic has no adapter for?"
+    `prebuilt` is the answer, and it is the one to reach for on an Astro, Docusaurus or
+    Next.js site. It reads a route manifest you generate from your own build output, so
+    Zenzic resolves absolute links like `/guides/example/` without knowing anything about
+    which generator produced them. Without it, a site that links by route reports every
+    such link as `Z101` plus `Z105`, none of which is a broken link. See
+    [Configure an adapter](../how-to/configure-adapter.md#prebuilt-route-manifest).
+
+    **One thing to know about the findings.** Astro, Docusaurus and Next.js sites are written
+    in MDX, and `Z102` predicts anchors the way Python-Markdown does where those generators use
+    github-slugger — so some `Z102` will name anchors that exist. The
+    [same page](../how-to/configure-adapter.md#prebuilt-route-manifest) says what to do about
+    it. Everything else reports accurately.
+
+    **And one thing to keep doing.** The manifest is a second copy of your routing, so it goes
+    stale the moment a page is added without re-running the generator that writes it. A page
+    the manifest does not list has no route, and every correct link pointing at it is reported
+    unreachable. [`Z115`](finding-codes.md#z115) names each such page so the cause is on screen
+    rather than inferred from a link that looks broken and is not.
 
 ```toml
 # .zenzic.toml
@@ -97,19 +119,20 @@ any preprocessing.
 `MkDocsAdapter` parses `mkdocs.yml` as **static data**. It does not execute the MkDocs
 build pipeline. This means:
 
-- **`!ENV` tags** — silently treated as `null`. If your nav relies on environment variable
-
-  interpolation at build time, the nav entries that depend on those values will be absent
+- **`!ENV` tags** — silently treated as `null`. If your nav relies on environment variable interpolation at build time, the nav entries that depend on those values will be absent
   from Zenzic's view.
 
-- **Plugin-generated nav** — plugins that mutate the nav at runtime (e.g. `mkdocs-awesome-pages`,
-  `mkdocs-literate-nav`) produce a navigation tree that Zenzic never sees. Pages included
-  only by these plugins will be reported as orphans.
-  *Technical Note on `mkdocs-awesome-pages`: Zenzic's static adapter does not read `.pages` files. If you use `.pages` files to define navigation, Zenzic will not see those pages as reachable and will flag them as orphans unless they are explicitly linked from other reachable pages.*
+- **Plugin-generated nav** — plugins that mutate the nav at runtime (e.g. `mkdocs-awesome-nav`
+  — renamed from `mkdocs-awesome-pages-plugin` in its v3, which also renamed its config file
+  from `.pages` to `.nav.yml` by default — or `mkdocs-literate-nav`) produce a navigation
+  tree that Zenzic never sees. Pages included only by these plugins will be reported as orphans.
+  *Technical Note: Zenzic's static adapter does not read `.pages` or `.nav.yml` files. If you
+  use either to define navigation, Zenzic will not see those pages as reachable and will flag
+  them as orphans unless they are explicitly linked from other reachable pages.*
 
 - **Macros** — `mkdocs-macros-plugin` (Jinja2 templates in Markdown) is not evaluated.
 
-  Links inside macro expressions are not validated.
+    Links inside macro expressions are not validated.
 
 For projects that rely heavily on dynamic nav generation, add the plugin-generated paths to
 `excluded_dirs` in `.zenzic.toml` to suppress false orphan reports until a native adapter
@@ -119,7 +142,7 @@ is available.
 
 When the `blog` (or `material/blog`) plugin is enabled in `mkdocs.yml`, `MkDocsAdapter` automatically inspects `blog_dir` (default: `blog`).
 
-All Markdown files located under `<blog_dir>/posts/` (e.g. `docs/blog/posts/*.md`) are dynamically generated routes at build time (index, pagination, tag archives, RSS). `MkDocsAdapter` marks all files in this subtree as `REACHABLE` automatically, ensuring that blog posts do not require explicit listing in `mkdocs.yml`'s `nav:` section and do not emit false-positive orphan page (`Z103`) findings.
+All Markdown files located under `<blog_dir>/posts/` (e.g. `docs/blog/posts/*.md`) are dynamically generated routes at build time (archive and category indexes, pagination, and — when the separate `mkdocs-rss-plugin` is also installed — RSS/Atom feeds). `MkDocsAdapter` marks all files in this subtree as `REACHABLE` automatically, ensuring that blog posts do not require explicit listing in `mkdocs.yml`'s `nav:` section and do not emit false-positive orphan page (`Z103`) findings.
 
 ### Minimal configuration
 
@@ -135,8 +158,10 @@ locales        = ["it", "fr"]   # non-default locale directory names (folder mod
 
 When `locales` is empty, Zenzic falls back to reading locale information directly from the
 `i18n` plugin block in `mkdocs.yml` — zero configuration required for most
-projects. This covers both the community `mkdocs-static-i18n` package and the
-bundled i18n plugin in `mkdocs-material`, since both declare themselves as `i18n:` in `mkdocs.yml`.
+projects. This is the community `mkdocs-static-i18n` package, which declares itself as
+`i18n:` in `mkdocs.yml`. Material for MkDocs itself ships no separate content-translation
+plugin under that key — its own i18n support only translates the theme's built-in UI
+strings (navigation labels, search text) via `theme.language`, not page content.
 
 ### i18n: Folder Mode
 
@@ -235,12 +260,10 @@ The Transparent Proxy is Zensical's signature migration feature: if `zensical.to
 reads the MkDocs configuration as a bridge — no manual configuration required.
 
 This means you can adopt Zenzic with the Zensical engine on **day one of migration**, before
-writing a single line of `zensical.toml`. When the bridge activates, Zenzic banner
-notifies you:
-
-```text
-NOTICE: Zensical engine active via mkdocs.yml compatibility bridge.
-```
+writing a single line of `zensical.toml`. The bridge activates silently — there is no banner
+and no notice, consistent with Zenzic printing nothing on a clean run. To confirm which
+configuration was actually read, run `zenzic config explain`, which reports the active values and
+where each one came from.
 
 **What the bridge reads from `mkdocs.yml`:**
 
@@ -284,16 +307,12 @@ that is not in this set and is not a locale mirror is reported as an orphan.
 
 - **Plugin-generated nav** — Zensical plugins that mutate the nav at runtime are not evaluated.
 
-  Pages included only by such plugins may be reported as orphans. Add their paths to
+    Pages included only by such plugins may be reported as orphans. Add their paths to
   `excluded_dirs` in `.zenzic.toml` to suppress false reports.
 
-- **Dynamic content** — `zensical.toml` is parsed as static TOML. Template expressions or
+- **Dynamic content** — `zensical.toml` is parsed as static TOML. Template expressions or computed fields are not evaluated.
 
-  computed fields are not evaluated.
-
-- **Discovery scope** — `ZensicalAdapter` searches for `zensical.toml` (or the MkDocs bridge)
-
-  in the project root only. Nested workspace layouts require an explicit `docs_dir` in `.zenzic.toml`.
+- **Discovery scope** — `ZensicalAdapter` searches for `zensical.toml` (or the MkDocs bridge) in the project root only. Nested workspace layouts require an explicit `docs_dir` in `.zenzic.toml`.
 
 ---
 
@@ -333,17 +352,11 @@ does not use a supported SSG.
 
 ### When to use Standalone
 
-- **Static Markdown repositories** — wikis, ADR logs, plain-text documentation with no
+- **Static Markdown repositories** — wikis, ADR logs, plain-text documentation with no build pipeline.
 
-  build pipeline.
+- **Pre-migration validation** — run Zenzic on a project before choosing an SSG to catch broken links and credentials before a framework is introduced.
 
-- **Pre-migration validation** — run Zenzic on a project before choosing an SSG to catch
-
-  broken links and credentials before a framework is introduced.
-
-- **Custom SSG projects** — any generator not yet covered by a native adapter. Use
-
-  `excluded_dirs` to suppress false positives for generated output directories.
+- **Custom SSG projects** — any generator not yet covered by a native adapter. Use `excluded_dirs` to suppress false positives for generated output directories.
 
 ### Minimal configuration
 
@@ -358,7 +371,7 @@ and selects `StandaloneAdapter` automatically.
 ### Capabilities
 
 Snippet, placeholder, link, and asset checks run at full strength. Z201 credential detection,
-Z202/Z203 path traversal detection, and Z401 logo/favicon guards all operate normally.
+Z202/Z203 path traversal detection, and Z404 logo/favicon guards all operate normally.
 
 All adapter methods are no-ops:
 

@@ -17,12 +17,14 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
 import zenzic.core.regex as re
-from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+from zenzic.core.ast import BlockTracker
+from zenzic.core.codes import NON_SUPPRESSIBLE_CODES, code_severity
 from zenzic.core.exclusion import translate_glob_to_re2
 from zenzic.models.config import ZenzicConfig
 
 
 if TYPE_CHECKING:
+    from zenzic.core.regex import RegexPattern
     from zenzic.core.rules import RuleFinding
 
 
@@ -31,7 +33,21 @@ T = TypeVar("T")
 # ── Frontmatter extraction (re-used from adapters._utils) ────────────────────
 # We re-declare the patterns here rather than importing from adapters._utils
 # to avoid a circular import (adapters import from core).
-_COMMENT_RE = re.compile(r"(?s)<!--.*?-->|(?s)\{/\*.*?\*/\}")
+#: Leading comments to strip before looking for the frontmatter block.
+#:
+#: The MDX branch tolerates whitespace inside the braces (``{ /* … */ }``). They
+#: are an expression container and the whitespace is legal, and Prettier emits
+#: that form -- so requiring adjacency here meant a formatted `.mdx` file's
+#: leading licence header hid the frontmatter beneath it, and the file read as
+#: having **no frontmatter at all**: `Z610` reported a required key absent while
+#: the key sat two lines below, and `Z612`/`Z613` read the same empty dictionary.
+#:
+#: This was the fifth site of the same assumption. The other four were corrected
+#: earlier in this release as *masking* sites; this one stayed wrong because it is
+#: a frontmatter stripper, so a sweep for maskers never reached it. It shared the
+#: belief rather than the construct. `tests/test_mdx_comment_adjacency.py` now
+#: sweeps for the belief.
+_COMMENT_RE = re.compile(r"(?s)<!--.*?-->|(?s)\{\s*/\*.*?\*/\s*\}")
 _FRONTMATTER_BLOCK_RE = re.compile(r"(?s)^\s*---\s*\n(.*?)\n---")
 _FM_KEY_VALUE_RE = re.compile(r"(?m)^([A-Za-z0-9_-]+)\s*:\s*(.*)$")
 
@@ -130,11 +146,18 @@ def apply_per_file_ignores(
             filtered.append(finding)
             continue
 
-        suppressed = any(
-            (fnmatch(rel_path, pattern) or (docs_rel is not None and fnmatch(docs_rel, pattern)))
-            and code in codes
-            for pattern, codes in normalized_map.items()
-        )
+        suppressed = False
+        for pattern, allowed_codes in normalized_map.items():
+            matches = fnmatch(rel_path, pattern) or (
+                docs_rel is not None and fnmatch(docs_rel, pattern)
+            )
+            if matches and code in allowed_codes:
+                suppressed = True
+                tracker = getattr(config, "_global_tracker", None)
+                if tracker:
+                    tracker.mark_per_file_ignore_used(pattern, code)
+                break
+
         if suppressed:
             continue
         filtered.append(finding)
@@ -222,11 +245,18 @@ class PolicyEvaluator:
     Usage::
 
         from zenzic.core.governance import PolicyEvaluator
-        evaluator = PolicyEvaluator(config)
+        evaluator = PolicyEvaluator(config, containers=rule_engine.containers)
         findings = evaluator.check(file_path, content, links)
     """
 
-    def __init__(self, config: ZenzicConfig) -> None:
+    def __init__(self, config: ZenzicConfig, *, containers: RegexPattern | None) -> None:
+        #: The run-level container vocabulary, taken from the rule engine that
+        #: already resolved it. `PolicyEvaluator` is not a rule, so it is not
+        #: reached by the engine's per-rule binding and has to be handed the
+        #: value. Required, never defaulted: Z523 reads headings, and a
+        #: forgotten argument here would have it read the full four-marker
+        #: default on a project that enables none of them.
+        self._containers = containers
         self._required_keys: list[str] = config.policies.required_frontmatter_keys
         self._forbidden_domains: list[str] = config.policies.forbidden_external_domains
         self._forbidden_keys: list[str] = config.policies.forbidden_frontmatter_keys
@@ -237,6 +267,9 @@ class PolicyEvaluator:
         self._forbidden_content: list[str] = config.policies.forbidden_content_patterns
         self._required_headings: list[str] = config.policies.required_heading_patterns
         self._max_complexity: int = config.policies.max_document_complexity
+        self._required_table_columns: dict[str, list[str]] = config.policies.required_table_columns
+        self._table_cell_enums: dict[str, list[str]] = config.policies.table_cell_enums
+        self._required_heading_order: list[str] = config.policies.required_heading_order
 
     # ── Public surface ────────────────────────────────────────────────────────
 
@@ -254,6 +287,9 @@ class PolicyEvaluator:
             or self._forbidden_content
             or self._required_headings
             or (self._max_complexity > 0)
+            or self._required_table_columns
+            or self._table_cell_enums
+            or self._required_heading_order
         )
 
     def check(
@@ -309,6 +345,30 @@ class PolicyEvaluator:
         if self._max_complexity > 0:
             findings.extend(self._check_document_complexity(file_path, content))
 
+        if self._required_table_columns:
+            from zenzic.core.content import check_required_table_columns
+
+            findings.extend(
+                check_required_table_columns(file_path, content, self._required_table_columns)
+            )
+
+        if self._table_cell_enums:
+            from zenzic.core.content import check_table_cell_enums
+
+            findings.extend(check_table_cell_enums(file_path, content, self._table_cell_enums))
+
+        if self._required_heading_order:
+            from zenzic.core.content import check_heading_order
+
+            findings.extend(
+                check_heading_order(
+                    file_path,
+                    content,
+                    self._required_heading_order,
+                    containers=self._containers,
+                )
+            )
+
         return findings
 
     def _check_forbidden_content(self, file_path: Path, content: str) -> list[RuleFinding]:
@@ -320,8 +380,7 @@ class PolicyEvaluator:
 
         findings: list[RuleFinding] = []
         lines = content.splitlines()
-        in_code_block = False
-        in_frontmatter = False
+        _fence = BlockTracker(self._containers)
 
         compiled_patterns = []
         for pat in self._forbidden_content:
@@ -332,20 +391,15 @@ class PolicyEvaluator:
                 continue
 
         for i, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if i == 1 and stripped == "---":
-                in_frontmatter = True
-                continue
-            if in_frontmatter:
-                if stripped == "---":
-                    in_frontmatter = False
-                continue
-
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_code_block = not in_code_block
+            # The tracker answers "is this frontmatter", so this loop no longer
+            # carries its own copy of the rule. Thirteen copies did; they accepted
+            # only `---` and not YAML's `...` document-end marker, and they skipped
+            # lines *before* feeding the tracker, which left it computing container
+            # and paragraph state on an amputated document.
+            if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
                 continue
 
-            if in_code_block:
+            if _fence.inside:
                 continue
 
             for raw_pat, compiled in compiled_patterns:
@@ -355,7 +409,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z617",
-                            severity="warning",
+                            severity=code_severity("Z617"),
                             file_path=file_path,
                             line_no=i,
                             message=(
@@ -363,6 +417,7 @@ class PolicyEvaluator:
                                 f"Declared in [policies].forbidden_content_patterns."
                             ),
                             match_text=matched_text,
+                            col_start=m.start(),
                             matched_line=line,
                         )
                     )
@@ -377,25 +432,20 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        in_code_block = False
-        in_frontmatter = False
+        _fence = BlockTracker(self._containers)
         heading_titles: list[str] = []
 
-        for i, line in enumerate(lines, start=1):
+        for line in lines:
             stripped = line.strip()
-            if i == 1 and stripped == "---":
-                in_frontmatter = True
-                continue
-            if in_frontmatter:
-                if stripped == "---":
-                    in_frontmatter = False
-                continue
-
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_code_block = not in_code_block
+            # The tracker answers "is this frontmatter", so this loop no longer
+            # carries its own copy of the rule. Thirteen copies did; they accepted
+            # only `---` and not YAML's `...` document-end marker, and they skipped
+            # lines *before* feeding the tracker, which left it computing container
+            # and paragraph state on an amputated document.
+            if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
                 continue
 
-            if in_code_block:
+            if _fence.inside:
                 continue
 
             if stripped.startswith("#"):
@@ -416,7 +466,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z618",
-                        severity="warning",
+                        severity=code_severity("Z618"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -437,28 +487,23 @@ class PolicyEvaluator:
         from zenzic.core.rules import RuleFinding
 
         lines = content.splitlines()
-        in_code_block = False
-        in_frontmatter = False
+        _fence = BlockTracker(self._containers)
         word_count = 0
         heading_count = 0
         max_depth = 1
         link_count = 0
 
-        for i, line in enumerate(lines, start=1):
+        for line in lines:
             stripped = line.strip()
-            if i == 1 and stripped == "---":
-                in_frontmatter = True
-                continue
-            if in_frontmatter:
-                if stripped == "---":
-                    in_frontmatter = False
-                continue
-
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_code_block = not in_code_block
+            # The tracker answers "is this frontmatter", so this loop no longer
+            # carries its own copy of the rule. Thirteen copies did; they accepted
+            # only `---` and not YAML's `...` document-end marker, and they skipped
+            # lines *before* feeding the tracker, which left it computing container
+            # and paragraph state on an amputated document.
+            if _fence.feed(line) or _fence.in_frontmatter or _fence.in_indented_code:
                 continue
 
-            if in_code_block:
+            if _fence.inside:
                 continue
 
             if stripped.startswith("#"):
@@ -481,7 +526,7 @@ class PolicyEvaluator:
             return [
                 RuleFinding(
                     rule_id="Z619",
-                    severity="warning",
+                    severity=code_severity("Z619"),
                     file_path=file_path,
                     line_no=1,
                     message=(
@@ -512,7 +557,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z610",
-                        severity="warning",
+                        severity=code_severity("Z610"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -530,7 +575,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z612",
-                        severity="warning",
+                        severity=code_severity("Z612"),
                         file_path=file_path,
                         line_no=1,
                         message=(
@@ -555,7 +600,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z613",
-                            severity="error",
+                            severity=code_severity("Z613"),
                             file_path=file_path,
                             line_no=1,
                             message=(
@@ -604,7 +649,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z614",
-                            severity="error",
+                            severity=code_severity("Z614"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -613,6 +658,14 @@ class PolicyEvaluator:
                                 f"Replace or add to whitelist."
                             ),
                             matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                            # The message names the URL; without col_start the caret, SARIF's
+                            # startColumn and the LSP range all said column 0 (2026-09-18).
+                            col_start=max(
+                                (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                            ),
+                            match_text=url
+                            if line_no <= len(lines) and url in lines[line_no - 1]
+                            else "",
                         )
                     )
                     continue
@@ -636,7 +689,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z611",
-                            severity="warning",
+                            severity=code_severity("Z611"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -645,6 +698,14 @@ class PolicyEvaluator:
                                 f"Declared in [policies].forbidden_external_domains."
                             ),
                             matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                            # The message names the URL; without col_start the caret, SARIF's
+                            # startColumn and the LSP range all said column 0 (2026-09-18).
+                            col_start=max(
+                                (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                            ),
+                            match_text=url
+                            if line_no <= len(lines) and url in lines[line_no - 1]
+                            else "",
                         )
                     )
 
@@ -682,7 +743,7 @@ class PolicyEvaluator:
                 findings.append(
                     RuleFinding(
                         rule_id="Z615",
-                        severity="warning",
+                        severity=code_severity("Z615"),
                         file_path=file_path,
                         line_no=line_no,
                         message=(
@@ -691,6 +752,14 @@ class PolicyEvaluator:
                             f"Change scheme to an allowed protocol."
                         ),
                         matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                        # The message names the URL; without col_start the caret, SARIF's
+                        # startColumn and the LSP range all said column 0 (2026-09-18).
+                        col_start=max(
+                            (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                        ),
+                        match_text=url
+                        if line_no <= len(lines) and url in lines[line_no - 1]
+                        else "",
                     )
                 )
 
@@ -785,8 +854,22 @@ class PolicyEvaluator:
                         break
 
             if resolved_target_file is None:
+                # Fallback when the route resolver cannot answer.  Reads the one
+                # boundary definition (resolver.href_resolution_base) instead of
+                # computing a base here, and is lexical -- the previous
+                # `.resolve()` touched the filesystem and followed symlinks
+                # inside a comparison that only needs path arithmetic.
+                from zenzic.core.resolver import resolve_href_target
+
                 try:
-                    resolved_target_file = (file_path.parent / unquote(raw_path)).resolve()
+                    resolved_target_file = Path(
+                        resolve_href_target(
+                            file_path,
+                            unquote(raw_path).replace("\\", "/"),
+                            str(docs_root) if docs_root else str(file_path.parent),
+                            str(repo_root) if repo_root else str(file_path.parent),
+                        )
+                    )
                 except (ValueError, OSError):
                     continue
 
@@ -836,7 +919,7 @@ class PolicyEvaluator:
                     findings.append(
                         RuleFinding(
                             rule_id="Z616",
-                            severity="error",
+                            severity=code_severity("Z616"),
                             file_path=file_path,
                             line_no=line_no,
                             message=(
@@ -845,6 +928,14 @@ class PolicyEvaluator:
                                 f"Declared in [policies].cross_namespace_restrictions."
                             ),
                             matched_line=lines[line_no - 1] if line_no <= len(lines) else "",
+                            # The message names the URL; without col_start the caret, SARIF's
+                            # startColumn and the LSP range all said column 0 (2026-09-18).
+                            col_start=max(
+                                (lines[line_no - 1].find(url) if line_no <= len(lines) else -1), 0
+                            ),
+                            match_text=url
+                            if line_no <= len(lines) and url in lines[line_no - 1]
+                            else "",
                         )
                     )
                     break
@@ -862,8 +953,22 @@ _HTML_HREF_RE = re.compile(r"""(?i)href\s*=\s*["']([^"']+)["']""")
 
 def _extract_links(content: str) -> list[str]:
     """Extract all link URLs from raw Markdown content (Markdown + HTML)."""
+    from zenzic.core.validator import mask_backslash_escapes
+
     urls: list[str] = []
     seen: set[str] = set()
+
+    # CommonMark §2.4: `\[text](url)` is a literal bracket and not a link. This
+    # path feeds the policy codes (Z611, Z614-Z616), so without the mask an
+    # escaped example in documentation is judged against a domain allowlist it
+    # was never part of.
+    # An `<a href>` written inside backticks is prose about HTML: without this,
+    # documentation showing a link tag had its example URL judged against the
+    # domain allowlists (Z611, Z614-Z616). Same shape as the slugifier defect.
+    from zenzic.core.content import _CODE_SPAN_RE
+
+    content = _CODE_SPAN_RE.sub(lambda m: " " * len(m.group(0)), content)
+    content = mask_backslash_escapes(content)
 
     for url in _MD_LINK_RE.findall(content):
         url = url.strip().split()[0]
@@ -889,9 +994,16 @@ def check_policies(
     vsm: dict[str, Any] | None = None,
     repo_root: Path | None = None,
     docs_root: Path | None = None,
+    *,
+    containers: RegexPattern | None,
 ) -> list[RuleFinding]:
-    """Convenience wrapper: create a PolicyEvaluator and run all policy checks."""
-    evaluator = PolicyEvaluator(config)
+    """Convenience wrapper: create a PolicyEvaluator and run all policy checks.
+
+    ``containers`` is required and carries the run-level container vocabulary;
+    see :class:`PolicyEvaluator`. Callers inside the scanner take it from the
+    rule engine, which resolved it once for the run.
+    """
+    evaluator = PolicyEvaluator(config, containers=containers)
     return evaluator.check(
         file_path,
         content,

@@ -25,7 +25,7 @@ syntax highlighting and language-specific quality checks.
 ```bash
 zenzic lab z505
 # or directly:
-zenzic check content
+zenzic check references
 ```
 
 ## Expected output

@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# A high score on our own repository measures agreement between an engine and
+# the corpus it grew up with. This is the only independent measurement the
+# project has, and it runs here rather than in the pre-push path: it clones a
+# repository, and network dependence in a pre-push hook cost this project five
+# failed pushes with no diagnosable output.
+#
+# On pull requests rather than on a schedule. Measured 2026-09-18: 7 s to fetch
+# the pinned commit, 3 s to scan, against catching a regression on somebody
+# else's documentation before merge instead of the next morning. The corpus is
+# pinned, so it cannot move under a pull request.
+#
+# ── The blind spot, stated here and in the script ────────────────────────────
+# A corpus pinned at a commit exercises the constructs that corpus contains.
+# Four defects closed in this cycle moved neither corpus -- nested fences,
+# backslash escapes, setext headings, and a frontmatter closed with YAML's
+# document-end marker -- and each was covered by a probe and a suite instead.
+# One pinned corpus is better than none and is not coverage.
+
+name: External Corpus
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'scripts/external_corpus_check.py'
+      - 'scripts/external-corpus-pin.json'
+      - '.github/workflows/external-corpus.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-corpus-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  corpus:
+    name: Findings per code, against the pinned corpus
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Sync dependencies
+        run: uv sync --all-groups
+
+      - name: Compare the external corpus per code
+        run: uv run python3 scripts/external_corpus_check.py

@@ -8,8 +8,6 @@ description: "Walk through the z401-missing-directory-index fixture: a guide dir
 
 **Z-Code:** `Z401 MISSING_DIRECTORY_INDEX` · **Engine:** `zensical` · **Exit:** `0`
 
-<Z401MissingDirectoryIndex />
-
 ---
 
 ## The Fixture
@@ -54,17 +52,21 @@ uvx zenzic check all --show-info
 Expected output:
 
 ```text
-zensical · 1 file (1 docs, 0 assets) · 0.0s · 68 files/s
+zensical • 1 file (1 pages, 0 assets) • 0.0s • 37 files/s
 
-docs/guide  i  [Z401]  Directory contains Markdown files but has no index page
+docs/guide  💡  [Z401]  Directory contains Markdown files but has no index page
 — the directory URL may return a 404.
 
 ────────────────────────────────────────────────────────────────────────────────
 
-Summary:  x 0 errors  ! 0 warnings  i 1 info  · 1 file with findings
+Summary:  ✘ 0 errors  ⚠ 0 warnings  💡 1 info  • 1 file with findings
 
-Analysis complete: All statically-detectable links, credentials, and references
+✨ Analysis complete: Links, credentials, semantic structure, and policies
 verified.
+DQS Final Score: 100/100 (Gate Passed)
+Refer to https://zenzic.dev/reference/finding-codes/ for remediation · Try
+'zenzic check --help' for options.
+🔒 Suppression Audit: 0/30 (inline: 0, per-file: 0, directory: 0)
 ```
 
 Exit code: `0`
@@ -84,7 +86,7 @@ omit the directory URL or return a 404:
 
 - **Scan Type:** `Structure Validator (zensical engine)`
 - **Severity:** `Info`
-- **Impact:** Deducts **2.0 DQS points** (navigation category, weight 0.25).
+- **Impact:** Informational only — deducts **no DQS points**.
 
 ---
 
@@ -106,6 +108,6 @@ mv docs/guide/page.md docs/guide/index.md
 
 ## See Also
 
-- [Z402 — Orphan Page](z402-orphan-page) — page exists but is not in navigation.
-- [Z403 — Missing Alt](z403-missing-alt) — image lacks accessibility alt text.
-- [Checks Reference — Z401](../../../reference/checks) — full rule specification.
+- [Z402 — Orphan Page](../z402-orphan-page/) — page exists but is not in navigation.
+- [Z403 — Missing Alt](../z403-missing-alt/) — image lacks accessibility alt text.
+- [Checks Reference — Z401](../../../../reference/checks/) — full rule specification.

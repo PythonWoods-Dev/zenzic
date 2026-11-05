@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import yaml
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
@@ -92,10 +92,31 @@ _PermissiveYamlLoader.add_multi_constructor(
 )  # type: ignore[no-untyped-call]
 
 
+#: The filenames MkDocs itself accepts for its configuration, in the order it
+#: looks for them.
+#:
+#: Declared once because the answer was split across eight sites: ``discover_engine``
+#: probed both, this function probed only ``mkdocs.yml``, and the consequence was
+#: reachable. On a project using ``mkdocs.yaml``, discovery returned ``"mkdocs"``,
+#: ``MkDocsAdapter`` was built, and its configuration load returned ``{}`` — **no
+#: `docs_dir`, no `nav`, no `markdown_extensions`, no `site_dir`** — so every
+#: nav-contract, orphan and container-vocabulary finding was computed against an
+#: empty configuration that the detection step had already proved was not empty.
+MKDOCS_CONFIG_NAMES: Final[tuple[str, ...]] = ("mkdocs.yml", "mkdocs.yaml")
+
+
 def find_mkdocs_config_file(repo_root: Path) -> Path | None:
-    """Return the MkDocs config path, or ``None`` if absent."""
-    mkdocs_yml = repo_root / "mkdocs.yml"
-    return mkdocs_yml if mkdocs_yml.exists() else None
+    """Return the MkDocs config path, or ``None`` if absent.
+
+    Both names, and ``is_file()`` rather than ``exists()``: a directory called
+    ``mkdocs.yml`` is not a configuration file, and the probe in
+    ``discover_engine`` has always said so while this one did not.
+    """
+    for name in MKDOCS_CONFIG_NAMES:
+        candidate = repo_root / name
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def load_mkdocs_config_file(config_file: Path) -> dict[str, Any]:

@@ -1,5 +1,5 @@
 ---
-description: "Configure Open Graph tags, Twitter Cards, and per-page SEO metadata in your Zensical/MkDocs project."
+description: "How Zenzic's asset-reference checker interacts with social card images — setup itself is Material for MkDocs' job."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
@@ -7,119 +7,48 @@ description: "Configure Open Graph tags, Twitter Cards, and per-page SEO metadat
 
 # Configure Social Metadata & SEO
 
-Zensical and MkDocs handle social metadata at two levels: **site-wide defaults** in `zensical.toml` (or `mkdocs.yml`), and **per-page overrides** in each Markdown file's frontmatter. This guide shows both, using Zenzic's own configuration as the reference model.
+Zenzic does not configure or validate Open Graph tags, Twitter Cards, or social card
+images — that's your build engine's job. For Material for MkDocs, see the official
+[Setting up social cards](https://squidfunk.github.io/mkdocs-material/setup/setting-up-social-cards/)
+documentation for the real setup mechanics (the `social` plugin, and the template
+override needed to emit the actual `<meta property="og:*">` tags).
+
+If you build with **Zensical**, there is no equivalent yet: a `social` module is tracked
+as a lower-priority ([Tier 2](https://zensical.org/compatibility/plugins/)) backlog item
+([zensical/backlog#37](https://github.com/zensical/backlog/issues/37)), not yet
+implemented as of this writing.
+
+What Zenzic *does* touch is asset usage: if you reference a custom social card image
+through a page's `image:` frontmatter key, `Z405` (`UNUSED_ASSET`) correctly recognizes
+that reference and won't flag the file — no extra configuration needed for that case.
 
 ---
 
-## Site-wide Defaults (`zensical.toml` or `mkdocs.yml`)
+## Excluding design-source files
 
-The global settings live in the project configuration:
+Auto-generated card images (from the `social` plugin) are written to the *built* site
+output, not stored as source files under `docs/`, so they never reach Zenzic's scan at
+all. If you keep an SVG design source for a custom card image but only ever reference the
+exported PNG in frontmatter, the SVG itself is never referenced by any page and needs
+explicit exclusion:
 
-```toml
-# zensical.toml / mkdocs.yml
-site_name = "Zenzic"
-site_url = "https://zenzic.dev/"
-site_description = "Documentation quality gate for Markdown projects."
-
-# Global extra variables (like social links or default images)
-[extra]
-social_image = "assets/social/social-card.png"
-```
-
-!!! tip "OG image specification"
-    Social card images must be **1200 × 630 px** (1.91:1 ratio). Files smaller
-    than this are cropped or rejected by LinkedIn and Twitter. Use PNG for
-    screenshots and SVG-exported graphics; avoid JPEG for text-heavy cards.
-
----
-
-## Per-page Overrides (Frontmatter)
-
-Any page can override the global defaults by adding fields to its frontmatter:
-
-```markdown
----
-title: "Architecture — How Zenzic Works"
-description: "Deep dive into the Two-Pass Pipeline, VSM, and path traversal guard."
-image: assets/social/social-card.png
-keywords: [zenzic, architecture, vsm, pipeline, document integrity engine]
----
-```
-
-| Frontmatter key | Maps to | Notes |
-| :--- | :--- | :--- |
-| `title` | `<title>`, `og:title`, `twitter:title` | The build engine appends the site title automatically |
-| `description` | `<meta name="description">`, `og:description` | Keep under 155 characters for search snippets |
-| `image` | `og:image`, `twitter:image` | Absolute or root-relative; overrides site default |
-| `keywords` | `<meta name="keywords">` | Comma-separated list |
-
----
-
-## Storing Social Images
-
-Place all social card assets in `docs/assets/social/` (or the folder mapped to static assets):
-
-```text
-docs/assets/social/
-├── social-card.png          ← default OG image (1200 × 630, dark)
-├── social-card-light.png    ← light-mode variant
-├── social-card.svg          ← source SVG (do not serve directly as OG)
-└── social-card-light.svg
-```
-
-!!! caution "SVG as OG image"
-    Most social crawlers (LinkedIn, Slack, iMessage) do not render SVG. Always
-    export a PNG from the SVG source. The SVG files are kept in `docs/assets/social/`
-    as design sources only.
-
-For page-specific cards (e.g. a blog post announcing a release), add the PNG
-and reference it in the post's frontmatter:
-
-```markdown
----
-title: "Zenzic Documentation Security Platform"
-image: assets/social/social-card.png
----
-```
-
----
-
-## Verification
-
-After updating metadata, verify the output locally by building the documentation:
-
-```bash
-uvx uv run mkdocs build
-# or
-mkdocs build
-```
-
-Then inspect any page's `<head>` with browser DevTools (Elements tab, search for
-`og:image`). For production verification, use the
-[Twitter Card Validator](https://cards-dev.twitter.com/validator) or
-[Open Graph Debugger](https://developers.facebook.com/tools/debug/) — both
-accept a URL and display which tags they resolved.
-
----
-
-## Zenzic & Social Assets
-
-Zenzic does not validate external social URLs, but it **does** detect unused
-static assets. If you add a custom social card PNG and never reference it in
-frontmatter or configuration, Zenzic will flag it as an unused asset on the
-next `zenzic check all` run.
-
-Exclude intentional source-only files in `.zenzic.toml`:
-
-```toml
-# .zenzic.toml
+```toml title=".zenzic.toml"
 excluded_assets = [
-    "assets/social/*.svg",   # SVG sources — not served as OG images
+    "assets/social/*.svg",   # SVG design sources — never directly referenced
 ]
+```
+
+The same key is available under `[tool.zenzic]` in `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.zenzic]
+excluded_assets = ["assets/social/*.svg"]
 ```
 
 ---
 
 ## See Also
 
+- [Material for MkDocs: Setting up social cards](https://squidfunk.github.io/mkdocs-material/setup/setting-up-social-cards/) — the real setup mechanics
+- [Zensical plugin/module compatibility tracker](https://zensical.org/compatibility/plugins/) — current status of the not-yet-implemented `social` module
 - [Why Zenzic](../explanation/why-zenzic.md)

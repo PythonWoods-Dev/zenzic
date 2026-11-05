@@ -11,7 +11,7 @@ Usage::
     python scripts/benchmark.py                  # default: 200 files, 4 workers
     python scripts/benchmark.py --files 1000 --workers 8
     python scripts/benchmark.py --files 5000 --no-parallel
-    python scripts/benchmark.py --repo examples/docusaurus-v3  # real adapter test
+    python scripts/benchmark.py --repo .          # real adapter test (this repo)
 
 Output is a Rich-formatted table with ms/file figures for each strategy.
 """
@@ -104,7 +104,7 @@ def main() -> None:
         "--repo",
         type=str,
         default=None,
-        help="Path to a real project to benchmark (e.g. examples/docusaurus-v3)",
+        help="Path to a real project to benchmark (e.g. . for this repo itself)",
     )
     args = parser.parse_args()
 

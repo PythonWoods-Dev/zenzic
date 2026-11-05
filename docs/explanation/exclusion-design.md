@@ -7,8 +7,6 @@ description: "The design rationale behind Zenzic's conscious exclusion model ver
 
 # Exclusion Design
 
-This section details the specifications and guidelines for Exclusion Design within the Zenzic ecosystem.
-
 ---
 
 ## Conscious Control vs. Blind Automation
@@ -48,25 +46,31 @@ excluded_file_patterns = ["*.it.md", "CHANGELOG*.md"]
 # respect_vcs_ignore = true   ← default; omit or set explicitly
 ```
 
+```toml title="pyproject.toml"
+[tool.zenzic]
+excluded_dirs = ["includes", "stylesheets", "overrides"]
+excluded_file_patterns = ["*.it.md", "CHANGELOG*.md"]
+
+# respect_vcs_ignore = true   ← default; omit or set explicitly
+```
+
 **When to enable `respect_vcs_ignore`**
 
-Enable it for projects with a clean, documentation-focused `.gitignore` where VCS-excluded paths genuinely map to documentation that should not be linted (e.g. auto-generated API reference in `site/`). Always audit the exclusion effect using `--show-info` after enabling.
+Enable it for projects with a clean, documentation-focused `.gitignore` where VCS-excluded paths genuinely map to documentation that should not be linted (e.g. auto-generated API reference in `site/`). `--show-info` does not audit exclusion effect — it surfaces `info`-severity findings unrelated to exclusion (e.g. `Z106` circular links). To confirm which value is actually in effect, run `zenzic config explain`, which prints the resolved `respect_vcs_ignore` value alongside its source (default, `.zenzic.toml`, or `pyproject.toml`) — it shows the resolved *setting*, not a per-file list of what was excluded.
 
 ---
 
 ## Governance Score Math
 
-The `fail_under` and `suppression_cap` fields act as **orthogonal constraints**. Each active suppression deducts exactly **1 DQS point** (flat-cost model). The maximum score a project can achieve is therefore:
-
-$$\text{Max Achievable Score} = 100 - |F_s|$$
-
-where $|F_s|$ is the total active suppression count. Configuring `fail_under > 100 - suppression_cap` creates a mathematical contradiction: the score gate will trigger due to suppression debt *before* the suppression cap is reached, making the upper slots of the cap budget unreachable.
-
-**Safe configuration rule:** `fail_under` ≤ `100 - suppression_cap`.
-
-### Designing Hybrid Governance Policies
-
-Setting `fail_under = 90` and `suppression_cap = 30` means: "The global repository quality must never drop below 90/100, **but** regardless of the score, we absolutely refuse to tolerate more than 30 suppressed defects." This prevents teams from hiding massive structural debt even if their active code is otherwise clean.
+`excluded_dirs`/`excluded_file_patterns` and the `suppression_cap`/`fail_under` gates are
+independent mechanisms with independent math — see
+[Dual-Gate Architecture & Suppression Budget](scoring-system.md#dual-gate-architecture-suppression-budget)
+for the full `fail_under`/`suppression_cap` formula and worked example, canonical for this
+project. The short version relevant to exclusion design: an *excluded* path never reaches the
+scorer at all, so it costs nothing against `suppression_cap`; a path that's merely *suppressed*
+(via `zenzic:ignore` or a directory policy) does cost against the cap. Choosing exclusion over
+suppression for content that should never be linted at all keeps the suppression budget free for
+genuine, reviewable technical debt.
 
 ---
 

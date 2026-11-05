@@ -33,7 +33,7 @@ The following commands cover baseline creation, baseline consumption, and CI dec
 
 ### Creating or Updating a Baseline
 
-To capture current findings and Document Quality Score (DQS) into `.zenzic-baseline.json`:
+To capture current findings and Documentation Quality Score (DQS) into `.zenzic-baseline.json`:
 
 ```bash
 zenzic check all --update-baseline

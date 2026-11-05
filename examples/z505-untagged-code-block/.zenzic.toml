@@ -13,7 +13,7 @@
 # Always specify a language: ```bash, ```python, ```json, ```text, etc.
 #
 # Expected results:
-#   zenzic check content   → EXIT 1  (Z505 ×1 — untagged fenced code block)
+#   zenzic check references   → EXIT 0  (Z505 ×1 — untagged fenced code block)
 #   zenzic check all       → EXIT 1
 
 docs_dir = "docs"

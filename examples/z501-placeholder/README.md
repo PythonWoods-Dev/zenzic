@@ -20,7 +20,7 @@ each as Z501 PLACEHOLDER.
 ```bash
 zenzic lab z501
 # or directly:
-zenzic check content
+zenzic check placeholders
 ```
 
 ## Expected output

@@ -98,19 +98,13 @@ protection against OS-preference-driven theme resets. It was not applied.
 
 ## Invariants (Non-Negotiable)
 
-- `storage: { namespace: false }` must remain in `docusaurus.config.ts` for as
-
-  long as `future.v4: true` is active and the Italian locale is supported.
+- `storage: { namespace: false }` must remain in `docusaurus.config.ts` for as long as `future.v4: true` is active and the Italian locale is supported.
   Removing it silently re-introduces per-locale storage key fragmentation.
 
-- `colorMode.respectPrefersColorScheme` must remain `false`. This is an
-
-  immutable invariant (CEO 149). Any PR that sets it to `true` is an automatic
+- `colorMode.respectPrefersColorScheme` must remain `false`. This is an immutable invariant (CEO 149). Any PR that sets it to `true` is an automatic
   revert candidate.
 
-- The Blog navbar item must remain `type: 'html'`. Converting it back to a
-
-  standard `to:` or `href:` item will re-introduce locale bleed in the next
+- The Blog navbar item must remain `type: 'html'`. Converting it back to a standard `to:` or `href:` item will re-introduce locale bleed in the next
   build. This is not immediately visible in development mode (`npm run start`)
   because `npm run start` serves a single locale without the rewrite pipeline.
   **Bugs of this class are only visible in `just build` output.**
@@ -119,17 +113,11 @@ protection against OS-preference-driven theme resets. It was not applied.
 
 ## Consequences
 
-- Dark mode preference is now fully locale-independent. A user who sets dark mode
+- Dark mode preference is now fully locale-independent. A user who sets dark mode in English documentation retains dark mode when switching to Italian.
 
-  in English documentation retains dark mode when switching to Italian.
+- The Blog (blog) always loads at `/blog` regardless of which locale the user navigated from.
 
-- The Blog (blog) always loads at `/blog` regardless of which locale the user
-
-  navigated from.
-
-- The `type: 'html'` navbar item does not participate in Docusaurus's `i18n`
-
-  translation pipeline (i.e., it does not appear in `code.json` translation keys).
+- The `type: 'html'` navbar item does not participate in Docusaurus's `i18n` translation pipeline (i.e., it does not appear in `code.json` translation keys).
   The label "Blog" is therefore hardcoded in the HTML value — this is
   intentional, as the blog is English-only and the label does not require
   translation.
