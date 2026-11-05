@@ -108,7 +108,7 @@ def check_adr_citations(repo_root: Path, config: DoctorConfig) -> list[DoctorFin
             DoctorFinding(
                 check="adr-citations",
                 message=(
-                    f"ADR vault not found at '{config.adr_vault_path}'. Set "
+                    f"ADR vault not found at '{config.adr_vault_path.as_posix()}'. Set "
                     "[doctor].adr_vault_path, or leave it unset if this project "
                     "keeps no decision records."
                 ),
@@ -135,7 +135,7 @@ def check_adr_citations(repo_root: Path, config: DoctorConfig) -> list[DoctorFin
     return [
         DoctorFinding(
             check="adr-citations",
-            message=f"{citation} is cited but has no record in '{config.adr_vault_path}'.",
+            message=f"{citation} is cited but has no record in '{config.adr_vault_path.as_posix()}'.",
             location=where,
         )
         for citation, where in sorted(cited.items())
@@ -417,7 +417,7 @@ def scaffold_adr(repo_root: Path, config: DoctorConfig, number: int, title: str)
     records = repo_root / config.adr_vault_path / "records"
     if not _stays_inside(repo_root, records):
         raise FileExistsError(
-            f"'{config.adr_vault_path}' reaches outside the repository through a link; "
+            f"'{config.adr_vault_path.as_posix()}' reaches outside the repository through a link; "
             "refusing to write a record there."
         )
     records.mkdir(parents=True, exist_ok=True)

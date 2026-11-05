@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -149,6 +150,23 @@ def test_loading_the_configuration_needs_no_git(
     assert config.doctor.adr_vault_path == Path(VAULT)
 
 
+def test_a_tracked_vault_with_an_accent_in_its_name_is_clean(tmp_path: Path) -> None:
+    """Git gives the names in UTF-8 whatever the locale: read with the locale's code page, this name would not match."""
+    root = tmp_path / "accents"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _configured(root, adr_vault_path="docs/décisions")
+    _vault(root, "docs/décisions")
+    _git(root, "add", ".zenzic.toml", "docs")
+    _git(root, "commit", "-q", "-m", "first")
+    _, checks = _doctor(root)
+    assert checks["tracked-paths"] == []
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows file names are text: a name that is not UTF-8 cannot exist",
+)
 def test_a_file_name_that_is_not_utf8_does_not_stop_the_doctor(maintainer: Path) -> None:
     """Git gives names as bytes: the check must not depend on the locale's encoding, nor fall over on a name."""
     name = maintainer.as_posix().encode() + b"/caf\xe9.md"
@@ -227,7 +245,7 @@ def test_a_repository_without_a_commit_tracks_nothing(tmp_path: Path) -> None:
 
 
 def test_a_tracked_link_to_an_untracked_vault_is_told(maintainer: Path) -> None:
-    (maintainer / "vault").symlink_to(VAULT, target_is_directory=True)
+    (maintainer / "vault").symlink_to(maintainer / VAULT, target_is_directory=True)
     _configured(maintainer, adr_vault_path="vault")
     _git(maintainer, "add", "vault", ".zenzic.toml")
     _git(maintainer, "commit", "-q", "-m", "the link")
