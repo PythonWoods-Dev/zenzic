@@ -8,8 +8,8 @@ conventions* — that every architectural decision cited somewhere actually has 
 record, that the redirects file has not been silently reshaped, that the config
 loads. None of them is per-page, so none belongs in the per-file pipeline.
 
-Every function here is pure over a path plus a :class:`DoctorConfig`, reads only
-**public repository content**, and returns findings rather than printing. The
+Every function here is pure over a path plus a :class:`DoctorConfig` and returns
+findings rather than printing. The
 CLI layer owns presentation and exit codes (Radical Unawareness, ADR-075).
 
 The verdict must not depend on the clone. A configured path that git does not
@@ -152,10 +152,18 @@ def check_redirects(repo_root: Path, config: DoctorConfig) -> list[DoctorFinding
     path = repo_root / config.redirects_path
     if not path.is_file():
         return []
+    if not _stays_inside(repo_root, path):
+        return [
+            DoctorFinding(
+                check="redirects",
+                message="reaches outside the repository through a link: not read.",
+                location=config.redirects_path.as_posix(),
+            )
+        ]
 
     try:
         lines = path.read_text(encoding="utf-8").split("\n")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         return [
             DoctorFinding(
                 check="redirects",
@@ -244,13 +252,48 @@ def check_config_schema(repo_root: Path) -> list[DoctorFinding]:
     ]
 
 
+def _stays_inside(repo_root: Path, path: Path) -> bool:
+    """Whether *path*, its links followed, is inside *repo_root*."""
+    return path.resolve().is_relative_to(repo_root.resolve())
+
+
+def _not_versioned(repo_root: Path, value: Path, tracked: frozenset[str]) -> str | None:
+    """The first file a clone would not have at the configured *value*, or None if a clone has it all.
+
+    Every record counts, not the folder: one tracked file does not clear the others,
+    which the holder reads and a clone does not have. An entry ending in ``/`` is a
+    submodule, whose content a clone can bring. A link is not its target: the target is
+    what would have to be versioned, so it is reported by its own name.
+    """
+    candidate = repo_root / value
+    name = value.as_posix()
+    if name == "." or not candidate.exists():
+        return None
+    if candidate.resolve() != repo_root.resolve() / value:
+        return name
+    submodules = tuple(entry for entry in tracked if entry.endswith("/"))
+
+    def versioned(file: str) -> bool:
+        return file in tracked or file.startswith(submodules)
+
+    if candidate.is_file():
+        return None if versioned(name) else name
+    files = sorted(
+        path.relative_to(repo_root).as_posix()
+        for path in iter_files_within(candidate, repo_root, suffixes=frozenset({".md"}))
+    )
+    if not files:
+        return None if any(entry.startswith(f"{name}/") for entry in tracked) else name
+    return next((file for file in files if not versioned(file)), None)
+
+
 def check_tracked_paths(
     repo_root: Path, config: DoctorConfig, tracked: frozenset[str] | None
 ) -> list[DoctorFinding]:
-    """Report a configured path that exists here and that git does not track.
+    """Report what a configured path holds here and a fresh clone would not have.
 
-    *tracked* is every file git tracks under *repo_root*, or None where there is
-    nothing to compare with: outside a repository, or without git. A path that does
+    *tracked* is every file of the last commit under *repo_root*, or None where there
+    is nothing to compare with: outside a repository, or without git. A path that does
     not exist is not reported here: the check that reads it says so, or, for the
     redirects file, absence is not a finding.
     """
@@ -261,31 +304,35 @@ def check_tracked_paths(
         ("adr_vault_path", config.adr_vault_path),
         ("redirects_path", config.redirects_path),
     ):
-        path = value.as_posix()
-        if not (repo_root / value).exists():
-            continue
-        if path in tracked or any(name.startswith(f"{path}/") for name in tracked):
-            continue
-        findings.append(
-            DoctorFinding(
-                check="tracked-paths",
-                message=(
-                    f"'{path}' exists here but is not tracked by git, so a fresh clone or "
-                    f"CI does not have it. Track it, or change [doctor].{setting}."
-                ),
+        missing = _not_versioned(repo_root, value, tracked)
+        if missing is not None:
+            findings.append(
+                DoctorFinding(
+                    check="tracked-paths",
+                    message=(
+                        f"'{missing}' exists here but is not tracked by the last commit, so a "
+                        f"fresh clone or CI does not have it. Commit it, or change [doctor].{setting}."
+                    ),
+                )
             )
-        )
     return findings
 
 
 def run_all(
     repo_root: Path, config: DoctorConfig, tracked: frozenset[str] | None = None
 ) -> dict[str, list[DoctorFinding]]:
-    """Every check, keyed by name, in a stable order."""
+    """Every check, keyed by name, in a stable order.
+
+    A redirects file git does not version is reported and not read: its lines are
+    echoed in the findings, and they may be anything the file holds.
+    """
+    unversioned = tracked is not None and (
+        _not_versioned(repo_root, config.redirects_path, tracked) is not None
+    )
     return {
         "config-schema": check_config_schema(repo_root),
         "adr-citations": check_adr_citations(repo_root, config),
-        "redirects": check_redirects(repo_root, config),
+        "redirects": [] if unversioned else check_redirects(repo_root, config),
         "tracked-paths": check_tracked_paths(repo_root, config, tracked),
     }
 
@@ -368,6 +415,11 @@ def scaffold_adr(repo_root: Path, config: DoctorConfig, number: int, title: str)
     for.
     """
     records = repo_root / config.adr_vault_path / "records"
+    if not _stays_inside(repo_root, records):
+        raise FileExistsError(
+            f"'{config.adr_vault_path}' reaches outside the repository through a link; "
+            "refusing to write a record there."
+        )
     records.mkdir(parents=True, exist_ok=True)
     target = records / f"adr-{number:03d}-{_slugify(title)}.md"
 

@@ -36,17 +36,28 @@ a dot was refused too: it rejects `.github/`, a legitimate versioned path.
 The invariant is stated directly: **the doctor's verdict must not depend on the clone, so a path it reads must be
 versioned.**
 
-- **Loading the configuration needs no Git.** The model refuses only what leaves the repository: an absolute path, or
-  one with `..`.
-- **The check lives in the doctor.** `tracked-paths` reports a configured path that exists and that Git does not track.
-- **The core stays pure.** `check_tracked_paths` receives the list of tracked files. The CLI asks Git for it, with fixed
-  arguments, as `zenzic guard` already does, so [ADR 002](./adr-002-zero-subprocesses.md) still holds for the core.
+- **Loading the configuration needs no Git.** The model refuses what leaves the repository or was never content: an
+  absolute path, a drive or root on Windows, `..`, and `.git`.
+- **The check lives in the doctor.** `tracked-paths` reports what a configured path holds here and the last commit does
+  not. A clone gets the last commit, never the index; every Markdown record of a vault counts, because one tracked file
+  does not clear a record the holder reads and a clone does not have; a link is reported by its own name, since its
+  target is what would have to be versioned.
+- **Nothing outside is read.** A redirects file the last commit does not hold is reported and not read, since its lines
+  are echoed in findings, and one behind a link out of the repository is not read with or without Git. `zenzic adr new`
+  does not write through such a link.
+- **The core stays pure.** `check_tracked_paths` receives the list of tracked files. The CLI asks Git for it, so
+  [ADR 002](./adr-002-zero-subprocesses.md) still holds for the core.
+- **The scanned repository decides nothing.** The doctor can now run on a repository it does not trust, and a fixed
+  command line does not constrain what a repository's configuration may run. So Git comes from an absolute entry of
+  `PATH` that is not the current folder, and the question is `git ls-tree`, which reads objects and not the index, with
+  `core.fsmonitor` off, `safe.bareRepository=explicit`, and no lazy fetch.
 
 | Where it runs | A configured path Git does not track | Exit code |
 | :--- | :--- | :--- |
 | A clone that holds it | `tracked-paths` reports that it is not tracked | 1 |
 | A fresh clone, or CI | absent: `adr-citations` reports the vault as not found | 1 |
 | Outside a repository, or without `git` | nothing to compare with: `tracked-paths` reports nothing | as the other checks say |
+| A Git that refuses for another reason | a `tracked-paths` finding with Git's first line | 1 |
 
 ---
 
@@ -61,6 +72,9 @@ without a repository there is no other clone for the verdict to differ from.
 
 - A `[doctor]` path through a folder that used to be refused now loads, and `zenzic doctor` exits `1` with a finding. The
   CHANGELOG says so under «Changed».
-- `zenzic doctor` runs one `git ls-files` when Git is there.
+- `zenzic doctor` runs one `git ls-tree` when Git is there, and reads the names as bytes from Git, whatever the locale.
+- A vault staged and not yet committed is reported until it is committed: a clone would not have it. A path inside a
+  submodule counts as tracked, though a clone without `--recurse-submodules` lacks it.
 - A redirects file absent in a fresh clone stays silent, since its absence is not a finding; the clone that holds it
   untracked is told.
+- `zenzic guard --staged` still runs `git` by name, on the commit its user is making: it is outside this decision.

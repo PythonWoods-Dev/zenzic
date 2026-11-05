@@ -925,11 +925,11 @@ configuration rather than constants because they differ per project: where decis
 live, how they are cited, where a redirects file sits.
 
 !!! info "Versioned content only"
-    A `[doctor]` path must stay inside the repository: an absolute path or one with `..` is
-    rejected at config load, which needs no Git. A path Git does not track loads, and
-    `zenzic doctor` reports it through its `tracked-paths` check. A check that inspected
-    untracked content would pass for whoever holds those files locally and be unrunnable in
-    CI or a fresh clone.
+    A `[doctor]` path must stay inside the repository: an absolute path, a drive or root on
+    Windows, one with `..` and one inside `.git` are rejected at config load, which needs no
+    Git. A path the last commit does not hold loads, and `zenzic doctor` reports it through
+    its `tracked-paths` check. A check that inspected untracked content would pass for whoever
+    holds those files locally and be unrunnable in CI or a fresh clone.
 
 ### `adr_vault_path` {#adr-vault-path}
 

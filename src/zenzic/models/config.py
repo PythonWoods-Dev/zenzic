@@ -7,7 +7,7 @@ from __future__ import annotations
 import contextlib
 import tomllib
 from collections.abc import Collection
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, ClassVar, Final, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator
@@ -191,7 +191,7 @@ class DoctorConfig(BaseModel):
         default=Path("docs/developers/explanation/adr-vault"),
         description=(
             "Directory holding architectural decision records, relative to the "
-            "repository root. Must be inside the published documentation tree."
+            "repository root. Must stay inside the repository, and git must track it."
         ),
     )
     adr_citation_pattern: str = Field(
@@ -221,7 +221,7 @@ class DoctorConfig(BaseModel):
     @field_validator("adr_vault_path", "redirects_path")
     @classmethod
     def _must_be_public_repo_content(cls, value: Path) -> Path:
-        """Refuse absolute paths and traversal.
+        """Refuse absolute paths, traversal, and Git's own data.
 
         ``doctor`` walks these paths with ``rglob`` directly rather than through
         ``discovery.walk_files``, so it does not inherit the repository-root boundary
@@ -230,14 +230,20 @@ class DoctorConfig(BaseModel):
         ``adr_vault_path = "../outside"`` therefore loaded cleanly and had doctor read
         a decision-record vault outside the repository entirely.
         """
-        if value.is_absolute():
+        # A drive or a root on Windows leaves the repository too, and is not `is_absolute`
+        # there; the check is the same on every system, so a config means the same on all.
+        if value.is_absolute() or PureWindowsPath(value).anchor:
             raise ValueError(
                 f"{value} is absolute; doctor paths are relative to the repository root."
             )
         if ".." in Path(value).parts:
             raise ValueError(
                 f"{value} traverses outside the repository root; doctor paths must stay "
-                "inside the published tree."
+                "inside the repository."
+            )
+        if ".git" in value.parts:
+            raise ValueError(
+                f"{value} is inside Git's own data; doctor paths are versioned content."
             )
         return value
 
@@ -990,7 +996,7 @@ class ZenzicConfig(BaseModel):
         default_factory=DoctorConfig,
         description=(
             "Repository-health conventions for 'zenzic doctor' and 'zenzic adr new'. "
-            "Operates on public repository content only."
+            "Reads versioned content: a configured path git does not track is reported."
         ),
     )
     governance: GovernanceConfig = Field(

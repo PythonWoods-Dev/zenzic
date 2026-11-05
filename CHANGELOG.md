@@ -742,16 +742,25 @@ which mode produced it.
 - **`docs/developers/explanation/adr-vault/records/adr-031-ssot-code-definitions-and-gate-paradox.md` — Retroactively Drafted, per the ADR-089 Precedent**:
   - `ADR-031` had been a phantom citation for the whole session (5 occurrences across `codes.py`, `scorer.py` ×2 comments, this blog post, 2 example READMEs, `changelogs/v0.8.md` — no vault entry ever existed), but unlike the session's 4 other phantom-ADR instances, abundant real source material already existed to draft it for real rather than just removing the citation. Drafted from that scattered material, not invented: `CodeDefinition` (`codes.py`) as the Single Source of Truth for per-code severity/penalty/category, closing the "Gate Paradox" where 3 CI-blocking codes (`Z103`/`Z111`/`Z113`) carried 0 DQS penalty before v0.8.0 — a repository could fail the CI gate while `zenzic score` reported a perfect 100/100; and the Gravity Cap, which caps the total DQS at 70 whenever any scoring category's contribution reaches 0.00. Correction made mid-draft, not shipped wrong: initially conflated the flat-cost inline-suppression model (every suppression costs 1 pt, no free allowance) into this same ADR, since the same blog post narrates both as "two things v0.8.0 changed" — but the real source code cites that model as a *separate* ADR, `ADR-061` (`scorer.py` ×3, `api-json.md`), confirmed by direct grep before finalizing. Scoped this record to the Single Source of Truth and Gravity Cap only; `ADR-061` is logged as a 6th phantom-citation instance, not resolved here. Registered in `docs/developers/explanation/adr-vault/index.md` (Core Architecture Decisions table, numeric position between `ADR-022` and `ADR-075`) and the internal decision manifest.
 
+### Security
+
+- **`zenzic doctor` Does Not Read or Echo What Lies Outside the Repository**: a `redirects_path` that was a link out of the
+  repository, or Git's own `.git/config`, was read and its lines echoed in the findings, so a branch could print a
+  runner's environment or a token into the CI log. Such a path is now refused or not read. `zenzic adr new` does not write
+  through such a link. A redirects file that is not text is a finding and no longer a crash, and a line with brackets no
+  longer stops the text output.
+
 ### Changed
 
-- **`zenzic doctor` Reports a Path Git Does Not Track, Instead of Refusing Two Names When It Loads**: a `[doctor]` path
-  was refused at config load if it passed through two folder names written in the product. The refusal protected
+- **`zenzic doctor` Reports What a Fresh Clone Would Not Have, Instead of Refusing Two Names When It Loads**: a `[doctor]`
+  path was refused at config load if it passed through two folder names written in the product. The refusal protected
   something real, a check that passes only for whoever holds the files, and it protected it for those two names only.
-  The configuration now loads whatever the folder is called, without Git, and refuses only an absolute path or `..`. The
-  new `tracked-paths` check reports a configured path that exists but that Git does not track; a fresh clone or CI, where
-  it is absent, reports the ADR vault as not found. Outside a repository, or without `git`, `tracked-paths` reports
-  nothing. If you had a `[doctor]` path in one of those folders, the config now loads and `zenzic doctor` exits `1` with
-  the finding ([ADR 096](docs/developers/explanation/adr-vault/records/adr-096-doctor-reads-versioned-content.md)).
+  The configuration now loads whatever the folder is called, without Git, and refuses an absolute path, a drive or root
+  on Windows, `..`, and `.git`. The new `tracked-paths` check reports what a configured path holds here and the last
+  commit does not, every record of a vault included; a fresh clone or CI, where it is absent, reports the ADR vault as
+  not found. Outside a repository, or without `git`, `tracked-paths` reports nothing; a Git that refuses for another
+  reason is a finding. If you had a `[doctor]` path in one of those folders, the config now loads and `zenzic doctor`
+  exits `1` with the finding ([ADR 096](docs/developers/explanation/adr-vault/records/adr-096-doctor-reads-versioned-content.md)).
 
 - **Zenzic Requires Python 3.11 or Later**: `requires-python` is `>=3.11`. Python 3.10 reached its end of life on
   2026-10-01 (PEP 619), and the last `filelock` that installs on it, 4.1.0, carries three advisories

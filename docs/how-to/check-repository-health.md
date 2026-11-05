@@ -39,10 +39,11 @@ code comment claims a decision was recorded, and there is nothing there to read.
 src/app/parser.py: ADR-013 is cited but has no record in 'docs/decisions'.
 ```
 
-The verdict must not depend on the clone. A vault that exists on your machine but that git
-does not track is reported where it exists; in a fresh clone or in CI, where it is absent,
+The verdict must not depend on the clone. A vault that exists on your machine but that the
+last commit does not hold is reported where it exists; in a fresh clone or in CI, where it is absent,
 `adr-citations` reports it as not found. Outside a Git repository, or without `git` on the
-machine, there is nothing to compare with and `tracked-paths` reports nothing.
+machine, there is nothing to compare with and `tracked-paths` reports nothing. A Git that
+refuses for another reason, such as a checkout owned by another user, is a finding.
 
 ---
 
@@ -64,10 +65,12 @@ citation in text and the record file that satisfies it.
 If your project keeps no redirects file, nothing needs configuring — an absent file is not
 a finding.
 
-!!! info "Public repository content only"
-    `doctor` reads the published tree, exactly like every other Zenzic check. Paths pointing
-    into a gitignored directory are rejected when the config loads, so a check cannot be
-    written that passes locally for one person and cannot run in CI at all.
+!!! info "Versioned content only"
+    A path must stay inside the repository, and `tracked-paths` reports what a fresh clone
+    would not have, so a check cannot be written that passes locally for one person and cannot
+    run in CI at all. "Tracked" means in the last commit, since a clone gets that and never the
+    index: every Markdown record of the vault counts, and a redirects file that is not tracked
+    is reported and not read. A path through a link that leaves the repository is not read.
 
 ---
 

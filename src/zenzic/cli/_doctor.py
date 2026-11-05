@@ -10,10 +10,12 @@ path plus config (ADR-075, ADR 096).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
 import typer
+from rich.markup import escape
 
 from zenzic.cli import _shared
 from zenzic.core.doctor import DoctorFinding, next_adr_number, run_all, scaffold_adr
@@ -26,21 +28,71 @@ def _load(repo_root: Path) -> ZenzicConfig:
     return config or ZenzicConfig()
 
 
-def _tracked_files(repo_root: Path) -> frozenset[str] | None:
-    """The files git tracks under *repo_root*; None outside a repository or without git."""
+def _git_on_path() -> str | None:
+    """A git from an absolute entry of PATH that is not the current folder, or None.
+
+    A folder being scanned may hold a file named git: Windows looks in the current
+    folder before PATH, and a relative entry of PATH does the same anywhere.
+    """
+    here = Path.cwd().resolve()
+    for entry in os.get_exec_path():
+        folder = Path(entry)
+        if not folder.is_absolute() or folder.resolve() == here:
+            continue
+        for name in ("git", "git.exe"):
+            candidate = folder / name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+    return None
+
+
+#: What a repository may not decide for this one question. ``ls-tree`` reads objects and
+#: never the index, so ``core.fsmonitor`` has no way in, and it is off in case that changes;
+#: a bare repository delivered inside a clone brings a config of its own.
+_GIT_LOCKED = ("-c", "core.fsmonitor=false", "-c", "safe.bareRepository=explicit")
+
+
+def _tracked_files(repo_root: Path) -> tuple[frozenset[str] | None, str | None]:
+    """What the last commit tracks under *repo_root*, and what stopped git from saying.
+
+    A clone gets the last commit, never the index. A submodule is an entry ending in
+    ``/``. ``(None, None)`` outside a repository or without git, where there is nothing
+    to compare with. A git that refuses for another reason, a checkout of another user in
+    a CI container, gives its first line: silence there would pass the very case the
+    check exists for. The names are bytes from git, never the locale's encoding.
+    """
+    git = _git_on_path()
+    if git is None:
+        return None, None
+    environment = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+    }
     try:
-        proc = subprocess.run(  # noqa: S603  # Fixed hardcoded git ls-files arguments
-            ["git", "ls-files", "-z"],  # noqa: S607
+        proc = subprocess.run(  # noqa: S603  # An absolute git, fixed hardcoded arguments
+            [git, *_GIT_LOCKED, "ls-tree", "-r", "-z", "HEAD"],
             cwd=repo_root,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             check=False,
+            env={**environment, "LC_ALL": "C", "GIT_NO_LAZY_FETCH": "1"},
         )
     except OSError:
-        return None
+        return None, None
     if proc.returncode != 0:
-        return None
-    return frozenset(name for name in proc.stdout.split("\0") if name)
+        if "not a git repository" in proc.stderr:
+            return None, None
+        if "Not a valid object name HEAD" in proc.stderr:
+            return frozenset(), None
+        return None, (proc.stderr.splitlines() or [f"exit {proc.returncode}"])[0]
+    names = set()
+    for entry in proc.stdout.split("\0"):
+        if entry:
+            header, _, name = entry.partition("\t")
+            names.add(f"{name}/" if header.startswith("160000 ") else name)
+    return frozenset(names), None
 
 
 def doctor(
@@ -51,7 +103,7 @@ def doctor(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress output when healthy."),
     no_header: bool = typer.Option(False, "--no-header", help="Suppress the Zenzic banner."),
 ) -> None:
-    """Check repository conventions: ADR citations, redirects, and config schema.
+    """Check repository conventions: ADR citations, redirects, config schema, tracked paths.
 
     Complements ``zenzic check``, which analyses documentation content. These
     checks look at the repository's own conventions instead, and a configured path
@@ -61,7 +113,15 @@ def doctor(
 
     repo_root = Path(path).resolve() if path else Path.cwd()
     config = _load(repo_root)
-    results = run_all(repo_root, config.doctor, _tracked_files(repo_root))
+    tracked, git_problem = _tracked_files(repo_root)
+    results = run_all(repo_root, config.doctor, tracked)
+    if git_problem:
+        results["tracked-paths"].append(
+            DoctorFinding(
+                check="tracked-paths",
+                message=f"git could not list the tracked files: {git_problem}",
+            )
+        )
     findings = [f for group in results.values() for f in group]
 
     if output_format == "json":
@@ -97,7 +157,7 @@ def doctor(
             continue
         _shared.console.print(f"\n[bold]{name}[/]  ({len(group)})")
         for finding in group:
-            _shared.console.print(f"  [{ZenzicPalette.DIM}]{finding.render()}[/]")
+            _shared.console.print(f"  [{ZenzicPalette.DIM}]{escape(finding.render())}[/]")
 
     _shared.console.print(f"\n{len(findings)} finding(s) across {len(results)} checks.")
     raise typer.Exit(1)
