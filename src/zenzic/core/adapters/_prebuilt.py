@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class PrebuiltVSMAdapter(StandaloneAdapter):
     """Adapter that reads a static .zenzic-vsm.json file for routing.
 
-    This is used for the Bridge Architecture (ADR-080), where a TS plugin
+    This is used for the Bridge Architecture, where a TS plugin
     generates the routing map and Zenzic simply consumes it.
     """
 

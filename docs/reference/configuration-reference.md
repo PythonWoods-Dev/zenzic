@@ -1528,7 +1528,7 @@ exit_zero = false
 adr_vault_path = "docs/developers/explanation/adr-vault"
 adr_citation_pattern = "ADR-\\d{3}"
 redirects_path = "docs/_redirects"
-redirects_expected_blanks = 8
+redirects_expected_blanks = 9
 
 # Custom rules
 [[custom_rules]]

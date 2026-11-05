@@ -209,7 +209,7 @@ class DoctorConfig(BaseModel):
         ),
     )
     redirects_expected_blanks: int = Field(
-        default=8,
+        default=9,
         ge=0,
         description=(
             "Expected blank-line count in the redirects file. Blank lines belong "
@@ -757,7 +757,7 @@ SYSTEM_EXCLUDED_FILE_NAMES: Final[frozenset[str]] = frozenset(
         ".gitattributes",
         ".coverage",
         "coverage.xml",
-        # Zenzic native files — never documentation assets (ADR-039.1)
+        # Zenzic native files — never documentation assets
         ".zenzic.local.toml",
         # Action wrapper infrastructure file (explicit safeguard for docs_dir='.')
         "zenzic-action-wrapper.sh",
@@ -771,7 +771,7 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
     # Machine-local override backups must be treated as infrastructure.
     ".zenzic.local.toml.*",
     "*.lock",
-    # Shell scripts are infrastructure, not documentation assets (ADR-039.1)
+    # Shell scripts are infrastructure, not documentation assets
     "*.sh",
     # Project metadata / build manifests promoted to Layer 1 in v0.7.0.
     # Honours Zero-Config for "Prose-only Maintenance" repos (engine = standalone)

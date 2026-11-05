@@ -742,6 +742,11 @@ which mode produced it.
 - **`docs/developers/explanation/adr-vault/records/adr-031-ssot-code-definitions-and-gate-paradox.md` — Retroactively Drafted, per the ADR-089 Precedent**:
   - `ADR-031` had been a phantom citation for the whole session (5 occurrences across `codes.py`, `scorer.py` ×2 comments, this blog post, 2 example READMEs, `changelogs/v0.8.md` — no vault entry ever existed), but unlike the session's 4 other phantom-ADR instances, abundant real source material already existed to draft it for real rather than just removing the citation. Drafted from that scattered material, not invented: `CodeDefinition` (`codes.py`) as the Single Source of Truth for per-code severity/penalty/category, closing the "Gate Paradox" where 3 CI-blocking codes (`Z103`/`Z111`/`Z113`) carried 0 DQS penalty before v0.8.0 — a repository could fail the CI gate while `zenzic score` reported a perfect 100/100; and the Gravity Cap, which caps the total DQS at 70 whenever any scoring category's contribution reaches 0.00. Correction made mid-draft, not shipped wrong: initially conflated the flat-cost inline-suppression model (every suppression costs 1 pt, no free allowance) into this same ADR, since the same blog post narrates both as "two things v0.8.0 changed" — but the real source code cites that model as a *separate* ADR, `ADR-061` (`scorer.py` ×3, `api-json.md`), confirmed by direct grep before finalizing. Scoped this record to the Single Source of Truth and Gravity Cap only; `ADR-061` is logged as a 6th phantom-citation instance, not resolved here. Registered in `docs/developers/explanation/adr-vault/index.md` (Core Architecture Decisions table, numeric position between `ADR-022` and `ADR-075`) and the internal decision manifest.
 
+### Fixed
+
+- **The Default `redirects_expected_blanks` Is 9**: it stood at 8 after the redirects file of this repository changed shape,
+  so `zenzic doctor` reported a drift on its own repository. Set it under `[doctor]` if your file differs.
+
 ### Security
 
 - **`zenzic doctor` Does Not Read or Echo What Lies Outside the Repository**: a `redirects_path` that was a link out of the

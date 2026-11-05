@@ -5,7 +5,7 @@
 Provides :func:`setup_command` which consolidates the repetitive preamble
 (repo-root discovery, config loading, target resolution, exclusion-manager
 construction) that appears at the top of every check command.  Extracted from
-``_check.py`` as part of Phase 82 CLI decomposition (ADR-082).
+``_check.py`` as part of the CLI decomposition.
 """
 
 from __future__ import annotations

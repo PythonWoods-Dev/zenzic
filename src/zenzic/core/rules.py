@@ -1045,7 +1045,7 @@ class BrandObsolescenceRule(BaseRule):
     ``.zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
-    **Suppression (ADR-063 — MDX-native protocol):** Add an inline suppression
+    **Suppression (MDX-native protocol):** Add an inline suppression
     marker to the end of any line to silence Z601 for that specific occurrence::
 
         v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 historical reference -->

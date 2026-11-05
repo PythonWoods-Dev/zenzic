@@ -144,6 +144,17 @@ class TestRedirects:
         assert check_redirects(tmp_path, DoctorConfig(redirects_expected_blanks=0)) == []
 
 
+class TestThisRepository:
+    def test_its_own_conventions_hold(self) -> None:
+        """The defaults are this repository's real values, so `zenzic doctor` finds nothing here."""
+        root = Path(__file__).parent.parent
+        if not (root / "docs/_redirects").is_file():
+            pytest.skip("run from an sdist without the documentation")
+        config = DoctorConfig()
+        assert check_adr_citations(root, config) == []
+        assert check_redirects(root, config) == []
+
+
 class TestRunAll:
     def test_returns_every_check_even_when_all_are_clean(self, tmp_path: Path) -> None:
         _vault(tmp_path, "012")

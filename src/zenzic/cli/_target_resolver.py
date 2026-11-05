@@ -4,7 +4,7 @@
 
 Provides :func:`_resolve_target` (path lookup) and :func:`_apply_target`
 (config patching), extracted from ``_check.py`` as part of Phase 82 CLI
-decomposition (ADR-082).
+decomposition.
 """
 
 from __future__ import annotations

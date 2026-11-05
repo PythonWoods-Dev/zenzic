@@ -28,7 +28,7 @@ class TestDefaults:
         assert cfg.adr_vault_path == Path("docs/developers/explanation/adr-vault")
         assert cfg.redirects_path == Path("docs/_redirects")
         assert cfg.adr_citation_pattern == r"ADR-\d{3}"
-        assert cfg.redirects_expected_blanks == 8
+        assert cfg.redirects_expected_blanks == 9
 
     def test_section_is_present_and_optional_on_the_root_model(self) -> None:
         """A repo with no [doctor] block still gets a usable default."""
